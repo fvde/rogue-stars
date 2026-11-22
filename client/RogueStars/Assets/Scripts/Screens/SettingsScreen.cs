@@ -48,7 +48,6 @@ namespace RogueStars.Client.Screens
                 new ModalButton("Cancel", null),
                 new ModalButton("Reset", () => local.ResetSave(r => { if (r.Ok) Session.Info("Save reset"); App.Start(local); }), Theme.Bad)), Theme.Bad);
             Section(dev, "Dev cheats (offline only)");
-            Ui.Button(dev, "Grant starter kit (blueprints, aliens, resources)", () => { local.DevGrantStarterKit(); Session.Info("Starter kit granted"); });
             bool all = State.Flags.Contains(Features.DevUnlockAllFlag);
             Ui.Button(dev, all ? "Relock features (dev)" : "Unlock all features (dev)", () => { local.DevSetFlag(Features.DevUnlockAllFlag, !all); Rebuild(); });
         }

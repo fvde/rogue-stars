@@ -137,7 +137,7 @@ namespace RogueStars.Client.Services
 
         // ---- dev cheats (offline only) ----------------------------------------------------------
 
-        /// <summary>Grant a playable starter kit: currencies, common/rare/utility blueprints and a few aliens.</summary>
+        /// <summary>Dev/test kit: currencies, blueprints, aliens, parts, runes, hero shards, a mount and pull tokens.</summary>
         public void DevGrantStarterKit()
         {
             var rewards = new List<Reward>
@@ -152,6 +152,23 @@ namespace RogueStars.Client.Services
                 var def = Content.Blueprints[id];
                 if (def.Rarity <= Rarity.Rare || def.Category != BuildingCategory.Boon) rewards.Add(new Reward(RewardKinds.Blueprint, id, 1));
             }
+            var partIds = new List<string>(Content.PartsConfig.Defs.Keys);
+            partIds.Sort(string.CompareOrdinal);
+            for (int i = 0; i < partIds.Count && i < 6; i++) rewards.Add(new Reward(RewardKinds.Part, partIds[i], 3, 0));
+            var runeIds = new List<string>(Content.PartsConfig.Runes.Keys);
+            runeIds.Sort(string.CompareOrdinal);
+            if (runeIds.Count > 0) rewards.Add(new Reward(RewardKinds.Rune, runeIds[0], 3, 0));
+            var heroIds = new List<string>(Content.HeroConfig.Defs.Keys);
+            heroIds.Sort(string.CompareOrdinal);
+            if (heroIds.Count > 0) rewards.Add(new Reward(RewardKinds.HeroShards, heroIds[0], 120));
+            var mountIds = new List<string>(Content.MountConfig.Defs.Keys);
+            mountIds.Sort(string.CompareOrdinal);
+            if (mountIds.Count > 0) rewards.Add(new Reward(RewardKinds.Mount, mountIds[0], 1));
+            foreach (var cur in new[] { Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens }) rewards.Add(Reward.Cur(cur, 20));
+            rewards.Add(Reward.Cur(Currencies.GearCores, 2000));
+            rewards.Add(Reward.Cur(Currencies.Fuel, 5000));
+            rewards.Add(Reward.Cur(Currencies.HeroXp, 5000));
+            rewards.Add(Reward.Cur(Currencies.AdvancementPlates, 50));
             var alienIds = new List<string>(Content.AlienTypes.Keys);
             alienIds.Sort(string.CompareOrdinal);
             for (int i = 0; i < alienIds.Count && i < 4; i++) rewards.Add(new Reward(RewardKinds.Alien, alienIds[i], 2));

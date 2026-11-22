@@ -51,10 +51,9 @@ namespace RogueStars.Client.Tests
         public void Catalog_HasEveryRequiredScreen()
         {
             var ids = new List<string>(ScreenIds());
-            foreach (var id in new[] { "city", "aliens", "breeding", "observatory", "quests", "shop", "mail", "arena", "guild", "settings" })
+            foreach (var id in new[] { "portals", "worm", "parts", "signals", "laboratory", "heroes", "mounts", "city", "aliens", "breeding", "observatory", "quests", "shop", "mail", "arena", "guild", "settings" })
                 Assert.That(ids, Does.Contain(id));
-            Assert.That(ScreenCatalog.All.Exists(e => e.Placeholder && e.Workstream == "Run"), Is.True);
-            Assert.That(ScreenCatalog.All.Exists(e => e.Placeholder && e.Workstream == "Progression"), Is.True);
+            Assert.That(ScreenCatalog.All.Exists(e => e.Placeholder), Is.False, "no placeholder screens left");
         }
 
         [Test]

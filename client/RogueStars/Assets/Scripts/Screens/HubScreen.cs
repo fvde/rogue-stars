@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Planet hub: portals (placeholder until Run), key city buildings, live ops ticker, unlock celebrations and
+    /// Planet hub: portals + play / continue, next tutorial goal, key city buildings, live ops ticker, unlock celebrations and
     /// navigation to every feature. Locked features show their requirement text (Meta Features).
     /// </summary>
     public sealed class HubScreen : UiScreen
@@ -30,14 +30,29 @@ namespace RogueStars.Client.Screens
             var card = Card(body, Theme.PanelAlt);
             Section(card, "Portals");
             var portals = Ui.Row(card, 150, 12);
-            for (int i = 1; i <= 3; i++)
+            var mains = new System.Collections.Generic.List<PortalDef>();
+            foreach (var p in Content.Portals.Values) if (p.Kind == PortalKind.Main) mains.Add(p);
+            mains.Sort((a, b) => a.Order.CompareTo(b.Order));
+            for (int i = 0; i < mains.Count && i < 3; i++)
             {
-                var p = Ui.Panel(portals, i == 1 ? Theme.ValenceColor(Valence.Special) : Theme.Locked, "Portal" + i);
-                Ui.Size(p, -1, 150, 1);
-                var t = Ui.Label(p.transform, i == 1 ? "Portal 1\n(Run: coming)" : "Locked", Theme.FontSmall, Theme.Text, TextAnchor.MiddleCenter);
-                Ui.Stretch(t.rectTransform);
+                var portal = mains[i];
+                bool open = portal.LevelIds.Count > 0 && RunSystem.IsLevelUnlocked(State, Content, portal.LevelIds[0], RunMode.Normal);
+                int cleared = 0;
+                foreach (var id in portal.LevelIds) if (RunSystem.Progress(State, id).Cleared) cleared++;
+                Ui.Button(portals, portal.Name + "\n<size=22>" + (open ? cleared + "/" + portal.LevelIds.Count + " cleared" : "locked") + "</size>",
+                    () => App.Open("portals"), open ? Theme.ValenceColor(Valence.Special) : Theme.Locked, -1, 150, true, Theme.FontNormal);
             }
-            Note(card, "TODO(merge Run): portal levels, stamina cost and run start.");
+            if (State.Run.Active != null)
+                Ui.Button(card, "Continue run", () => App.Router.Push(new RunScreen()), Theme.Warn);
+            else
+                Ui.Button(card, "PLAY", () => App.Open("portals"), Theme.Accent, -1, 110, true, Theme.FontTitle).name = "PlayButton";
+            var goal = Tutorial.Next(State, Content);
+            if (goal != null)
+            {
+                var g = Ui.Row(card, 90, 10, Theme.Header, 12);
+                Ui.Label(g, (goal.StepId != null ? "Next goal: " : "") + goal.Text, Theme.FontNormal, Theme.Warn);
+                Ui.Button(g, "Go", () => App.Open(goal.ScreenId), Theme.Good, 140, 72);
+            }
 
             Section(card, "Key buildings");
             var grid = Ui.Grid(card, new Vector2(300, 110), 3, 10);
@@ -89,7 +104,7 @@ namespace RogueStars.Client.Screens
         private void BuildNavigation(RectTransform body)
         {
             Section(body, "Explore");
-            var grid = Ui.Grid(body, new Vector2(320, 150), 3, 14);
+            var grid = Ui.Grid(body, new Vector2(320, 170), 3, 14);
             var statuses = Features.List(State, Content, Now);
             foreach (var entry in ScreenCatalog.All)
             {
@@ -98,14 +113,14 @@ namespace RogueStars.Client.Screens
                 var status = e.FeatureId == null ? null : statuses.Find(f => f.Id == e.FeatureId);
                 string label = e.Title;
                 if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); if (unread > 0) label += " (" + unread + ")"; }
-                if (!unlocked) label += "\n<size=22>" + (status?.RequirementText ?? "Locked") + "</size>";
+                if (!unlocked) label += "\n<size=20>" + (status?.RequirementText ?? "Locked") + "</size>";
                 else if (e.Placeholder) label += "\n<size=22>coming soon</size>";
                 Color color = !unlocked ? Theme.Locked : e.Placeholder ? Theme.PanelAlt : Theme.Button;
                 var btn = Ui.Button(grid, label, () =>
                 {
                     if (unlocked) App.Router.Push(e.Create());
                     else ShowLocked(e, status);
-                }, color, -1, 150, true, Theme.FontNormal);
+                }, color, -1, 170, true, Theme.FontNormal);
                 btn.name = "Nav:" + e.Id;
             }
         }

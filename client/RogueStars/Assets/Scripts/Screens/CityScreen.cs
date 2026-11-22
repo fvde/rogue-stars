@@ -92,10 +92,25 @@ namespace RogueStars.Client.Screens
                     int cx = x, cy = y;
                     var area = CitySystem.AreaAt(Content, x, y);
                     bool unlocked = area != null && CitySystem.IsAreaUnlocked(State, area.Id);
-                    var color = area == null ? Theme.Background : unlocked ? Theme.PanelAlt : Theme.Locked * 0.7f;
-                    var btn = Ui.Button(grid, "", () => OnCell(cx, cy), color, -1, -1, unlocked);
+                    if (area == null) continue;
+                    if (!unlocked)
+                    {
+                        // locked area: plain tile (no button) so it stays readable
+                        var locked = Ui.Panel(grid, Theme.Hex(0x2A2A3C), "Locked");
+                        locked.raycastTarget = false;
+                        Place(locked.rectTransform, x, y, 1, 1, cell, 2);
+                        continue;
+                    }
+                    var btn = Ui.Button(grid, "", () => OnCell(cx, cy), _mode != Mode.Select ? Theme.Hex(0x34345A) : Theme.PanelAlt, -1, -1, true);
                     Place(btn.GetComponent<RectTransform>(), x, y, 1, 1, cell, 2);
                 }
+
+            foreach (var a in Content.CityAreas)
+            {
+                if (CitySystem.IsAreaUnlocked(State, a.Id)) continue;
+                var lab = Ui.Label(grid, a.Name + "\n<size=18>locked</size>", 20, Theme.TextDim, TextAnchor.MiddleCenter, "AreaLabel");
+                Place(lab.rectTransform, a.X, a.Y, a.Width, a.Height, cell, 4);
+            }
 
             foreach (var b in CitySystem.SortedBlueprints(State))
             {
@@ -106,11 +121,20 @@ namespace RogueStars.Client.Screens
                 var color = Theme.RarityColor(def.Rarity);
                 if (owned.Id == _selected) color = Color.Lerp(color, Color.white, 0.45f);
                 else if (owned.TimerId != null) color = Color.Lerp(color, Theme.Background, 0.5f);
-                string label = def.Name + "\n" + (owned.Level == 0 ? "building" : "Lv " + owned.Level) + (owned.Stored >= 1 ? " +" + Fmt.Num(owned.Stored) : "");
+                string name = def.Width >= 2 ? def.Name : Initials(def.Name);
+                string label = name + "\n" + (owned.Level == 0 ? "build…" : "Lv " + owned.Level) + (owned.Stored >= 1 ? "\n+" + Fmt.Num(owned.Stored) : "");
                 var btn = Ui.Button(grid, label, () => { _selected = owned.Id; _mode = Mode.Select; Rebuild(); }, color, -1, -1, true, 20);
                 btn.name = "Building:" + owned.Id;
                 Place(btn.GetComponent<RectTransform>(), owned.X, owned.Y, def.Width, def.Height, cell, 3);
             }
+        }
+
+        private static string Initials(string name)
+        {
+            var parts = name.Split(' ');
+            string r = "";
+            foreach (var p in parts) if (p.Length > 0) r += char.ToUpperInvariant(p[0]);
+            return r;
         }
 
         private static void Place(RectTransform rt, int x, int y, int w, int h, float cell, float inset)

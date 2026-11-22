@@ -124,7 +124,7 @@ namespace RogueStars.Client.Screens
         private static string Describe(List<ModifierDef> mods)
         {
             var parts = new List<string>();
-            foreach (var m in mods) parts.Add((m.Description ?? m.Target) + " ×" + m.Multiplier.ToString("0.##"));
+            foreach (var m in mods) parts.Add(m.Description ?? (m.Target + " ×" + m.Multiplier.ToString("0.##")));
             return parts.Count == 0 ? "—" : string.Join(", ", parts);
         }
     }

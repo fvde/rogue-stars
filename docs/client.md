@@ -13,6 +13,7 @@ referenced as the local UPM package `com.roguestars.rules` and compile into `Rog
 | `Assets/Scripts/Screens/` | `RogueStars.Client` | One class per screen |
 | `Assets/Editor/` | `RogueStars.Client.Editor` | `Bootstrap`, `ProjectSetup`, `BuildAndroid` |
 | `Assets/Tests/EditMode/` | `RogueStars.Client.Tests` | EditMode tests |
+| `Assets/Tests/PlayMode/` | `RogueStars.Client.PlayTests` | PlayMode playthrough + screenshots |
 | `Assets/Resources/ServerConfig.asset` | – | Default server URL / online flag (ScriptableObject) |
 | `Assets/link.xml` | – | Keeps rules/client types for Newtonsoft reflection under IL2CPP stripping |
 
@@ -57,8 +58,17 @@ AppBootstrap (only object in Main.unity)
 ## Screens
 | Screen | Feature gate | Notes |
 |---|---|---|
-| Hub (Planet) | – | portals placeholder, key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog` with locked features showing their requirement text/progress |
-| City | – | 12×12 grid with areas, place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock |
+| Hub (Planet) | – | main portals + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
+| Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, entry cost), stamina refill modal (daily free / ad / Diamonds) |
+| Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker with awakening %, worm token animated along the trail, dice roll animation; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
+| Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars, status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
+| Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), Again / Portals |
+| Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
+| Parts | `parts` | inventory with slot filters, quick merge, detail modal: stats/skills, level up / cap raise / level reset, equip (left/right arm), merge to next rarity (materials picked automatically, validated with `PartsSystem.ValidateMerge`), rune sockets, Forge, S/SS awakening, dismantle; Runes tab: lock, merge 3→1 |
+| Signals | `part_pulls` (+ per type) | Part / Blueprint / Alien Signals, featured mythic banner with countdown vs standard pool, published odds, 1×/10× with tokens or Diamonds, daily ad pull, reveal animation |
+| Laboratory | `laboratory` | research lines (cost, duration, timer with speed-ups, collect), draft-pool toggles |
+| Heroes / Mounts | `heroes` / `mounts` | unlock from shards, stars, levels (Hero XP / Fuel), awakening (mounts), equip, trait/weapon skills by star |
+| City | – | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock |
 | Aliens | `aliens` | list by rarity, stats, level/star up, assign to building, squad toggle |
 | Breeding Pen | `breeding` | pick parents (cost/duration preview), jobs with timers, collect, replace/discard modal comparing genes |
 | Observatory | – | active/upcoming invasions and planetary events, modifier stack with countdowns, invasion attacks |
@@ -67,16 +77,20 @@ AppBootstrap (only object in Main.unity)
 | Mail | – | inbox, open/read, claim, claim all, delete |
 | Arena | `arena` | league/points/tickets, opponents + fight result modal, weekly leaderboard |
 | Guild | `guilds` | online only (offline shows "requires online"): create/search/join, members by weekly invasion damage, chat, guild shop, leave |
-| Settings | – | offline/online, server URL, display name, reset save, dev cheats |
-| Portals, Laboratory, Worm, Parts, Heroes, Mounts, Signals | various | `PlaceholderScreen` + `TODO(merge Run/Progression)` |
+| Settings | – | offline/online, server URL, display name, reset save, dev cheats (unlock all features) |
 
-**Adding screens after the Progression/Run merge:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and
-replace the `Todo(...)` entry in `ScreenCatalog.All` with a real `ScreenEntry`. The hub, navigation gating and the
-smoke test pick it up automatically. Also extend `Fmt.Reward` / `EventText` for new reward kinds and events.
+**Adding a screen:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and add a `ScreenEntry` to
+`ScreenCatalog.All` (`Todo(...)` creates a placeholder). The hub, navigation gating and the smoke tests pick it up
+automatically. Extend `Fmt.Reward` / `EventText` for new reward kinds and events.
+
+**Onboarding / tutorial** (`App/Tutorial.cs`): no forced popups. Content tutorial steps are completed automatically
+(`TutorialAdvance`) as soon as the player has done the thing (counters/state), and the hub shows the next goal with a
+Go button; before the first run it asks to equip the starter parts, and when nothing is actionable it points at the
+next feature unlock. Unlocks, goals and rewards appear as toasts (bottom of the screen, never blocking input).
 
 ## Running
 - **Offline (default):** open `client/RogueStars` in Unity 6.6, open `Assets/Scenes/Main.unity`, press Play
-  (Game view in portrait, e.g. 1080×1920). Settings → *Grant starter kit* / *Unlock all features* for a populated city.
+  (Game view in portrait, e.g. 1080×1920). A new save is playable from the start (starter kit from content); Settings → *Unlock all features* is a dev cheat.
 - **Online:** start the server (`cd server/RogueStars.Server && arch -arm64 ~/.dotnet/dotnet run`, dev auth on :8080),
   then Settings → server URL `http://localhost:8080` (editor) or `http://10.0.2.2:8080` (Android emulator) →
   *Online*. The defaults come from `Assets/Resources/ServerConfig.asset`; Settings values are stored in PlayerPrefs.
@@ -95,7 +109,8 @@ arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P
 (versionCode = commit count; `0.1.0`/1 without git) and writes `client/RogueStars/Builds/RogueStars.apk`
 (package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait). It exits with code 1 on failure.
 
-## Tests (EditMode)
+## Tests
+EditMode (`Assets/Tests/EditMode`, 38 tests):
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
@@ -103,11 +118,27 @@ arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P
   refusal, 401 re-auth, IAP verify, arena and guild DTOs.
 - `RouterTests`: root, push/pop visibility and lifecycle, rebuild on state change, reset, back closes modals, toasts.
 - `ScreenSmokeTests`: every catalog screen for a fresh and a populated player, tab clicking, city building details,
-  guild offline message.
+  guild offline message, no placeholders left.
+- `RunAndProgressionScreenTests`: a new player plays level 1 end to end through the Run screen (battle playbacks,
+  result screen, tutorial steps), decision modals per phase, board layout never overlaps (all main levels × 5 seeds),
+  battle playback ends at the logged HP, Signals reveal, merge-material finder, worm/hero actions.
+
+PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
+- `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
+  starter parts → first run with a manual roll, then auto mode to the boss → result → hub/worm/parts → city build →
+  dev unlock → 10× Signal with reveal → stamina refill → every catalog screen) and renders the canvas through a
+  1080×1920 RenderTexture camera into `client/RogueStars/Screenshots/` (gitignored). A curated, downscaled set lives
+  in `docs/client-screenshots/`.
+```bash
+arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -testPlatform PlayMode -testResults /tmp/rs-play.xml
+```
+(`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
 ## Known gaps / TODO
-- Progression and Run screens are placeholders until those workstreams are merged (see `ScreenCatalog`).
-- Stamina regen/timer shows once a `RegenRule` for stamina exists in content (Progression).
+- Double run rewards ad: no rules command yet (Meta has the `double_run_rewards` placement); the result screen has a TODO.
+- Battle rage bars are reconstructed client-side (the log has no rage values except `GainRage`).
 - Online invasions: the server's `/v1/invasions` instances are not the rules' calendar occurrence ids; the Observatory
   shows both (calendar from `LiveOpsSystem`, attackable instances from the server).
+- Online rewarded ads that grant rewards directly arrive through the server's SSV callback; ad tokens sent with
+  `RunRevive`, `BuyStamina`, `GachaPull` are fake until the AppLovin gateway exists.
 - Firebase auth, Play Billing, AppLovin MAX and push notifications are interfaces/TODOs.

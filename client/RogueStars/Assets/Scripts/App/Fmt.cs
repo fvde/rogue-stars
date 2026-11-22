@@ -38,7 +38,7 @@ namespace RogueStars.Client.App
             { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Blueprint Tokens" },
             { Currencies.PartTokens, "Part Tokens" }, { Currencies.AlienTokens, "Alien Tokens" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
-            { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" },
+            { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" }, { "part_awaken_cores", "Awaken Cores" },
         };
 
         /// <summary>Short labels for the resource bar.</summary>
@@ -56,6 +56,8 @@ namespace RogueStars.Client.App
             {
                 if (id.StartsWith("shards_bp_")) return (content.Blueprint(id.Substring(10))?.Name ?? id.Substring(10)) + " Shards";
                 if (id.StartsWith("shards_alien_")) return (content.AlienType(id.Substring(13))?.Name ?? id.Substring(13)) + " Shards";
+                if (id.StartsWith("shards_hero_")) return (content.HeroConfig.Defs.TryGetValue(id.Substring(12), out var h) ? h.Name : id.Substring(12)) + " Shards";
+                if (id.StartsWith("shards_mount_")) return (content.MountConfig.Defs.TryGetValue(id.Substring(13), out var m) ? m.Name : id.Substring(13)) + " Shards";
             }
             return id.Replace('_', ' ');
         }
@@ -70,6 +72,21 @@ namespace RogueStars.Client.App
                 case RewardKinds.Currency: return Num(r.Amount) + " " + CurrencyName(r.Id, content);
                 case RewardKinds.Blueprint: return (r.Amount > 1 ? r.Amount + "× " : "") + "Blueprint " + (content?.Blueprint(r.Id)?.Name ?? r.Id);
                 case RewardKinds.Alien: return (r.Amount > 1 ? r.Amount + "× " : "") + "Alien " + (content?.AlienType(r.Id)?.Name ?? r.Id);
+                case RewardKinds.Part:
+                {
+                    string rar = content != null ? content.PartsConfig.RarityDef(r.Rarity).Name : r.Rarity.ToString();
+                    string name = r.Id == "*" ? "random part" : content != null && content.PartsConfig.Defs.TryGetValue(r.Id, out var pd) ? pd.Name : r.Id;
+                    return (r.Amount > 1 ? r.Amount + "× " : "") + rar + " " + name;
+                }
+                case RewardKinds.Rune:
+                {
+                    string name = r.Id == "*" ? "random rune" : content != null && content.PartsConfig.Runes.TryGetValue(r.Id, out var rd) ? rd.Name : r.Id;
+                    return (r.Amount > 1 ? r.Amount + "× " : "") + ((Rarity)r.Rarity) + " " + name;
+                }
+                case RewardKinds.HeroShards:
+                    return r.Amount + " " + (content != null && content.HeroConfig.Defs.TryGetValue(r.Id, out var hd) ? hd.Name : r.Id) + " shards";
+                case RewardKinds.Mount:
+                    return (r.Amount > 1 ? r.Amount + "× " : "") + "Mount " + (content != null && content.MountConfig.Defs.TryGetValue(r.Id, out var md) ? md.Name : r.Id);
                 default: return r.Amount + "× " + r.Kind + " " + r.Id;
             }
         }
