@@ -62,7 +62,7 @@ public sealed class InvasionParticipant
     public string GroupId { get; set; } = "";
 }
 
-public sealed record CreateInvasionRequest(string? Id, string? Name, long StartsMs, long EndsMs, long? HpPerMember, long? InvaderPower);
+public sealed record CreateInvasionRequest(string? Id, string? Name, long StartsMs, long EndsMs, long? HpPerMember, long? InvaderPower, string? TypeId = null);
 public sealed record AttackRequest(string? RequestId);
 
 public sealed class InvasionService(IDocStore docs, PlayerService players, ServerHooks hooks, IBattleResolver resolver,
@@ -79,7 +79,7 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
         if (id.Contains('/') || id.Contains('_') || id.Length > 64) throw ApiException.BadRequest("invalid_id");
         var inv = new Invasion
         {
-            Id = id, Name = req.Name ?? id, StartsMs = req.StartsMs, EndsMs = req.EndsMs,
+            Id = id, Name = req.Name ?? id, TypeId = req.TypeId?.Trim() ?? "", StartsMs = req.StartsMs, EndsMs = req.EndsMs,
             HpPerMember = req.HpPerMember ?? 10_000, InvaderPower = req.InvaderPower ?? 1_000,
         };
         if (!await docs.TryPutAsync(Collections.Invasions, id, inv, 0, ct)) throw ApiException.Conflict("invasion_exists");
@@ -131,7 +131,11 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
         if (hooks.Has(hooks.Names.InvasionAttack))
         {
             hook = await hooks.TryExecuteAsync(playerId, hooks.Names.InvasionAttack,
-                new { OccurrenceId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId }, "inv-attack-" + attackId, ct);
+                new
+                {
+                    OccurrenceId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId,
+                    InvasionId = string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId, StartMs = inv.StartsMs, EndMs = inv.EndsMs,
+                }, "inv-attack-" + attackId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "attack_rejected");
             if (hook is { Replayed: true }) return new { ok = true, attackId, replayed = true, state = hook.State };
         }

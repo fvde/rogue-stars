@@ -65,7 +65,11 @@ public class ArenaTests : IDisposable
         Assert.True(fight.GetProperty("won").GetBoolean());
         Assert.Equal("dev_b", fight.GetProperty("opponent").GetProperty("playerId").GetString());
         Assert.Equal(30, fight.GetProperty("points").GetInt64());
+        // Real rules hooks: ArenaStartFight consumed a ticket, ArenaFightResult recorded the win.
         Assert.Equal(1, await a.CounterAsync("arena_fights"));
+        Assert.Equal(1, await a.CounterAsync("arena_wins"));
+        Assert.Equal(RogueStars.Rules.Content.ContentDb.Default.Arena.StartTickets - 1, await a.BalanceAsync(Currencies.ArenaTickets));
+        Assert.Equal(1, (await a.StateAsync()).GetProperty("arena").GetProperty("weekWins").GetInt32());
 
         var (_, board) = await a.GetAsync("/v1/arena/leaderboard");
         Assert.Equal(1, board.GetProperty("myRank").GetInt32());
@@ -84,7 +88,10 @@ public class ArenaTests : IDisposable
     [Fact]
     public async Task Fight_RejectedByRulesHook_DoesNotChangePoints()
     {
-        _app.ConfigureEngine = e => e.RegisterNewPlayer(ctx => { if (ctx.State.PlayerId == "dev_blocked") ctx.State.Flags.Add("arena_blocked"); });
+        _app.ConfigureEngine = e => e.RegisterNewPlayer(ctx =>
+        {
+            if (ctx.State.PlayerId == "dev_blocked") ctx.State.Wallet.Balances[Currencies.ArenaTickets] = 0;
+        });
         var other = await _app.PlayerAsync("other");
         await other.PostAsync("/v1/arena/snapshot");
         var p = await _app.PlayerAsync("blocked");
@@ -93,6 +100,20 @@ public class ArenaTests : IDisposable
         Assert.Equal("no arena tickets", body.GetProperty("error").GetString());
         var (_, board) = await p.GetAsync("/v1/arena/leaderboard");
         Assert.Equal(0, board.GetProperty("entries")[0].GetProperty("points").GetInt64());
+        Assert.Equal(0, await p.CounterAsync("arena_fights"));
+    }
+
+    [Fact]
+    public async Task Fight_LockedArenaFeature_IsRejected()
+    {
+        _app.DevUnlockAll = false;
+        var other = await _app.PlayerAsync("other");
+        await other.PostAsync("/v1/arena/snapshot");
+        var p = await _app.PlayerAsync("newbie");
+        var (status, body) = await p.PostAsync("/v1/arena/fight");
+        Assert.Equal(409, status);
+        Assert.Equal("feature locked", body.GetProperty("error").GetString());
+        Assert.Equal(RogueStars.Rules.Content.ContentDb.Default.Arena.StartTickets, await p.BalanceAsync(Currencies.ArenaTickets));
     }
 
     [Fact]
@@ -118,16 +139,25 @@ public class ArenaTests : IDisposable
         Assert.Equal("2026-W47", body.GetProperty("result").GetProperty("week").GetString());
         Assert.Equal(3, body.GetProperty("result").GetProperty("players").GetInt32());
 
-        Assert.Equal(1, await a.CounterAsync("mail_arena_weekly"));
-        Assert.Equal(500, await a.CounterAsync("mail_reward_diamonds"));
-        Assert.Equal(1, await c.CounterAsync("mail_arena_weekly"));
+        // Real MailPush: the rank reward sits in the inbox until claimed.
+        var mails = await a.MailsAsync("Arena week 2026-W47");
+        Assert.Single(mails);
+        var reward = mails[0].GetProperty("rewards")[0];
+        Assert.Equal(Currencies.Diamonds, reward.GetProperty("id").GetString());
+        Assert.Equal(500, reward.GetProperty("amount").GetInt64());
+        Assert.Single(await c.MailsAsync("Arena week 2026-W47"));
+        long diamonds = await a.BalanceAsync(Currencies.Diamonds);
+        var (_, claim) = await a.CommandAsync("MailClaim", new { mailId = mails[0].GetProperty("id").GetString() });
+        Assert.True(claim.GetProperty("ok").GetBoolean());
+        Assert.Equal(diamonds + 500, await a.BalanceAsync(Currencies.Diamonds));
 
         var docs = _app.Service<IDocStore>();
         Assert.Equal(1, (await docs.GetAsync<ArenaPlayer>(Collections.ArenaPlayers, "dev_a"))!.Value.League);
 
         // Re-running does not mail twice.
         await jobs.PostAsync("/internal/jobs/weekly-arena?week=2026-W47", null);
-        Assert.Equal(1, await a.CounterAsync("mail_arena_weekly"));
+        Assert.Single(await a.MailsAsync("Arena week 2026-W47"));
+        Assert.Single(await c.MailsAsync("Arena week 2026-W47"));
 
         // Next week the promoted player is placed in league 1.
         await b.PostAsync("/v1/arena/snapshot");
@@ -140,7 +170,7 @@ public class ArenaTests : IDisposable
     [Fact]
     public async Task WeeklyJob_QueuesMail_WhenMailCommandMissing_AndDailyJobDelivers()
     {
-        _app.WithHooks = false;
+        _app.DisableHook("MailDeliver");
         var a = await _app.PlayerAsync("a");
         var b = await _app.PlayerAsync("b");
         await b.PostAsync("/v1/arena/snapshot");
@@ -151,10 +181,11 @@ public class ArenaTests : IDisposable
         Assert.Single(outbox!.Value.Items);
 
         // Mail command becomes available (e.g. after a deploy): daily job flushes the outbox.
-        _app.Service<GameEngine>().Register<MailDeliver>((cmd, ctx) => { ctx.State.Count("mail_" + cmd.Source); return CommandResult.Success(); });
+        Assert.Empty(await a.MailsAsync("Arena week 2026-W47"));
+        _app.Service<Microsoft.Extensions.Options.IOptions<RogueStars.Server.Infrastructure.ServerOptions>>().Value.Commands.MailDeliver = "MailPush";
         var resp = await _app.JobClient().PostAsync("/internal/jobs/daily-reset", null);
         Assert.Equal(200, (int)resp.StatusCode);
-        Assert.Equal(1, await a.CounterAsync("mail_arena_weekly"));
+        Assert.Single(await a.MailsAsync("Arena week 2026-W47"));
         Assert.Null(await _app.Service<IDocStore>().GetAsync<RogueStars.Server.Commands.MailOutbox>(Collections.MailOutbox, "dev_a"));
     }
 }

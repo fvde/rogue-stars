@@ -14,7 +14,7 @@ public class InvasionTests : IDisposable
     {
         long now = _app.Time.GetUtcNow().ToUnixTimeMilliseconds();
         var resp = await _app.JobClient().PostAsJsonAsync("/internal/invasions",
-            new { id, name = "Grey Swarm", startsMs = now - 1000, endsMs = now + 3_600_000, hpPerMember });
+            new { id, name = "Rust Swarm", typeId = "rust_swarm", startsMs = now - 1000, endsMs = now + 3_600_000, hpPerMember });
         Assert.Equal(200, (int)resp.StatusCode);
     }
 
@@ -66,6 +66,11 @@ public class InvasionTests : IDisposable
         var (_, contributions) = await guildLeader.GetAsync($"/v1/guilds/{guildId}/contributions");
         Assert.Equal(1000, contributions.GetProperty("contributions").GetProperty("total").GetInt64());
 
+        // Real InvasionRecordDamage: attempts consumed and contribution recorded in the rules state.
+        Assert.Equal(2, await players[1].CounterAsync("invasion_attempts_used"));
+        Assert.Equal(4000, await players[1].CounterAsync("invasion_damage"));
+        Assert.True(await players[0].CounterAsync("guild_contribution") > 0); // real GuildSetMembership + score
+
         var (_, status) = await players[20].GetAsync("/v1/invasions/inv2/group");
         Assert.Equal(4000, status.GetProperty("groupDamage").GetInt64());
 
@@ -79,21 +84,25 @@ public class InvasionTests : IDisposable
         Assert.True(report.GetProperty("resolved").GetBoolean());
         Assert.Equal(22, report.GetProperty("applied").GetInt32());
 
-        var s1 = await players[1].StateAsync();
-        Assert.Contains("invasion:inv2:overrun", s1.GetProperty("flags").EnumerateArray().Select(f => f.GetString()));
-        Assert.Equal(1, await players[1].CounterAsync("invasion_rank"));
-        Assert.Equal(1, await players[1].CounterAsync("mail_invasion_top"));
-        var s20 = await players[20].StateAsync();
-        Assert.Contains("invasion:inv2:repelled", s20.GetProperty("flags").EnumerateArray().Select(f => f.GetString()));
-        Assert.Equal(1, await players[21].CounterAsync("mail_invasion_top"));
+        // Real LiveOpsApplyOutcome: lasting modifiers of the content invasion (rust_swarm) for the group outcome.
+        static List<string> InvMods(List<System.Text.Json.JsonElement> mods) => mods
+            .Where(m => m.GetProperty("source").GetString() == "invasion:rust_swarm")
+            .Select(m => m.GetProperty("target").GetString() + "x" + m.GetProperty("multiplier").GetDouble().ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        Assert.Equal(new[] { "production:orex0.667" }, InvMods(await players[1].ModifiersAsync()));
+        Assert.Equal(1, await players[1].CounterAsync("invasion_top_contributor"));
+        Assert.Single(await players[1].MailsAsync("Invasion top contributor"));
+        Assert.Equal(new[] { "production:orex1.5", "run_reward:orex1.5" }, InvMods(await players[20].ModifiersAsync()));
+        Assert.Equal(1, await players[20].CounterAsync("invasions_repelled"));
+        Assert.Single(await players[21].MailsAsync("Invasion top contributor"));
         // Non-attackers get the outcome but no top-contributor mail.
-        Assert.Contains("invasion:inv2:overrun", (await players[10].StateAsync()).GetProperty("flags").EnumerateArray().Select(f => f.GetString()));
-        Assert.Equal(0, await players[10].CounterAsync("mail_invasion_top"));
+        Assert.Equal(new[] { "production:orex0.667" }, InvMods(await players[10].ModifiersAsync()));
+        Assert.Empty(await players[10].MailsAsync("Invasion top contributor"));
 
         // Idempotent re-run.
         var again = await PlayerClient.Read(await _app.JobClient().PostAsync("/internal/jobs/invasion-resolve", null));
         Assert.Empty(again.GetProperty("result").EnumerateArray());
-        Assert.Equal(1, await players[1].CounterAsync("invasion_rank"));
+        Assert.Equal(1, await players[1].CounterAsync("invasion_top_contributor"));
+        Assert.Single(InvMods(await players[1].ModifiersAsync()));
         var inv = await _app.Service<IDocStore>().GetAsync<Invasion>(Collections.Invasions, "inv2");
         Assert.True(inv!.Value.Resolved);
 
@@ -104,7 +113,7 @@ public class InvasionTests : IDisposable
     [Fact]
     public async Task Resolve_WithoutOutcomeCommand_KeepsInvasionPending()
     {
-        _app.WithHooks = false;
+        _app.DisableHook("InvasionOutcome");
         await CreateInvasion("inv3", 10);
         var p = await _app.PlayerAsync("solo");
         await p.PostAsync("/v1/invasions/inv3/attack");

@@ -58,7 +58,7 @@ public class CoreApiTests : IDisposable
         var (status, body) = await p.CommandAsync("TestIncrement", new { amount = 3 }, "r1");
         Assert.Equal(200, status);
         Assert.True(body.GetProperty("ok").GetBoolean());
-        Assert.Equal("incremented", body.GetProperty("events")[0].GetProperty("type").GetString());
+        Assert.Single(body.GetProperty("events").EnumerateArray(), ev => ev.GetProperty("type").GetString() == "incremented");
         Assert.Equal(3, body.GetProperty("payload").GetProperty("total").GetInt64());
         Assert.Equal(1, body.GetProperty("version").GetInt64());
         Assert.Equal(3, body.GetProperty("state").GetProperty("counters").GetProperty("test_counter").GetInt64());

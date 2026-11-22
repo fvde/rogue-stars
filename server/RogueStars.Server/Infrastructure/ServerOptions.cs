@@ -82,6 +82,8 @@ public sealed class CommandOptions
     public string AdWatched { get; set; } = "AdWatched";
     public string InvasionOutcome { get; set; } = "LiveOpsApplyOutcome";
     public string InvasionAttack { get; set; } = "InvasionRecordDamage";
+    /// <summary>Consumes the arena ticket before the server resolves a fight (clients never start fights themselves).</summary>
+    public string ArenaStart { get; set; } = "ArenaStartFight";
     public string ArenaFight { get; set; } = "ArenaFightResult";
     public string MailDeliver { get; set; } = "MailPush";
     public string GuildMembership { get; set; } = "GuildSetMembership";
@@ -92,7 +94,7 @@ public sealed class CommandOptions
     public List<string> ClientAllowList { get; set; } = new();
 
     public IEnumerable<string> HookNames() =>
-        new[] { PurchaseComplete, AdWatched, InvasionOutcome, InvasionAttack, ArenaFight, MailDeliver, GuildMembership };
+        new[] { PurchaseComplete, AdWatched, InvasionOutcome, InvasionAttack, ArenaStart, ArenaFight, MailDeliver, GuildMembership };
 }
 
 public sealed class ArenaOptions

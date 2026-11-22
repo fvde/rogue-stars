@@ -149,9 +149,17 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
                        ?? throw ApiException.Conflict("no_opponents");
         }
 
+        string fightId = req.RequestId ?? Ids.New();
+        if (hooks.Has(hooks.Names.ArenaStart))
+        {
+            // Rules side: feature gate + ticket. A rejection (locked, no tickets) rejects the fight.
+            var start = await hooks.TryExecuteAsync(playerId, hooks.Names.ArenaStart, new { OpponentId = defender.PlayerId },
+                "arena-start-" + fightId, ct);
+            if (start is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, start.Error ?? "fight_rejected");
+        }
+
         var outcome = resolver.ResolveDuel(loadout, defender.Loadout, seed);
         int delta = outcome.AttackerWon ? O.WinPoints : -O.LossPoints;
-        string fightId = req.RequestId ?? Ids.New();
 
         CommandResponse? hook = null;
         if (hooks.Has(hooks.Names.ArenaFight))

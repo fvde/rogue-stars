@@ -137,6 +137,8 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
 
             if (expectedVersion.HasValue) throw ApiException.Conflict("version_conflict");
             log.LogInformation("Version conflict for {PlayerId} on {Command}, retrying", playerId, command.Type);
+            // Jittered backoff so parallel writers on one player do not keep colliding.
+            await Task.Delay(Random.Shared.Next(1, 4 << Math.Min(attempt, 4)), ct);
         }
         throw ApiException.Conflict("contention");
     }

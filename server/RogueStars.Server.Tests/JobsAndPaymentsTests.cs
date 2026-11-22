@@ -1,3 +1,4 @@
+using RogueStars.Rules.Core;
 using System.Net.Http.Json;
 
 namespace RogueStars.Server.Tests;
@@ -32,25 +33,37 @@ public class JobsAndPaymentsTests : IDisposable
     public async Task Iap_FakeReceipt_CompletesPurchaseOnce_AndCannotBeReused()
     {
         var p = await _app.PlayerAsync("buyer");
-        var (s, body) = await p.PostAsync("/v1/iap/verify", new { productId = "gems_100", purchaseToken = "fake-tok1" });
+        long diamonds = await p.BalanceAsync(Currencies.Diamonds);
+
+        // Rules require the client's PurchaseStart (pending record) before the server completes the purchase.
+        var (s0, early) = await p.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "fake-tok1" });
+        Assert.Equal(200, s0);
+        Assert.False(early.GetProperty("ok").GetBoolean());
+        Assert.Equal("no pending purchase", early.GetProperty("error").GetString());
+
+        Assert.True((await p.CommandAsync("PurchaseStart", new { productId = "diamonds_60" })).Body.GetProperty("ok").GetBoolean());
+        Assert.Equal(403, (await p.CommandAsync("PurchaseComplete", new { productId = "diamonds_60", receiptId = "x" })).Status);
+        var (s, body) = await p.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "fake-tok1" });
         Assert.Equal(200, s);
         Assert.True(body.GetProperty("ok").GetBoolean());
-        Assert.Equal(1, await p.CounterAsync("purchase_gems_100"));
+        // Real PurchaseComplete: 60 Diamonds + first-purchase bonus 60.
+        Assert.Equal(diamonds + 120, await p.BalanceAsync(Currencies.Diamonds));
+        Assert.Equal(1, await p.CounterAsync("iap_purchases"));
 
-        var (s2, again) = await p.PostAsync("/v1/iap/verify", new { productId = "gems_100", purchaseToken = "fake-tok1" });
+        var (s2, again) = await p.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "fake-tok1" });
         Assert.Equal(200, s2);
         Assert.True(again.GetProperty("alreadyCompleted").GetBoolean());
-        Assert.Equal(1, await p.CounterAsync("purchase_gems_100"));
+        Assert.Equal(diamonds + 120, await p.BalanceAsync(Currencies.Diamonds));
 
         var thief = await _app.PlayerAsync("thief");
-        Assert.Equal(409, (await thief.PostAsync("/v1/iap/verify", new { productId = "gems_100", purchaseToken = "fake-tok1" })).Status);
-        Assert.Equal(402, (await thief.PostAsync("/v1/iap/verify", new { productId = "gems_100", purchaseToken = "forged" })).Status);
+        Assert.Equal(409, (await thief.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "fake-tok1" })).Status);
+        Assert.Equal(402, (await thief.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "forged" })).Status);
     }
 
     [Fact]
     public async Task Iap_WithoutPurchaseCommand_Is501()
     {
-        _app.WithHooks = false;
+        _app.DisableHook("PurchaseComplete");
         var p = await _app.PlayerAsync("buyer");
         Assert.Equal(501, (await p.PostAsync("/v1/iap/verify", new { productId = "x", purchaseToken = "fake-1" })).Status);
     }
@@ -59,13 +72,26 @@ public class JobsAndPaymentsTests : IDisposable
     public async Task AdsSsv_GrantsOncePerEvent()
     {
         var p = await _app.PlayerAsync("viewer");
+        long diamonds = await p.BalanceAsync(Currencies.Diamonds);
         var http = _app.CreateClient();
-        var url = $"/v1/ads/ssv?user_id={p.PlayerId}&event_id=ev1&custom_data=stamina";
-        Assert.Equal(200, (int)(await http.GetAsync(url)).StatusCode);
+        // Real AdWatched on a placement with direct rewards (Diamond snack: +10, daily cap via ShopSystem.ConsumeAdView).
+        var url = $"/v1/ads/ssv?user_id={p.PlayerId}&event_id=ev1&custom_data=daily_diamonds_ad";
+        var first = await PlayerClient.Read(await http.GetAsync(url));
+        Assert.True(first.GetProperty("ok").GetBoolean());
         var dup = await PlayerClient.Read(await http.GetAsync(url));
         Assert.True(dup.GetProperty("duplicate").GetBoolean());
-        Assert.Equal(1, await p.CounterAsync("ad_stamina"));
+        Assert.Equal(1, await p.CounterAsync("ads_watched"));
+        Assert.Equal(diamonds + 10, await p.BalanceAsync(Currencies.Diamonds));
         Assert.Equal(401, (int)(await http.GetAsync("/v1/ads/ssv?event_id=x")).StatusCode);
+    }
+
+    [Fact]
+    public async Task AdsSsv_WithoutAdCommand_Is501()
+    {
+        _app.DisableHook("AdWatched");
+        var p = await _app.PlayerAsync("viewer");
+        var resp = await _app.CreateClient().GetAsync($"/v1/ads/ssv?user_id={p.PlayerId}&event_id=ev2&custom_data=daily_diamonds_ad");
+        Assert.Equal(501, (int)resp.StatusCode);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ The server knows no game command by name. `POST /v1/command` resolves `type` thr
   restricts clients to the listed commands.
 - **Idempotency:** a `requestId` is stored with its result in the player document (last 64). Repeating it returns
   the stored result with `replayed: true` without executing again. Rule rejections are not stored.
-- **Concurrency:** saves are compare-and-set on the version. On conflict the server reloads and re-executes (up to
+- **Concurrency:** saves are compare-and-set on the version. On conflict the server reloads and re-executes after a short jittered backoff (up to
   8 times). If the client pins `expectedVersion` and it differs, the response is `409 version_conflict` with the
   current version in `details`.
 - **Serialization:** storage uses C# member names (`StateJson.Options`), the wire uses camelCase
@@ -27,15 +27,20 @@ The server knows no game command by name. `POST /v1/command` resolves `type` thr
 The server issues these itself. Their classes belong to the rules workstreams; the server passes the listed fields
 (extra fields are ignored by the deserializer). Names are configurable under `RogueStars:Commands:*`.
 
-| Config key | Default name | Issued by | Args | When missing |
-|---|---|---|---|---|
-| `PurchaseComplete` | `PurchaseComplete` | `/v1/iap/verify` | `ProductId, OrderId, PurchaseToken, Store, Test` | `501` |
-| `AdWatched` | `AdWatched` | `/v1/ads/ssv` | `Placement, EventId, AdUnitId` | `501` |
-| `InvasionOutcome` | `LiveOpsApplyOutcome` | invasion-resolve job | `InvasionId, Outcome ("repelled"/"overrun"), Damage, Rank, GroupSize, GroupDamage, GroupHp` | invasion stays pending |
-| `InvasionAttack` | `InvasionAttackRecorded` | `/v1/invasions/{id}/attack` | `InvasionId, Damage, Seed, AttackId` — consume an attempt; a failure rejects the attack | attacks are free |
-| `ArenaFight` | `ArenaFightResolved` | `/v1/arena/fight` | `OpponentId, Won, PointsDelta, Seed, Week, FightId` — consume a ticket, grant fight rewards; a failure rejects the fight | fights are free |
-| `MailDeliver` | `MailDeliver` | arena weekly rewards, invasion top rewards | `Title, Body, Source, Rewards (Reward[])` | queued in `mail_outbox`, delivered by `daily-reset` |
-| `GuildMembership` | `GuildMembershipChanged` | guild create/join/leave/kick/promote | `GuildId (null when left), Role` | skipped |
+| Config key | Default name (rules command) | Issued by | Args passed | Rules effect | When missing |
+|---|---|---|---|---|---|
+| `PurchaseComplete` | `PurchaseComplete` (Meta/Shop) | `/v1/iap/verify` | `ProductId, ReceiptId (= store order id)` (+ `OrderId, PurchaseToken, Store, Test`, ignored) | grants the product; needs the client's `PurchaseStart` (pending record) first, else `200 {ok:false, error:"no pending purchase"}` and the receipt can be retried | `501` |
+| `AdWatched` | `AdWatched` (Meta/Shop) | `/v1/ads/ssv` | `PlacementId (= custom_data), AdToken (= event_id)` | consumes the placement's daily ad cap and grants its direct rewards (placements whose effect belongs to another system are consumed by that system's command) | `501` |
+| `InvasionAttack` | `InvasionRecordDamage` (Meta/LiveOps) | `/v1/invasions/{id}/attack` | `OccurrenceId (= server invasion id), Damage, InvasionId (= TypeId), StartMs, EndMs` | starts the attempt atomically (feature gate, one `invasion_attempts`), records damage/score, guild contribution; a failure rejects the attack (`409`) | attacks are free |
+| `InvasionOutcome` | `LiveOpsApplyOutcome` (Meta/LiveOps) | invasion-resolve job | `InvasionId (= TypeId), OccurrenceId, Repelled, ContributionRank` | lasting win/lose modifiers of the content invasion + rank rewards | invasion stays pending |
+| `ArenaStart` | `ArenaStartFight` (Meta/Arena) | `/v1/arena/fight`, before resolving | `OpponentId` | feature gate + one arena ticket; a failure rejects the fight (`409`) | fights are free |
+| `ArenaFight` | `ArenaFightResult` (Meta/Arena) | `/v1/arena/fight`, after resolving | `Won, OpponentPoints` | rules-side arena points, `arena_fights`/`arena_wins` | no rules bookkeeping |
+| `MailDeliver` | `MailPush` (Meta/Mail) | arena weekly rewards, invasion top rewards | `Title, Body, Rewards (Reward[])` | puts the mail in the inbox (claimed by the player) | queued in `mail_outbox`, delivered by `daily-reset` |
+| `GuildMembership` | `GuildSetMembership` (Meta/Guild) | guild create/join/leave/kick/promote | `GuildId (null when left), Role` | membership for guild shop and contribution | skipped |
+
+All hook commands are `[ServerOnly]`; every name in this table is also refused from clients (so clients cannot start
+arena fights themselves). Server invasions are created with `typeId` = a content invasion id (`gloop_tide`,
+`rust_swarm`, `void_choir`, `prism_horde`); without it the server id is used and the rules reject it as unknown.
 
 Every hook call carries a deterministic request id (e.g. `arena-2026-W47-<player>`, `inv-outcome-<invasion>`,
 `iap-<orderId>`), so retried jobs and callbacks never apply twice.
@@ -98,7 +103,7 @@ current AppLovin MAX S2S documentation before launch**. Configure the MAX callba
   (`arena_groups/<week>_L<league>_<n>`, max **150**; a full group opens the next).
 - A fight refreshes the attacker's snapshot, picks an opponent at random among the `OpponentWindow` (5) group members
   closest in points (falls back to any stored snapshot near in power when the group is empty), resolves the battle on
-  the server via `IBattleResolver`, then runs the `ArenaFight` hook and updates points (win +30, loss −10, defender −5
+  the server via `IBattleResolver` (after the `ArenaStart` hook consumed a ticket), then runs the `ArenaFight` hook and updates points (win +30, loss −10, defender −5
   on loss; floor 0).
 - `weekly-arena` job (`?week=` optional, default previous week): ranks every group, mails rank rewards
   (`Arena:RankRewards`, scaled ×(1+0.5·league)), promotes the top `PromoteTop` (15) / demotes the bottom
@@ -129,7 +134,7 @@ Invasion damage of guild members is added to the guild's weekly totals (last 4 w
 | POST | `/v1/invasions/{id}/join` | – | `{ ok, groupId, members }` — groups of **20** (`Invasions:GroupSize`) |
 | POST | `/v1/invasions/{id}/attack` | `{ requestId? }` | `{ ok, attackId, damage, seed, log, groupDamage, groupHp, state }` (auto-joins) |
 | GET | `/v1/invasions/{id}/group` | – | `{ ok, invasion, groupId, outcome, groupDamage, groupHp, members[] }` |
-| POST | `/internal/invasions` | `{ id?, name, startsMs, endsMs, hpPerMember?, invaderPower? }` | job auth; creates an instance |
+| POST | `/internal/invasions` | `{ id?, name, typeId, startsMs, endsMs, hpPerMember?, invaderPower? }` | job auth; creates an instance (`typeId` = content invasion id) |
 
 `invasion-resolve` job: for each ended, unresolved invasion and each group: outcome = `repelled` when group damage ≥
 `hpPerMember × members`, else `overrun`; runs the outcome hook for every member (rank by damage), mails
@@ -192,7 +197,6 @@ three job endpoints with OIDC tokens of the scheduler service account.
 ## Open wiring (after merge)
 - `IBattleResolver`: currently `PowerBattleResolver` (power comparison placeholder). Register a resolver backed by the
   Run workstream's `BattleSimulator` in `Program.cs`.
-- Hook commands listed above must be implemented (with `[ServerOnly]`) by the owning workstreams, or their names
-  configured to match.
+- Hook commands above are the real rules commands (server tests exercise them end-to-end).
 - Scale notes: weekly/invasion jobs process groups sequentially (fine for the prototype; fan out per group later);
   chat rate limit and ad/IAP dedup are document based and hold across instances.

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
 using RogueStars.Server.Arena;
 using RogueStars.Server.Infrastructure;
 
@@ -39,8 +40,11 @@ public sealed class TestApp : WebApplicationFactory<Program>
     public TestBattleResolver Battles { get; } = new();
     public Dictionary<string, string?> Settings { get; } = new();
     public string Environment { get; set; } = "Development";
-    /// <summary>Register the fake hook commands (PurchaseComplete, MailDeliver, LiveOpsApplyOutcome...).</summary>
-    public bool WithHooks { get; set; } = true;
+    /// <summary>
+    /// New players get the rules dev-unlock flag (every feature gate open) because the server tests are not about
+    /// gating. Hook commands are the real rules commands; point a hook name at a missing command to test "absent".
+    /// </summary>
+    public bool DevUnlockAll { get; set; } = true;
     public Action<GameEngine>? ConfigureEngine { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -54,7 +58,8 @@ public sealed class TestApp : WebApplicationFactory<Program>
             s.AddSingleton(_ =>
             {
                 var engine = new GameEngine(ContentDb.Default) { Cloner = StateJson.Clone };
-                TestCommands.Register(engine, WithHooks);
+                TestCommands.Register(engine);
+                if (DevUnlockAll) engine.RegisterNewPlayer(ctx => ctx.State.Flags.Add(Features.DevUnlockAllFlag));
                 ConfigureEngine?.Invoke(engine);
                 return engine;
             });
@@ -62,6 +67,9 @@ public sealed class TestApp : WebApplicationFactory<Program>
     }
 
     public T Service<T>() where T : notnull => Services.GetRequiredService<T>();
+
+    /// <summary>Point a server hook (RogueStars:Commands:&lt;key&gt;) at a command that does not exist.</summary>
+    public void DisableHook(string key) => Settings["RogueStars:Commands:" + key] = "NotRegistered" + key;
 
     /// <summary>Dev-auth client for a device, with a session already created.</summary>
     public async Task<PlayerClient> PlayerAsync(string deviceId, string? displayName = null)
@@ -100,6 +108,20 @@ public sealed record PlayerClient(HttpClient Http, string PlayerId)
         PostAsync("/v1/command", new { type, requestId, args, expectedVersion });
 
     public async Task<JsonElement> StateAsync() => (await GetAsync("/v1/state")).Body.GetProperty("state");
+
+    public async Task<long> BalanceAsync(string currency)
+    {
+        var state = await StateAsync();
+        return state.GetProperty("wallet").GetProperty("balances").TryGetProperty(currency, out var v) ? v.GetInt64() : 0;
+    }
+
+    /// <summary>Inbox mails with this title.</summary>
+    public async Task<List<JsonElement>> MailsAsync(string title) =>
+        (await StateAsync()).GetProperty("mail").GetProperty("inbox").EnumerateArray()
+            .Where(m => m.GetProperty("title").GetString() == title).ToList();
+
+    public async Task<List<JsonElement>> ModifiersAsync() =>
+        (await StateAsync()).GetProperty("modifiers").EnumerateArray().ToList();
 
     public async Task<long> CounterAsync(string key)
     {

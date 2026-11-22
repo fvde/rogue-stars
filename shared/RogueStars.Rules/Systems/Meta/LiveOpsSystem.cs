@@ -255,10 +255,28 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleRecordDamage(InvasionRecordDamage cmd, CommandContext ctx)
         {
             var s = ctx.State;
-            GameEngine.Require(cmd.OccurrenceId != null && s.LiveOps.Contributions.TryGetValue(cmd.OccurrenceId, out var c), "no attempt for occurrence");
-            c = s.LiveOps.Contributions[cmd.OccurrenceId];
-            GameEngine.Require(c.PendingAttempts > 0, "no pending attempt");
+            GameEngine.Require(!string.IsNullOrEmpty(cmd.OccurrenceId), "no attempt for occurrence");
             GameEngine.Require(cmd.Damage >= 0, "invalid damage");
+            s.LiveOps.Contributions.TryGetValue(cmd.OccurrenceId, out var c);
+            if ((c == null || c.PendingAttempts <= 0) && !string.IsNullOrEmpty(cmd.InvasionId))
+            {
+                // Server-run attack: start the attempt in the same atomic command.
+                GameEngine.Require(Features.IsUnlocked(s, ctx.Content, Features.Invasions), "feature locked");
+                GameEngine.Require(ctx.Content.Invasion(cmd.InvasionId) != null, "unknown invasion");
+                GameEngine.Require(cmd.EndMs <= 0 || ctx.NowMs < cmd.EndMs, "invasion not active");
+                GameEngine.Require(s.Wallet.CanAfford(Currencies.InvasionAttempts, 1), "no invasion attempts");
+                s.Wallet.TrySpend(Currencies.InvasionAttempts, 1);
+                if (c == null)
+                {
+                    c = new InvasionContribution { InvasionId = cmd.InvasionId, StartMs = cmd.StartMs, EndMs = cmd.EndMs > 0 ? cmd.EndMs : ctx.NowMs };
+                    s.LiveOps.Contributions[cmd.OccurrenceId] = c;
+                }
+                c.Attempts++;
+                c.PendingAttempts++;
+                s.Count("invasion_attempts_used");
+            }
+            GameEngine.Require(c != null, "no attempt for occurrence");
+            GameEngine.Require(c.PendingAttempts > 0, "no pending attempt");
 
             long score = ScoreFromDamage(ctx.Content, cmd.Damage);
             c.PendingAttempts--;
