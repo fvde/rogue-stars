@@ -11,7 +11,8 @@ namespace RogueStars.Rules.Content
         public long Amount = 30;
         /// <summary>Escalating Diamond price per refill of the day; the list length is the daily Diamond limit.</summary>
         public List<long> DiamondPrices = new List<long>();
-        public int AdRefillsPerDay = 3;
+        /// <summary>Meta ad placement consumed by ad refills (its DailyCap is the daily ad-refill limit).</summary>
+        public string AdPlacementId = "stamina_refill";
         public int FreeRefillsPerDay = 1;
     }
 
@@ -38,8 +39,6 @@ namespace RogueStars.Rules.Content
         /// <summary>Balances every new player starts with.</summary>
         public Dictionary<string, long> StartingWallet = new Dictionary<string, long>();
         public StaminaRefillConfig StaminaRefill = new StaminaRefillConfig();
-        /// <summary>Length of an economy day; day 0 starts at Unix epoch 00:00 UTC.</summary>
-        public long DayMs = 86_400_000;
         public F2pIncomeModel F2p = new F2pIncomeModel();
     }
 
@@ -65,7 +64,6 @@ namespace RogueStars.Rules.Content
             var s = EconomyConfig.StaminaRefill;
             s.Amount = 30;
             s.DiamondPrices.AddRange(new long[] { 50, 100, 150, 250, 400 });
-            s.AdRefillsPerDay = 3;
             s.FreeRefillsPerDay = 1;
         }
     }

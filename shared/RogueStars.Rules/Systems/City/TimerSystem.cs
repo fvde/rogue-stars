@@ -14,14 +14,14 @@ namespace RogueStars.Rules.Systems
     ///
     /// Speed-ups (<see cref="TimerSpeedUp"/>):
     ///  - Diamonds: cost = max(1, ceil(remaining minutes × TimerTuning.DiamondsPerMinute)); completes the timer.
-    ///  - Ad: removes AdReductionPct (15%) of the remaining time, at most MaxAdsPerTimer (3) per timer. With the
-    ///    no-ads entitlement flag (TimerTuning.NoAdsFlag in state.Flags) the client applies it without showing an ad
-    ///    (<see cref="AdRequired"/>); the rule effect is identical.
-    ///  - Free: FreeSpeedUpsPerDay per UTC day, removes FreeSpeedUpMs (0 = completes).
+    ///  - Ad: removes AdReductionPct (15%) of the remaining time, at most MaxAdsPerTimer (3) per timer, and consumes
+    ///    one view of Meta's ad placement TimerTuning.AdPlacementId (daily cap, ad token via ShopSystem.ConsumeAdView).
+    ///    With No Ads it completes instantly without an ad (<see cref="AdRequired"/>); the rule effect is identical.
+    ///  - Free: FreeSpeedUpsPerDay per reset-day (GameClock.DayIndex), removes FreeSpeedUpMs (0 = completes).
     /// </summary>
     public static class TimerSystem
     {
-        public const long DayMs = 86_400_000L;
+        public const long DayMs = GameClock.Day;
 
         private static readonly ConditionalWeakTable<GameEngine, Dictionary<string, Action<CommandContext, GameTimer>>> Completions =
             new ConditionalWeakTable<GameEngine, Dictionary<string, Action<CommandContext, GameTimer>>>();
@@ -93,7 +93,7 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>False when the player owns the no-ads entitlement: ad speed-ups apply instantly.</summary>
-        public static bool AdRequired(GameState state, ContentDb content) => !state.Flags.Contains(content.TimerTuning.NoAdsFlag);
+        public static bool AdRequired(GameState state, ContentDb content) => !ShopSystem.HasNoAds(state, content);
 
         public static int AdsLeft(GameTimer t, ContentDb content) => t == null ? 0 : Math.Max(0, content.TimerTuning.MaxAdsPerTimer - t.AdsUsed);
 
@@ -101,7 +101,7 @@ namespace RogueStars.Rules.Systems
         {
             int perDay = content.TimerTuning.FreeSpeedUpsPerDay;
             if (perDay <= 0) return 0;
-            return state.Timers.FreeDay == nowMs / DayMs ? Math.Max(0, perDay - state.Timers.FreeUsed) : perDay;
+            return state.Timers.FreeDay == GameClock.DayIndex(content, nowMs) ? Math.Max(0, perDay - state.Timers.FreeUsed) : perDay;
         }
 
         /// <summary>Run completion handlers of all due timers (EndsMs order, then id). Safe to call repeatedly.</summary>
@@ -154,6 +154,7 @@ namespace RogueStars.Rules.Systems
                 case SpeedUpMethod.Ad:
                 {
                     GameEngine.Require(t.AdsUsed < tuning.MaxAdsPerTimer, "no ad speed-ups left for this timer");
+                    ShopSystem.ConsumeAdView(ctx, tuning.AdPlacementId, cmd.AdToken);
                     long cut = (long)Math.Ceiling(remaining * tuning.AdReductionPct / 100.0);
                     t.EndsMs -= cut;
                     t.AdsUsed++;
@@ -163,7 +164,7 @@ namespace RogueStars.Rules.Systems
                 case SpeedUpMethod.Free:
                 {
                     GameEngine.Require(FreeSpeedUpsLeft(ctx.State, content, ctx.NowMs) > 0, "no free speed-up left today");
-                    long day = ctx.NowMs / DayMs;
+                    long day = GameClock.DayIndex(content, ctx.NowMs);
                     if (ctx.State.Timers.FreeDay != day) { ctx.State.Timers.FreeDay = day; ctx.State.Timers.FreeUsed = 0; }
                     ctx.State.Timers.FreeUsed++;
                     t.EndsMs = tuning.FreeSpeedUpMs <= 0 ? ctx.NowMs : Math.Max(ctx.NowMs, t.EndsMs - tuning.FreeSpeedUpMs);

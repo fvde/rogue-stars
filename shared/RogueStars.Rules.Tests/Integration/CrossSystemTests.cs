@@ -117,4 +117,145 @@ public class CrossSystemTests
         // Deterministic.
         Assert.Equal(after.Power, e.BuildLoadout(TestHelpers.Clone(s), t).Power);
     }
+
+    // ---- feature gates ----------------------------------------------------------------------------
+
+    [Fact]
+    public void Gates_FollowGddOrder_AndUnlockFromRealProgress()
+    {
+        var e = Engine();
+        var s = e.NewPlayer("p1", T0, 1);
+        s.Wallet.Add(Currencies.Diamonds, 1_000_000);
+        long t = T0;
+        GachaPull P(GachaType ty) => new GachaPull { PullType = ty, Payment = GachaPayment.Diamonds };
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Part), t));
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Alien), t));
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Blueprint), t));
+        Assert.Equal("feature locked", Fail(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, t));
+        Assert.Equal("feature locked", Fail(e, ref s, new MountEquip { MountId = "mount_scout_saucer" }, t));
+        Assert.Equal("feature locked", Fail(e, ref s, new BreedStart { ParentA = "a", ParentB = "b" }, t));
+        Assert.Equal("feature locked", Fail(e, ref s, new AlienSetSquad(), t));
+        Assert.Equal("feature locked", Fail(e, ref s, new RuneLock { RuneUid = "r" }, t));
+        Assert.Equal("feature locked", Fail(e, ref s, new PartForgeUnlock { Uid = "p" }, t));
+
+        // Portal progress is Run's main_level_max counter (max-style).
+        s.Counters[Requirements.MainLevelCounter] = 3;
+        Ok(e, ref s, P(GachaType.Part), t);
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Alien), t));
+        s.Counters[Requirements.MainLevelCounter] = 10;
+        Ok(e, ref s, P(GachaType.Alien), t);
+        Ok(e, ref s, P(GachaType.Blueprint), t);
+        Assert.Equal("feature locked", Fail(e, ref s, new MountEquip { MountId = "mount_scout_saucer" }, t));
+
+        // Forge: worm level 25 OR main level 28 — read from the real worm level, not a counter.
+        Assert.False(Features.IsUnlocked(s, e.Content, Features.Forge));
+        s.Counters[Requirements.WormLevelCounter] = 99; // stale counters do not unlock
+        Assert.False(Features.IsUnlocked(s, e.Content, Features.Forge));
+        s.Worm.Level = 25;
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.Forge));
+    }
+
+    // ---- onboarding -------------------------------------------------------------------------------
+
+    [Fact]
+    public void NewPlayer_GetsStarterKit_AndFeatureUnlockGrants()
+    {
+        var e = Engine();
+        var s = e.NewPlayer("p1", T0, 1);
+        Assert.Equal(e.Content.EconomyConfig.StartingWallet[Currencies.Diamonds], s.Wallet.Get(Currencies.Diamonds));
+        Assert.Equal(3, s.Parts.Items.Count);
+        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
+        Assert.Empty(s.Aliens.Owned);
+
+        // Clearing main level 7 unlocks Aliens (first alien) and Housing (squad slot building).
+        s.Counters[Requirements.MainLevelCounter] = 7;
+        var r = Ok(e, ref s, new CityCollect(), T0 + 1000);
+        Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Aliens);
+        Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
+        Assert.NotNull(CitySystem.Owned(s, "bp_housing_pod"));
+        Assert.NotNull(CitySystem.Owned(s, "bp_laboratory"));
+        // Sticky: a later command does not grant again.
+        Ok(e, ref s, new CityCollect(), T0 + 2000);
+        Assert.Equal(0, s.Counter("alien_duplicates"));
+        Assert.Equal(0, s.Counter("blueprint_duplicates"));
+
+        // Heroes unlock grants exactly the shards to unlock the first hero.
+        s.Counters[Requirements.MainLevelCounter] = 10;
+        Ok(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, T0 + 3000);
+    }
+
+    // ---- ads --------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Ads_StaminaTimerAndGacha_ConsumeMetaCaps_NoAdsIsInstant()
+    {
+        var e = Engine();
+        var s = e.NewPlayer("p1", T0, 1);
+        s.Flags.Add(Features.DevUnlockAllFlag);
+        s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
+        long t = T0;
+
+        // Token required without No Ads.
+        Assert.Equal("ad token required", Fail(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad }, t));
+        Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad, AdToken = "a1" }, t);
+        Assert.Equal(e.Content.AdPlacement("stamina_refill")!.DailyCap - 1, ShopSystem.AdViewsLeft(s, e.Content, "stamina_refill", t));
+
+        // Gacha extra free pull: one per day per type.
+        var pull = new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Ad, AdToken = "a2" };
+        long diamonds = s.Wallet.Get(Currencies.Diamonds), tokens = s.Wallet.Get(Currencies.PartTokens);
+        Ok(e, ref s, pull, t);
+        Assert.Equal(diamonds, s.Wallet.Get(Currencies.Diamonds));
+        Assert.Equal(tokens, s.Wallet.Get(Currencies.PartTokens));
+        Assert.Equal("ad daily cap reached", Fail(e, ref s, pull, t));
+        Assert.Equal("ad pulls are single pulls", Fail(e, ref s, new GachaPull { PullType = GachaType.Alien, Payment = GachaPayment.Ad, Count = 10, AdToken = "x" }, t));
+
+        // Timer speed-up ad shares the "timer_speedup" placement cap.
+        Grant(e, s, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
+        Ok(e, ref s, new CityBuild { BlueprintId = "bp_ore_mine", X = 5, Y = 4 }, t);
+        var timer = TimerSystem.Get(s, CitySystem.Owned(s, "bp_ore_mine").TimerId)!;
+        Ok(e, ref s, new TimerSpeedUp { TimerId = timer.Id, Method = SpeedUpMethod.Ad, AdToken = "a3" }, t);
+        Assert.Equal(e.Content.AdPlacement("timer_speedup")!.DailyCap - 1, ShopSystem.AdViewsLeft(s, e.Content, "timer_speedup", t));
+
+        // No Ads: instant without a token, caps still apply; every ad counts once in ads_watched.
+        s.Flags.Add(e.Content.Shop.NoAdsFlag);
+        Ok(e, ref s, new TimerSpeedUp { TimerId = timer.Id, Method = SpeedUpMethod.Ad }, t);
+        Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad }, t);
+        Ok(e, ref s, new GachaPull { PullType = GachaType.Alien, Payment = GachaPayment.Ad }, t);
+        Assert.Equal(6, s.Counter("ads_watched"));
+    }
+
+    // ---- daily resets -----------------------------------------------------------------------------
+
+    [Fact]
+    public void DailyLimits_AllResetOnTheSameBoundary()
+    {
+        var e = Engine();
+        var s = e.NewPlayer("p1", T0, 1);
+        s.Flags.Add(Features.DevUnlockAllFlag);
+        s.Flags.Add(e.Content.Shop.NoAdsFlag);
+        s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
+        long dayStart = GameClock.DayStartMs(e.Content, GameClock.DayIndex(e.Content, T0));
+        long lastMs = dayStart + GameClock.Day - 1, next = dayStart + GameClock.Day;
+        Assert.Equal(MetaTime.DayIndex(e.Content, T0), EconomySystem.DayIndex(e.Content, T0));
+
+        Grant(e, s, new Reward(RewardKinds.Blueprint, "bp_spore_vats", 1));
+        Ok(e, ref s, new CityBuild { BlueprintId = "bp_spore_vats", X = 4, Y = 4 }, T0);
+        string timerId = CitySystem.Owned(s, "bp_spore_vats").TimerId;
+        Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.DailyFree }, T0);
+        Ok(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Ad }, T0);
+        Ok(e, ref s, new TimerSpeedUp { TimerId = timerId, Method = SpeedUpMethod.Free }, T0);
+        Ok(e, ref s, new LoginClaim(), T0);
+
+        // Still the same reset-day one millisecond before the boundary: every daily limit holds.
+        Fail(e, ref s, new BuyStamina { Method = StaminaRefillMethod.DailyFree }, lastMs);
+        Fail(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Ad }, lastMs);
+        Assert.Equal(0, TimerSystem.FreeSpeedUpsLeft(s, e.Content, lastMs));
+        Assert.False(QuestSystem.CanClaimLogin(s, e.Content, lastMs));
+
+        // At the boundary everything resets together.
+        Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.DailyFree }, next);
+        Ok(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Ad }, next);
+        Assert.Equal(e.Content.TimerTuning.FreeSpeedUpsPerDay, TimerSystem.FreeSpeedUpsLeft(s, e.Content, next));
+        Assert.True(QuestSystem.CanClaimLogin(s, e.Content, next));
+    }
 }

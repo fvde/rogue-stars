@@ -10,9 +10,10 @@ public static class ProgressionKit
     public const long Day = 86_400_000;
     public static ContentDb C => ContentDb.Default;
 
-    public static GameEngine Engine(bool cloner = true) => cloner ? TestHelpers.Engine() : new GameEngine(ContentDb.Default);
+    public static GameEngine Engine(bool cloner = true) => cloner ? TestHelpers.Engine() : new GameEngine(TestHelpers.NoStarterKit);
 
-    public static GameState Player(GameEngine e, long seed = 42) => e.NewPlayer("p1", TestHelpers.T0, seed);
+    /// <summary>New player with all feature gates open (Progression tests are not about gating).</summary>
+    public static GameState Player(GameEngine e, long seed = 42) => TestHelpers.NewPlayer(e, seed);
 
     public static void Grant(GameEngine e, GameState s, Reward r)
     {

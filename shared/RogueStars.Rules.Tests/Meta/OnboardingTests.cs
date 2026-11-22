@@ -86,7 +86,7 @@ public class OnboardingTests
     {
         var e = Engine(); var s = Player(e);
         Assert.False(Features.IsUnlocked(s, e.Content, Features.Forge));
-        s.Counters[Requirements.WormLevelCounter] = 25;
+        s.Worm.Level = 25; // gates read the real worm level (provider)
         Assert.True(Features.IsUnlocked(s, e.Content, Features.Forge));
         Assert.False(Features.IsUnlocked(s, e.Content, Features.Burrow)); // all-of: needs main 25 too
     }

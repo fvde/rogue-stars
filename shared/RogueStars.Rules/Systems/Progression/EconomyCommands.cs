@@ -6,14 +6,14 @@ namespace RogueStars.Rules.Systems
     public enum StaminaRefillMethod { Diamonds, Ad, DailyFree }
 
     /// <summary>
-    /// Buy one stamina refill. Ad: the client sets AdWatched after a completed rewarded ad (not needed with
-    /// the No Ads entitlement). Payload: <see cref="StaminaRefillResult"/>.
+    /// Buy one stamina refill. Ad: AdToken proves the completed rewarded ad (not needed with the No Ads
+    /// entitlement); consumes Meta's "stamina_refill" placement cap. Payload: <see cref="StaminaRefillResult"/>.
     /// </summary>
     [Serializable]
     public sealed class BuyStamina : GameCommand
     {
         public StaminaRefillMethod Method;
-        public bool AdWatched;
+        public string AdToken;
     }
 
     [Serializable]

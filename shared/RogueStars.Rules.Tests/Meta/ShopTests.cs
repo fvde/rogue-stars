@@ -231,7 +231,7 @@ public class ShopTests
         var e = Engine(devReceipts: true); var s = Player(e); long t = TestHelpers.T0;
         Assert.Equal("product locked", Fail(e, ref s, new PurchaseStart { ProductId = "fund_worm" }, t));
         s.Counters[Requirements.MainLevelCounter] = 11;
-        s.Counters[Requirements.WormLevelCounter] = 12;
+        s.Worm.Level = 12; // gates/funds read the real worm level (provider)
         Assert.Equal("fund not owned", Fail(e, ref s, new FundClaim { FundId = "worm", Step = 0 }, t));
         Buy(e, ref s, "fund_worm", t);
         long dia = Bal(s, Currencies.Diamonds);

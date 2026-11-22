@@ -78,13 +78,13 @@ public class TimerTests
         long remaining = Hour;
         for (int i = 0; i < 3; i++)
         {
-            Ok(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad }, T0);
+            Ok(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad, AdToken = "ad" }, T0);
             remaining -= (long)Math.Ceiling(remaining * 0.15);
             Assert.Equal(T0 + remaining, TimerSystem.Get(s, t.Id).EndsMs);
         }
         Assert.Equal(T0 + 2_210_850, TimerSystem.Get(s, t.Id).EndsMs); // 3600000 × 0.85³ (rounded per step)
         Assert.Equal(0, TimerSystem.AdsLeft(TimerSystem.Get(s, t.Id), e.Content));
-        Assert.Equal("no ad speed-ups left for this timer", Fail(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad }, T0));
+        Assert.Equal("no ad speed-ups left for this timer", Fail(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad, AdToken = "ad" }, T0));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class TimerTests
         Assert.True(TimerSystem.AdRequired(s, e.Content));
         s.Flags.Add("ent_no_ads");
         Assert.False(TimerSystem.AdRequired(s, e.Content));
-        Ok(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad }, T0);
+        Ok(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Ad, AdToken = "ad" }, T0);
         Assert.Equal(T0 + 3_060_000, TimerSystem.Get(s, t.Id).EndsMs);
     }
 
@@ -107,11 +107,11 @@ public class TimerTests
         Ok(e, ref s, new CityBuild { BlueprintId = "bp_biomass_farm", X = 4, Y = 4 }, T0);
         string id = CitySystem.Owned(s, "bp_biomass_farm").TimerId;
         // 1 minute left after 50 s: 15% of 10 s = 1.5 s -> ends at T0+58.5 s; at T0+59 s it is due.
-        Ok(e, ref s, new TimerSpeedUp { TimerId = id, Method = SpeedUpMethod.Ad }, T0 + 50_000);
+        Ok(e, ref s, new TimerSpeedUp { TimerId = id, Method = SpeedUpMethod.Ad, AdToken = "ad" }, T0 + 50_000);
         Assert.Equal(0, CitySystem.Owned(s, "bp_biomass_farm").Level);
         e.Settle(s, T0 + 58_500);
         Assert.Equal(1, CitySystem.Owned(s, "bp_biomass_farm").Level);
-        Assert.Equal("unknown timer", Fail(e, ref s, new TimerSpeedUp { TimerId = id, Method = SpeedUpMethod.Ad }, T0 + 59_000));
+        Assert.Equal("unknown timer", Fail(e, ref s, new TimerSpeedUp { TimerId = id, Method = SpeedUpMethod.Ad, AdToken = "ad" }, T0 + 59_000));
     }
 
     [Fact]

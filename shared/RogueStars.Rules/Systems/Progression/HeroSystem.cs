@@ -92,6 +92,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleUnlock(HeroUnlock cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Heroes);
             var s = ctx.State; RequireDef(ctx.Content, cmd.HeroId);
             GameEngine.Require(Get(s, cmd.HeroId) == null, "hero already unlocked");
             ProgressionUtil.Spend(s, Currencies.HeroShards(cmd.HeroId), ctx.Content.HeroConfig.StarShardCosts[1]);
@@ -104,6 +105,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStarUp(HeroStarUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Heroes);
             var s = ctx.State; var cfg = ctx.Content.HeroConfig; RequireDef(ctx.Content, cmd.HeroId);
             var h = Get(s, cmd.HeroId);
             GameEngine.Require(h != null, "hero not unlocked");
@@ -118,6 +120,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleLevelUp(HeroLevelUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Heroes);
             var s = ctx.State; var cfg = ctx.Content.HeroConfig; RequireDef(ctx.Content, cmd.HeroId);
             var h = Get(s, cmd.HeroId);
             GameEngine.Require(h != null, "hero not unlocked");
@@ -133,6 +136,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleEquip(HeroEquip cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Heroes);
             var s = ctx.State;
             if (string.IsNullOrEmpty(cmd.HeroId)) { s.Heroes.Equipped = ""; return CommandResult.Success(); }
             GameEngine.Require(Get(s, cmd.HeroId) != null, "hero not unlocked");

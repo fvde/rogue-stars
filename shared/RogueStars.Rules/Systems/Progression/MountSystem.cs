@@ -88,6 +88,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStarUp(MountStarUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Mounts);
             var s = ctx.State; var cfg = ctx.Content.MountConfig; var m = RequireOwned(ctx, cmd.MountId);
             GameEngine.Require(m.Stars < cfg.MaxStars, "mount is at max stars (awaken next)");
             ProgressionUtil.Spend(s, Currencies.MountShards(cmd.MountId), cfg.StarShardCosts[m.Stars + 1]);
@@ -99,6 +100,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleAwaken(MountAwaken cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Mounts);
             var s = ctx.State; var cfg = ctx.Content.MountConfig; var m = RequireOwned(ctx, cmd.MountId);
             GameEngine.Require(m.Stars >= cfg.MaxStars, "mount needs max stars before awakening");
             GameEngine.Require(m.Awaken < cfg.MaxAwaken, "mount is fully awakened");
@@ -112,6 +114,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleLevelUp(MountLevelUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Mounts);
             var s = ctx.State; var cfg = ctx.Content.MountConfig; var m = RequireOwned(ctx, cmd.MountId);
             GameEngine.Require(cmd.Levels >= 1, "levels must be >= 1");
             GameEngine.Require(m.Level + cmd.Levels <= cfg.MaxLevel(m.Stars, m.Awaken), "mount level cap reached");
@@ -125,6 +128,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleEquip(MountEquip cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Mounts);
             if (string.IsNullOrEmpty(cmd.MountId)) { ctx.State.Mounts.Active = ""; return CommandResult.Success(); }
             RequireOwned(ctx, cmd.MountId);
             ctx.State.Mounts.Active = cmd.MountId;

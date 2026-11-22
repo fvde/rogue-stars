@@ -242,9 +242,9 @@ namespace RogueStars.Rules.Content
                 Funds[id] = f;
             }
             Fund("worm", "Worm Fund", 999, RequirementKind.WormLevel, null, new long[] { 10, 15, 20, 25, 30, 40, 50 }, 300);
-            Fund("hero", "Hero Fund", 999, RequirementKind.Counter, "hero_stars_total", new long[] { 3, 6, 10, 15, 20, 30 }, 300);
-            Fund("mount", "Mount Fund", 999, RequirementKind.Counter, "mount_levels_gained", new long[] { 5, 10, 20, 30, 40 }, 300);
-            Fund("city", "City Fund", 1999, RequirementKind.Counter, "buildings_upgraded", new long[] { 10, 25, 50, 75, 100, 150 }, 500);
+            Fund("hero", "Hero Fund", 999, RequirementKind.Counter, "hero_stars", new long[] { 3, 6, 10, 15, 20, 30 }, 300);
+            Fund("mount", "Mount Fund", 999, RequirementKind.Counter, "mount_levels", new long[] { 5, 10, 20, 30, 40 }, 300);
+            Fund("city", "City Fund", 1999, RequirementKind.Counter, "city_building_upgrades", new long[] { 10, 25, 50, 75, 100, 150 }, 500);
 
             // Diamond shop items.
             void Item(string id, string name, string section, Cost price, Reward contents, int limit, LimitPeriod period)

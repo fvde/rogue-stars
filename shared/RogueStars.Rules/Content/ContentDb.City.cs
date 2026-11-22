@@ -141,8 +141,8 @@ namespace RogueStars.Rules.Content
         /// <summary>Daily free speed-ups (0 disables) and the time each removes (0 = completes the timer).</summary>
         public int FreeSpeedUpsPerDay = 1;
         public long FreeSpeedUpMs = 30 * 60_000L;
-        /// <summary>Entitlement flag in state.Flags that makes ad speed-ups instant (no ad shown).</summary>
-        public string NoAdsFlag = "ent_no_ads";
+        /// <summary>Meta ad placement consumed by ad speed-ups (shared daily cap; instant with No Ads).</summary>
+        public string AdPlacementId = "timer_speedup";
     }
 
     public sealed partial class ContentDb

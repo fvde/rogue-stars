@@ -106,6 +106,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStart(BreedStart cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Breeding);
             var a = AlienSystem.Owned(ctx.State, cmd.ParentA);
             var b = AlienSystem.Owned(ctx.State, cmd.ParentB);
             GameEngine.Require(a != null && b != null, "parent not owned");

@@ -99,11 +99,16 @@ namespace RogueStars.Rules.Systems
 
         // ---- pulling -------------------------------------------------------------------------------
 
+        /// <summary>Feature gate of a pull type (GDD §16: Part Signal, Alien Signal, Blueprint Signal).</summary>
+        public static string FeatureFor(GachaType type) =>
+            type == GachaType.Blueprint ? Features.Blueprints : type == GachaType.Alien ? Features.AlienPulls : Features.PartPulls;
+
         private static CommandResult HandlePull(GachaPull cmd, CommandContext ctx)
         {
             var s = ctx.State; var c = ctx.Content;
             GameEngine.Require(c.GachaConfig.Types.ContainsKey(cmd.PullType), "unknown pull type");
             var def = c.GachaConfig.Types[cmd.PullType];
+            Features.Require(s, c, FeatureFor(cmd.PullType));
             GameEngine.Require(cmd.Count == 1 || cmd.Count == 10, "pull count must be 1 or 10");
             var banner = ResolveBanner(c, cmd.PullType, cmd.BannerId, ctx.NowMs, true);
 
@@ -112,7 +117,13 @@ namespace RogueStars.Rules.Systems
                 GameEngine.Require(ctx.Engine.Rewards.CanGrant(e.Kind), "pull type not available yet");
             if (banner != null) GameEngine.Require(ctx.Engine.Rewards.CanGrant(banner.Theme.FeaturedKind), "pull type not available yet");
 
-            if (cmd.Payment == GachaPayment.Tokens)
+            if (cmd.Payment == GachaPayment.Ad)
+            {
+                GameEngine.Require(cmd.Count == 1, "ad pulls are single pulls");
+                GameEngine.Require(!string.IsNullOrEmpty(def.AdPlacementId), "no ad pull for this type");
+                ShopSystem.ConsumeAdView(ctx, def.AdPlacementId, cmd.AdToken);
+            }
+            else if (cmd.Payment == GachaPayment.Tokens)
                 ProgressionUtil.Spend(s, def.TokenCurrency, cmd.Count == 10 ? def.TokenCost10 : def.TokenCost1);
             else
                 ProgressionUtil.Spend(s, Currencies.Diamonds, cmd.Count == 10 ? def.DiamondCost10 : def.DiamondCost1);

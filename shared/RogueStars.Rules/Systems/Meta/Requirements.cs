@@ -24,8 +24,8 @@ namespace RogueStars.Rules.Systems
     {
         /// <summary>Counter holding the highest main portal level number cleared (Run keeps it as a max, not a sum).</summary>
         public const string MainLevelCounter = "main_level_max";
-        /// <summary>Counter holding the current worm level (Progression keeps it equal to the level).</summary>
-        public const string WormLevelCounter = "worm_level";
+        /// <summary>Counter holding the highest worm level (Progression, max-style). Gates read the real level via the provider.</summary>
+        public const string WormLevelCounter = "worm_level_max";
 
         private static readonly Dictionary<RequirementKind, Func<GameState, ContentDb, RequirementDef, long>> Providers =
             new Dictionary<RequirementKind, Func<GameState, ContentDb, RequirementDef, long>>();

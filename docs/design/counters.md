@@ -91,3 +91,15 @@ If a key is missing after merge the lead reconciles (rename here or in content).
 - `pulls_total` — pulls of any type — Progression/Gacha
 - `pulls_legendary`, `pulls_mythic` — pull results of that tier — Progression/Gacha
 
+
+## Integration reconciliation (lead, after merging City, Meta, Progression)
+Meta content now reads the keys the owning workstreams actually write:
+- `worm_level` → `worm_level_max` (Progression). Feature gates and the Worm Fund do not read a counter at all:
+  `RequirementKind.WormLevel` is served by `Requirements.SetProgressProvider` from `state.Worm.Level`.
+- `hero_stars_total` → `hero_stars` (+1 per hero star-up), `mount_levels_gained` → `mount_levels`.
+- `buildings_upgraded` → `city_building_upgrades` (upgrades only, constructions are `city_buildings_built`).
+- `aliens_bred` → `breeds_collected`.
+- Still provided by **Run** (unchanged keys): `main_level_max` (set as a max; every `RequirementKind.MainLevel` gate
+  reads it), `runs_completed`, `battles_won`, `bosses_defeated`, `stamina_spent`.
+- `ads_watched` now also counts stamina refill ads, timer ad speed-ups and gacha ad pulls (all go through
+  `ShopSystem.ConsumeAdView`); `timer_speedups_ad` / `stamina_refills_ad` keep counting per system.

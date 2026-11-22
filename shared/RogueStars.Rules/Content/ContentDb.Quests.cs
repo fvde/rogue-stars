@@ -89,8 +89,8 @@ namespace RogueStars.Rules.Content
             Q("w_bosses", "Defeat 10 bosses", QuestKind.Weekly, "bosses_defeated", 10, 100, 80, null, Reward.Cur(Currencies.GearCores, 100));
             Q("w_daily", "Finish 20 daily quests", QuestKind.Weekly, "daily_quests_claimed", 20, 100, 100, null, Dia(50));
             Q("w_blueprints", "Do 10 Blueprint pulls", QuestKind.Weekly, "pulls_blueprint", 10, 50, 50, Features.Blueprints, Reward.Cur(Currencies.BlueprintTokens, 3));
-            Q("w_buildings", "Upgrade 5 buildings", QuestKind.Weekly, "buildings_upgraded", 5, 50, 50, null, Reward.Cur(Currencies.Biomass, 5000));
-            Q("w_breed", "Breed 2 aliens", QuestKind.Weekly, "aliens_bred", 2, 50, 50, Features.Breeding, Reward.Cur(Currencies.Grain, 3000));
+            Q("w_buildings", "Upgrade 5 buildings", QuestKind.Weekly, "city_building_upgrades", 5, 50, 50, null, Reward.Cur(Currencies.Biomass, 5000));
+            Q("w_breed", "Breed 2 aliens", QuestKind.Weekly, "breeds_collected", 2, 50, 50, Features.Breeding, Reward.Cur(Currencies.Grain, 3000));
             Q("w_invasion", "Fight 3 invasion battles", QuestKind.Weekly, "invasion_battles", 3, 100, 80, Features.Invasions, Dia(50));
 
             // Achievements (absolute counters).
@@ -99,7 +99,7 @@ namespace RogueStars.Rules.Content
                 Q("a_runs_" + runTiers[i], "Complete " + runTiers[i] + " runs", QuestKind.Achievement, "runs_completed", runTiers[i], 0, 0, null, Dia(20 + 20 * i));
             long[] wormTiers = { 10, 20, 30, 50 };
             for (int i = 0; i < wormTiers.Length; i++)
-                Q("a_worm_" + wormTiers[i], "Reach worm level " + wormTiers[i], QuestKind.Achievement, "worm_level", wormTiers[i], 0, 0, null, Dia(50 + 50 * i));
+                Q("a_worm_" + wormTiers[i], "Reach worm level " + wormTiers[i], QuestKind.Achievement, "worm_level_max", wormTiers[i], 0, 0, null, Dia(50 + 50 * i));
             Q("a_pulls_100", "Do 100 Part pulls", QuestKind.Achievement, "pulls_part", 100, 0, 0, null, Dia(200));
             Q("a_arena_50", "Win 50 arena fights", QuestKind.Achievement, "arena_wins", 50, 0, 0, Features.Arena, Dia(200));
             Q("a_invasion_top", "Be top contributor of an invasion", QuestKind.Achievement, "invasion_top_contributor", 1, 0, 0, Features.Invasions, Dia(300));
@@ -111,11 +111,11 @@ namespace RogueStars.Rules.Content
                 Quests[id].Day = day;
             }
             NP(1, "np_runs_3", "Complete 3 runs", "runs_completed", 3, Dia(50));
-            NP(2, "np_worm_5", "Reach worm level 5", "worm_level", 5, Dia(50));
+            NP(2, "np_worm_5", "Reach worm level 5", "worm_level_max", 5, Dia(50));
             NP(3, "np_pulls_10", "Do 10 Part pulls", "pulls_part", 10, Reward.Cur(Currencies.PartTokens, 5));
             NP(4, "np_runs_15", "Complete 15 runs", "runs_completed", 15, Dia(80));
-            NP(5, "np_buildings_5", "Upgrade 5 buildings", "buildings_upgraded", 5, Dia(80));
-            NP(6, "np_worm_12", "Reach worm level 12", "worm_level", 12, Dia(100));
+            NP(5, "np_buildings_5", "Upgrade 5 buildings", "city_building_upgrades", 5, Dia(80));
+            NP(6, "np_worm_12", "Reach worm level 12", "worm_level_max", 12, Dia(100));
             NP(7, "np_bosses_20", "Defeat 20 bosses", "bosses_defeated", 20, Reward.Cur(Currencies.AlienTokens, 10));
 
             void Chest(PointTrack track, long points, params Reward[] rewards)

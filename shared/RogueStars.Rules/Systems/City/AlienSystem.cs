@@ -201,6 +201,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleLevelUp(AlienLevelUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Aliens);
             var a = Owned(ctx.State, cmd.AlienTypeId);
             GameEngine.Require(a != null, "alien not owned");
             GameEngine.Require(a.Level < MaxLevel(ctx.Content, a), "max level for current stars");
@@ -213,6 +214,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStarUp(AlienStarUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Aliens);
             var a = Owned(ctx.State, cmd.AlienTypeId);
             GameEngine.Require(a != null, "alien not owned");
             GameEngine.Require(a.Stars < MaxStars, "max stars");
@@ -225,6 +227,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleAssign(AlienAssign cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Aliens);
             var a = Owned(ctx.State, cmd.AlienTypeId);
             GameEngine.Require(a != null, "alien not owned");
             if (string.IsNullOrEmpty(cmd.BlueprintId))
@@ -248,6 +251,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleSetSquad(AlienSetSquad cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.AlienSquad);
             var ids = cmd.AlienTypeIds ?? new List<string>();
             GameEngine.Require(ids.Count <= CitySystem.SquadSlots(ctx.State, ctx.Content), "not enough squad slots");
             var seen = new HashSet<string>();

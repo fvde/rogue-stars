@@ -5,8 +5,9 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Onboarding: content-defined feature unlocks (GDD §16), unlock celebrations (opt-in, never forced),
-    /// tutorial step flags and the daily lobby popup cap.
+    /// Onboarding: content-defined feature unlocks (GDD §16), the new-player starter kit and per-feature unlock
+    /// grants (first alien, first housing...), unlock celebrations (opt-in, never forced), tutorial step flags and
+    /// the daily lobby popup cap.
     /// Events: "feature_unlocked"(featureId), "tutorial_step"(step).
     /// </summary>
     public static class OnboardingSystem
@@ -16,6 +17,7 @@ namespace RogueStars.Rules.Systems
         public static void Register(GameEngine e)
         {
             e.RegisterSettler(CheckUnlocks);
+            e.RegisterNewPlayer(ctx => ctx.GrantAll(ctx.Content.Onboarding.StarterKit));
             e.Register<TutorialAdvance>(HandleTutorial);
             e.Register<FeatureCelebrate>(HandleCelebrate);
             e.Register<LobbyPopupShown>(HandlePopup);
@@ -34,6 +36,7 @@ namespace RogueStars.Rules.Systems
                 if (!Requirements.IsMet(s, ctx.Content, f.Requires, ctx.NowMs)) continue;
                 s.Onboarding.Unlocked[f.Id] = ctx.NowMs;
                 ctx.Emit("feature_unlocked", f.Id);
+                ctx.GrantAll(f.UnlockGrants);
             }
         }
 
@@ -150,6 +153,10 @@ namespace RogueStars.Rules.Systems
             if (def == null) return true;
             return Requirements.IsMet(state, content, def.Requires);
         }
+
+        /// <summary>Throws RuleException("feature locked") unless the feature is unlocked (gate for command handlers).</summary>
+        public static void Require(GameState state, ContentDb content, string featureId) =>
+            GameEngine.Require(IsUnlocked(state, content, featureId), "feature locked");
 
         /// <summary>All features in onboarding order with unlock state and requirement text/progress.</summary>
         public static List<FeatureStatus> List(GameState state, ContentDb content, long nowMs = 0)

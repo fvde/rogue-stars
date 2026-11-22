@@ -5,7 +5,8 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    public enum GachaPayment { Tokens, Diamonds }
+    /// <summary>Ad: the daily extra free single pull of a rewarded ad (Meta placement GachaTypeDef.AdPlacementId).</summary>
+    public enum GachaPayment { Tokens, Diamonds, Ad }
 
     /// <summary>
     /// Pull 1 or 10 times on a pull type. BannerId: empty = standard pool; otherwise must be a banner of
@@ -18,6 +19,8 @@ namespace RogueStars.Rules.Systems
         public int Count = 1;
         public GachaPayment Payment;
         public string BannerId;
+        /// <summary>Proof of the watched rewarded ad for Payment = Ad (not needed with No Ads).</summary>
+        public string AdToken;
     }
 
     [Serializable]

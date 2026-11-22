@@ -95,9 +95,11 @@ public class EconomyTests
         var e = Engine(); var s = Player(e);
         Assert.Contains("ad", Fail(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad }));
         long st = s.Wallet.Get(Currencies.Stamina);
-        for (int i = 0; i < C.EconomyConfig.StaminaRefill.AdRefillsPerDay; i++) Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad, AdWatched = true });
-        Assert.Equal(st + 3 * C.EconomyConfig.StaminaRefill.Amount, s.Wallet.Get(Currencies.Stamina));
-        Fail(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad, AdWatched = true });
+        int cap = C.AdPlacement(C.EconomyConfig.StaminaRefill.AdPlacementId)!.DailyCap; // Meta's ad cap
+        for (int i = 0; i < cap; i++) Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad, AdToken = "ad" + i });
+        Assert.Equal(st + cap * C.EconomyConfig.StaminaRefill.Amount, s.Wallet.Get(Currencies.Stamina));
+        Assert.Equal(cap, s.Counter("ads_watched"));
+        Assert.Equal("ad daily cap reached", Fail(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad, AdToken = "more" }));
 
         s.Flags.Add(ProgressionFlags.NoAds);
         Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.Ad }, TestHelpers.T0 + Day); // no ad needed

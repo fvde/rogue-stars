@@ -61,6 +61,11 @@ namespace RogueStars.Rules.Content
         public List<Reward> UnlockRewards = new List<Reward>();
         /// <summary>Optional tutorial step the UI should offer after unlocking.</summary>
         public string TutorialStep;
+        /// <summary>
+        /// Granted automatically the moment the unlock is recorded (the feature's starter items, e.g. the first
+        /// alien when Aliens unlock). Unlike <see cref="UnlockRewards"/> it does not wait for the celebration.
+        /// </summary>
+        public List<Reward> UnlockGrants = new List<Reward>();
     }
 
     [Serializable]
@@ -80,6 +85,11 @@ namespace RogueStars.Rules.Content
     {
         /// <summary>Max lobby popups (offers, celebrations, news) shown per day.</summary>
         public int MaxLobbyPopupsPerDay = 3;
+        /// <summary>
+        /// Items every new player starts with (first parts, first blueprint). Starting currencies live in
+        /// EconomyConfig.StartingWallet (Progression). Granted through the owners' granters.
+        /// </summary>
+        public List<Reward> StarterKit = new List<Reward>();
     }
 
     /// <summary>Daily/weekly reset anchors shared by quests, shop limits, ads, arena and guild.</summary>
@@ -158,6 +168,23 @@ namespace RogueStars.Rules.Content
                 if (diamonds > 0) t.Rewards.Add(Reward.Cur(Currencies.Diamonds, diamonds));
                 TutorialSteps[id] = t;
             }
+            // Starter kit (new player) and items granted when a feature unlocks (GDD §16 onboarding order).
+            var kit = Onboarding.StarterKit;
+            kit.Add(new Reward(RewardKinds.Part, "arm_slam_hammer", 1, (int)PartRarity.Common));
+            kit.Add(new Reward(RewardKinds.Part, "head_scanner_visor", 1, (int)PartRarity.Common));
+            kit.Add(new Reward(RewardKinds.Part, "body_plated_shell", 1, (int)PartRarity.Common));
+            kit.Add(new Reward(RewardKinds.Blueprint, "bp_biomass_farm", 1));
+            void G(string featureId, Reward r) => FeatureDefs[featureId].UnlockGrants.Add(r);
+            G(Features.GrainFarm, new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1));
+            G(Features.Laboratory, new Reward(RewardKinds.Blueprint, "bp_laboratory", 1));
+            G(Features.Aliens, new Reward(RewardKinds.Alien, "alien_blorp", 1));
+            G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, "bp_housing_pod", 1));
+            G(Features.OreMine, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
+            G(Features.Heroes, new Reward(RewardKinds.HeroShards, "hero_star_knight", 40)); // enough to unlock the first hero
+            G(Features.Runes, new Reward(RewardKinds.Rune, "rune_vigor", 1, 0));
+            G(Features.Mounts, new Reward(RewardKinds.Mount, "mount_scout_saucer", 1));
+            G(Features.Breeding, new Reward(RewardKinds.Blueprint, "bp_breeding_pen", 1));
+
             T("wake_up", "The worm wakes", null, null);
             T("first_roll", "Roll the dice", "wake_up", null);
             T("first_battle", "Win a battle", "first_roll", null);

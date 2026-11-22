@@ -388,6 +388,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleRuneSocket(RuneSocket cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Runes);
             var s = ctx.State; var c = ctx.Content; var rune = RequireRune(s, cmd.RuneUid); var p = RequirePart(s, cmd.PartUid);
             GameEngine.Require(string.IsNullOrEmpty(rune.SocketedIn), "rune is already socketed");
             GameEngine.Require(cmd.SlotIndex >= 0 && cmd.SlotIndex < RuneSlotCount(c, p), "rune slot locked");
@@ -404,6 +405,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleRuneUnsocket(RuneUnsocket cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Runes);
             var s = ctx.State; var p = RequirePart(s, cmd.PartUid);
             GameEngine.Require(cmd.SlotIndex >= 0 && cmd.SlotIndex < p.Runes.Count && !string.IsNullOrEmpty(p.Runes[cmd.SlotIndex]), "slot is empty");
             s.Parts.Runes[p.Runes[cmd.SlotIndex]].SocketedIn = "";
@@ -413,6 +415,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleRuneMerge(RuneMerge cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Runes);
             var s = ctx.State; var cfg = ctx.Content.PartsConfig;
             GameEngine.Require(cmd.RuneUids != null && cmd.RuneUids.Count == cfg.RuneMergeCount, "need " + cfg.RuneMergeCount + " runes");
             var seen = new HashSet<string>();
@@ -435,12 +438,14 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleRuneLock(RuneLock cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Runes);
             RequireRune(ctx.State, cmd.RuneUid).Locked = cmd.Locked;
             return CommandResult.Success();
         }
 
         private static CommandResult HandleForge(PartForgeUnlock cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.Forge);
             var s = ctx.State; var cfg = ctx.Content.PartsConfig; var p = RequirePart(s, cmd.Uid);
             GameEngine.Require(p.Rarity >= (int)cfg.ForgeMinRarity, "part rarity too low for the Forge");
             GameEngine.Require(p.ForgedSlots < cfg.Forge.Count, "all Forge unlocks done");

@@ -40,12 +40,8 @@ namespace RogueStars.Rules.Systems
             Providers.GetValue(e, _ => new List<RegenBonusProvider>()).Add(provider);
         }
 
-        /// <summary>Day index used for all daily limits in Progression.</summary>
-        public static long DayIndex(ContentDb c, long nowMs)
-        {
-            long d = c.EconomyConfig.DayMs;
-            return nowMs >= 0 ? nowMs / d : -((-nowMs + d - 1) / d);
-        }
+        /// <summary>Day index used for daily limits: the shared reset boundary (<see cref="GameClock.DayIndex"/>).</summary>
+        public static long DayIndex(ContentDb c, long nowMs) => GameClock.DayIndex(c, nowMs);
 
         /// <summary>Current cap of a regenerating currency including all bonuses (as of the last settle).</summary>
         public static long RegenCap(GameState s, ContentDb c, string currency)
@@ -115,16 +111,15 @@ namespace RogueStars.Rules.Systems
             var es = s.Economy;
             bool today = es.DayIndex == DayIndex(c, nowMs);
             int dia = today ? es.StaminaDiamondRefillsToday : 0;
-            int ad = today ? es.StaminaAdRefillsToday : 0;
             int free = today ? es.StaminaFreeRefillsToday : 0;
             return new StaminaRefillInfo
             {
                 Amount = cfg.Amount,
                 NextDiamondPrice = dia < cfg.DiamondPrices.Count ? cfg.DiamondPrices[dia] : -1,
                 DiamondRefillsLeft = Math.Max(0, cfg.DiamondPrices.Count - dia),
-                AdRefillsLeft = Math.Max(0, cfg.AdRefillsPerDay - ad),
+                AdRefillsLeft = ShopSystem.AdViewsLeft(s, c, cfg.AdPlacementId, nowMs),
                 FreeRefillsLeft = Math.Max(0, cfg.FreeRefillsPerDay - free),
-                AdsInstant = s.Flags.Contains(ProgressionFlags.NoAds),
+                AdsInstant = ShopSystem.HasNoAds(s, c),
             };
         }
 
@@ -142,8 +137,8 @@ namespace RogueStars.Rules.Systems
                     s.Count("stamina_refills_diamonds");
                     break;
                 case StaminaRefillMethod.Ad:
-                    GameEngine.Require(es.StaminaAdRefillsToday < cfg.AdRefillsPerDay, "daily ad refill limit reached");
-                    GameEngine.Require(cmd.AdWatched || s.Flags.Contains(ProgressionFlags.NoAds), "ad not watched");
+                    // Daily cap, ad token and No Ads (instant) are Meta's ad placement rules.
+                    ShopSystem.ConsumeAdView(ctx, cfg.AdPlacementId, cmd.AdToken);
                     es.StaminaAdRefillsToday++;
                     s.Count("stamina_refills_ad");
                     break;

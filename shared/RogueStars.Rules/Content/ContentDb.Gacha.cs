@@ -37,6 +37,8 @@ namespace RogueStars.Rules.Content
         public GachaType Type;
         public string Name;
         public string TokenCurrency;
+        /// <summary>Meta ad placement for the daily extra free single pull (GachaPayment.Ad).</summary>
+        public string AdPlacementId;
         public long TokenCost1 = 1;
         public long TokenCost10 = 10;
         public long DiamondCost1;
@@ -185,6 +187,7 @@ namespace RogueStars.Rules.Content
             var d = new GachaTypeDef
             {
                 Type = type, Name = name, TokenCurrency = token, TokenCost1 = 1, TokenCost10 = 10,
+                AdPlacementId = "free_pull_" + type.ToString().ToLowerInvariant(),
                 DiamondCost1 = 150, DiamondCost10 = 1350,
                 MythicHardPity = 50, LegendarySoftPityStart = 25, LegendarySoftPityStep = 2.5, LegendaryHardPity = 40,
                 TenPullMinTier = Rarity.Epic,

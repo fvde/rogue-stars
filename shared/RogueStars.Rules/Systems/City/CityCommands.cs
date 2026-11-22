@@ -35,7 +35,8 @@ namespace RogueStars.Rules.Systems
     public enum SpeedUpMethod { Diamonds = 0, Ad = 1, Free = 2 }
 
     /// <summary>Speed up any timer. Diamonds: completes it; Ad: −15% of remaining (max 3 per timer); Free: daily free speed-up.</summary>
-    [Serializable] public sealed class TimerSpeedUp : GameCommand { public string TimerId; public SpeedUpMethod Method; }
+    /// AdToken: proof of the watched rewarded ad (not needed with No Ads).
+    [Serializable] public sealed class TimerSpeedUp : GameCommand { public string TimerId; public SpeedUpMethod Method; public string AdToken; }
 
     // ---- Aliens -------------------------------------------------------------------------------
 

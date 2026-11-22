@@ -17,6 +17,8 @@ namespace RogueStars.Rules.Systems
             e.Register<WormTalentUpgrade>(HandleTalentUpgrade);
             e.Register<WormTalentTierUp>(HandleTierUp);
             e.RegisterLoadoutContributor(Contribute);
+            // Feature gates / funds measure the real worm level (not a counter).
+            Requirements.SetProgressProvider(RequirementKind.WormLevel, (s, c, req) => s.Worm.Level);
             EconomySystem.RegisterRegenBonusProvider(e, (s, c, now, currency) =>
                 currency == Currencies.Stamina ? ((long)PerkTotal(s, c, TalentPerkKinds.StaminaCap), 0.0) : (0L, 0.0));
         }
