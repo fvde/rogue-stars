@@ -21,3 +21,8 @@ infra/**/*.tfvars
 !infra/**/example.tfvars
 # OS
 .DS_Store
+
+# Unity regenerates these for the shared package; it holds no assets referenced by GUID
+shared/**/*.meta
+# Agent worktrees
+.claude/
