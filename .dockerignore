@@ -1,0 +1,8 @@
+**/artifacts/
+**/bin/
+**/obj/
+.git/
+client/
+infra/
+docs/
+**/*.user
