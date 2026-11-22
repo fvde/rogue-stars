@@ -3,6 +3,10 @@
     <Project Path="server/RogueStars.Server.Tests/RogueStars.Server.Tests.csproj" />
     <Project Path="server/RogueStars.Server/RogueStars.Server.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/RogueStars.Sim.Tests/RogueStars.Sim.Tests.csproj" />
+    <Project Path="tools/RogueStars.Sim/RogueStars.Sim.csproj" />
+  </Folder>
   <Folder Name="/shared/">
     <Project Path="shared/RogueStars.Rules.Tests/RogueStars.Rules.Tests.csproj" />
     <Project Path="shared/RogueStars.Rules/RogueStars.Rules.csproj" />

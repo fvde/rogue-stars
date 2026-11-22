@@ -160,7 +160,7 @@ namespace RogueStars.Rules.Content
             F(Features.Overcharged, "Overcharged Levels", RequirementSet.All(ReqMain(22)), 50);
             F(Features.Forge, "Forge", RequirementSet.AnyOf(ReqWorm(25), ReqMain(28)), 50);
             F(Features.Burrow, "Burrow", RequirementSet.All(ReqMain(25), ReqWorm(15)), 50);
-            F(Features.DarkSide, "Dark Side of the Planet", RequirementSet.All(ReqMain(40)), 100);
+            F(Features.DarkSide, "Dark Side of the Planet", RequirementSet.All(ReqMain(Campaign.DarkSideFromLevel)), 100);
 
             void T(string id, string name, string after, string feature, long diamonds = 0)
             {

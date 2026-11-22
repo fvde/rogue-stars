@@ -41,10 +41,17 @@ after the main hero is maxed.
 ## Other long-haul curves (content)
 - Worm: 500 levels, Biomass cost `80·L^1.5·1.01^L` (>1 billion Biomass to max), +3% HP/ATK/DEF every 25 levels;
   60 talent tiers.
-- Parts: Mythic needs 2 Legendary copies of the same part on top of the Legendary+3 chain; Mythic+3 needs
-  4 further Mythic-rarity parts. Level cap 10 (Common) → 100 (Mythic+3) + up to 6 plate raises; S/SS awakening
-  costs endgame Part Awaken Cores (20 / 60).
-- Mounts: 5★ costs 350 shards (35 duplicates), awakening 1–5 another 1 620 shards + 1 300 Mount Cores.
+- Parts: Mythic needs 2 Legendary copies of the same part on top of the Legendary+3 chain; Mythic+1/+2/+3 need
+  3 / 4 / 1 same + 5 further Mythic parts of the same kind (balance pass: was 1 / 2 / 1+1). Level cap 10 (Common) →
+  100 (Mythic+3) + up to 6 plate raises (60…1 600 plates); Gear Cores from part level 10 (2·(L−9)^1.25 per level);
+  S/SS awakening costs Part Awaken Cores (40 / 150) from Burrow floor 10 and the Dark Side.
+- Mounts: 5★ costs 350 shards (35 duplicates), awakening 1–5 another 1 040 shards + 2 500 Mount Cores. Mount copies
+  are ~25% of Blueprint Signal outcomes (1/1/2/5/10 copies by tier, first copy unlocks the mount) and a mount banner
+  ("Lancer Shipyard", 15 copies) rotates with the blueprint banners; Mount Cores come from Burrow floors 6+, the Dark
+  Side and the guild shop.
+
+The full meta-progression (every system, 9 player profiles, 2 years) is simulated by `tools/RogueStars.Sim`; see
+`docs/balance/progression-report.md` for the curves, walls and the balance pass that set the numbers above.
 
 ## Levers
 - Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).

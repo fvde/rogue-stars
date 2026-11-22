@@ -137,7 +137,7 @@ public class PartsTests
     public void Dismantle_RefundsAllMaterials_PlusDismantleOre_AndFreesRunes()
     {
         var e = Engine(); var s = Player(e);
-        SetBalance(s, Currencies.Ore, 1_000_000); SetBalance(s, Currencies.GearCores, 0); SetBalance(s, Currencies.AdvancementPlates, 100);
+        SetBalance(s, Currencies.Ore, 1_000_000); SetBalance(s, Currencies.GearCores, 1000); SetBalance(s, Currencies.AdvancementPlates, 100);
         var p = Add(s, Head, PartRarity.RarePlus);
         var rune = PartsSystem.AddRune(s, C, "rune_vigor", 0);
         Ok(e, ref s, new PartLevelUp { Uid = p.Uid, Levels = 10 });
@@ -149,6 +149,7 @@ public class PartsTests
         Ok(e, ref s, new PartDismantle { Uids = new List<string> { p.Uid } });
         Assert.Equal(1_000_000 + C.PartsConfig.Rarities[(int)PartRarity.RarePlus].DismantleOre, s.Wallet.Get(Currencies.Ore));
         Assert.Equal(100, s.Wallet.Get(Currencies.AdvancementPlates));
+        Assert.Equal(1000, s.Wallet.Get(Currencies.GearCores));
         Assert.Equal("", s.Parts.Runes[rune.Uid].SocketedIn);
         Assert.Empty(s.Parts.Items);
     }
@@ -251,7 +252,7 @@ public class PartsTests
         p = s.Parts.Items[p.Uid];
         Assert.Equal(new[] { Arm + "_sig", Arm + "_ss" }, PartsSystem.PartSkills(C, p));
         Assert.Contains("fully", Fail(e, ref s, new PartAwaken { Uid = p.Uid }));
-        Assert.Equal(1000 - 20 - 60, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
+        Assert.Equal(1000 - C.PartsConfig.AwakenCores[0] - C.PartsConfig.AwakenCores[1], s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
         var sk = C.Skill(Arm + "_ss")!;
         Assert.Equal(SkillSource.Part, sk.Source);
         Assert.False(sk.Draftable);

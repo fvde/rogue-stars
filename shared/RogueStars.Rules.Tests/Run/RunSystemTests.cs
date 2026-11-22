@@ -432,7 +432,7 @@ public class LaboratoryTests
         var pool = e.BuildLoadout(s, ready).DraftPoolSkillIds;
         Assert.Contains("lab_burning_soul_2", pool);
         Assert.DoesNotContain("lab_burning_soul", pool);
-        Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, ready).Ok); // maxed
+        Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, ready).Ok); // level 3 is far pricier
         Assert.Equal(2, s.Counter("lab_research_completed"));
     }
 

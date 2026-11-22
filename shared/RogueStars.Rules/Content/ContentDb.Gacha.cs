@@ -120,6 +120,9 @@ namespace RogueStars.Rules.Content
             double[] tierWeights = { 60, 28, 9.5, 2.0, 0.5 };
             int[] partRarityForTier = { (int)PartRarity.Common, (int)PartRarity.Rare, (int)PartRarity.Epic, (int)PartRarity.Legendary, (int)PartRarity.Mythic };
             long[] heroShardsForTier = { 2, 5, 10, 25, 60 };
+            // Mount copies ride on the Blueprint Signal (ships are built from blueprints): ~25% of outcomes, all mounts.
+            // The first copy unlocks a mount, every further copy is MountConfig.DupeShards shards.
+            long[] mountCopiesForTier = { 1, 1, 2, 5, 10 };
 
             var part = NewGachaType(GachaType.Part, "Part Signal", Currencies.PartTokens);
             var bp = NewGachaType(GachaType.Blueprint, "Blueprint Signal", Currencies.BlueprintTokens);
@@ -133,7 +136,11 @@ namespace RogueStars.Rules.Content
 
                 // Every City blueprint and alien type is pullable in the tier of its rarity (City owns the granters).
                 var bt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
-                foreach (var id in GachaIdsOfRarity(Blueprints, d => d.Rarity, (Rarity)t)) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
+                var bpIds = GachaIdsOfRarity(Blueprints, d => d.Rarity, (Rarity)t);
+                foreach (var id in bpIds) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
+                var mounts = GachaSortedKeys(MountConfig.Defs);
+                double mountWeight = Math.Max(1, bpIds.Count) / 3.0 / mounts.Count;
+                foreach (var id in mounts) bt.Pool.Add(new GachaEntry(RewardKinds.Mount, id, mountCopiesForTier[t], t, mountWeight));
                 bp.Tiers.Add(bt);
 
                 var at = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
@@ -167,6 +174,7 @@ namespace RogueStars.Rules.Content
                 {
                     GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
                     GachaThemeOf("bp_reliquary_week", "Reliquary Week", RewardKinds.Blueprint, "bp_ancient_reliquary", 1, mythic),
+                    GachaThemeOf("bp_lancer_shipyard", "Lancer Shipyard", RewardKinds.Mount, "mount_star_lancer", 15, mythic),
                 },
             });
             g.Rotations.Add(new BannerRotation

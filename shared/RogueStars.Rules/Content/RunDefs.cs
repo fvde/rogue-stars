@@ -360,6 +360,57 @@ namespace RogueStars.Rules.Content
         public int LabSlots = 1;
     }
 
+    /// <summary>
+    /// Main campaign layout (content): main portals of <see cref="LevelsPerPortal"/> levels, generated from biome
+    /// templates. Main level n (1-based, global) sits at threat position <see cref="ThreatAt"/>(n) on the threat curve;
+    /// the integer part is LevelDef.Threat, the fraction becomes a small enemy HP/ATK bonus, so late levels can climb
+    /// more gently than one curve step per level. Sized with tools/RogueStars.Sim (docs/balance/progression-report.md).
+    /// </summary>
+    [Serializable]
+    public sealed class CampaignDef
+    {
+        public int Portals = 50;
+        public int LevelsPerPortal = 10;
+        /// <summary>Levels 1..LinearUntil advance one threat step per level (the original 3 portals).</summary>
+        public int LinearUntil = 30;
+        /// <summary>Threat steps per level after LinearUntil, for each later portal band (last entry repeats).</summary>
+        public List<double> LateSlopes = new List<double> { 0.5, 0.2, 0.12, 0.12, 0.1, 0.08, 0.07, 0.06 };
+        /// <summary>Portals per entry of LateSlopes.</summary>
+        public int SlopeBandPortals = 3;
+        /// <summary>Stamina per main run: 5 + portal index, capped.</summary>
+        public long StaminaBase = 5, StaminaMax = 10;
+        /// <summary>
+        /// Enemy HP/ATK % per biome family (ember, glacier, static, void) on top of the threat curve: the void family's
+        /// roster (lifesteal boss, bleed/poison packs) is markedly stronger, so main portals even it out.
+        /// </summary>
+        public List<double> FamilyStrengthPct = new List<double> { 0, 0, 0, -25 };
+
+        /// <summary>Main level that opens the Dark Side (feature gate, ContentDb.Onboarding); its levels start just below it.</summary>
+        public int DarkSideFromLevel = 40;
+        /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
+        public int SidePortalOrder = 1000;
+        /// <summary>Main board length: 24 + level index + 2 per portal, the portal part capped here.</summary>
+        public int BoardGrowthPortals = 6;
+
+        /// <summary>Reward scale of portal index i (0-based): (i+1) × RewardGrowth^max(0, i−2).</summary>
+        public double RewardGrowth = 1.0;
+
+        public double ThreatAt(int n)
+        {
+            if (n <= LinearUntil) return n - 1;
+            double t = LinearUntil - 1;
+            int per = Math.Max(1, LevelsPerPortal * SlopeBandPortals);
+            for (int k = LinearUntil + 1; k <= n; k++)
+            {
+                int band = (k - LinearUntil - 1) / per;
+                t += LateSlopes[Math.Min(band, LateSlopes.Count - 1)];
+            }
+            return t;
+        }
+
+        public double RewardScale(int portalIndex) => (portalIndex + 1) * Math.Pow(RewardGrowth, Math.Max(0, portalIndex - 2));
+    }
+
     [Serializable]
     public sealed class ThreatCurve
     {

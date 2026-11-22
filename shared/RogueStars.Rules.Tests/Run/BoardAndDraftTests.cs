@@ -195,8 +195,9 @@ public class ContentTests
     public void RunContent_IsComplete_AndReferencesResolve()
     {
         var c = ContentDb.Default;
-        Assert.Equal(3, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
-        Assert.All(c.Portals.Values.Where(p => p.Kind == PortalKind.Main), p => Assert.Equal(10, p.LevelIds.Count));
+        Assert.Equal(c.Campaign.Portals, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
+        Assert.All(c.Portals.Values.Where(p => p.Kind == PortalKind.Main), p => Assert.Equal(c.Campaign.LevelsPerPortal, p.LevelIds.Count));
+        Assert.Equal(c.Campaign.Portals, c.Portals.Values.Where(p => p.Kind == PortalKind.Main).Select(p => p.Name).Distinct().Count());
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.Burrow);
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.DarkSide);
         Assert.True(c.Enemies.Values.Count(e => !e.Boss) >= 18);
@@ -229,6 +230,34 @@ public class ContentTests
         // loot feeds every system: currencies, parts, runes, blueprints, aliens, tokens
         var kinds = c.RunLootTables["loot_p1"].Entries.Select(e => e.Kind).ToHashSet();
         Assert.Superset(new HashSet<string> { RewardKinds.Currency, RewardKinds.Part, RewardKinds.Rune, RewardKinds.Blueprint, RewardKinds.Alien }, kinds);
+    }
+
+    [Fact]
+    public void Campaign_ReachesEveryFeatureGate_WithARisingThreatCurve()
+    {
+        var c = ContentDb.Default;
+        var mains = c.Portals.Values.Where(p => p.Kind == PortalKind.Main).OrderBy(p => p.Order).SelectMany(p => p.LevelIds).Select(id => c.RunLevel(id)!).ToList();
+        // Every MainLevel gate of the unlock order (Dark Side included) is a real level.
+        foreach (var f in c.FeatureOrder)
+            foreach (var r in f.Requires.Items.Where(r => r.Kind == RequirementKind.MainLevel))
+                Assert.True(r.Target <= mains.Count, f.Id + " gated at main level " + r.Target + " of " + mains.Count);
+        Assert.True(mains.Count >= 300, "a campaign for years");
+        // Effective enemy strength (threat step × fractional bonus, biome family offset removed) rises with every level; stamina stays within the cap.
+        double prev = 0;
+        for (int n = 1; n <= mains.Count; n++)
+        {
+            var l = mains[n - 1];
+            Assert.Equal(n, RunSystem.MainLevelNumber(c, l.Id));
+            double family = c.Campaign.FamilyStrengthPct[(n - 1) / c.Campaign.LevelsPerPortal % c.Campaign.FamilyStrengthPct.Count];
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / (1 + family / 100.0);
+            Assert.True(eff > prev, "level " + n);
+            prev = eff;
+            Assert.InRange(l.StaminaCost, 5, c.Campaign.StaminaMax);
+            Assert.True(c.RunLootTables.ContainsKey(l.LootTableId));
+        }
+        // The Dark Side starts just below its gate level.
+        var dark1 = c.RunLevel("dark_side_1")!;
+        Assert.InRange(dark1.Threat, c.Campaign.ThreatAt(c.Campaign.DarkSideFromLevel) - 8, c.Campaign.ThreatAt(c.Campaign.DarkSideFromLevel));
     }
 
     [Fact]

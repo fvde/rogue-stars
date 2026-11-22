@@ -54,8 +54,8 @@ namespace RogueStars.Rules.Content
             var m = MountConfig;
             m.MaxStars = 5; m.MaxAwaken = 5; m.DupeShards = 10;
             m.StarShardCosts.AddRange(new long[] { 0, 0, 20, 50, 100, 180 });
-            m.AwakenShardCosts.AddRange(new long[] { 0, 150, 220, 300, 400, 550 });
-            m.AwakenCoreCosts.AddRange(new long[] { 0, 50, 100, 200, 350, 600 });
+            m.AwakenShardCosts.AddRange(new long[] { 0, 100, 150, 200, 260, 330 });
+            m.AwakenCoreCosts.AddRange(new long[] { 0, 100, 200, 400, 700, 1100 });
             m.StarStatPercent.AddRange(new double[] { 0, 0, 15, 35, 60, 90 });
             m.AwakenStatPercent.AddRange(new double[] { 0, 15, 32, 52, 75, 100 });
             m.MaxLevelBase = 20; m.MaxLevelPerStep = 10;
