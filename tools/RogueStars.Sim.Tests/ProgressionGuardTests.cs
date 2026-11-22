@@ -39,7 +39,7 @@ public class ProgressionGuardTests
     [InlineData("Campaign", 10)]
     [InlineData("Worm", 10)]
     [InlineData("Parts", 7)]
-    [InlineData("PartLevels", 9)]
+    [InlineData("PartLevels", 20)] // 9 before the plateau fix; see progression-report.md "Plateau fix"
     [InlineData("Heroes", 25)]
     [InlineData("Mounts", 21)]
     [InlineData("Buildings", 7)]

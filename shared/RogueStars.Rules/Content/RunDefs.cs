@@ -374,7 +374,7 @@ namespace RogueStars.Rules.Content
         /// <summary>Levels 1..LinearUntil advance one threat step per level (the original 3 portals).</summary>
         public int LinearUntil = 30;
         /// <summary>Threat steps per level after LinearUntil, for each later portal band (last entry repeats).</summary>
-        public List<double> LateSlopes = new List<double> { 0.5, 0.2, 0.12, 0.12, 0.1, 0.08, 0.07, 0.06 };
+        public List<double> LateSlopes = new List<double> { 0.4, 0.3, 0.12, 0.12, 0.1, 0.08, 0.07, 0.06 };
         /// <summary>Portals per entry of LateSlopes.</summary>
         public int SlopeBandPortals = 3;
         /// <summary>Stamina per main run: 5 + portal index, capped.</summary>
