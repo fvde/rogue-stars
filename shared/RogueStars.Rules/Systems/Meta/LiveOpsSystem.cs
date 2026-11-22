@@ -1,10 +1,290 @@
+using System;
+using System.Collections.Generic;
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    /// <summary>Stub. Owned by workstream Meta; replace with the real implementation.</summary>
+    /// <summary>
+    /// Live ops: global calendar of Invasions (weekly + surprise) and Planetary events (GDD §9).
+    /// - Planetary event modifiers are written into state.Modifiers by a settler for the event window.
+    /// - Invasions: daily attempts (currency invasion_attempts), server-reported damage → contribution score,
+    ///   server-applied group outcome → lasting modifiers + contribution-rank rewards.
+    /// Battles are never run here: the server runs BattleSimulator and reports damage (InvasionRecordDamage).
+    /// Events: "planetary_event"(eventId, occurrenceId), "invasion_outcome"(invasionId, occurrenceId, repelled|overrun).
+    /// </summary>
     public static class LiveOpsSystem
     {
-        public static void Register(GameEngine e) { }
+        public static void Register(GameEngine e)
+        {
+            e.RegisterSettler(Settle);
+            e.RegisterNewPlayer(ctx => Settle(ctx));
+            e.Register<InvasionStartAttempt>(HandleStartAttempt);
+            e.Register<InvasionRecordDamage>(HandleRecordDamage);
+            e.Register<LiveOpsApplyOutcome>(HandleApplyOutcome);
+            e.Register<LiveOpsStartSurpriseInvasion>(HandleStartSurprise);
+        }
+
+        // ---- queries ---------------------------------------------------------------------------
+
+        public static string OccurrenceId(string eventId, long startMs) => eventId + "@" + startMs;
+
+        /// <summary>All live events active at <paramref name="nowMs"/> (calendar + server-pushed surprises), by start time.</summary>
+        public static List<ActiveLiveEvent> ActiveEvents(GameState state, ContentDb content, long nowMs)
+        {
+            var list = new List<ActiveLiveEvent>();
+            foreach (var ev in content.LiveOpsSchedule)
+                if (ev.Schedule.TryActive(nowMs, out long s, out long e)) list.Add(Make(content, ev, s, e));
+            if (state != null)
+                foreach (var si in state.LiveOps.ServerInvasions)
+                    if (nowMs >= si.StartMs && nowMs < si.EndMs)
+                        list.Add(new ActiveLiveEvent
+                        {
+                            OccurrenceId = si.OccurrenceId, EventId = si.OccurrenceId, Kind = LiveOpsKind.Invasion, RefId = si.InvasionId,
+                            Name = content.Invasion(si.InvasionId)?.Name, StartMs = si.StartMs, EndMs = si.EndMs, Surprise = true,
+                        });
+            list.Sort((a, b) => a.StartMs != b.StartMs ? a.StartMs.CompareTo(b.StartMs) : string.CompareOrdinal(a.OccurrenceId, b.OccurrenceId));
+            return list;
+        }
+
+        /// <summary>Announced events starting within the horizon (surprise invasions stay hidden).</summary>
+        public static List<ActiveLiveEvent> UpcomingEvents(ContentDb content, long nowMs, long horizonMs)
+        {
+            var list = new List<ActiveLiveEvent>();
+            foreach (var ev in content.LiveOpsSchedule)
+                if (ev.Announced && ev.Schedule.TryNext(nowMs, out long s, out long e) && s <= nowMs + horizonMs) list.Add(Make(content, ev, s, e));
+            list.Sort((a, b) => a.StartMs != b.StartMs ? a.StartMs.CompareTo(b.StartMs) : string.CompareOrdinal(a.OccurrenceId, b.OccurrenceId));
+            return list;
+        }
+
+        private static ActiveLiveEvent Make(ContentDb content, LiveOpsEventDef ev, long s, long e) => new ActiveLiveEvent
+        {
+            OccurrenceId = OccurrenceId(ev.Id, s), EventId = ev.Id, Kind = ev.Kind, RefId = ev.RefId, StartMs = s, EndMs = e, Surprise = !ev.Announced,
+            Name = ev.Kind == LiveOpsKind.Invasion ? content.Invasion(ev.RefId)?.Name : content.PlanetaryEvent(ev.RefId)?.Name,
+        };
+
+        /// <summary>Contribution score of a battle's damage (content: damage per point). Pure.</summary>
+        public static long ScoreFromDamage(long damage) => ScoreFromDamage(ContentDb.Default, damage);
+
+        public static long ScoreFromDamage(ContentDb content, long damage)
+        {
+            if (damage <= 0) return 0;
+            return damage / Math.Max(1, content.LiveOps.DamagePerScorePoint);
+        }
+
+        /// <summary>Contribution tier for a 1-based rank (null for rank 0 = no participation).</summary>
+        public static ContributionTierDef TierForRank(InvasionDef def, int rank)
+        {
+            if (def == null || rank <= 0) return null;
+            foreach (var t in def.Tiers) if (rank <= t.MaxRank) return t;
+            return null;
+        }
+
+        /// <summary>Content validation: invasion outcome bounds (×1.5..×3 / ÷1.5..÷4, 2..7 days), schedule references.</summary>
+        public static List<string> Validate(ContentDb content)
+        {
+            var errors = new List<string>();
+            var cfg = content.LiveOps;
+            const double eps = 1e-9;
+            foreach (var inv in content.Invasions.Values)
+            {
+                if (inv.WinModifiers.Count == 0 || inv.LoseModifiers.Count == 0) errors.Add(inv.Id + ": needs win and lose modifiers");
+                foreach (var m in inv.WinModifiers)
+                    if (m.Multiplier < cfg.BoostMin - eps || m.Multiplier > cfg.BoostMax + eps) errors.Add(inv.Id + ": win multiplier out of bounds " + m.Multiplier);
+                foreach (var m in inv.LoseModifiers)
+                    if (m.Multiplier < 1.0 / cfg.CutMaxDivisor - eps || m.Multiplier > 1.0 / cfg.CutMinDivisor + eps) errors.Add(inv.Id + ": lose multiplier out of bounds " + m.Multiplier);
+                foreach (var m in Concat(inv.WinModifiers, inv.LoseModifiers))
+                    if (m.DurationMs < cfg.OutcomeMinDurationMs || m.DurationMs > cfg.OutcomeMaxDurationMs) errors.Add(inv.Id + ": duration out of bounds " + m.DurationMs);
+                if (inv.Tiers.Count == 0) errors.Add(inv.Id + ": no contribution tiers");
+            }
+            foreach (var pe in content.PlanetaryEvents.Values)
+                foreach (var m in pe.Modifiers)
+                    if (m.Multiplier <= 0 || Math.Abs(m.Multiplier - 1) < eps) errors.Add(pe.Id + ": modifier must change something");
+            foreach (var ev in content.LiveOpsSchedule)
+            {
+                bool ok = ev.Kind == LiveOpsKind.Invasion ? content.Invasion(ev.RefId) != null : content.PlanetaryEvent(ev.RefId) != null;
+                if (!ok) errors.Add(ev.Id + ": unknown ref " + ev.RefId);
+                if (ev.Schedule.DurationMs <= 0) errors.Add(ev.Id + ": empty schedule");
+            }
+            return errors;
+        }
+
+        private static IEnumerable<ModifierDef> Concat(List<ModifierDef> a, List<ModifierDef> b)
+        {
+            foreach (var x in a) yield return x;
+            foreach (var x in b) yield return x;
+        }
+
+        // ---- settler ---------------------------------------------------------------------------
+
+        /// <summary>Daily attempt top-up, planetary event modifiers for active windows, cleanup of expired data.</summary>
+        public static void Settle(CommandContext ctx)
+        {
+            var s = ctx.State;
+            var lo = s.LiveOps;
+            long now = ctx.NowMs;
+
+            long day = MetaTime.DayIndex(ctx.Content, now);
+            if (lo.AttemptDay != day)
+            {
+                lo.AttemptDay = day;
+                long have = s.Wallet.Get(Currencies.InvasionAttempts);
+                long want = ctx.Content.LiveOps.InvasionAttemptsPerDay;
+                if (have < want) s.Wallet.Add(Currencies.InvasionAttempts, want - have);
+            }
+
+            ModifierMath.RemoveExpired(s.Modifiers, now);
+            foreach (var ev in ctx.Content.LiveOpsSchedule)
+            {
+                if (ev.Kind != LiveOpsKind.PlanetaryEvent) continue;
+                if (!ev.Schedule.TryActive(now, out long start, out long end)) continue;
+                var def = ctx.Content.PlanetaryEvent(ev.RefId);
+                if (def == null) continue;
+                string occ = OccurrenceId(ev.Id, start);
+                bool added = false;
+                for (int i = 0; i < def.Modifiers.Count; i++)
+                {
+                    string id = "evt:" + occ + ":" + i;
+                    if (HasModifier(s, id)) continue;
+                    var m = def.Modifiers[i];
+                    s.Modifiers.Add(new Modifier
+                    {
+                        Id = id, Source = "event:" + def.Id, Target = m.Target, Multiplier = m.Multiplier,
+                        StartMs = start, EndMs = end, Description = m.Description,
+                    });
+                    added = true;
+                }
+                if (added) ctx.Emit("planetary_event", def.Id, occ);
+            }
+
+            // Forget finished contributions/surprises after two weeks.
+            long horizon = now - 14 * MetaTime.Day;
+            var stale = new List<string>();
+            foreach (var kv in lo.Contributions) if (kv.Value.EndMs < horizon) stale.Add(kv.Key);
+            foreach (var k in stale) lo.Contributions.Remove(k);
+            lo.ServerInvasions.RemoveAll(x => x.EndMs < horizon);
+        }
+
+        private static bool HasModifier(GameState s, string id)
+        {
+            foreach (var m in s.Modifiers) if (m.Id == id) return true;
+            return false;
+        }
+
+        // ---- invasion outcome (server-driven) ---------------------------------------------------
+
+        /// <summary>
+        /// Apply an invasion's group outcome to this player: lasting win/lose modifiers (from now for the
+        /// content duration) and contribution-rank rewards (+ repelled bonus for participants). Idempotent per
+        /// occurrence; when <paramref name="occurrenceId"/> is null the latest calendar occurrence of the invasion is used.
+        /// </summary>
+        public static void ApplyInvasionOutcome(CommandContext ctx, string invasionId, bool repelled, int contributionRank, string occurrenceId = null)
+        {
+            var def = ctx.Content.Invasion(invasionId);
+            GameEngine.Require(def != null, "unknown invasion");
+            GameEngine.Require(contributionRank >= 0, "invalid rank");
+            var lo = ctx.State.LiveOps;
+            string occ = occurrenceId ?? LatestOccurrence(ctx.State, ctx.Content, invasionId, ctx.NowMs);
+            GameEngine.Require(!lo.AppliedOutcomes.Contains(occ), "outcome already applied");
+
+            lo.AppliedOutcomes.Add(occ);
+            if (lo.AppliedOutcomes.Count > 50) lo.AppliedOutcomes.RemoveAt(0);
+
+            var mods = repelled ? def.WinModifiers : def.LoseModifiers;
+            for (int i = 0; i < mods.Count; i++)
+            {
+                var m = mods[i];
+                ctx.State.Modifiers.Add(new Modifier
+                {
+                    Id = "inv:" + occ + ":" + i, Source = "invasion:" + def.Id, Target = m.Target, Multiplier = m.Multiplier,
+                    StartMs = ctx.NowMs, EndMs = ctx.NowMs + m.DurationMs, Description = m.Description,
+                });
+            }
+
+            var tier = TierForRank(def, contributionRank);
+            if (tier != null)
+            {
+                ctx.GrantAll(tier.Rewards);
+                if (repelled) ctx.GrantAll(def.RepelledRewards);
+            }
+            if (repelled) ctx.State.Count("invasions_repelled");
+            if (contributionRank == 1) ctx.State.Count("invasion_top_contributor");
+            ctx.Emit("invasion_outcome", def.Id, occ, repelled ? "repelled" : "overrun");
+        }
+
+        private static string LatestOccurrence(GameState state, ContentDb content, string invasionId, long now)
+        {
+            string best = null; long bestStart = long.MinValue;
+            foreach (var ev in content.LiveOpsSchedule)
+                if (ev.Kind == LiveOpsKind.Invasion && ev.RefId == invasionId && ev.Schedule.TryLatest(now, out long s, out _) && s > bestStart)
+                { bestStart = s; best = OccurrenceId(ev.Id, s); }
+            foreach (var si in state.LiveOps.ServerInvasions)
+                if (si.InvasionId == invasionId && si.StartMs <= now && si.StartMs > bestStart) { bestStart = si.StartMs; best = si.OccurrenceId; }
+            return best ?? OccurrenceId(invasionId, now);
+        }
+
+        // ---- handlers --------------------------------------------------------------------------
+
+        private static ActiveLiveEvent FindActiveInvasion(CommandContext ctx, string occurrenceId)
+        {
+            foreach (var ev in ActiveEvents(ctx.State, ctx.Content, ctx.NowMs))
+                if (ev.Kind == LiveOpsKind.Invasion && ev.OccurrenceId == occurrenceId) return ev;
+            return null;
+        }
+
+        private static CommandResult HandleStartAttempt(InvasionStartAttempt cmd, CommandContext ctx)
+        {
+            var s = ctx.State;
+            GameEngine.Require(Features.IsUnlocked(s, ctx.Content, Features.Invasions), "feature locked");
+            var ev = FindActiveInvasion(ctx, cmd.OccurrenceId);
+            GameEngine.Require(ev != null, "invasion not active");
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.InvasionAttempts, 1), "no invasion attempts");
+
+            s.Wallet.TrySpend(Currencies.InvasionAttempts, 1);
+            if (!s.LiveOps.Contributions.TryGetValue(ev.OccurrenceId, out var c))
+            {
+                c = new InvasionContribution { InvasionId = ev.RefId, StartMs = ev.StartMs, EndMs = ev.EndMs };
+                s.LiveOps.Contributions[ev.OccurrenceId] = c;
+            }
+            c.Attempts++;
+            c.PendingAttempts++;
+            s.Count("invasion_attempts_used");
+            return CommandResult.Success(ev);
+        }
+
+        private static CommandResult HandleRecordDamage(InvasionRecordDamage cmd, CommandContext ctx)
+        {
+            var s = ctx.State;
+            GameEngine.Require(cmd.OccurrenceId != null && s.LiveOps.Contributions.TryGetValue(cmd.OccurrenceId, out var c), "no attempt for occurrence");
+            c = s.LiveOps.Contributions[cmd.OccurrenceId];
+            GameEngine.Require(c.PendingAttempts > 0, "no pending attempt");
+            GameEngine.Require(cmd.Damage >= 0, "invalid damage");
+
+            long score = ScoreFromDamage(ctx.Content, cmd.Damage);
+            c.PendingAttempts--;
+            c.Damage += cmd.Damage;
+            c.Score += score;
+            s.Count("invasion_battles");
+            s.Count("invasion_damage", cmd.Damage);
+            s.Count("invasion_score", score);
+            GuildSystem.AddInvasionContribution(ctx, score);
+            return CommandResult.Success(score);
+        }
+
+        private static CommandResult HandleApplyOutcome(LiveOpsApplyOutcome cmd, CommandContext ctx)
+        {
+            ApplyInvasionOutcome(ctx, cmd.InvasionId, cmd.Repelled, cmd.ContributionRank, cmd.OccurrenceId);
+            return CommandResult.Success();
+        }
+
+        private static CommandResult HandleStartSurprise(LiveOpsStartSurpriseInvasion cmd, CommandContext ctx)
+        {
+            GameEngine.Require(ctx.Content.Invasion(cmd.InvasionId) != null, "unknown invasion");
+            GameEngine.Require(cmd.DurationMs > 0, "invalid duration");
+            string occ = OccurrenceId("server_" + cmd.InvasionId, cmd.StartMs);
+            foreach (var si in ctx.State.LiveOps.ServerInvasions) GameEngine.Require(si.OccurrenceId != occ, "already started");
+            ctx.State.LiveOps.ServerInvasions.Add(new ServerInvasion { OccurrenceId = occ, InvasionId = cmd.InvasionId, StartMs = cmd.StartMs, EndMs = cmd.StartMs + cmd.DurationMs });
+            return CommandResult.Success(occ);
+        }
     }
 }
