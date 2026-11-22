@@ -103,7 +103,7 @@ namespace RogueStars.Client.Tests
             Assert.That(result.Events[0].Args[1], Is.EqualTo("diamonds"));
             Assert.That(((JToken)result.Payload)["diamonds"].Value<int>(), Is.EqualTo(10));
             Assert.That(_svc.Version, Is.EqualTo(4));
-            Assert.That(_svc.State.Wallet.Get(Currencies.Diamonds), Is.EqualTo(777));
+            Assert.That(_svc.State.Wallet.Get(Currencies.Diamonds), Is.EqualTo(newState.Wallet.Get(Currencies.Diamonds)));
             Assert.That(changed, Is.EqualTo(1));
         }
 

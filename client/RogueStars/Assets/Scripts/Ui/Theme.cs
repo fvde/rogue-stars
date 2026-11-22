@@ -1,3 +1,4 @@
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using UnityEngine;
 
@@ -73,6 +74,64 @@ namespace RogueStars.Client.UiKit
                     uint h = 2166136261;
                     foreach (char c in currency ?? "") { h ^= c; h *= 16777619; }
                     return Color.HSVToRGB((h % 360) / 360f, 0.45f, 0.85f);
+            }
+        }
+
+        /// <summary>Build-archetype colours (draft cards, skills, heroes, parts).</summary>
+        public static Color FamilyColor(SkillFamily f)
+        {
+            switch (f)
+            {
+                case SkillFamily.Fire: return Hex(0xFF6B2D);
+                case SkillFamily.Ice: return Hex(0x6FD3FF);
+                case SkillFamily.Lightning: return Hex(0xFFE03D);
+                case SkillFamily.Poison: return Hex(0x8BE04E);
+                case SkillFamily.Bleed: return Hex(0xD7263D);
+                case SkillFamily.AlienSynergy: return Hex(0xC77DFF);
+                case SkillFamily.Counter: return Hex(0x4FB3A9);
+                case SkillFamily.Combo: return Hex(0xFF9FD2);
+                case SkillFamily.Crit: return Hex(0xFFC857);
+                default: return Hex(0x9AA0A6);
+            }
+        }
+
+        public static Color TileColor(TileValence v)
+        {
+            switch (v)
+            {
+                case TileValence.Positive: return ValenceColor(Valence.Positive);
+                case TileValence.Negative: return ValenceColor(Valence.Negative);
+                case TileValence.Enemy: return ValenceColor(Valence.Enemy);
+                case TileValence.Elite: return ValenceColor(Valence.Elite);
+                case TileValence.Boss: return ValenceColor(Valence.Boss);
+                case TileValence.Special: return ValenceColor(Valence.Special);
+                default: return Hex(0x5A5A72);
+            }
+        }
+
+        /// <summary>One-or-two letter placeholder icon per tile category.</summary>
+        public static string TileLetter(TileCategory c)
+        {
+            switch (c)
+            {
+                case TileCategory.Start: return "GO";
+                case TileCategory.Empty: return "";
+                case TileCategory.Enemy: return "E";
+                case TileCategory.Elite: return "EL";
+                case TileCategory.Miniboss: return "MB";
+                case TileCategory.StatBuff: return "+";
+                case TileCategory.StatDebuff: return "-";
+                case TileCategory.Loot: return "$";
+                case TileCategory.Treasure: return "T";
+                case TileCategory.Event: return "?";
+                case TileCategory.Campfire: return "C";
+                case TileCategory.Shop: return "S";
+                case TileCategory.Hazard: return "!";
+                case TileCategory.Shard: return "*";
+                case TileCategory.Pickup: return "o";
+                case TileCategory.BossTile: return "B";
+                case TileCategory.BossGate: return "BOSS";
+                default: return "";
             }
         }
 

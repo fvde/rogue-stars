@@ -102,7 +102,7 @@ namespace RogueStars.Client.App
                 ConnectionStatus = r.Ok ? "connected" : "error: " + r.Error;
                 if (r.Ok)
                 {
-                    Toasts.Info(service.IsOnline ? "Connected to server" : "Offline mode");
+                    if (service.IsOnline) Toasts.Info("Connected to server");
                     OnStateChanged();
                     return;
                 }
@@ -121,6 +121,7 @@ namespace RogueStars.Client.App
 
         private void OnStateChanged()
         {
+            Tutorial.Check(Session);
             Bar.Rebuild();
             var cur = Router.Current;
             if (cur != null && cur.AutoRebuild) cur.Rebuild();
@@ -142,6 +143,7 @@ namespace RogueStars.Client.App
         public void Update(float dt)
         {
             Toasts.Tick(dt);
+            Router.Current?.Frame(dt);
             _tick += dt;
             if (_tick >= 0.5f)
             {

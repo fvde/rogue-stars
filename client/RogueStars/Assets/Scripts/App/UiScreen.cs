@@ -20,6 +20,7 @@ namespace RogueStars.Client.App
         private RectTransform _body;
         private ScrollRect _scroll;
         private Text _title;
+        private bool _builtOnce;
 
         public ClientApp App { get; private set; }
         public RectTransform Root { get; private set; }
@@ -54,7 +55,8 @@ namespace RogueStars.Client.App
         public void Rebuild()
         {
             if (Root == null) return;
-            float pos = _scroll != null ? _scroll.verticalNormalizedPosition : 1;
+            float pos = _scroll != null && _builtOnce ? _scroll.verticalNormalizedPosition : 1; // new screens start at the top
+            _builtOnce = true;
             Ui.Clear(_body);
             _live.Clear();
             if (_title != null) _title.text = Title;
@@ -74,6 +76,8 @@ namespace RogueStars.Client.App
         protected virtual void BuildHeaderExtras(RectTransform header) { }
 
         public virtual void OnShow() { }
+        /// <summary>Called every frame while this screen is on top (animations, auto mode).</summary>
+        public virtual void Frame(float dt) { }
         public virtual void OnHide() { }
         /// <summary>Called by the app on a fixed cadence (default: Live texts).</summary>
         public virtual void Tick()
@@ -204,5 +208,19 @@ namespace RogueStars.Client.App
 
         public void RebuildCurrent() => Current?.Rebuild();
         public void Tick() => Current?.Tick();
+
+        /// <summary>Replace the top screen (e.g. run → result) without returning to it.</summary>
+        public void Replace(UiScreen screen)
+        {
+            if (_stack.Count == 0) { Push(screen); return; }
+            var top = Current;
+            top.OnHide();
+            top.Destroy();
+            _stack.RemoveAt(_stack.Count - 1);
+            _stack.Add(screen);
+            screen.Create(_app, _container);
+            screen.OnShow();
+            Changed?.Invoke(screen);
+        }
     }
 }

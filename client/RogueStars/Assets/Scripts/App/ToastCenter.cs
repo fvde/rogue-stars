@@ -43,6 +43,21 @@ namespace RogueStars.Client.App
                 case "breed_born": return "A baby " + Al(1) + " hatched!";
                 case "breed_replaced": return Al(0) + " replaced by its child";
                 case "breed_discarded": return Al(0) + " child released";
+                case "feature_unlocked": return "Unlocked: " + (c?.Feature(A(0))?.Name ?? Fmt.Humanize(A(0))) + "!";
+                case "tutorial_step": return "Goal done: " + (c != null && c.TutorialSteps.TryGetValue(A(0), out var ts) ? ts.Name : A(0));
+                case "run_level_up": return "Run level " + A(0) + "!";
+                case "run_skill_gained": return "Skill: " + (c?.Skill(A(0))?.Name ?? A(0));
+                case "run_completed": return "Run complete!";
+                case "run_failed": return "Run failed — pending loot lost";
+                case "run_revived": return "Revived!";
+                case "boss_awaken": return "The boss stirs…";
+                case "part_awakened": return "Part awakened (" + A(1) + ")";
+                case "lab_collected": return "Research complete";
+                // high-frequency run plumbing is shown on the board instead
+                case "run_roll": case "run_land": case "run_battle": case "run_draft": case "run_event": case "run_shop":
+                case "run_started": case "run_draft_pick": case "run_shop_buy": case "run_event_outcome": case "run_boss_fight":
+                case "lab_research": case "run_defeated":
+                    return null;
                 default: return Fmt.Humanize(e.Type) + (a.Count > 0 ? " " + string.Join(" ", a) : "");
             }
         }
@@ -64,8 +79,10 @@ namespace RogueStars.Client.App
         public ToastCenter(RectTransform layer)
         {
             _stack = Ui.Column(layer, 10, 0, null, "Toasts");
-            _stack.anchorMin = new Vector2(0.06f, 1); _stack.anchorMax = new Vector2(0.94f, 1); _stack.pivot = new Vector2(0.5f, 1);
-            _stack.anchoredPosition = new Vector2(0, -280);
+            // Bottom of the screen, above the main action row; toasts never take input.
+            _stack.anchorMin = new Vector2(0.08f, 0); _stack.anchorMax = new Vector2(0.92f, 0); _stack.pivot = new Vector2(0.5f, 0);
+            _stack.anchoredPosition = new Vector2(0, 260);
+            _stack.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.LowerCenter;
             _stack.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
@@ -77,9 +94,9 @@ namespace RogueStars.Client.App
             var panel = Ui.Panel(_stack, new Color(color.r * 0.35f, color.g * 0.35f, color.b * 0.35f, 0.95f), "Toast");
             panel.raycastTarget = false;
             var col = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            col.padding = new RectOffset(24, 24, 14, 14);
+            col.padding = new RectOffset(20, 20, 10, 10);
             col.childControlHeight = true; col.childControlWidth = true; col.childForceExpandHeight = false;
-            Ui.Label(panel.transform, text, Theme.FontNormal, Color.Lerp(color, Color.white, 0.6f), TextAnchor.MiddleCenter);
+            Ui.Label(panel.transform, text, Theme.FontSmall + 2, Color.Lerp(color, Color.white, 0.6f), TextAnchor.MiddleCenter);
             UiTween.PopIn(panel, 0.15f);
             _toasts.Add(new KeyValuePair<GameObject, float>(panel.gameObject, Lifetime));
         }
