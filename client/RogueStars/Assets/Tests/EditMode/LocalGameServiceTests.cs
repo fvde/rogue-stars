@@ -144,7 +144,7 @@ namespace RogueStars.Client.Tests
             Assert.That(opps.Ok, Is.True);
             Assert.That(opps.Value.Count, Is.EqualTo(5));
             long tickets = s.State.Wallet.Get(Currencies.ArenaTickets);
-            ServiceResult<ArenaFightOutcome> fight = null;
+            ServiceResult<RogueStars.Client.Services.ArenaFightOutcome> fight = null;
             s.ArenaFight(opps.Value[0].PlayerId, r => fight = r);
             Assert.That(fight.Ok, Is.True, fight.Error);
             Assert.That(s.State.Wallet.Get(Currencies.ArenaTickets), Is.EqualTo(tickets - 1));

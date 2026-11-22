@@ -232,7 +232,7 @@ namespace RogueStars.Client.Tests
             Assert.That(board.MyRank, Is.EqualTo(2));
             Assert.That(board.Entries[0].Wins, Is.EqualTo(3));
 
-            ArenaFightOutcome fight = null;
+            RogueStars.Client.Services.ArenaFightOutcome fight = null;
             _svc.ArenaFight("p2", r => fight = r.Value);
             Assert.That(fight.Won, Is.True);
             Assert.That(fight.PointsDelta, Is.EqualTo(30));
