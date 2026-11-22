@@ -77,7 +77,7 @@ namespace RogueStars.Rules.Content
             // Daily (reset 00:00 UTC).
             Q("d_login", "Log in", QuestKind.Daily, "login_days", 1, 10, 10, null, Reward.Cur(Currencies.Stamina, 10));
             Q("d_runs", "Complete 3 runs", QuestKind.Daily, "runs_completed", 3, 20, 20, null, Dia(10));
-            Q("d_battles", "Win 10 battles", QuestKind.Daily, "battles_won", 10, 20, 10, null, Reward.Cur(Currencies.Biomass, 1000));
+            Q("d_battles", "Win 10 battles", QuestKind.Daily, "run_battles_won", 10, 20, 10, null, Reward.Cur(Currencies.Biomass, 1000));
             Q("d_stamina", "Spend 30 stamina", QuestKind.Daily, "stamina_spent", 30, 20, 10, null, Reward.Cur(Currencies.Ore, 1000));
             Q("d_pull", "Do 1 Part pull", QuestKind.Daily, "pulls_part", 1, 10, 10, Features.PartPulls, Dia(5));
             Q("d_ad", "Watch 1 ad", QuestKind.Daily, "ads_watched", 1, 10, 5, null, Reward.Cur(Currencies.Stamina, 5));
@@ -86,7 +86,7 @@ namespace RogueStars.Rules.Content
 
             // Weekly (reset Monday 00:00 UTC).
             Q("w_runs", "Complete 20 runs", QuestKind.Weekly, "runs_completed", 20, 100, 100, null, Dia(50));
-            Q("w_bosses", "Defeat 10 bosses", QuestKind.Weekly, "bosses_defeated", 10, 100, 80, null, Reward.Cur(Currencies.GearCores, 100));
+            Q("w_bosses", "Defeat 10 bosses", QuestKind.Weekly, "run_bosses_killed", 10, 100, 80, null, Reward.Cur(Currencies.GearCores, 100));
             Q("w_daily", "Finish 20 daily quests", QuestKind.Weekly, "daily_quests_claimed", 20, 100, 100, null, Dia(50));
             Q("w_blueprints", "Do 10 Blueprint pulls", QuestKind.Weekly, "pulls_blueprint", 10, 50, 50, Features.Blueprints, Reward.Cur(Currencies.BlueprintTokens, 3));
             Q("w_buildings", "Upgrade 5 buildings", QuestKind.Weekly, "city_building_upgrades", 5, 50, 50, null, Reward.Cur(Currencies.Biomass, 5000));
@@ -116,7 +116,7 @@ namespace RogueStars.Rules.Content
             NP(4, "np_runs_15", "Complete 15 runs", "runs_completed", 15, Dia(80));
             NP(5, "np_buildings_5", "Upgrade 5 buildings", "city_building_upgrades", 5, Dia(80));
             NP(6, "np_worm_12", "Reach worm level 12", "worm_level_max", 12, Dia(100));
-            NP(7, "np_bosses_20", "Defeat 20 bosses", "bosses_defeated", 20, Reward.Cur(Currencies.AlienTokens, 10));
+            NP(7, "np_bosses_20", "Defeat 20 bosses", "run_bosses_killed", 20, Reward.Cur(Currencies.AlienTokens, 10));
 
             void Chest(PointTrack track, long points, params Reward[] rewards)
             {

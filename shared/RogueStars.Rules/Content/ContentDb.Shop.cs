@@ -221,7 +221,7 @@ namespace RogueStars.Rules.Content
             SeasonPass.PremiumProductId = "season_pass_premium";
             P(SeasonPass.PremiumProductId, "Season Pass Premium", ProductKind.SeasonPass, 999);
             SeasonPass.XpPerCounter["runs_completed"] = 20;
-            SeasonPass.XpPerCounter["bosses_defeated"] = 10;
+            SeasonPass.XpPerCounter["run_bosses_killed"] = 10;
             SeasonPass.XpPerCounter["arena_fights"] = 5;
             SeasonPass.XpPerCounter["invasion_battles"] = 10;
             for (int lvl = 1; lvl <= 30; lvl++)

@@ -52,7 +52,7 @@ public class QuestTests
     public void PointChests_NeedPoints_ClaimOncePerPeriod()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
-        s.Count("runs_completed", 3); s.Count("battles_won", 10);
+        s.Count("runs_completed", 3); s.Count("run_battles_won", 10);
         Fail(e, ref s, new QuestClaimChest { Track = PointTrack.Daily, Points = 40 }, t);
         Ok(e, ref s, new QuestClaimAll(), t);
         Assert.True(s.Quests.DailyPoints >= 40);

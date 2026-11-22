@@ -165,6 +165,12 @@ namespace RogueStars.Rules.Systems
         /// <summary>Alien granter: new type = new alien with rolled genes/traits; existing type → shards.</summary>
         private static void GrantAlien(CommandContext ctx, Reward r)
         {
+            if (RewardWildcard.IsWildcard(r))
+            {
+                for (long i = 0; i < r.Amount; i++)
+                    GrantAlien(ctx, new Reward(r.Kind, RewardWildcard.Pick(ctx.Rng, ctx.Content.AlienTypes, d => (int)d.Rarity, r.Rarity), 1, r.Rarity));
+                return;
+            }
             var def = ctx.Content.AlienType(r.Id);
             if (def == null) throw new RuleException("unknown alien type " + r.Id);
             long copies = r.Amount;

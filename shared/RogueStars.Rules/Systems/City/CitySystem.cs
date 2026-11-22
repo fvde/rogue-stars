@@ -424,6 +424,12 @@ namespace RogueStars.Rules.Systems
         /// <summary>Blueprint granter: first copy = owned blueprint (1 star); further copies become shards.</summary>
         private static void GrantBlueprint(CommandContext ctx, Reward r)
         {
+            if (RewardWildcard.IsWildcard(r))
+            {
+                for (long i = 0; i < r.Amount; i++)
+                    GrantBlueprint(ctx, new Reward(r.Kind, RewardWildcard.Pick(ctx.Rng, ctx.Content.Blueprints, d => (int)d.Rarity, r.Rarity), 1, r.Rarity));
+                return;
+            }
             var def = ctx.Content.Blueprint(r.Id);
             if (def == null) throw new RuleException("unknown blueprint " + r.Id);
             long copies = r.Amount;

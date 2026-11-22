@@ -150,12 +150,19 @@ namespace RogueStars.Rules.Systems
 
         private static void GrantPart(CommandContext ctx, Reward r)
         {
+            if (RewardWildcard.IsWildcard(r))
+            {
+                for (long i = 0; i < r.Amount; i++)
+                    AddPart(ctx.State, ctx.Content, RewardWildcard.PickAny(ctx.Rng, ctx.Content.PartsConfig.Defs), RewardWildcard.PartRarityForTier(r.Rarity));
+                return;
+            }
             for (long i = 0; i < r.Amount; i++) AddPart(ctx.State, ctx.Content, r.Id, r.Rarity);
         }
 
         private static void GrantRune(CommandContext ctx, Reward r)
         {
-            for (long i = 0; i < r.Amount; i++) AddRune(ctx.State, ctx.Content, r.Id, r.Rarity);
+            for (long i = 0; i < r.Amount; i++)
+                AddRune(ctx.State, ctx.Content, RewardWildcard.IsWildcard(r) ? RewardWildcard.PickAny(ctx.Rng, ctx.Content.PartsConfig.Runes) : r.Id, r.Rarity);
         }
 
         // ---- shared mutation helpers ---------------------------------------------------------------
