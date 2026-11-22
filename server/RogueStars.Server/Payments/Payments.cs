@@ -159,7 +159,7 @@ public static class PaymentEndpoints
 
             var response = await hooks.TryExecuteAsync(playerId, hooks.Names.PurchaseComplete, new
             {
-                ProductId = req.ProductId, OrderId = result.OrderId, PurchaseToken = req.PurchaseToken, Store = "google_play", Test = result.Test,
+                ProductId = req.ProductId, ReceiptId = result.OrderId, OrderId = result.OrderId, PurchaseToken = req.PurchaseToken, Store = "google_play", Test = result.Test,
             }, "iap-" + result.OrderId, ct);
             if (response is { Ok: true })
             {
@@ -185,7 +185,7 @@ public static class PaymentEndpoints
                 return Results.Ok(new { ok = true, duplicate = true });
             var response = await hooks.TryExecuteAsync(ev.PlayerId, hooks.Names.AdWatched, new
             {
-                Placement = ev.Placement, EventId = ev.EventId, AdUnitId = ev.AdUnitId,
+                PlacementId = ev.Placement, AdToken = ev.EventId, Placement = ev.Placement, EventId = ev.EventId, AdUnitId = ev.AdUnitId,
             }, "ad-" + key[..32], ct);
             if (response is { Ok: true })
                 await docs.TryPutAsync(Collections.AdEvents, key, new AdEventClaim { PlayerId = ev.PlayerId, AtMs = clock.NowMs }, 0, ct);

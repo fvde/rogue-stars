@@ -19,6 +19,8 @@ public sealed class Invasion
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    /// <summary>Content invasion definition id (rules LiveOps); defaults to Id.</summary>
+    public string TypeId { get; set; } = "";
     public long StartsMs { get; set; }
     public long EndsMs { get; set; }
     /// <summary>Invader HP per group member; the group repels the invasion when total damage reaches HpPerMember × members.</summary>
@@ -129,7 +131,7 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
         if (hooks.Has(hooks.Names.InvasionAttack))
         {
             hook = await hooks.TryExecuteAsync(playerId, hooks.Names.InvasionAttack,
-                new { InvasionId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId }, "inv-attack-" + attackId, ct);
+                new { OccurrenceId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId }, "inv-attack-" + attackId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "attack_rejected");
             if (hook is { Replayed: true }) return new { ok = true, attackId, replayed = true, state = hook.State };
         }
@@ -222,7 +224,9 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
                 {
                     var r = await hooks.TryExecuteAsync(member.PlayerId, outcomeCommand, new
                     {
-                        InvasionId = inv.Id, Outcome = group.Outcome, Damage = member.Damage, Rank = rank, GroupSize = ranked.Count,
+                        InvasionId = string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId, OccurrenceId = inv.Id,
+                        Repelled = group.Outcome == InvasionOutcomes.Repelled, ContributionRank = rank,
+                        Outcome = group.Outcome, Damage = member.Damage, Rank = rank, GroupSize = ranked.Count,
                         GroupDamage = group.TotalDamage, GroupHp = group.Hp(inv),
                     }, $"inv-outcome-{inv.Id}", ct);
                     if (r is not { Ok: true })

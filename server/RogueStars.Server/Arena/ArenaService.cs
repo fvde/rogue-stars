@@ -158,7 +158,7 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
         {
             hook = await hooks.TryExecuteAsync(playerId, hooks.Names.ArenaFight, new
             {
-                OpponentId = defender.PlayerId, Won = outcome.AttackerWon, PointsDelta = delta, Seed = seed, Week = group.Week, FightId = fightId,
+                OpponentId = defender.PlayerId, Won = outcome.AttackerWon, OpponentPoints = group.Member(defender.PlayerId)?.Points ?? 0, PointsDelta = delta, Seed = seed, Week = group.Week, FightId = fightId,
             }, "arena-fight-" + fightId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "fight_rejected");
             if (hook is { Replayed: true }) return new { ok = true, fightId, replayed = true, payload = hook.Payload, state = hook.State };

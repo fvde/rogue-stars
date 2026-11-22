@@ -81,10 +81,10 @@ public sealed class CommandOptions
     public string PurchaseComplete { get; set; } = "PurchaseComplete";
     public string AdWatched { get; set; } = "AdWatched";
     public string InvasionOutcome { get; set; } = "LiveOpsApplyOutcome";
-    public string InvasionAttack { get; set; } = "InvasionAttackRecorded";
-    public string ArenaFight { get; set; } = "ArenaFightResolved";
-    public string MailDeliver { get; set; } = "MailDeliver";
-    public string GuildMembership { get; set; } = "GuildMembershipChanged";
+    public string InvasionAttack { get; set; } = "InvasionRecordDamage";
+    public string ArenaFight { get; set; } = "ArenaFightResult";
+    public string MailDeliver { get; set; } = "MailPush";
+    public string GuildMembership { get; set; } = "GuildSetMembership";
 
     /// <summary>Extra commands clients may not send (in addition to [ServerOnly] and the hook names above).</summary>
     public List<string> ClientDenyList { get; set; } = new();
