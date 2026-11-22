@@ -50,6 +50,22 @@ namespace RogueStars.Rules.Content
             end = start + DurationMs;
             return true;
         }
+
+        /// <summary>Start times of the occurrences overlapping [fromMs, toMs), newest first (bounded walk).</summary>
+        public List<long> Overlapping(long fromMs, long toMs)
+        {
+            var list = new List<long>();
+            if (toMs <= fromMs || !TryLatest(toMs - 1, out long start, out long end)) return list;
+            for (int guard = 0; guard < 64; guard++)
+            {
+                if (end > fromMs) list.Add(start);
+                else break;
+                if (RecurrenceMs <= 0 || start - RecurrenceMs < StartMs) break;
+                start -= RecurrenceMs;
+                end = start + DurationMs;
+            }
+            return list;
+        }
     }
 
     /// <summary>Template of a timed modifier written into state.Modifiers (see <see cref="Modifier"/> targets).</summary>
@@ -134,6 +150,11 @@ namespace RogueStars.Rules.Content
         public long DamagePerScorePoint = 100;
         /// <summary>Guild marks earned per contribution score point (members only; 0 = none).</summary>
         public double GuildMarksPerScorePoint = 0.01;
+        /// <summary>
+        /// At most this many invasions run at once; an occurrence that would exceed it, or that overlaps a running
+        /// occurrence of the same invasion type, is skipped (announced invasions win over surprises, then earlier starts).
+        /// </summary>
+        public int MaxConcurrentInvasions = 2;
         /// <summary>Approximate invasion group size (server batching).</summary>
         public int InvasionGroupSize = 20;
         // Bounds for invasion outcome modifiers (validated).

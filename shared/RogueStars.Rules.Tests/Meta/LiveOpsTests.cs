@@ -220,11 +220,62 @@ public class LiveOpsTests
         Assert.Contains(upcoming, u => u.Kind == LiveOpsKind.Invasion);
         var surprise = e.Content.LiveOpsSchedule.First(x => !x.Announced);
         Assert.True(surprise.Schedule.TryNext(TestHelpers.T0, out long st, out _));
+        // The first one after T0 overlaps the weekly Rust Swarm and is skipped; take the next one that runs.
+        while (!LiveOpsSystem.OccurrenceRuns(e.Content, surprise, st)) Assert.True(surprise.Schedule.TryNext(st, out st, out _));
         Assert.Contains(LiveOpsSystem.ActiveEvents(s, e.Content, st + H), a => a.Surprise && a.EventId == surprise.Id);
 
         // Server-pushed surprise.
         var r = Ok(e, ref s, new LiveOpsStartSurpriseInvasion { InvasionId = "void_choir", StartMs = TestHelpers.T0, DurationMs = 6 * H }, TestHelpers.T0);
         Assert.Contains(LiveOpsSystem.ActiveEvents(s, e.Content, TestHelpers.T0 + H), a => a.OccurrenceId == (string)r.Payload!);
         Assert.DoesNotContain(LiveOpsSystem.ActiveEvents(s, e.Content, TestHelpers.T0 + 7 * H), a => a.OccurrenceId == (string)r.Payload!);
+    }
+
+    [Fact]
+    public void Calendar_NeverRunsTwoInvasionsOfTheSameType_AndCapsConcurrency()
+    {
+        var e = Engine(); var s = Player(e);
+        var c = e.Content;
+        int cap = c.LiveOps.MaxConcurrentInvasions;
+        bool sawRawDuplicate = false;
+        for (long t = Epoch; t < Epoch + 2 * 365 * D; t += H)
+        {
+            var raw = c.LiveOpsSchedule.Where(ev => ev.Kind == LiveOpsKind.Invasion && ev.Schedule.TryActive(t, out _, out _)).ToList();
+            if (raw.GroupBy(ev => ev.RefId).Any(g => g.Count() > 1)) sawRawDuplicate = true;
+            var active = LiveOpsSystem.ActiveEvents(s, c, t).Where(a => a.Kind == LiveOpsKind.Invasion).ToList();
+            Assert.True(active.Select(a => a.RefId).Distinct().Count() == active.Count, "duplicate invasion type at " + t);
+            Assert.True(active.Count <= cap, "too many invasions at " + t);
+            // Announced invasions always win over surprises.
+            foreach (var ev in raw.Where(x => x.Announced)) Assert.Contains(active, a => a.EventId == ev.Id);
+        }
+        Assert.True(sawRawDuplicate, "the raw calendar overlaps weekly and surprise occurrences of one type (the case under test)");
+    }
+
+    [Fact]
+    public void SkippedSurprise_IsNotActive_AndDoesNotOwnTheOutcome()
+    {
+        var e = Engine(); var s = Player(e);
+        var c = e.Content;
+        var weekly = c.LiveOpsSchedule.Single(x => x.Id == "weekly_rust_swarm");
+        var surprise = c.LiveOpsSchedule.Single(x => x.Id == "surprise_rust");
+        long t = Epoch;
+        long sStart = 0;
+        for (; t < Epoch + 2 * 365 * D; t += H)
+            if (weekly.Schedule.TryActive(t, out _, out _) && surprise.Schedule.TryActive(t, out sStart, out _)) break;
+        Assert.True(t < Epoch + 2 * 365 * D);
+        Assert.False(LiveOpsSystem.OccurrenceRuns(c, surprise, sStart));
+        var rust = LiveOpsSystem.ActiveEvents(s, c, t).Where(a => a.RefId == "rust_swarm").ToList();
+        Assert.Single(rust);
+        Assert.Equal(weekly.Id, rust[0].EventId);
+        var ctx = new CommandContext { State = s, Content = c, Engine = e, NowMs = t };
+        LiveOpsSystem.ApplyInvasionOutcome(ctx, "rust_swarm", true, 0);
+        Assert.Contains(rust[0].OccurrenceId, s.LiveOps.AppliedOutcomes);
+
+        // A server-pushed invasion of a running type (or beyond the cap) is refused.
+        Assert.Equal("invasion type already running",
+            Fail(e, ref s, new LiveOpsStartSurpriseInvasion { InvasionId = "rust_swarm", StartMs = t, DurationMs = 2 * H }, t));
+        Assert.Null(LiveOpsSystem.InvasionConflict(s, c, "void_choir", t, t + 2 * H));
+        Ok(e, ref s, new LiveOpsStartSurpriseInvasion { InvasionId = "void_choir", StartMs = t, DurationMs = 2 * H }, t);
+        Assert.Equal("too many invasions",
+            Fail(e, ref s, new LiveOpsStartSurpriseInvasion { InvasionId = "prism_horde", StartMs = t, DurationMs = 2 * H }, t));
     }
 }

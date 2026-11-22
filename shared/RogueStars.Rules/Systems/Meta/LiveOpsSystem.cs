@@ -34,7 +34,7 @@ namespace RogueStars.Rules.Systems
         {
             var list = new List<ActiveLiveEvent>();
             foreach (var ev in content.LiveOpsSchedule)
-                if (ev.Schedule.TryActive(nowMs, out long s, out long e)) list.Add(Make(content, ev, s, e));
+                if (ev.Schedule.TryActive(nowMs, out long s, out long e) && OccurrenceRuns(content, ev, s)) list.Add(Make(content, ev, s, e));
             if (state != null)
                 foreach (var si in state.LiveOps.ServerInvasions)
                     if (nowMs >= si.StartMs && nowMs < si.EndMs)
@@ -52,9 +52,87 @@ namespace RogueStars.Rules.Systems
         {
             var list = new List<ActiveLiveEvent>();
             foreach (var ev in content.LiveOpsSchedule)
-                if (ev.Announced && ev.Schedule.TryNext(nowMs, out long s, out long e) && s <= nowMs + horizonMs) list.Add(Make(content, ev, s, e));
+            {
+                if (!ev.Announced) continue;
+                long from = nowMs;
+                for (int guard = 0; guard < 16 && ev.Schedule.TryNext(from, out long s, out long e) && s <= nowMs + horizonMs; guard++)
+                {
+                    if (OccurrenceRuns(content, ev, s)) { list.Add(Make(content, ev, s, e)); break; }
+                    from = s;
+                }
+            }
             list.Sort((a, b) => a.StartMs != b.StartMs ? a.StartMs.CompareTo(b.StartMs) : string.CompareOrdinal(a.OccurrenceId, b.OccurrenceId));
             return list;
+        }
+
+        /// <summary>
+        /// Whether the calendar occurrence of <paramref name="ev"/> starting at <paramref name="startMs"/> really runs.
+        /// Planetary events always do. An invasion occurrence is skipped when an overlapping occurrence that takes
+        /// precedence (announced before surprise, then earlier start, then calendar order) and itself runs is of the
+        /// same invasion type, or when <see cref="LiveOpsConfig.MaxConcurrentInvasions"/> such occurrences overlap it.
+        /// Pure and deterministic (content only), so client, server and simulator agree on the calendar.
+        /// </summary>
+        public static bool OccurrenceRuns(ContentDb content, LiveOpsEventDef ev, long startMs) => OccurrenceRuns(content, ev, startMs, 0);
+
+        private const int PrecedenceDepth = 6;
+
+        private static bool OccurrenceRuns(ContentDb content, LiveOpsEventDef ev, long startMs, int depth)
+        {
+            if (ev.Kind != LiveOpsKind.Invasion) return true;
+            long endMs = startMs + ev.Schedule.DurationMs;
+            var schedule = content.LiveOpsSchedule;
+            int index = schedule.IndexOf(ev);
+            int running = 0;
+            for (int i = 0; i < schedule.Count; i++)
+            {
+                var other = schedule[i];
+                if (other.Kind != LiveOpsKind.Invasion) continue;
+                foreach (long os in other.Schedule.Overlapping(startMs, endMs))
+                {
+                    if (i == index && os == startMs) continue;
+                    if (!Precedes(other, os, i, ev, startMs, index)) continue;
+                    // Beyond the depth guard a preceding occurrence counts as running (skips more, never doubles up).
+                    if (depth < PrecedenceDepth && !OccurrenceRuns(content, other, os, depth + 1)) continue;
+                    if (other.RefId == ev.RefId) return false;
+                    running++;
+                }
+            }
+            return running < Math.Max(1, content.LiveOps.MaxConcurrentInvasions);
+        }
+
+        private static bool Precedes(LiveOpsEventDef a, long aStart, int aIndex, LiveOpsEventDef b, long bStart, int bIndex)
+        {
+            if (a.Announced != b.Announced) return a.Announced;
+            if (aStart != bStart) return aStart < bStart;
+            return aIndex < bIndex;
+        }
+
+        /// <summary>
+        /// Why an extra (server-pushed) invasion of <paramref name="typeId"/> over [startMs, endMs) may not run next to
+        /// the calendar and the player's server-pushed invasions: same type already running, or the concurrency cap
+        /// reached. Null when it may run.
+        /// </summary>
+        public static string InvasionConflict(GameState state, ContentDb content, string typeId, long startMs, long endMs)
+        {
+            int overlapping = 0;
+            foreach (var ev in content.LiveOpsSchedule)
+            {
+                if (ev.Kind != LiveOpsKind.Invasion) continue;
+                foreach (long os in ev.Schedule.Overlapping(startMs, endMs))
+                {
+                    if (!OccurrenceRuns(content, ev, os)) continue;
+                    if (ev.RefId == typeId) return "invasion type already running";
+                    overlapping++;
+                }
+            }
+            if (state != null)
+                foreach (var si in state.LiveOps.ServerInvasions)
+                    if (si.StartMs < endMs && startMs < si.EndMs)
+                    {
+                        if (si.InvasionId == typeId) return "invasion type already running";
+                        overlapping++;
+                    }
+            return overlapping >= Math.Max(1, content.LiveOps.MaxConcurrentInvasions) ? "too many invasions" : null;
         }
 
         private static ActiveLiveEvent Make(ContentDb content, LiveOpsEventDef ev, long s, long e) => new ActiveLiveEvent
@@ -251,8 +329,15 @@ namespace RogueStars.Rules.Systems
         {
             string best = null; long bestStart = long.MinValue;
             foreach (var ev in content.LiveOpsSchedule)
-                if (ev.Kind == LiveOpsKind.Invasion && ev.RefId == invasionId && ev.Schedule.TryLatest(now, out long s, out _) && s > bestStart)
-                { bestStart = s; best = OccurrenceId(ev.Id, s); }
+            {
+                if (ev.Kind != LiveOpsKind.Invasion || ev.RefId != invasionId || !ev.Schedule.TryLatest(now, out long s, out _)) continue;
+                for (int guard = 0; guard < 8 && !OccurrenceRuns(content, ev, s); guard++)
+                {
+                    if (ev.Schedule.RecurrenceMs <= 0 || s - ev.Schedule.RecurrenceMs < ev.Schedule.StartMs) { s = long.MinValue; break; }
+                    s -= ev.Schedule.RecurrenceMs;
+                }
+                if (s != long.MinValue && s > bestStart) { bestStart = s; best = OccurrenceId(ev.Id, s); }
+            }
             foreach (var si in state.LiveOps.ServerInvasions)
                 if (si.InvasionId == invasionId && si.StartMs <= now && si.StartMs > bestStart) { bestStart = si.StartMs; best = si.OccurrenceId; }
             return best ?? OccurrenceId(invasionId, now);
@@ -336,6 +421,8 @@ namespace RogueStars.Rules.Systems
             GameEngine.Require(cmd.DurationMs > 0, "invalid duration");
             string occ = OccurrenceId("server_" + cmd.InvasionId, cmd.StartMs);
             foreach (var si in ctx.State.LiveOps.ServerInvasions) GameEngine.Require(si.OccurrenceId != occ, "already started");
+            string conflict = InvasionConflict(ctx.State, ctx.Content, cmd.InvasionId, cmd.StartMs, cmd.StartMs + cmd.DurationMs);
+            GameEngine.Require(conflict == null, conflict);
             ctx.State.LiveOps.ServerInvasions.Add(new ServerInvasion { OccurrenceId = occ, InvasionId = cmd.InvasionId, StartMs = cmd.StartMs, EndMs = cmd.StartMs + cmd.DurationMs });
             return CommandResult.Success(occ);
         }
