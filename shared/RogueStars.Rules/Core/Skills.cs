@@ -39,6 +39,7 @@ namespace RogueStars.Rules.Core
         SlowAwakening,     // Value = meter points removed
         ExtraLoot,         // Value = % more pending loot
         Summon,            // Param = enemy/alien def id
+        SkipNegativeEvent, // Value = number of negative event outcomes skipped this run (city boon buildings)
     }
 
     public enum TargetKind { Self, Enemy, AllEnemies, RandomEnemy, LowestHpEnemy, Worm, AllAllies }
