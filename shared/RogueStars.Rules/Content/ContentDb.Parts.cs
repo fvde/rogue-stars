@@ -149,29 +149,29 @@ namespace RogueStars.Rules.Content
             AddPartRarity(PartRarity.Legendary2, "Legendary+2", 5.2, 60, 3, 2, 3800, PartRecipe(0, PartRarity.Legendary, 2, PartRarity.Legendary));
             AddPartRarity(PartRarity.Legendary3, "Legendary+3", 5.9, 65, 4, 2, 5000, PartRecipe(1, PartRarity.Legendary, 1, PartRarity.Legendary));
             AddPartRarity(PartRarity.Mythic, "Mythic", 7.0, 80, 4, 3, 7000, PartRecipe(2, PartRarity.Legendary, 0, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 7.8, 85, 5, 3, 9000, PartRecipe(0, PartRarity.Mythic, 1, PartRarity.Mythic));
-            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 8.7, 90, 5, 3, 11000, PartRecipe(0, PartRarity.Mythic, 2, PartRarity.Mythic));
-            AddPartRarity(PartRarity.Mythic3, "Mythic+3", 9.8, 100, 6, 3, 14000, PartRecipe(1, PartRarity.Mythic, 1, PartRarity.Mythic));
+            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 7.8, 85, 5, 3, 9000, PartRecipe(0, PartRarity.Mythic, 3, PartRarity.Mythic));
+            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 8.7, 90, 5, 3, 11000, PartRecipe(0, PartRarity.Mythic, 4, PartRarity.Mythic));
+            AddPartRarity(PartRarity.Mythic3, "Mythic+3", 9.8, 100, 6, 3, 14000, PartRecipe(1, PartRarity.Mythic, 5, PartRarity.Mythic));
 
             // ---- levels, cap raises ----------------------------------------------------------------
             p.CapRaiseLevels = 5;
-            p.CapRaisePlates.AddRange(new long[] { 5, 10, 20, 35, 55, 80 });
+            p.CapRaisePlates.AddRange(new long[] { 60, 160, 320, 600, 1000, 1600 });
             int maxLevel = 100 + 6 * p.CapRaiseLevels; // Mythic+3 base cap + all raises
             p.LevelOreCosts.Add(0); p.LevelGearCoreCosts.Add(0);
             for (int l = 1; l < maxLevel; l++)
             {
                 p.LevelOreCosts.Add((long)Math.Round(30 * Math.Pow(l, 1.4)));
-                p.LevelGearCoreCosts.Add(l < 20 ? 0 : 1 + (l - 20) / 8);
+                p.LevelGearCoreCosts.Add(l < 10 ? 0 : (long)Math.Round(2 * Math.Pow(l - 9, 1.25)));
             }
 
             // ---- forge, awakening, signatures ------------------------------------------------------
             p.MaxRuneSlots = 4;
             p.ForgeMinRarity = PartRarity.Epic;
-            p.Forge.Add(new ForgeStep { Diamonds = 300, GearCores = 40, BonusPercent = 10 });
-            p.Forge.Add(new ForgeStep { Diamonds = 900, GearCores = 120, BonusPercent = 15 });
+            p.Forge.Add(new ForgeStep { Diamonds = 300, GearCores = 400, BonusPercent = 10 });
+            p.Forge.Add(new ForgeStep { Diamonds = 900, GearCores = 1200, BonusPercent = 15 });
             p.AwakenMinRarity = PartRarity.Legendary;
             p.SSMinRarity = PartRarity.Mythic;
-            p.AwakenCores.AddRange(new long[] { 20, 60 });
+            p.AwakenCores.AddRange(new long[] { 40, 150 });
             p.AwakenStatPercent.AddRange(new double[] { 0, 15, 35 });
             p.SignatureRarity = PartRarity.Mythic;
             p.Signature2Rarity = PartRarity.Mythic3;

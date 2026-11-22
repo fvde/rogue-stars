@@ -33,6 +33,12 @@ namespace RogueStars.Rules.Systems
     /// <summary>Revive once per run. Ad: consumes Meta's "revive" ad placement (AdToken; instant with No Ads).</summary>
     [Serializable] public sealed class RunRevive : GameCommand { public ReviveMethod Method; public string AdToken; }
 
+    /// <summary>
+    /// Run result screen: watch a rewarded ad to receive the last won run's rewards a second time (feat Diamonds
+    /// excluded). Once per run; consumes Meta's "double_run_rewards" placement (daily cap; instant with No Ads).
+    /// </summary>
+    [Serializable] public sealed class RunDoubleRewards : GameCommand { public string AdToken; }
+
     /// <summary>Give up: the run fails and all pending loot is lost.</summary>
     [Serializable] public sealed class RunAbandon : GameCommand { }
 

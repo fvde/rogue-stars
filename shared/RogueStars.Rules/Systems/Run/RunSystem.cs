@@ -29,6 +29,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunAbandon>((c, ctx) => { var r = Need(ctx); Finish(ctx, r, false); return Ok(ctx); });
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r); return Ok(ctx); });
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
+            e.Register<RunDoubleRewards>(HandleDoubleRewards);
             e.Register<RunBurrowCashOut>((c, ctx) => { var r = Need(ctx); Require(r.Phase == RunPhase.BurrowChoice, "not at a burrow cash-out"); Finish(ctx, r, true); return Ok(ctx); });
 
             e.RegisterNewPlayer(ctx =>
@@ -299,6 +300,26 @@ namespace RogueStars.Rules.Systems
         }
 
         public const string ReviveAdPlacement = "revive";
+        public const string DoubleRewardsAdPlacement = "double_run_rewards";
+
+        /// <summary>
+        /// Result screen ad: the last won run pays its rewards (pending loot, completion rewards and loot rolls, already
+        /// modified by run_reward modifiers) once more. Once per run, daily cap via the ad placement.
+        /// </summary>
+        private static CommandResult HandleDoubleRewards(RunDoubleRewards cmd, CommandContext ctx)
+        {
+            var s = ctx.State;
+            var summary = s.Run.LastSummary;
+            Require(s.Run.Active == null && summary != null && summary.Won, "no won run to double");
+            Require(!summary.Doubled, "rewards already doubled");
+            Require(summary.Doublable.Count > 0, "nothing to double");
+            ShopSystem.ConsumeAdView(ctx, DoubleRewardsAdPlacement, cmd.AdToken);
+            summary.Doubled = true;
+            foreach (var r in summary.Doublable) ctx.Grant(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+            s.Count("run_rewards_doubled");
+            ctx.Emit("run_rewards_doubled", summary.RunId);
+            return CommandResult.Success(summary);
+        }
 
         private static void Revive(CommandContext ctx, ActiveRun run, ReviveMethod method, string adToken)
         {

@@ -18,6 +18,7 @@ namespace RogueStars.Rules.Systems
             {
                 ctx.State.Arena.Points = ctx.Content.Arena.StartPoints;
                 ctx.State.Arena.BestPoints = ctx.State.Arena.Points;
+                ctx.State.Arena.Week = GameClock.WeekIndex(ctx.Content, ctx.NowMs);
                 ctx.State.Wallet.Add(Currencies.ArenaTickets, ctx.Content.Arena.StartTickets);
             });
             // Ticket regeneration is settled by EconomySystem with every other RegenRule (single settler).
@@ -101,9 +102,27 @@ namespace RogueStars.Rules.Systems
 
         // ---- state changes -----------------------------------------------------------------------
 
+        /// <summary>
+        /// Weekly points belong to a reset-week: the first arena action of a new week starts again at StartPoints
+        /// (the server's weekly groups start their members at the same StartPoints).
+        /// </summary>
+        public static void EnsureWeek(GameState s, ContentDb content, long nowMs)
+        {
+            var a = s.Arena;
+            long week = GameClock.WeekIndex(content, nowMs);
+            if (a.Week == week) return;
+            if (a.Week >= 0)
+            {
+                a.Points = content.Arena.StartPoints;
+                a.WeekWins = a.WeekLosses = 0;
+            }
+            a.Week = week;
+        }
+
         /// <summary>Apply a fight result to this player's weekly points (server calls this after simulating).</summary>
         public static long ApplyFightResult(CommandContext ctx, bool won, long opponentPoints)
         {
+            EnsureWeek(ctx.State, ctx.Content, ctx.NowMs);
             var a = ctx.State.Arena;
             long delta = PointsDelta(ctx.Content, a.Points, opponentPoints, won);
             a.Points = Math.Max(ctx.Content.Arena.MinPoints, a.Points + delta);
@@ -128,6 +147,7 @@ namespace RogueStars.Rules.Systems
             a.WeekWins = a.WeekLosses = 0;
             a.PendingFights = 0;
             a.WeeksPlayed++;
+            a.Week = GameClock.WeekIndex(ctx.Content, ctx.NowMs);
             ctx.Emit("arena_week_end", rank.ToString(), outcome.ToString());
             return outcome;
         }
@@ -140,6 +160,7 @@ namespace RogueStars.Rules.Systems
             long cost = ctx.Content.Arena.TicketsPerFight;
             GameEngine.Require(s.Wallet.CanAfford(Currencies.ArenaTickets, cost), "no arena tickets");
             s.Wallet.TrySpend(Currencies.ArenaTickets, cost);
+            EnsureWeek(s, ctx.Content, ctx.NowMs);
             s.Arena.PendingFights++;
             s.Arena.PendingOpponentId = cmd.OpponentId;
             return CommandResult.Success();
@@ -149,7 +170,9 @@ namespace RogueStars.Rules.Systems
         {
             GameEngine.Require(ctx.State.Arena.PendingFights > 0, "no pending fight");
             ctx.State.Arena.PendingFights--;
-            return CommandResult.Success(ApplyFightResult(ctx, cmd.Won, cmd.OpponentPoints));
+            long delta = ApplyFightResult(ctx, cmd.Won, cmd.OpponentPoints);
+            var a = ctx.State.Arena;
+            return CommandResult.Success(new ArenaFightOutcome { Won = cmd.Won, Delta = delta, Points = a.Points, BestPoints = a.BestPoints });
         }
 
         private static CommandResult HandleWeekEnd(ArenaWeekEnd cmd, CommandContext ctx) =>

@@ -77,12 +77,21 @@ public class GachaTests
             Assert.Contains(bp.Tiers[(int)d.Rarity].Pool, en => en.Kind == RewardKinds.Blueprint && en.Id == d.Id);
         foreach (var d in C.AlienTypes.Values)
             Assert.Contains(al.Tiers[(int)d.Rarity].Pool, en => en.Kind == RewardKinds.Alien && en.Id == d.Id);
-        foreach (var t in bp.Tiers) foreach (var en in t.Pool) Assert.NotNull(C.Blueprint(en.Id));
+        foreach (var t in bp.Tiers) foreach (var en in t.Pool)
+            if (en.Kind == RewardKinds.Blueprint) Assert.NotNull(C.Blueprint(en.Id));
+            else { Assert.Equal(RewardKinds.Mount, en.Kind); Assert.True(C.MountConfig.Defs.ContainsKey(en.Id)); } // mount copies (balance pass)
+        // Mount shards are about a quarter of Blueprint Signal outcomes in every tier.
+        foreach (var t in bp.Tiers)
+        {
+            double mount = t.Pool.Where(en => en.Kind == RewardKinds.Mount).Sum(en => en.Weight), all = t.Pool.Sum(en => en.Weight);
+            Assert.InRange(mount / all, 0.2, 0.3);
+        }
         foreach (var t in al.Tiers) foreach (var en in t.Pool)
             if (en.Kind == RewardKinds.Alien) Assert.NotNull(C.AlienType(en.Id));
         foreach (var r in C.GachaConfig.Rotations) foreach (var th in r.Themes)
         {
             if (th.FeaturedKind == RewardKinds.Blueprint) Assert.Equal(Rarity.Mythic, C.Blueprint(th.FeaturedId)!.Rarity);
+            if (th.FeaturedKind == RewardKinds.Mount) Assert.True(C.MountConfig.Defs.ContainsKey(th.FeaturedId));
             if (th.FeaturedKind == RewardKinds.Alien) Assert.Equal(Rarity.Mythic, C.AlienType(th.FeaturedId)!.Rarity);
         }
     }
@@ -96,10 +105,12 @@ public class GachaTests
         // Blueprint Signal → City's blueprint granter: owned blueprints (1★) or shards for duplicates.
         long copiesBefore = s.Counter("blueprints_obtained") + s.Counter("blueprint_duplicates");
         var bpRes = Pull(e, ref s, GachaType.Blueprint, 10);
-        Assert.All(bpRes.Items, it => Assert.Equal(RewardKinds.Blueprint, it.Kind));
-        foreach (var it in bpRes.Items) Assert.NotNull(CitySystem.Owned(s, it.Id));
+        int bpItems = 0;
+        foreach (var it in bpRes.Items)
+            if (it.Kind == RewardKinds.Blueprint) { Assert.NotNull(CitySystem.Owned(s, it.Id)); bpItems++; }
+            else { Assert.Equal(RewardKinds.Mount, it.Kind); Assert.NotNull(MountSystem.Get(s, it.Id)); } // mount copies
         Assert.Equal(s.City.Blueprints.Count, s.Counter("blueprints_obtained"));
-        Assert.Equal(copiesBefore + 10, s.Counter("blueprints_obtained") + s.Counter("blueprint_duplicates"));
+        Assert.Equal(copiesBefore + bpItems, s.Counter("blueprints_obtained") + s.Counter("blueprint_duplicates"));
 
         // Alien Signal → City's alien granter (rolled genes/traits) or Progression's hero shards.
         var alRes = Pull(e, ref s, GachaType.Alien, 10);
@@ -116,7 +127,7 @@ public class GachaTests
 
         // Featured mythic of the active blueprint banner is a real City blueprint.
         var banner = GachaSystem.ActiveBanner(C, GachaType.Blueprint, TestHelpers.T0)!;
-        Assert.NotNull(C.Blueprint(banner.Theme.FeaturedId));
+        Assert.True(C.Blueprint(banner.Theme.FeaturedId) != null || C.MountConfig.Defs.ContainsKey(banner.Theme.FeaturedId));
         for (int i = 0; i < 6; i++) Pull(e, ref s, GachaType.Blueprint, 10, banner.Id);
         Assert.True(s.Counter("pulls_mythic") >= 1);
     }

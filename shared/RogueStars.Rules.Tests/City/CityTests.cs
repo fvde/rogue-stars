@@ -197,7 +197,7 @@ public class CityTests
         var (e, s, t) = FarmReady();
         var def = e.Content.Blueprint(Farm);
         Assert.Equal(new long[] { 30, 50 }, CitySystem.UpgradeCost(e.Content, def, 1).Select(c => c.Amount));
-        Assert.Equal(new long[] { 55, 91 }, CitySystem.UpgradeCost(e.Content, def, 3).Select(c => c.Amount));
+        Assert.Equal(new long[] { 43, 72 }, CitySystem.UpgradeCost(e.Content, def, 3).Select(c => c.Amount)); // ×1.2 per level
         long ore = s.Wallet.Get(Currencies.Ore);
         Ok(e, ref s, new CityUpgrade { BlueprintId = Farm }, t);
         Assert.Equal(ore - 30, s.Wallet.Get(Currencies.Ore));
@@ -214,8 +214,9 @@ public class CityTests
     {
         var (e, s, t) = FarmReady();
         var b = CitySystem.Owned(s, Farm);
-        Assert.Equal(10, CitySystem.MaxLevel(e.Content, b));
-        b.Level = 10;
+        int max = e.Content.CityTuning.MaxLevelBase + e.Content.CityTuning.MaxLevelPerStar;
+        Assert.Equal(max, CitySystem.MaxLevel(e.Content, b));
+        b.Level = max;
         Assert.Equal("max level for current stars", Fail(e, ref s, new CityUpgrade { BlueprintId = Farm }, t));
         CitySystem.Owned(s, Farm).Stars = 2;
         Ok(e, ref s, new CityUpgrade { BlueprintId = Farm }, t);

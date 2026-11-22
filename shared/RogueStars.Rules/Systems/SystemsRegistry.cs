@@ -7,6 +7,10 @@ namespace RogueStars.Rules.Systems
     {
         public static void RegisterAll(GameEngine e)
         {
+            // First settler: scheduled planetary event modifiers are materialised with their real start/end times
+            // before anything settles time-based state (City production integrates modifier windows piecewise).
+            e.RegisterSettler(LiveOpsSystem.MaterialiseScheduledModifiers);
+
             // Workstream Run: run, board, combat, skills, laboratory
             RunSystem.Register(e);
             LaboratorySystem.Register(e);

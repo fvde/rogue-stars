@@ -63,11 +63,11 @@ public class AlienTests
         var s = Broke(e);
         GrantAlien(e, s, "alien_blorp");
         var a = AlienSystem.Owned(s, "alien_blorp");
-        Assert.Equal(20, AlienSystem.LevelCost(e.Content, a));
+        Assert.Equal(80, AlienSystem.LevelCost(e.Content, a));
         Assert.Equal("not enough grain", Fail(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0));
-        s.Wallet.Add(Currencies.Grain, 42);
+        s.Wallet.Add(Currencies.Grain, 165);
         Ok(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0);
-        Ok(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0); // 20 + 22
+        Ok(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0); // 80 + 85 (growth 1.065)
         Assert.Equal(3, AlienSystem.Owned(s, "alien_blorp").Level);
         Assert.Equal(0, s.Wallet.Get(Currencies.Grain));
         Assert.Equal(28, AlienSystem.MaxLevel(e.Content, AlienSystem.Owned(s, "alien_blorp")));

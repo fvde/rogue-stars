@@ -128,6 +128,31 @@ public class ArenaTests
     }
 
     [Fact]
+    public void FightResult_PayloadCarriesRulesPoints_AndPointsResetInANewWeek()
+    {
+        var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
+        s.Counters[Requirements.MainLevelCounter] = 16;
+        Ok(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t);
+        var won = Assert.IsType<ArenaFightOutcome>(Ok(e, ref s, new ArenaFightResult { Won = true, OpponentPoints = 1000 }, t).Payload);
+        Assert.Equal(20, won.Delta);
+        Assert.Equal(1020, won.Points);
+        Assert.Equal(s.Arena.Points, won.Points);
+        Ok(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t);
+        var lost = Assert.IsType<ArenaFightOutcome>(Ok(e, ref s, new ArenaFightResult { Won = false, OpponentPoints = 1020 }, t).Payload);
+        Assert.True(lost.Delta < 0);
+        Assert.Equal(1020 + lost.Delta, lost.Points);
+
+        // Next reset-week: the first fight starts from StartPoints again (best points are kept).
+        long nextWeek = GameClock.WeekStartMs(e.Content, GameClock.WeekIndex(e.Content, t) + 1) + H;
+        Ok(e, ref s, new ArenaStartFight { OpponentId = "p2" }, nextWeek);
+        Assert.Equal(e.Content.Arena.StartPoints, s.Arena.Points);
+        Assert.Equal(0, s.Arena.WeekWins);
+        var again = Assert.IsType<ArenaFightOutcome>(Ok(e, ref s, new ArenaFightResult { Won = true, OpponentPoints = 1000 }, nextWeek).Payload);
+        Assert.Equal(1020, again.Points);
+        Assert.Equal(1020, again.BestPoints);
+    }
+
+    [Fact]
     public void Snapshot_ContainsLoadout()
     {
         var e = Engine();

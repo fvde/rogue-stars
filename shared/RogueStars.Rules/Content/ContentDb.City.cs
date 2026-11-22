@@ -113,9 +113,9 @@ namespace RogueStars.Rules.Content
     {
         public int GridWidth = 12, GridHeight = 12;
         /// <summary>Upgrade cost to go from level L to L+1 = base × CostGrowth^(L−1); time × TimeGrowth^(L−1).</summary>
-        public double CostGrowth = 1.35, TimeGrowth = 1.22;
+        public double CostGrowth = 1.2, TimeGrowth = 1.12;
         /// <summary>Max building level = MaxLevelBase + MaxLevelPerStar × stars.</summary>
-        public int MaxLevelBase = 8, MaxLevelPerStar = 2;
+        public int MaxLevelBase = 12, MaxLevelPerStar = 2;
         /// <summary>Production/storage growth per level above 1 and per star above 1 (percent).</summary>
         public double LevelProductionPct = 15, LevelStoragePct = 12, StarProductionPct = 5, StarStoragePct = 5;
         /// <summary>Star scaling for StarScaled boons (percent per star above 1).</summary>
@@ -189,10 +189,10 @@ namespace RogueStars.Rules.Content
             CityProduction("bp_grain_farm", "Grain Farm", Rarity.Common, 1, 1, Currencies.Grain, 40, StatId.Hp);
             CityProduction("bp_ore_mine", "Ore Mine", Rarity.Common, 1, 1, Currencies.Ore, 40, StatId.Def);
             CityProduction("bp_spore_vats", "Spore Vats", Rarity.Rare, 2, 1, Currencies.Biomass, 150, StatId.Regen);
-            CityProduction("bp_fuel_refinery", "Fuel Refinery", Rarity.Rare, 2, 1, Currencies.Fuel, 25, StatId.MountPower);
-            CityProduction("bp_gear_works", "Gear Works", Rarity.Rare, 2, 1, Currencies.GearCores, 6, StatId.Atk);
+            CityProduction("bp_fuel_refinery", "Fuel Refinery", Rarity.Rare, 2, 1, Currencies.Fuel, 15, StatId.MountPower);
+            CityProduction("bp_gear_works", "Gear Works", Rarity.Rare, 2, 1, Currencies.GearCores, 2, StatId.Atk);
             CityProduction("bp_training_grounds", "Training Grounds", Rarity.Rare, 2, 1, Currencies.HeroXp, 30, StatId.CritDamage);
-            CityProduction("bp_plate_foundry", "Plate Foundry", Rarity.Epic, 2, 2, Currencies.AdvancementPlates, 1.5, StatId.Def);
+            CityProduction("bp_plate_foundry", "Plate Foundry", Rarity.Epic, 2, 2, Currencies.AdvancementPlates, 0.5, StatId.Def);
             CityProduction("bp_diamond_mine", "Diamond Mine", Rarity.Epic, 2, 2, Currencies.Diamonds, 2, StatId.CritChance);
             CityProduction("bp_token_relay", "Blueprint Relay", Rarity.Legendary, 2, 2, Currencies.BlueprintTokens, 0.05, StatId.LootLuck);
             CityProduction("bp_signal_beacon", "Alien Signal Beacon", Rarity.Legendary, 2, 2, Currencies.AlienTokens, 0.05, StatId.AlienPower);

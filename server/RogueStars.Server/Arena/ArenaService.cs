@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
 using RogueStars.Server.Commands;
 using RogueStars.Server.Infrastructure;
 using RogueStars.Server.Storage;
@@ -77,8 +79,12 @@ public static class OpponentPicker
 
 public sealed record FightRequest(string? OpponentId, string? RequestId);
 
+/// <summary>
+/// Arena groups, matchmaking and fights. Weekly points are owned by the rules (<c>ArenaSystem</c>): the server reports
+/// the fight result through the <c>ArenaFightResult</c> hook and mirrors the points the rules return into the group.
+/// </summary>
 public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHooks hooks, IBattleResolver resolver, Clock clock,
-    IOptions<ServerOptions> options, ILogger<ArenaService> log)
+    GameEngine engine, IOptions<ServerOptions> options, ILogger<ArenaService> log)
 {
     private ArenaOptions O => options.Value.Arena;
 
@@ -113,6 +119,7 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
             g => g.Members.Add(new ArenaMember
             {
                 PlayerId = playerId, DisplayName = loadout.DisplayName ?? playerId, Power = loadout.Power, JoinedMs = now,
+                Points = engine.Content.Arena.StartPoints, // rules weekly points start here (ArenaSystem.EnsureWeek)
             }),
             playerId, ct);
 
@@ -159,32 +166,41 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
         }
 
         var outcome = resolver.ResolveDuel(loadout, defender.Loadout, seed);
-        int delta = outcome.AttackerWon ? O.WinPoints : -O.LossPoints;
+        long opponentPoints = group.Member(defender.PlayerId)?.Points ?? engine.Content.Arena.StartPoints;
 
+        // Points: the rules are the single source of truth. The hook applies the result and returns the new points.
         CommandResponse? hook = null;
+        long delta, points;
         if (hooks.Has(hooks.Names.ArenaFight))
         {
             hook = await hooks.TryExecuteAsync(playerId, hooks.Names.ArenaFight, new
             {
-                OpponentId = defender.PlayerId, Won = outcome.AttackerWon, OpponentPoints = group.Member(defender.PlayerId)?.Points ?? 0, PointsDelta = delta, Seed = seed, Week = group.Week, FightId = fightId,
+                OpponentId = defender.PlayerId, Won = outcome.AttackerWon, OpponentPoints = opponentPoints, Seed = seed, Week = group.Week, FightId = fightId,
             }, "arena-fight-" + fightId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "fight_rejected");
             if (hook is { Replayed: true }) return new { ok = true, fightId, replayed = true, payload = hook.Payload, state = hook.State };
+            if (hook?.Payload is not { ValueKind: JsonValueKind.Object } payload
+                || !payload.TryGetProperty("points", out var p) || !payload.TryGetProperty("delta", out var d))
+                throw new ApiException(StatusCodes.Status500InternalServerError, "arena_result_missing");
+            points = p.GetInt64();
+            delta = d.GetInt64();
+        }
+        else
+        {
+            // Rules hook not deployed: same rules math on the group's points (no player state to update).
+            delta = ArenaSystem.PointsDelta(engine.Content, me.Points, opponentPoints, outcome.AttackerWon);
+            points = Math.Max(engine.Content.Arena.MinPoints, me.Points + delta);
         }
 
-        long points = 0;
         await docs.MutateAsync<ArenaGroup>(Collections.ArenaGroups, group.Id, g =>
         {
             if (g == null) return null;
             var m = g.Member(playerId);
             if (m == null) return null;
-            m.Points = Math.Max(0, m.Points + delta);
+            m.Points = points;
             m.Power = loadout.Power;
             m.DisplayName = loadout.DisplayName ?? m.DisplayName;
             if (outcome.AttackerWon) m.Wins++; else m.Losses++;
-            points = m.Points;
-            var d = g.Member(defender.PlayerId);
-            if (d != null && outcome.AttackerWon) d.Points = Math.Max(0, d.Points - O.DefenderLossPoints);
             return g;
         }, ct);
 

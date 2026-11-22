@@ -23,6 +23,8 @@ namespace RogueStars.Rules.Systems
         public List<string> AppliedOutcomes = new List<string>();
         /// <summary>Server-pushed surprise invasions (in addition to the content calendar).</summary>
         public List<ServerInvasion> ServerInvasions = new List<ServerInvasion>();
+        /// <summary>Planetary event modifiers are materialised for every occurrence overlapping (this, now]; 0 = never.</summary>
+        public long ScheduleSettledMs;
     }
 
     [Serializable]

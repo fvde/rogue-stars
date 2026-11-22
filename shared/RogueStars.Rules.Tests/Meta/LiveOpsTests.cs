@@ -106,6 +106,56 @@ public class LiveOpsTests
         Assert.Contains(active, a => a.Kind == LiveOpsKind.PlanetaryEvent && a.RefId == "grain_blight");
     }
 
+    /// <summary>Engine whose Diamond Mine never fills its storage (production integrals are compared exactly).</summary>
+    private static (GameEngine, GameState, OwnedBlueprint) DiamondMineAt(long buildAt)
+    {
+        var c = new ContentDb();
+        c.Blueprints["bp_diamond_mine"].BaseStorage = 1e12;
+        var e = new GameEngine(c) { Cloner = TestHelpers.Clone };
+        var s = e.NewPlayer("p1", buildAt, 42);
+        s.Flags.Add(Features.DevUnlockAllFlag);
+        RogueStars.Rules.Tests.City.Kit.UnlockAll(e, s);
+        s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
+        long done = RogueStars.Rules.Tests.City.Kit.BuildActive(e, ref s, "bp_diamond_mine", 0, 0, buildAt);
+        var mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        mine.Stored = 0;
+        mine.LastSettleMs = done;
+        return (e, s, mine);
+    }
+
+    [Fact]
+    public void PlanetaryEvent_StartingBetweenCommands_BoostsProductionFromItsRealStart()
+    {
+        // Last command 1 h before Diamond Rain starts, next one 2 h after: 1 h at ×1 + 2 h at ×2.
+        var (e, s, mine) = DiamondMineAt(DiamondRainStart - 3 * H);
+        long last = DiamondRainStart - H;
+        e.Settle(s, last);
+        double rate = CitySystem.BaseRatePerHour(s, e.Content, mine);
+        double before = mine.Stored;
+        Assert.DoesNotContain(s.Modifiers, m => m.Source == "event:diamond_rain");
+        Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, DiamondRainStart + 2 * H);
+        mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        Assert.Equal(before + rate * (1 + 2 * 2), mine.Stored, 6);
+    }
+
+    [Fact]
+    public void PlanetaryEvent_StartedAndEndedBetweenCommands_StillCountsForProduction()
+    {
+        // Away for the whole 4-day Diamond Rain window: the window is integrated, then the expired modifier is gone.
+        var (e, s, mine) = DiamondMineAt(DiamondRainStart - 3 * H);
+        long last = DiamondRainStart - H, next = DiamondRainStart + 4 * D + H;
+        e.Settle(s, last);
+        double rate = CitySystem.BaseRatePerHour(s, e.Content, mine);
+        double before = mine.Stored;
+        Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, next);
+        mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        Assert.Equal(before + rate * (1 + 4 * 24 * 2 + 1), mine.Stored, 6);
+        Assert.DoesNotContain(s.Modifiers, m => m.Source == "event:diamond_rain");
+        // A later settle does not resurrect the finished occurrence.
+        e.Settle(s, next + H);
+        Assert.DoesNotContain(s.Modifiers, m => m.Source == "event:diamond_rain");
+    }
+
     [Fact]
     public void Schedule_OccurrenceMath()
     {

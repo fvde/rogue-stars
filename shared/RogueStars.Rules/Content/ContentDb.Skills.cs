@@ -258,18 +258,27 @@ namespace RogueStars.Rules.Content
                 b.Desc("Rolls may grant an extra die next roll.").Board(TriggerKind.OnRoll, EffectKind.ExtraDice, 1, null, 10 + 10 * lv));
         }
 
+        /// <summary>Research levels per laboratory line.</summary>
+        public const int LabLevels = 5;
+
         private void RunLab(string researchId, string name, bool isDefault, SkillFamily family, Rarity rarity, Action<RunSkillBuilder, int> fill)
         {
             var def = new LabResearchDef { Id = researchId, Name = name, DefaultResearched = isDefault };
             string baseId = "lab_" + researchId.Substring(4);
-            for (int lv = 1; lv <= 2; lv++)
+            // Five levels per line (long-haul research): costs ×~6 and longer timers per level.
+            string[] numerals = { "", " II", " III", " IV", " V" };
+            long[] biomass = { 200, 900, 5_000, 15_000, 40_000 };
+            long[] ore = { 100, 450, 2_500, 7_500, 20_000 };
+            double[] hours = { 0.5, 4, 12, 24, 48 };
+            for (int lv = 1; lv <= LabLevels; lv++)
             {
                 string sid = lv == 1 ? baseId : baseId + "_" + lv;
-                var b = RunSkill(sid, lv == 1 ? name : name + " II", family, lv == 1 ? rarity : (Rarity)Math.Min((int)Rarity.Mythic, (int)rarity + 1), SkillSource.Laboratory);
+                var r = (Rarity)Math.Min((int)Rarity.Mythic, (int)rarity + (lv + 1) / 2);
+                var b = RunSkill(sid, name + numerals[lv - 1], family, lv == 1 ? rarity : r, SkillSource.Laboratory);
                 fill(b, lv);
-                var level = new LabLevelDef { SkillId = sid, DurationMs = lv == 1 ? 30 * 60 * 1000L : 4 * 60 * 60 * 1000L };
-                level.Costs.Add(new Cost(Currencies.Biomass, lv == 1 ? 200 : 900));
-                level.Costs.Add(new Cost(Currencies.Ore, lv == 1 ? 100 : 450));
+                var level = new LabLevelDef { SkillId = sid, DurationMs = (long)(hours[lv - 1] * 60 * 60 * 1000L) };
+                level.Costs.Add(new Cost(Currencies.Biomass, biomass[lv - 1]));
+                level.Costs.Add(new Cost(Currencies.Ore, ore[lv - 1]));
                 def.Levels.Add(level);
             }
             LabResearch[def.Id] = def;

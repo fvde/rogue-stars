@@ -54,8 +54,8 @@ namespace RogueStars.Rules.Content
         /// <summary>Shards per duplicate alien copy, by rarity.</summary>
         public long[] ShardsPerDuplicate = { 1, 1, 1, 1, 1 };
         /// <summary>Grain to go from level L to L+1 = LevelGrainBase[rarity] × LevelGrainGrowth^(L−1).</summary>
-        public long[] LevelGrainBase = { 20, 30, 45, 70, 100 };
-        public double LevelGrainGrowth = 1.1;
+        public long[] LevelGrainBase = { 80, 120, 180, 280, 400 };
+        public double LevelGrainGrowth = 1.065;
         /// <summary>Max level = MaxLevelBase + MaxLevelPerStar × stars.</summary>
         public int MaxLevelBase = 20, MaxLevelPerStar = 8;
         /// <summary>Combat/work growth in percent per level above 1 and per star above 1.</summary>
