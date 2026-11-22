@@ -1,0 +1,23 @@
+# .NET
+artifacts/
+*.user
+.vs/
+.idea/
+# Unity
+client/**/[Ll]ibrary/
+client/**/[Tt]emp/
+client/**/[Oo]bj/
+client/**/[Bb]uild/
+client/**/[Bb]uilds/
+client/**/[Ll]ogs/
+client/**/[Uu]ser[Ss]ettings/
+client/**/*.csproj
+client/**/*.sln
+client/**/.utmp/
+# Terraform
+infra/**/.terraform/
+infra/**/*.tfstate*
+infra/**/*.tfvars
+!infra/**/example.tfvars
+# OS
+.DS_Store

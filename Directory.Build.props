@@ -1,0 +1,8 @@
+<Project>
+  <!-- All bin/obj output goes to ./artifacts so source folders stay clean (Unity imports shared/ as a package). -->
+  <PropertyGroup>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
