@@ -320,7 +320,7 @@ public class RunSystemTests
         var hurt = s.Run.Active.DefeatEnemies;
         Assert.NotEmpty(hurt);
         Assert.Contains(hurt, h => h.StartHp >= 0);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunRevive { Method = ReviveMethod.Ad }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRevive { Method = ReviveMethod.Ad, AdToken = "ad" }).Ok);
         Assert.Equal(1, s.Counter("run_revives"));
     }
 

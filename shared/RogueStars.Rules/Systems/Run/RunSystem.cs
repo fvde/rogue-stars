@@ -25,7 +25,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunShopBuy>((c, ctx) => { var r = Need(ctx); ShopBuy(ctx, r, c.Index); return Ok(ctx); });
             e.Register<RunShopReroll>((c, ctx) => { var r = Need(ctx); ShopReroll(ctx, r); return Ok(ctx); });
             e.Register<RunShopLeave>((c, ctx) => { var r = Need(ctx); ShopLeave(ctx, r); return Ok(ctx); });
-            e.Register<RunRevive>((c, ctx) => { var r = Need(ctx); Revive(ctx, r, c.Method); return Ok(ctx); });
+            e.Register<RunRevive>((c, ctx) => { var r = Need(ctx); Revive(ctx, r, c.Method, c.AdToken); return Ok(ctx); });
             e.Register<RunAbandon>((c, ctx) => { var r = Need(ctx); Finish(ctx, r, false); return Ok(ctx); });
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r); return Ok(ctx); });
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
@@ -298,10 +298,13 @@ namespace RogueStars.Rules.Systems
             Continue(ctx, run);
         }
 
-        private static void Revive(CommandContext ctx, ActiveRun run, ReviveMethod method)
+        public const string ReviveAdPlacement = "revive";
+
+        private static void Revive(CommandContext ctx, ActiveRun run, ReviveMethod method, string adToken)
         {
             Require(run.Phase == RunPhase.Defeated, "nothing to revive from");
             Require(!run.ReviveUsed, "revive already used this run");
+            if (method == ReviveMethod.Ad) ShopSystem.ConsumeAdView(ctx, ReviveAdPlacement, adToken);
             if (method == ReviveMethod.Diamonds)
             {
                 long cost = ctx.Content.RunTuning.ReviveDiamondCost;

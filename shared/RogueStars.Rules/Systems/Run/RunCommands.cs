@@ -30,7 +30,8 @@ namespace RogueStars.Rules.Systems
     [Serializable] public sealed class RunShopLeave : GameCommand { }
 
     /// <summary>Revive once per run after a lost battle (ad verified by the host, or Diamonds).</summary>
-    [Serializable] public sealed class RunRevive : GameCommand { public ReviveMethod Method; }
+    /// <summary>Revive once per run. Ad: consumes Meta's "revive" ad placement (AdToken; instant with No Ads).</summary>
+    [Serializable] public sealed class RunRevive : GameCommand { public ReviveMethod Method; public string AdToken; }
 
     /// <summary>Give up: the run fails and all pending loot is lost.</summary>
     [Serializable] public sealed class RunAbandon : GameCommand { }
