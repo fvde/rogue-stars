@@ -1,0 +1,5 @@
+<linker>
+  <!-- State/command/DTO classes are created by Newtonsoft via reflection: keep them whole under IL2CPP stripping. -->
+  <assembly fullname="RogueStars.Rules" preserve="all" />
+  <assembly fullname="RogueStars.Client" preserve="all" />
+</linker>
