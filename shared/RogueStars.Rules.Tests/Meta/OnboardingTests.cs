@@ -42,6 +42,7 @@ public class OnboardingTests
     public void RequirementEngine_AllAnyCountersFlagsCurrency()
     {
         var e = Engine(); var s = Player(e);
+        s.Wallet.Balances.Remove(Currencies.Ore); // starting wallet
         var all = RequirementSet.All(new RequirementDef(RequirementKind.Counter, "runs_completed", 3), new RequirementDef(RequirementKind.Flag, "owns_x", 1));
         var any = RequirementSet.AnyOf(new RequirementDef(RequirementKind.Currency, Currencies.Ore, 100), new RequirementDef(RequirementKind.WormLevel, null, 5));
         Assert.False(Requirements.IsMet(s, e.Content, all));

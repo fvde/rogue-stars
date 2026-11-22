@@ -44,7 +44,7 @@ public class CityTests
     public void Areas_UnlockOneByOne_WithRequirementsAndCosts()
     {
         var e = TestHelpers.Engine();
-        var s = TestHelpers.NewPlayer(e);
+        var s = Broke(e);
         Assert.Equal(new[] { "area_core" }, s.City.UnlockedAreas);
         Assert.Equal("areas unlock in order", Fail(e, ref s, new CityUnlockArea { AreaId = "area_east" }, T0));
         Assert.Equal("not enough resources", Fail(e, ref s, new CityUnlockArea { AreaId = "area_north" }, T0));
@@ -82,7 +82,7 @@ public class CityTests
     public void Build_SpendsCost_RunsTimer_ThenLevelOne()
     {
         var e = TestHelpers.Engine();
-        var s = TestHelpers.NewPlayer(e);
+        var s = Broke(e);
         s.Wallet.Add(Currencies.Ore, 40); s.Wallet.Add(Currencies.Biomass, 60);
         GrantBlueprint(e, s, Farm);
         Ok(e, ref s, new CityBuild { BlueprintId = Farm, X = 4, Y = 4 }, T0);

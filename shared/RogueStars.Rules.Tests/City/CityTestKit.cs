@@ -16,6 +16,15 @@ public static class Kit
         return s;
     }
 
+    /// <summary>New player with the starting wallet's city resources removed (exact cost math).</summary>
+    public static GameState Broke(GameEngine e, long seed = 42)
+    {
+        var s = TestHelpers.NewPlayer(e, seed);
+        foreach (var c in new[] { Currencies.Ore, Currencies.Biomass, Currencies.Grain, Currencies.Diamonds })
+            s.Wallet.Balances.Remove(c);
+        return s;
+    }
+
     public static void Grant(GameEngine e, GameState s, Reward r, long now = TestHelpers.T0)
     {
         var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = now };

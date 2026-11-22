@@ -131,6 +131,7 @@ public class ArenaTests
     public void Snapshot_ContainsLoadout()
     {
         var e = Engine();
+        double baseAtk = e.BuildLoadout(Player(e), TestHelpers.T0).WormStats.Value(StatId.Atk);
         e.RegisterLoadoutContributor((st, c, now, l) => { l.HeroId = "hero_star_knight"; l.Power = 4242; l.WormStats.Add(new StatMod(StatId.Atk, 10)); });
         var s = Player(e);
         s.DisplayName = "Wormy";
@@ -141,7 +142,7 @@ public class ArenaTests
         Assert.Equal("hero_star_knight", snap.Loadout.HeroId);
         Assert.Equal(4242, snap.Power);
         Assert.Equal(1234, snap.Points);
-        Assert.Equal(10, snap.Loadout.WormStats.Value(StatId.Atk));
+        Assert.Equal(baseAtk + 10, snap.Loadout.WormStats.Value(StatId.Atk));
         Assert.Equal(snap.Loadout.HeroId, TestHelpers.Clone(snap).Loadout.HeroId);
     }
 }

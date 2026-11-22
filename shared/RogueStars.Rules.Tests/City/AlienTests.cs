@@ -60,7 +60,7 @@ public class AlienTests
     public void LevelUp_CostsGrain_CappedByStars()
     {
         var e = TestHelpers.Engine();
-        var s = TestHelpers.NewPlayer(e);
+        var s = Broke(e);
         GrantAlien(e, s, "alien_blorp");
         var a = AlienSystem.Owned(s, "alien_blorp");
         Assert.Equal(20, AlienSystem.LevelCost(e.Content, a));

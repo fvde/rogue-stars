@@ -250,10 +250,11 @@ public class ShopTests
         Ok(e, ref s, new ShopBuyItem { ItemId = "daily_free_gift" }, Day0 + D);
         s.Wallet.Add(Currencies.Diamonds, 1000);
         long dia = Bal(s, Currencies.Diamonds);
+        long tokens = Bal(s, Currencies.PartTokens);
         for (int i = 0; i < 3; i++) Ok(e, ref s, new ShopBuyItem { ItemId = "daily_part_tokens" }, Day0 + D);
         Assert.Equal("item limit reached", Fail(e, ref s, new ShopBuyItem { ItemId = "daily_part_tokens" }, Day0 + D));
         Assert.Equal(dia - 360, Bal(s, Currencies.Diamonds));
-        Assert.Equal(9, Bal(s, Currencies.PartTokens));
+        Assert.Equal(tokens + 9, Bal(s, Currencies.PartTokens));
         Fail(e, ref s, new ShopBuyItem { ItemId = "guild_ore" }, t);
     }
 
