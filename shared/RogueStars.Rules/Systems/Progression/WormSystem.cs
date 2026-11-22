@@ -69,8 +69,8 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>
-        /// Power score of a loadout: weighted worm stats + skills + mount and alien stats. Progression sets
-        /// loadout.Power after its own contributors; hosts may call this again after all contributors ran.
+        /// Power score of a loadout: weighted worm stats + skills + mount and alien stats. Applied as the final
+        /// loadout step (registered last in SystemsRegistry), so every contributor (City aliens/boons too) counts.
         /// </summary>
         public static long ComputePower(CombatLoadout l, ContentDb c)
         {

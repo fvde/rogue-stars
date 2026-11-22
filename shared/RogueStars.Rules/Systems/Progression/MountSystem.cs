@@ -8,7 +8,7 @@ namespace RogueStars.Rules.Systems
     /// <summary>
     /// Mounts (spaceships): one active, stars 1–5 then awakening 1–5, level by Fuel, weapon skills upgraded
     /// at 2/4/5★ and awakening 3/5. Granter for RewardKinds.Mount (first copy unlocks at 1★, duplicates
-    /// become mount shards). Also sets loadout.Power after all Progression contributors.
+    /// become mount shards).
     /// </summary>
     public static class MountSystem
     {
@@ -20,8 +20,6 @@ namespace RogueStars.Rules.Systems
             e.Register<MountEquip>(HandleEquip);
             e.Rewards.Register(RewardKinds.Mount, GrantMount);
             e.RegisterLoadoutContributor(Contribute);
-            // Registered last among Progression systems so the score includes worm, parts, hero and mount.
-            e.RegisterLoadoutContributor((s, c, now, l) => l.Power = WormSystem.ComputePower(l, c));
         }
 
         // ---- queries -------------------------------------------------------------------------------

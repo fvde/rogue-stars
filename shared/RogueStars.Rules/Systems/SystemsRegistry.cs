@@ -30,6 +30,10 @@ namespace RogueStars.Rules.Systems
             MailSystem.Register(e);
             ArenaSystem.Register(e);
             GuildSystem.Register(e);
+
+            // Final loadout step, registered after every contributor: the power score sees worm, parts, hero,
+            // mount, squad aliens, building boons and laboratory skills. Keep this the last registration.
+            e.RegisterLoadoutContributor((s, c, now, l) => l.Power = WormSystem.ComputePower(l, c));
         }
     }
 }

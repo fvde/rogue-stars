@@ -21,17 +21,18 @@ namespace RogueStars.Rules.Content
 
         public ContentDb()
         {
-            // Order: skills used by other systems are plain ids, so build order does not matter.
+            // Order: skills used by other systems are plain ids. Gacha pools are built from the parts, heroes,
+            // blueprints and alien types, so BuildGacha runs after those.
             BuildSkills();
             BuildRun();
             BuildWorm();
             BuildParts();
             BuildHeroes();
             BuildMounts();
-            BuildGacha();
             BuildEconomy();
             BuildCity();
             BuildAliens();
+            BuildGacha();
             BuildBreeding();
             BuildOnboarding();
             BuildLiveOps();

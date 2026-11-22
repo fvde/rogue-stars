@@ -49,8 +49,13 @@ namespace RogueStars.Rules.Systems
             e.Rewards.Register(RewardKinds.Blueprint, GrantBlueprint);
             TimerSystem.RegisterCompletion(e, TimerBuild, CompleteBuild);
             TimerSystem.RegisterCompletion(e, TimerUpgrade, CompleteUpgrade);
-            // TODO(merge): EconomySystem.RegisterRegenBonusProvider(Currencies.Stamina, CitySystem.StaminaBonus)
-            //              — the lead wires CitySystem.StaminaBonus into the Progression regen hook at merge.
+            // Stamina cap/regen boons feed Progression's regen engine (EconomySystem is registered before City).
+            EconomySystem.RegisterRegenBonusProvider(e, (s, c, now, currency) =>
+            {
+                if (currency != Currencies.Stamina) return (0L, 0.0);
+                var b = StaminaBonus(s, c, now);
+                return (b.CapBonus, b.TickSpeedPercent);
+            });
         }
 
         // ---- queries ----------------------------------------------------------------------------
@@ -213,8 +218,8 @@ namespace RogueStars.Rules.Systems
         public static double ResearchSpeedPct(GameState state, ContentDb content) => BoonTotal(state, content, BoonKind.ResearchSpeedPct);
 
         /// <summary>
-        /// Stamina regen bonus provider (cap bonus + tick speed-up percent).
-        /// TODO(merge): registered via EconomySystem.RegisterRegenBonusProvider by the lead.
+        /// Stamina regen bonus provider (cap bonus + tick speed-up percent); registered with
+        /// EconomySystem.RegisterRegenBonusProvider in <see cref="Register"/>.
         /// </summary>
         public static CityStaminaBonus StaminaBonus(GameState state, ContentDb content, long nowMs) => new CityStaminaBonus
         {

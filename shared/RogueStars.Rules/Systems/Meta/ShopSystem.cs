@@ -18,6 +18,9 @@ namespace RogueStars.Rules.Systems
         {
             e.RegisterSettler(Settle);
             e.RegisterNewPlayer(Settle);
+            // Monthly pass stamina cap bonus feeds Progression's regen engine (EconomySystem is registered before Meta).
+            EconomySystem.RegisterRegenBonusProvider(e, (s, c, now, currency) =>
+                currency == Currencies.Stamina ? (StaminaBonus(s, c, now), 0.0) : (0L, 0.0));
             e.Register<PurchaseStart>(HandlePurchaseStart);
             e.Register<PurchaseComplete>(HandlePurchaseComplete);
             e.Register<ShopClaimFree>(HandleClaimFree);
@@ -86,8 +89,7 @@ namespace RogueStars.Rules.Systems
         public static bool HasNoAds(GameState s, ContentDb content) => s.Flags.Contains(content.Shop.NoAdsFlag);
 
         /// <summary>
-        /// Stamina cap bonus from Meta sources (monthly pass). Provider for Progression's stamina regen hook:
-        /// add it to the stamina RegenState.CapBonus when recomputing.
+        /// Stamina cap bonus from Meta sources (monthly pass); registered as an EconomySystem regen bonus provider.
         /// </summary>
         public static long StaminaBonus(GameState s, ContentDb content, long nowMs) =>
             HasMonthlyPass(s, content, nowMs) ? content.Shop.MonthlyPassStaminaCapBonus : 0;

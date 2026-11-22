@@ -104,23 +104,13 @@ namespace RogueStars.Rules.Content
         /// <summary>Pull types, pools, hidden pity, banner rotations (Progression).</summary>
         public readonly GachaConfig GachaConfig = new GachaConfig();
 
-        // Placeholder ids for City-owned content (blueprints, aliens). Reconcile with ContentDb.City/Aliens after merge.
-        private static readonly string[][] GachaBlueprintIds =
+        /// <summary>Ids of a City-owned content dictionary with the given rarity, ordinal order (pool order is part of determinism).</summary>
+        private static List<string> GachaIdsOfRarity<T>(Dictionary<string, T> defs, Func<T, Rarity> rarity, Rarity r)
         {
-            new[] { "bp_biomass_farm", "bp_grain_farm", "bp_ore_mine", "bp_housing" },
-            new[] { "bp_laboratory", "bp_fuel_refinery", "bp_stamina_well" },
-            new[] { "bp_breeding_pen", "bp_observatory", "bp_dice_forge" },
-            new[] { "bp_diamond_mine", "bp_war_academy" },
-            new[] { "bp_star_gate", "bp_genesis_lab" },
-        };
-        private static readonly string[][] GachaAlienIds =
-        {
-            new[] { "alien_blorp", "alien_skitter", "alien_mossling" },
-            new[] { "alien_zapfin", "alien_crawlord" },
-            new[] { "alien_glimmer", "alien_bonebug" },
-            new[] { "alien_starwhale" },
-            new[] { "alien_void_queen" },
-        };
+            var ids = new List<string>();
+            foreach (var id in GachaSortedKeys(defs)) if (rarity(defs[id]) == r) ids.Add(id);
+            return ids;
+        }
 
         partial void BuildGacha()
         {
@@ -139,15 +129,17 @@ namespace RogueStars.Rules.Content
                 if (t < 4) foreach (var id in GachaSortedKeys(PartsConfig.Runes)) pt.Pool.Add(new GachaEntry(RewardKinds.Rune, id, 1, t, 2));
                 part.Tiers.Add(pt);
 
+                // Every City blueprint and alien type is pullable in the tier of its rarity (City owns the granters).
                 var bt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
-                foreach (var id in GachaBlueprintIds[t]) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
+                foreach (var id in GachaIdsOfRarity(Blueprints, d => d.Rarity, (Rarity)t)) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
                 bp.Tiers.Add(bt);
 
                 var at = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
-                foreach (var id in GachaAlienIds[t]) at.Pool.Add(new GachaEntry(RewardKinds.Alien, id, 1, t, 2));
+                var alienIds = GachaIdsOfRarity(AlienTypes, d => d.Rarity, (Rarity)t);
+                foreach (var id in alienIds) at.Pool.Add(new GachaEntry(RewardKinds.Alien, id, 1, t, 2));
                 // Hero shards: ~40% of alien-signal outcomes, spread over all heroes.
                 var heroes = GachaSortedKeys(HeroConfig.Defs);
-                double heroWeight = 2.0 * GachaAlienIds[t].Length * (40.0 / 60.0) / heroes.Count;
+                double heroWeight = 2.0 * Math.Max(1, alienIds.Count) * (40.0 / 60.0) / heroes.Count;
                 foreach (var id in heroes) at.Pool.Add(new GachaEntry(RewardKinds.HeroShards, id, heroShardsForTier[t], t, heroWeight));
                 alien.Tiers.Add(at);
             }
@@ -171,8 +163,8 @@ namespace RogueStars.Rules.Content
                 Type = GachaType.Blueprint, EpochMs = epoch, DurationMs = week,
                 Themes =
                 {
-                    GachaThemeOf("bp_star_gate_rising", "Star Gate Rising", RewardKinds.Blueprint, "bp_star_gate", 1, mythic),
-                    GachaThemeOf("bp_genesis_week", "Genesis Week", RewardKinds.Blueprint, "bp_genesis_lab", 1, mythic),
+                    GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
+                    GachaThemeOf("bp_reliquary_week", "Reliquary Week", RewardKinds.Blueprint, "bp_ancient_reliquary", 1, mythic),
                 },
             });
             g.Rotations.Add(new BannerRotation
@@ -180,7 +172,7 @@ namespace RogueStars.Rules.Content
                 Type = GachaType.Alien, EpochMs = epoch, DurationMs = week,
                 Themes =
                 {
-                    GachaThemeOf("alien_void_court", "Void Court", RewardKinds.Alien, "alien_void_queen", 1, mythic),
+                    GachaThemeOf("alien_nebula_court", "Nebula Court", RewardKinds.Alien, "alien_nebulisk", 1, mythic),
                     GachaThemeOf("alien_knights_call", "Knight's Call", RewardKinds.HeroShards, "hero_star_knight", 80, mythic),
                     GachaThemeOf("alien_chefs_banquet", "Chef's Banquet", RewardKinds.HeroShards, "hero_chef", 80, mythic),
                     GachaThemeOf("alien_noodle_dojo", "Noodle Dojo", RewardKinds.HeroShards, "hero_noodle_ninja", 80, mythic),

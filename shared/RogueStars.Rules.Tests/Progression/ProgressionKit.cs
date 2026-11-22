@@ -4,23 +4,13 @@ using RogueStars.Rules.Systems;
 
 namespace RogueStars.Rules.Tests.Progression;
 
-/// <summary>Helpers for Progression tests: engines with stub City granters, direct grants, command shortcuts.</summary>
+/// <summary>Helpers for Progression tests: engines (real City granters), direct grants, command shortcuts.</summary>
 public static class ProgressionKit
 {
     public const long Day = 86_400_000;
     public static ContentDb C => ContentDb.Default;
 
-    /// <summary>Engine with stub granters for City-owned kinds (Blueprint/Alien) until City's real ones exist.</summary>
-    public static GameEngine Engine(bool cloner = true, bool stubCity = true)
-    {
-        var e = cloner ? TestHelpers.Engine() : new GameEngine(ContentDb.Default);
-        if (stubCity)
-        {
-            e.Rewards.Register(RewardKinds.Blueprint, (ctx, r) => ctx.State.Wallet.Add("stub_bp_" + r.Id, r.Amount));
-            e.Rewards.Register(RewardKinds.Alien, (ctx, r) => ctx.State.Wallet.Add("stub_alien_" + r.Id, r.Amount));
-        }
-        return e;
-    }
+    public static GameEngine Engine(bool cloner = true) => cloner ? TestHelpers.Engine() : new GameEngine(ContentDb.Default);
 
     public static GameState Player(GameEngine e, long seed = 42) => e.NewPlayer("p1", TestHelpers.T0, seed);
 

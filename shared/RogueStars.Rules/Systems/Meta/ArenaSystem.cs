@@ -20,17 +20,10 @@ namespace RogueStars.Rules.Systems
                 ctx.State.Arena.BestPoints = ctx.State.Arena.Points;
                 ctx.State.Wallet.Add(Currencies.ArenaTickets, ctx.Content.Arena.StartTickets);
             });
-            e.RegisterSettler(Settle);
+            // Ticket regeneration is settled by EconomySystem with every other RegenRule (single settler).
             e.Register<ArenaStartFight>(HandleStartFight);
             e.Register<ArenaFightResult>(HandleFightResult);
             e.Register<ArenaWeekEnd>(HandleWeekEnd);
-        }
-
-        /// <summary>Settle arena ticket regeneration (idempotent; safe if Economy also settles all regen rules).</summary>
-        private static void Settle(CommandContext ctx)
-        {
-            var rule = ctx.Content.Regen(Currencies.ArenaTickets);
-            if (rule != null) ctx.State.Wallet.SettleRegen(rule, ctx.NowMs);
         }
 
         /// <summary>Snapshot of the player's current loadout for other players to fight (stored by the server).</summary>
