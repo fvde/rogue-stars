@@ -165,6 +165,10 @@ namespace RogueStars.Rules.Systems
         public RunMode Mode;
         public bool Won;
         public List<Reward> Granted = new List<Reward>();
+        /// <summary>Granted run rewards that the "double run rewards" ad pays again (everything but feat Diamonds).</summary>
+        public List<Reward> Doublable = new List<Reward>();
+        /// <summary>True once RunDoubleRewards was used for this run.</summary>
+        public bool Doubled;
         public List<int> NewFeats = new List<int>();
         public int Rolls;
         public int Level;

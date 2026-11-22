@@ -435,4 +435,56 @@ public class LaboratoryTests
         Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, ready).Ok); // maxed
         Assert.Equal(2, s.Counter("lab_research_completed"));
     }
+
+    [Fact]
+    public void DoubleRunRewards_PaysRunRewardsAgain_OncePerRun_WithDailyCap()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        s.Run.Active!.PendingLoot.Add(Reward.Cur(Currencies.Grain, 77));
+        // No won run yet → rejected.
+        Assert.False(RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" }).Ok);
+        RunTestKit.AutoToEnd(e, ref s);
+        var sum = s.Run.LastSummary;
+        Assert.True(sum.Won);
+        Assert.NotEmpty(sum.NewFeats); // first clear: feat Diamonds are granted but never doubled
+        Assert.DoesNotContain(sum.Doublable, r => r.Id == Currencies.Diamonds && r.Amount == e.Content.RunTuning.FeatDiamonds);
+
+        var before = new Dictionary<string, long>(s.Wallet.Balances);
+        Assert.False(RunTestKit.Exec(e, ref s, new RunDoubleRewards()).Ok); // ad token required without No Ads
+        var r = RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" });
+        Assert.True(r.Ok, r.Error);
+        foreach (var g in s.Run.LastSummary.Doublable.Where(x => x.Kind == RewardKinds.Currency).GroupBy(x => x.Id))
+            Assert.Equal(before.GetValueOrDefault(g.Key) + g.Sum(x => x.Amount), s.Wallet.Get(g.Key));
+        Assert.True(s.Wallet.Get(Currencies.Grain) >= before.GetValueOrDefault(Currencies.Grain) + 77);
+        Assert.Equal(1, s.Counter("run_rewards_doubled"));
+        Assert.Equal(1, s.Counter("ads_watched"));
+        Assert.False(RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" }).Ok); // once per run
+
+        // Daily cap: the placement allows DailyCap doubles per day (No Ads = instant, no token).
+        s.Flags.Add(e.Content.Shop.NoAdsFlag);
+        int cap = e.Content.AdPlacement(RunSystem.DoubleRewardsAdPlacement)!.DailyCap;
+        for (int i = 1; i < cap; i++)
+        {
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            RunTestKit.AutoToEnd(e, ref s);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunDoubleRewards()).Ok);
+        }
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        RunTestKit.AutoToEnd(e, ref s);
+        var capped = RunTestKit.Exec(e, ref s, new RunDoubleRewards());
+        Assert.False(capped.Ok);
+        Assert.Equal("ad daily cap reached", capped.Error);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDoubleRewards(), TestHelpers.T0 + GameClock.Day).Ok); // next day
+    }
+
+    [Fact]
+    public void DoubleRunRewards_RejectedAfterFailedRun()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Weak());
+        var s = RunTestKit.StartRun(e);
+        RunTestKit.AutoToEnd(e, ref s);
+        Assert.False(s.Run.LastSummary.Won);
+        Assert.Equal("no won run to double", RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" }).Error);
+    }
 }

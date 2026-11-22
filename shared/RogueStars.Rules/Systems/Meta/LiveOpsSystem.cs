@@ -134,28 +134,7 @@ namespace RogueStars.Rules.Systems
             }
 
             ModifierMath.RemoveExpired(s.Modifiers, now);
-            foreach (var ev in ctx.Content.LiveOpsSchedule)
-            {
-                if (ev.Kind != LiveOpsKind.PlanetaryEvent) continue;
-                if (!ev.Schedule.TryActive(now, out long start, out long end)) continue;
-                var def = ctx.Content.PlanetaryEvent(ev.RefId);
-                if (def == null) continue;
-                string occ = OccurrenceId(ev.Id, start);
-                bool added = false;
-                for (int i = 0; i < def.Modifiers.Count; i++)
-                {
-                    string id = "evt:" + occ + ":" + i;
-                    if (HasModifier(s, id)) continue;
-                    var m = def.Modifiers[i];
-                    s.Modifiers.Add(new Modifier
-                    {
-                        Id = id, Source = "event:" + def.Id, Target = m.Target, Multiplier = m.Multiplier,
-                        StartMs = start, EndMs = end, Description = m.Description,
-                    });
-                    added = true;
-                }
-                if (added) ctx.Emit("planetary_event", def.Id, occ);
-            }
+            MaterialiseScheduledModifiers(ctx); // no-op when the early settler already ran for this command
 
             // Forget finished contributions/surprises after two weeks.
             long horizon = now - 14 * MetaTime.Day;
@@ -163,6 +142,62 @@ namespace RogueStars.Rules.Systems
             foreach (var kv in lo.Contributions) if (kv.Value.EndMs < horizon) stale.Add(kv.Key);
             foreach (var k in stale) lo.Contributions.Remove(k);
             lo.ServerInvasions.RemoveAll(x => x.EndMs < horizon);
+        }
+
+        /// <summary>How far back planetary event occurrences are materialised for a player who was away.</summary>
+        public const long ScheduleLookbackMs = 60 * MetaTime.Day;
+
+        /// <summary>
+        /// Writes the modifiers of every planetary event occurrence that overlaps the time since the last settle
+        /// (including ones that started and ended between two commands) with their real start/end times.
+        /// Registered as the FIRST settler in SystemsRegistry, so production settlement (City) and every other
+        /// settler integrate modifier windows correctly regardless of settler order; expired modifiers are only
+        /// removed afterwards by <see cref="Settle"/> (registered with the Meta systems, after City).
+        /// </summary>
+        public static void MaterialiseScheduledModifiers(CommandContext ctx)
+        {
+            var s = ctx.State;
+            var lo = s.LiveOps;
+            long now = ctx.NowMs;
+            if (lo.ScheduleSettledMs >= now && lo.ScheduleSettledMs != 0) return;
+            long since = lo.ScheduleSettledMs > 0 ? Math.Max(lo.ScheduleSettledMs, now - ScheduleLookbackMs) : now;
+            lo.ScheduleSettledMs = now;
+            foreach (var ev in ctx.Content.LiveOpsSchedule)
+            {
+                if (ev.Kind != LiveOpsKind.PlanetaryEvent) continue;
+                var def = ctx.Content.PlanetaryEvent(ev.RefId);
+                if (def == null) continue;
+                // Walk occurrences backwards from the latest one that started at or before now.
+                if (!ev.Schedule.TryLatest(now, out long start, out long end)) continue;
+                for (int guard = 0; guard < 400; guard++)
+                {
+                    if (end > since || (end > now && start <= now)) AddEventModifiers(ctx, ev, def, start, end);
+                    if (ev.Schedule.RecurrenceMs <= 0 || start - ev.Schedule.RecurrenceMs < ev.Schedule.StartMs) break;
+                    start -= ev.Schedule.RecurrenceMs;
+                    end = start + ev.Schedule.DurationMs;
+                    if (end <= since) break;
+                }
+            }
+        }
+
+        private static void AddEventModifiers(CommandContext ctx, LiveOpsEventDef ev, PlanetaryEventDef def, long start, long end)
+        {
+            var s = ctx.State;
+            string occ = OccurrenceId(ev.Id, start);
+            bool added = false;
+            for (int i = 0; i < def.Modifiers.Count; i++)
+            {
+                string id = "evt:" + occ + ":" + i;
+                if (HasModifier(s, id)) continue;
+                var m = def.Modifiers[i];
+                s.Modifiers.Add(new Modifier
+                {
+                    Id = id, Source = "event:" + def.Id, Target = m.Target, Multiplier = m.Multiplier,
+                    StartMs = start, EndMs = end, Description = m.Description,
+                });
+                added = true;
+            }
+            if (added && end > ctx.NowMs) ctx.Emit("planetary_event", def.Id, occ);
         }
 
         private static bool HasModifier(GameState s, string id)

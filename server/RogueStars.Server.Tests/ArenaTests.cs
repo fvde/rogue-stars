@@ -64,7 +64,10 @@ public class ArenaTests : IDisposable
         Assert.Equal(200, status);
         Assert.True(fight.GetProperty("won").GetBoolean());
         Assert.Equal("dev_b", fight.GetProperty("opponent").GetProperty("playerId").GetString());
-        Assert.Equal(30, fight.GetProperty("points").GetInt64());
+        // Points come from the rules (ArenaSystem, Elo from StartPoints 1000 vs an equal opponent: +20).
+        Assert.Equal(1020, fight.GetProperty("points").GetInt64());
+        Assert.Equal(20, fight.GetProperty("pointsDelta").GetInt64());
+        Assert.Equal(1020, (await a.StateAsync()).GetProperty("arena").GetProperty("points").GetInt64());
         // Real rules hooks: ArenaStartFight consumed a ticket, ArenaFightResult recorded the win.
         Assert.Equal(1, await a.CounterAsync("arena_fights"));
         Assert.Equal(1, await a.CounterAsync("arena_wins"));
@@ -73,6 +76,7 @@ public class ArenaTests : IDisposable
 
         var (_, board) = await a.GetAsync("/v1/arena/leaderboard");
         Assert.Equal(1, board.GetProperty("myRank").GetInt32());
+        Assert.Equal(1020, board.GetProperty("entries")[0].GetProperty("points").GetInt64());
         Assert.Equal(150, board.GetProperty("groupSize").GetInt32());
         var entries = board.GetProperty("entries").EnumerateArray().ToList();
         Assert.Equal(2, entries.Count);
@@ -99,7 +103,7 @@ public class ArenaTests : IDisposable
         Assert.Equal(409, status);
         Assert.Equal("no arena tickets", body.GetProperty("error").GetString());
         var (_, board) = await p.GetAsync("/v1/arena/leaderboard");
-        Assert.Equal(0, board.GetProperty("entries")[0].GetProperty("points").GetInt64());
+        Assert.Equal(RogueStars.Rules.Content.ContentDb.Default.Arena.StartPoints, board.GetProperty("entries")[0].GetProperty("points").GetInt64());
         Assert.Equal(0, await p.CounterAsync("arena_fights"));
     }
 

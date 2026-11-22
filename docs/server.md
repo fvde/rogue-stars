@@ -104,8 +104,10 @@ current AppLovin MAX S2S documentation before launch**. Configure the MAX callba
   (`arena_groups/<week>_L<league>_<n>`, max **150**; a full group opens the next).
 - A fight refreshes the attacker's snapshot, picks an opponent at random among the `OpponentWindow` (5) group members
   closest in points (falls back to any stored snapshot near in power when the group is empty), resolves the battle on
-  the server via `IBattleResolver` (after the `ArenaStart` hook consumed a ticket), then runs the `ArenaFight` hook and updates points (win +30, loss −10, defender −5
-  on loss; floor 0).
+  the server via `IBattleResolver` (after the `ArenaStart` hook consumed a ticket), then runs the `ArenaFight` hook (`ArenaFightResult { Won, OpponentPoints }`). The rules (`ArenaSystem`) are the single
+  source of truth for weekly points (Elo-style from `StartPoints`, reset lazily per reset-week): the server mirrors the
+  `points`/`delta` of the hook's payload (`ArenaFightOutcome`) into the group member. Group members start at the
+  rules' `StartPoints`; defenders' points do not change.
 - `weekly-arena` job (`?week=` optional, default previous week): ranks every group, mails rank rewards
   (`Arena:RankRewards`, scaled ×(1+0.5·league)), promotes the top `PromoteTop` (15) / demotes the bottom
   `DemoteBottom` (15). Resumable and idempotent.

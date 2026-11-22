@@ -24,6 +24,18 @@ namespace RogueStars.Rules.Systems
         public int PendingFights;
         public string PendingOpponentId;
         public int WeeksPlayed;
+        /// <summary>Reset-week (GameClock.WeekIndex) the weekly points belong to; points reset lazily in a new week.</summary>
+        public long Week = -1;
+    }
+
+    /// <summary>Payload of ArenaFightResult: the rules' points change and the new weekly points (single source of truth).</summary>
+    [Serializable]
+    public sealed class ArenaFightOutcome
+    {
+        public bool Won;
+        public long Delta;
+        public long Points;
+        public long BestPoints;
     }
 
     public enum LeagueOutcome { Stay, Promote, Demote }

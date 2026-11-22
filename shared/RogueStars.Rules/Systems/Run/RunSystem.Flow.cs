@@ -785,6 +785,7 @@ namespace RogueStars.Rules.Systems
                 double modeMult = level.RewardMultiplier * (run.Mode == RunMode.Overcharged ? portal.OverchargedRewardMultiplier : 1);
                 double lootMult = 1 + run.ExtraLootPct / 100.0;
                 var rewards = new List<Reward>();
+                int doublable;
                 foreach (var r in run.PendingLoot) rewards.Add(Scaled(r, modeMult * lootMult));
                 if (run.Mode != RunMode.Burrow)
                 {
@@ -794,6 +795,7 @@ namespace RogueStars.Rules.Systems
                     for (int i = before; i < run.PendingLoot.Count; i++) rewards.Add(Scaled(run.PendingLoot[i], modeMult));
                 }
 
+                doublable = rewards.Count; // feat Diamonds below are not doubled by the ad
                 if (run.Mode != RunMode.Burrow)
                 {
                     var p = GetProgress(s, run.LevelId);
@@ -818,7 +820,7 @@ namespace RogueStars.Rules.Systems
                         rewards.Add(Reward.Cur(Currencies.Diamonds, c.RunTuning.FeatDiamonds));
                     }
                 }
-                foreach (var r in rewards) GrantRunReward(ctx, r, summary);
+                for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, i < doublable);
                 s.Count("runs_completed");
                 s.Count("runs_completed_" + run.Mode.ToString().ToLowerInvariant());
                 ctx.Emit("run_completed", run.RunId, run.LevelId);
@@ -844,7 +846,7 @@ namespace RogueStars.Rules.Systems
         /// Applies run_reward modifiers to currencies and grants through the owners' granters (item drops with
         /// Id "*" are resolved to a random def of their rarity by the granter, see RewardWildcard).
         /// </summary>
-        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary)
+        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary, bool doublable)
         {
             var reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity);
             if (reward.Kind == RewardKinds.Currency)
@@ -855,6 +857,7 @@ namespace RogueStars.Rules.Systems
             if (reward.Amount <= 0) return;
             ctx.Grant(reward);
             summary.Granted.Add(reward);
+            if (doublable) summary.Doublable.Add(reward);
         }
     }
 }

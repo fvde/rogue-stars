@@ -101,9 +101,6 @@ public sealed class ArenaOptions
 {
     public int GroupSize { get; set; } = 150;
     public int MaxLeague { get; set; } = 6;
-    public int WinPoints { get; set; } = 30;
-    public int LossPoints { get; set; } = 10;
-    public int DefenderLossPoints { get; set; } = 5;
     /// <summary>Opponents are drawn at random from the N members closest in points.</summary>
     public int OpponentWindow { get; set; } = 5;
     public int PromoteTop { get; set; } = 15;
