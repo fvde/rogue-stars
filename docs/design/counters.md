@@ -122,3 +122,5 @@ Meta content now reads the keys the owning workstreams actually write:
 - `burrow_floors_cleared` — Burrow floors cleared — Run
 - `lab_research_started` — laboratory research started — Run
 - `lab_research_completed` — laboratory research collected — Run
+- (after Run merge) Meta quests read Run's real keys: `battles_won` → `run_battles_won`, `bosses_defeated` →
+  `run_bosses_killed`. Run now also writes `main_level_max` (max-style, first normal clears) and `stamina_spent`.

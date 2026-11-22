@@ -49,7 +49,7 @@ public class FullGameSmokeTests
             foreach (var b in S.City.Blueprints.Values) Assert.True(b.Stored >= 0);
         }
 
-        /// <summary>Stand-in for run rewards (pending until the Run workstream drives real runs here).</summary>
+        /// <summary>Stand-in for the rewards of many further runs (one real run is played in the smoke test).</summary>
         public void RunRewards(long biomass, long ore, long grain)
         {
             S.Wallet.Add(Currencies.Biomass, biomass); S.Wallet.Add(Currencies.Ore, ore); S.Wallet.Add(Currencies.Grain, grain);
@@ -91,7 +91,18 @@ public class FullGameSmokeTests
             p.Do(new PartEquip { Uid = part.Uid, Slot = slot });
         }
 
-        // Portal progress (Run sets main_level_max): unlocks pulls, aliens, housing, heroes, mounts, breeding.
+        // A complete auto-played run (RunAutoStep) with real worm stats; completion pays out and sets portal progress.
+        long biomassBefore = p.S.Wallet.Get(Currencies.Biomass);
+        p.Do(new RunStart { LevelId = "ember_wastes_1" });
+        for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep());
+        Assert.Null(p.S.Run.Active);
+        Assert.True(p.S.Run.LastSummary.Won);
+        Assert.Equal(1, p.S.Counter("runs_completed"));
+        Assert.Equal(1, p.S.Counter(Requirements.MainLevelCounter));
+        Assert.True(p.S.Wallet.Get(Currencies.Biomass) > biomassBefore);
+        Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Parts));
+
+        // Later portal progress (stand-in for many more runs): unlocks pulls, aliens, housing, heroes, mounts, breeding.
         p.S.Counters[Requirements.MainLevelCounter] = 16;
         p.RunRewards(200_000, 200_000, 100_000);
         var unlockEvents = p.Do(new CityCollect(), Min).Events.Where(ev => ev.Type == "feature_unlocked").Select(ev => ev.Args[0]).ToList();
@@ -185,6 +196,9 @@ public class FullGameSmokeTests
         p.Do(new ShopBuyItem { ItemId = "daily_free_gift" });
         p.Do(new CityCollect(), 5 * Hour); // settles planetary events/modifiers too
         p.Do(new CityBuild { BlueprintId = "bp_grain_farm", X = 4, Y = 5 }); // timer left running
+        p.Do(new LabResearch { ResearchId = "res_burning_soul" });          // research timer running
+        p.Do(new RunStart { LevelId = "ember_wastes_1" });                   // a run in progress (board, RNG, loadout)
+        for (int i = 0; i < 5 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep());
 
         // Every top-level part of the state is populated.
         var s = p.S;
@@ -193,6 +207,7 @@ public class FullGameSmokeTests
         Assert.NotEmpty(s.City.Blueprints); Assert.NotEmpty(s.Aliens.Owned); Assert.NotEmpty(s.Timers.Active);
         Assert.NotEmpty(s.Heroes.Owned); Assert.NotEmpty(s.Mounts.Owned); Assert.NotEmpty(s.Onboarding.Unlocked);
         Assert.NotEmpty(s.Shop.PurchaseCounts); Assert.NotEmpty(s.Shop.DailyGrants); Assert.NotEmpty(s.Mail.Inbox);
+        Assert.NotNull(s.Run.Active); Assert.NotEmpty(s.Run.Active!.Tiles); Assert.NotEmpty(s.Lab.Entries);
 
         string json = JsonSerializer.Serialize(s, TestHelpers.Json);
         var back = JsonSerializer.Deserialize<GameState>(json, TestHelpers.Json)!;
@@ -205,6 +220,12 @@ public class FullGameSmokeTests
         var ra = p.E.Execute(ref a, cmd, p.Now + Min);
         var rb = p.E.Execute(ref b, cmd, p.Now + Min);
         Assert.True(ra.Ok && rb.Ok);
+        for (int i = 0; i < 20; i++)
+        {
+            if (a.Run.Active == null) break;
+            Assert.True(p.E.Execute(ref a, new RunAutoStep(), p.Now + Min).Ok);
+            Assert.True(p.E.Execute(ref b, new RunAutoStep(), p.Now + Min).Ok);
+        }
         Assert.Equal(JsonSerializer.Serialize(a, TestHelpers.Json), JsonSerializer.Serialize(b, TestHelpers.Json));
     }
 }

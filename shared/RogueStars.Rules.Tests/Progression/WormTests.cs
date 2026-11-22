@@ -42,7 +42,7 @@ public class WormTests
         double hp24 = WormSystem.WormBaseStats(s, C).Value(StatId.Hp);
         s.Worm.Level = 25;
         double hp25 = WormSystem.WormBaseStats(s, C).Value(StatId.Hp);
-        double flat25 = 500 + 24 * 25;
+        double flat25 = C.WormConfig.BaseStats.First(m => m.Stat == StatId.Hp).Flat + 24 * 25;
         Assert.Equal(flat25 * 1.03, hp25, 6);
         Assert.True(hp25 > hp24 + 25);
     }

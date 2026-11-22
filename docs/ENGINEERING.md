@@ -49,5 +49,15 @@ Grant rewards through `ctx.Grant(...)` so every reward kind goes through its own
 - **Modifiers:** `state.Modifiers` + `ModifierMath.Multiplier(...)` for production, run rewards, regen.
 - **Counters:** `state.Count("key")` for quests/achievements (Meta reads them). Use snake_case keys and
   document new keys in `docs/design/counters.md` (append-only).
+- **Power score:** computed once, in the final loadout step registered last in `SystemsRegistry` (sees aliens, boons, lab).
+- **Regen bonuses:** `EconomySystem.RegisterRegenBonusProvider` (City boons, monthly pass, talents). Economy is the only
+  settler of `RegenRules` (stamina, arena tickets, burrow keys); each currency has exactly one rule.
+- **Daily/weekly resets:** `Core/GameClock` (content `Resets`); never divide `NowMs` by a day yourself.
+- **Ads:** every ad placement is consumed through `ShopSystem.ConsumeAdView` (daily cap, token, No Ads = instant).
+- **Feature gates in commands:** `Features.Require(state, content, Features.X)` ("feature locked").
+- **Onboarding items:** `ContentDb.Onboarding.StarterKit` (new player) and `FeatureDef.UnlockGrants` (on unlock).
+- **Random item drops:** `Reward.Id = "*"` + `Rarity` → resolved by the owning granter (`Systems/RewardWildcard.cs`).
+- **Portal progress:** Run keeps `main_level_max` (global main level number) on first clears; gates read it.
+- **Timers:** long actions (construction, breeding, laboratory research) use City's `TimerSystem` so speed-ups apply.
 Only edit files outside your workstream folder when this list says so; if you must touch a core file,
 keep the change minimal and mention it in your summary.

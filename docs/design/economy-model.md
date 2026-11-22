@@ -49,3 +49,18 @@ after the main hero is maxed.
 ## Levers
 - Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).
 - Hero pacing: `HeroConfig.StarShardCosts`, hero-shard share/amounts in the Alien pool, featured hero amount.
+
+## Early run balance (integration with the Run workstream)
+Runs use the real Progression loadout (the Run fallback worm stats are only a safety net and no longer trigger).
+Worm base stats were raised to HP 900 / ATK 90 / DEF 20 / Speed 100 / Crit 5% (was 500 / 50 / 20 / 100 / 0%) so the
+starting worm matches the Run threat curve. Auto-play win rates over 30 seeds (fresh starter kit, parts equipped):
+
+| Worm level | Ember Wastes 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|
+| 1 | 100% | 87% | 40% | 0% | 0% | 0% | 0% |
+| 4 | 100% | 100% | 63% | 50% | 7% | 0% | 0% |
+| 8 | 100% | 100% | 100% | 90% | 57% | 37% | 3% |
+
+So the first levels are won most of the time, levels 4–6 are a soft wall, and a few worm levels bought with the
+Biomass those runs pay overcome it. `RunIntegrationTests.NewPlayer_AutoPlays_ToLevel3_WithUpgradesBetweenRuns`
+checks that a new player reaches level 3 within 25 auto-played runs while spending rewards between runs.

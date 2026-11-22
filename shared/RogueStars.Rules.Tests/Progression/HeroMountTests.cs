@@ -167,7 +167,7 @@ public class LoadoutTests
         var e = Engine(); var s = Player(e);
         var bare = e.BuildLoadout(s, TestHelpers.T0);
         Assert.True(bare.Power > 0);
-        Assert.Equal(500, bare.WormStats.Value(StatId.Hp), 6);
+        Assert.Equal(C.WormConfig.BaseStats.First(m => m.Stat == StatId.Hp).Flat, bare.WormStats.Value(StatId.Hp), 6);
 
         var left = PartsSystem.AddPart(s, C, "arm_tesla_whip", (int)PartRarity.Mythic);
         var right = PartsSystem.AddPart(s, C, "arm_drill_lance", (int)PartRarity.Common);
