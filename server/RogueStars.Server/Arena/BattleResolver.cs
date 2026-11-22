@@ -1,4 +1,6 @@
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
 
 namespace RogueStars.Server.Arena;
 
@@ -11,37 +13,43 @@ public sealed class BattleOutcome
     public object? Log { get; set; }
 }
 
-/// <summary>
-/// Server-side battle resolution. TODO(lead): after merge, wire an implementation backed by the rules
-/// <c>BattleSimulator</c> (workstream Run) and register it instead of <see cref="PowerBattleResolver"/>.
-/// Resolution must be deterministic for a given seed so clients can replay it.
-/// </summary>
+/// <summary>Server-side battle resolution. Deterministic for a given seed so clients can replay it.</summary>
 public interface IBattleResolver
 {
     /// <summary>Arena: attacker snapshot vs. defender snapshot.</summary>
     BattleOutcome ResolveDuel(CombatLoadout attacker, CombatLoadout defender, long seed);
 
-    /// <summary>Invasion: one attack of a player against the invader; returns damage dealt.</summary>
-    BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionId, long invaderPower, long seed);
+    /// <summary>
+    /// Invasion: one attack of a player against the invader of content invasion <paramref name="invasionTypeId"/>,
+    /// whose HP pool is the group's remaining HP. Returns the damage dealt (contribution score).
+    /// </summary>
+    BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionTypeId, long invaderPower, long remainingHp, long seed);
 }
 
-/// <summary>Placeholder: compares <see cref="CombatLoadout.Power"/> with ±15% seeded variance.</summary>
-public sealed class PowerBattleResolver : IBattleResolver
+/// <summary>
+/// The rules <see cref="BattleSimulator"/> (Run workstream): arena = <c>PlayerVsSnapshot</c>, invasion =
+/// <c>PlayerVsBoss</c> against the content invasion's boss (score = <c>PlayerDamageDealt</c>). The invader's
+/// HP/ATK/DEF scale by <c>invaderPower / InvaderPowerPerThreat</c> (1000 = content stats).
+/// </summary>
+public sealed class SimulatorBattleResolver(GameEngine engine) : IBattleResolver
 {
+    public const double InvaderPowerPerThreat = 1000;
+
+    private ContentDb Content => engine.Content;
+
     public BattleOutcome ResolveDuel(CombatLoadout attacker, CombatLoadout defender, long seed)
     {
-        var rng = Rng.FromSeed(seed);
-        double a = Math.Max(1, attacker.Power) * Variance(rng);
-        double d = Math.Max(1, defender.Power) * Variance(rng);
-        return new BattleOutcome { AttackerWon = a >= d, Damage = (long)a, Log = new { resolver = "power", attacker = a, defender = d } };
+        var r = BattleSimulator.PlayerVsSnapshot(Content, attacker, defender, Rng.FromSeed(seed));
+        return new BattleOutcome { AttackerWon = r.PlayerWon(), Damage = r.PlayerDamageDealt, Log = r };
     }
 
-    public BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionId, long invaderPower, long seed)
+    public BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionTypeId, long invaderPower, long remainingHp, long seed)
     {
-        var rng = Rng.FromSeed(seed);
-        long damage = Math.Max(1, (long)(Math.Max(1, attacker.Power) * Variance(rng)));
-        return new BattleOutcome { AttackerWon = damage >= invaderPower, Damage = damage, Log = new { resolver = "power", damage } };
+        var def = Content.Invasion(invasionTypeId) ?? throw new InvalidOperationException("unknown invasion type " + invasionTypeId);
+        double scale = Math.Max(0.1, invaderPower / InvaderPowerPerThreat);
+        var boss = BattleSimulator.BuildEnemy(Content, def.BossId, scale);
+        boss.StartHp = Math.Max(1, remainingHp);
+        var r = BattleSimulator.PlayerVsBoss(Content, attacker, boss, Rng.FromSeed(seed));
+        return new BattleOutcome { AttackerWon = r.PlayerWon(), Damage = r.PlayerDamageDealt, Log = r };
     }
-
-    private static double Variance(Rng rng) => 0.85 + 0.3 * rng.NextDouble();
 }

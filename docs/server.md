@@ -40,7 +40,8 @@ The server issues these itself. Their classes belong to the rules workstreams; t
 
 All hook commands are `[ServerOnly]`; every name in this table is also refused from clients (so clients cannot start
 arena fights themselves). Server invasions are created with `typeId` = a content invasion id (`gloop_tide`,
-`rust_swarm`, `void_choir`, `prism_horde`); without it the server id is used and the rules reject it as unknown.
+`rust_swarm`, `void_choir`, `prism_horde`); without it the server id must itself be a content id, otherwise
+creation fails with `400 unknown_invasion_type`.
 
 Every hook call carries a deterministic request id (e.g. `arena-2026-W47-<player>`, `inv-outcome-<invasion>`,
 `iap-<orderId>`), so retried jobs and callbacks never apply twice.
@@ -195,8 +196,10 @@ port 8080. Infrastructure, image push and secrets: see `infra/terraform/README.m
 three job endpoints with OIDC tokens of the scheduler service account.
 
 ## Open wiring (after merge)
-- `IBattleResolver`: currently `PowerBattleResolver` (power comparison placeholder). Register a resolver backed by the
-  Run workstream's `BattleSimulator` in `Program.cs`.
+- `IBattleResolver` is `SimulatorBattleResolver`: arena = `BattleSimulator.PlayerVsSnapshot`, invasion attack =
+  `BattleSimulator.PlayerVsBoss` against the content invasion's boss (`InvasionDef.BossId`, scaled by
+  `invaderPower / 1000`, HP pool = the group's remaining HP); the score is `PlayerDamageDealt`. The battle log is
+  returned as `log`.
 - Hook commands above are the real rules commands (server tests exercise them end-to-end).
 - Scale notes: weekly/invasion jobs process groups sequentially (fine for the prototype; fan out per group later);
   chat rate limit and ad/IAP dedup are document based and hold across instances.

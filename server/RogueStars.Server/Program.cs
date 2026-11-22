@@ -85,7 +85,7 @@ builder.Services.AddSingleton<CommandService>();
 builder.Services.AddSingleton<ServerHooks>();
 builder.Services.AddSingleton<PlayerService>();
 // TODO(lead): replace with a BattleSimulator-backed resolver after merge.
-builder.Services.AddSingleton<IBattleResolver, PowerBattleResolver>();
+builder.Services.AddSingleton<IBattleResolver, SimulatorBattleResolver>();
 builder.Services.AddSingleton<ArenaService>();
 builder.Services.AddSingleton<IChatFilter, WordListChatFilter>();
 builder.Services.AddSingleton<GuildService>();

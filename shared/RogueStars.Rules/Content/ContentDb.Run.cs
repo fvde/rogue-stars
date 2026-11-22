@@ -161,6 +161,13 @@ namespace RogueStars.Rules.Content
             RunMakeBoss(RunEnemy("boss_frost_leviathan", "Frost Leviathan", 2100, 66, 28, 90, AttackStyle.Whip, "boss_frost_tide"));
             RunMakeBoss(RunEnemy("boss_storm_hive", "Storm Hive Queen", 1800, 72, 20, 110, AttackStyle.Blaster, "boss_hive_swarm"));
             RunMakeBoss(RunEnemy("boss_void_maw", "Void Maw", 2300, 78, 26, 100, AttackStyle.Cannon, "boss_void_hunger"));
+
+            // Invaders (LiveOps InvasionDef.BossId): fought by the server with BattleSimulator.PlayerVsBoss; the
+            // server scales them by invader power and gives them the group's remaining HP pool.
+            RunMakeBoss(RunEnemy("boss_gloop_matriarch", "Gloop Matriarch", 2400, 64, 24, 85, AttackStyle.Slam, "enemy_toxic"));
+            RunMakeBoss(RunEnemy("boss_rust_queen", "Rust Queen", 2200, 74, 30, 95, AttackStyle.Claw, "enemy_rend"));
+            RunMakeBoss(RunEnemy("boss_hollow_cantor", "Hollow Cantor", 2000, 80, 20, 105, AttackStyle.Blaster, "boss_void_hunger"));
+            RunMakeBoss(RunEnemy("boss_prism_tyrant", "Prism Tyrant", 2600, 70, 32, 90, AttackStyle.Cannon, "enemy_stun_slam"));
         }
 
         private static void RunMakeElite(EnemyDef e)

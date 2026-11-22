@@ -1,3 +1,4 @@
+using RogueStars.Rules.Core;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using RogueStars.Server.Arena;
@@ -65,21 +66,26 @@ public sealed class InvasionParticipant
 public sealed record CreateInvasionRequest(string? Id, string? Name, long StartsMs, long EndsMs, long? HpPerMember, long? InvaderPower, string? TypeId = null);
 public sealed record AttackRequest(string? RequestId);
 
-public sealed class InvasionService(IDocStore docs, PlayerService players, ServerHooks hooks, IBattleResolver resolver,
+public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerService players, ServerHooks hooks, IBattleResolver resolver,
     GuildService guilds, Clock clock, IOptions<ServerOptions> options, ILogger<InvasionService> log)
 {
     private InvasionOptions O => options.Value.Invasions;
 
     private static string ParticipantId(string invasionId, string playerId) => invasionId + "_" + playerId;
 
+    /// <summary>Content invasion id of an instance (rules LiveOps InvasionDef).</summary>
+    private static string TypeOf(Invasion inv) => string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId;
+
     public async Task<Invasion> CreateAsync(CreateInvasionRequest req, CancellationToken ct)
     {
         if (req.EndsMs <= req.StartsMs) throw ApiException.BadRequest("invalid_window");
         var id = string.IsNullOrWhiteSpace(req.Id) ? Ids.New(6) : req.Id.Trim();
         if (id.Contains('/') || id.Contains('_') || id.Length > 64) throw ApiException.BadRequest("invalid_id");
+        string typeId = string.IsNullOrWhiteSpace(req.TypeId) ? id : req.TypeId.Trim();
+        if (engine.Content.Invasion(typeId) == null) throw ApiException.BadRequest("unknown_invasion_type");
         var inv = new Invasion
         {
-            Id = id, Name = req.Name ?? id, TypeId = req.TypeId?.Trim() ?? "", StartsMs = req.StartsMs, EndsMs = req.EndsMs,
+            Id = id, Name = req.Name ?? id, TypeId = typeId, StartsMs = req.StartsMs, EndsMs = req.EndsMs,
             HpPerMember = req.HpPerMember ?? 10_000, InvaderPower = req.InvaderPower ?? 1_000,
         };
         if (!await docs.TryPutAsync(Collections.Invasions, id, inv, 0, ct)) throw ApiException.Conflict("invasion_exists");
@@ -124,7 +130,8 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
         var group = await JoinAsync(playerId, invasionId, ct);
         var loadout = await players.LoadoutAsync(playerId, ct);
         long seed = Ids.NewSeed();
-        var outcome = resolver.ResolveInvasionAttack(loadout, invasionId, inv.InvaderPower, seed);
+        var groupNow = (await docs.GetAsync<InvasionGroup>(Collections.InvasionGroups, group.Id, ct))?.Value ?? group;
+        var outcome = resolver.ResolveInvasionAttack(loadout, TypeOf(inv), inv.InvaderPower, groupNow.Hp(inv) - groupNow.TotalDamage, seed);
         string attackId = req.RequestId ?? Ids.New();
 
         CommandResponse? hook = null;
@@ -134,7 +141,7 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
                 new
                 {
                     OccurrenceId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId,
-                    InvasionId = string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId, StartMs = inv.StartsMs, EndMs = inv.EndsMs,
+                    InvasionId = TypeOf(inv), StartMs = inv.StartsMs, EndMs = inv.EndsMs,
                 }, "inv-attack-" + attackId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "attack_rejected");
             if (hook is { Replayed: true }) return new { ok = true, attackId, replayed = true, state = hook.State };
@@ -228,7 +235,7 @@ public sealed class InvasionService(IDocStore docs, PlayerService players, Serve
                 {
                     var r = await hooks.TryExecuteAsync(member.PlayerId, outcomeCommand, new
                     {
-                        InvasionId = string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId, OccurrenceId = inv.Id,
+                        InvasionId = TypeOf(inv), OccurrenceId = inv.Id,
                         Repelled = group.Outcome == InvasionOutcomes.Repelled, ContributionRank = rank,
                         Outcome = group.Outcome, Damage = member.Damage, Rank = rank, GroupSize = ranked.Count,
                         GroupDamage = group.TotalDamage, GroupHp = group.Hp(inv),

@@ -27,7 +27,7 @@ public sealed class TestBattleResolver : IBattleResolver
     public long Damage { get; set; } = 1000;
     public BattleOutcome ResolveDuel(CombatLoadout attacker, CombatLoadout defender, long seed) =>
         new() { AttackerWon = true, Damage = Damage };
-    public BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionId, long invaderPower, long seed) =>
+    public BattleOutcome ResolveInvasionAttack(CombatLoadout attacker, string invasionTypeId, long invaderPower, long remainingHp, long seed) =>
         new() { AttackerWon = true, Damage = Damage };
 }
 
@@ -45,6 +45,8 @@ public sealed class TestApp : WebApplicationFactory<Program>
     /// gating. Hook commands are the real rules commands; point a hook name at a missing command to test "absent".
     /// </summary>
     public bool DevUnlockAll { get; set; } = true;
+    /// <summary>Use the production resolver (rules BattleSimulator) instead of the scripted <see cref="Battles"/>.</summary>
+    public bool RealBattles { get; set; }
     public Action<GameEngine>? ConfigureEngine { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -54,7 +56,7 @@ public sealed class TestApp : WebApplicationFactory<Program>
         builder.ConfigureTestServices(s =>
         {
             s.AddSingleton<TimeProvider>(Time);
-            s.AddSingleton<IBattleResolver>(Battles);
+            if (!RealBattles) s.AddSingleton<IBattleResolver>(Battles);
             s.AddSingleton(_ =>
             {
                 var engine = new GameEngine(ContentDb.Default) { Cloner = StateJson.Clone };
