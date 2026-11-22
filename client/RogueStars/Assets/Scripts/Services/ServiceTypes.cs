@@ -94,7 +94,14 @@ namespace RogueStars.Client.Services
     [Serializable]
     public sealed class InvasionInfo
     {
+        /// <summary>Attack key (server instance id; offline: the occurrence id).</summary>
         public string Id;
+        /// <summary>Rules live-ops occurrence id (matches LiveOpsSystem.ActiveEvents / player contributions).</summary>
+        public string OccurrenceId;
+        /// <summary>Content invasion id.</summary>
+        public string TypeId;
+        /// <summary>From the rules calendar (false: an extra server-pushed invasion).</summary>
+        public bool Scheduled;
         public string Name;
         public long StartsMs;
         public long EndsMs;

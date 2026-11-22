@@ -99,6 +99,7 @@ public static class FeatureEndpoints
                 // Daily resets themselves are lazy (rules settlers); the job delivers queued server mail.
                 "daily-reset" => new { mailDelivered = await hooks.FlushOutboxesAsync(ct) },
                 "weekly-arena" => await arena.RunWeeklyAsync(week, ct),
+                "invasion-start" => await invasions.MaterialiseScheduledAsync(ct),
                 "invasion-resolve" => await invasions.ResolveEndedAsync(ct),
                 _ => throw ApiException.NotFound("unknown_job"),
             };

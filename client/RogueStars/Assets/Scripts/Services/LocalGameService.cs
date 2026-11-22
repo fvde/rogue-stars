@@ -276,7 +276,11 @@ namespace RogueStars.Client.Services
             var list = new List<InvasionInfo>();
             foreach (var ev in LiveOpsSystem.ActiveEvents(_state, Content, NowMs))
                 if (ev.Kind == LiveOpsKind.Invasion)
-                    list.Add(new InvasionInfo { Id = ev.OccurrenceId, Name = ev.Name, StartsMs = ev.StartMs, EndsMs = ev.EndMs, Local = true });
+                    list.Add(new InvasionInfo
+                    {
+                        Id = ev.OccurrenceId, OccurrenceId = ev.OccurrenceId, TypeId = ev.RefId, Scheduled = ev.EventId != ev.OccurrenceId,
+                        Name = ev.Name, StartsMs = ev.StartMs, EndsMs = ev.EndMs, Local = true,
+                    });
             done(ServiceResult<List<InvasionInfo>>.Success(list));
         }
 

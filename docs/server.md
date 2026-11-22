@@ -31,7 +31,7 @@ The server issues these itself. Their classes belong to the rules workstreams; t
 |---|---|---|---|---|---|
 | `PurchaseComplete` | `PurchaseComplete` (Meta/Shop) | `/v1/iap/verify` | `ProductId, ReceiptId (= store order id)` (+ `OrderId, PurchaseToken, Store, Test`, ignored) | grants the product; needs the client's `PurchaseStart` (pending record) first, else `200 {ok:false, error:"no pending purchase"}` and the receipt can be retried | `501` |
 | `AdWatched` | `AdWatched` (Meta/Shop) | `/v1/ads/ssv` | `PlacementId (= custom_data), AdToken (= event_id)` | consumes the placement's daily ad cap and grants its direct rewards (placements whose effect belongs to another system are consumed by that system's command) | `501` |
-| `InvasionAttack` | `InvasionRecordDamage` (Meta/LiveOps) | `/v1/invasions/{id}/attack` | `OccurrenceId (= server invasion id), Damage, InvasionId (= TypeId), StartMs, EndMs` | starts the attempt atomically (feature gate, one `invasion_attempts`), records damage/score, guild contribution; a failure rejects the attack (`409`) | attacks are free |
+| `InvasionAttack` | `InvasionRecordDamage` (Meta/LiveOps) | `/v1/invasions/{id}/attack` | `OccurrenceId (= the instance's rules occurrence id), Damage, InvasionId (= TypeId), StartMs, EndMs` | starts the attempt atomically (feature gate, one `invasion_attempts`), records damage/score, guild contribution; a failure rejects the attack (`409`) | attacks are free |
 | `InvasionOutcome` | `LiveOpsApplyOutcome` (Meta/LiveOps) | invasion-resolve job | `InvasionId (= TypeId), OccurrenceId, Repelled, ContributionRank` | lasting win/lose modifiers of the content invasion + rank rewards | invasion stays pending |
 | `ArenaStart` | `ArenaStartFight` (Meta/Arena) | `/v1/arena/fight`, before resolving | `OpponentId` | feature gate + one arena ticket; a failure rejects the fight (`409`) | fights are free |
 | `ArenaFight` | `ArenaFightResult` (Meta/Arena) | `/v1/arena/fight`, after resolving | `Won, OpponentPoints` | rules-side arena points, `arena_fights`/`arena_wins` | no rules bookkeeping |
@@ -39,9 +39,10 @@ The server issues these itself. Their classes belong to the rules workstreams; t
 | `GuildMembership` | `GuildSetMembership` (Meta/Guild) | guild create/join/leave/kick/promote | `GuildId (null when left), Role` | membership for guild shop and contribution | skipped |
 
 All hook commands are `[ServerOnly]`; every name in this table is also refused from clients (so clients cannot start
-arena fights themselves). Server invasions are created with `typeId` = a content invasion id (`gloop_tide`,
-`rust_swarm`, `void_choir`, `prism_horde`); without it the server id must itself be a content id, otherwise
-creation fails with `400 unknown_invasion_type`.
+arena fights themselves). Every server invasion instance carries the rules live-ops `occurrenceId` its player-state
+contributions and outcomes are keyed by (see Invasions), and `typeId` = a content invasion id (`gloop_tide`,
+`rust_swarm`, `void_choir`, `prism_horde`); an extra instance created without `typeId` must use a content id as its id,
+otherwise creation fails with `400 unknown_invasion_type`.
 
 Every hook call carries a deterministic request id (e.g. `arena-2026-W47-<player>`, `inv-outcome-<invasion>`,
 `iap-<orderId>`), so retried jobs and callbacks never apply twice.
@@ -133,11 +134,19 @@ Invasion damage of guild members is added to the guild's weekly totals (last 4 w
 ### Invasions
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/invasions` | – | `{ ok, invasions[] }` active now |
+| GET | `/v1/invasions` | – | `{ ok, invasions[] }` active now: `{ id, occurrenceId, typeId, name, scheduled, startsMs, endsMs, hpPerMember, invaderPower, … }` |
 | POST | `/v1/invasions/{id}/join` | – | `{ ok, groupId, members }` — groups of **20** (`Invasions:GroupSize`) |
 | POST | `/v1/invasions/{id}/attack` | `{ requestId? }` | `{ ok, attackId, damage, seed, log, groupDamage, groupHp, state }` (auto-joins) |
 | GET | `/v1/invasions/{id}/group` | – | `{ ok, invasion, groupId, outcome, groupDamage, groupHp, members[] }` |
-| POST | `/internal/invasions` | `{ id?, name, typeId, startsMs, endsMs, hpPerMember?, invaderPower? }` | job auth; creates an instance (`typeId` = content invasion id) |
+| POST | `/internal/invasions` | `{ id?, name?, typeId, startsMs, endsMs, hpPerMember?, invaderPower? }` | job auth; creates an extra (surprise) instance: occurrence `server_<typeId>@<startsMs>`, id `server-<type>-<startsMs>` unless given; `409 invasion_type_already_running` / `too_many_invasions` under the calendar rules below |
+
+**Instances = rules occurrences.** The rules calendar (`LiveOpsSystem.ActiveEvents`, content `LiveOpsSchedule`) decides
+which invasions run: never two of the same type at once, at most `LiveOps.MaxConcurrentInvasions` (2) together. The
+`invasion-start` job (and, lazily, every `GET /v1/invasions`) creates one instance per active calendar occurrence:
+id = `InvasionService.KeyFor(occurrenceId)` (`weekly_rust_swarm@1768176000000` → `weekly-rust-swarm-1768176000000`),
+`occurrenceId`, `typeId`, content name, `scheduled: true`, HP/power from `Invasions:HpPerMember` / `InvaderPower`.
+Creation is idempotent (create-if-absent per key). Attacks and outcomes pass the instance's `occurrenceId` to the
+rules, so the player's contribution for the Observatory's calendar entry and the server instance are the same record.
 
 `invasion-resolve` job: for each ended, unresolved invasion and each group: outcome = `repelled` when group damage ≥
 `hpPerMember × members`, else `overrun`; runs the outcome hook for every member (rank by damage), mails
@@ -149,6 +158,7 @@ is resumable; the invasion is marked resolved only when every member got the out
 |---|---|---|
 | POST | `/internal/jobs/daily-reset` | delivers queued mail (daily resets themselves are lazy in the rules settlers) |
 | POST | `/internal/jobs/weekly-arena?week=` | see Arena |
+| POST | `/internal/jobs/invasion-start` | materialises active calendar invasion occurrences (`{ created[], active[] }`); every 5 min |
 | POST | `/internal/jobs/invasion-resolve` | see Invasions |
 | GET | `/healthz` | `{ status, version, auth, store }`, anonymous |
 

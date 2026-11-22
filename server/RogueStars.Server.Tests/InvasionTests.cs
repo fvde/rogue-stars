@@ -122,4 +122,74 @@ public class InvasionTests : IDisposable
         Assert.False(report.GetProperty("resolved").GetBoolean());
         Assert.Equal(1, report.GetProperty("pending").GetInt32());
     }
+
+    /// <summary>Moves the clock into the next weekly Gloop Tide occurrence of the rules calendar (Saturday 01:00 UTC).</summary>
+    private (string occurrence, string key) EnterWeeklyGloop()
+    {
+        var content = RogueStars.Rules.Content.ContentDb.Default;
+        var ev = content.LiveOpsSchedule.Single(x => x.Id == "weekly_gloop_tide");
+        Assert.True(ev.Schedule.TryNext(_app.Time.GetUtcNow().ToUnixTimeMilliseconds(), out long start, out _));
+        _app.Time.Now = DateTimeOffset.FromUnixTimeMilliseconds(start + 3_600_000);
+        string occ = RogueStars.Rules.Systems.LiveOpsSystem.OccurrenceId(ev.Id, start);
+        return (occ, InvasionService.KeyFor(occ));
+    }
+
+    [Fact]
+    public async Task CalendarOccurrences_AreMaterialisedOnce_KeyedByOccurrence()
+    {
+        var (occ, key) = EnterWeeklyGloop();
+        Assert.Equal("weekly-gloop-tide-" + occ.Split('@')[1], key);
+        var p = await _app.PlayerAsync("cal1");
+        for (int i = 0; i < 2; i++)
+        {
+            var (s, body) = await p.GetAsync("/v1/invasions");
+            Assert.Equal(200, s);
+            var list = body.GetProperty("invasions").EnumerateArray().ToList();
+            var inv = Assert.Single(list);
+            Assert.Equal(key, inv.GetProperty("id").GetString());
+            Assert.Equal(occ, inv.GetProperty("occurrenceId").GetString());
+            Assert.Equal("gloop_tide", inv.GetProperty("typeId").GetString());
+            Assert.Equal("Gloop Tide", inv.GetProperty("name").GetString());
+            Assert.True(inv.GetProperty("scheduled").GetBoolean());
+        }
+        var job = (await PlayerClient.Read(await _app.JobClient().PostAsync("/internal/jobs/invasion-start", null))).GetProperty("result");
+        Assert.Empty(job.GetProperty("created").EnumerateArray());
+        Assert.Equal(key, job.GetProperty("active")[0].GetString());
+
+        // Attacks are recorded in the player state under the rules occurrence id; the outcome uses it too.
+        var (st, _) = await p.PostAsync($"/v1/invasions/{key}/attack");
+        Assert.Equal(200, st);
+        var contributions = (await p.StateAsync()).GetProperty("liveOps").GetProperty("contributions");
+        Assert.Equal(1000, contributions.GetProperty(occ).GetProperty("damage").GetInt64());
+        _app.Time.Advance(TimeSpan.FromDays(2));
+        await _app.JobClient().PostAsync("/internal/jobs/invasion-resolve", null);
+        var applied = (await p.StateAsync()).GetProperty("liveOps").GetProperty("appliedOutcomes").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Contains(occ, applied);
+    }
+
+    [Fact]
+    public async Task InvasionStartJob_CreatesTheInstance_AndExtraInvasionsFollowTheCalendarRules()
+    {
+        var (_, key) = EnterWeeklyGloop();
+        var job = (await PlayerClient.Read(await _app.JobClient().PostAsync("/internal/jobs/invasion-start", null))).GetProperty("result");
+        Assert.Equal(key, job.GetProperty("created")[0].GetString());
+
+        long now = _app.Time.GetUtcNow().ToUnixTimeMilliseconds();
+        async Task<(int, System.Text.Json.JsonElement)> Create(string type) => await PlayerClient.ReadWithStatus(
+            await _app.JobClient().PostAsJsonAsync("/internal/invasions", new { typeId = type, startsMs = now, endsMs = now + 3_600_000 }));
+        var (s1, e1) = await Create("gloop_tide");
+        Assert.Equal(409, s1);
+        Assert.Equal("invasion_type_already_running", e1.GetProperty("error").GetString());
+        var (s2, ok) = await Create("void_choir");
+        Assert.Equal(200, s2);
+        Assert.Equal("server_void_choir@" + now, ok.GetProperty("invasion").GetProperty("occurrenceId").GetString());
+        Assert.Equal("server-void-choir-" + now, ok.GetProperty("invasion").GetProperty("id").GetString());
+        var (s3, e3) = await Create("prism_horde");
+        Assert.Equal(409, s3);
+        Assert.Equal("too_many_invasions", e3.GetProperty("error").GetString());
+
+        var p = await _app.PlayerAsync("cal2");
+        var (_, body) = await p.GetAsync("/v1/invasions");
+        Assert.Equal(2, body.GetProperty("invasions").GetArrayLength());
+    }
 }

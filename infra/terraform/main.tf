@@ -27,6 +27,10 @@ locals {
       schedule    = "15 0 * * 1"
       description = "Settle last ISO week of arena: rank rewards via mail, promotion/demotion."
     }
+    invasion-start = {
+      schedule    = "*/5 * * * *"
+      description = "Materialise the rules calendar's active invasion occurrences as server instances."
+    }
     invasion-resolve = {
       schedule    = "*/15 * * * *"
       description = "Resolve ended invasions and apply group outcomes."

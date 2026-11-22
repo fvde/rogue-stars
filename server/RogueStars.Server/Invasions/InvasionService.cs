@@ -1,4 +1,6 @@
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using RogueStars.Server.Arena;
@@ -15,13 +17,22 @@ public static class InvasionOutcomes
     public const string Overrun = "overrun";
 }
 
-/// <summary>One invasion instance (scheduled weekly or surprise), created by live ops via /internal/invasions.</summary>
+/// <summary>
+/// One invasion instance. Calendar instances are materialised from the rules' live-ops occurrences (invasion-start job,
+/// and lazily by GET /v1/invasions): <see cref="OccurrenceId"/> = the rules occurrence id ("weekly_rust_swarm@…"),
+/// <see cref="Id"/> = <see cref="InvasionService.KeyFor"/>(occurrence). Extra (server-pushed) instances come from
+/// /internal/invasions with occurrence "server_&lt;type&gt;@&lt;start&gt;", the rules' surprise convention.
+/// </summary>
 public sealed class Invasion
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     /// <summary>Content invasion definition id (rules LiveOps); defaults to Id.</summary>
     public string TypeId { get; set; } = "";
+    /// <summary>Rules live-ops occurrence id: contributions and outcomes in the player state are keyed by it.</summary>
+    public string OccurrenceId { get; set; } = "";
+    /// <summary>True when created from the rules calendar (not an extra server-pushed invasion).</summary>
+    public bool Scheduled { get; set; }
     public long StartsMs { get; set; }
     public long EndsMs { get; set; }
     /// <summary>Invader HP per group member; the group repels the invasion when total damage reaches HpPerMember × members.</summary>
@@ -64,6 +75,7 @@ public sealed class InvasionParticipant
 }
 
 public sealed record CreateInvasionRequest(string? Id, string? Name, long StartsMs, long EndsMs, long? HpPerMember, long? InvaderPower, string? TypeId = null);
+public sealed record InvasionStartReport(List<string> Created, List<string> Active);
 public sealed record AttackRequest(string? RequestId);
 
 public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerService players, ServerHooks hooks, IBattleResolver resolver,
@@ -76,21 +88,87 @@ public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerSer
     /// <summary>Content invasion id of an instance (rules LiveOps InvasionDef).</summary>
     private static string TypeOf(Invasion inv) => string.IsNullOrEmpty(inv.TypeId) ? inv.Id : inv.TypeId;
 
+    /// <summary>Rules occurrence id of an instance (older documents without one use their id).</summary>
+    private static string OccurrenceOf(Invasion inv) => string.IsNullOrEmpty(inv.OccurrenceId) ? inv.Id : inv.OccurrenceId;
+
+    /// <summary>Document id / URL key of a rules occurrence id: "weekly_rust_swarm@1768…" → "weekly-rust-swarm-1768…".</summary>
+    public static string KeyFor(string occurrenceId) => occurrenceId.Replace('_', '-').Replace('@', '-');
+
+    private readonly HashSet<string> _materialised = new();
+
+    /// <summary>
+    /// Creates the instance of every rules calendar invasion occurrence active now (idempotent: one instance per
+    /// occurrence, keyed by <see cref="KeyFor"/>). Called by the invasion-start job and before listing.
+    /// </summary>
+    public async Task<InvasionStartReport> MaterialiseScheduledAsync(CancellationToken ct)
+    {
+        var created = new List<string>();
+        var active = new List<string>();
+        foreach (var ev in LiveOpsSystem.ActiveEvents(null, engine.Content, clock.NowMs))
+        {
+            if (ev.Kind != LiveOpsKind.Invasion) continue;
+            string key = KeyFor(ev.OccurrenceId);
+            active.Add(key);
+            lock (_materialised) if (_materialised.Contains(key)) continue;
+            var inv = new Invasion
+            {
+                Id = key, OccurrenceId = ev.OccurrenceId, TypeId = ev.RefId, Name = ev.Name ?? ev.RefId, Scheduled = true,
+                StartsMs = ev.StartMs, EndsMs = ev.EndMs, HpPerMember = O.HpPerMember, InvaderPower = O.InvaderPower,
+            };
+            if (await docs.TryPutAsync(Collections.Invasions, key, inv, 0, ct))
+            {
+                created.Add(key);
+                log.LogInformation("Invasion {InvasionId} materialised from occurrence {Occurrence}", key, ev.OccurrenceId);
+            }
+            lock (_materialised) _materialised.Add(key);
+        }
+        return new InvasionStartReport(created, active);
+    }
+
     public async Task<Invasion> CreateAsync(CreateInvasionRequest req, CancellationToken ct)
     {
         if (req.EndsMs <= req.StartsMs) throw ApiException.BadRequest("invalid_window");
-        var id = string.IsNullOrWhiteSpace(req.Id) ? Ids.New(6) : req.Id.Trim();
-        if (id.Contains('/') || id.Contains('_') || id.Length > 64) throw ApiException.BadRequest("invalid_id");
-        string typeId = string.IsNullOrWhiteSpace(req.TypeId) ? id : req.TypeId.Trim();
+        string typeId = string.IsNullOrWhiteSpace(req.TypeId) ? (req.Id ?? "").Trim() : req.TypeId.Trim();
         if (engine.Content.Invasion(typeId) == null) throw ApiException.BadRequest("unknown_invasion_type");
+        string occurrence = LiveOpsSystem.OccurrenceId("server_" + typeId, req.StartsMs);
+        var id = string.IsNullOrWhiteSpace(req.Id) ? KeyFor(occurrence) : req.Id.Trim();
+        if (id.Contains('/') || id.Contains('_') || id.Contains('@') || id.Length > 64) throw ApiException.BadRequest("invalid_id");
+
+        // Same rules as the calendar: never two invasions of one type at once, at most MaxConcurrentInvasions.
+        string? conflict = LiveOpsSystem.InvasionConflict(null, engine.Content, typeId, req.StartsMs, req.EndsMs);
+        if (conflict == null)
+        {
+            int overlapping = CalendarOverlaps(req.StartsMs, req.EndsMs);
+            foreach (var other in (await docs.ListAsync<Invasion>(Collections.Invasions, null, 500, ct)).Select(d => d.Value))
+            {
+                if (other.Scheduled || other.Resolved || other.EndsMs <= req.StartsMs || other.StartsMs >= req.EndsMs) continue;
+                if (TypeOf(other) == typeId) { conflict = "invasion type already running"; break; }
+                overlapping++;
+            }
+            if (conflict == null && overlapping >= Math.Max(1, engine.Content.LiveOps.MaxConcurrentInvasions)) conflict = "too many invasions";
+        }
+        if (conflict != null) throw ApiException.Conflict(conflict.Replace(' ', '_'));
+
         var inv = new Invasion
         {
-            Id = id, Name = req.Name ?? id, TypeId = typeId, StartsMs = req.StartsMs, EndsMs = req.EndsMs,
-            HpPerMember = req.HpPerMember ?? 10_000, InvaderPower = req.InvaderPower ?? 1_000,
+            Id = id, Name = req.Name ?? engine.Content.Invasion(typeId)!.Name ?? id, TypeId = typeId, OccurrenceId = occurrence,
+            StartsMs = req.StartsMs, EndsMs = req.EndsMs,
+            HpPerMember = req.HpPerMember ?? O.HpPerMember, InvaderPower = req.InvaderPower ?? O.InvaderPower,
         };
         if (!await docs.TryPutAsync(Collections.Invasions, id, inv, 0, ct)) throw ApiException.Conflict("invasion_exists");
         log.LogInformation("Invasion {InvasionId} created ({Starts}..{Ends})", id, inv.StartsMs, inv.EndsMs);
         return inv;
+    }
+
+    /// <summary>Calendar invasion occurrences that run and overlap [startMs, endMs).</summary>
+    private int CalendarOverlaps(long startMs, long endMs)
+    {
+        int n = 0;
+        foreach (var ev in engine.Content.LiveOpsSchedule)
+            if (ev.Kind == LiveOpsKind.Invasion)
+                foreach (long s in ev.Schedule.Overlapping(startMs, endMs))
+                    if (LiveOpsSystem.OccurrenceRuns(engine.Content, ev, s)) n++;
+        return n;
     }
 
     public async Task<Invasion> GetAsync(string id, CancellationToken ct) =>
@@ -98,6 +176,7 @@ public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerSer
 
     public async Task<IReadOnlyList<Invasion>> ActiveAsync(CancellationToken ct)
     {
+        await MaterialiseScheduledAsync(ct);
         long now = clock.NowMs;
         return (await docs.ListAsync<Invasion>(Collections.Invasions, null, 500, ct))
             .Select(d => d.Value).Where(i => !i.Resolved && i.StartsMs <= now && now < i.EndsMs).ToList();
@@ -140,7 +219,7 @@ public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerSer
             hook = await hooks.TryExecuteAsync(playerId, hooks.Names.InvasionAttack,
                 new
                 {
-                    OccurrenceId = invasionId, Damage = outcome.Damage, Seed = seed, AttackId = attackId,
+                    OccurrenceId = OccurrenceOf(inv), Damage = outcome.Damage, Seed = seed, AttackId = attackId,
                     InvasionId = TypeOf(inv), StartMs = inv.StartsMs, EndMs = inv.EndsMs,
                 }, "inv-attack-" + attackId, ct);
             if (hook is { Ok: false }) throw new ApiException(StatusCodes.Status409Conflict, hook.Error ?? "attack_rejected");
@@ -235,7 +314,7 @@ public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerSer
                 {
                     var r = await hooks.TryExecuteAsync(member.PlayerId, outcomeCommand, new
                     {
-                        InvasionId = TypeOf(inv), OccurrenceId = inv.Id,
+                        InvasionId = TypeOf(inv), OccurrenceId = OccurrenceOf(inv),
                         Repelled = group.Outcome == InvasionOutcomes.Repelled, ContributionRank = rank,
                         Outcome = group.Outcome, Damage = member.Damage, Rank = rank, GroupSize = ranked.Count,
                         GroupDamage = group.TotalDamage, GroupHp = group.Hp(inv),

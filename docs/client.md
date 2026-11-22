@@ -71,7 +71,7 @@ AppBootstrap (only object in Main.unity)
 | City | – | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock |
 | Aliens | `aliens` | list by rarity, stats, level/star up, assign to building, squad toggle |
 | Breeding Pen | `breeding` | pick parents (cost/duration preview), jobs with timers, collect, replace/discard modal comparing genes |
-| Observatory | – | active/upcoming invasions and planetary events, modifier stack with countdowns, invasion attacks |
+| Observatory | – | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
 | Quests | `quests` | daily/weekly with point chests, achievements, 7-day login calendar, new-player event |
 | Shop | – | offers (starter/rolling/flash/gift), Diamond packs, monthly pass, season pass, funds, permanent, Diamond items, rewarded ads |
 | Mail | – | inbox, open/read, claim, claim all, delete |
@@ -115,7 +115,7 @@ EditMode (`Assets/Tests/EditMode`, 38 tests):
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
   numeric enums), response mapping (events/payload/version/state), rule rejection, HTTP/network errors, server-only
-  refusal, 401 re-auth, IAP verify, arena and guild DTOs.
+  refusal, 401 re-auth, IAP verify, arena, invasion (occurrence/type + Observatory merge) and guild DTOs.
 - `RouterTests`: root, push/pop visibility and lifecycle, rebuild on state change, reset, back closes modals, toasts.
 - `ScreenSmokeTests`: every catalog screen for a fresh and a populated player, tab clicking, city building details,
   guild offline message, no placeholders left.
@@ -136,8 +136,6 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 
 ## Known gaps / TODO
 - Double run rewards ad: no rules command yet (Meta has the `double_run_rewards` placement); the result screen has a TODO.
-- Online invasions: the server's `/v1/invasions` instances are not the rules' calendar occurrence ids; the Observatory
-  shows both (calendar from `LiveOpsSystem`, attackable instances from the server).
 - Online rewarded ads that grant rewards directly arrive through the server's SSV callback; ad tokens sent with
   `RunRevive`, `BuyStamina`, `GachaPull` are fake until the AppLovin gateway exists.
 - Firebase auth, Play Billing, AppLovin MAX and push notifications are interfaces/TODOs.

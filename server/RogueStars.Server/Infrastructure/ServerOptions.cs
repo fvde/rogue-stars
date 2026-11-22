@@ -151,6 +151,9 @@ public sealed class GuildOptions
 public sealed class InvasionOptions
 {
     public int GroupSize { get; set; } = 20;
+    /// <summary>Invader HP per group member and invader power of calendar instances (and default for /internal/invasions).</summary>
+    public long HpPerMember { get; set; } = 10_000;
+    public long InvaderPower { get; set; } = 1_000;
     public int TopContributors { get; set; } = 3;
     /// <summary>Extra rewards mailed to the top contributors of each group. Defaults applied when empty.</summary>
     public List<RewardSpec> TopRewards { get; set; } = new();

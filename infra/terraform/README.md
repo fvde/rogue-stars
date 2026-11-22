@@ -12,7 +12,7 @@ Secret Manager secrets (no values), Cloud Scheduler jobs with OIDC, and least-pr
 | `google_firestore_database.main` | `(default)`, native mode, `deletion_policy = ABANDON` |
 | `google_secret_manager_secret.secrets` | Play publisher credentials JSON, AppLovin SSV event key — values added manually |
 | `google_cloud_run_v2_service.server` | min 0 instances, port 8080, `/healthz` probes, env config (see `docs/server.md`) |
-| `google_cloud_scheduler_job.jobs` | `daily-reset` 00:05, `weekly-arena` Mon 00:15, `invasion-resolve` every 15 min (UTC) |
+| `google_cloud_scheduler_job.jobs` | `daily-reset` 00:05, `weekly-arena` Mon 00:15, `invasion-start` every 5 min, `invasion-resolve` every 15 min (UTC) |
 
 The service is publicly invokable (`allUsers` → `run.invoker`): players authenticate with Firebase ID tokens that
 the app verifies; `/internal/jobs/*` only accepts Google OIDC tokens for the scheduler service account with

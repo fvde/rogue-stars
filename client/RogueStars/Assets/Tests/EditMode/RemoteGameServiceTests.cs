@@ -240,6 +240,44 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void Invasions_MapOccurrenceAndType_AndMergeWithTheCalendar()
+        {
+            Connect();
+            var content = RogueStars.Rules.Content.ContentDb.Default;
+            var ev = content.LiveOpsSchedule.Find(x => x.Id == "weekly_rust_swarm");
+            Assert.That(ev.Schedule.TryNext(0, out long start, out long end), Is.True);
+            string occ = LiveOpsSystem.OccurrenceId(ev.Id, start);
+            _http.Handler = req =>
+            {
+                if (req.Url.EndsWith("/v1/invasions"))
+                    return FakeTransport.Json(200, "{\"ok\":true,\"invasions\":[" +
+                        "{\"id\":\"weekly-rust-swarm-" + start + "\",\"occurrenceId\":\"" + occ + "\",\"typeId\":\"rust_swarm\",\"name\":\"Rust Swarm\",\"scheduled\":true,\"startsMs\":" + start + ",\"endsMs\":" + end + "}," +
+                        "{\"id\":\"server-void-choir-" + start + "\",\"occurrenceId\":\"server_void_choir@" + start + "\",\"typeId\":\"void_choir\",\"name\":\"\",\"scheduled\":false,\"startsMs\":" + start + ",\"endsMs\":" + (start + 3600000) + "}]}");
+                return Route(req);
+            };
+            List<InvasionInfo> list = null;
+            _svc.Invasions(r => list = r.Value);
+            Assert.That(list.Count, Is.EqualTo(2));
+            Assert.That(list[0].OccurrenceId, Is.EqualTo(occ));
+            Assert.That(list[0].TypeId, Is.EqualTo("rust_swarm"));
+            Assert.That(list[0].Scheduled, Is.True);
+
+            // Calendar (rules) + server instances = one list: the weekly occurrence once (attackable via the server id),
+            // the server-pushed extra with its content name (never an internal id).
+            var calendar = LiveOpsSystem.ActiveEvents(null, content, start + 1000);
+            var rows = RogueStars.Client.Screens.ObservatoryScreen.MergeInvasions(content, calendar, list);
+            var invasionsInCalendar = calendar.FindAll(x => x.Kind == RogueStars.Rules.Content.LiveOpsKind.Invasion).Count;
+            Assert.That(rows.Count, Is.EqualTo(invasionsInCalendar + 1));
+            var rust = rows.FindAll(r => r.Event.RefId == "rust_swarm");
+            Assert.That(rust.Count, Is.EqualTo(1));
+            Assert.That(rust[0].Instance.Id, Is.EqualTo("weekly-rust-swarm-" + start));
+            var extra = rows[rows.Count - 1];
+            Assert.That(extra.Event.Name, Is.EqualTo("Void Choir"));
+            Assert.That(extra.Event.Surprise, Is.True);
+            Assert.That(extra.Event.OccurrenceId, Is.EqualTo("server_void_choir@" + start));
+        }
+
+        [Test]
         public void Guilds_MineAndChat_Map()
         {
             Connect();

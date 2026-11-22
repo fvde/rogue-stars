@@ -131,6 +131,8 @@ public sealed record PlayerClient(HttpClient Http, string PlayerId)
         return state.GetProperty("counters").TryGetProperty(key, out var v) ? v.GetInt64() : 0;
     }
 
+    internal static async Task<(int Status, JsonElement Body)> ReadWithStatus(HttpResponseMessage resp) => ((int)resp.StatusCode, await Read(resp));
+
     internal static async Task<JsonElement> Read(HttpResponseMessage resp)
     {
         var text = await resp.Content.ReadAsStringAsync();
