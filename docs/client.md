@@ -61,7 +61,7 @@ AppBootstrap (only object in Main.unity)
 | Hub (Planet) | – | main portals + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
 | Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, entry cost), stamina refill modal (daily free / ad / Diamonds) |
 | Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker with awakening %, worm token animated along the trail, dice roll animation; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
-| Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars, status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
+| Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars (values straight from the log entries: `TargetHp/TargetShield/TargetRage`, `ActorShield/ActorRage`, fighters' `StartShield/StartRage`), status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
 | Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), Again / Portals |
 | Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
 | Parts | `parts` | inventory with slot filters, quick merge, detail modal: stats/skills, level up / cap raise / level reset, equip (left/right arm), merge to next rarity (materials picked automatically, validated with `PartsSystem.ValidateMerge`), rune sockets, Forge, S/SS awakening, dismantle; Runes tab: lock, merge 3→1 |
@@ -121,7 +121,7 @@ EditMode (`Assets/Tests/EditMode`, 38 tests):
   guild offline message, no placeholders left.
 - `RunAndProgressionScreenTests`: a new player plays level 1 end to end through the Run screen (battle playbacks,
   result screen, tutorial steps), decision modals per phase, board layout never overlaps (all main levels × 5 seeds),
-  battle playback ends at the logged HP, Signals reveal, merge-material finder, worm/hero actions.
+  battle playback ends at the logged HP, rage/shield bars equal the logged values after every entry, Signals reveal, merge-material finder, worm/hero actions.
 
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
 - `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
@@ -136,7 +136,6 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 
 ## Known gaps / TODO
 - Double run rewards ad: no rules command yet (Meta has the `double_run_rewards` placement); the result screen has a TODO.
-- Battle rage bars are reconstructed client-side (the log has no rage values except `GainRage`).
 - Online invasions: the server's `/v1/invasions` instances are not the rules' calendar occurrence ids; the Observatory
   shows both (calendar from `LiveOpsSystem`, attackable instances from the server).
 - Online rewarded ads that grant rewards directly arrive through the server's SSV callback; ad tokens sent with

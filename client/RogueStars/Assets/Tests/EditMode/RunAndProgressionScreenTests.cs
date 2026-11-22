@@ -156,6 +156,44 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void BattlePlayback_RageAndShieldBarsFollowTheLog()
+        {
+            var setup = new BattleSetup { RoundCap = 6 };
+            var lo = new CombatLoadout { MountId = "skiff" };
+            lo.WormStats.Add(new StatMod(StatId.Hp, 5000)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 100));
+            lo.MountStats.Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Hp, 200));
+            setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, _f.Service.Content));
+            setup.Enemy.Add(BattleSimulator.BuildEnemy(_f.Service.Content, "cinder_hound", 3));
+            var battle = BattleSimulator.Simulate(setup, _f.Service.Content, new Rng(7));
+            Assert.That(battle.Log.Exists(e => e.Action == BattleAction.Rage), Is.True, "a rage attack happened");
+            _f.App.Router.Reset(new HubScreen());
+            var screen = new BattlePlaybackScreen(battle);
+            _f.App.Router.Push(screen);
+            int worm = battle.Fighters.FindIndex(f => f.Role == CombatRole.Worm);
+            Assert.That(screen.TryGetBars(worm, out _, out double shield0, out _), Is.True);
+            Assert.That(shield0, Is.EqualTo(battle.Fighters[worm].StartShield), "mount shield shown before the first entry");
+            for (int i = 0; i < battle.Log.Count; i++)
+            {
+                screen.PlaySteps(1);
+                var e = battle.Log[i];
+                if (e.Actor >= 0 && e.Actor != e.Target)
+                {
+                    screen.TryGetBars(e.Actor, out _, out double s, out double r);
+                    Assert.That(r, Is.EqualTo(e.ActorRage), "actor rage at entry " + i);
+                    Assert.That(s, Is.EqualTo(e.ActorShield), "actor shield at entry " + i);
+                }
+                if (e.Target >= 0)
+                {
+                    screen.TryGetBars(e.Target, out double hp, out double s, out double r);
+                    Assert.That(hp, Is.EqualTo(e.TargetHp), "target HP at entry " + i);
+                    Assert.That(r, Is.EqualTo(e.TargetRage), "target rage at entry " + i);
+                    Assert.That(s, Is.EqualTo(e.TargetShield), "target shield at entry " + i);
+                }
+            }
+            Assert.That(screen.Finished, Is.True);
+        }
+
+        [Test]
         public void Signals_PullShowsRevealCards()
         {
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);

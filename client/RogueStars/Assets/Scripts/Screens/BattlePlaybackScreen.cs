@@ -96,7 +96,7 @@ namespace RogueStars.Client.Screens
 
         private FighterView Fighter(RectTransform parent, BattleFighterInfo f)
         {
-            var v = new FighterView { Info = f, HpNow = f.StartHp, ShieldNow = 0, RageNow = 0 };
+            var v = new FighterView { Info = f, HpNow = f.StartHp, ShieldNow = f.StartShield, RageNow = f.StartRage };
             var card = Ui.Column(parent, 4, 10, Theme.Panel, "Fighter:" + f.Index);
             v.Card = card;
             var head = Ui.Row(card, 110, 10);
@@ -107,8 +107,8 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(letter.rectTransform);
             Ui.Label(head, f.Name + "\n<size=20>" + f.Role + "</size>", Theme.FontSmall);
             v.Hp = Ui.Bar(card, Frac(f.StartHp, f.MaxHp), f.Side == BattleSide.Player ? Theme.Good : Theme.Bad, Fmt.Num(f.StartHp), 36);
-            v.Shield = Ui.Bar(card, 0, Theme.Premium, null, 12);
-            v.Rage = Ui.Bar(card, 0, Theme.Warn, null, 12);
+            v.Shield = Ui.Bar(card, Frac(f.StartShield, f.MaxHp), Theme.Premium, null, 12);
+            v.Rage = Ui.Bar(card, Frac(f.StartRage, Content.Combat.RageMax), Theme.Warn, null, 12);
             v.Status = Ui.Label(card, "", 22, Theme.Warn);
             if (f.SummonedBy >= 0) { v.Visible = false; card.gameObject.SetActive(false); }
             return v;
@@ -177,7 +177,7 @@ namespace RogueStars.Client.Screens
             var actor = View(e.Actor);
             var target = View(e.Target) ?? actor;
             if (actor != null && animate) Pulse(actor.Sprite.rectTransform);
-            double rageMax = Content.Combat.RageMax, rageOver = Content.Combat.RageOverfillMax;
+            double rageMax = Content.Combat.RageMax;
             switch (e.Action)
             {
                 case BattleAction.Basic:
@@ -189,27 +189,16 @@ namespace RogueStars.Client.Screens
                     if (target == null) break;
                     if (e.Dodge) { Popup(target, "DODGE", Theme.Premium, animate); break; }
                     Popup(target, (e.Crit ? "CRIT " : "") + "-" + Fmt.Num(e.Amount) + (e.Parry ? " PARRY" : ""), e.Crit ? Theme.Warn : Theme.Bad, animate, e.Crit ? 44 : 34);
-                    target.HpNow = e.TargetHp; target.ShieldNow = e.TargetShield;
-                    if (actor != null && e.Action != BattleAction.StatusTick)
-                    {
-                        actor.RageNow = e.Action == BattleAction.Rage ? 0 : Math.Min(rageOver, actor.RageNow + Content.Combat.RagePerAction);
-                        if (target != actor) target.RageNow = Math.Min(rageOver, target.RageNow + Content.Combat.RagePerHitTaken);
-                    }
                     break;
                 case BattleAction.Heal:
                 case BattleAction.Regen:
                 case BattleAction.LifeSteal:
                     if (target == null) break;
                     Popup(target, "+" + Fmt.Num(e.Amount), Theme.Good, animate);
-                    target.HpNow = e.TargetHp; target.ShieldNow = e.TargetShield;
                     break;
                 case BattleAction.Shield:
                     if (target == null) break;
                     Popup(target, "+" + Fmt.Num(e.Amount) + " shield", Theme.Premium, animate);
-                    target.ShieldNow = e.TargetShield > 0 ? e.TargetShield : target.ShieldNow + e.Amount;
-                    break;
-                case BattleAction.GainRage:
-                    if (target != null) target.RageNow = Math.Min(rageOver, target.RageNow + e.Amount);
                     break;
                 case BattleAction.StatusApplied:
                     if (target == null) break;
@@ -232,9 +221,10 @@ namespace RogueStars.Client.Screens
                     if (target != null && !target.Visible) { target.Visible = true; target.Card.gameObject.SetActive(true); }
                     break;
                 case BattleAction.Death:
-                    if (target != null) { target.HpNow = 0; target.Sprite.color = Theme.Locked; Popup(target, "KO", Theme.TextDim, animate, 40); }
+                    if (target != null) { target.Sprite.color = Theme.Locked; Popup(target, "KO", Theme.TextDim, animate, 40); }
                     break;
             }
+            Sync(e, actor, View(e.Target));
             Refresh(actor, rageMax);
             if (target != actor) Refresh(target, rageMax);
             Feed(e, actor, target);
@@ -264,6 +254,21 @@ namespace RogueStars.Client.Screens
             var line = Ui.Label(_feed, "R" + e.Round + "  " + what, 22, Theme.TextDim);
             _feedLines.Enqueue(line.gameObject);
             while (_feedLines.Count > 10) Ui.DestroyGo(_feedLines.Dequeue());
+        }
+
+        /// <summary>HP / shield / rage straight from the log entry (values right after it, see BattleLogEntry).</summary>
+        private static void Sync(BattleLogEntry e, FighterView actor, FighterView target)
+        {
+            if (actor != null) { actor.ShieldNow = e.ActorShield; actor.RageNow = e.ActorRage; }
+            if (target != null) { target.HpNow = e.TargetHp; target.ShieldNow = e.TargetShield; target.RageNow = e.TargetRage; }
+        }
+
+        /// <summary>Current bar values of fighter <paramref name="index"/> (tests).</summary>
+        public bool TryGetBars(int index, out double hp, out double shield, out double rage)
+        {
+            var v = View(index);
+            hp = v?.HpNow ?? 0; shield = v?.ShieldNow ?? 0; rage = v?.RageNow ?? 0;
+            return v != null;
         }
 
         private FighterView View(int index) => index >= 0 && index < _views.Count ? _views[index] : null;

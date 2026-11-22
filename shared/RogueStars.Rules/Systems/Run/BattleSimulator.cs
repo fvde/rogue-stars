@@ -289,6 +289,7 @@ namespace RogueStars.Rules.Systems
         public BattleResult Run()
         {
             Setup();
+            foreach (var f in F) { Res.Fighters[f.Index].StartShield = Round0(f.Shield); Res.Fighters[f.Index].StartRage = Round0(f.Rage); }
             int cap = _setup.RoundCap > 0 ? _setup.RoundCap : T.RoundCap;
             CheckOver();
             if (!Over)
@@ -324,6 +325,7 @@ namespace RogueStars.Rules.Systems
                 info.StartHp = Round0(f.StartHp);
                 info.EndHp = Round0(f.Hp);
                 info.EndShield = Round0(f.Shield);
+                info.EndRage = Round0(f.Rage);
                 info.Alive = f.Alive;
                 info.DamageDealt = Round0(f.DamageDealt);
                 info.SummonedBy = f.SummonedBy;
@@ -906,6 +908,8 @@ namespace RogueStars.Rules.Systems
             var nf = MakeFighter(spec, owner.Side);
             nf.SummonedBy = owner.Index;
             InitHp(nf);
+            Res.Fighters[nf.Index].StartShield = Round0(nf.Shield);
+            Res.Fighters[nf.Index].StartRage = Round0(nf.Rage);
             var e = Log(BattleAction.Summon, owner, nf, 0);
             if (e != null) e.SkillId = skill.Id;
         }
@@ -921,6 +925,9 @@ namespace RogueStars.Rules.Systems
                 Amount = (long)Math.Round(amount, MidpointRounding.AwayFromZero),
                 TargetHp = target != null ? (long)Math.Round(target.Hp, MidpointRounding.AwayFromZero) : 0,
                 TargetShield = target != null ? (long)Math.Round(target.Shield, MidpointRounding.AwayFromZero) : 0,
+                TargetRage = target != null ? (long)Math.Round(target.Rage, MidpointRounding.AwayFromZero) : 0,
+                ActorShield = actor != null ? (long)Math.Round(actor.Shield, MidpointRounding.AwayFromZero) : 0,
+                ActorRage = actor != null ? (long)Math.Round(actor.Rage, MidpointRounding.AwayFromZero) : 0,
             };
             Res.Log.Add(e);
             return e;

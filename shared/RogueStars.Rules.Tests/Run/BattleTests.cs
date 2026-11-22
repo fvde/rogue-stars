@@ -172,6 +172,44 @@ public class BattleSimulatorTests
     }
 
     [Fact]
+    public void Log_CarriesRageAndShield_AfterEachEntry()
+    {
+        var c = ContentDb.Default;
+        var T = c.Combat;
+        var worm = Unit("worm", CombatRole.Worm, 1000, 10, 0, 200);
+        var foe = Unit("foe", CombatRole.Enemy, 1_000_000, 0, 0, 1);
+        var res = BattleSimulator.Simulate(Duel(worm, foe, 4), c, new Rng(1));
+        int w = res.Fighters.First(f => f.Role == CombatRole.Worm).Index;
+        // Worm acts first each round (+RagePerAction after its hit), then the foe hits it (+RagePerHitTaken after the hit);
+        // in round 3 the foe's rage is full (3 × 35) and its extra rage attack hits the worm once more.
+        var basics = res.Log.Where(e => e.Actor == w && e.Action == BattleAction.Basic).Select(e => e.ActorRage).ToList();
+        long perRound = (long)(T.RagePerAction + T.RagePerHitTaken);
+        Assert.Equal(new long[] { 0, perRound, 2 * perRound, 3 * perRound + (long)T.RagePerHitTaken }, basics);
+        Assert.Contains(res.Log, e => e.Round == 3 && e.Actor != w && e.Action == BattleAction.Rage && e.ActorRage == (long)(3 * perRound - T.RageMax));
+        var hitsTaken = res.Log.Where(e => e.Target == w && e.Action == BattleAction.Basic).Select(e => e.TargetRage).ToList();
+        Assert.Equal((long)T.RagePerAction, hitsTaken[0]);
+        // Round 4: 115 + 25 → capped at the overfill max, the rage attack spends RageMax.
+        var rage = res.Log.Single(e => e.Actor == w && e.Action == BattleAction.Rage);
+        Assert.Equal((long)(T.RageOverfillMax - T.RageMax), rage.ActorRage);
+        Assert.Equal(res.Fighters[w].EndRage, res.Log.Last(e => e.Target == w).TargetRage + (long)T.RagePerHitTaken);
+        Assert.All(res.Log, e => Assert.InRange(e.ActorRage, 0, (long)T.RageOverfillMax));
+
+        // Mount HP is the worm's battle-start shield; entries carry the shield of actor and target.
+        var lo = new CombatLoadout { MountId = "skiff" };
+        lo.WormStats.Add(new StatMod(StatId.Hp, 5000)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 100));
+        lo.MountStats.Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Hp, 200));
+        var setup = new BattleSetup { RoundCap = 3 };
+        setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c));
+        setup.Enemy.Add(Unit("e1", CombatRole.Enemy, 100_000, 40, 0, 50));
+        var r2 = BattleSimulator.Simulate(setup, c, new Rng(2));
+        int w2 = r2.Fighters.First(f => f.Role == CombatRole.Worm).Index;
+        Assert.Equal(200, r2.Fighters[w2].StartShield);
+        var wormActs = r2.Log.First(e => e.Actor == w2 && e.Action == BattleAction.Basic);
+        long shieldBefore = r2.Log.TakeWhile(e => e != wormActs).Where(e => e.Target == w2).Select(e => e.TargetShield).DefaultIfEmpty(200).Last();
+        Assert.Equal(shieldBefore, wormActs.ActorShield);
+    }
+
+    [Fact]
     public void Speed_DecidesOpeningSide()
     {
         var res = BattleSimulator.Simulate(Duel(Unit("worm", CombatRole.Worm, 1000, 10, 0, 10), Unit("fast", CombatRole.Enemy, 1000, 10, 0, 50), 1), ContentDb.Default, new Rng(1));

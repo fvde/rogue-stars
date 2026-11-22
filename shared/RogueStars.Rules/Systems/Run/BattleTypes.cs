@@ -61,8 +61,12 @@ namespace RogueStars.Rules.Systems
         public bool Targetable;
         public long MaxHp;
         public long StartHp;
+        /// <summary>Shield / rage when the first round starts (mount shield on the worm, start-rage effects); summons: when summoned.</summary>
+        public long StartShield;
+        public long StartRage;
         public long EndHp;
         public long EndShield;
+        public long EndRage;
         public bool Alive;
         public long DamageDealt;
         /// <summary>Index of the fighter that summoned this one (-1 = present from the start).</summary>
@@ -84,8 +88,14 @@ namespace RogueStars.Rules.Systems
         public StatusId Status;
         public int Stacks;
         public string SkillId;
+        /// <summary>Target HP / shield / rage right after this entry (rounded). Rage gained for acting or being hit is
+        /// added after the entry and shows up in the fighter's next entry.</summary>
         public long TargetHp;
         public long TargetShield;
+        public long TargetRage;
+        /// <summary>Actor shield / rage right after this entry (0 without an actor); a Rage attack shows the rage left after spending.</summary>
+        public long ActorShield;
+        public long ActorRage;
 
         public override string ToString() =>
             "r" + Round + " " + Actor + ">" + Target + " " + Action + " " + Amount + (Crit ? " C" : "") + (Dodge ? " D" : "") + (Parry ? " P" : "") +
