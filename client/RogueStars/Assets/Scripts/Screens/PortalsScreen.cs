@@ -5,6 +5,7 @@ using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RogueStars.Client.Screens
 {
@@ -13,6 +14,20 @@ namespace RogueStars.Client.Screens
     {
         private static readonly string[] Tabs = { "Main", "Overcharged", "Burrow", "Dark Side" };
         private int _tab;
+        /// <summary>Dark Side page (-1 = the page with the next level to clear).</summary>
+        private int _page = -1;
+        public const int DarkSidePageSize = 25;
+
+        /// <summary>Daily Biomass surge: the first won portal runs of the day pay Biomass ×N.</summary>
+        public static Text SurgeLabel(Transform parent, GameState s, ContentDb c, long now)
+        {
+            int left = RunSystem.BiomassBonusRunsLeft(s, c, now);
+            var t = c.RunTuning;
+            var label = Ui.Label(parent, "Biomass surge: " + left + "/" + t.DailyBiomassBonusRuns + " left today — won Main/Overcharged runs pay Biomass ×" + t.DailyBiomassBonusMult.ToString("0.#"),
+                Theme.FontSmall, left > 0 ? Theme.CurrencyColor(Currencies.Biomass) : Theme.TextDim);
+            label.name = "BiomassSurge";
+            return label;
+        }
 
         public override string Title => "Portals";
 
@@ -29,7 +44,8 @@ namespace RogueStars.Client.Screens
             Ui.Label(top, "Stamina " + State.Wallet.Get(Currencies.Stamina) + "/" + EconomySystem.RegenCap(State, Content, Currencies.Stamina)
                           + "   Burrow Keys " + State.Wallet.Get(Currencies.BurrowKeys), Theme.FontNormal, Theme.CurrencyColor(Currencies.Stamina));
             Ui.Button(top, "Refill", () => StaminaModal.Show(this, App), Theme.Good, 200);
-            Ui.TabBar(body, Tabs, _tab, i => { _tab = i; Rebuild(); });
+            SurgeLabel(body, State, Content, Now);
+            Ui.TabBar(body, Tabs, _tab, i => { _tab = i; _page = -1; Rebuild(); });
 
             var mode = _tab == 1 ? RunMode.Overcharged : _tab == 2 ? RunMode.Burrow : _tab == 3 ? RunMode.DarkSide : RunMode.Normal;
             var kind = _tab == 2 ? PortalKind.Burrow : _tab == 3 ? PortalKind.DarkSide : PortalKind.Main;
@@ -42,7 +58,44 @@ namespace RogueStars.Client.Screens
             var portals = new List<PortalDef>();
             foreach (var p in Content.Portals.Values) if (p.Kind == kind) portals.Add(p);
             portals.Sort((a, b) => a.Order.CompareTo(b.Order));
+            if (mode == RunMode.DarkSide)
+            {
+                KeyValue(body, "Data", Fmt.Num(State.Wallet.Get(Currencies.Data)) + " (Laboratory research)", Theme.CurrencyColor(Currencies.Data));
+                foreach (var p in portals) DarkSideCard(body, p);
+                return;
+            }
             foreach (var p in portals) PortalCard(body, p, mode);
+        }
+
+        /// <summary>The procedural Dark Side: many levels, shown in pages around the next level to clear, with each level's Data.</summary>
+        private void DarkSideCard(RectTransform body, PortalDef portal)
+        {
+            var levels = new List<LevelDef>();
+            foreach (var id in portal.LevelIds) { var l = Content.RunLevel(id); if (l != null) levels.Add(l); }
+            if (levels.Count == 0) return;
+            int next = levels.Count - 1;
+            for (int i = 0; i < levels.Count; i++) if (!RunSystem.Progress(State, levels[i].Id).Cleared) { next = i; break; }
+            int pages = (levels.Count + DarkSidePageSize - 1) / DarkSidePageSize;
+            int page = _page >= 0 ? Mathf.Clamp(_page, 0, pages - 1) : next / DarkSidePageSize;
+            var card = Card(body, Theme.PanelAlt);
+            Ui.Label(card, portal.Name + " — " + levels.Count + " procedural levels", Theme.FontLarge, Theme.Premium);
+            Note(card, "Cleared " + next + (next == levels.Count - 1 && RunSystem.Progress(State, levels[next].Id).Cleared ? "+1" : "") + "/" + levels.Count + " · Data per clear grows with the level.");
+            var nav = Ui.Row(card, 70, 8);
+            Ui.Button(nav, "< Prev", () => { _page = Mathf.Max(0, page - 1); Rebuild(); }, Theme.Button, 180, 70, page > 0).name = "DarkPrev";
+            Ui.Label(nav, "Levels " + (page * DarkSidePageSize + 1) + "–" + Mathf.Min(levels.Count, (page + 1) * DarkSidePageSize), Theme.FontSmall, Theme.Text, TextAnchor.MiddleCenter);
+            Ui.Button(nav, "Next >", () => { _page = Mathf.Min(pages - 1, page + 1); Rebuild(); }, Theme.Button, 180, 70, page < pages - 1).name = "DarkNext";
+            var grid = Ui.Grid(card, new Vector2(186, 150), 5, 10);
+            for (int i = page * DarkSidePageSize; i < levels.Count && i < (page + 1) * DarkSidePageSize; i++)
+            {
+                var lv = levels[i];
+                bool unlocked = RunSystem.IsLevelUnlocked(State, Content, lv.Id, RunMode.DarkSide);
+                var prog = RunSystem.Progress(State, lv.Id);
+                long data = 0;
+                foreach (var r in lv.CompletionRewards) if (r.Id == Currencies.Data) data += (long)System.Math.Round(r.Amount * lv.RewardMultiplier);
+                string label = lv.Index + "\n<size=22>" + (prog.Cleared ? "cleared" : "+" + Fmt.Num(data) + " Data") + "</size>";
+                var color = !unlocked ? Theme.Locked : prog.Cleared ? Color.Lerp(Theme.Good, Theme.Panel, 0.45f) : i == next ? Theme.Warn : Theme.Accent;
+                Ui.Button(grid, label, () => LevelModal(portal, lv, RunMode.DarkSide), color, -1, 150, unlocked, 30).name = "Level:" + lv.Id;
+            }
         }
 
         private void PortalCard(RectTransform body, PortalDef portal, RunMode mode)

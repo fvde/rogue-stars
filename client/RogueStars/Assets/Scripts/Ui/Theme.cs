@@ -45,6 +45,17 @@ namespace RogueStars.Client.UiKit
             }
         }
 
+        /// <summary>Colours of the 14-step part ladder (Common … Mythic SS+2): Mythic pink, Mythic S red-orange, Mythic SS gold, lighter per +1/+2.</summary>
+        private static readonly int[] PartLadder =
+        {
+            0x9AA0A6, 0x5BC26B, 0x3D8BFF, 0xA65BFF, 0xFF9F1C,
+            0xFF3D7F, 0xFF5C95, 0xFF7AAB,
+            0xFF4A1F, 0xFF6A45, 0xFF8A6B,
+            0xF5C518, 0xFFD54A, 0xFFE57F,
+        };
+
+        public static Color PartRarityColor(int partRarity) => Hex(PartLadder[Mathf.Clamp(partRarity, 0, PartLadder.Length - 1)]);
+
         public static Color ValenceColor(Valence v)
         {
             switch (v)

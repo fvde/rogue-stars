@@ -32,6 +32,7 @@ namespace RogueStars.Client.Screens
                 Ui.Label(banner, (_mode == Mode.Place ? "Place " : "Move ") + (Content.Blueprint(_pending)?.Name ?? _pending) + ": tap a free cell (top-left corner)", Theme.FontSmall, Color.black);
                 Ui.Button(banner, "Cancel", () => { _mode = Mode.Select; _pending = null; Rebuild(); }, Theme.Button, 180, 76);
             }
+            StaffingBanner(body);
             GridView(body);
             Details(body);
             Storage(body);
@@ -184,8 +185,11 @@ namespace RogueStars.Client.Screens
                 Ui.Button(card, "Collect", () => Run(new CityCollect { BlueprintId = b.Id }), Theme.Good, -1, Theme.ButtonHeight, b.Stored >= 1);
             }
             foreach (var boon in def.Boons)
+            {
+                if (boon.RequiredWorkers > 0) { StaffingHint(card, def, b, boon); continue; }
                 if (b.Level >= boon.MinLevel)
                     Note(card, Fmt.Humanize(boon.Kind.ToString()) + ": " + CitySystem.LevelBoonValue(Content, def, b, boon.Kind).ToString("0.##"));
+            }
 
             if (b.TimerId != null) TimerControls(card, b.TimerId, b.Level == 0 ? "Construction" : "Upgrade");
             else
@@ -212,6 +216,43 @@ namespace RogueStars.Client.Screens
                 Note(card, "Workers " + workers.Count + "/" + slots + ": " + (workers.Count == 0 ? "none" : string.Join(", ", workers.ConvertAll(a => Content.AlienType(a.TypeId)?.Name ?? a.TypeId)))
                            + " · bonus +" + Fmt.Pct(CitySystem.WorkerBonusPct(State, Content, b)));
                 Ui.Button(card, "Manage aliens", () => App.Open("aliens"), Theme.Button, -1, 76);
+            }
+        }
+
+        /// <summary>Staffed boons (Research Annex): the worker requirement, how many qualifying aliens work here and whether the boon is active.</summary>
+        private void StaffingHint(Transform card, BlueprintDef def, OwnedBlueprint b, BuildingBoon boon)
+        {
+            int ok = 0;
+            foreach (var a in CitySystem.Workers(State, b.Id)) if (a.Stars >= boon.RequiredWorkerStars) ok++;
+            bool active = CitySystem.IsActive(b) && b.Level >= boon.MinLevel && ok >= boon.RequiredWorkers;
+            string what = boon.Kind == BoonKind.ResearchSlots ? "second laboratory research slot" : Fmt.Humanize(boon.Kind.ToString());
+            var t = Ui.Label(card, (active ? "Active: " : "Inactive: ") + what + " — needs " + boon.RequiredWorkers + " alien workers of " + boon.RequiredWorkerStars + "★+ (staffed " + ok + "/" + boon.RequiredWorkers + ")",
+                Theme.FontSmall, active ? Theme.Good : Theme.Warn);
+            t.name = "StaffingHint";
+        }
+
+        /// <summary>Toolbar hint when an owned staffed building (Research Annex) is not working.</summary>
+        private void StaffingBanner(RectTransform body)
+        {
+            foreach (var ob in CitySystem.SortedBlueprints(State))
+            {
+                var def = Content.Blueprint(ob.Id);
+                if (def == null) continue;
+                foreach (var boon in def.Boons)
+                {
+                    if (boon.RequiredWorkers <= 0 || CitySystem.BoonStaffed(State, def, ob, boon) && CitySystem.IsActive(ob)) continue;
+                    var owned = ob;
+                    var row = Ui.Row(body, 90, 10, Color.Lerp(Theme.Warn, Theme.Panel, 0.75f), 12);
+                    row.name = "StaffingBanner";
+                    Ui.Label(row, def.Name + (CitySystem.IsActive(ob) ? " needs " + boon.RequiredWorkers + " workers of " + boon.RequiredWorkerStars + "★+" : " is not built yet")
+                                  + "\n<size=22>" + (boon.Kind == BoonKind.ResearchSlots ? "staff it for a second laboratory slot" : Fmt.Humanize(boon.Kind.ToString())) + "</size>", Theme.FontSmall);
+                    Ui.Button(row, owned.Placed ? "Show" : "Place", () =>
+                    {
+                        if (owned.Placed) _selected = owned.Id; else { _mode = Mode.Place; _pending = owned.Id; _selected = null; }
+                        Rebuild();
+                    }, Theme.Button, 160, 76, owned.TimerId == null || owned.Placed, 26);
+                    break;
+                }
             }
         }
 

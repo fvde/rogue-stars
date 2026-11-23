@@ -139,6 +139,9 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("18_stamina_refill");
             Ui.Clear(_app.ModalLayer);
 
+            // 5b) the redesigned parts ladder, laboratory tree, arena shop and Dark Side
+            yield return RedesignScreens();
+
             // 6) every catalog screen
             int n = 30;
             foreach (var entry in ScreenCatalog.All)
@@ -151,6 +154,69 @@ namespace RogueStars.Client.PlayTests
             }
             Assert.That(_taken.Count, Is.GreaterThan(25));
             Debug.Log("[Playthrough] screenshots: " + string.Join(", ", _taken));
+        }
+
+        /// <summary>Parts (detail with five skills, merge picker, awakening preview), laboratory tree + node, arena shop, Dark Side.</summary>
+        private IEnumerator RedesignScreens()
+        {
+            var ids = new List<string>(_svc.Content.PartsConfig.Defs.Keys);
+            ids.Sort(string.CompareOrdinal);
+            var before = new HashSet<string>(_svc.State.Parts.Items.Keys);
+            _svc.DevGrant(new[]
+            {
+                new Reward(RewardKinds.Part, ids[0], 2, (int)PartRarity.Legendary), new Reward(RewardKinds.Part, ids[1], 3, (int)PartRarity.Legendary),
+                new Reward(RewardKinds.Part, ids[2], 1, (int)PartRarity.MythicS),
+                Reward.Cur(Currencies.Ore, 20000), Reward.Cur(ProgressionCurrencies.PartAwakenCores, 50), Reward.Cur(Currencies.Data, 2000), Reward.Cur(Currencies.ArenaMedals, 450),
+            });
+            string legendary = null, mythic = null;
+            foreach (var uid in PartsSystem.SortedPartUids(_svc.State))
+            {
+                if (before.Contains(uid)) continue;
+                var p = _svc.State.Parts.Items[uid];
+                if (legendary == null && p.DefId == ids[0]) legendary = uid;
+                if (mythic == null && p.DefId == ids[2]) mythic = uid;
+            }
+            Assert.That(legendary, Is.Not.Null);
+            Assert.That(mythic, Is.Not.Null);
+            _app.Open("parts");
+            yield return Wait(0.3f);
+            yield return Shot("19_parts_ladder");
+            var parts = (PartsScreen)_app.Router.Current;
+            parts.Detail(mythic);
+            yield return Wait(0.3f);
+            yield return Shot("20_part_detail_skills");
+            parts.OpenMergePicker(legendary, false);
+            yield return Wait(0.3f);
+            yield return Shot("21_merge_picker");
+            Assert.That(parts.PickerPlan.Valid, Is.True, parts.PickerPlan.Error);
+            parts.AwakenModal(mythic);
+            yield return Wait(0.3f);
+            yield return Shot("22_awaken_preview");
+            Ui.Clear(_app.ModalLayer);
+            _app.Router.Pop();
+
+            var research = _svc.ExecuteNow(new LabResearch { ResearchId = "lab_atk_1" });
+            Assert.That(research.Ok, Is.True, research.Error);
+            _app.Open("laboratory");
+            yield return Wait(0.3f);
+            yield return Shot("23_laboratory_tree");
+            ((LaboratoryScreen)_app.Router.Current).NodeModal("lab_boss_damage");
+            yield return Wait(0.3f);
+            yield return Shot("24_lab_node");
+            Ui.Clear(_app.ModalLayer);
+            _app.Router.Pop();
+
+            _app.Open("arena");
+            ((ArenaScreen)_app.Router.Current).ShowShop();
+            yield return Wait(0.3f);
+            yield return Shot("25_arena_shop");
+            _app.Router.Pop();
+
+            _app.Open("portals");
+            ClickNamed("Button:Dark Side");
+            yield return Wait(0.3f);
+            yield return Shot("26_dark_side");
+            _app.Router.Pop();
         }
 
         /// <summary>

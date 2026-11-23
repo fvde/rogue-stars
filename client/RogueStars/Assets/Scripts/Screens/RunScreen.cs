@@ -562,6 +562,8 @@ namespace RogueStars.Client.Screens
             Section(body, s.Won ? "Rewards" : "Pending loot lost");
             if (s.Granted.Count == 0) Note(body, s.Won ? "No rewards." : "Better luck next time.");
             foreach (var r in s.Granted) Ui.Label(body, "+ " + Fmt.Reward(r, Content), Theme.FontNormal, Theme.Good);
+            if (s.BiomassBonus) Ui.Label(body, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", Theme.FontNormal, Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter).name = "SurgeApplied";
+            if (s.Mode == RunMode.Normal || s.Mode == RunMode.Overcharged) PortalsScreen.SurgeLabel(body, State, Content, Now);
             DoubleRewards(body, s);
             var row = Ui.Row(body, Theme.ButtonHeight, 12);
             var level = Content.RunLevel(s.LevelId);

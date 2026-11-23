@@ -38,7 +38,8 @@ namespace RogueStars.Client.App
             { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Blueprint Tokens" },
             { Currencies.PartTokens, "Part Tokens" }, { Currencies.AlienTokens, "Alien Tokens" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
-            { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" }, { "part_awaken_cores", "Awaken Cores" },
+            { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "Awaken Cores" },
+            { Currencies.Data, "Data" }, { Currencies.ArenaMedals, "Arena Medals" },
         };
 
         /// <summary>Short labels for the resource bar.</summary>
@@ -46,6 +47,7 @@ namespace RogueStars.Client.App
         {
             { Currencies.Biomass, "BIO" }, { Currencies.Grain, "GRN" }, { Currencies.Ore, "ORE" }, { Currencies.Diamonds, "DIA" },
             { Currencies.Stamina, "STA" }, { Currencies.Fuel, "FUEL" }, { Currencies.GearCores, "CORE" }, { Currencies.ArenaTickets, "TIX" },
+            { Currencies.Data, "DATA" }, { Currencies.ArenaMedals, "MEDAL" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "AWAKEN" },
         };
 
         public static string CurrencyName(string id, ContentDb content = null)
@@ -111,7 +113,7 @@ namespace RogueStars.Client.App
 
         public static string Stars(int stars) => stars + "★";
 
-        /// <summary>Display name of an owned part by uid ("Ember Jaw [S]"); "part" when unknown — never the uid.</summary>
+        /// <summary>Display name of an owned part by uid (the awakened name once awakened); "Part" when unknown — never the uid.</summary>
         public static string PartName(ContentDb content, GameState state, string uid)
         {
             if (state != null && uid != null && state.Parts.Items.TryGetValue(uid, out var p)) return PartName(content, p);
@@ -120,8 +122,8 @@ namespace RogueStars.Client.App
 
         public static string PartName(ContentDb content, RogueStars.Rules.Systems.PartItem p)
         {
-            var def = content != null && content.PartsConfig.Defs.TryGetValue(p.DefId, out var d) ? d : null;
-            return (def?.Name ?? "Part") + (p.Awaken == 1 ? " [S]" : p.Awaken >= 2 ? " [SS]" : "");
+            if (content == null || p == null || !content.PartsConfig.Defs.ContainsKey(p.DefId)) return "Part";
+            return RogueStars.Rules.Systems.PartsSystem.DisplayName(content, p);
         }
 
         /// <summary>A player's shown name: the display name, never the internal player id.</summary>

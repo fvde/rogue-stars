@@ -157,7 +157,7 @@ namespace RogueStars.Client.Screens
             var bySection = new SortedDictionary<string, List<ShopItemDef>>();
             foreach (var it in Content.ShopItems.Values)
             {
-                if (it.Section == GuildSystem.ShopSection) continue;
+                if (it.Section == GuildSystem.ShopSection || it.Section == ContentDb.ArenaShopSection) continue; // own shops (Guild, Arena)
                 if (!bySection.TryGetValue(it.Section, out var l)) bySection[it.Section] = l = new List<ShopItemDef>();
                 l.Add(it);
             }

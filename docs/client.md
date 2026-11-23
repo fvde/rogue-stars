@@ -25,7 +25,7 @@ AppBootstrap (only object in Main.unity)
      │    └─ IGameService = LocalGameService (offline) | RemoteGameService (online)
      ├─ ScreenRouter ── stack of UiScreen; Android back closes the top modal, then pops
      ├─ ToastCenter ── GameEvents (EventText: display names only, never uids/player ids), errors and info: max 2, 1.8 s, in a strip above the screen's bottom bar
-     └─ ResourceBar ── main currencies + regen timers (live)
+     └─ ResourceBar ── main currencies + regen timers (live); Data / Arena Medals / Awaken Cores in the first row, "All" opens every balance
 ```
 - **Same commands for both modes.** Screens only create rules command objects (`new CityUpgrade { BlueprintId = … }`)
   and call `Session.Run`. They read `Session.State`/`Content` and the rules' static query helpers
@@ -83,23 +83,23 @@ AppBootstrap (only object in Main.unity)
 | Screen | Feature gate | Notes |
 |---|---|---|
 | Hub (Planet) | – | main portals + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
-| Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, entry cost), stamina refill modal (daily free / ad / Diamonds) |
+| Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, entry cost), stamina refill modal (daily free / ad / Diamonds), **daily Biomass surge** counter (`RunSystem.BiomassBonusRunsLeft`); the procedural Dark Side (150 levels) is paged 25 at a time around the next level to clear, each level showing its Data |
 | Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker ("BOSS n%", placed in a free cell next to the gate, never on a tile), worm token animated along the trail, dice roll animation; fixed bottom bar (dice + last landing, ROLL/Auto, Decision/Abandon) with a reserved toast strip above it; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
 | Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars (values straight from the log entries: `TargetHp/TargetShield/TargetRage`, `ActorShield/ActorRage`, fighters' `StartShield/StartRage`), status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
-| Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), **double rewards** (rewarded ad, instant with No Ads → `RunDoubleRewards`, daily cap shown), Again / Portals |
+| Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), "Biomass surge ×4 applied" + surge runs left, **double rewards** (rewarded ad, instant with No Ads → `RunDoubleRewards`, daily cap shown), Again / Portals |
 | Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
-| Parts | `parts` | inventory with slot filters, quick merge, detail modal: stats/skills, level up / cap raise / level reset, equip (left/right arm), merge to next rarity (materials picked automatically, validated with `PartsSystem.ValidateMerge`), rune sockets, Forge, S/SS awakening, dismantle; Runes tab: lock, merge 3→1 |
+| Parts | `parts` | 14-step ladder (Common … Mythic, Mythic+1/+2, Mythic S, S+1/+2, Mythic SS, SS+1/+2; `Theme.PartRarityColor`), inventory with slot filters (equipped first, then rarity), quick merge (asks first if locked parts below Legendary exist); detail modal: stats, the five skills locked/unlocked by rarity (Epic/Legendary/Mythic/Mythic S/Mythic SS), level up / cap raise / level reset, equip, **lock** (client-side `PartLocks`, PlayerPrefs per player), rune sockets, Forge, dismantle (confirm for Legendary+/locked); **merge picker**: own-def copies (needed/owned), fodder points and LE, Ore, candidate list with add/remove, auto-select of the best fodder (`PartPlanner`: cheapest set without superfluous parts, other defs first; locked, Mythic+ and Legendary+ copies of equipped defs only as a fallback that needs a confirmation; equipped/awakened/forged never), checked by `PartsSystem.ValidateMerge`; **Replicator** (Mythic+ parts: 10 LE of other-def Legendary+ surplus + Ore → Legendary copy, `ValidateReplicate`); **awakening** (Mythic+, once, 50 Awaken Cores): preview of the new name, stats before → after and the five skills swapped; Runes tab: lock, merge 3→1 |
 | Signals | `part_pulls` (+ per type) | Part / Blueprint / Alien Signals, featured mythic banner with countdown vs standard pool, published odds, 1×/10× with tokens or Diamonds, daily ad pull, reveal animation |
-| Laboratory | `laboratory` | research lines (cost, duration, timer with speed-ups, collect), draft-pool toggles |
+| Laboratory | `laboratory` | header: Data, next research cost/duration (`LaboratorySystem.NextDataCost`/`NextDurationMs`, Annex ×2), slots busy, Research Annex requirement/staffing (`LaboratoryScreen.AnnexStatus`); active research slots (main/Annex) with Diamonds/ad/free speed-ups and collect; **tree** per branch (offense/defense/elements/command, `LabTreeLayout`: one row per tier, nodes ordered by their prerequisites, no overlaps): stat nodes steel-edged, skill nodes family-coloured with a SKILL band and on/off, edges gold = ALL prerequisites, thin = ANY; node modal: effect now/next, ANY/ALL prerequisites (other branches named), research button with the block reason, draft-pool toggle for skill nodes |
 | Heroes / Mounts | `heroes` / `mounts` | unlock from shards, stars, levels (Hero XP / Fuel), awakening (mounts), equip, trait/weapon skills by star |
-| City | – | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock |
+| City | – | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock; staffed boons (Research Annex): banner while unbuilt/unstaffed and "needs 2 alien workers of 3★+ (staffed n/2)" in the details |
 | Aliens | `aliens` | list by rarity, stats, level/star up, assign to building, squad toggle |
 | Breeding Pen | `breeding` | pick parents (cost/duration preview), jobs with timers, collect, replace/discard modal comparing genes |
 | Observatory | – | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
 | Quests | `quests` | daily/weekly with point chests, achievements, 7-day login calendar, new-player event |
 | Shop | – | offers (starter/rolling/flash/gift), Diamond packs, monthly pass, season pass, funds, permanent, Diamond items, rewarded ads |
 | Mail | – | inbox, open/read, claim, claim all, delete |
-| Arena | `arena` | league/points/tickets, opponents + fight result modal, weekly leaderboard |
+| Arena | `arena` | league/points/tickets/Arena Medals, opponents + fight result modal, weekly leaderboard, **medal shop** (`ShopBuyItem`, section `arena`: Awaken Core 200 medals 2/week first, part tokens, Data, Gear Cores; bought n/limit this week, reset countdown, "Sold out"); the Diamond shop no longer lists arena/guild items |
 | Guild | `guilds` | online only (offline shows "requires online"): create/search/join, members by weekly invasion damage, chat, guild shop, leave |
 | Settings | – | offline/online, server URL, display name, reset save, dev cheats (unlock all features) |
 
@@ -139,7 +139,7 @@ dependencies, sets version `0.1.<git commit count>` (versionCode = commit count;
 It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 59 tests):
+EditMode (`Assets/Tests/EditMode`, 73 tests):
 - `PlatformTests`: store catalogue = server catalogue (types, SKUs, obfuscated account id vector), fakes in the editor,
   purchase → grant → confirm, deferred purchase delivered later, cancelled purchase, rejected/pending receipts never
   confirmed + restore, server-verified ads (credit polling, timeout, direct-reward pending → refresh, No Ads, fake ads
@@ -156,6 +156,12 @@ EditMode (`Assets/Tests/EditMode`, 59 tests):
   result screen, tutorial steps), decision modals per phase, board layout and boss marker never overlap tiles (all main levels × 5 seeds), toast strip/limit, event toasts
   without internal ids, double rewards,
   battle playback ends at the logged HP, rage/shield bars equal the logged values after every entry, Signals reveal, merge-material finder, worm/hero actions.
+- `PartsLabArenaScreenTests`: best-fodder picker (covers the need, no superfluous part, cheapest set), Mythic merge
+  with copy + 2 LE auto-selected and executed, equipped parts never offered, locked parts only with a confirmation,
+  manual selections checked by the rules, Replicator, five skills per rarity, awakening preview (name/stats/skills) and
+  awakening, lab tree layout without overlaps (all branches, all 38 nodes, edges downwards), research from the node modal
+  at `NextDataCost`/`NextDurationMs` with a busy slot, skill toggles + ANY/ALL prerequisites, Research Annex status and
+  City banner, arena shop weekly core limit, resource bar chips/details, Biomass surge + Dark Side paging.
 - `RunSeedSweepTests`: 100 fresh saves (seeds 1–100, with and without starter parts) play level 1 like the playthrough
   (manual roll, then `RunAutoStep`) to completion within a 200-decision budget, every auto decision accepted
   (failure names seed, last decision and run state); same seed + clock replay the same run.
@@ -166,7 +172,8 @@ it only (no wall clock), so a seeded service on a `ManualClock` plays out identi
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
 - `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
   starter parts → first run with a manual roll, then auto mode to the boss → result → hub/worm/parts → city build →
-  dev unlock → 10× Signal with reveal → stamina refill → every catalog screen) and renders the canvas through a
+  dev unlock → 10× Signal with reveal → stamina refill → parts ladder, part detail with skills, Mythic merge picker,
+  awakening preview → lab tree with a running research + a capstone node → arena medal shop → Dark Side → every catalog screen) and renders the canvas through a
   1080×1920 RenderTexture camera into `client/RogueStars/Screenshots/` (gitignored). A curated, downscaled set lives
   in `docs/client-screenshots/`. Deterministic: fixed seed (11) and game clock (2026-03-02 12:00 UTC), a fresh save
   directory per run. Its first manual roll lands on a battle; a playback opened outside auto mode waits for

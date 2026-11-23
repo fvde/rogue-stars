@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.Services;
 using RogueStars.Client.UiKit;
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
@@ -41,9 +42,12 @@ namespace RogueStars.Client.Screens
             KeyValue(card, "Points", a.Points + " (best " + a.BestPoints + ")");
             KeyValue(card, "This week", a.WeekWins + " W / " + a.WeekLosses + " L");
             KeyValue(card, "Tickets", State.Wallet.Get(Currencies.ArenaTickets).ToString());
+            KeyValue(card, "Arena Medals", Fmt.Num(State.Wallet.Get(Currencies.ArenaMedals)) + "  (+" + Content.Arena.MedalsPerWin + " win / +" + Content.Arena.MedalsPerLoss + " loss, weekly rank bonus)",
+                Theme.CurrencyColor(Currencies.ArenaMedals));
             Note(card, Session.IsOnline ? "Fights are resolved by the server." : "Offline: fighting local bots (power comparison placeholder).");
 
-            Ui.TabBar(body, new[] { "Opponents", "Leaderboard" }, _tab, i => { _tab = i; Rebuild(); });
+            Ui.TabBar(body, new[] { "Opponents", "Leaderboard", "Medal shop" }, _tab, i => { _tab = i; Rebuild(); });
+            if (_tab == 2) { MedalShop(body); return; }
             if (_error != null) Ui.Label(body, Fmt.Humanize(_error), Theme.FontSmall, Theme.Bad);
             if (_tab == 0) Opponents(body); else Board(body);
             Ui.Button(body, "Refresh", Load);
@@ -78,6 +82,42 @@ namespace RogueStars.Client.Screens
                 });
                 Load();
             });
+        }
+
+        /// <summary>Open the arena (medal) shop tab.</summary>
+        public void ShowShop() { _tab = 2; Rebuild(); }
+
+        /// <summary>Items of this week already bought (rules: Shop.ItemBuys per weekly period).</summary>
+        public static int BoughtThisPeriod(GameState s, ContentDb c, ShopItemDef item, long nowMs)
+        {
+            long period = item.Period == LimitPeriod.Daily ? MetaTime.DayIndex(c, nowMs) : item.Period == LimitPeriod.Weekly ? MetaTime.WeekIndex(c, nowMs) : 0;
+            return s.Shop.ItemBuys.TryGetValue(item.Id, out var pc) && pc.Period == period ? pc.Count : 0;
+        }
+
+        /// <summary>Arena shop: Arena Medals for Awaken Cores (weekly limit), part tokens, Data and Gear Cores.</summary>
+        private void MedalShop(RectTransform body)
+        {
+            long week = MetaTime.WeekIndex(Content, Now);
+            var reset = Ui.Label(body, "", Theme.FontSmall, Theme.TextDim);
+            Live(reset, () => "Medals " + Fmt.Num(State.Wallet.Get(Currencies.ArenaMedals)) + " · limits reset in " + Fmt.Duration(MetaTime.WeekStartMs(Content, week + 1) - Now));
+            var items = new List<ShopItemDef>();
+            foreach (var it in Content.ShopItems.Values) if (it.Section == ContentDb.ArenaShopSection) items.Add(it);
+            bool IsCore(ShopItemDef d) => d.Contents.Exists(r => r.Id == ProgressionCurrencies.PartAwakenCores);
+            items.Sort((x, y) => IsCore(x) != IsCore(y) ? (IsCore(x) ? -1 : 1) : string.CompareOrdinal(x.Id, y.Id));
+            if (items.Count == 0) Note(body, "No arena shop items.");
+            foreach (var item in items)
+            {
+                var it = item;
+                int bought = BoughtThisPeriod(State, Content, it, Now);
+                bool soldOut = it.Limit > 0 && bought >= it.Limit;
+                bool core = IsCore(it);
+                var row = Ui.Row(body, 110, 10, core ? Color.Lerp(Theme.Warn, Theme.Panel, 0.7f) : Theme.Panel, 12);
+                row.name = "ArenaItem:" + it.Id;
+                string limit = it.Limit > 0 ? bought + "/" + it.Limit + " this " + (it.Period == LimitPeriod.Weekly ? "week" : it.Period == LimitPeriod.Daily ? "day" : "account") : "no limit";
+                Ui.Label(row, it.Name + "\n<size=22>" + Fmt.Rewards(it.Contents, Content) + " · " + limit + (core ? " · the endgame part awakening currency" : "") + "</size>", Theme.FontSmall, core ? Theme.Warn : Theme.Text);
+                bool ok = !soldOut && State.Wallet.CanAfford(it.Price) && Requirements.IsMet(State, Content, it.Requires, Now);
+                Ui.Button(row, soldOut ? "Sold out" : Fmt.Costs(it.Price, Content), () => Run(new ShopBuyItem { ItemId = it.Id }), Theme.CurrencyColor(Currencies.ArenaMedals), 300, 86, ok, Theme.FontSmall).name = "Buy:" + it.Id;
+            }
         }
 
         private void Board(RectTransform body)

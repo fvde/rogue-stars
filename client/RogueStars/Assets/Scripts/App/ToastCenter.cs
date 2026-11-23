@@ -61,7 +61,8 @@ namespace RogueStars.Client.App
                 case "mount_awaken": return Mount(0) + " awakened (" + A(1) + ")";
                 case "part_equipped": return Part(1) + " equipped (" + Fmt.SplitWords(A(0)) + ")";
                 case "part_merged": return Part(0) + " merged to " + (int.TryParse(A(1), out var rar) && c != null ? c.PartsConfig.RarityDef(rar).Name : "the next rarity");
-                case "part_awakened": return Part(0) + " awakened (" + A(1) + ")";
+                case "part_awakened": return "Awakened: " + Part(0) + "!";
+                case "part_replicated": return "Replicator: Legendary " + (c != null && c.PartsConfig.Defs.TryGetValue(A(1), out var rd) ? rd.Name : "part") + " copy";
                 case "worm_level": return "Worm level " + A(0);
                 case "worm_talent_tier": return "Talent tier " + A(0) + " complete";
                 case "feature_unlocked": return "Unlocked: " + (c?.Feature(A(0))?.Name ?? Fmt.Humanize(A(0))) + "!";

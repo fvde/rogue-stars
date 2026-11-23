@@ -196,11 +196,20 @@ namespace RogueStars.Client.App
             _live.Clear();
             var col = Ui.Stretch(Ui.Column(_root, 6, 10, Theme.Panel, "Bar"));
             var s = _app.Session;
-            var head = Ui.Row(col, 46, 10);
+            var head = Ui.Row(col, 46, 8);
             string who = s.State != null ? (s.State.DisplayName ?? s.State.PlayerId) : "…";
             Ui.Label(head, who, Theme.FontNormal, Theme.Text);
-            var mode = Ui.Label(head, s.Service == null ? "" : s.Service.ModeName.ToUpperInvariant(), Theme.FontSmall, s.IsOnline ? Theme.Good : Theme.Warn, TextAnchor.MiddleRight);
-            Ui.Size(mode, 200);
+            if (s.State != null)
+                foreach (var cur in Secondary)
+                {
+                    string id = cur;
+                    var t = Ui.Label(head, "", 22, Theme.CurrencyColor(id), TextAnchor.MiddleRight, "Chip:" + id);
+                    Ui.Size(t, 170, -1, 0);
+                    _live.Add(new KeyValuePair<Text, Func<string>>(t, () => Fmt.CurrencyShort(id) + " " + Fmt.Num(_app.Session.State?.Wallet.Get(id) ?? 0)));
+                }
+            var mode = Ui.Label(head, s.Service == null ? "" : s.Service.ModeName.ToUpperInvariant(), 22, s.IsOnline ? Theme.Good : Theme.Warn, TextAnchor.MiddleRight);
+            Ui.Size(mode, 110, -1, 0);
+            Ui.Button(head, "All", ShowDetails, Theme.Button, 80, 44, s.State != null, 22).name = "CurrencyDetails";
             var grid = Ui.Grid(col, new Vector2(250, 46), 4, 8);
             if (s.State == null) return;
             foreach (var cur in Shown)
@@ -215,6 +224,35 @@ namespace RogueStars.Client.App
                 _live.Add(new KeyValuePair<Text, Func<string>>(t, () => ChipText(id)));
             }
             Tick();
+        }
+
+        /// <summary>Endgame/meta currencies shown compactly in the bar's first row.</summary>
+        public static readonly string[] Secondary = { Currencies.Data, Currencies.ArenaMedals, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores };
+
+        /// <summary>Every non-zero currency of the wallet with its full name (and the regen cap where there is one).</summary>
+        public void ShowDetails()
+        {
+            var s = _app.Session;
+            if (s.State == null) return;
+            Ui.Modal(_app.ModalLayer, "Resources", b =>
+            {
+                var ids = new List<string>(Shown);
+                foreach (var id in Secondary) ids.Add(id);
+                var rest = new List<string>();
+                foreach (var kv in s.State.Wallet.Balances) if (!ids.Contains(kv.Key) && kv.Value != 0) rest.Add(kv.Key);
+                rest.Sort(string.CompareOrdinal);
+                ids.AddRange(rest);
+                var list = Ui.List(b, 1100);
+                foreach (var id in ids)
+                {
+                    var row = Ui.Row(list, 52, 10, null, 0, "Currency:" + id);
+                    var sw = Ui.Panel(row, Theme.CurrencyColor(id), "Swatch");
+                    Ui.Size(sw, 12, 40, 0);
+                    Ui.Label(row, Fmt.CurrencyName(id, s.Content), Theme.FontSmall, Theme.Text);
+                    var v = Ui.Label(row, ChipText(id).Replace(Fmt.CurrencyShort(id) + " ", ""), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
+                    Ui.Size(v, 320, -1, 0);
+                }
+            }, new ModalButton("Close", null));
         }
 
         private string ChipText(string id)
