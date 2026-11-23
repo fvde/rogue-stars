@@ -373,6 +373,37 @@ namespace RogueStars.Rules.Content
         }
     }
 
+    /// <summary>How a board segment is laid out in 2D (RunBoard layout pass): the path's heading program and the shape of its forks.</summary>
+    public enum BoardLayoutKind
+    {
+        /// <summary>Long straight with gentle drift; forks are side loops (one arm runs straight on, the other swings out and back).</summary>
+        Straight,
+        /// <summary>Switchbacks: the heading alternates left / right every few tiles (rounded corners, turn rate limited).</summary>
+        ZigZag,
+        /// <summary>One slow sweep: the heading follows a long sine, big S-bends across the whole width.</summary>
+        WideCurve,
+        /// <summary>The path leans hard to one side and curls (up to the max heading) before hooking back: hooks / half-spirals.</summary>
+        Hook,
+        /// <summary>A calm trunk with more forks, each a symmetric diamond (both arms bulge out and meet again).</summary>
+        Diamonds,
+    }
+
+    /// <summary>One segment layout style (RunTuning.BoardLayouts): picked per segment by weight.</summary>
+    [Serializable]
+    public sealed class BoardLayoutDef
+    {
+        public string Name;
+        public BoardLayoutKind Kind;
+        public double Weight = 1;
+        /// <summary>Multiplier on the level's fork chance in this segment.</summary>
+        public double BranchMult = 1;
+        /// <summary>Forks are side loops (one straight arm) instead of diamonds.</summary>
+        public bool SideLoops;
+        /// <summary>Heading amplitude (degrees off "forward") and period (tiles) of the layout's heading program.</summary>
+        public double Amplitude = 45;
+        public double Period = 12;
+    }
+
     [Serializable]
     public sealed class ShopTableDef
     {
@@ -393,7 +424,15 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class RunTuning
     {
+        /// <summary>
+        /// Run XP needed for the next level: XpBase + XpPerLevel × (level − 1) (RunSystem.XpNeeded). One XP grant (a battle, a
+        /// pickup, an event outcome) gives at most one level-up; the overflow carries (up to XpBankLevels more levels' worth)
+        /// and pays one level per roll, see RunSystem.AddXp.
+        /// </summary>
         public int XpBase = 3, XpPerLevel = 1;
+        public int XpBankLevels = 2;
+        /// <summary>Run coins at run start: the level's cheapest shop skill price + this margin (RunSystem.StartCoins), so the first shop always allows a purchase.</summary>
+        public long StartCoinsMargin = 30;
         /// <summary>
         /// At most this many account-loot opportunities (events / guarded caches whose options pay meta loot) are offered per run
         /// (per floor in the Burrow); later ones are replaced by other events. Ordinary tiles never pay account loot.
@@ -447,15 +486,27 @@ namespace RogueStars.Rules.Content
         public int BoardLookAhead = 16;
         /// <summary>Tile mixes of later segments (the first segment uses the plain pool).</summary>
         public List<SegmentTheme> SegmentThemes = new List<SegmentTheme>();
+        /// <summary>Fork arms: every arm has this many tiles at least / at most before it rejoins (playtest: no short cut-throughs).</summary>
+        public int BranchMinArm = 8, BranchMaxArm = 11;
+        /// <summary>Segment layout styles (2D path shape and fork shape), picked per segment by weight.</summary>
+        public List<BoardLayoutDef> BoardLayouts = new List<BoardLayoutDef>();
+        /// <summary>Layout: half width of the band the trunk keeps to (tile units), max heading off forward (degrees), max turn per tile.</summary>
+        public double LayoutHalfWidth = 3.5, LayoutMaxHeading = 80, LayoutMaxTurn = 30;
         /// <summary>Steps ahead of the worm in which boss awakening actions transform / summon tiles.</summary>
         public int BossActionReach = 30;
 
         /// <summary>An owned skill offered again (draft, shop, events) levels up, up to this level.</summary>
         public int MaxSkillLevel = 5;
-        /// <summary>Each level above 1 repeats this share of the skill's passive stat package ...</summary>
-        public double SkillLevelStatShare = 0.5;
-        /// <summary>... and adds this much ATK % and max HP % (so trigger-only skills grow too).</summary>
-        public double SkillLevelAtkPct = 3, SkillLevelHpPct = 3;
+        /// <summary>
+        /// Skill levels improve the skill's OWN effect (SkillLeveling): each level above 1 adds this % of every numeric value of
+        /// the skill (passive stats, trigger values: damage / heal / shield / rage / coins / summon power / conditional bonuses,
+        /// buff and growth stats) ...
+        /// </summary>
+        public double SkillLevelEffectPct = 25;
+        /// <summary>... raises trigger chances below 100% by the same % (never above this cap, never below the base) ...</summary>
+        public double SkillLevelChanceCap = 90;
+        /// <summary>... and adds +1 status stack / +1 round of duration (statuses, timed buffs) every this many levels.</summary>
+        public int SkillLevelStacksEvery = 2, SkillLevelDurationEvery = 2;
         /// <summary>Weight factor of a level-up offer (an owned skill) against a new skill in drafts and shops.</summary>
         public double LevelUpOfferWeight = 0.6;
         /// <summary>Awakening meter points at which a miniboss (a lieutenant of the boss) attacks after the move.</summary>

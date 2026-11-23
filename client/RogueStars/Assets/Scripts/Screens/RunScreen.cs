@@ -819,9 +819,8 @@ namespace RogueStars.Client.Screens
             r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.ShopRerolls + "|" + r.MythicDraft
             + (r.Phase == RunPhase.Shop ? "" : "|" + r.Coins);
 
-        /// <summary>"Level up: +50% of its stats, +3% ATK and max HP" (exact numbers from RunTuning).</summary>
-        public static string LevelUpText(ContentDb c) =>
-            "Level up: +" + Fmt.Pct(c.RunTuning.SkillLevelStatShare * 100) + " of its stats, +" + Fmt.Pct(c.RunTuning.SkillLevelAtkPct) + " ATK and +" + Fmt.Pct(c.RunTuning.SkillLevelHpPct) + " max HP";
+        /// <summary>The skill level-up rule (exact numbers from RunTuning; a level-up improves the skill's own numbers).</summary>
+        public static string LevelUpText(ContentDb c) => RogueStars.Rules.Core.SkillText.LevelUpRule(c);
 
         private readonly List<KeyValuePair<Button, int>> _shopButtons = new List<KeyValuePair<Button, int>>();
         private Text _shopCoins;

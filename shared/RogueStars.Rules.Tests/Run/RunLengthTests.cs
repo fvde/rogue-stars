@@ -241,7 +241,7 @@ public class RunLengthTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void GuardedCache_And_Campfire_And_Shop_ReportWhatWasGranted()
+    public void GuardedCache_And_Campfire_ReportWhatWasGranted_Shop_HasNoSummary()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var s = RunTestKit.StartRun(e);
@@ -263,7 +263,7 @@ public class RunLengthTests(ITestOutputHelper output)
         Assert.Equal("campfire", o.Source);
         Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Hp && l.Amount > 0 && l.Good);
 
-        // shop: purchases are summed up when the shop is left
+        // shop: no result summary after leaving (playtest: the purchases were seen in the shop)
         run = s.Run.Active!;
         run.Coins = 1000;
         var ctx = RunTestKit.Ctx(e, s);
@@ -283,9 +283,7 @@ public class RunLengthTests(ITestOutputHelper output)
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopBuy { Index = skill }).Ok);
         Assert.Equal(seq, s.Run.Active!.OutcomeSeq);                                        // not before leaving
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopLeave()).Ok);
-        o = s.Run.Active!.LastOutcome;
-        Assert.Equal("shop", o.Source);
-        Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.SkillGained);
-        Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Coins && l.Amount < 0);
+        Assert.Equal(seq, s.Run.Active!.OutcomeSeq);                                        // nor after leaving
+        Assert.Equal("campfire", s.Run.Active.LastOutcome.Source);
     }
 }

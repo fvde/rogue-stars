@@ -112,6 +112,12 @@ namespace RogueStars.Rules.Content
             t.SegmentThemes.Add(new SegmentTheme { Name = "Old Ruins", Event = 1.7, Reward = 1.3, Enemy = 0.85 });
             t.SegmentThemes.Add(new SegmentTheme { Name = "Badlands", Hazard = 1.7, Reward = 1.5, Buff = 0.7 });
             t.SegmentThemes.Add(new SegmentTheme { Name = "Quiet Valley", Buff = 1.8, Enemy = 0.8, Hazard = 0.6 });
+            // Segment layouts (GDD §3.1): the path's 2D shape varies per segment; forks are side loops or diamonds.
+            t.BoardLayouts.Add(new BoardLayoutDef { Name = "Long Straight", Kind = BoardLayoutKind.Straight, BranchMult = 1.3, SideLoops = true, Amplitude = 12, Period = 10 });
+            t.BoardLayouts.Add(new BoardLayoutDef { Name = "Zig-Zag", Kind = BoardLayoutKind.ZigZag, Amplitude = 55, Period = 4 });
+            t.BoardLayouts.Add(new BoardLayoutDef { Name = "Wide Curve", Kind = BoardLayoutKind.WideCurve, Amplitude = 70, Period = 18 });
+            t.BoardLayouts.Add(new BoardLayoutDef { Name = "Hook", Kind = BoardLayoutKind.Hook, SideLoops = true, Amplitude = 80, Period = 10 });
+            t.BoardLayouts.Add(new BoardLayoutDef { Name = "Diamond Splits", Kind = BoardLayoutKind.Diamonds, BranchMult = 1.8, Amplitude = 20, Period = 14 });
             t.FallbackWormStats.Add(new StatMod(StatId.Hp, 1000));
             t.FallbackWormStats.Add(new StatMod(StatId.Atk, 100));
             t.FallbackWormStats.Add(new StatMod(StatId.Def, 20));

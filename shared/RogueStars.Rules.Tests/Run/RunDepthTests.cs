@@ -91,6 +91,8 @@ public class RunDepthTests(ITestOutputHelper output)
         var run = s.Run.Active!;
         var c = e.Content;
         double atk0 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Atk);
+        double hp0 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Hp);
+        double atk1 = 0;
         for (int lv = 1; lv <= c.RunTuning.MaxSkillLevel; lv++)
         {
             run = s.Run.Active!;
@@ -99,11 +101,14 @@ public class RunDepthTests(ITestOutputHelper output)
             if (lv == 1) run.Skills.Add("gen_power"); // the chain's top tier is what levels up
             Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_power_2" }).Ok);
             Assert.Equal(lv, RunDraft.Level(s.Run.Active!, "gen_power_2"));
+            if (lv == 1) atk1 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, s.Run.Active!), c).Value(StatId.Atk);
         }
         run = s.Run.Active!;
-        double atk5 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Atk);
-        // level 1: +15%; each further level +50% of it and +3% ATK
-        Assert.True(atk5 > atk0 * 1.15 * 1.3, $"{atk0} → {atk5}");
+        var block = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c);
+        // level 1: +15% ATK; each further level +25% of the skill's own numbers: level 5 = +30% ATK, and nothing else grows
+        Assert.Equal(30, SkillLeveling.At(c, c.Skill("gen_power_2"), 5).Stats[0].Percent, 6);
+        Assert.True(block.Value(StatId.Atk) > atk1 && atk1 > atk0, $"{atk0} → {atk1} → {block.Value(StatId.Atk)}");
+        Assert.Equal(hp0, block.Value(StatId.Hp), 6); // no generic +HP per level any more
         Assert.False(RunDraft.IsEligible(c, run, c.Skill("gen_power_2")));               // max level: no longer offered
         Assert.False(RunDraft.IsEligible(c, run, c.Skill("gen_power")));                 // replaced lower tier never comes back
         Assert.Equal(4, run.Gains.Count(g => g.SkillId == "gen_power_2" && g.Level > 1));

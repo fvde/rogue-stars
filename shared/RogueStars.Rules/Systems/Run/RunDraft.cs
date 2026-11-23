@@ -58,7 +58,7 @@ namespace RogueStars.Rules.Systems
         public static bool CanLevelUp(ContentDb content, ActiveRun run, SkillDef s)
         {
             if (s == null || !run.Skills.Contains(s.Id)) return false;
-            return Level(run, s.Id) < content.RunTuning.MaxSkillLevel && !HasUpgrade(content, s.Id);
+            return Level(run, s.Id) < content.RunTuning.MaxSkillLevel && !HasUpgrade(content, s.Id) && SkillLeveling.Grows(content, s);
         }
 
         /// <summary>True if another skill upgrades from this one (an upgrade chain's lower tier).</summary>

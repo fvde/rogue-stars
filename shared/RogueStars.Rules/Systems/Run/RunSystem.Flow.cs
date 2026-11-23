@@ -61,11 +61,19 @@ namespace RogueStars.Rules.Systems
                     var def = TileDefOf(c, nt);
                     if (run.StepsLeft > 0)
                     {
+                        var passed = Snap.Of(run);
                         PassTile(ctx, run, nt, def);
+                        TileOutcome(ctx, run, nt, def, passed, "pass", !def.TriggersOnPass);
                         if (!def.ForceStop) continue;
                         run.StepsLeft = 0;
                     }
+                    var landed = Snap.Of(run);
+                    int seq = run.OutcomeSeq;
                     LandTile(ctx, run, nt, def);
+                    // Every landing shows what it did: a decision tile reports through its decision (or its LastOutcome when it
+                    // resolved at once, e.g. a boon kept a bad event away); anything else gets a tile outcome.
+                    bool reported = OpensDecision(def) && (run.Phase != RunPhase.AwaitRoll || run.OutcomeSeq != seq);
+                    if (!reported) TileOutcome(ctx, run, nt, def, landed, IsFightTile(def) ? "battle" : "tile", false);
                     continue;
                 }
                 // Minibosses come with the clock too (RunTuning.MinibossAtMeter): a lieutenant of the boss attacks after the move.
@@ -105,6 +113,7 @@ namespace RogueStars.Rules.Systems
                 // the arena opens right ahead of the worm: the path ends there
                 var here = run.Tiles[run.Position];
                 var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, -1); // its own lane: never on top of a path tile
+                RunBoard.PlaceAhead(here, arena);
                 here.Next.Clear();
                 here.Next.Add(arena.Id);
                 run.BossGateTile = arena.Id;
@@ -123,7 +132,14 @@ namespace RogueStars.Rules.Systems
             if (kind == "ambush")
             {
                 run.PendingAmbushes = Math.Max(0, run.PendingAmbushes - 1);
+                var before = Snap.Of(run);
                 StartAmbush(ctx, run);
+                if (ctx.State.Run.Active == run)
+                {
+                    var here = run.Tiles[run.Position];
+                    TileOutcome(ctx, run, here, null, before, "battle", false);
+                    run.TileOutcomes[run.TileOutcomes.Count - 1].Title = "Miniboss ambush";
+                }
             }
             else
             {
@@ -163,6 +179,8 @@ namespace RogueStars.Rules.Systems
         }
 
         private static bool IsNegative(TileDef def) => def.Valence == TileValence.Negative;
+
+        private static bool IsFightTile(TileDef def) => def.Category == TileCategory.Enemy || def.Category == TileCategory.Elite || def.Category == TileCategory.Miniboss;
 
         private static bool TrySkipNegative(CommandContext ctx, ActiveRun run)
         {
@@ -357,7 +375,6 @@ namespace RogueStars.Rules.Systems
         private static List<StatMod> WormExtraStats(ContentDb c, ActiveRun run)
         {
             var list = new List<StatMod>(run.RunStats);
-            AddSkillLevelStats(c, run, list);
             var level = Level(c, run);
             if (level != null && level.Modifiers.HealPct != 0) list.Add(new StatMod(StatId.HealPower, level.Modifiers.HealPct));
             return list;
@@ -427,7 +444,7 @@ namespace RogueStars.Rules.Systems
         {
             var c = ctx.Content;
             var setup = new BattleSetup { RoundCap = kind == "boss" ? c.Combat.BossRoundCap : c.Combat.RoundCap };
-            setup.Player.AddRange(BattleSimulator.BuildPlayerSide(run.Loadout, c, run.Skills, WormExtraStats(c, run)));
+            setup.Player.AddRange(BattleSimulator.BuildPlayerSide(run.Loadout, c, run.Skills, WormExtraStats(c, run), run.SkillLevels));
             setup.Player[setup.Player.Count - 1].StartHp = run.WormHp;
             setup.Enemy.AddRange(enemies);
             var result = BattleSimulator.Simulate(setup, c, run.Rng.Fork("battle:" + run.BattleCount));
@@ -543,23 +560,36 @@ namespace RogueStars.Rules.Systems
 
         // ---- xp, loot, heal -------------------------------------------------------------------
 
+        /// <summary>
+        /// Adds run XP. One grant (a battle, a pickup, an event outcome) gives at most ONE level-up (playtest: a big battle gave
+        /// four level-ups / drafts at once). The overflow carries (at most RunTuning.XpBankLevels further levels' worth, the rest
+        /// is lost) and is paid out one level per roll (<see cref="LevelUpFromBank"/>) or by the next grant.
+        /// </summary>
         private static void AddXp(CommandContext ctx, ActiveRun run, int amount)
         {
-            var t = ctx.Content.RunTuning;
             if (amount <= 0) return;
             run.Xp += amount;
             run.XpTotal += amount;
-            for (int guard = 0; guard < 100; guard++)
-            {
-                int need = t.XpBase + t.XpPerLevel * (run.Level - 1);
-                if (run.Xp < need) break;
-                run.Xp -= need;
-                run.Level++;
-                run.PendingDrafts++;
-                ctx.Emit("run_level_up", run.Level.ToString());
-                RunTriggers(ctx, run, TriggerKind.OnLevelUp, null);
-            }
+            LevelUpFromBank(ctx, run);
         }
+
+        /// <summary>At most one level-up from the XP the run holds; the carry is capped at RunTuning.XpBankLevels levels.</summary>
+        private static void LevelUpFromBank(CommandContext ctx, ActiveRun run)
+        {
+            var c = ctx.Content;
+            int need = XpNeeded(c, run.Level);
+            if (run.Xp < need) return;
+            int cap = -1;
+            for (int i = 1; i <= Math.Max(0, c.RunTuning.XpBankLevels); i++) cap += XpNeeded(c, run.Level + i);
+            run.Xp = Math.Max(0, Math.Min(run.Xp - need, cap));
+            run.Level++;
+            run.PendingDrafts++;
+            ctx.Emit("run_level_up", run.Level.ToString());
+            RunTriggers(ctx, run, TriggerKind.OnLevelUp, null);
+        }
+
+        /// <summary>Run XP needed to go from <paramref name="level"/> to the next level (HUD "XP n/needed").</summary>
+        public static int XpNeeded(ContentDb c, int level) => Math.Max(1, c.RunTuning.XpBase + c.RunTuning.XpPerLevel * (Math.Max(1, level) - 1));
 
         /// <summary>
         /// Daily Biomass surge (RunTuning.DailyBiomassBonusRuns / Mult): the first N won Normal/Overcharged runs of the
@@ -646,7 +676,8 @@ namespace RogueStars.Rules.Systems
 
         /// <summary>
         /// Adds a skill to the run (replacing its UpgradesFrom) and applies its OnRunStart effects; an owned skill levels up
-        /// instead (up to RunTuning.MaxSkillLevel, its stats grow: <see cref="AddSkillLevelStats"/>). Source: see RunGain.
+        /// instead (up to RunTuning.MaxSkillLevel, its own numbers grow: <see cref="SkillLeveling"/>; its OnRunStart effects add the
+        /// difference). Source: see RunGain.
         /// </summary>
         private static bool GrantSkill(CommandContext ctx, ActiveRun run, string skillId, int depth, string source)
         {
@@ -659,6 +690,7 @@ namespace RogueStars.Rules.Systems
                 if (lv >= c.RunTuning.MaxSkillLevel) return false;
                 run.SkillLevels[skillId] = lv + 1;
                 run.Gains.Add(new RunGain(source, skillId, lv + 1));
+                ApplyRunStartLevelDelta(ctx, run, s, lv, lv + 1);
                 ctx.Emit("run_skill_level", skillId, (lv + 1).ToString());
                 RefreshMaxHp(c, run);
                 return true;
@@ -683,7 +715,7 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             foreach (var id in ActiveSkillIds(run))
             {
-                var s = c.Skill(id);
+                var s = RunSkill(c, run, id);
                 if (s == null) continue;
                 foreach (var t in s.Triggers)
                 {
@@ -744,6 +776,39 @@ namespace RogueStars.Rules.Systems
             }
         }
 
+        /// <summary>A skill as the run uses it: run skills at their level (SkillLeveling), meta skills as defined.</summary>
+        public static SkillDef RunSkill(ContentDb c, ActiveRun run, string skillId)
+        {
+            var def = c.Skill(skillId);
+            int lv = run != null && run.SkillLevels.TryGetValue(skillId, out var l) ? l : 1;
+            return lv > 1 && run.Skills.Contains(skillId) ? SkillLeveling.At(c, def, lv) : def;
+        }
+
+        /// <summary>
+        /// A level-up of a skill with OnRunStart effects (one-time run effects: awakening slow, loot %, coins, run stats) adds the
+        /// difference between the two levels, so a leveled boon is worth exactly its leveled numbers.
+        /// </summary>
+        private static void ApplyRunStartLevelDelta(CommandContext ctx, ActiveRun run, SkillDef def, int from, int to)
+        {
+            var c = ctx.Content;
+            var a = SkillLeveling.At(c, def, from);
+            var b = SkillLeveling.At(c, def, to);
+            for (int i = 0; i < def.Triggers.Count; i++)
+            {
+                var ta = a.Triggers[i]; var tb = b.Triggers[i];
+                if (ta.When != TriggerKind.OnRunStart || ta.Param != null) continue;
+                switch (ta.Effect)
+                {
+                    case EffectKind.SlowAwakening: run.AwakeningReductionPct += tb.Value - ta.Value; break;
+                    case EffectKind.ExtraLoot: run.ExtraLootPct += tb.Value - ta.Value; break;
+                    case EffectKind.GainRunCoins: run.Coins += (long)Math.Round(tb.Value - ta.Value); break;
+                    case EffectKind.RunStatGrowth:
+                        if (ta.Stat != null) run.RunStats.Add(new StatMod(ta.Stat.Stat, tb.Stat.Flat - ta.Stat.Flat, tb.Stat.Percent - ta.Stat.Percent));
+                        break;
+                }
+            }
+        }
+
         private static void GrantRandomSkill(CommandContext ctx, ActiveRun run, Rarity min, int depth, string source)
         {
             var pool = RunDraft.Eligible(ctx.Content, run);
@@ -754,24 +819,6 @@ namespace RogueStars.Rules.Systems
             if (cands.Count == 0) cands = pool;
             if (cands.Count == 0) { run.Coins += ctx.Content.RunTuning.DraftEmptyCoins; return; }
             GrantSkill(ctx, run, cands[run.Rng.Range(0, cands.Count)].Id, depth, source);
-        }
-
-        /// <summary>Stats of skill levels above 1: a share of the skill's passive package plus ATK % / max HP % per level.</summary>
-        private static void AddSkillLevelStats(ContentDb c, ActiveRun run, List<StatMod> list)
-        {
-            if (run.SkillLevels.Count == 0) return;
-            var t = c.RunTuning;
-            foreach (var id in run.Skills)
-            {
-                int extra = RunDraft.Level(run, id) - 1;
-                if (extra <= 0) continue;
-                var s = c.Skill(id);
-                if (s == null) continue;
-                double share = t.SkillLevelStatShare * extra;
-                foreach (var m in s.Stats) list.Add(new StatMod(m.Stat, m.Flat * share, m.Percent * share));
-                if (t.SkillLevelAtkPct != 0) list.Add(new StatMod(StatId.Atk, 0, t.SkillLevelAtkPct * extra));
-                if (t.SkillLevelHpPct != 0) list.Add(new StatMod(StatId.Hp, 0, t.SkillLevelHpPct * extra));
-            }
         }
 
         /// <summary>Skills and perks gained this run (every new skill, skill level and stat perk; HUD "Skills n").</summary>
@@ -1027,8 +1074,8 @@ namespace RogueStars.Rules.Systems
 
         private static void OpenShop(CommandContext ctx, ActiveRun run)
         {
-            run.ShopOutcome = null;
             FillShop(ctx.Content, run);
+            run.ShopsVisited++;
             run.Phase = RunPhase.Shop;
             ctx.Emit("run_shop");
         }
@@ -1038,10 +1085,19 @@ namespace RogueStars.Rules.Systems
             var table = ShopTable(c, run);
             run.Shop.Clear();
             var pool = RunDraft.Eligible(c, run);
+            long cheapest = CheapestSkillPrice(table);
             for (int i = 0; i < table.SkillOffers && pool.Count > 0; i++)
             {
+                // The run's first shop (before any reroll) leads with a skill at the cheapest price: the start coins buy it.
+                bool cheapSlot = i == 0 && run.ShopsVisited == 0 && run.ShopRerolls == 0;
                 var w = new double[pool.Count];
-                for (int k = 0; k < pool.Count; k++) w[k] = RunDraft.OfferWeight(c, run, pool[k], table.RarityWeights.TryGetValue(pool[k].Rarity, out var x) ? x : 1);
+                for (int k = 0; k < pool.Count; k++)
+                {
+                    w[k] = RunDraft.OfferWeight(c, run, pool[k], table.RarityWeights.TryGetValue(pool[k].Rarity, out var x) ? x : 1);
+                    if (cheapSlot && (table.SkillPrices.TryGetValue(pool[k].Rarity, out var pr) ? pr : 50) > cheapest) w[k] = 0;
+                }
+                if (cheapSlot && Array.TrueForAll(w, v => v <= 0)) // no cheap skill left in the pool: any skill
+                    for (int k = 0; k < pool.Count; k++) w[k] = RunDraft.OfferWeight(c, run, pool[k], table.RarityWeights.TryGetValue(pool[k].Rarity, out var x) ? x : 1);
                 int idx = run.Rng.PickWeighted(w);
                 if (idx < 0) break;
                 var s = pool[idx];
@@ -1084,19 +1140,21 @@ namespace RogueStars.Rules.Systems
                 double lootMult = 1 + run.ExtraLootPct / 100.0;
                 double biomassMult = BiomassSurge(ctx, run, summary);
                 var rewards = new List<Reward>();
-                int doublable;
-                foreach (var r in run.PendingLoot) rewards.Add(Scaled(r, modeMult * lootMult * (r.Id == Currencies.Biomass ? biomassMult : 1)));
+                var sources = new List<string>();
+                foreach (var r in run.PendingLoot) { rewards.Add(Scaled(r, modeMult * lootMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.RunLoot); }
                 if (run.Mode != RunMode.Burrow)
                 {
                     RollRareDrops(level, run);
-                    foreach (var r in level.CompletionRewards) rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1)));
+                    foreach (var r in level.CompletionRewards) { rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.Completion); }
                     var before = run.PendingLoot.Count;
                     for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
                     for (int i = before; i < run.PendingLoot.Count; i++)
+                    {
                         rewards.Add(Scaled(run.PendingLoot[i], modeMult * (run.PendingLoot[i].Id == Currencies.Biomass ? biomassMult : 1)));
+                        sources.Add(RunRewardLine.CompletionRoll);
+                    }
                 }
 
-                doublable = rewards.Count; // feat Diamonds below are not doubled by the ad
                 if (run.Mode != RunMode.Burrow)
                 {
                     var p = GetProgress(c, s, run.LevelId);
@@ -1110,7 +1168,7 @@ namespace RogueStars.Rules.Systems
                     // Endless campaign milestones (chest every 10 levels, portal bonus every 50): first Normal clear only.
                     if (firstClear && run.Mode == RunMode.Normal && level.FirstClearRewards.Count > 0)
                     {
-                        foreach (var r in level.FirstClearRewards) rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+                        foreach (var r in level.FirstClearRewards) { rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity)); sources.Add(RunRewardLine.Milestone); }
                         s.Count("milestone_chests");
                         ctx.Emit("run_milestone", run.LevelId, level.Number.ToString());
                     }
@@ -1127,13 +1185,15 @@ namespace RogueStars.Rules.Systems
                         summary.NewFeats.Add(i);
                         s.Count("run_feats_earned");
                         rewards.Add(Reward.Cur(Currencies.Diamonds, c.RunTuning.FeatDiamonds));
+                        sources.Add(RunRewardLine.Feat);
                     }
                 }
-                for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, i < doublable);
+                for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, sources[i]);
                 foreach (var r in run.PendingRare)
                 {
                     if (!ctx.Grant(r)) continue; // no use yet: stashed (RewardGate), not shown as granted
-                    summary.Granted.Add(r);
+                    summary.Granted.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+                    summary.Rewards.Add(new RunRewardLine { Reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity), Source = RunRewardLine.RareDrop });
                     ctx.Emit("run_rare_drop", r.Kind, r.Id, r.Amount.ToString());
                 }
                 CompactProgress(s, c);
@@ -1162,8 +1222,9 @@ namespace RogueStars.Rules.Systems
         /// Applies run_reward modifiers to currencies and grants through the owners' granters (item drops with
         /// Id "*" are resolved to a random def of their rarity by the granter, see RewardWildcard).
         /// </summary>
-        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary, bool doublable)
+        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary, string source)
         {
+            bool doublable = RunRewardLine.IsDoublable(source);
             var reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity);
             if (reward.Kind == RewardKinds.Currency)
             {
@@ -1171,9 +1232,11 @@ namespace RogueStars.Rules.Systems
                 reward.Amount = Math.Max(0, (long)Math.Round(reward.Amount * m));
             }
             if (reward.Amount <= 0) return;
-            if (!ctx.Grant(reward)) return; // no use yet: stashed (RewardGate), not shown as granted
-            summary.Granted.Add(reward);
-            if (doublable) summary.Doublable.Add(reward);
+            if (!ctx.Grant(reward)) return; // no use yet: stashed (RewardGate), not shown as granted (nor doubled)
+            // separate copies: Granted totals grow when the rewards are doubled, Doublable / Rewards keep the single amounts
+            summary.Granted.Add(new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity));
+            summary.Rewards.Add(new RunRewardLine { Reward = new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity), Source = source, Doublable = doublable });
+            if (doublable) summary.Doublable.Add(new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity));
         }
     }
 }
