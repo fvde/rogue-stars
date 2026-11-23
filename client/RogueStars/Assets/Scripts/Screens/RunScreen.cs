@@ -61,6 +61,25 @@ namespace RogueStars.Client.Screens
         private float _outcomeTimer;
         private bool _outcomeRevealing;
 
+        // ---- presentation: follow camera, token, HUD shown values, landing feedback ----
+        private RectTransform _viewport, _board, _token, _tokenBody, _tokenShadow, _fx;
+        private float _boardH, _viewH;
+        /// <summary>Follow camera: the board's absolute rise (layout y with x0 = 0) at the viewport centre; NaN = not placed yet.</summary>
+        private float _cam = float.NaN;
+        /// <summary>Seconds the camera stays where the player dragged it before following again.</summary>
+        private float _camHold;
+        private RunHudStats? _hudShown;
+        private RectTransform _hudRoot;
+        private UiBar _hpBar, _xpBar;
+        private Text _hpText, _atkText, _defText, _lvText;
+        private DiceView _footerDice;
+        /// <summary>Texts of the popups of the latest landing (tests; also passed-tile pickups).</summary>
+        public readonly List<string> LastPopups = new List<string>();
+        /// <summary>Feedback popups drawn so far (tests).</summary>
+        public int PopupsSpawned { get; private set; }
+        /// <summary>Tile the worm landed on in the latest move (-1 = none), and whether its landing animation played.</summary>
+        public int LastLandedTile { get; private set; } = -1;
+
         /// <summary>Skip mode for tests: the chance roll of an outcome lands at once (no spinning animation).</summary>
         public static bool InstantOutcomes;
         /// <summary>Auto mode closes an outcome result after this many seconds (after its chance roll).</summary>
@@ -157,7 +176,7 @@ namespace RogueStars.Client.Screens
         public static int WindowStart(ActiveRun run, int fromTile)
         {
             if (run == null || run.Tiles.Count == 0) return 0;
-            int x = run.Tiles[Math.Max(0, Math.Min(run.Tiles.Count - 1, fromTile))].X - 2;
+            int x = run.Tiles[Math.Max(0, Math.Min(run.Tiles.Count - 1, fromTile))].X - 2 - Columns; // room behind the worm for the follow camera
             return Math.Max(0, x / (2 * Columns) * (2 * Columns));
         }
 
@@ -169,7 +188,11 @@ namespace RogueStars.Client.Screens
             return true;
         }
 
-        /// <summary>Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y.</summary>
+        /// <summary>
+        /// Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y. This is the ONE
+        /// board layout function (tiles, edges, token, camera and tap targets all go through it): when the rules provide
+        /// per-tile 2D layout coordinates, only this changes.
+        /// </summary>
         public static Vector2 TileCenter(RunTile t) => TileCenter(t, 0);
 
         public static Vector2 TileCenter(RunTile t, int x0)
@@ -244,8 +267,10 @@ namespace RogueStars.Client.Screens
         {
             public string Label;
             public Color Accent;
-            /// <summary>Already walked over (in the trail) and not the token's tile: drawn dimmed.</summary>
+            /// <summary>Already walked over (in the trail) and not the token's tile. Passed tiles keep their look (board game).</summary>
             public bool Visited;
+            /// <summary>The worm landed (stopped) here: only landed tiles are coloured / marked.</summary>
+            public bool Landed;
             /// <summary>The worm stands here.</summary>
             public bool Current;
             /// <summary>The path splits after this tile.</summary>
@@ -268,6 +293,7 @@ namespace RogueStars.Client.Screens
                 Accent = def != null ? Theme.TileAccent(cat, def.Valence) : Theme.Border,
                 Current = t.Id == run.Position,
                 Visited = t.Id != run.Position && run.Trail.Contains(t.Id),
+                Landed = t.TimesResolved > 0,
                 Fork = t.Next.Count > 1,
                 Cleared = t.Cleared,
                 Option = run.Phase == RunPhase.ChooseBranch && run.BranchOptions.Contains(t.Id),
@@ -339,43 +365,77 @@ namespace RogueStars.Client.Screens
             if (run == null) { BuildFinished(body); return; }
             var level = Content.RunLevel(run.LevelId);
             bool newRun = run.RunId != _runId;
-            if (newRun) { _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; _outcomeSeen = run.OutcomeSeq; }
+            if (newRun)
+            {
+                _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; _outcomeSeen = run.OutcomeSeq;
+                _cam = float.NaN; _camHold = 0; _hudShown = null;
+            }
 
-            Hud(body, run, level);
             int moveStart = run.Trail.Count > _trailSeen && _trailSeen > 0 ? run.Trail[Math.Max(0, Math.Min(_trailSeen, run.Trail.Count) - 1)] : run.Position;
             _x0 = WindowStart(run, moveStart);
-            var token = Board(body, run, out var dice, out float boardH, out var focus);
-            Controls(run, dice);
-            if (focus != null) ScrollToAfterBuild(focus);
 
-            // What changed since the last build → animate dice, token path, then battle and decision.
+            // What changed since the last build → dice, token hops, landing, then battle and decision.
             var path = new List<int>();
             if (run.Trail.Count > _trailSeen) path.AddRange(run.Trail.GetRange(Math.Max(0, _trailSeen - 1), run.Trail.Count - Math.Max(0, _trailSeen - 1)));
             bool rolled = run.Rolls > _rollsSeen;
             bool battle = run.BattleCount > _battlesSeen && run.LastBattle != null;
+            var landTile = path.Count > 1 ? run.Tiles[path[path.Count - 1]] : null;
+            if (landTile != null && landTile.TimesResolved == 0 && landTile.Id != run.BossGateTile) landTile = null; // stopped at a fork
+            var newOutcome = run.OutcomeSeq > _outcomeSeen ? run.LastOutcome : null;
+
+            var hudNow = RunPresentation.Hud(Content, run);
+            Hud(body, run, level, _hudShown ?? hudNow);
+            var dice = Board(body, run, landTile != null ? landTile.Id : -1, out var landLook);
+            Controls(run, dice);
             _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount;
 
             _anim = UiSequence.On(Root.gameObject);
             _anim.Clear();
-            if (rolled && dice != null)
+            _anim.Speed = 1;
+            bool moving = path.Count > 1 && _token != null;
+            if (moving) { _camHold = 0; LastPopups.Clear(); } // a new move: the camera follows the worm again
+            if (rolled && run.LastDice.Count > 0) RollDice(run.LastDice);
+            if (moving)
             {
-                var finalText = DiceText(run);
-                _anim.Then(0.45f, t => dice.text = t >= 1 ? finalText : Random.Range(1, 7).ToString());
-            }
-            if (path.Count > 1 && token != null)
-            {
+                float hop = RunFx.HopSeconds(_auto);
+                var lift = TokenLift;
                 for (int i = 1; i < path.Count; i++)
                 {
-                    var from = DrawPoint(TileCenter(run.Tiles[path[i - 1]], _x0), boardH);
-                    var to = DrawPoint(TileCenter(run.Tiles[path[i]], _x0), boardH);
-                    _anim.Then(0.16f, t =>
+                    var fromTile = run.Tiles[path[i - 1]];
+                    var toTile = run.Tiles[path[i]];
+                    var from = DrawPoint(TileCenter(fromTile, _x0), _boardH);
+                    var to = DrawPoint(TileCenter(toTile, _x0), _boardH);
+                    bool last = i == path.Count - 1;
+                    _anim.Then(hop, t =>
                     {
-                        // a little hop per step; the view follows the worm
-                        token.anchoredPosition = Vector2.Lerp(from, to, t) + new Vector2(0, 24 * Mathf.Sin(t * Mathf.PI));
-                        CenterOn(token);
+                        // board-game hop: eased step, arc, squash at take-off and landing, stretched in the air
+                        _token.anchoredPosition = RunFx.HopPosition(from, to, t) + lift;
+                        if (_tokenShadow != null)
+                        {
+                            _tokenShadow.anchoredPosition = Vector2.Lerp(from, to, RunFx.Ease(t)) + ShadowOffset;
+                            float air = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
+                            _tokenShadow.localScale = Vector3.one * (1 - 0.35f * air);
+                        }
+                        var sc = RunFx.HopScale(t);
+                        if (_tokenBody != null) _tokenBody.localScale = new Vector3(sc.x, sc.y, 1);
+                    }, () =>
+                    {
+                        // a passed pickup (shard, coin cluster) pays as the worm hops over it; the tile keeps its look
+                        if (!last) { var pass = RunPresentation.Pass(Content, toTile); if (pass.HasValue) SpawnPopups(new List<LandingPopup> { pass.Value }, to, false); }
                     });
                 }
             }
+            if (landTile != null)
+            {
+                var land = landTile;
+                var popups = RunPresentation.Landing(Content, run, land, battle, newOutcome);
+                _anim.Call(() => Land(land, landLook, popups));
+                if (!battle) _anim.Call(() => AnimateHud(hudNow));
+                // a moment to read the popups before a fight or a decision covers the board
+                bool next = battle || RunSystem.RequiresPlayer(Content, run, false) || newOutcome != null && RunPresentation.IsSheetSource(newOutcome.Source);
+                if (next && !RunFx.Skip) _anim.Wait(_auto ? 0.3f : 0.55f);
+            }
+            else if (!battle) _anim.Call(() => AnimateHud(hudNow));
             if (battle)
             {
                 var result = run.LastBattle;
@@ -384,53 +444,334 @@ namespace RogueStars.Client.Screens
             _anim.Call(() => ShowOutcomeOrDecision(run));
         }
 
-        private static string DiceText(ActiveRun run) => run.LastDice.Count == 0 ? "-" : string.Join(" + ", run.LastDice.ConvertAll(d => d.ToString()));
+        // ---- motion: dice, landing, popups, HUD -------------------------------------------------
 
-        private void Hud(RectTransform body, ActiveRun run, LevelDef level)
+        /// <summary>The worm token stands a little above its tile's centre (the tile label stays readable).</summary>
+        private static readonly Vector2 TokenLift = new Vector2(0, 30);
+        private static readonly Vector2 ShadowOffset = new Vector2(0, -8);
+
+        /// <summary>Tumbling dice over the board (two when the level rolls two), landing on the rolled values; the footer dice follow.</summary>
+        private void RollDice(List<int> values)
         {
-            var hp = Ui.Row(body, 44, 14);
-            var hpLabel = Ui.Label(hp, "HP", 24, Theme.Text);
-            hpLabel.fontStyle = FontStyle.Bold;
-            Ui.Size(hpLabel, 50, -1, 0);
-            double frac = run.WormMaxHp > 0 ? run.WormHp / run.WormMaxHp : 1;
-            Ui.Bar(hp, (float)frac, frac > 0.5 ? Theme.Good : frac > 0.25 ? Theme.Warn : Theme.Bad, null, 26);
-            var hpText = Ui.Display(hp, Fmt.Num(Math.Max(0, run.WormHp)) + " / " + Fmt.Num(run.WormMaxHp), 28, Theme.Text, TextAnchor.MiddleRight);
-            Ui.Size(hpText, 230, -1, 0);
+            var vals = new List<int>(values);
+            float secs = RunFx.DiceSeconds(_auto);
+            if (secs <= 0 || _viewport == null) { _footerDice?.Pose(1, vals); return; }
+            var stage = Ui.Rect(_viewport, "DiceStage");
+            Ui.Stretch(stage);
+            var shade = Ui.Panel(stage, new Color(0, 0, 0, 0.25f), "Shade");
+            shade.raycastTarget = false;
+            Ui.Stretch(shade.rectTransform);
+            float dieSize = vals.Count <= 2 ? 150 : Mathf.Max(70, 520f / vals.Count);
+            var view = new DiceView(stage, vals.Count, dieSize);
+            view.Root.anchorMin = view.Root.anchorMax = new Vector2(0.5f, 0.5f);
+            view.Root.sizeDelta = new Vector2(vals.Count * dieSize * 1.35f, dieSize * 1.4f);
+            view.Root.anchoredPosition = new Vector2(0, 60);
+            var group = stage.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            _anim.Then(secs, t =>
+            {
+                view.Pose(t, vals);
+                _footerDice?.Pose(Mathf.Min(1, t * 1.05f), vals);
+            });
+            // the dice rest for a beat, then fade while the worm starts hopping
+            _anim.Then(_auto ? 0.12f : 0.25f, null, () =>
+            {
+                if (stage == null) return;
+                UiTweens.Play(stage.gameObject, "fade", 0.25f, k => { if (group != null) group.alpha = 1 - k; }, () => { if (stage != null) UnityEngine.Object.Destroy(stage.gameObject); });
+            });
+        }
 
-            var chips = Ui.Row(body, 56, 10);
-            int need = Content.RunTuning.XpBase + Content.RunTuning.XpPerLevel * (run.Level - 1);
-            var lvl = Ui.Bar(chips, need > 0 ? (float)run.Xp / need : 0, Theme.Premium, "Lv " + run.Level + " · XP " + run.Xp + "/" + need, 44);
-            Ui.Size(lvl.Fill.parent.GetComponent<Image>(), -1, 44, 1);
-            Ui.Chip(chips, RollText(Content, run), Theme.Tint(Theme.Bad, 0.25f), Theme.Hex(0xFFD2C2), 26, 48, null, "RollCounter");
-            Ui.Chip(chips, "Skills " + RunSystem.BuildSize(run), Theme.Tint(Theme.Premium, 0.25f), Theme.Hex(0xD6C2FF), 24, 48, null, "SkillCount");
-            Ui.Chip(chips, "Danger " + run.Danger, run.Danger > 0 ? Theme.Tint(Theme.Bad, 0.35f) : Theme.Panel, run.Danger > 0 ? Theme.Hex(0xFFB3B5) : Theme.TextFaint, 24, 48);
-            if (run.Shards > 0) Ui.Chip(chips, "Shards " + run.Shards, Theme.Tint(Theme.Premium, 0.3f), Theme.Premium, 24, 48);
-            Ui.Button(chips, "Auto-pick: " + (Farming ? "On" : "Off"), ToggleFarming, Farming ? Theme.Premium : Theme.Panel, 250, 52, true, 24).name = "AutoPickToggle";
+        /// <summary>The landing: the tile pops and takes its landed colour with a ring and a glow, then the feedback popups.</summary>
+        private void Land(RunTile tile, TileVisual look, List<LandingPopup> popups)
+        {
+            LastLandedTile = tile.Id;
+            var center = DrawPoint(TileCenter(tile, _x0), _boardH);
+            if (look.Root != null)
+            {
+                look.ApplyLanded();
+                var rt = look.Root;
+                var accent = look.Accent;
+                if (!RunFx.Skip)
+                {
+                    UiTweens.Play(rt.gameObject, "land", 0.45f, k => { if (rt != null) rt.localScale = Vector3.one * RunFx.LandPopScale(k); });
+                    // rings and glow go under the token (the worm stays on top of its tile)
+                    int under = _tokenShadow != null ? _tokenShadow.GetSiblingIndex() : _board.childCount;
+                    RunFx.Ring(_board, center, new Vector2(TileW + 10, TileH + 10), Color.Lerp(accent, Color.white, 0.3f))?.SetSiblingIndex(under);
+                    RunFx.Ring(_board, center, new Vector2(TileW - 20, TileH - 20), accent, 0.12f)?.SetSiblingIndex(under);
+                    var glow = Ui.RoundPanel(_board, new Color(accent.r, accent.g, accent.b, 0.55f), 26, "LandGlow");
+                    glow.raycastTarget = false;
+                    PlaceAt(glow.rectTransform, center, new Vector2(TileW + 34, TileH + 34));
+                    glow.transform.SetSiblingIndex(rt.GetSiblingIndex());
+                    UiTweens.Play(glow.gameObject, "glow", 0.7f, k => { if (glow != null) { var c = glow.color; c.a = 0.55f * (1 - k); glow.color = c; } },
+                        () => { if (glow != null) UnityEngine.Object.Destroy(glow.gameObject); });
+                }
+            }
+            SpawnPopups(popups, center, true);
+        }
+
+        /// <summary>Floating texts over a tile, plus particles by kind (coins fly to the coin chip, heals rise, hurts flash red).</summary>
+        private void SpawnPopups(List<LandingPopup> popups, Vector2 at, bool landing)
+        {
+            if (_board == null) return;
+            for (int i = 0; i < popups.Count; i++)
+            {
+                var p = popups[i];
+                LastPopups.Add(p.Text);
+                PopupsSpawned++;
+                var pos = at + new Vector2(0, 40 + i * (RunFx.Skip ? 64 : 0));
+                RunFx.FloatText(_board, pos, p.Text, p.Color, landing ? (p.Kind == PopupKind.Fight || p.Kind == PopupKind.LevelUp ? 44 : 36) : 28, i * 0.28f, "Popup:" + p.Kind);
+                switch (p.Kind)
+                {
+                    case PopupKind.Coins:
+                        RunFx.Burst(_fx, FxPoint(_board, at), _coins != null ? FxPoint(_coins.rectTransform) : (Vector2?)null, Theme.Gold, 7, 22, i * 0.28f);
+                        break;
+                    case PopupKind.Heal:
+                        RunFx.Burst(_board, at, null, Theme.Good, 8, 18, i * 0.28f);
+                        break;
+                    case PopupKind.Stat:
+                    case PopupKind.Xp:
+                    case PopupKind.LevelUp:
+                    case PopupKind.Shard:
+                        RunFx.Burst(_board, at, null, p.Color, 6, 16, i * 0.28f);
+                        break;
+                    case PopupKind.Loot:
+                        RunFx.Burst(_board, at, null, Theme.Gold, 9, 18, i * 0.28f);
+                        break;
+                    case PopupKind.Hurt:
+                        if (_token != null && !RunFx.Skip)
+                        {
+                            var body = _tokenBody;
+                            UiTweens.Play(body.gameObject, "hurt", 0.35f, k => { if (body != null) body.localRotation = Quaternion.Euler(0, 0, 14 * Mathf.Sin(k * Mathf.PI * 5) * (1 - k)); });
+                        }
+                        break;
+                }
+            }
+        }
+
+        /// <summary>A board point in the screen's effects layer (top-left anchored coordinates).</summary>
+        private Vector2 FxPoint(RectTransform space, Vector2 anchored)
+        {
+            if (_fx == null || space == null) return anchored;
+            // anchored (top-left of space) → world → fx local → fx top-left anchored
+            var local = new Vector3(space.rect.xMin + anchored.x, space.rect.yMax + anchored.y, 0);
+            var world = space.TransformPoint(local);
+            var inFx = (Vector2)_fx.InverseTransformPoint(world);
+            return inFx - new Vector2(_fx.rect.xMin, _fx.rect.yMax);
+        }
+
+        private Vector2 FxPoint(RectTransform target)
+        {
+            if (_fx == null || target == null) return Vector2.zero;
+            var world = target.TransformPoint(target.rect.center);
+            var inFx = (Vector2)_fx.InverseTransformPoint(world);
+            return inFx - new Vector2(_fx.rect.xMin, _fx.rect.yMax);
+        }
+
+        /// <summary>HUD numbers move to <paramref name="to"/>: bars tween, changed stat chips pop (instant outside play mode).</summary>
+        private void AnimateHud(RunHudStats to)
+        {
+            var from = _hudShown ?? to;
+            _hudShown = to;
+            if (_hudRoot == null) return;
+            bool atkUp = Math.Abs(to.Atk - from.Atk) >= 0.5, defUp = Math.Abs(to.Def - from.Def) >= 0.5;
+            UiTweens.Play(_hudRoot.gameObject, "hud", RunFx.Skip ? 0 : 0.6f, k =>
+            {
+                float e = RunFx.Ease(k);
+                ShowHud(Lerp(from, to, e), to.Level > from.Level ? (k < 0.5f ? from.Level : to.Level) : to.Level,
+                    XpFraction(from, to, k));
+                float pop = 1 + 0.25f * Mathf.Sin(Mathf.Clamp01(k * 1.6f) * Mathf.PI);
+                if (atkUp && _atkText != null) _atkText.transform.parent.localScale = Vector3.one * pop;
+                if (defUp && _defText != null) _defText.transform.parent.localScale = Vector3.one * pop;
+            });
+        }
+
+        private static RunHudStats Lerp(RunHudStats a, RunHudStats b, float k) => new RunHudStats
+        {
+            Hp = a.Hp + (b.Hp - a.Hp) * k, MaxHp = a.MaxHp + (b.MaxHp - a.MaxHp) * k,
+            Atk = a.Atk + (b.Atk - a.Atk) * k, Def = a.Def + (b.Def - a.Def) * k,
+            Level = b.Level, Xp = b.Xp, XpNeed = b.XpNeed,
+        };
+
+        /// <summary>XP bar fill while it animates: a level-up fills the bar first, then restarts from empty.</summary>
+        private static float XpFraction(RunHudStats from, RunHudStats to, float k)
+        {
+            float a = from.XpNeed > 0 ? (float)from.Xp / from.XpNeed : 0, b = to.XpNeed > 0 ? (float)to.Xp / to.XpNeed : 0;
+            if (to.Level > from.Level) return k < 0.5f ? Mathf.Lerp(a, 1, k * 2) : Mathf.Lerp(0, b, (k - 0.5f) * 2);
+            return Mathf.Lerp(a, b, RunFx.Ease(k));
+        }
+
+        private void ShowHud(RunHudStats s, int level, float xpFrac)
+        {
+            double hpFrac = s.MaxHp > 0 ? s.Hp / s.MaxHp : 1;
+            var hpColor = hpFrac > 0.5 ? Theme.Good : hpFrac > 0.25 ? Theme.Warn : Theme.Bad;
+            if (_hpBar != null)
+            {
+                _hpBar.Set((float)hpFrac, Fmt.Num(Math.Round(s.Hp)) + " / " + Fmt.Num(Math.Round(s.MaxHp)));
+                _hpBar.Fill.GetComponent<Image>().color = hpColor;
+            }
+            if (_atkText != null) _atkText.text = "ATK " + Fmt.Num(Math.Round(s.Atk));
+            if (_defText != null) _defText.text = "DEF " + Fmt.Num(Math.Round(s.Def));
+            if (_lvText != null) _lvText.text = "Lv " + level;
+            if (_xpBar != null) _xpBar.Set(xpFrac, "XP " + s.Xp + " / " + s.XpNeed);
+        }
+
+        /// <summary>The HUD as shown now (tests: HP / ATK / DEF / level / XP texts).</summary>
+        public string HudText => string.Join(" | ", new[] { _hpBar?.Label?.text, _atkText?.text, _defText?.text, _lvText?.text, _xpBar?.Label?.text });
+
+        // ---- follow camera ------------------------------------------------------------------------
+
+        /// <summary>Height of one snake band (3 lanes + the gap).</summary>
+        public const float BandH = 3 * LaneH + BandGap;
+
+        /// <summary>Camera position (board rise at the viewport centre; tests).</summary>
+        public float CameraY => _cam;
+
+        /// <summary>Absolute rise of a point drawn at <paramref name="drawY"/> on the current board (independent of the window).</summary>
+        private float AbsRise(float drawY) => drawY + (_x0 / Columns) * BandH + _boardH;
+
+        /// <summary>Where the camera wants to be: the token, a little ahead (the path climbs), never below the path's start.</summary>
+        private float CameraTarget()
+        {
+            if (_token == null) return float.IsNaN(_cam) ? _viewH / 2 : _cam;
+            return Mathf.Max(_viewH / 2 - 40, AbsRise(_token.anchoredPosition.y) + _viewH * 0.12f);
+        }
+
+        private void ApplyCamera()
+        {
+            if (_board == null || float.IsNaN(_cam)) return;
+            float camDraw = _cam - (_x0 / Columns) * BandH - _boardH;
+            _board.anchoredPosition = new Vector2(0, -_viewH / 2 - camDraw);
+        }
+
+        /// <summary>One camera frame: eases towards the worm (never snaps), unless the player is looking around.</summary>
+        public void StepCamera(float dt)
+        {
+            if (_board == null) return;
+            if (_camHold > 0) { _camHold -= dt; ApplyCamera(); return; }
+            _cam = RunFx.CameraStep(_cam, CameraTarget(), dt);
+            ApplyCamera();
+        }
+
+        private void DragBoard(float dy)
+        {
+            if (float.IsNaN(_cam)) return;
+            _cam -= dy;
+            _camHold = 3f;
+            ApplyCamera();
+        }
+
+        /// <summary>Hud: HP bar, ATK, DEF (run modifications applied), run level + XP bar, roll clock, skills, boss banner.</summary>
+        private void Hud(RectTransform body, ActiveRun run, LevelDef level, RunHudStats shown)
+        {
+            var hud = Ui.Column(body, 10, 0, null, "Hud");
+            _hudRoot = hud;
+            var top = Ui.Row(hud, HudStatsH, 12, null, 0, "HudStats");
+            var hpLabel = Ui.Display(top, "HP", 30, Theme.Text, TextAnchor.MiddleCenter);
+            Ui.Size(hpLabel, 56, -1, 0);
+            _hpBar = Ui.Bar(top, 1, Theme.Good, "", 40);
+            _hpBar.Fill.parent.name = "HpBar";
+            _hpText = _hpBar.Label;
+            _atkText = StatChip(top, "AtkChip", Theme.Hex(0xFF8A6B));
+            _defText = StatChip(top, "DefChip", Theme.Hex(0x7FC8FF));
+
+            var mid = Ui.Row(hud, HudLevelH, 10, null, 0, "HudLevel");
+            var lv = Ui.Chip(mid, "Lv 1", Theme.Tint(Theme.Premium, 0.35f), Theme.Premium, 26, 48, Theme.Premium, "RunLevel");
+            _lvText = lv.GetComponentInChildren<Text>();
+            _xpBar = Ui.Bar(mid, 0, Theme.Purple, "", 34);
+            _xpBar.Fill.parent.name = "XpBar";
+            Ui.Chip(mid, RollText(Content, run), Theme.Tint(Theme.Bad, 0.25f), Theme.Hex(0xFFD2C2), 24, 48, null, "RollCounter");
+            Ui.Chip(mid, "Skills " + RunSystem.BuildSize(run), Theme.Tint(Theme.Premium, 0.25f), Theme.Hex(0xD6C2FF), 22, 48, null, "SkillCount");
+            Ui.Button(mid, "Auto-pick: " + (Farming ? "On" : "Off"), ToggleFarming, Farming ? Theme.Premium : Theme.Panel, 210, 48, true, 22).name = "AutoPickToggle";
 
             // the boss waiting at the top of the board, with its awakening
             var boss = run.BossId != null && Content.RunBosses.TryGetValue(run.BossId, out var bd) ? bd : null;
-            var banner = Ui.Row(body, 76, 14, Theme.Hex(0x3A1414), 22, "BossBanner");
+            var banner = Ui.Row(hud, HudBannerH, 12, Theme.Hex(0x3A1414), 18, "BossBanner");
             UiShapes.Outline(banner, Theme.Bad, 26, 5);
             banner.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.Display(banner, "BOSS · " + (boss?.Name ?? "Boss"), 32, Theme.Hex(0xFF9FA2), TextAnchor.MiddleLeft);
+            var bossName = Ui.Display(banner, "BOSS · " + (boss?.Name ?? "Boss"), 28, Theme.Hex(0xFF9FA2), TextAnchor.MiddleLeft);
+            bossName.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Ui.Size(bossName, -1, -1, 0);
             int left = Math.Max(0, RunSystem.BossRollEstimate(Content, run) - run.Rolls);
             string clock = run.Awakening.ToString("0") + "% awake · " + (left <= 0 ? "comes now" : left == 1 ? "1 roll left" : left + " rolls left");
-            var awake = Ui.Bar(banner, (float)(run.Awakening / 100.0), Theme.Bad, clock, 30);
-            Ui.Size(awake.Fill.parent.GetComponent<Image>(), 400, 30, 0);
+            Ui.Bar(banner, (float)(run.Awakening / 100.0), Theme.Bad, clock, 30);
+            if (run.Danger > 0) Ui.Chip(banner, "Danger " + run.Danger, Theme.Tint(Theme.Bad, 0.35f), Theme.Hex(0xFFB3B5), 20, 40);
+            if (run.Shards > 0) Ui.Chip(banner, "Shards " + run.Shards, Theme.Tint(Theme.Premium, 0.3f), Theme.Premium, 20, 40);
+
+            ShowHud(shown, shown.Level, shown.XpNeed > 0 ? (float)shown.Xp / shown.XpNeed : 0);
         }
 
-        private RectTransform Board(RectTransform body, ActiveRun run, out Text dice, out float h, out RectTransform focus)
+        private static Text StatChip(RectTransform row, string name, Color color)
         {
+            var chip = Ui.Chip(row, "-", Theme.Tint(color, 0.3f), Color.Lerp(color, Color.white, 0.4f), 26, HudStatsH - 6, color, name);
+            Ui.Size(chip, 150, HudStatsH - 6, 0);
+            return chip.GetComponentInChildren<Text>();
+        }
+
+        public const float HudStatsH = 58, HudLevelH = 50, HudBannerH = 66;
+
+        /// <summary>The colours of one board tile (unlanded and landed look), applied at the landing.</summary>
+        private struct TileVisual
+        {
+            public RectTransform Root;
+            public Image Fill, Border;
+            public Text Label;
+            public string LandedLabel;
+            public Color Accent;
+            public Color LandedFill, LandedBorder, LandedText;
+            public GameObject Mark;
+
+            public void ApplyLanded()
+            {
+                if (Fill != null) Fill.color = LandedFill;
+                if (Border != null) Border.color = LandedBorder;
+                if (Label != null) { Label.color = LandedText; if (LandedLabel != null) { Label.text = LandedLabel; Label.font = Ui.FontFor(LandedLabel); } }
+                if (Mark != null) Mark.SetActive(true);
+            }
+        }
+
+        /// <summary>Fill / border / text of a tile: unwalked and passed tiles look the same; landed tiles are filled with their colour.</summary>
+        private static void TileColors(TileLook look, bool landed, out Color fill, out Color border, out Color text)
+        {
+            if (look.Gate) { fill = Theme.Hex(0x3A1414); border = Theme.Bad; text = Theme.Hex(0xFF9FA2); return; }
+            if (look.Empty)
+            {
+                fill = landed ? Theme.Hex(0x3A2A2A) : Theme.PanelAlt;
+                border = landed ? Theme.TextFaint : Theme.Border;
+                text = Theme.TextFaint;
+                return;
+            }
+            if (landed)
+            {
+                fill = Color.Lerp(Theme.Panel, look.Accent, 0.62f);
+                border = Color.Lerp(look.Accent, Color.white, 0.35f);
+                text = Theme.TextOn(fill) == Theme.OnAccent ? Theme.OnAccent : Theme.Text;
+                return;
+            }
+            fill = Theme.Panel; border = look.Accent; text = Color.Lerp(look.Accent, Color.white, 0.55f);
+        }
+
+        private DiceView Board(RectTransform body, ActiveRun run, int landingId, out TileVisual landing)
+        {
+            landing = default;
             int x0 = _x0;
-            h = BoardHeight(run, x0);
+            float h = BoardHeight(run, x0);
+            _boardH = h;
             float boardH = h;
+            // the board lives in its own viewport (the HUD above stays put); the follow camera moves the board inside it
+            float frame = BodyFrame != null ? BodyFrame.rect.height : 0;
+            _viewH = Mathf.Max(560, frame - 2 * 24 - (HudStatsH + HudLevelH + HudBannerH + 2 * 10) - 18 - 2);
             var holder = Ui.Rect(body, "BoardHolder");
-            Ui.Size(holder, -1, h);
+            Ui.Size(holder, -1, _viewH);
+            holder.gameObject.AddComponent<RectMask2D>();
+            holder.gameObject.AddComponent<Image>().color = new Color(0, 0, 0, 0); // raycast target for drags
+            holder.gameObject.AddComponent<BoardDrag>().OnDragY = DragBoard;
+            _viewport = holder;
             var board = Ui.Rect(holder, "Board");
             board.anchorMin = board.anchorMax = new Vector2(0.5f, 1);
             board.pivot = new Vector2(0.5f, 1);
             board.sizeDelta = new Vector2(BoardWidth, h);
             board.anchoredPosition = Vector2.zero;
+            _board = board;
             Vector2 P(RunTile t) => DrawPoint(TileCenter(t, x0), boardH);
             var visible = run.Tiles.FindAll(t => InWindow(run, t, x0));
 
@@ -445,7 +786,6 @@ namespace RogueStars.Client.Screens
                         Edge(board, P(t), P(run.Tiles[n]), lit ? Theme.Shade(Theme.AccentLight, 0.8f) : Theme.Border, lit ? 12 : 10);
                     }
 
-            RectTransform currentTile = null;
             // At a fork: the path each option walks with the steps left and the tile it lands on (A / B on the board).
             var onPath = new Dictionary<int, int>();
             if (run.Phase == RunPhase.ChooseBranch)
@@ -470,31 +810,49 @@ namespace RogueStars.Client.Screens
                     UiPulse.On(glow, 0.05f, 1.1f, 0.5f);
                 }
                 var size = look.Gate ? new Vector2(TileW + GateGrow, TileH + GateGrow) : new Vector2(TileW, TileH);
-                Color fill, border, text;
-                if (look.Visited || look.Cleared && !look.Current) { fill = Theme.Hex(0x201416); border = Theme.Hex(0x4A3330); text = Theme.Hex(0x6E5550); }
-                else if (look.Cleared) { fill = Theme.Hex(0x1E2A1E); border = Theme.Shade(Theme.Good, 0.7f); text = Theme.Hex(0x9CF0B5); }
-                else if (look.Gate) { fill = Theme.Hex(0x3A1414); border = Theme.Bad; text = Theme.Hex(0xFF9FA2); }
-                else if (look.Empty) { fill = Theme.PanelAlt; border = Theme.Border; text = Theme.TextFaint; }
-                else { fill = Theme.Panel; border = look.Accent; text = Color.Lerp(look.Accent, Color.white, 0.55f); }
-                if (look.Fork && !look.Visited) { fill = Theme.Hex(0x2B2414); }
-                if (t.BonusPct > 0 && !look.Visited) fill = Color.Lerp(fill, Theme.Bad, 0.25f);
+                // only the tiles the worm LANDED on are coloured; passed tiles keep their look. The tile landed on in this
+                // move is drawn as before and takes its colour when the token lands (Land).
+                bool landsNow = t.Id == landingId;
+                TileColors(look, look.Landed && !landsNow, out var fill, out var border, out var text);
+                if (look.Fork && !look.Landed) fill = Theme.Hex(0x2B2414);
+                if (t.BonusPct > 0 && !look.Landed) fill = Color.Lerp(fill, Theme.Bad, 0.25f);
                 var img = Ui.RoundPanel(board, fill, 16, "Tile:" + t.Id);
                 img.raycastTarget = false;
                 PlaceAt(img.rectTransform, center, size);
-                UiShapes.Outline(img.rectTransform, border, 16, look.Gate ? 5 : 4);
-                if (look.Current) currentTile = img.rectTransform;
+                var outline = UiShapes.Outline(img.rectTransform, border, 16, look.Gate ? 5 : look.Landed ? 5 : 4);
                 string label = look.Label;
-                if (look.Fork && !look.Visited) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=20>fork</size>";
+                if (look.Fork && !look.Visited && !look.Landed) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=20>fork</size>";
                 if (look.Option) label = (run.BranchOptions.IndexOf(t.Id) == 0 ? "A · " : "B · ") + label;
                 if (look.Gate) label = "BOSS\n<size=18>arena</size>";
-                if (look.Cleared && !string.IsNullOrEmpty(label) && !look.Gate) label += " ✓";
+                bool check = look.Cleared && look.Landed && !string.IsNullOrEmpty(label) && !look.Gate;
+                string landedLabel = check ? label + " ✓" : label;
+                if (check && !landsNow) label = landedLabel; // the tile landed on now gets its check mark at the landing
+                Text lab = null;
                 if (!string.IsNullOrEmpty(label))
                 {
-                    var lab = Ui.Display(img.transform, label, look.Gate ? 32 : label.Length > 6 ? 24 : 30, text, TextAnchor.MiddleCenter);
+                    lab = Ui.Display(img.transform, label, look.Gate ? 32 : label.Length > 6 ? 24 : 30, text, TextAnchor.MiddleCenter);
                     lab.lineSpacing = 0.8f;
                     Ui.Stretch(lab.rectTransform, 2, 2, 2, 2);
                 }
-                if (t.BonusPct > 0 && !look.Visited)
+                // landed marker: a footprint dot in the tile's corner
+                GameObject mark = null;
+                if (look.Landed && !look.Gate)
+                {
+                    var dot = Ui.Dot(img.transform, Theme.Cream, 18, "LandMark");
+                    dot.GetComponent<LayoutElement>().ignoreLayout = true;
+                    var drt = dot.rectTransform;
+                    drt.anchorMin = drt.anchorMax = new Vector2(0, 1);
+                    drt.sizeDelta = new Vector2(18, 18);
+                    drt.anchoredPosition = new Vector2(16, -16);
+                    mark = dot.gameObject;
+                    if (landsNow) mark.SetActive(false);
+                }
+                if (landsNow)
+                {
+                    TileColors(look, true, out var lf, out var lb, out var lt);
+                    landing = new TileVisual { Root = img.rectTransform, Fill = img, Border = outline, Label = lab, LandedLabel = landedLabel, Accent = look.Gate ? Theme.Bad : look.Empty ? Theme.TextFaint : look.Accent, LandedFill = lf, LandedBorder = lb, LandedText = lt, Mark = mark };
+                }
+                if (t.BonusPct > 0 && !look.Landed)
                 {
                     var pip = Ui.Chip(img.transform, "+" + t.BonusPct.ToString("0") + "%", Theme.Bad, Theme.Text, 20, 32, null, "Bonus");
                     pip.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
@@ -542,53 +900,82 @@ namespace RogueStars.Client.Screens
                 Ui.Stretch(bl.rectTransform);
             }
 
-            // token (worm): a glowing tile-sized plate with the worm bobbing on it; moved along the path by the animation
+            // token (worm): a board-game piece — a glowing round base with the worm bobbing on it and a shadow on the
+            // ground; it hops tile by tile along the path (Build) and is smaller than a tile, so the landed tile shows.
             var cur = run.Position >= 0 && run.Position < run.Tiles.Count ? run.Tiles[run.Position] : null;
             var start = cur;
             int prevIndex = Math.Max(0, Math.Min(_trailSeen, run.Trail.Count) - 1);
             if (run.Trail.Count > _trailSeen && _trailSeen > 0) start = run.Tiles[run.Trail[prevIndex]];
-            RectTransform token = null;
+            _token = _tokenBody = _tokenShadow = null;
             if (start != null)
             {
-                var plate = Ui.RoundPanel(board, Theme.Accent, 18, "Token");
-                plate.raycastTarget = false;
-                token = plate.rectTransform;
-                PlaceAt(token, P(start), new Vector2(TileW + 8, TileH + 8));
-                token.name = "Token";
-                UiShapes.Outline(token, Theme.Cream, 18, 5);
-                var glow = Ui.RoundPanel(token, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.4f), 30, "Glow");
+                var shadow = Ui.Panel(board, new Color(0, 0, 0, 0.45f), "TokenShadow");
+                shadow.sprite = UiShapes.Circle;
+                shadow.raycastTarget = false;
+                _tokenShadow = shadow.rectTransform;
+                PlaceAt(_tokenShadow, P(start) + ShadowOffset, new Vector2(96, 34));
+
+                var tokenRt = Ui.Rect(board, "Token");
+                PlaceAt(tokenRt, P(start) + TokenLift, new Vector2(92, 92));
+                _token = tokenRt;
+                var glow = Ui.Panel(tokenRt, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.45f), "Glow");
+                glow.sprite = UiShapes.Circle;
                 glow.raycastTarget = false;
-                Ui.Stretch(glow.rectTransform, -16, -16, -16, -16);
-                glow.transform.SetAsFirstSibling();
-                UiPulse.On(glow, 0.04f, 1.6f, 0.5f);
-                var worm = Ui.RoundPanel(token, Theme.Worm, 22, "Worm");
+                Ui.Stretch(glow.rectTransform, -18, -18, -18, -18);
+                UiPulse.On(glow, 0.06f, 1.6f, 0.5f);
+                var bodyRt = Ui.Rect(tokenRt, "Body");
+                Ui.Stretch(bodyRt);
+                bodyRt.pivot = new Vector2(0.5f, 0.1f); // squash from the ground
+                _tokenBody = bodyRt;
+                var plate = Ui.Panel(bodyRt, Theme.Accent, "Plate");
+                plate.sprite = UiShapes.Circle;
+                plate.raycastTarget = false;
+                Ui.Stretch(plate.rectTransform, 6, 6, 6, 6);
+                var ring = Ui.Panel(bodyRt, Theme.Cream, "Rim");
+                ring.sprite = UiShapes.Circle;
+                ring.raycastTarget = false;
+                Ui.Stretch(ring.rectTransform, 0, 0, 0, 0);
+                ring.transform.SetAsFirstSibling();
+                var worm = Ui.RoundPanel(bodyRt, Theme.Worm, 20, "Worm");
                 worm.raycastTarget = false;
                 var wrt = worm.rectTransform;
                 wrt.anchorMin = wrt.anchorMax = new Vector2(0.5f, 0.5f);
-                wrt.sizeDelta = new Vector2(72, 34);
-                wrt.anchoredPosition = new Vector2(0, 2);
-                UiShapes.Outline(wrt, Theme.WormLight, 17, 4);
+                wrt.sizeDelta = new Vector2(62, 32);
+                wrt.anchoredPosition = new Vector2(0, 4);
+                UiShapes.Outline(wrt, Theme.WormLight, 18, 4);
                 var eye = Ui.Dot(wrt, Theme.OnAccent, 9, "Eye");
                 eye.rectTransform.anchorMin = eye.rectTransform.anchorMax = new Vector2(0.8f, 0.62f);
                 eye.rectTransform.sizeDelta = new Vector2(9, 9);
                 UiBob.On(wrt, 5, 1.6f);
             }
-            focus = currentTile;
+
+            // effects layer over the whole screen (coins flying to the coin chip)
+            if (_fx == null || _fx.parent != Root)
+            {
+                _fx = Ui.Rect(Root, "Fx");
+                Ui.Stretch(_fx);
+                _fx.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
+            }
+            _fx.SetAsLastSibling();
+
+            // place the camera: first build centres on the worm; later builds keep the camera where it was (it then eases)
+            if (float.IsNaN(_cam)) _cam = CameraTarget();
+            ApplyCamera();
 
             // dice + last effect text: first row of the fixed bottom bar
             var info = Ui.Row(Footer ?? body, InfoRowH, 12, null, 0, "Info");
-            var diceChip = Ui.RoundPanel(info, Theme.Cream, 16, "Dice");
+            var diceChip = Ui.RoundPanel(info, Theme.PanelAlt, 16, "Dice");
             Ui.Size(diceChip, 150, InfoRowH, 0);
-            dice = Ui.Display(diceChip.transform, DiceText(run), 30, Theme.OnAccent, TextAnchor.MiddleCenter);
-            Ui.Stretch(dice.rectTransform);
+            int diceN = Math.Max(1, run.LastDice.Count);
+            var dice = new DiceView(diceChip.rectTransform, diceN, Mathf.Min(InfoRowH - 10, 128f / diceN - 6), "FooterDice");
+            Ui.Stretch(dice.Root);
+            if (run.LastDice.Count > 0) dice.Pose(1, run.LastDice);
+            else dice.Root.gameObject.SetActive(run.Rolls > 0);
+            _footerDice = dice;
             var land = cur != null && Content.BoardTiles.TryGetValue(cur.TileId ?? "", out var ld) ? ld : null;
-            // HP stays visible in the fixed bar while the board follows the worm
-            double hpFrac = run.WormMaxHp > 0 ? run.WormHp / run.WormMaxHp : 1;
-            var hpColor = hpFrac > 0.5 ? Theme.Good : hpFrac > 0.25 ? Theme.Warn : Theme.Bad;
-            Ui.Chip(info, "HP " + Fmt.Num(Math.Max(0, run.WormHp)) + "/" + Fmt.Num(run.WormMaxHp), Theme.Tint(hpColor, 0.3f), Color.Lerp(hpColor, Color.white, 0.5f), 24, InfoRowH, null, "HpChip");
             var what = Ui.Label(info, run.LastEventText ?? (land != null ? land.Name + (string.IsNullOrEmpty(land.Text) ? "" : ": " + land.Text) : ""), 24, Theme.TextDim);
             what.verticalOverflow = VerticalWrapMode.Truncate;
-            return token;
+            return dice;
         }
 
         private static void PlaceAt(RectTransform rt, Vector2 anchored, Vector2 size)
@@ -611,7 +998,7 @@ namespace RogueStars.Client.Screens
             rt.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(pb.y - pa.y, pb.x - pa.x) * Mathf.Rad2Deg);
         }
 
-        private void Controls(ActiveRun run, Text dice)
+        private void Controls(ActiveRun run, DiceView dice)
         {
             var bar = Footer;
             if (bar == null) return;
@@ -623,9 +1010,12 @@ namespace RogueStars.Client.Screens
                 if (i < skills.Count && (i < SkillSlots - 1 || skills.Count == SkillSlots))
                 {
                     var s = Content.Skill(skills[i]);
-                    var fam = Theme.FamilyColor(s?.Family ?? SkillFamily.None);
-                    var b = Ui.Button(slots, s?.Name ?? skills[i], () => SkillsModal(run), Theme.Tint(fam, 0.3f), -1, SlotRowH, true, 22);
-                    b.GetComponentInChildren<Text>().color = Color.Lerp(fam, Color.white, 0.55f);
+                    var col = RunPresentation.SkillColor(s); // rarity colour (family = the small tag)
+                    var b = Ui.Button(slots, s?.Name ?? skills[i], () => SkillsModal(run), Theme.Tint(col, 0.32f), -1, SlotRowH, true, 22);
+                    b.name = "Slot:" + skills[i];
+                    b.GetComponentInChildren<Text>().color = Color.Lerp(col, Color.white, 0.5f);
+                    UiShapes.Outline((RectTransform)b.transform, col, Theme.RadiusButton, 3, "RarityBorder");
+                    FamilyTag((RectTransform)b.transform, s?.Family ?? SkillFamily.None);
                 }
                 else if (i < skills.Count)
                     Ui.Button(slots, "+" + (skills.Count - i) + " more", () => SkillsModal(run), Theme.Panel, -1, SlotRowH, true, 22);
@@ -655,12 +1045,13 @@ namespace RogueStars.Client.Screens
             hold.OnTap = () =>
             {
                 if (_auto) StopAuto();
-                else if (!Animating)
+                else if (Animating) _anim.Speed = 4; // tap while the dice roll / the worm hops: fast-forward
+                else
                 {
                     var r = State.Run.Active;
                     if (r != null && r.Phase == RunPhase.AwaitRoll) Run(new RunRoll());
                     else if (r != null && r.Phase == RunPhase.Encounter) Run(new RunEncounter());
-                    else if (r != null && r.Phase == RunPhase.ChooseBranch) Rebuild(); // re-centres the board on the fork
+                    else if (r != null && r.Phase == RunPhase.ChooseBranch) { _camHold = 0; Rebuild(); } // the camera eases back to the fork
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
             };
@@ -714,6 +1105,7 @@ namespace RogueStars.Client.Screens
 
         public override void Frame(float dt)
         {
+            StepCamera(dt);
             if (_toResult && !Animating && App.Router.Current == this)
             {
                 _toResult = false;
@@ -864,6 +1256,26 @@ namespace RogueStars.Client.Screens
             }
         }
 
+        /// <summary>
+        /// The skill's family as a small tag in the corner of a rarity-coloured slot / card / icon (initial in the family
+        /// colour; skills are coloured by rarity everywhere in the run).
+        /// </summary>
+        public static void FamilyTag(RectTransform target, SkillFamily family)
+        {
+            if (target == null || family == SkillFamily.None) return;
+            var col = Theme.FamilyColor(family);
+            var tag = Ui.Dot(target, Theme.Shade(col, 0.55f), 30, "FamilyTag");
+            tag.GetComponent<LayoutElement>().ignoreLayout = true;
+            var rt = tag.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(0.75f, 0.75f);
+            rt.sizeDelta = new Vector2(30, 30);
+            rt.anchoredPosition = Vector2.zero;
+            UiShapes.Outline(rt, col, 15, 3);
+            var l = Ui.Display(rt, family.ToString().Substring(0, 1), 18, Color.Lerp(col, Color.white, 0.4f), TextAnchor.MiddleCenter);
+            Ui.Stretch(l.rectTransform);
+        }
+
         /// <summary>Branch colours: A orange, B gold.</summary>
         public static Color BranchColor(int option) => option == 0 ? Theme.Accent : Theme.Gold;
 
@@ -937,6 +1349,8 @@ namespace RogueStars.Client.Screens
             var run = State.Run.Active;
             if (run == null || run.RunId != stale.RunId) return;
             if (_outcome != null && _outcome.IsOpen) return;
+            if (run.LastOutcome != null && run.OutcomeSeq > _outcomeSeen && !RunPresentation.IsSheetSource(run.LastOutcome.Source))
+                _outcomeSeen = run.OutcomeSeq; // a shop visit (bought items were seen in the shop) or a tile's outcome (shown as landing popups): no result sheet
             if (run.LastOutcome != null && run.OutcomeSeq > _outcomeSeen)
             {
                 _outcomeSeen = run.OutcomeSeq;
@@ -1003,7 +1417,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.SkillGained:
                 case OutcomeKind.SkillLost:
                 case OutcomeKind.SkillLevel:
-                    return new KeyValuePair<string, Color>("S", Theme.FamilyColor(content.Skill(l.Id)?.Family ?? SkillFamily.None));
+                    return new KeyValuePair<string, Color>("S", RunPresentation.SkillColor(content, l.Id));
                 case OutcomeKind.Xp: case OutcomeKind.LevelUp: return new KeyValuePair<string, Color>("XP", Theme.Premium);
                 case OutcomeKind.Shards: return new KeyValuePair<string, Color>("SH", Theme.Premium);
                 case OutcomeKind.AccountLoot:
@@ -1144,21 +1558,22 @@ namespace RogueStars.Client.Screens
                     string sid = id;
                     var s = Content.Skill(sid);
                     var fam = s?.Family ?? SkillFamily.None;
-                    var famColor = Theme.FamilyColor(fam);
                     var rarity = s?.Rarity ?? Rarity.Common;
-                    var btn = Ui.CardButton(box, "Button:Pick", Theme.Tint(famColor, 0.2f), famColor,
+                    var rarColor = RunPresentation.SkillColor(s); // cards are coloured by rarity; the family is a small tag
+                    var btn = Ui.CardButton(box, "Button:Pick", Theme.Tint(rarColor, 0.22f), rarColor,
                         () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, out var card, 40, 24, 8);
                     var row = Ui.Row(card, -1, 22, null, 0, "Draft:" + sid);
                     row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
                     row.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
-                    var icon = Ui.RoundPanel(row, famColor, 30, "Icon");
+                    var icon = Ui.RoundPanel(row, rarColor, 30, "Icon");
                     Ui.Size(icon, 130, 130, 0);
-                    var letter = Ui.Display(icon.transform, fam == SkillFamily.None ? "★" : fam.ToString().Substring(0, 1), 64, Theme.TextOn(famColor), TextAnchor.MiddleCenter);
+                    var letter = Ui.Display(icon.transform, fam == SkillFamily.None ? "★" : fam.ToString().Substring(0, 1), 64, Theme.TextOn(rarColor), TextAnchor.MiddleCenter);
                     Ui.Stretch(letter.rectTransform);
+                    FamilyTag(icon.rectTransform, fam);
                     var text = Ui.Column(row, 4, 0, null, "Text");
                     Ui.Size(text, -1, -1, 1);
                     var tags = Ui.ChipRow(text, 40, 8);
-                    var cap = Ui.Label(tags, (fam == SkillFamily.None ? "" : fam.ToString().ToUpperInvariant() + " · ") + rarity.ToString().ToUpperInvariant(), 22, Color.Lerp(famColor, Color.white, 0.35f));
+                    var cap = Ui.Label(tags, rarity.ToString().ToUpperInvariant() + (fam == SkillFamily.None ? "" : " · " + fam.ToString().ToUpperInvariant()), 22, Color.Lerp(rarColor, Color.white, 0.35f));
                     cap.fontStyle = FontStyle.Bold;
                     Ui.Size(cap, -1, -1, 0);
                     cap.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -1169,7 +1584,7 @@ namespace RogueStars.Client.Screens
                     Ui.Chip(tags, rarity.ToString(), Theme.Tint(Theme.RarityColor(rarity), 0.4f), Theme.RarityColor(rarity), 18, 34, Theme.RarityColor(rarity));
                     Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
                     string full = Fmt.SkillFull(s);
-                    if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(famColor, Color.white, 0.7f)).name = "SkillText";
+                    if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(rarColor, Color.white, 0.7f)).name = "SkillText";
                     if (s?.UpgradesFrom != null && ownedLevel == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
                     if (ownedLevel > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
                 }
@@ -1196,7 +1611,7 @@ namespace RogueStars.Client.Screens
                     string what = skill ? (sk?.Name ?? o.SkillId)
                         : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
                         : o.Stat != null ? RogueStars.Rules.Core.SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
-                    var color = skill ? Theme.FamilyColor(sk?.Family ?? SkillFamily.None) : Theme.Good;
+                    var color = skill ? RunPresentation.SkillColor(sk) : Theme.Good; // skills by rarity
                     var row = Ui.Row(b, -1, 14, o.Sold ? Theme.PanelAlt : Theme.Tint(color, 0.16f), 20, "Offer");
                     var rl = row.GetComponent<HorizontalLayoutGroup>();
                     rl.childAlignment = TextAnchor.MiddleLeft; rl.childForceExpandHeight = false;
@@ -1204,12 +1619,13 @@ namespace RogueStars.Client.Screens
                     UiShapes.Outline(row, o.Sold ? Theme.Border : Theme.Shade(color, 0.8f), Theme.RadiusButton, 3);
                     var icon = Ui.RoundPanel(row, o.Sold ? Theme.Locked : color, 18, "Icon");
                     Ui.Size(icon, 64, 64, 0);
+                    if (skill && sk != null) FamilyTag(icon.rectTransform, sk.Family);
                     var words = Ui.Column(row, 0, 0, null, "Words");
                     Ui.Size(words, -1, -1, 1);
                     words.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     // the offer's name is its own text (the tests look the buy button up by the name next to it)
                     Ui.Label(words, what, Theme.FontNormal, o.Sold ? Theme.TextFaint : Theme.Text).fontStyle = FontStyle.Bold;
-                    if (skill && sk != null) Ui.Label(words, (sk.Family != SkillFamily.None ? sk.Family + " · " : "") + sk.Rarity, 22, Theme.RarityColor(sk.Rarity));
+                    if (skill && sk != null) Ui.Label(words, sk.Rarity + (sk.Family != SkillFamily.None ? " · " + sk.Family : ""), 22, Theme.RarityColor(sk.Rarity)).name = "OfferRarity";
                     // Full text: what the offer actually does (a skill name alone means nothing to a new player).
                     string detail = skill ? Fmt.SkillFull(sk)
                         : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
@@ -1274,10 +1690,12 @@ namespace RogueStars.Client.Screens
                 foreach (var id in ids)
                 {
                     var s = Content.Skill(id);
-                    var fam = Theme.FamilyColor(s?.Family ?? SkillFamily.None);
-                    var row = Ui.Row(b, 72, 12, Theme.Tint(fam, 0.2f), 16);
-                    var dot = Ui.Dot(row, fam, 28);
-                    Ui.Label(row, (s?.Name ?? id) + " <size=20>(" + (s?.Family ?? SkillFamily.None) + " · " + (s?.Rarity ?? Rarity.Common) + ")</size>", Theme.FontSmall, Color.Lerp(fam, Color.white, 0.5f));
+                    var col = RunPresentation.SkillColor(s);
+                    var row = Ui.Row(b, 72, 12, Theme.Tint(col, 0.22f), 16, "Skill:" + id);
+                    UiShapes.Outline(row, Theme.Shade(col, 0.9f), 16, 3);
+                    Ui.Dot(row, col, 28, "Rarity");
+                    int lv = RunDraft.Level(run, id);
+                    Ui.Label(row, (s?.Name ?? id) + (lv > 1 ? " Lv " + lv : "") + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + s.Family : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
                 }
             });
     }
@@ -1399,7 +1817,7 @@ namespace RogueStars.Client.Screens
             foreach (var g in s.Gains)
             {
                 var sk = g.SkillId != null ? Content.Skill(g.SkillId) : null;
-                var col = g.Source == "mythic" ? Theme.RarityColor(Rarity.Mythic) : sk != null ? Theme.FamilyColor(sk.Family) : Theme.Good;
+                var col = sk != null ? RunPresentation.SkillColor(sk) : g.Source == "mythic" ? Theme.RarityColor(Rarity.Mythic) : Theme.Good; // by rarity
                 Ui.Chip(list, GainText(g, Content), Theme.Tint(col, 0.25f), Color.Lerp(col, Color.white, 0.5f), 20, 40).name = "Gain";
             }
         }
