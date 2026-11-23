@@ -50,7 +50,7 @@ the solution tests.
 ## Headline numbers (after the balance pass and the plateau fix, median of 3 seeds)
 
 > Numbers in this section and in "Generated tables" are from before the parts/lab/cores redesign (they equal the
-> `*_pre_redesign` data). Current content: see "Parts/lab/cores redesign" below and `data/analysis_redesign.md`; the
+> `*_pre_redesign` data); the endless campaign (section "Endless campaign") changes year one by < 3% on average. Current content: see "Parts/lab/cores redesign" below and `data/analysis_redesign.md`; the
 > charts in `charts/` are regenerated from the redesign run.
 
 | Profile | main level d7 / d30 / d90 / d365 / d730 | Power d7 / d30 / d90 / d365 / d730 | spent by d730 |
@@ -344,19 +344,125 @@ merge). Laboratory gaps are 3–20 days until the tree is done. New hoarding fla
 - Biomass: run completion (120 + 30·level) × portal scale and loot 45–90 × scale (1.5× before), the daily surge (first 3
   won portal runs ×4) and city farms 0.5×.
 
+## Endless campaign
+
+Content change (2026-11, product-owner approved): the main campaign and the Dark Side never end. Portals past the 50
+named ones are generated from their index on the same threat curve (0.06 steps per level forever), with per-run
+currencies growing as threat^0.7, a one-time milestone chest every 10 levels and a portal-completion bonus every 50, run
+item drops shifting up in rarity past level 500 (capped at Legendary), feats on every level, and the progress of levels
+far behind the frontier folded into a compact archive. Formulas and the reward table at levels 100 … 2000:
+`docs/design/economy-model.md` ("Endless campaign rewards"). *Before* = content just before this change
+(`data/*_pre_endless.csv`, `data/analysis_pre_endless.md`), *after* = `data/*_endless.csv`, `data/endless_endless.md`
+(9 profiles × 3 seeds × 730 days) and `data/*_endless_1095.csv`, `data/endless_endless_1095.md` (Active F2P and
+Hardcore Whale, 3 seeds × 1 095 days). Bot change: the frontier is always `main_level_max + 1` (no campaign end), Dark
+Side frontier and farming from the endless sequence.
+
+### Campaign and power, before → after (median)
+
+| Profile | main level d90 / d180 / d365 / d730 | power d365 / d730 | milestone chests d365 / d730 |
+|---|---|---|---|
+| Casual F2P | 43 / 56 / 85 / 198 → 42 / 58 / 88 / 201 | 31.7k / 61.2k → 32.4k / 61.7k | 8 / 20 |
+| Casual Dolphin | 52 / 74 / 114 / 202 → 55 / 78 / 128 / 210 | 44.7k / 72.3k → 46.1k / 73.6k | 12 / 21 |
+| Casual Whale | 56 / 87 / 122 / 183 → 55 / 86 / 121 / 176 | 56.8k / 92.4k → 57.3k / 92.6k | 12 / 17 |
+| Active F2P | 66 / 124 / 232 / 416 → 70 / 118 / 234 / 425 | 66.8k / 114.6k → 68.9k / 114.0k | 23 / 42 |
+| Active Dolphin | 79 / 157 / 264 / 459 → 83 / 159 / 280 / 475 | 75.6k / 114.8k → 79.6k / 121.8k | 28 / 47 |
+| Active Whale | 114 / 203 / 372 / 494 → 103 / 201 / 360 / 507 | 100.7k / 131.7k → 95.8k / 131.0k | 36 / 50 |
+| Hardcore F2P | 84 / 172 / 311 / 500 → 88 / 171 / 299 / 511 | 90.6k / 141.1k → 87.0k / 134.0k | 29 / 51 |
+| Hardcore Dolphin | 111 / 191 / 332 / 500 → 109 / 190 / 357 / 553 | 94.2k / 138.4k → 97.4k / 140.3k | 35 / 55 |
+| Hardcore Whale | 128 / 240 / 423 / 500 → 131 / 243 / 426 / 580 | 112.9k / 148.2k → 108.2k / 146.2k | 42 / 58 |
+
+**Year one is not faster:** main level at day 365 is +2.6% on average over the 9 profiles (−4 … +12%; the +12% is
+Casual Dolphin, within its seed noise), power at day 365 +0.6% (−5 … +5%), days 90/180 within ±1%. The only year-one
+content change is the milestone chests (≈ 2% more Diamonds and pull tokens for an active player) and the late glacier
+offset from level 401. **Nobody hits a campaign end:** every Hardcore profile and the Active Whale pass level 500 in
+year two (before: capped at 500 from day ~560–700) and keep going.
+
+### Past two years (Active F2P and Hardcore Whale, 1 095 days)
+
+| Profile | main level d365 | d730 | d910 | d1095 | power d730 → d1095 |
+|---|---|---|---|---|---|
+| Active F2P | 234 | 425 | 462 | 486 | 114k → 137k |
+| Hardcore Whale | 426 | 580 | 628 | 668 | 146k → 173k |
+
+| Days per 50 levels (median) | 300→350 | 350→400 | 400→450 | 450→500 | 500→550 | 550→600 | 600→650 |
+|---|---|---|---|---|---|---|---|
+| Active F2P | 41 | 61 | 235 | – | – | – | – |
+| Hardcore Whale | 54 | 48 | 52 | 125 | 135 | 127 | 208 |
+
+| Longest stretch without a new main level (days) | d1–180 | d181–365 | d366–545 | d546–730 | d731–910 | d911–1095 |
+|---|---|---|---|---|---|---|
+| Active F2P | 15 | 9 | 22 | 13 | 25 | 23 |
+| Hardcore Whale | 6 | 14 | 14 | 17 | 17 | 20 |
+
+![Endless main level](charts/endless_main_level.png)
+
+Past level ~450 the campaign is power-gated: heroes, mounts, aliens, the laboratory and most buildings are maxed by
+year three (Hardcore Whale: hero 10★, mount awakening 5, aliens 10★, lab 100%, buildings 31.9 of 32), so power grows
+only ~19% a year (worm levels, the part ladder towards SS+2) and the frontier advances ~0.3 levels per day (whale) /
+~0.15 (Active F2P) — slow, but without a hard stop: the longest stretch without a new level stays ≤ 25 days in years two
+and three (analysis wall limit for year two: 35 days). The pace barely depends on α (Hardcore Whale level 650 at day
+1 095 for α = 0.4, 0.55 and 0.7: `data/endless_alpha_*.md`).
+
+**New wall found and fixed — glacier portals.** Without the late family offset the endless campaign was stair-stepped:
+every long stall (≥ 3 weeks in the weekly medians) sat in a glacier-family portal (levels 411–419, 453, 530, 573,
+610–614, 651: the Frost Leviathan freezes the whole side every 5 rounds and shields up, the roster counters), and the
+longest stretch without a new level reached 38–44 days in year three (`data/endless_lateglacier_0.md`). Glacier portals
+from portal 41 on now get −20% enemy HP/ATK (`CampaignDef.LateFamilyStrengthPct`, like the void family's −25% everywhere):
+−10% halved the stalls (`data/endless_lateglacier_-10.md`), −20% removed every ≥ 3-week stall and moved Hardcore Whale
+day 1 095 from 650 to 668, Active F2P from 479 to 486, while Hardcore Whale's day 365 stays at the pre-endless value
+(426 vs 423).
+
+### Income vs costs: runs per upgrade by frontier level
+
+Cost of the cheapest next upgrade of each sink at the player's actual state ÷ that currency's reward of one won
+frontier run (completion + 2 loot rolls, expected value, no surge/ads; Data: Dark Side frontier); median over the days
+spent in each band, 3 seeds, 1 095 days.
+
+| Hardcore Whale | 200–299 | 300–399 | 400–499 | 500–599 | 600–699 |
+|---|---|---|---|---|---|
+| Worm level (Biomass) | 48 | 54 | 60 | 65 | 64 |
+| Part level (Ore) | 7.4 | 6.7 | 7.3 | 6.2 | 4.5 |
+| Part level (Gear Cores) | 122 | 120 | 101 | 87 | 68 |
+| Mount level (Fuel) | 248 | 366 | 432 | 489 | maxed |
+| Laboratory (Data) | 2.1 | 1.9 | 1.8 | tree done | tree done |
+| Building (Ore) | 8.6 | 9.9 | 27 | 66 | 126 |
+
+| Active F2P | 100–199 | 200–299 | 300–399 | 400–499 |
+|---|---|---|---|---|
+| Worm level (Biomass) | 48 | 60 | 67 | 78 |
+| Part level (Ore) | 6.6 | 7.1 | 7.0 | 6.3 |
+| Part level (Gear Cores) | 122 | 126 | 128 | 105 |
+| Mount level (Fuel) | 575 | 577 | 586 | 556 |
+| Laboratory (Data) | 2.9 | 3.0 | 2.4 | 2.2 |
+| Building (Ore) | 7.3 | 7.8 | 10.6 | 29 |
+
+The ratios stay flat across level 500 (worm 60 → 65 → 64 runs per level for the whale; part levels a little cheaper in
+runs, mount levels until maxed, research ~2 Dark Side clears until the tree is done). With α = 0.4 the worm ratio would
+have jumped to 87 / 98 and with 0.55 to 79 (economy-model.md). Buildings are the exception at every α: their cheapest
+remaining upgrade climbs from ~10 to 126 runs of Ore because the city reaches its level caps (×1.2 per level) — the sink
+runs out rather than the income falling behind; see recommendation 9. Active F2P only crosses level 500 at the very end
+of year three (one seed), so its 500+ band is not shown.
+
+![Runs per upgrade](charts/endless_runs_per_upgrade.png)
+
+### Memory and state size
+
+Content: the 50 named portals (500 levels) and Dark Side levels 1–150 stay materialized; later ones are generated on
+first access into a bounded cache (600 levels, regenerated identically). State: at day 1 095 an account holds ~215
+per-level records (the last 100 main and 100 Dark Side levels plus the Burrow) and a 400–650-byte archive for everything
+older (one character per level, nothing for a fully completed prefix), instead of one record per level played.
+
 ## Remaining recommendations
 
-0. **(Redesign) Campaign end for Hardcore profiles:** after the parts/lab redesign the campaign is 10–27% faster in
-   year one and every Hardcore profile reaches main level 500 around day 650–730 (Active Whale 494). Extend the campaign
-   (more portals) or steepen `CampaignDef.LateSlopes` after level ~300 before launch; alternatively lower
-   `PartsConfig.SkillPowerScale` further. Also add a late Data sink (e.g. lab prestige) for players who finish the tree.
+0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still
+   open: a late Data sink (e.g. lab prestige) for players who finish the tree; Data per Dark Side clear keeps growing
+   (threat^0.7) with nothing to buy once the tree is done.
 
 1. **Late-game ceilings for spenders** (largest gap): whales cap heroes, parts, mount stars and aliens in 12–18 months
    and their power flattens (whale/F2P ratio 1.03 at day 730). Add ceiling content on a schedule (new heroes, mounts,
    blueprints, alien species through the banner rotation), a star tier beyond 10★ / awakening beyond 5, or stronger
    collection bonuses per duplicate, so pulls keep converting into power for years.
-2. **Dark Side:** 10 levels are cleared within 6–12 months; generate it from the campaign curve like the main portals
-   (30+ levels, leaderboard seasons).
+2. ~~Dark Side~~: done (procedural, endless since the endless campaign).
 3. **Laboratory:** a second research slot from a building boon or more lines; it is done by month 5 for Active players.
 4. **Gear Cores / plates / Part Awaken Cores:** after parts are maxed they have no sink — add a late sink (rune rerolls,
    set bonuses, part transmute) or taper their income at max.
@@ -369,12 +475,17 @@ merge). Laboratory gaps are 3–20 days until the tree is done. New hoarding fla
 8. **Part drops at the portal 4–6 frontier:** raise part drop rarity/quantity of main levels 31–60 a little (or add a
    part token to their first-clear rewards) so merges keep pace with the faster campaign and the day 30–60 part-level
    wall shrinks back below ~10 days.
+9. **(Endless) Late city sink:** buildings reach their level caps in year two/three, so the cheapest remaining upgrade
+   costs 66–126 frontier runs of Ore past level 500 while every other sink stays flat. Add building tiers beyond the
+   star cap (or an Ore sink such as part transmutes) before players live in the endless levels; and ceiling content
+   (recommendation 1) is what speeds up the power-gated year-three pace (~0.15–0.3 levels per day).
 
 ## Guard test
 
 `ProgressionGuardTests` (Active F2P and Active Whale, seed 1, 60 days): main level bands at day 7/30/60 (F2P 18–32 /
 32–55 / 40–75, whale 20–40 / 40–75 / 50–100), no wall longer than 7–28 days per system in the first 60 days (part levels 20, see the plateau fix), whale/F2P
-power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mount ≤ 4★, parts below Mythic S on average,
+power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mount ≤ 5★ and not awakened — was ≤ 4★ before the
+endless campaign's milestone chests, which tip seed 1 over 5★ just before day 60, parts below Mythic S on average,
 lab incomplete and < 5% of its research hours), no awakening for anyone in 60 days (whale < 50 cores), no below-Legendary
 part pile (≤ 12 spare), 5–16 mythics per pull type in 60 days, and determinism by seed. (Redesign: bands unchanged, the
 part/lab/core checks are new.) Move a band only after re-running the

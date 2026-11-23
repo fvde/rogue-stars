@@ -3,6 +3,7 @@
 Usage (Apple Silicon, local venv outside the repo):
     arch -arm64 /usr/bin/python3 -m venv /tmp/rs-venv && /tmp/rs-venv/bin/pip install matplotlib
     /tmp/rs-venv/bin/python tools/RogueStars.Sim/charts.py docs/balance [label_before] [label_after] [compare.png]
+    /tmp/rs-venv/bin/python tools/RogueStars.Sim/charts.py docs/balance --endless   # endless campaign charts
 """
 import csv
 import os
@@ -107,8 +108,62 @@ def before_after(data_dir, before, after, out):
     plt.close(fig)
 
 
+def read_rpu(md_path):
+    """Runs-per-upgrade tables of data/endless_*.md: profile -> (band labels, sink -> values)."""
+    out, prof, sinks = {}, None, []
+    with open(md_path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("### "):
+                prof = line[4:]
+                out[prof] = ([], defaultdict(list))
+            elif prof and line.startswith("| Levels"):
+                sinks = [c.strip() for c in line.strip("|").split("|")][2:]
+            elif prof and line.startswith("| ") and line[2].isdigit():
+                cells = [c.strip() for c in line.strip("|").split("|")]
+                out[prof][0].append(cells[0])
+                for k, v in zip(sinks, cells[2:]):
+                    out[prof][1][k].append(float(v) if v not in ("–", "") else float("nan"))
+            elif line.startswith("## Milestones"):
+                prof = None
+    return out
+
+
+def endless_charts(root):
+    data, charts = os.path.join(root, "data"), os.path.join(root, "charts")
+    before = read_weekly(os.path.join(data, "weekly_pre_endless.csv"))
+    after = read_weekly(os.path.join(data, "weekly_endless_1095.csv"))
+    fig, ax = plt.subplots(figsize=(8, 4.5), dpi=120)
+    for prof, color in (("Active F2P", COLORS["F2P"]), ("Hardcore Whale", COLORS["Whale"])):
+        ax.plot([x["day"] for x in before[prof]], [x["main_level"] for x in before[prof]], ":", color=color, label=prof + " before (500-level campaign)")
+        ax.plot([x["day"] for x in after[prof]], [x["main_level"] for x in after[prof]], "-", color=color, label=prof + " endless")
+    ax.axhline(500, color="#888888", linewidth=0.8, linestyle="--")
+    style(ax, "Main level over three years (median of 3 seeds)", "main level")
+    ax.legend(fontsize=7, frameon=False)
+    fig.tight_layout()
+    fig.savefig(os.path.join(charts, "endless_main_level.png"))
+    plt.close(fig)
+
+    rpu = read_rpu(os.path.join(data, "endless_endless_1095.md"))
+    fig, axes = plt.subplots(1, len(rpu), figsize=(11, 4.2), dpi=120, sharey=True)
+    for ax, (prof, (bands, sinks)) in zip(axes, rpu.items()):
+        for k, vals in sinks.items():
+            ax.plot(range(len(bands)), vals, marker="o", markersize=3, linewidth=1.4, label=k)
+        ax.set_xticks(range(len(bands)))
+        ax.set_xticklabels(bands, fontsize=7, rotation=30)
+        style(ax, prof + ": runs per next upgrade", "runs (log)", log=True)
+        ax.set_xlabel("frontier main level")
+    axes[0].legend(fontsize=7, frameon=False)
+    fig.tight_layout()
+    fig.savefig(os.path.join(charts, "endless_runs_per_upgrade.png"))
+    plt.close(fig)
+
+
 def main():
     root = sys.argv[1] if len(sys.argv) > 1 else "docs/balance"
+    if len(sys.argv) > 2 and sys.argv[2] == "--endless":
+        endless_charts(root)
+        return
     before = sys.argv[2] if len(sys.argv) > 2 else None
     after = sys.argv[3] if len(sys.argv) > 3 else ""
     compare_name = sys.argv[4] if len(sys.argv) > 4 else "before_after.png"

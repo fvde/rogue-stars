@@ -86,9 +86,54 @@ public static class Endless
 
     private static string F(double v) => double.IsNaN(v) ? "–" : v >= 100 ? v.ToString("0", Output.Inv) : v.ToString("0.#", Output.Inv);
 
+    /// <summary>Longest run of days in [a, b] without a new main level.</summary>
+    private static int LongestGap(SimResult r, int a, int b)
+    {
+        int best = 0, gap = 0;
+        for (int d = a; d <= b && d <= r.Daily.Count; d++)
+        {
+            bool moved = d >= 2 && r.Daily[d - 1].MainLevel > r.Daily[d - 2].MainLevel;
+            gap = moved ? 0 : gap + 1;
+            best = Math.Max(best, gap);
+        }
+        return best;
+    }
+
+    /// <summary>Content reward table of the endless campaign at the given main levels (economy-model.md).</summary>
+    public static string RewardTable(ContentDb c, params int[] levels)
+    {
+        var sb = new StringBuilder();
+        string[] rar = { "Common", "Rare", "Epic", "Legendary" };
+        sb.AppendLine("| Main level | threat t | enemy ×M(t) | reward scale S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level ≈ | Data / Dark clear | item drops (min tier) | chest (n+10): 💎 / tokens each | portal bonus (n): 💎 / tokens each |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        foreach (int n in levels)
+        {
+            var l = c.MainLevel(n);
+            int portal = (n - 1) / c.Campaign.LevelsPerPortal;
+            double t = c.Campaign.ThreatAt(n);
+            // An average run of the portal (levels 1–10 pay 150 … 420 × S Biomass on completion).
+            double Avg(string cur) => Enumerable.Range(1, c.Campaign.LevelsPerPortal).Average(i => RewardPerRun(c, c.MainLevel(portal * c.Campaign.LevelsPerPortal + i), cur));
+            int dark = 1;
+            while (c.Campaign.DarkSideMainLevel(dark + 1) <= n) dark++;
+            var darkLevel = c.DarkSideLevel(dark);
+            var chest = c.Campaign.MilestoneRewards(n + 10);
+            var bonus = c.Campaign.MilestoneRewards(n);
+            int minRarity = c.RunLootTable(l.LootTableId).Entries.Where(e => e.Kind != RewardKinds.Currency).Min(e => e.Rarity);
+            sb.AppendLine("| " + n + " | " + t.ToString("0.0", Output.Inv) + " | " + Output.F(c.ThreatMultiplierAt(t)) + " | " + c.MainRewardScale(portal).ToString("0.#", Output.Inv)
+                + " | " + Output.F(Avg(Currencies.Biomass)) + " | " + Output.F(Avg(Currencies.Ore)) + " | " + Output.F(Avg(Currencies.Fuel)) + " | " + Output.F(Avg(Currencies.GearCores))
+                + " | " + dark + " | " + Output.F(RewardPerRun(c, darkLevel, Currencies.Data)) + " | " + rar[Math.Min(3, minRarity)]
+                + " | " + (chest.Count == 0 ? "–" : chest[0].Amount + " / " + chest[1].Amount) + " | " + (bonus.Count == 0 ? "–" : bonus[0].Amount + " / " + bonus[1].Amount) + " |");
+        }
+        return sb.ToString();
+    }
+
     public static string Markdown(List<SimResult> results, ContentDb content, int days)
     {
         var sb = new StringBuilder();
+        sb.AppendLine("## Endless reward table (content, α = " + content.Campaign.EndlessRewardExponent.ToString("0.##", Output.Inv) + ")");
+        sb.AppendLine();
+        sb.Append(RewardTable(content, 100, 250, 500, 1000, 2000));
+        sb.AppendLine();
         var groups = results.GroupBy(r => r.Profile).ToList();
         int top = groups.Max(g => g.Max(r => r.Daily[^1].MainLevel));
 
@@ -121,6 +166,15 @@ public static class Endless
             }
             sb.AppendLine();
         }
+        sb.AppendLine();
+
+        sb.AppendLine("## Longest stretch without a new main level (days, median of seeds)");
+        sb.AppendLine();
+        var windows = new List<(int a, int b)> { (1, 180), (181, 365), (366, 545), (546, 730), (731, 910), (911, 1095) }.Where(w => w.b <= days).ToList();
+        sb.AppendLine("| Profile | " + string.Join(" | ", windows.Select(w => "d" + w.a + "–" + w.b)) + " |");
+        sb.AppendLine("|---|" + string.Concat(windows.Select(_ => "---|")));
+        foreach (var g in groups)
+            sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", windows.Select(w => F(Output.Median(g.Select(r => (double)LongestGap(r, w.a, w.b)))))) + " |");
         sb.AppendLine();
 
         sb.AppendLine("## Runs per upgrade by frontier main level (median over the days spent in the band, all seeds)");

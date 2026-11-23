@@ -33,6 +33,24 @@ public static class Variants
                 }
             return;
         }
+        if (v.StartsWith("lategl_"))
+        {
+            // Late glacier strength % (CampaignDef.LateFamilyStrengthPct[1]): generated portals read it lazily; materialized
+            // glacier portals from LateFamilyFromPortal on are patched here.
+            double pct = double.Parse(v.Substring("lategl_".Length), System.Globalization.CultureInfo.InvariantCulture);
+            c.Campaign.LateFamilyStrengthPct[1] = pct;
+            for (int i = c.Campaign.LateFamilyFromPortal; i < c.Campaign.Portals; i++)
+            {
+                if (i % 4 != 1) continue;
+                foreach (var id in c.MainPortal(i).LevelIds)
+                {
+                    var m = c.RunLevel(id).Modifiers;
+                    double mult = (1 + m.EnemyHpPct / 100.0) * (1 + pct / 100.0);
+                    m.EnemyHpPct = m.EnemyAtkPct = Math.Round((mult - 1) * 100, 2);
+                }
+            }
+            return;
+        }
         if (v.StartsWith("alpha_"))
         {
             // Endless campaign reward exponent α (generated portals and Dark Side levels are built lazily, after this).

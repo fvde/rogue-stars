@@ -4,6 +4,13 @@ using RogueStars.Sim;
 // Usage: dotnet run --project tools/RogueStars.Sim -c Release -- [--days 730] [--seeds 3] [--profiles Active:F2P,Active:Whale]
 //        [--out docs/balance] [--label after] [--quiet] [--variant no_lab_stats,old_biomass]
 var opts = Args.Parse(args);
+if (opts.Has("reward-table"))
+{
+    // Content-only: the endless reward table (docs/design/economy-model.md); --variant alpha_X to try another α.
+    var rc = opts.Has("variant") ? Variants.Create(opts.Str("variant", "")) : SimContent.Create();
+    Console.WriteLine(Endless.RewardTable(rc, 100, 250, 500, 1000, 2000));
+    return;
+}
 int days = opts.Int("days", 730);
 int seeds = opts.Int("seeds", 3);
 string outDir = opts.Str("out", "docs/balance");
