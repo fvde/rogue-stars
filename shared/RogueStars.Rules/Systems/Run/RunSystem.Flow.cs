@@ -38,6 +38,7 @@ namespace RogueStars.Rules.Systems
                 if (run.StepsLeft > 0)
                 {
                     var tile = run.Tiles[run.Position];
+                    if (tile.Next.Count == 0) EnsureBoardAhead(c, run, run.StepsLeft);
                     if (tile.Next.Count == 0) { run.StepsLeft = 0; continue; }
                     int next;
                     if (tile.Next.Count > 1)
@@ -58,12 +59,6 @@ namespace RogueStars.Rules.Systems
                     run.StepsLeft--;
                     var nt = run.Tiles[next];
                     var def = TileDefOf(c, nt);
-                    if (def.Category == TileCategory.BossGate)
-                    {
-                        // The board is a circuit: passing the gate starts the next lap (the boss is woken by its meter).
-                        run.Laps++;
-                        ctx.Emit("run_lap", run.Laps.ToString());
-                    }
                     if (run.StepsLeft > 0)
                     {
                         PassTile(ctx, run, nt, def);
@@ -74,11 +69,79 @@ namespace RogueStars.Rules.Systems
                     continue;
                 }
                 // Minibosses come with the clock too (RunTuning.MinibossAtMeter): a lieutenant of the boss attacks after the move.
-                if (run.PendingAmbushes > 0 && !run.BossFought) { run.PendingAmbushes--; StartAmbush(ctx, run); continue; }
-                // The awakening meter is the run's clock: once it is full (or at the roll limit) the boss comes after the move.
-                if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { StartBoss(ctx, run); continue; }
+                if (run.PendingAmbushes > 0 && !run.BossFought) { OpenEncounter(ctx, run, "ambush"); return; }
+                // The awakening meter is the run's clock: once it is full (or at the roll limit) the boss's arena opens ahead
+                // of the worm after the move; the next step walks in and fights.
+                if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { OpenEncounter(ctx, run, "boss"); return; }
                 return;
             }
+        }
+
+        /// <summary>
+        /// The board grows ahead of the worm: segments are appended until the open end is more than
+        /// <paramref name="steps"/> + RunTuning.BoardLookAhead steps away (nothing behind the worm ever changes).
+        /// </summary>
+        private static void EnsureBoardAhead(ContentDb c, ActiveRun run, int steps)
+        {
+            var level = Level(c, run);
+            int need = steps + c.RunTuning.BoardLookAhead;
+            for (int guard = 0; guard < 20 && RunBoard.StepsToEnd(run.Tiles, run.Position, run.BoardEnd) < need; guard++)
+            {
+                var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments);
+                RunBoard.AppendSegment(c, level, b, run.Rng);
+                run.BoardEnd = b.EndTile;
+                run.BoardSegments = b.Segments;
+                if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
+            }
+        }
+
+        /// <summary>A fight comes after the move (phase Encounter; the next clear step resolves it with its own battle).</summary>
+        private static void OpenEncounter(CommandContext ctx, ActiveRun run, string kind)
+        {
+            run.Phase = RunPhase.Encounter;
+            run.EncounterKind = kind;
+            if (kind == "boss")
+            {
+                // the arena opens right ahead of the worm: the path ends there
+                var here = run.Tiles[run.Position];
+                var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, here.Y);
+                here.Next.Clear();
+                here.Next.Add(arena.Id);
+                run.BossGateTile = arena.Id;
+                run.BoardEnd = arena.Id;
+            }
+            ctx.Emit("run_encounter", kind);
+        }
+
+        /// <summary>Resolves the open encounter: the miniboss attacks, or the worm walks into the arena and fights the boss.</summary>
+        private static void Encounter(CommandContext ctx, ActiveRun run)
+        {
+            Require(run.Phase == RunPhase.Encounter, "no encounter");
+            string kind = run.EncounterKind;
+            run.Phase = RunPhase.AwaitRoll;
+            run.EncounterKind = null;
+            if (kind == "ambush")
+            {
+                run.PendingAmbushes = Math.Max(0, run.PendingAmbushes - 1);
+                StartAmbush(ctx, run);
+            }
+            else
+            {
+                if (run.BossGateTile >= 0 && run.Position != run.BossGateTile)
+                {
+                    run.Position = run.BossGateTile;
+                    run.Trail.Add(run.BossGateTile);
+                }
+                StartBoss(ctx, run);
+            }
+            Continue(ctx, run);
+        }
+
+        /// <summary>Once the run's account-loot opportunities are used up, chests ahead become supply caches (no chest that does nothing).</summary>
+        private static void RetireTreasures(ContentDb c, ActiveRun run)
+        {
+            foreach (var t in run.Tiles)
+                if (!t.Cleared && t.TileId == "treasure" && !run.Trail.Contains(t.Id)) t.TileId = "loot";
         }
 
         private static void PassTile(CommandContext ctx, ActiveRun run, RunTile tile, TileDef def)
@@ -149,13 +212,7 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.Hazard:
                     if (def.Value > 0) DamageWorm(run, def.Value);
                     if (def.Coins > 0) run.Coins = Math.Max(0, run.Coins - def.Coins);
-                    if (def.PushBack > 0)
-                    {
-                        int back = Math.Min(def.PushBack, run.Trail.Count - 1);
-                        for (int i = 0; i < back; i++) run.Trail.RemoveAt(run.Trail.Count - 1);
-                        run.Position = run.Trail[run.Trail.Count - 1];
-                        run.StepsLeft = 0;
-                    }
+                    if (def.PushBack > 0) run.StepPenaltyNext += def.PushBack; // the path never goes back: the next roll is shorter
                     Consume(c, run, tile, def);
                     break;
                 case TileCategory.Shard:
@@ -171,17 +228,14 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        /// <summary>Consumed tiles are replaced from the pool ("once" tiles become empty).</summary>
+        /// <summary>
+        /// A resolved tile stays what it was and is marked cleared (the path never comes back to it; the client draws it
+        /// cleared, so a beaten fight never turns into a new-looking tile under the worm).
+        /// </summary>
         private static void Consume(ContentDb c, ActiveRun run, RunTile tile, TileDef def)
         {
-            if (!def.Consumable) return;
-            tile.Fixed = false;
+            tile.Cleared = true;
             tile.BonusPct = 0;
-            if (def.Once) { tile.TileId = "empty"; return; }
-            var usedOnce = new HashSet<string>();
-            foreach (var t in run.Tiles)
-                if (c.BoardTiles.TryGetValue(t.TileId, out var d) && d.Once) usedOnce.Add(t.TileId);
-            tile.TileId = RunBoard.PickPoolTile(c, Level(c, run).TilePoolId, run.Rng, usedOnce);
         }
 
         // ---- awakening ------------------------------------------------------------------------
@@ -271,9 +325,10 @@ namespace RogueStars.Rules.Systems
                 case BossActionKind.Summon:
                 {
                     var cands = new List<RunTile>();
-                    foreach (var t in run.Tiles)
+                    foreach (var id in RunBoard.Ahead(run.Tiles, run.Position, c.RunTuning.BossActionReach))
                     {
-                        if (t.Fixed || t.Id == run.Position) continue;
+                        var t = run.Tiles[id];
+                        if (t.Fixed || t.Cleared) continue;
                         var cat = TileDefOf(c, t).Category;
                         if (cat == TileCategory.Start || cat == TileCategory.BossGate || cat == TileCategory.Shop || cat == TileCategory.BossTile) continue;
                         cands.Add(t);
@@ -774,12 +829,29 @@ namespace RogueStars.Rules.Systems
         {
             var c = ctx.Content;
             if (eventId == null || !c.RunEvents.TryGetValue(eventId, out var ev)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
-            if (ev.Negative && TrySkipNegative(ctx, run)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
+            if (ev.Negative && TrySkipNegative(ctx, run))
+            {
+                // shown, not silently skipped: the result screen says the boon kept it away
+                Consume(c, run, tile, TileDefOf(c, tile));
+                var shielded = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Avoided", Text = "Your boon shields you from misfortune." };
+                PublishOutcome(ctx, run, shielded);
+                return;
+            }
             if (ev.GrantsAccountLoot())
             {
-                // Account loot is rare: a few risky opportunities per run, later caches are empty.
-                if (!AccountLootOfferLeft(c, run)) { ctx.Emit("run_cache_empty", eventId); Consume(c, run, tile, TileDefOf(c, tile)); return; }
+                // Account loot is rare: a few risky opportunities per run. Chests ahead become supply caches once they are
+                // used up (RetireTreasures); an account-loot event drawn after that shows that it is empty.
+                if (!AccountLootOfferLeft(c, run))
+                {
+                    ctx.Emit("run_cache_empty", eventId);
+                    Consume(c, run, tile, TileDefOf(c, tile));
+                    var empty = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Empty",
+                        Text = "Already looted — this run's " + c.RunTuning.MaxAccountLootOffersPerRun + " account-loot chances are used up." };
+                    PublishOutcome(ctx, run, empty);
+                    return;
+                }
                 run.AccountLootOffers++;
+                if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
             }
             run.Phase = RunPhase.Event;
             run.EventId = eventId;
@@ -1001,7 +1073,7 @@ namespace RogueStars.Rules.Systems
             var level = Level(c, run);
             var portal = c.Portal(run.PortalId);
             var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle,
-                AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, Laps = run.Laps, XpTotal = run.XpTotal,
+                AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, XpTotal = run.XpTotal,
                 Gains = new List<RunGain>(run.Gains), Minibosses = run.MinibossesDefeated, ShopBuys = run.ShopBuys };
             if (won)
             {

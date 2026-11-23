@@ -25,6 +25,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunShopBuy>((c, ctx) => { var r = Need(ctx); ShopBuy(ctx, r, c.Index); return Ok(ctx); });
             e.Register<RunShopReroll>((c, ctx) => { var r = Need(ctx); ShopReroll(ctx, r); return Ok(ctx); });
             e.Register<RunShopLeave>((c, ctx) => { var r = Need(ctx); ShopLeave(ctx, r); return Ok(ctx); });
+            e.Register<RunEncounter>((c, ctx) => { var r = Need(ctx); Encounter(ctx, r); return Ok(ctx); });
             e.Register<RunRevive>((c, ctx) => { var r = Need(ctx); Revive(ctx, r, c.Method, c.AdToken); return Ok(ctx); });
             e.Register<RunAbandon>((c, ctx) => { var r = Need(ctx); Finish(ctx, r, false); return Ok(ctx); });
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r, c); return Ok(ctx); });
@@ -189,7 +190,11 @@ namespace RogueStars.Rules.Systems
             run.Threat = level.Threat + (run.Mode == RunMode.Overcharged ? portal.OverchargedThreatBonus : 0);
             var board = RunBoard.Generate(c, level, run.Rng);
             run.Tiles = board.Tiles;
-            run.BossGateTile = board.GateTile;
+            run.BoardEnd = board.EndTile;
+            run.BoardSegments = board.Segments;
+            run.BossGateTile = -1;
+            run.StepPenaltyNext = 0;
+            run.EncounterKind = null;
             run.Position = 0;
             run.Trail.Clear();
             run.Trail.Add(0);
@@ -197,7 +202,6 @@ namespace RogueStars.Rules.Systems
             run.ChosenNext = -1;
             run.BranchOptions.Clear();
             run.Rolls = 0;
-            run.Laps = 0;
             run.AccountLootOffers = 0;
             run.MaxRolls = level.MaxRolls;
             run.Dice = Math.Max(1, level.Dice);
@@ -216,9 +220,11 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             int n = Math.Max(1, run.Dice + run.ExtraDicePermanent + run.ExtraDiceNext);
             run.ExtraDiceNext = 0;
+            EnsureBoardAhead(c, run, 6 * n);
             run.LastDice.Clear();
             int sum = 0;
             for (int i = 0; i < n; i++) { int d = run.Rng.Range(1, 7); run.LastDice.Add(d); sum += d; }
+            if (run.StepPenaltyNext > 0) { sum = Math.Max(1, sum - run.StepPenaltyNext); run.StepPenaltyNext = 0; }
             run.Rolls++;
             ctx.State.Count("run_rolls");
             ctx.Emit("run_roll", sum.ToString(), string.Join("+", run.LastDice));
@@ -425,6 +431,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Shop: return RunDecision.Shop;
                 case RunPhase.Defeated: return run.ReviveUsed ? RunDecision.GiveUp : RunDecision.Revive;
                 case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
+                case RunPhase.Encounter: return RunDecision.Encounter;
                 case RunPhase.Event:
                 {
                     var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
@@ -439,8 +446,8 @@ namespace RogueStars.Rules.Systems
 
         /// <summary>
         /// True if the current decision needs the player: auto mode (RunAutoStep without Farming) stops here and the
-        /// client shows the decision UI. Clear steps (roll, give up without a revive left, an event with a single
-        /// option) are auto-resolvable. With <paramref name="farming"/> every decision is auto-resolvable (shops are
+        /// client shows the decision UI. Clear steps (roll, a miniboss / boss encounter, give up without a revive left)
+        /// are auto-resolvable; every event, chest and campfire needs the player (even a single option is shown). With <paramref name="farming"/> every decision is auto-resolvable (shops are
         /// left untouched, or use the heal heuristic with RunAutoStep.FarmShops).
         /// </summary>
         public static bool RequiresPlayer(ContentDb content, ActiveRun run, bool farming = false)
@@ -450,12 +457,9 @@ namespace RogueStars.Rules.Systems
                 case RunDecision.None:
                 case RunDecision.Roll:
                 case RunDecision.GiveUp:
+                case RunDecision.Encounter:
                     return false;
-                case RunDecision.Event:
-                case RunDecision.Treasure:
-                case RunDecision.Campfire:
-                    return !farming && content.RunEvents.TryGetValue(run.EventId ?? "", out var ev) && ev.Options.Count > 1;
-                default:
+                default: // events, chests and campfires too, even with a single option: the player always sees them
                     return !farming;
             }
         }
@@ -474,6 +478,7 @@ namespace RogueStars.Rules.Systems
             switch (run.Phase)
             {
                 case RunPhase.AwaitRoll: Roll(ctx, run); break;
+                case RunPhase.Encounter: Encounter(ctx, run); break;
                 case RunPhase.ChooseBranch: ChooseBranch(ctx, run, 0); break;
                 case RunPhase.Event:
                 {

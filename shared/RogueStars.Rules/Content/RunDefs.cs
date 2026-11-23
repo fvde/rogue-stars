@@ -221,9 +221,9 @@ namespace RogueStars.Rules.Content
         public int Index;
         /// <summary>Position on the global threat curve (see ContentDb.ThreatMultiplier).</summary>
         public int Threat;
+        /// <summary>Spine tiles per board segment (the board is generated ahead of the worm segment by segment, RunBoard).</summary>
         public int BoardLength = 28;
         public double BranchChance = 0.18;
-        public double LoopChance = 0.5;
         public int Dice = 1;
         /// <summary>Hard roll limit (the awakening meter normally brings the boss first, ~30 rolls).</summary>
         public int MaxRolls = 45;
@@ -347,6 +347,30 @@ namespace RogueStars.Rules.Content
         }
     }
 
+    /// <summary>
+    /// The tile mix of one board segment (RunBoard.AppendSegment): pool weights × the multiplier of the tile's kind, so every
+    /// stretch of the path feels a little different (hunting grounds, ruins, badlands, quiet valleys).
+    /// </summary>
+    [Serializable]
+    public sealed class SegmentTheme
+    {
+        public string Name;
+        public double Enemy = 1, Reward = 1, Event = 1, Hazard = 1, Buff = 1;
+
+        public double Weight(TileDef d)
+        {
+            switch (d.Category)
+            {
+                case TileCategory.Enemy: case TileCategory.Elite: return Enemy;
+                case TileCategory.Loot: case TileCategory.Pickup: case TileCategory.Shard: return Reward;
+                case TileCategory.Event: case TileCategory.Treasure: return Event;
+                case TileCategory.Hazard: case TileCategory.StatDebuff: return Hazard;
+                case TileCategory.StatBuff: return Buff;
+                default: return 1;
+            }
+        }
+    }
+
     [Serializable]
     public sealed class ShopTableDef
     {
@@ -414,6 +438,16 @@ namespace RogueStars.Rules.Content
         public double DailyBiomassBonusMult = 4;
 
         // ---- build depth (GDD §3.3 "Build"): skill levels, minibosses and mythic choices --------------------------------
+        // ---- board (a long path generated ahead in segments, RunBoard) ---------------------------------------------------
+        /// <summary>Segments generated at the start; more are appended while the worm gets within BoardLookAhead steps of the end.</summary>
+        public int InitialSegments = 2;
+        /// <summary>Steps of board kept ahead of the worm beyond its largest possible roll.</summary>
+        public int BoardLookAhead = 16;
+        /// <summary>Tile mixes of later segments (the first segment uses the plain pool).</summary>
+        public List<SegmentTheme> SegmentThemes = new List<SegmentTheme>();
+        /// <summary>Steps ahead of the worm in which boss awakening actions transform / summon tiles.</summary>
+        public int BossActionReach = 30;
+
         /// <summary>An owned skill offered again (draft, shop, events) levels up, up to this level.</summary>
         public int MaxSkillLevel = 5;
         /// <summary>Each level above 1 repeats this share of the skill's passive stat package ...</summary>

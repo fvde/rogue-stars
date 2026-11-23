@@ -29,6 +29,12 @@ namespace RogueStars.Rules.Systems
 
     [Serializable] public sealed class RunShopLeave : GameCommand { }
 
+    /// <summary>
+    /// Phase Encounter: face the miniboss that attacks, or walk into the boss arena that opened ahead and fight the boss.
+    /// A clear step (auto mode performs it; RunAutoStep does the same).
+    /// </summary>
+    [Serializable] public sealed class RunEncounter : GameCommand { }
+
     /// <summary>Revive once per run after a lost battle (ad verified by the host, or Diamonds).</summary>
     /// <summary>Revive once per run. Ad: consumes Meta's "revive" ad placement (AdToken; instant with No Ads).</summary>
     [Serializable] public sealed class RunRevive : GameCommand { public ReviveMethod Method; public string AdToken; }

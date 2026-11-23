@@ -20,13 +20,13 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed }
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -89,6 +89,8 @@ namespace RogueStars.Rules.Systems
         public double BonusPct;
         public bool Fixed;
         public int TimesResolved;
+        /// <summary>Resolved (fight won, pickup taken, event decided): kept on the board as it was, drawn cleared.</summary>
+        public bool Cleared;
     }
 
     [Serializable]
@@ -120,7 +122,15 @@ namespace RogueStars.Rules.Systems
         public List<RunTile> Tiles = new List<RunTile>();
         public int Position;
         public List<int> Trail = new List<int>();
-        public int BossGateTile;
+        /// <summary>The boss arena tile once it opened ahead of the worm (the meter is full), else -1.</summary>
+        public int BossGateTile = -1;
+        /// <summary>The open end of the path and the segments generated so far (RunBoard: the board grows ahead of the worm).</summary>
+        public int BoardEnd;
+        public int BoardSegments;
+        /// <summary>Steps the next roll loses (Gravity Vortex).</summary>
+        public int StepPenaltyNext;
+        /// <summary>Phase Encounter: "ambush" (a miniboss of the awakening clock) or "boss" (the arena opened ahead).</summary>
+        public string EncounterKind;
         public RunPhase Phase = RunPhase.AwaitRoll;
         public int StepsLeft;
         public List<int> BranchOptions = new List<int>();
@@ -128,8 +138,6 @@ namespace RogueStars.Rules.Systems
         public int Rolls;
         /// <summary>Hard roll limit: the boss comes at the latest after this roll (the awakening meter is the usual clock).</summary>
         public int MaxRolls;
-        /// <summary>Laps around the circuit board (passing the boss gate starts the next lap).</summary>
-        public int Laps;
         public int Dice = 1;
         public int ExtraDicePermanent;
         public int ExtraDiceNext;
@@ -285,7 +293,6 @@ namespace RogueStars.Rules.Systems
         public int Rolls;
         public int Level;
         public int Floors;
-        public int Laps;
         public int XpTotal;
         /// <summary>Account-loot opportunities offered in the run (Burrow: of its last floor).</summary>
         public int AccountLootOffers;

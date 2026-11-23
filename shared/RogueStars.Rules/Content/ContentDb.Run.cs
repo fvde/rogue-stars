@@ -108,6 +108,10 @@ namespace RogueStars.Rules.Content
             t.DraftRarityWeights[Rarity.Epic] = 12;
             t.DraftRarityWeights[Rarity.Legendary] = 4;
             t.DraftRarityWeights[Rarity.Mythic] = 1;
+            t.SegmentThemes.Add(new SegmentTheme { Name = "Hunting Grounds", Enemy = 1.45, Reward = 0.9 });
+            t.SegmentThemes.Add(new SegmentTheme { Name = "Old Ruins", Event = 1.7, Reward = 1.3, Enemy = 0.85 });
+            t.SegmentThemes.Add(new SegmentTheme { Name = "Badlands", Hazard = 1.7, Reward = 1.5, Buff = 0.7 });
+            t.SegmentThemes.Add(new SegmentTheme { Name = "Quiet Valley", Buff = 1.8, Enemy = 0.8, Hazard = 0.6 });
             t.FallbackWormStats.Add(new StatMod(StatId.Hp, 1000));
             t.FallbackWormStats.Add(new StatMod(StatId.Atk, 100));
             t.FallbackWormStats.Add(new StatMod(StatId.Def, 20));
@@ -275,10 +279,10 @@ namespace RogueStars.Rules.Content
             var shop = RunTile("shop", "Wandering Shop", TileCategory.Shop, TileValence.Special); shop.ForceStop = true; shop.Consumable = false;
             var h1 = RunTile("hazard_spikes", "Crystal Spikes", TileCategory.Hazard, TileValence.Negative); h1.Value = 10;
             var h2 = RunTile("hazard_toll", "Toll Drones", TileCategory.Hazard, TileValence.Negative); h2.Coins = 30;
-            var h3 = RunTile("hazard_vortex", "Gravity Vortex", TileCategory.Hazard, TileValence.Negative); h3.PushBack = 2; h3.Value = 4;
+            var h3 = RunTile("hazard_vortex", "Gravity Vortex", TileCategory.Hazard, TileValence.Negative); h3.PushBack = 2; h3.Value = 4; h3.Text = "Lose 4% HP; your next roll moves 2 steps less.";
             var sh = RunTile("shard", "Portal Shard", TileCategory.Shard, TileValence.Positive); sh.TriggersOnPass = true;
             var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 12;
-            var gate = RunTile("boss_gate", "Boss Gate", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
+            var gate = RunTile("boss_gate", "Boss Arena", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
 
             // Dedicated boss tiles: meter +/- and boss buffs (risk/reward: tributes pay coins but feed the boss).
             RunBossTile("bt_magma_vent", "Magma Vent", 10, 4, 0);
