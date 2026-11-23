@@ -1,0 +1,16 @@
+{
+  "name": "worm-03",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [501, 502, 503, 504],
+  "models": ["sdxl_ref"],
+  "style_refs": ["battle.png"],
+  "ref_weight": 0.45,
+  "negative": "background, scenery, landscape, ground, grass, plants, rocks, sky, shadow, frame, border, arms, legs, hands, clothes, accessories, helmet, multiple characters, text, watermark, blurry, photo, 3d render, complex, detailed texture",
+  "styles": {
+    "sprite": "2D game character sprite, clean thick dark outline, flat cel shading, simple shapes, isolated on a plain pure white background"
+  },
+  "subjects": {
+    "base": "a single simple cute worm, smooth pink body with a few segment lines, small round head with two dot eyes and a tiny smile, two short antennae, curved S-shape, side view, full body centered"
+  }
+}

@@ -52,7 +52,7 @@ def sdxl_graph(prompt, negative, w, h, seed):
     }
 
 
-def sdxl_ref_graph(prompt, negative, w, h, seed, refs, weight):
+def sdxl_ref_graph(prompt, negative, w, h, seed, refs, weight, weight_type="style transfer"):
     """SDXL with IP-Adapter Plus in style-transfer mode: the reference images steer rendering style, not content.
     refs = image file names in ComfyUI's input/ folder."""
     g = sdxl_graph(prompt, negative, w, h, seed)
@@ -69,7 +69,7 @@ def sdxl_ref_graph(prompt, negative, w, h, seed, refs, weight):
             g[bid] = {"class_type": "ImageBatch", "inputs": {"image1": last, "image2": [nid, 0]}}
             last = [bid, 0]
     g["12"] = {"class_type": "IPAdapterAdvanced", "inputs": {"model": ["1", 0], "ipadapter": ["10", 0], "image": last, "weight": weight,
-                                                             "weight_type": "style transfer", "combine_embeds": "average", "start_at": 0.0,
+                                                             "weight_type": weight_type, "combine_embeds": "average", "start_at": 0.0,
                                                              "end_at": 1.0, "embeds_scaling": "V only", "clip_vision": ["11", 0]}}
     g["5"]["inputs"]["model"] = ["12", 0]
     return g
@@ -155,7 +155,8 @@ def main():
         if model == "flux":
             graph = flux_graph(prompt, w, h, seed)
         elif model == "sdxl_ref":
-            graph = sdxl_ref_graph(prompt, sheet.get("negative", ""), w, h, seed, sheet["style_refs"], sheet.get("ref_weight", 0.8))
+            graph = sdxl_ref_graph(prompt, sheet.get("negative", ""), w, h, seed, sheet["style_refs"], sheet.get("ref_weight", 0.8),
+                                   sheet.get("ref_mode", "style transfer"))
         else:
             graph = sdxl_graph(prompt, sheet.get("negative", ""), w, h, seed)
         t = time.time()
