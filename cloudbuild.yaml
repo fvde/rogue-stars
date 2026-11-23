@@ -1,0 +1,40 @@
+# Server image build on Cloud Build (no local Docker needed). From the repository root:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --service-account "$(terraform -chdir=infra/terraform output -raw build_service_account)" \
+#     --substitutions _REGION=europe-west1,_TAG=$(git rev-parse --short HEAD) .
+# Uploads only what .gcloudignore lets through (server + shared rules), builds server/Dockerfile and pushes
+# <region>-docker.pkg.dev/<project>/rogue-stars/server:<tag>. Deploy with terraform apply -var image_tag=<tag> (docs/setup.md).
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: rogue-stars
+  _TAG: manual
+
+steps:
+  # Unit tests first: a red build never produces an image.
+  - id: test
+    name: mcr.microsoft.com/dotnet/sdk:10.0
+    entrypoint: bash
+    env: ["DOTNET_CLI_TELEMETRY_OPTOUT=1", "DOTNET_NOLOGO=1"]
+    args:
+      - -c
+      - dotnet test server/RogueStars.Server.Tests/RogueStars.Server.Tests.csproj -c Release
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - server/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/server:${_TAG}
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/server:${_TAG}
+
+options:
+  # Required with a user-specified build service account (no default logs bucket).
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1800s

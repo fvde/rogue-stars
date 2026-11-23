@@ -51,7 +51,7 @@ variable "play_package_name" {
 }
 
 variable "secrets_populated" {
-  description = "Set to true once the Secret Manager secrets have a version; until then they are not mounted into Cloud Run."
+  description = "Set to true once the Secret Manager secrets have a version (AppLovin Event Key, and the Play key if play_credentials_in_secret); until then they are not mounted into Cloud Run."
   type        = bool
   default     = false
 }
@@ -66,4 +66,33 @@ variable "scheduler_time_zone" {
   description = "Time zone of the scheduled jobs (arena weeks are ISO weeks in UTC)."
   type        = string
   default     = "Etc/UTC"
+}
+
+variable "iap_allow_test_purchases" {
+  description = "Accept Google Play license-tester purchases (internal testing). Set false for production if testers should not get items."
+  type        = bool
+  default     = true
+}
+
+variable "ads_verification" {
+  description = "AppLovin S2S verification: event_token (sha1(EVENT_ID + key), default) or event_token_all (see docs/server.md)."
+  type        = string
+  default     = "event_token"
+
+  validation {
+    condition     = contains(["event_token", "event_token_all"], var.ads_verification)
+    error_message = "ads_verification must be event_token or event_token_all."
+  }
+}
+
+variable "ads_allowed_ad_unit_ids" {
+  description = "MAX rewarded ad unit ids accepted in S2S callbacks ({AD_UNIT_ID}); empty = any."
+  type        = list(string)
+  default     = []
+}
+
+variable "play_credentials_in_secret" {
+  description = "true: the server reads a Play Developer API service account key from Secret Manager. false: it uses its own runtime identity (invite it in Play Console)."
+  type        = bool
+  default     = false
 }

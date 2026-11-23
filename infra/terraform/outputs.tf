@@ -27,3 +27,8 @@ output "secret_ids" {
   description = "Secret Manager secrets that need a version before setting secrets_populated = true."
   value       = { for k, s in google_secret_manager_secret.secrets : k => s.secret_id }
 }
+
+output "build_service_account" {
+  description = "Service account for gcloud builds submit --service-account (cloudbuild.yaml)."
+  value       = google_service_account.build.id
+}

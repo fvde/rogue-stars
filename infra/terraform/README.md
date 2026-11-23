@@ -5,13 +5,14 @@ Secret Manager secrets (no values), Cloud Scheduler jobs with OIDC, and least-pr
 
 | Resource | Notes |
 |---|---|
-| `google_project_service.apis` | run, artifactregistry, firestore, secretmanager, cloudscheduler, iam, logging, androidpublisher |
+| `google_project_service.apis` | run, artifactregistry, firestore, secretmanager, cloudscheduler, iam, logging, androidpublisher, cloudbuild |
 | `google_artifact_registry_repository.server` | Docker repo `<region>-docker.pkg.dev/<project>/rogue-stars` |
 | `google_service_account.server` | Cloud Run runtime: `roles/datastore.user`, `roles/logging.logWriter`, secret accessor **per secret** |
 | `google_service_account.scheduler` | Identity of the scheduler OIDC tokens (no project roles needed) |
+| `google_service_account.build` | Cloud Build identity for `cloudbuild.yaml`: `artifactregistry.writer` on the repository, `logging.logWriter`, `storage.objectViewer` (source upload) |
 | `google_firestore_database.main` | `(default)`, native mode, `deletion_policy = ABANDON` |
 | `google_secret_manager_secret.secrets` | Play publisher credentials JSON, AppLovin SSV event key — values added manually |
-| `google_cloud_run_v2_service.server` | min 0 instances, port 8080, `/healthz` probes, env config (see `docs/server.md`) |
+| `google_cloud_run_v2_service.server` | min 0 instances, port 8080, `/healthz` probes, env config (see `docs/server.md`): Firebase auth, Firestore, OIDC jobs, Google Play validation (`Iap__RequireAccountId=true`, `iap_allow_test_purchases`), AppLovin verification (`ads_verification`, `ads_allowed_ad_unit_ids`) |
 | `google_cloud_scheduler_job.jobs` | `daily-reset` 00:05, `weekly-arena` Mon 00:15, `invasion-start` every 5 min, `invasion-resolve` every 15 min (UTC) |
 
 The service is publicly invokable (`allUsers` → `run.invoker`): players authenticate with Firebase ID tokens that
@@ -32,24 +33,26 @@ terraform plan  -var-file=dev.tfvars -out=plan.out
 terraform apply plan.out
 ```
 
-First deployment order (the Cloud Run service needs an image):
-1. `terraform apply -var-file=dev.tfvars -target=google_project_service.apis -target=google_artifact_registry_repository.server`
-2. Build and push the image from the repo root:
+First deployment order (the Cloud Run service needs an image; the full owner runbook is `docs/setup.md`):
+1. `terraform apply -var-file=dev.tfvars -target=google_project_service.apis -target=google_artifact_registry_repository.server -target=google_service_account.build -target=google_artifact_registry_repository_iam_member.build_push -target=google_project_iam_member.build_logging -target=google_project_iam_member.build_source`
+2. Build and push the image on Cloud Build (no local Docker), from the repo root:
    ```bash
-   docker build -f server/Dockerfile -t europe-west1-docker.pkg.dev/<project>/rogue-stars/server:<tag> .
-   docker push europe-west1-docker.pkg.dev/<project>/rogue-stars/server:<tag>
+   gcloud builds submit --config cloudbuild.yaml \
+     --service-account "$(terraform -chdir=infra/terraform output -raw build_service_account)" \
+     --substitutions _REGION=europe-west1,_TAG=$(git rev-parse --short HEAD) .
    ```
-3. `terraform apply -var-file=dev.tfvars -var image_tag=<tag>`
+3. `terraform apply -var-file=dev.tfvars -var image_tag=<tag>` (with `secrets_populated = false`).
 
 ## Secrets
 Terraform creates the secrets without values. Add versions out of band, then set `secrets_populated = true`
-and apply again so Cloud Run mounts them as environment variables:
+(and `play_credentials_in_secret = true` if the Play key lives in Secret Manager) and apply again so Cloud Run mounts
+them as environment variables:
 ```bash
 gcloud secrets versions add rogue-stars-play-publisher-credentials --data-file=play-service-account.json
 printf '%s' "<applovin-s2s-event-key>" | gcloud secrets versions add rogue-stars-applovin-ssv-key --data-file=-
 ```
-Until then the server validates Play receipts with its own runtime identity (ADC) — grant that service account
-access in the Play Console, or populate the secret — and rejects all ad callbacks.
+Without `play_credentials_in_secret` the server validates Play receipts with its own runtime identity (ADC) — invite
+that service account in the Play Console. Until the Event Key is mounted all ad callbacks are rejected.
 
 ## Validate without cloud access
 ```bash
@@ -57,3 +60,4 @@ terraform fmt -check
 terraform init -backend=false
 terraform validate
 ```
+`scripts/preflight.sh` runs these together with the config/secret presence checks and the test suites.

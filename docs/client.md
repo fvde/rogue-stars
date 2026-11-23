@@ -44,9 +44,33 @@ AppBootstrap (only object in Main.unity)
   `server_only_command`. A `401` re-authenticates once and retries. Arena (`/v1/arena/*`), invasions
   (`/v1/invasions*`), guilds (`/v1/guilds*`, chat polling every 5 s) and IAP (`/v1/iap/verify`) map to DTOs in
   `ServiceTypes.cs`. HTTP goes through `IHttpTransport` (`UnityHttpTransport` = UnityWebRequest; tests use a fake).
-- **Store / ads**: `IStoreGateway` (`FakeStoreGateway` returns `fake-…` tokens, which the server's fake IAP mode accepts)
-  and `IAdGateway` (`FakeAdGateway`). TODO: Google Play Billing gateway (consume only after the server confirmed) and
-  AppLovin MAX (online ad rewards arrive through the server's `/v1/ads/ssv` callback).
+- **Store** (`Services/PlatformGateways.cs`, `UnityIapStoreGateway.cs`): `IStoreGateway` = `UnityIapStoreGateway`
+  (Google Play Billing through **Unity IAP 5.5.0**, `com.unity.purchasing`, StoreController API) on devices or
+  `FakeStoreGateway` (editor, tests, `ROGUESTARS_STORE=fake`; `fake-…` tokens for the server's fake IAP mode).
+  Catalogue = rules products with a SKU (`StoreCatalog`, same rule as the server's `PlayCatalog`: lifetime limit 1 →
+  non-consumable, else consumable; the monthly pass is a 30-day consumable, no subscriptions). Unity IAP gets
+  `SetObfuscatedAccountId(hex(sha256("rs-account:" + playerId)))`. Flow (`GameSession.Purchase`): `PurchaseStart` →
+  store purchase (`OnPurchasePending`) → `POST /v1/iap/verify {productId, purchaseToken}` → `ConfirmPurchase` only after
+  the server granted (the server already consumed/acknowledged at Google). Deferred payments show "payment pending";
+  when Play completes them, restarts before verification and owned non-consumables (restore via `FetchPurchases`) come
+  back through `PurchaseDelivered` and take the same verification path; rejected receipts are never confirmed.
+- **Ads** (`MaxAdGateway.cs`, `ServerVerifiedAdGateway` in `GameSession.cs`): `Session.PlatformAds` = AppLovin **MAX
+  Unity plugin 8.6.6** (official `.unitypackage` from AppLovin's GitHub releases, with External Dependency Manager
+  1.2.186; `Assets/MaxSdk`, `Assets/ExternalDependencyManager`) or `FakeAdGateway`. Before each show
+  `MaxSdk.SetUserId(playerId)`, then `ShowRewardedAd(adUnit, placement, customData: placement)`. Screens use
+  `Session.Ads` (`ServerVerifiedAdGateway`): offline the platform token; online the server grants direct-reward
+  placements from AppLovin's S2S callback (`WatchAd` shows "pending" and refreshes until the placement's ad view count
+  moved), and command placements (revive, stamina, timer, pulls, double rewards) poll `GET /v1/ads/credits` until the
+  verified event id is there and send it as `AdToken`. No Ads → no ad, empty token. With the fake ad gateway online, the
+  client plays the callback itself against a dev server in fake ads mode.
+- **Platform config** (`Assets/Resources/PlatformConfig.asset`): `StoreMode` (`unity_iap`/`fake`), `AdsMode` (`max`/`fake`),
+  `MaxRewardedAdUnitId` — committed with placeholders; the MAX SDK key lives in `Assets/MaxSdk/Resources/AppLovinSettings.asset`
+  (committed empty). `BuildAndroid` injects real values from environment variables for one build and restores the
+  placeholders (`Editor/BuildSecrets.cs`; see docs/setup.md step 11). Without an ad unit id the build uses fake ads; without
+  an SDK key the AppLovin Quality Service plugin stays off (it would call AppLovin).
+- **Android dependencies**: custom Gradle templates in `Assets/Plugins/Android` (main, settings, properties with AndroidX).
+  `BuildAndroid` runs EDM's `PlayServicesResolver.ResolveSync`, which writes `com.applovin:applovin-sdk` into
+  `mainTemplate.gradle`; Unity IAP adds `com.android.billingclient:billing` itself. Gradle downloads both (network).
 - **UI toolkit** (`Ui.*`): `Panel, Label, Button, Row, Column, Spacer, Input, Scroll, List, Grid, Bar, TabBar, Modal`,
   all layout-group based with `LayoutElement` sizes. `Theme` has the palette, rarity colours (Common→Mythic), valence
   colours (positive/negative/enemy/elite/boss/special) and per-currency colours. `UiTween` does pop-in/fade
@@ -107,12 +131,19 @@ arch -arm64 $U -batchmode -nographics -quit -projectPath $P -logFile /tmp/rs-set
 arch -arm64 $U -batchmode -nographics -projectPath $P -logFile /tmp/rs-tests.log -runTests -testPlatform EditMode -testResults /tmp/rs-tests.xml
 arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P -logFile /tmp/rs-build.log -executeMethod RogueStars.Client.Editor.BuildAndroid.Build
 ```
-`BuildAndroid.Build` applies `ProjectSetup`, creates the scene if missing, sets version `0.1.<git commit count>`
-(versionCode = commit count; `0.1.0`/1 without git) and writes `client/RogueStars/Builds/RogueStars.apk`
-(package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait). It exits with code 1 on failure.
+`BuildAndroid.Build` applies `ProjectSetup`, creates the scene if missing, injects build-time values
+(`ROGUESTARS_SERVER_URL`, `ROGUESTARS_STORE`, `ROGUESTARS_ADS`, `ROGUESTARS_MAX_SDK_KEY`, `ROGUESTARS_MAX_REWARDED_AD_UNIT`,
+`ROGUESTARS_KEYSTORE`/`_KEYSTORE_PASS`/`_KEY_ALIAS`/`_KEY_PASS`, `ROGUESTARS_AAB=1` for an app bundle), resolves the Android
+dependencies, sets version `0.1.<git commit count>` (versionCode = commit count; `0.1.0`/1 without git) and writes
+`client/RogueStars/Builds/RogueStars.apk` (or `.aab`; package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait).
+It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 44 tests):
+EditMode (`Assets/Tests/EditMode`, 55 tests):
+- `PlatformTests`: store catalogue = server catalogue (types, SKUs, obfuscated account id vector), fakes in the editor,
+  purchase → grant → confirm, deferred purchase delivered later, cancelled purchase, rejected/pending receipts never
+  confirmed + restore, server-verified ads (credit polling, timeout, direct-reward pending → refresh, No Ads, fake ads
+  playing the dev callback).
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
@@ -138,6 +169,6 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 (`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
 ## Known gaps / TODO
-- Online rewarded ads that grant rewards directly arrive through the server's SSV callback; ad tokens sent with
-  `RunRevive`, `BuyStamina`, `GachaPull` are fake until the AppLovin gateway exists.
-- Firebase auth, Play Billing, AppLovin MAX and push notifications are interfaces/TODOs.
+- Firebase Auth (Play Games / anonymous sign-in, `google-services.json`) and push notifications are not integrated:
+  the client signs in with `/v1/auth/dev`, which a production server (`Auth:Mode=firebase`) refuses (docs/setup.md step 3).
+- Mediation network adapters are not installed (AppLovin's own demand only); add them with the AppLovin Integration Manager.
