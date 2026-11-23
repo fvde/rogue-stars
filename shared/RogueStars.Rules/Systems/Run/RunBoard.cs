@@ -215,15 +215,16 @@ namespace RogueStars.Rules.Systems
                 double chord = Clamp(heading * 0.5 - x * 12, -30, 30);
                 int nA = piece.ArmA.Count, nB = piece.ArmB.Count;
                 bool loop = style != null && style.SideLoops;
-                double len = loop ? Math.Min(nA, nB) + 1 : (Math.Min(nA, nB) + 1) * 0.8;
+                double len = (Math.Min(nA, nB) + 1) * (loop ? 0.9 : 0.8);
                 double cx = Math.Sin(chord * Deg), cy = Math.Cos(chord * Deg);   // along the chord
                 double px = cy, py = -cx;                                         // perpendicular (to the right)
                 if (loop)
                 {
-                    // the shorter arm runs straight; the other swings out toward the middle of the band
+                    // the shorter arm runs almost straight (a slight counter-curve keeps the arms apart at the fork); the other swings
+                    // out toward the middle of the band
                     bool aStraight = nA <= nB;
                     double outSide = x > 0 ? -1 : 1;
-                    ArmLayout(aStraight ? piece.ArmA : piece.ArmB, x, y, cx, cy, px, py, len, 0, chord);
+                    ArmLayout(aStraight ? piece.ArmA : piece.ArmB, x, y, cx, cy, px, py, len, -outSide * Bulge(aStraight ? nA : nB, len, 0.5), chord);
                     ArmLayout(aStraight ? piece.ArmB : piece.ArmA, x, y, cx, cy, px, py, len, outSide * Bulge(aStraight ? nB : nA, len, 1.6), chord);
                 }
                 else

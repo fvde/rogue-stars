@@ -1,0 +1,451 @@
+using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
+using Xunit.Abstractions;
+
+namespace RogueStars.Rules.Tests.Run;
+
+/// <summary>
+/// Owner playtest feedback (run rules): forks never bypass a miniboss and are never short; every tile shows what it did;
+/// the first shop is affordable; skill levels grow the skill's own numbers; one battle gives at most one level-up; no shop
+/// summary; double rewards double what they say; HUD stats with every run modification.
+/// </summary>
+public class PlaytestRulesTests(ITestOutputHelper output)
+{
+    public static IEnumerable<object[]> Levels() =>
+        new[] { "ember_wastes_1", "ember_wastes_8", "glacier_rift_5", "static_jungle_9", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
+
+    private static Dictionary<int, int> Incoming(List<RunTile> tiles)
+    {
+        var inc = new Dictionary<int, int>();
+        foreach (var t in tiles) foreach (var n in t.Next) inc[n] = inc.GetValueOrDefault(n) + 1;
+        return inc;
+    }
+
+    /// <summary>True if the open end can be reached from the start without stepping on <paramref name="avoid"/>.</summary>
+    private static bool EndReachableAvoiding(List<RunTile> tiles, int end, int avoid)
+    {
+        var seen = new HashSet<int> { 0 };
+        var stack = new Stack<int>();
+        stack.Push(0);
+        while (stack.Count > 0)
+        {
+            int id = stack.Pop();
+            if (id == end) return true;
+            foreach (var n in tiles[id].Next) if (n != avoid && seen.Add(n)) stack.Push(n);
+        }
+        return false;
+    }
+
+    // ---- 1. branching and layout ----------------------------------------------------------------------------------
+
+    [Theory]
+    [MemberData(nameof(Levels))]
+    public void Forks_NeverBypassAMinibossOrShop_AndBothArmsHaveAtLeast8Tiles(string levelId)
+    {
+        var c = ContentDb.Default;
+        var level = c.RunLevel(levelId)!;
+        int forks = 0;
+        for (ulong seed = 1; seed <= 40; seed++)
+        {
+            var rng = new Rng(seed);
+            var b = RunBoard.Generate(c, level, rng);
+            RunBoard.AppendSegment(c, level, b, rng);
+            var inc = Incoming(b.Tiles);
+            foreach (var t in b.Tiles.Where(t => t.Next.Count > 1))
+            {
+                forks++;
+                foreach (var start in t.Next)
+                {
+                    int len = 0, cur = start;
+                    while (inc.GetValueOrDefault(cur) < 2) { len++; Assert.Single(b.Tiles[cur].Next); cur = b.Tiles[cur].Next[0]; }
+                    Assert.True(len >= c.RunTuning.BranchMinArm, $"{levelId} seed {seed}: arm of {len} tiles from tile {t.Id}");
+                }
+            }
+            // every path passes every miniboss lair, shop and campfire: removing one cuts the start off the open end
+            foreach (var t in b.Tiles.Where(t => t.Fixed && t.TileId is "miniboss" or "shop" or "campfire"))
+                Assert.False(EndReachableAvoiding(b.Tiles, b.EndTile, t.Id), $"{levelId} seed {seed}: a fork bypasses {t.TileId} at tile {t.Id}");
+        }
+        Assert.True(forks > 10, levelId + ": forks " + forks);
+    }
+
+    [Theory]
+    [MemberData(nameof(Levels))]
+    public void Layout_EveryTileHasA2DPosition_NeighboursClose_NoOverlap(string levelId)
+    {
+        var c = ContentDb.Default;
+        var level = c.RunLevel(levelId)!;
+        double minGap = double.MaxValue, maxStep = 0, maxX = 0;
+        for (ulong seed = 1; seed <= 25; seed++)
+        {
+            var rng = new Rng(seed);
+            var b = RunBoard.Generate(c, level, rng);
+            RunBoard.AppendSegment(c, level, b, rng);
+            var tiles = b.Tiles;
+            foreach (var t in tiles)
+            {
+                if (t.Id > 0) Assert.True(t.Segment >= 0);
+                foreach (var n in t.Next)
+                {
+                    double d = Math.Sqrt(Math.Pow(tiles[n].PosX - t.PosX, 2) + Math.Pow(tiles[n].PosY - t.PosY, 2));
+                    maxStep = Math.Max(maxStep, d);
+                    Assert.InRange(d, 0.6, 1.8);
+                }
+                if (t.Next.Count == 1 && Incoming(tiles).GetValueOrDefault(t.Next[0]) < 2) maxX = Math.Max(maxX, Math.Abs(t.PosX));
+            }
+            for (int i = 0; i < tiles.Count; i++)
+                for (int j = i + 1; j < tiles.Count; j++)
+                {
+                    double d = Math.Sqrt(Math.Pow(tiles[j].PosX - tiles[i].PosX, 2) + Math.Pow(tiles[j].PosY - tiles[i].PosY, 2));
+                    minGap = Math.Min(minGap, d);
+                    Assert.True(d >= 0.75, $"{levelId} seed {seed}: tiles {i} and {j} overlap ({d:0.00})");
+                }
+        }
+        output.WriteLine($"{levelId}: min gap {minGap:0.00}, max step {maxStep:0.00}, max |x| {maxX:0.0}");
+    }
+
+    [Fact]
+    public void Layout_SegmentsUseVariedShapes()
+    {
+        var c = ContentDb.Default;
+        Assert.True(c.RunTuning.BoardLayouts.Select(l => l.Kind).Distinct().Count() >= 5);
+        var level = c.RunLevel("ember_wastes_5")!;
+        // the shapes differ: lateral spread and heading changes per segment vary across seeds
+        var spreads = new HashSet<int>();
+        for (ulong seed = 1; seed <= 30; seed++)
+        {
+            var b = RunBoard.Generate(c, level, new Rng(seed));
+            var seg = b.Tiles.Where(t => t.Segment == 0).ToList();
+            spreads.Add((int)Math.Round((seg.Max(t => t.PosX) - seg.Min(t => t.PosX)) * 2));
+            Assert.True(seg.Max(t => t.PosY) > seg.Min(t => t.PosY) + 8, "the path climbs");
+        }
+        Assert.True(spreads.Count >= 5, "layout spreads: " + string.Join(",", spreads));
+    }
+
+    [Fact]
+    public void BossArena_IsPlacedAheadOfTheWorm()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count;
+        run.Awakening = 99.9;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        Assert.Equal(RunPhase.Encounter, run.Phase);
+        var here = run.Tiles[run.Position];
+        var arena = run.Tiles[run.BossGateTile];
+        double d = Math.Sqrt(Math.Pow(arena.PosX - here.PosX, 2) + Math.Pow(arena.PosY - here.PosY, 2));
+        Assert.InRange(d, 1, 1.6);
+    }
+
+    // ---- 2. every tile shows what it did ---------------------------------------------------------------------------
+
+    [Fact]
+    public void EveryTileKind_ProducesAVisibleOutcome()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        foreach (var def in c.BoardTiles.Values.Where(d => d.Category != TileCategory.BossGate && d.Category != TileCategory.Start))
+        {
+            var s = RunTestKit.StartRun(e);
+            var run = s.Run.Active!;
+            run.MinibossesSpawned = c.RunTuning.MinibossAtMeter.Count;
+            RunTestKit.LineBoard(run, Enumerable.Repeat(def.Id, 14).ToArray());
+            int seq = run.OutcomeSeq;
+            var r = RunTestKit.Exec(e, ref s, new RunRoll());
+            Assert.True(r.Ok, def.Id + ": " + r.Error);
+            run = s.Run.Active!;
+            var landed = run.TileOutcomes.LastOrDefault(o => o.Tile == run.Position && o.Source != "pass");
+            bool decision = run.Phase is RunPhase.Event or RunPhase.Shop or RunPhase.Minigame || run.OutcomeSeq != seq;
+            Assert.True(landed != null || decision, def.Id + " resolved silently");
+            if (landed != null)
+            {
+                Assert.NotEmpty(landed.Lines);
+                Assert.Equal(def.Id, landed.TileId);
+                Assert.True(landed.Seq > 0);
+                output.WriteLine($"{def.Id}: {landed.Source} " + string.Join(", ", landed.Lines.Select(l => l.Kind + (l.Id != null ? ":" + l.Id : "") + " " + l.Amount)));
+            }
+            else output.WriteLine($"{def.Id}: decision {run.Phase} / outcome {run.LastOutcome?.Source}");
+            if (def.Category == TileCategory.Empty) Assert.Equal(OutcomeKind.Empty, landed!.Lines[0].Kind);
+            if (def.Category is TileCategory.Enemy or TileCategory.Elite or TileCategory.Miniboss)
+            {
+                Assert.Equal("battle", landed!.Source);
+                Assert.Contains(landed.Lines, l => l.Kind == OutcomeKind.Battle && l.Id == "won");
+            }
+            if (def.Id == "hazard_vortex") Assert.Contains(landed!.Lines, l => l.Kind == OutcomeKind.StepPenalty && l.Amount == 2);
+        }
+    }
+
+    [Fact]
+    public void Pickups_OnPass_AndAvoidedHazards_AreReported()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("shard", 14).ToArray());
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        int steps = run.LastDice.Sum();
+        Assert.Equal(steps - 1, run.TileOutcomes.Count(o => o.Source == "pass" && o.Lines.Any(l => l.Kind == OutcomeKind.Shards && l.Amount == 1)));
+        Assert.Equal(run.TileOutcomes.Select(o => o.Seq).OrderBy(x => x), run.TileOutcomes.Select(o => o.Seq)); // in order
+
+        // a boon keeps a hazard away: shown as Avoided, not silent
+        RunTestKit.LineBoard(run, Enumerable.Repeat("hazard_spikes", 14).ToArray());
+        run.SkipNegativeEvents = 1;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        Assert.Contains(run.TileOutcomes, o => o.Tile == run.Position && o.Lines.Any(l => l.Kind == OutcomeKind.Avoided));
+    }
+
+    // ---- 3. start coins ----------------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("ember_wastes_1")]
+    [InlineData("glacier_rift_4")]
+    public void FirstShop_AlwaysAllowsAPurchase(string levelId)
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        var level = c.RunLevel(levelId)!;
+        var table = c.RunShopTables[level.ShopTableId];
+        long cheapest = table.SkillPrices.Values.Min();
+        Assert.Equal(cheapest + c.RunTuning.StartCoinsMargin, RunSystem.StartCoins(c, level));
+        for (long seed = 1; seed <= 30; seed++)
+        {
+            var s = TestHelpers.NewPlayer(e, seed);
+            if (level.Number > 1) { s.Run.Levels[c.MainLevelId(level.Number - 1)] = new LevelProgress { Cleared = true }; s.Counters[Requirements.MainLevelCounter] = level.Number - 1; }
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = levelId }).Ok);
+            Assert.True(s.Run.Active!.Coins >= RunSystem.StartCoins(c, level));
+            for (int i = 0; i < 400 && s.Run.Active != null && s.Run.Active.Phase != RunPhase.Shop; i++)
+                Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
+            var run = s.Run.Active;
+            Assert.NotNull(run);
+            Assert.Equal(1, run!.ShopsVisited);
+            var skills = run.Shop.Where(o => o.Kind == ShopOfferKind.Skill).ToList();
+            Assert.Contains(skills, o => o.Price == cheapest);                       // the first shop leads with a cheap skill
+            Assert.True(run.Coins >= cheapest, $"seed {seed}: {run.Coins} coins at the first shop");
+        }
+    }
+
+    // ---- 4. skill levels grow the skill's own numbers ------------------------------------------------------------
+
+    [Fact]
+    public void SpikedHide_LevelUp_GrowsItsReflectDamage_NotGenericStats()
+    {
+        var c = ContentDb.Default;
+        var hide = c.Skill("counter_spiked")!;
+        Assert.Empty(hide.Stats);                                                     // trigger-only skill
+        var lv3 = SkillLeveling.At(c, hide, 3);
+        Assert.Empty(lv3.Stats);                                                      // no +ATK / +HP package added
+        Assert.Equal(25, hide.Triggers[0].Value);
+        Assert.Equal(37.5, lv3.Triggers[0].Value, 6);                                 // +25% per level above 1
+        Assert.Equal("Spiked Hide Lv 3", SkillText.Title(hide, 3));
+        Assert.Contains(SkillText.Effects(c, hide, 3), l => l.Contains("37.5% ATK damage"));
+        Assert.Contains(SkillText.Effects(c, hide, 1), l => l.Contains("25% ATK damage"));
+
+        // in a run: the worm's ATK / HP do not move when Spiked Hide levels up, the fighter uses the leveled skill
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.Skills.Add("counter_spiked");
+        var before = RunSystem.WormStats(c, run);
+        for (int i = 0; i < 2; i++)
+        {
+            run = s.Run.Active!;
+            run.Phase = RunPhase.Draft; run.MythicDraft = false; run.DraftOffer.Clear(); run.DraftOffer.Add("counter_spiked"); run.PendingDrafts = 1;
+            Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "counter_spiked" }).Ok);
+        }
+        run = s.Run.Active!;
+        Assert.Equal(3, RunDraft.Level(run, "counter_spiked"));
+        var after = RunSystem.WormStats(c, run);
+        Assert.Equal(before.Atk, after.Atk, 6);
+        Assert.Equal(before.MaxHp, after.MaxHp, 6);
+        var spec = RunSystem.WormSpec(c, run);
+        Assert.Equal(37.5, spec.Skill(c, "counter_spiked").Triggers[0].Value, 6);
+    }
+
+    [Fact]
+    public void SkillLevels_ScaleValues_Chances_Stacks_Durations()
+    {
+        var c = ContentDb.Default;
+        // trigger-only status skill: chance and stacks grow
+        var ember = c.Skill("fire_ember")!;                                           // On hit: 32% chance Burn ×1
+        var e3 = SkillLeveling.At(c, ember, 3);
+        Assert.Equal(48, e3.Triggers[0].Chance, 6);
+        Assert.Equal(2, e3.Triggers[0].Stacks);
+        // damage + chance, the chance capped
+        var shard = c.Skill("ice_shard")!;                                            // On attack: 35% chance 35% ATK; 10% Freeze
+        var s5 = SkillLeveling.At(c, shard, 5);
+        Assert.Equal(70, s5.Triggers[0].Value, 6);
+        Assert.Equal(70, s5.Triggers[0].Chance, 6);
+        Assert.Equal(20, s5.Triggers[1].Chance, 6);
+        var hot = new SkillDef { Id = "x", Name = "X" };
+        hot.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Chance = 80 });
+        Assert.Equal(c.RunTuning.SkillLevelChanceCap, SkillLeveling.At(c, hot, 5).Triggers[0].Chance, 6);
+        // timed buff: value and duration grow
+        var rally = c.Skill("alien_rally")!;                                          // allies +12% ATK for 3 rounds
+        var r3 = SkillLeveling.At(c, rally, 3);
+        Assert.Equal(18, r3.Triggers[0].Stat.Percent, 6);
+        Assert.Equal(4, r3.Triggers[0].Duration);
+        // passive stat skill: its own package grows
+        Assert.Equal(20 * 2, SkillLeveling.At(c, c.Skill("fire_kindle")!, 5).Stats[0].Percent, 6);
+        // the content def is never mutated
+        Assert.Equal(25, c.Skill("counter_spiked")!.Triggers[0].Value);
+        // skills whose numbers do not scale (the run clock) are never offered as level-ups
+        Assert.False(SkillLeveling.Grows(c, c.Skill("gen_calm_mind")));
+        var run = new ActiveRun();
+        run.Skills.Add("gen_calm_mind");
+        Assert.False(RunDraft.CanLevelUp(c, run, c.Skill("gen_calm_mind")));
+        Assert.True(SkillLeveling.Grows(c, c.Skill("counter_spiked")));
+        Assert.All(c.Skills.Values.Where(x => x.Draftable && x.Source == SkillSource.Run && x.Triggers.Count > 0 && x.Stats.Count == 0 && x.Id != "gen_calm_mind"),
+            x => Assert.True(SkillLeveling.Grows(c, x), x.Id + " (trigger-only) does not grow"));
+    }
+
+    [Fact]
+    public void RunStartBoon_LevelUp_AddsTheDifference()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_hoarder"); run.PendingDrafts = 1;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_hoarder" }).Ok);
+        Assert.Equal(20, s.Run.Active!.ExtraLootPct, 6);
+        run = s.Run.Active!;
+        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_hoarder"); run.PendingDrafts = 1;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_hoarder" }).Ok);
+        Assert.Equal(25, s.Run.Active!.ExtraLootPct, 6);                             // Lv 2: 20 × 1.25
+    }
+
+    // ---- 5. XP: one level-up per battle --------------------------------------------------------------------------
+
+    [Fact]
+    public void BigBattle_GivesOneLevelUp_TheCarryPaysOnePerRoll()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.MinibossesSpawned = c.RunTuning.MinibossAtMeter.Count;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("elite", 14).ToArray());       // an elite fight: 18+ XP, need 3 at level 1
+        var r = RunTestKit.Exec(e, ref s, new RunRoll());
+        Assert.True(r.Ok);
+        Assert.Equal(1, r.Events.Count(x => x.Type == "run_level_up"));
+        run = s.Run.Active!;
+        Assert.Equal(2, run.Level);
+        Assert.Equal(RunPhase.Draft, run.Phase);
+        Assert.Equal(1, run.PendingDrafts);
+        // the carry is kept (up to two more levels' worth) and paid one level per roll
+        Assert.Equal(RunSystem.XpNeeded(c, 2) + RunSystem.XpNeeded(c, 3) - 1, run.Xp);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = run.DraftOffer[0] }).Ok);
+        run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 14).ToArray());
+        r = RunTestKit.Exec(e, ref s, new RunRoll());
+        Assert.Equal(1, r.Events.Count(x => x.Type == "run_level_up"));
+        Assert.Equal(3, s.Run.Active!.Level);
+        var info = RunSystem.LevelInfo(c, s.Run.Active);
+        Assert.Equal(3, info.Level);
+        Assert.Equal(RunSystem.XpNeeded(c, 3), info.XpNeeded);
+        Assert.Equal(s.Run.Active.Xp, info.Xp);
+    }
+
+    [Fact]
+    public void FullRuns_NeverLevelUpTwiceInOneCommand()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        for (long seed = 1; seed <= 10; seed++)
+        {
+            var s = RunTestKit.StartRun(e, "ember_wastes_1", seed);
+            for (int i = 0; i < 800 && s.Run.Active != null; i++)
+            {
+                var r = RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true });
+                Assert.True(r.Ok);
+                Assert.True(r.Events.Count(x => x.Type == "run_level_up") <= 1, $"seed {seed}: several level-ups in one step");
+            }
+            Assert.InRange(s.Run.LastSummary.Level, 6, 14);
+        }
+    }
+
+    // ---- 7. double rewards ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public void DoubleRewards_DoublesEveryDoublableLine_AndTheSummaryShowsIt()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        var s = TestHelpers.NewPlayer(e, 5);
+        // level 10: its first clear pays the milestone chest (not doublable)
+        s.Run.Levels[c.MainLevelId(9)] = new LevelProgress { Cleared = true };
+        s.Counters[Requirements.MainLevelCounter] = 9;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = c.MainLevelId(10) }).Ok);
+        s.Run.Active!.PendingLoot.Add(Reward.Cur(Currencies.Grain, 77));
+        s.Run.Active.PendingLoot.Add(new Reward(RewardKinds.Part, "*", 1, 1));
+        RunTestKit.AutoToEnd(e, ref s);
+        var sum = s.Run.LastSummary;
+        Assert.True(sum.Won);
+        Assert.True(sum.BiomassBonus);                                                // the daily Biomass surge applied
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.RunLoot && l.Reward.Id == Currencies.Grain && l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Completion && l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.CompletionRoll && l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Milestone && !l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Feat && !l.Doublable);
+        Assert.Equal(sum.Rewards.Count(l => l.Doublable), sum.Doublable.Count);
+        var grantedBefore = Totals(sum.Granted);
+        int partsBefore = s.Parts.Items.Count;
+        var wallet = new Dictionary<string, long>(s.Wallet.Balances);
+
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" }).Ok);
+        sum = s.Run.LastSummary;
+        Assert.True(sum.Doubled);
+        Assert.All(sum.Rewards, l => Assert.Equal(l.Doublable, l.Doubled));
+        Assert.Equal(sum.Doublable.Count, sum.DoubledGranted.Count);
+        // the wallet got every doublable currency line once more (surged Biomass included)
+        foreach (var g in sum.Rewards.Where(l => l.Doubled && l.Reward.Kind == RewardKinds.Currency).GroupBy(l => l.Reward.Id))
+            Assert.Equal(wallet.GetValueOrDefault(g.Key) + g.Sum(l => l.Reward.Amount), s.Wallet.Get(g.Key));
+        Assert.True(s.Parts.Items.Count > partsBefore);                         // the item drop came again
+        // the summary totals show the doubled amounts: doublable lines twice, milestone / feats once
+        var grantedAfter = Totals(sum.Granted);
+        foreach (var id in grantedAfter.Keys)
+        {
+            long single = sum.Rewards.Where(l => l.Reward.Kind == RewardKinds.Currency && l.Reward.Id == id).Sum(l => l.Reward.Amount);
+            long doubled = sum.Rewards.Where(l => l.Doubled && l.Reward.Kind == RewardKinds.Currency && l.Reward.Id == id).Sum(l => l.Reward.Amount);
+            Assert.Equal(single + doubled, grantedAfter[id]);
+            Assert.Equal(grantedBefore.GetValueOrDefault(id) + doubled, grantedAfter[id]);
+        }
+        Assert.Equal(sum.Granted.Count(r => r.Kind != RewardKinds.Currency),
+            sum.Rewards.Count(l => l.Reward.Kind != RewardKinds.Currency) + sum.Rewards.Count(l => l.Doubled && l.Reward.Kind != RewardKinds.Currency));
+        output.WriteLine(string.Join("\n", sum.Rewards.Select(l => $"{l.Source}: {l.Reward} doublable={l.Doublable}")));
+    }
+
+    private static Dictionary<string, long> Totals(List<Reward> rewards) =>
+        rewards.Where(r => r.Kind == RewardKinds.Currency).GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
+
+    // ---- 8. HUD stats -------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void WormStats_IncludeSkillsLevelsPerksAndCurses()
+    {
+        var e = RunTestKit.Engine();
+        var c = e.Content;
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        var w0 = RunSystem.WormStats(c, run);
+        Assert.Equal(1000, w0.MaxHp, 6);
+        Assert.Equal(100, w0.Atk, 6);
+        Assert.Equal(20, w0.Def, 6);
+        Assert.Equal(run.WormHp, w0.Hp, 6);
+
+        run.RunStats.Add(new StatMod(StatId.Atk, 0, 8));                             // shop perk
+        run.RunStats.Add(new StatMod(StatId.Hp, 0, -10));                            // curse
+        run.Skills.Add("gen_guard");                                                 // +12% DEF
+        run.SkillLevels["gen_guard"] = 3;                                            // Lv 3: +18% DEF
+        var w = RunSystem.WormStats(c, run);
+        Assert.Equal(108, w.Atk, 6);
+        Assert.Equal(900, w.MaxHp, 6);
+        Assert.Equal(20 * 1.18, w.Def, 6);
+        Assert.Equal(w.Atk, w.Stats.Value(StatId.Atk), 6);
+        run.WormHp = 450;
+        Assert.Equal(450, RunSystem.WormStats(c, run).Hp, 6);
+    }
+}
