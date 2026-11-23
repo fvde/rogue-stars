@@ -9,6 +9,7 @@
 | `client/` | Unity 6.6 project (Android). Placeholder UI built in code. |
 | `infra/terraform/` | GCP infrastructure. |
 | `docs/design/GDD.md` | Binding game design spec. |
+| `shared/RogueStars.Sim.Core/` | The simulator's bot (`SimPlayer`, time/spend profiles, `AccountAgeJump`): netstandard2.1, C# 9 like the rules; used by the simulator, the server's dev tools and (as the local Unity package `com.roguestars.simcore`) the offline client. |
 | `tools/RogueStars.Sim/` | Meta-progression simulator (bots play the real rules for 2 years; report in `docs/balance/`). Guard test in `tools/RogueStars.Sim.Tests/`. |
 
 Build/test: `dotnet build RogueStars.slnx` and `dotnet test RogueStars.slnx` from the repo root.
