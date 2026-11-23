@@ -29,6 +29,37 @@ namespace RogueStars.Client.Screens
         public int Level, Xp, XpNeed;
     }
 
+    /// <summary>One miniboss marker on the boss clock: where (0..1 of the bar) and whether the clock passed it.</summary>
+    public struct BossClockMarker
+    {
+        public float At;
+        public bool Passed;
+    }
+
+    /// <summary>The boss clock bar: fill (awakening 0..1), "Roll n/N" and the miniboss markers.</summary>
+    public sealed class BossClockInfo
+    {
+        public float Fill;
+        public string RollText;
+        public readonly List<BossClockMarker> Markers = new List<BossClockMarker>();
+    }
+
+    /// <summary>One tile of the skill tray.</summary>
+    public struct SkillTile
+    {
+        public string SkillId, Name, LevelText;
+        public Rarity Rarity;
+        public Color Color;
+        public int Level, MaxLevel;
+    }
+
+    /// <summary>The skill tray: shown tiles and how many skills hide behind the "+N" tile (0 = none).</summary>
+    public sealed class SkillTray
+    {
+        public readonly List<SkillTile> Tiles = new List<SkillTile>();
+        public int Overflow;
+    }
+
     /// <summary>
     /// Pure presentation helpers of the run screen (tested): HUD numbers, skill colours by rarity, landing feedback from
     /// the rules' outcome data (or the tile definition where a tile kind has none yet).
@@ -59,6 +90,58 @@ namespace RogueStars.Client.Screens
             catch (Exception) { /* an incomplete test loadout: show what the run state has */ }
             if (run.WormHp < 0) s.Hp = s.MaxHp;
             return s;
+        }
+
+        // ---- boss clock -------------------------------------------------------------------------
+
+        /// <summary>
+        /// The boss clock under the top strip: "Roll n/N" (N = RunSystem.BossRollEstimate), the boss's awakening as the bar's
+        /// fill and one marker per miniboss of the clock (RunTuning.MinibossAtMeter, 25/50/75 %), bright once passed (pure).
+        /// </summary>
+        public static BossClockInfo BossClock(ContentDb c, ActiveRun run)
+        {
+            var info = new BossClockInfo { Fill = (float)Math.Max(0, Math.Min(1, run.Awakening / 100.0)), RollText = RunScreen.RollText(c, run) };
+            if (run.Mode == RunMode.Burrow) return info; // floors have no clock minibosses
+            var at = c.RunTuning.MinibossAtMeter;
+            for (int i = 0; i < at.Count; i++)
+                info.Markers.Add(new BossClockMarker
+                {
+                    At = (float)Math.Max(0, Math.Min(1, at[i] / 100.0)),
+                    Passed = run.MinibossesSpawned > i || run.Awakening >= at[i] - 1e-9,
+                });
+            return info;
+        }
+
+        // ---- skill tray ---------------------------------------------------------------------------
+
+        /// <summary>"Lv 2/3": a run skill's level and its tier's max level (Common 3, Legendary 2, Mythic 1).</summary>
+        public static string LevelText(ContentDb c, SkillDef s, int level) =>
+            "Lv " + Math.Max(1, level) + "/" + c.RunTuning.MaxSkillLevelOf(s?.Rarity ?? Rarity.Common);
+
+        /// <summary>
+        /// The skill tray of <paramref name="slots"/> tiles (pure): every run skill in the order gained with its tier colour and
+        /// "Lv x/max"; with more skills than slots the last tile is "+N" (the skills not shown) and opens the full list.
+        /// </summary>
+        public static SkillTray Tray(ContentDb c, ActiveRun run, int slots) => Tray(c, RunSystem.ActiveSkillIds(run), id => RunDraft.Level(run, id), slots);
+
+        public static SkillTray Tray(ContentDb c, IList<string> skillIds, Func<string, int> level, int slots)
+        {
+            var tray = new SkillTray();
+            int count = skillIds?.Count ?? 0;
+            int show = count <= slots ? count : Math.Max(0, slots - 1);
+            for (int i = 0; i < show; i++)
+            {
+                string id = skillIds[i];
+                var s = c.Skill(id);
+                int lv = Math.Max(1, level != null ? level(id) : 1);
+                tray.Tiles.Add(new SkillTile
+                {
+                    SkillId = id, Name = s?.Name ?? id, Rarity = s?.Rarity ?? Rarity.Common, Color = SkillColor(s),
+                    Level = lv, MaxLevel = c.RunTuning.MaxSkillLevelOf(s?.Rarity ?? Rarity.Common), LevelText = LevelText(c, s, lv),
+                });
+            }
+            tray.Overflow = count - show;
+            return tray;
         }
 
         // ---- skill colours ------------------------------------------------------------------------

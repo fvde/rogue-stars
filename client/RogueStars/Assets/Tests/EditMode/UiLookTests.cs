@@ -171,7 +171,7 @@ namespace RogueStars.Client.Tests
             for (int i = 0; i < ids.Length; i++) Assert.That(FindNamed(screen.Root, "Tile:" + i), Is.Not.Null);
             Assert.That(FindNamed(screen.Root, "Token"), Is.Not.Null);
             Assert.That(FindNamed(FindNamed(screen.Root, "Token"), "Worm").GetComponent<UiBob>(), Is.Not.Null, "the worm bobs");
-            Assert.That(FindNamed(screen.Root, "BossBanner"), Is.Not.Null);
+            Assert.That(FindNamed(screen.Root, "BossClock"), Is.Not.Null);
             Assert.That(screen.Title, Does.Contain(level.Name));
             Assert.That(screen.Subtitle, Does.StartWith("Roll 0/"));
             Assert.That(FindNamed(screen.Root, "RollButton"), Is.Not.Null);

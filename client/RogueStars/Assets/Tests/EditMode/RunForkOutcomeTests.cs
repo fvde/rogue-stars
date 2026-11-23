@@ -111,7 +111,7 @@ namespace RogueStars.Client.Tests
             Assert.That(est, Is.InRange(25, 35));
             Assert.That(screen.Subtitle, Does.StartWith("Roll 0/" + est));                 // no laps: the path never repeats
             Assert.That(Texts(FindNamed(screen.Root, "RollCounter")), Does.Contain("Roll 0/" + est));
-            Assert.That(Texts(FindNamed(screen.Root, "BossBanner")), Does.Contain(est + " rolls left"));
+            Assert.That(Texts(FindNamed(screen.Root, "BossClock")), Does.Contain("BOSS"));
         }
 
         private RunScreen EventOnScreen(string eventId)

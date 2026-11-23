@@ -144,6 +144,21 @@ namespace RogueStars.Client.UiKit
             return current + Mathf.Clamp(want, -max, max);
         }
 
+        /// <summary>
+        /// Parallax ground: anchored y of the top of the ground strip (copies of height <paramref name="tileH"/>, every other
+        /// one mirrored, so the pattern repeats every two copies without a seam) for camera rise <paramref name="cam"/>. The
+        /// ground moves down at <paramref name="parallax"/> × the camera's speed; the result is in (0, 2·tileH] and wraps
+        /// by exactly one period, which looks identical (pure).
+        /// </summary>
+        public static float GroundTop(float cam, float parallax, float tileH)
+        {
+            if (tileH <= 0 || float.IsNaN(cam)) return 0;
+            float period = 2 * tileH;
+            float m = (cam * parallax) % period;
+            if (m < 0) m += period;
+            return period - m;
+        }
+
         // ---- landing / popups ---------------------------------------------------------------------
 
         /// <summary>Landing pop of a tile: scale over t (overshoot, then settle; pure).</summary>

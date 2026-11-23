@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
@@ -28,6 +29,7 @@ namespace RogueStars.Client.Screens
             public RectTransform Sprite;
             public Image SpriteImage;
             public Color SpriteColor;
+            public Color FlashColor = Color.white;
             public Vector2 Home;
             public UiBar Hp, Shield, Rage;
             public RectTransform Chips;
@@ -56,8 +58,8 @@ namespace RogueStars.Client.Screens
         private readonly Queue<GameObject> _feedLines = new Queue<GameObject>();
         private readonly List<Button> _speedButtons = new List<Button>();
         private FighterView _hero;
-        private UiBar _heroHp, _heroRage;
-        private Text _heroHpText, _heroRageText;
+        private UiBar _heroRage;
+        private Text _heroRageText;
         private RectTransform _heroChips;
         private int _popupSeq;
 
@@ -70,14 +72,42 @@ namespace RogueStars.Client.Screens
         /// <summary>Extra playback multiplier for scripted playthroughs/tests (1 in the game).</summary>
         public static float TimeScale = 1f;
 
-        public BattlePlaybackScreen(BattleResult battle, bool autoClose = false)
+        // ---- design A: top strip + skill strip ----
+        private BattleHudContext _ctx;
+        private RunHudStrip _strip;
+        private readonly SkillFireQueue _fires = new SkillFireQueue();
+        private readonly Dictionary<string, RectTransform> _skillTiles = new Dictionary<string, RectTransform>();
+        private readonly Dictionary<string, int> _fireCounts = new Dictionary<string, int>();
+        private RectTransform _fireLayer;
+        /// <summary>Key of the "+N" tile: fires of skills that do not fit the strip pulse it.</summary>
+        public const string MoreKey = "+more";
+        /// <summary>Skill tiles in the battle's strip (the last one is "+N" when there are more).</summary>
+        public const int StripSlots = 6;
+        public const float StripTileSize = 146;
+        /// <summary>Every skill firing played so far, in order ("Magma Tail · Burn ×2"; tests).</summary>
+        public readonly List<string> SkillFires = new List<string>();
+
+        public BattlePlaybackScreen(BattleResult battle, bool autoClose = false, BattleHudContext context = null)
         {
             _battle = battle;
             _autoClose = autoClose;
+            _ctx = context;
         }
 
         public override string Title => "Battle";
         public override bool AutoRebuild => false;
+        /// <summary>No app header: the run's top strip (skip button, worm HP / ATK / DEF / level) is the header (design A).</summary>
+        public override float HeaderHeight => 0;
+        public override bool CoversResourceBar => true;
+        public override float FooterHeight => FooterPadTop + FooterPadBottom + StripTileSize + 34;
+        /// <summary>How often a skill fired so far (tests).</summary>
+        public int FireCount(string skillId) => _fireCounts.TryGetValue(skillId, out var n) ? n : 0;
+        /// <summary>The skill-fire queue of the strip (tests: what plays / waits on a tile).</summary>
+        public SkillFireQueue FireQueue => _fires;
+        /// <summary>Seconds one skill fire plays on its tile at the current speed.</summary>
+        public float FireSeconds => Mathf.Max(0.3f, 0.9f / _speed / Mathf.Max(0.01f, TimeScale));
+        /// <summary>The top strip as text (tests).</summary>
+        public string HudText => _strip?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
         /// <summary>Opened by auto mode: pops itself shortly after the fight; otherwise it waits for Continue.</summary>
         public bool AutoClose => _autoClose;
@@ -95,10 +125,17 @@ namespace RogueStars.Client.Screens
 
         protected override void Build(RectTransform body)
         {
-            if (_built) { _next = 0; _views.Clear(); _feedLines.Clear(); }
+            if (_built) { _next = 0; _views.Clear(); _feedLines.Clear(); SkillFires.Clear(); _fireCounts.Clear(); }
             _speedButtons.Clear();
             _built = true;
             if (_battle == null) { Note(body, "No battle to show."); return; }
+            var bl = body.GetComponent<VerticalLayoutGroup>();
+            if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 24); bl.spacing = 14; }
+            _ctx = _ctx ?? BattleHudContext.FromRun(State?.Run.Active, Content);
+            _strip = RunHudStrip.Build(body, ">>", "SkipButton", Close, null, _ctx.Coins >= 0);
+            if (_strip.Coins != null) _strip.Coins.text = Fmt.Num(_ctx.Coins);
+            body = Ui.Column(body, 14, 0, null, "BattleBody");
+            body.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(24, 24, 0, 0);
             var top = Ui.Row(body, 84, 10);
             _round = Ui.Display(top, "Round 1 / " + _battle.Rounds, Theme.FontLarge, Theme.Text);
             bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
@@ -137,16 +174,11 @@ namespace RogueStars.Client.Screens
                 _views.Add(Fighter(f, side.IndexOf(f), side.Count));
             }
 
-            // the worm's panel: big HP (with shield) and rage
+            // the worm's panel: rage, shield and statuses (its HP is in the top strip)
             _hero = _views.Find(v => v.Info.Role == CombatRole.Worm) ?? _views.Find(v => v.Info.Side == BattleSide.Player);
             if (_hero != null)
             {
-                var panel = Ui.Card(body, Theme.PanelAlt, null, 40, 24, 12);
-                var hpRow = Ui.Row(panel, 40, 14);
-                Ui.Size(Ui.Label(hpRow, "HP", 24, Theme.Text), 80, -1, 0);
-                _heroHp = Ui.Bar(hpRow, Frac(_hero.HpNow, _hero.Info.MaxHp), Theme.Good, null, 32);
-                _heroHpText = Ui.Display(hpRow, "", 28, Theme.Text, TextAnchor.MiddleRight);
-                Ui.Size(_heroHpText, 220, -1, 0);
+                var panel = Ui.Card(body, Theme.PanelAlt, null, 40, 24, 12, 4, "WormPanel");
                 var rageRow = Ui.Row(panel, 30, 14);
                 Ui.Size(Ui.Label(rageRow, "RAGE", 24, Theme.Text), 80, -1, 0);
                 _heroRage = Ui.Bar(rageRow, Frac(_hero.RageNow, Content.Combat.RageMax), Theme.Accent, null, 20);
@@ -169,10 +201,111 @@ namespace RogueStars.Client.Screens
             logButton.onClick.AddListener(() => _feed.gameObject.SetActive(!_feed.gameObject.activeSelf));
             if (_speed == 3 && !x3) _speed = 2;
             RecolorSpeed();
+            SkillStrip();
             foreach (var v in _views) Refresh(v, Content.Combat.RageMax, false);
             RefreshHero();
             TurnOrder();
         }
+
+        // ---- skill strip (fixed footer): every skill tile flashes when its skill fires ----------------
+
+        private void SkillStrip()
+        {
+            _skillTiles.Clear();
+            var bar = Footer;
+            if (bar == null) return;
+            var bg = bar.GetComponent<Image>();
+            if (bg != null) bg.color = RunHudStrip.StripBg;
+            var cap = Ui.Label(bar, "SKILLS IN THIS FIGHT", 22, Theme.TextDim, TextAnchor.MiddleCenter, "StripCaption");
+            cap.fontStyle = FontStyle.Bold;
+            Ui.Size(cap, -1, 26);
+            var row = Ui.Row(bar, StripTileSize, 12, null, 0, "SkillStrip");
+            var rl = row.GetComponent<HorizontalLayoutGroup>();
+            rl.childAlignment = TextAnchor.MiddleCenter;
+            rl.childForceExpandHeight = false;
+            var order = BattleSkillFx.StripOrder(_ctx.Skills, _battle, Content);
+            var levels = _ctx.Levels;
+            var tray = RunPresentation.Tray(Content, order, id => levels != null && levels.TryGetValue(id, out var lv) ? lv : 1, StripSlots);
+            foreach (var t in tray.Tiles)
+            {
+                var b = RunHudStrip.SkillTileButton(row, t, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, StripTileSize, null);
+                _skillTiles[t.SkillId] = (RectTransform)b.transform;
+            }
+            if (tray.Overflow > 0)
+            {
+                var more = Ui.Button(row, "+" + tray.Overflow, null, new Color(1, 1, 1, 0.06f), StripTileSize, StripTileSize, true, 40);
+                more.name = "MoreSkills";
+                more.GetComponentInChildren<Text>().color = Theme.Hex(0xE8DCCB);
+                UiShapes.Outline((RectTransform)more.transform, new Color(1, 1, 1, 0.3f), Theme.RadiusButton, 3);
+                _skillTiles[MoreKey] = (RectTransform)more.transform;
+            }
+            if (tray.Tiles.Count == 0 && tray.Overflow == 0)
+                Ui.Label(row, "No skills yet — draft some on the board.", 24, Theme.TextFaint, TextAnchor.MiddleCenter, "NoSkills");
+            // labels rise from the tiles over the stage: their own layer on top of the screen
+            _fireLayer = Ui.Rect(Root, "SkillFireLayer");
+            Ui.Stretch(_fireLayer);
+            _fireLayer.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
+            _fires.Started -= PlayFire;
+            _fires.Started += PlayFire;
+        }
+
+        /// <summary>A skill of the player's side fired (log entry with its SkillId): count it, queue its tile's flash + label.</summary>
+        private void OnSkillFire(BattleLogEntry e, bool animate)
+        {
+            var fire = BattleSkillFx.FireOf(e, _battle, Content);
+            if (!fire.HasValue) return;
+            var f = fire.Value;
+            SkillFires.Add(f.Label);
+            _fireCounts[f.SkillId] = FireCount(f.SkillId) + 1;
+            if (!animate || Instant) return; // skip mode: no animation, the count / log above is all
+            string key = _skillTiles.ContainsKey(f.SkillId) ? f.SkillId : _skillTiles.ContainsKey(MoreKey) ? MoreKey : null;
+            if (key == null) return;
+            _fires.Duration = FireSeconds;
+            _fires.Push(key, f.Label);
+        }
+
+        /// <summary>One fire on its tile: the tile pops and flashes, the label ("Magma Tail · Burn ×2") rises above it.</summary>
+        private void PlayFire(string key, string label)
+        {
+            if (!_skillTiles.TryGetValue(key, out var tile) || tile == null) return;
+            float secs = FireSeconds;
+            var flash = Ui.RoundPanel(tile, new Color(1, 1, 1, 0), Theme.RadiusButton, "FireFlash");
+            flash.raycastTarget = false;
+            flash.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            Ui.Stretch(flash.rectTransform, -6, -6, -6, -6);
+            UiTweens.Play(tile.gameObject, "fire", secs, t =>
+            {
+                float pop = 1 + 0.16f * Mathf.Sin(Mathf.Clamp01(t * 2.2f) * Mathf.PI);
+                if (tile != null) tile.localScale = Vector3.one * pop;
+                if (flash != null) flash.color = new Color(1, 1, 1, 0.75f * Mathf.Max(0, 1 - t * 1.8f));
+            }, () =>
+            {
+                if (tile != null) tile.localScale = Vector3.one;
+                if (flash != null) Ui.DestroyGo(flash.gameObject);
+            });
+            if (_fireLayer == null || !Application.isPlaying) return;
+            // a pill sized to its text, rising from the tile; labels of tiles firing at once stack in up to three rows
+            var holder = Ui.Chip(_fireLayer, label, new Color(0.08f, 0.05f, 0.09f, 0.94f), Theme.Gold, 30, 60, Theme.Shade(Theme.Gold, 0.8f), "SkillFireLabel");
+            holder.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
+            holder.pivot = new Vector2(0.5f, 0.5f);
+            int lane = _liveLabels++ % 3;
+            var world = tile.TransformPoint(tile.rect.center + new Vector2(0, tile.rect.height * 0.5f + 40 + lane * 78));
+            Vector2 start = _fireLayer.InverseTransformPoint(world);
+            float half = Mathf.Max(0, _fireLayer.rect.width / 2 - (label.Length * 9 + 40));
+            start.x = Mathf.Clamp(start.x, -half, half);
+            holder.anchoredPosition = start;
+            var group = holder.gameObject.AddComponent<CanvasGroup>();
+            float life = Mathf.Max(0.7f, secs * 1.5f);
+            UiTweens.Play(holder.gameObject, "float", life, t =>
+            {
+                holder.anchoredPosition = start + new Vector2(0, 36 * RunFx.Ease(t));
+                holder.localScale = Vector3.one * (t < 0.12f ? Mathf.Lerp(0.7f, 1.05f, t / 0.12f) : 1);
+                group.alpha = t < 0.75f ? 1 : 1 - (t - 0.75f) / 0.25f;
+            }, () => { _liveLabels = Math.Max(0, _liveLabels - 1); Ui.DestroyGo(holder.gameObject); });
+        }
+
+        private int _liveLabels;
 
         /// <summary>Stage position (anchored, from the stage centre) of the n-th of <paramref name="count"/> fighters of a side.</summary>
         public static Vector2 StagePosition(BattleSide side, int index, int count)
@@ -228,23 +361,34 @@ namespace RogueStars.Client.Screens
                 default: size = new Vector2(146, 146); radius = 38; break;
             }
             var color = RoleColor(f.Role);
-            var body = Ui.RoundPanel(root, f.Role == CombatRole.Worm ? Theme.Worm : Theme.Shade(color, 0.5f), radius, "Sprite");
+            // the worm is the hero sprite (ArtCatalog) when it is there, every other role a rounded token with its letter
+            var hero = f.Role == CombatRole.Worm ? ArtCatalog.Hero() : null;
+            Image body;
+            if (hero != null)
+            {
+                body = Ui.Panel(root, Color.white, "Sprite");
+                body.sprite = hero;
+                body.preserveAspect = true;
+                size = new Vector2(164, 164);
+            }
+            else body = Ui.RoundPanel(root, f.Role == CombatRole.Worm ? Theme.Worm : Theme.Shade(color, 0.5f), radius, "Sprite");
             body.raycastTarget = false;
             var srt = body.rectTransform;
             srt.anchorMin = srt.anchorMax = new Vector2(player ? 0.3f : 0.7f, 0);
             srt.pivot = new Vector2(0.5f, 0);
             srt.sizeDelta = size;
             srt.anchoredPosition = new Vector2(0, 46);
-            UiShapes.Outline(srt, f.Role == CombatRole.Worm ? Theme.WormLight : color, radius, 6);
+            if (hero == null) UiShapes.Outline(srt, f.Role == CombatRole.Worm ? Theme.WormLight : color, radius, 6);
             v.Sprite = srt;
             v.SpriteImage = body;
             v.SpriteColor = body.color;
+            v.FlashColor = hero != null ? new Color(1f, 0.45f, 0.42f) : Color.white; // a sprite cannot get whiter: it flashes red
             if (f.Role != CombatRole.Worm)
             {
                 var letter = Ui.Display(srt, RoleLetter(f.Role), 44, Color.Lerp(color, Color.white, 0.6f), TextAnchor.MiddleCenter);
                 Ui.Stretch(letter.rectTransform);
             }
-            else
+            else if (hero == null)
             {
                 var eye = Ui.Dot(srt, Theme.OnAccent, 16, "Eye");
                 eye.rectTransform.anchorMin = eye.rectTransform.anchorMax = new Vector2(0.82f, 0.62f);
@@ -329,6 +473,7 @@ namespace RogueStars.Client.Screens
         {
             if (_battle == null || Root == null) return;
             _elapsed += dt;
+            _fires.Tick(dt); // skill tiles play their queued fires, also after the last entry
             if (Finished) return;
             if (Instant) { PlayAll(); return; }
             _timer += dt;
@@ -423,6 +568,7 @@ namespace RogueStars.Client.Screens
             if (target != actor) Refresh(target, rageMax, animate);
             RefreshHero();
             Feed(e, actor, target);
+            OnSkillFire(e, animate);
             if (animate || Finished) TurnOrder();
             if (Finished) End();
         }
@@ -458,7 +604,7 @@ namespace RogueStars.Client.Screens
                 float wait = 0.3f; // the blow lands mid-lunge
                 float k = t < wait ? 0 : (t - wait) / (1 - wait);
                 sprite.anchoredPosition = home + new Vector2(amp * Mathf.Sin(k * Mathf.PI * 6) * (1 - k), 0);
-                if (!v.Dead) img.color = Color.Lerp(baseColor, Color.white, k <= 0 ? 0 : (1 - k) * 0.85f);
+                if (!v.Dead) img.color = Color.Lerp(baseColor, v.FlashColor, k <= 0 ? 0 : (1 - k) * 0.85f);
             }, () => { sprite.anchoredPosition = home; if (!v.Dead) img.color = baseColor; });
         }
 
@@ -617,9 +763,16 @@ namespace RogueStars.Client.Screens
 
         private void RefreshHero()
         {
-            if (_hero == null || _heroHp == null) return;
-            _heroHp.Set(Frac(_hero.HpNow, _hero.Info.MaxHp));
-            _heroHpText.text = Fmt.Num(Math.Max(0, _hero.HpNow)) + " / " + Fmt.Num(_hero.Info.MaxHp);
+            if (_hero == null) return;
+            if (_strip != null)
+            {
+                // the top strip: the worm's live HP from the log, its run ATK / DEF / level as the board showed them
+                var s = _ctx.Hud;
+                s.Hp = Math.Max(0, _hero.HpNow);
+                s.MaxHp = _hero.Info.MaxHp;
+                _strip.Show(s, _ctx.HasStats ? s.Level : 0, s.XpNeed > 0 ? (float)s.Xp / s.XpNeed : 0, _ctx.SkillCount, _ctx.HasStats);
+            }
+            if (_heroRage == null) return;
             double rageMax = Content.Combat.RageMax;
             _heroRage.Set(Frac(_hero.RageNow, rageMax));
             _heroRageText.text = (rageMax > 0 ? (100 * _hero.RageNow / rageMax).ToString("0") : "0") + "%";
@@ -650,6 +803,36 @@ namespace RogueStars.Client.Screens
         private void Close()
         {
             if (App.Router.Current == this) App.Router.Pop();
+        }
+    }
+
+    /// <summary>
+    /// The worm as the run's HUD showed it when the fight started (top strip numbers) and the run's skills with their
+    /// levels (skill strip). The run screen passes it; without one the playback reads the active run (or shows the log's
+    /// fired skills only).
+    /// </summary>
+    public sealed class BattleHudContext
+    {
+        public RunHudStats Hud;
+        /// <summary>False: ATK / DEF / level unknown (a battle outside a run) — the strip shows "–".</summary>
+        public bool HasStats;
+        /// <summary>Run coins for the chip; &lt; 0 = no coins chip.</summary>
+        public long Coins = -1;
+        public int SkillCount;
+        public List<string> Skills = new List<string>();
+        public Dictionary<string, int> Levels = new Dictionary<string, int>();
+
+        public static BattleHudContext FromRun(ActiveRun run, ContentDb c)
+        {
+            var ctx = new BattleHudContext();
+            if (run == null) return ctx;
+            ctx.Hud = RunPresentation.Hud(c, run);
+            ctx.HasStats = true;
+            ctx.Coins = run.Coins;
+            ctx.SkillCount = RunSystem.BuildSize(run);
+            ctx.Skills = RunSystem.ActiveSkillIds(run);
+            foreach (var id in ctx.Skills) ctx.Levels[id] = RunDraft.Level(run, id);
+            return ctx;
         }
     }
 }

@@ -30,6 +30,11 @@ namespace RogueStars.Client.App
         public abstract string Title { get; }
         /// <summary>Height of the header (back + title); 0 = no header (the hub and full-screen moments draw their own).</summary>
         public virtual float HeaderHeight => 128;
+        /// <summary>
+        /// Full-screen game screens (the run board, the battle) cover the app's resource bar: the screen gets the whole safe
+        /// area, its opaque background covers the bar (they show their own top strip).
+        /// </summary>
+        public virtual bool CoversResourceBar => false;
         /// <summary>Show the back button (false for the root hub).</summary>
         public virtual bool ShowBack => true;
         /// <summary>Rebuild automatically on every state change (false for screens with text input).</summary>
@@ -63,7 +68,9 @@ namespace RogueStars.Client.App
         internal void Create(ClientApp app, RectTransform parent)
         {
             App = app;
-            Root = Ui.Stretch(Ui.Rect(parent, "Screen:" + GetType().Name));
+            // a full-screen game screen reaches up over the resource bar and covers it with an opaque background
+            Root = Ui.Stretch(Ui.Rect(parent, "Screen:" + GetType().Name), 0, CoversResourceBar ? -ClientApp.TopBarHeight : 0, 0, 0);
+            if (CoversResourceBar) Root.gameObject.AddComponent<Image>().color = Theme.Background; // nothing of the bar shows through
             float headerHeight = HeaderHeight;
             if (headerHeight > 0)
             {

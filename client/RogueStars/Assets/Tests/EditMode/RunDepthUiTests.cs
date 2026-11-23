@@ -85,7 +85,8 @@ namespace RogueStars.Client.Tests
             var screen = Open();
             var chip = FindNamed(screen.Root, "SkillCount");
             Assert.That(chip, Is.Not.Null);
-            Assert.That(Texts(chip), Does.Contain("Skills 2"));
+            Assert.That(RunHudStrip.Plain(chip.GetComponent<Text>()), Is.EqualTo("SKILLS 2"));
+            Assert.That(screen.HudText, Does.Contain("SKILLS 2"));
         }
 
         [Test]

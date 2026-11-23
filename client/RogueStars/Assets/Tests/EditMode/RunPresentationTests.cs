@@ -298,7 +298,7 @@ namespace RogueStars.Client.Tests
             Assert.That(text, Does.Contain("Lv " + run.Level));
             Assert.That(text, Does.Contain("XP " + run.Xp + " / " + hud.XpNeed));
             Assert.That(FindNamed(screen.Root, "HpBar"), Is.Not.Null);
-            Assert.That(FindNamed(screen.Root, "XpBar"), Is.Not.Null);
+            Assert.That(FindNamed(screen.Root, "XpRing"), Is.Not.Null, "XP as a ring around the run level");
 
             // run modifications apply: +50% ATK and +50% DEF perks, some XP
             run.RunStats.Add(new StatMod(StatId.Atk, 0, 50));
