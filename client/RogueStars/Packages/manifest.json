@@ -39,6 +39,7 @@
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0",
     "com.roguestars.rules": "file:../../../shared/RogueStars.Rules",
+    "com.roguestars.simcore": "file:../../../shared/RogueStars.Sim.Core",
     "com.unity.ugui": "2.0.0",
     "com.unity.nuget.newtonsoft-json": "3.2.1",
     "com.unity.test-framework": "1.5.1",

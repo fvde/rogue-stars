@@ -28,6 +28,12 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.roguestars.simcore": {
+      "version": "file:../../../shared/RogueStars.Sim.Core",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.unity.ext.nunit": {
       "version": "2.1.0",
       "depth": 1,

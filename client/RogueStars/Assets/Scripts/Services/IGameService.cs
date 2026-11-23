@@ -50,6 +50,47 @@ namespace RogueStars.Client.Services
 
         /// <summary>Guild endpoints; null when the mode has no guild support (offline).</summary>
         IGuildApi Guilds { get; }
+
+        /// <summary>
+        /// Owner dev tools (reset progress, jump to account day N); null when not available. Offline: always; online: only when
+        /// the server's session said <c>devTools: true</c> (the player is on the server's allowlist, docs/server.md).
+        /// </summary>
+        IDevTools DevTools { get; }
+    }
+
+    /// <summary>
+    /// Owner dev tools (offline: the local save; online: /v1/dev/*). Both replace the whole player (same id and name) and
+    /// call back with the new state already applied; the caller reloads the app (day-1 hub).
+    /// </summary>
+    public interface IDevTools
+    {
+        /// <summary>A brand-new player (account created now, starter kit).</summary>
+        void Reset(Action<ServiceResult<DevToolsOutcome>> done);
+
+        /// <summary>
+        /// A player on account day <paramref name="day"/> (1–60) who played every day so far in a simulator profile
+        /// (<c>casual</c>, <c>active</c>, <c>hardcore</c>; RogueStars.Sim.AccountAgeJump).
+        /// </summary>
+        void Jump(int day, string profile, Action<ServiceResult<DevToolsOutcome>> done);
+    }
+
+    /// <summary>Result of a dev tools call (the response of POST /v1/dev/reset and /v1/dev/jump).</summary>
+    [Serializable]
+    public sealed class DevToolsOutcome
+    {
+        public int Day;
+        /// <summary>Null for a reset.</summary>
+        public string Profile;
+        public long Seed;
+        public long MainLevel;
+        public long WormLevel;
+        public long Power;
+        public long ElapsedMs;
+
+        /// <summary>Toast text, e.g. "Day 14 · active player · level 33" or "Progress reset · day 1".</summary>
+        public string Summary => string.IsNullOrEmpty(Profile)
+            ? "Progress reset · day " + Day
+            : "Day " + Day + " · " + Profile + " player · level " + MainLevel;
     }
 
     /// <summary>Server guild endpoints (/v1/guilds/*).</summary>

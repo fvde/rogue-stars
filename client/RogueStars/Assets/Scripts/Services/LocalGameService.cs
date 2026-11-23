@@ -214,6 +214,76 @@ namespace RogueStars.Client.Services
             RaiseChanged();
         }
 
+        /// <summary>Offline dev tools: always available.</summary>
+        public IDevTools DevTools => _devTools ?? (_devTools = new LocalDevTools(this));
+        private IDevTools _devTools;
+
+        /// <summary>
+        /// Replaces the save with a player on account day <paramref name="day"/> who played every day so far in the
+        /// simulator profile (same player id, display name kept, version continued). Runs the bot synchronously: a 60-day
+        /// hardcore account takes a few seconds.
+        /// </summary>
+        public DevToolsOutcome DevJump(int day, string profile, long seed)
+        {
+            var time = RogueStars.Sim.AccountAgeJump.Profile(profile);
+            if (time == null) throw new ArgumentException("unknown profile " + profile);
+            var jump = RogueStars.Sim.AccountAgeJump.Run(Content, _playerId, day, time, seed, NowMs);
+            Replace(jump.State);
+            return new DevToolsOutcome
+            {
+                Day = day, Profile = jump.Profile, Seed = seed, MainLevel = jump.MainLevel, WormLevel = jump.WormLevel,
+                Power = Engine.BuildLoadout(_state, NowMs).Power, ElapsedMs = jump.ElapsedMs,
+            };
+        }
+
+        /// <summary>Replaces the save with a brand-new player (same id and display name, version continued).</summary>
+        public DevToolsOutcome DevReset()
+        {
+            Replace(Engine.NewPlayer(_playerId, NowMs, NewPlayerSeed()));
+            return new DevToolsOutcome { Day = 1, Power = Engine.BuildLoadout(_state, NowMs).Power };
+        }
+
+        private void Replace(GameState fresh)
+        {
+            fresh.PlayerId = _playerId;
+            fresh.DisplayName = _state != null ? _state.DisplayName : _displayName;
+            fresh.Version = (_state != null ? _state.Version : 0) + 1;
+            Engine.Settle(fresh, NowMs);
+            _state = fresh;
+            Save();
+            RaiseChanged();
+        }
+
+        private sealed class LocalDevTools : IDevTools
+        {
+            private readonly LocalGameService _s;
+            public LocalDevTools(LocalGameService s) { _s = s; }
+
+            public void Reset(Action<ServiceResult<DevToolsOutcome>> done) => Guard(_s.DevReset, done);
+
+            public void Jump(int day, string profile, Action<ServiceResult<DevToolsOutcome>> done)
+            {
+                if (day < RogueStars.Sim.AccountAgeJump.MinDays || day > RogueStars.Sim.AccountAgeJump.MaxDays) { done(ServiceResult<DevToolsOutcome>.Fail("invalid_day")); return; }
+                if (RogueStars.Sim.AccountAgeJump.Profile(profile) == null) { done(ServiceResult<DevToolsOutcome>.Fail("unknown_profile")); return; }
+                long seed = _s._seeded ? _s._random.Next() : Math.Abs(_s.NewPlayerSeed() % 1_000_000_000L);
+                Guard(() => _s.DevJump(day, profile, seed), done);
+            }
+
+            private void Guard(Func<DevToolsOutcome> run, Action<ServiceResult<DevToolsOutcome>> done)
+            {
+                if (_s._state == null) { done(ServiceResult<DevToolsOutcome>.Fail(ServiceErrors.NotConnected)); return; }
+                DevToolsOutcome outcome;
+                try { outcome = run(); }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogWarning("[LocalGameService] dev tools failed: " + ex);
+                    done(ServiceResult<DevToolsOutcome>.Fail("internal_error: " + ex.Message));
+                    return;
+                }
+                done(ServiceResult<DevToolsOutcome>.Success(outcome));
+            }
+        }
+
         // ---- arena (local bots; power comparison until the Run workstream's BattleSimulator lands) ----
 
         private static readonly string[] BotNames = { "Squirmlord", "Noodle Prime", "Glorp", "Wiggleton", "Coilbert", "Slinkster", "Vermax", "Dirt Duke", "Loopy", "Mudrunner" };

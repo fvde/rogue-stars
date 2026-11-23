@@ -11,6 +11,8 @@ namespace RogueStars.Client.Services
         public string Url;
         /// <summary>JSON body or null.</summary>
         public string Body;
+        /// <summary>Request timeout; 0 = the transport's default.</summary>
+        public int TimeoutSeconds;
         public readonly Dictionary<string, string> Headers = new Dictionary<string, string>();
         public override string ToString() => Method + " " + Url;
     }
@@ -40,7 +42,7 @@ namespace RogueStars.Client.Services
             var uwr = new UnityWebRequest(request.Url, request.Method)
             {
                 downloadHandler = new DownloadHandlerBuffer(),
-                timeout = TimeoutSeconds,
+                timeout = request.TimeoutSeconds > 0 ? request.TimeoutSeconds : TimeoutSeconds,
             };
             if (request.Body != null)
             {
