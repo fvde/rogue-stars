@@ -89,12 +89,20 @@ namespace RogueStars.Client.App
 
         public void After(float seconds, Action run) => _timers.Add((_clock + seconds, run));
 
+        /// <summary>
+        /// Products sold (PlatformConfig.ProductSet, set by ClientApp): "initial" = only the first Play Console products, "all"
+        /// (default for sessions built without a config, e.g. tests) = every store product.
+        /// </summary>
+        public string ProductSet = StoreCatalog.SetAll;
+
+        public bool IsOffered(string productId) => StoreCatalog.IsOffered(productId, ProductSet);
+
         /// <summary>After connecting: register the catalogue with the store (and bind purchases to the player).</summary>
         public void InitPlatform(Action<ServiceResult> done = null)
         {
             if (Store == null || Content == null) { done?.Invoke(ServiceResult.Fail(StoreErrors.NotReady)); return; }
             string account = IsOnline ? StoreCatalog.ObfuscatedAccountId(State?.PlayerId) : null;
-            Store.Initialize(StoreCatalog.Products(Content), account, r =>
+            Store.Initialize(StoreCatalog.Products(Content, ProductSet), account, r =>
             {
                 if (r.Ok) Store.Restore(); // unfinished/owned purchases come back through PurchaseDelivered
                 done?.Invoke(r);
@@ -124,6 +132,7 @@ namespace RogueStars.Client.App
         {
             var def = Content?.Product(productId);
             if (def == null) { Error("Unknown product"); return; }
+            if (!IsOffered(productId)) { Error(def.Name + " is not available yet"); then?.Invoke(CommandResult.Fail("product_not_offered")); return; }
             Run(new PurchaseStart { ProductId = productId }, start =>
             {
                 if (!start.Ok) { then?.Invoke(start); return; }
@@ -189,6 +198,25 @@ namespace RogueStars.Client.App
         /// </summary>
         public void WatchAd(string placementId, Action<CommandResult> then = null)
         {
+            if (NoAds)
+            {
+                // No Ads entitlement or the global ads-disabled mode: no ad at all. Offline the rules grant it directly;
+                // online the server runs AdWatched without a token (its rules accept that only in this case).
+                if (IsOnline && Service is IAdRewardService reward)
+                {
+                    InFlight++;
+                    reward.InstantAd(placementId, r =>
+                    {
+                        InFlight--;
+                        LastResult = r;
+                        if (r.Ok) foreach (var e in r.Events) EventRaised?.Invoke(e);
+                        else Error(Fmt.Humanize(r.Error));
+                        then?.Invoke(r);
+                    });
+                }
+                else Run(new AdWatched { PlacementId = placementId, AdToken = "" }, then);
+                return;
+            }
             Ads.Show(placementId, ad =>
             {
                 if (!ad.Ok) { if (ad.Error != "ad_cancelled") Error(Fmt.Humanize(ad.Error)); return; }
@@ -230,6 +258,9 @@ namespace RogueStars.Client.App
         public void Info(string message) => InfoRaised?.Invoke(message);
         public void NotifyChanged() => Changed?.Invoke();
 
+        /// <summary>No Ads entitlement or global ads-disabled mode (rules <c>ShopSystem.HasNoAds</c>): placements complete without an ad.</summary>
+        public bool NoAds => State != null && Content != null && ShopSystem.HasNoAds(State, Content);
+
         /// <summary>Feature gate helper (Meta's Features).</summary>
         public bool IsUnlocked(string featureId) => State != null && Features.IsUnlocked(State, Content, featureId);
     }
@@ -237,7 +268,7 @@ namespace RogueStars.Client.App
     /// <summary>
     /// The ad gateway screens use. Offline: the platform ad's token. Online:
     /// <list type="bullet">
-    /// <item>No Ads entitlement → no ad, empty token (rules: instant).</item>
+    /// <item>No Ads entitlement or global ads-disabled mode (offline and online) → no ad, empty token (rules: instant).</item>
     /// <item>Placements with direct rewards → the platform ad only; the server grants on the S2S callback (GameSession.WatchAd).</item>
     /// <item>Placements spent by a command (revive, stamina, timer, pulls, double rewards) → after the ad, poll
     /// /v1/ads/credits until the S2S callback's event id is there and return it as the command's AdToken.</item>
@@ -255,9 +286,10 @@ namespace RogueStars.Client.App
 
         public void Show(string placementId, Action<ServiceResult<string>> done)
         {
+            // No Ads / global ads-disabled mode (offline and online): no ad, empty token (rules: instant).
+            if (_s.NoAds) { done(ServiceResult<string>.Success("")); return; }
             var reward = _s.IsOnline ? _s.Service as IAdRewardService : null;
             if (reward == null) { _s.PlatformAds.Show(placementId, done); return; }
-            if (_s.State != null && ShopSystem.HasNoAds(_s.State, _s.Content)) { done(ServiceResult<string>.Success("")); return; }
 
             var def = _s.Content.AdPlacement(placementId);
             bool direct = def != null && def.Rewards.Count > 0;

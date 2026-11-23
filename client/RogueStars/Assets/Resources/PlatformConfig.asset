@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: PlatformConfig
   m_EditorClassIdentifier: RogueStars.Client::RogueStars.Client.Services.PlatformConfig
   StoreMode: unity_iap
-  AdsMode: max
+  AdsMode: disabled
   MaxRewardedAdUnitId: YOUR_MAX_REWARDED_AD_UNIT_ID
   MaxVerboseLogging: 0
+  ProductSet: initial

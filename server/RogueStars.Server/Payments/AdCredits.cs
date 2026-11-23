@@ -34,7 +34,7 @@ public sealed class AdCreditService(IDocStore docs, Clock clock, IOptions<Server
     private static readonly Dictionary<Type, FieldInfo?> TokenFields = new();
 
     private AdsOptions O => options.Value.Ads;
-    public bool Enforced => !string.Equals(O.Mode, "fake", StringComparison.OrdinalIgnoreCase);
+    public bool Enforced => !O.IsFake;
     private long Ttl => (long)TimeSpan.FromHours(Math.Max(1, O.CreditTtlHours)).TotalMilliseconds;
 
     public async Task AddAsync(string playerId, string eventId, string placement, CancellationToken ct)

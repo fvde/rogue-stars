@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
 
 namespace RogueStars.Client.Services
 {
@@ -47,11 +48,23 @@ namespace RogueStars.Client.Services
     /// </summary>
     public static class StoreCatalog
     {
-        public static List<StoreProductInfo> Products(ContentDb content)
+        public const string SetInitial = "initial", SetAll = "all";
+
+        /// <summary>
+        /// The first products created in Play Console (docs/play-console-products-initial.csv); same list as the server's
+        /// PlayCatalog.InitialProductIds. With product set "initial" only these are offered.
+        /// </summary>
+        public static readonly string[] InitialProductIds = { "diamonds_60", "starter_worm", "monthly_pass", "perm_daily_diamonds" };
+
+        /// <summary>Product set "all" offers everything; anything else ("initial") only <see cref="InitialProductIds"/>.</summary>
+        public static bool IsOffered(string productId, string productSet) =>
+            productSet == SetAll || Array.IndexOf(InitialProductIds, productId) >= 0;
+
+        public static List<StoreProductInfo> Products(ContentDb content, string productSet = SetAll)
         {
             var list = new List<StoreProductInfo>();
             foreach (var p in content.Products.Values)
-                if (p.PriceUsdCents > 0 && !string.IsNullOrEmpty(p.StoreProductId))
+                if (p.PriceUsdCents > 0 && !string.IsNullOrEmpty(p.StoreProductId) && IsOffered(p.Id, productSet))
                     list.Add(new StoreProductInfo { ProductId = p.Id, StoreProductId = p.StoreProductId, Consumable = p.Limit != 1 });
             list.Sort((a, b) => string.CompareOrdinal(a.ProductId, b.ProductId));
             return list;
@@ -166,6 +179,17 @@ namespace RogueStars.Client.Services
         }
     }
 
+    /// <summary>
+    /// Ads-disabled builds: no ad SDK at all. Never asked in practice (the rules treat everyone as a No Ads owner, so
+    /// <c>ServerVerifiedAdGateway</c> completes placements without an ad); if a server with ads switched on asks anyway, the
+    /// placement fails with <c>ads_unavailable</c>.
+    /// </summary>
+    public sealed class NoAdGateway : IAdGateway
+    {
+        public string Name => "none";
+        public void Show(string placementId, Action<ServiceResult<string>> done) => done(ServiceResult<string>.Fail("ads_unavailable"));
+    }
+
     /// <summary>A verified rewarded-ad view the player can spend (GET /v1/ads/credits).</summary>
     [Serializable]
     public sealed class AdCreditInfo
@@ -180,6 +204,11 @@ namespace RogueStars.Client.Services
     {
         string PlayerId { get; }
         void AdCredits(Action<ServiceResult<List<AdCreditInfo>>> done);
+        /// <summary>
+        /// POST /v1/ads/instant: grants a direct-reward placement without an ad. The server's rules accept it only for No Ads
+        /// owners and in the global ads-disabled mode.
+        /// </summary>
+        void InstantAd(string placementId, Action<CommandResult> done);
         /// <summary>Dev only: plays AppLovin's S2S callback against a server in fake ads mode (fake ad gateway online).</summary>
         void SimulateAdCallback(string placementId, string eventId, Action<ServiceResult> done);
     }

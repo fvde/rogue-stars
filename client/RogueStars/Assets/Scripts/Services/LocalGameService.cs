@@ -35,6 +35,13 @@ namespace RogueStars.Client.Services
         public IGuildApi Guilds => null;
         public string SavePath => _savePath;
 
+        /// <summary>Global ads-disabled mode (PlatformConfig "disabled"): every placement completes instantly, as with No Ads.</summary>
+        public bool AdsDisabled
+        {
+            get => Content.Shop.AdsDisabled;
+            set => Content.Shop.AdsDisabled = value;
+        }
+
         public event Action StateChanged;
 
         /// <param name="saveDirectory">Usually Application.persistentDataPath.</param>

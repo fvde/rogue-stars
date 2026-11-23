@@ -52,7 +52,8 @@ namespace RogueStars.Client.Services
             _config = config ?? new RemoteConfig();
             _http = transport ?? new UnityHttpTransport();
             _clock = clock ?? SystemClock.Instance;
-            Content = content ?? ContentDb.Default;
+            // Own content instance: the server's session flags (adsDisabled) are applied to it, never to ContentDb.Default.
+            Content = content ?? new ContentDb();
             Engine = new GameEngine(Content) { Cloner = ClientJson.Clone };
             Guilds = new RemoteGuildApi(this);
         }
@@ -70,6 +71,8 @@ namespace RogueStars.Client.Services
                     PlayerId = (string)json["playerId"] ?? PlayerId;
                     AllowedCommands.Clear();
                     if (json["commands"] is JArray cmds) foreach (var c in cmds) AllowedCommands.Add((string)c);
+                    // Global ads-disabled mode of the server (Ads:Mode=disabled): every placement is instant for everyone.
+                    Content.Shop.AdsDisabled = json.Value<bool?>("adsDisabled") ?? false;
                     ApplyState(json);
                     done?.Invoke(_state != null ? ServiceResult.Success() : ServiceResult.Fail("session_without_state"));
                 });
@@ -166,6 +169,12 @@ namespace RogueStars.Client.Services
 
         public void AdCredits(Action<ServiceResult<List<AdCreditInfo>>> done) =>
             Get("/v1/ads/credits", json => ((JArray)json["credits"] ?? new JArray()).ToObject<List<AdCreditInfo>>(ClientJson.WireSerializer), done);
+
+        public void InstantAd(string placementId, Action<CommandResult> done)
+        {
+            var body = new JObject { ["placementId"] = placementId, ["requestId"] = Guid.NewGuid().ToString("N") };
+            Call("POST", "/v1/ads/instant", body, (json, err) => done?.Invoke(MapCommand(json, err)));
+        }
 
         public void SimulateAdCallback(string placementId, string eventId, Action<ServiceResult> done)
         {

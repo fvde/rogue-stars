@@ -48,6 +48,7 @@ namespace RogueStars.Client.Editor
             if (Env("ROGUESTARS_STORE") is string store) platform.StoreMode = store;
             if (Env("ROGUESTARS_ADS") is string ads) platform.AdsMode = ads;
             if (Env("ROGUESTARS_MAX_REWARDED_AD_UNIT") is string unit) platform.MaxRewardedAdUnitId = unit;
+            if (Env("ROGUESTARS_PRODUCT_SET") is string set) platform.ProductSet = set;
             EditorUtility.SetDirty(platform);
             Store = platform.StoreMode;
             Ads = platform.AdsMode == PlatformConfig.AdsMax && !platform.HasMaxAdUnit ? "fake (no MAX ad unit id)" : platform.AdsMode;

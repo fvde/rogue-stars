@@ -81,6 +81,7 @@ namespace RogueStars.Client.Screens
             var row = Ui.Row(card, 84);
             if (block != null) Ui.Label(row, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim);
             else if (p.PriceUsdCents == 0) Ui.Button(row, "Claim free", () => Run(new ShopClaimFree { ProductId = p.Id }), Theme.Good, -1, 84);
+            else if (!Session.IsOffered(p.Id)) Ui.Button(row, "Coming soon", null, Theme.Button, -1, 84, false).name = "ComingSoon:" + p.Id;
             else Ui.Button(row, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, -1, 84);
             if (p.DailyRewards.Count > 0 && ShopSystem.DailyGrantActive(State, Content, p.Id, Now))
                 Ui.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), Theme.Good, -1, 84, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
@@ -98,7 +99,7 @@ namespace RogueStars.Client.Screens
             Ui.Bar(card, sp.XpPerLevel > 0 ? (xp % sp.XpPerLevel) / (float)sp.XpPerLevel : 0, Theme.Premium, "Level " + level + " — " + xp + " XP");
             Live(Note(card, ""), () => "Season ends in " + Fmt.Duration(ShopSystem.SeasonEndMs(Content, Now) - Now));
             var row = Ui.Row(card, 84);
-            if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, "Premium " + Fmt.Price(pp.PriceUsdCents), () => Session.Purchase(pp.Id), Theme.Accent, -1, 84); }
+            if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, Session.IsOffered(pp.Id) ? "Premium " + Fmt.Price(pp.PriceUsdCents) : "Premium: coming soon", () => Session.Purchase(pp.Id), Theme.Accent, -1, 84, Session.IsOffered(pp.Id)); }
             else Ui.Label(row, "Premium owned", Theme.FontSmall, Theme.Good);
             Ui.Button(row, "Claim all", () => Run(new SeasonPassClaimAll()), Theme.Good, -1, 84);
             foreach (var l in sp.Levels)
@@ -136,7 +137,7 @@ namespace RogueStars.Client.Screens
                 if (!owned && p != null)
                 {
                     string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
-                    if (block == null) Ui.Button(head, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, 240, 60);
+                    if (block == null) Ui.Button(head, Session.IsOffered(p.Id) ? "Buy " + Fmt.Price(p.PriceUsdCents) : "Coming soon", () => Session.Purchase(p.Id), Theme.Accent, 240, 60, Session.IsOffered(p.Id));
                     else Ui.Label(head, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
                 }
                 var steps = Ui.Grid(card, new Vector2(190, 90), 5, 8);

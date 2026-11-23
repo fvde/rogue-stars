@@ -75,6 +75,9 @@ public static class PlayerEndpoints
                 version = state.Version,
                 state = StateJson.ToWire(state),
                 commands = catalog.ClientCommands(),
+                // Global ads-disabled mode (Ads:Mode=disabled): the client mirrors it into its rules content so it takes
+                // the instant (No Ads) path for every placement.
+                adsDisabled = engine.Content.Shop.AdsDisabled,
             });
         });
 

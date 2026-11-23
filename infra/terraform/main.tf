@@ -220,8 +220,12 @@ resource "google_cloud_run_v2_service" "server" {
         value = "true"
       }
       env {
+        name  = "RogueStars__Iap__ProductSet"
+        value = var.iap_product_set
+      }
+      env {
         name  = "RogueStars__Ads__Mode"
-        value = "applovin"
+        value = var.ads_mode
       }
       env {
         name  = "RogueStars__Ads__Verification"
@@ -238,7 +242,7 @@ resource "google_cloud_run_v2_service" "server" {
 
       dynamic "env" {
         for_each = merge(
-          var.secrets_populated ? { "RogueStars__Ads__EventKey" = "ads_ssv_key" } : {},
+          var.secrets_populated && var.ads_mode == "applovin" ? { "RogueStars__Ads__EventKey" = "ads_ssv_key" } : {},
           var.secrets_populated && var.play_credentials_in_secret ? { "RogueStars__Iap__ServiceAccountJson" = "play_publisher" } : {},
         )
         content {
