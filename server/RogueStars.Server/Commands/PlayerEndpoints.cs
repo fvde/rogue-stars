@@ -78,6 +78,8 @@ public static class PlayerEndpoints
                 // Global ads-disabled mode (Ads:Mode=disabled): the client mirrors it into its rules content so it takes
                 // the instant (No Ads) path for every placement.
                 adsDisabled = engine.Content.Shop.AdsDisabled,
+                // Iap:Mode=disabled: real-money products are shown as "coming soon" (Diamond-priced items keep working).
+                purchasesDisabled = options.Iap.IsDisabled,
             });
         });
 

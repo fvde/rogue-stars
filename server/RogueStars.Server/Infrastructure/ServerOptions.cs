@@ -55,8 +55,16 @@ public sealed class JobOptions
 
 public sealed class IapOptions
 {
-    /// <summary>"fake" (tokens starting with "fake-" are valid) or "google" (Android Publisher API).</summary>
-    public string Mode { get; set; } = "google";
+    public const string Disabled = "disabled";
+
+    /// <summary>
+    /// "disabled" (default for now: Google Play payments on hold — /v1/iap/verify answers 503 purchases_disabled, the client
+    /// shows real-money products as "coming soon"), "fake" (tokens starting with "fake-" are valid) or "google" (Android
+    /// Publisher API).
+    /// </summary>
+    public string Mode { get; set; } = Disabled;
+
+    public bool IsDisabled => string.Equals(Mode, Disabled, StringComparison.OrdinalIgnoreCase);
     public string? PackageName { get; set; }
     /// <summary>Service account JSON with Play Console access (from Secret Manager). Empty = use ADC.</summary>
     public string? ServiceAccountJson { get; set; }

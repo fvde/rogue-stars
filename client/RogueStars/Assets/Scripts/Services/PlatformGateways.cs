@@ -39,6 +39,8 @@ namespace RogueStars.Client.Services
         /// <summary>Payment not completed yet (Play "pending" / deferred); the purchase is delivered later.</summary>
         public const string Deferred = "purchase_deferred";
         public const string NotReady = "store_not_ready";
+        /// <summary>Payments on hold (client StoreMode or server Iap:Mode "disabled").</summary>
+        public const string Disabled = "purchases_disabled";
     }
 
     /// <summary>
@@ -102,6 +104,23 @@ namespace RogueStars.Client.Services
         /// <summary>Asks the store for owned/unfinished purchases (non-consumable restore); results arrive via <see cref="PurchaseDelivered"/>.</summary>
         void Restore();
         event Action<StorePurchase> PurchaseDelivered;
+    }
+
+    /// <summary>
+    /// Payments on hold (PlatformConfig.StoreMode "disabled"): never touches Google Play Billing / Unity IAP; every call
+    /// fails with <see cref="StoreErrors.Disabled"/>. GameSession shows real-money products as "coming soon" instead.
+    /// </summary>
+    public sealed class DisabledStoreGateway : IStoreGateway
+    {
+        public string Name => "disabled";
+        public bool IsReady => false;
+#pragma warning disable 67
+        public event Action<StorePurchase> PurchaseDelivered;
+#pragma warning restore 67
+        public void Initialize(IList<StoreProductInfo> products, string obfuscatedAccountId, Action<ServiceResult> done) => done?.Invoke(ServiceResult.Fail(StoreErrors.Disabled));
+        public void Purchase(string productId, string storeProductId, Action<ServiceResult<StorePurchase>> done) => done(ServiceResult<StorePurchase>.Fail(StoreErrors.Disabled));
+        public void Finish(StorePurchase purchase) { }
+        public void Restore() { }
     }
 
     /// <summary>Completes every purchase instantly with a "fake-" token (accepted by the server's fake IAP mode). Editor/offline/tests.</summary>

@@ -95,12 +95,22 @@ namespace RogueStars.Client.App
         /// </summary>
         public string ProductSet = StoreCatalog.SetAll;
 
-        public bool IsOffered(string productId) => StoreCatalog.IsOffered(productId, ProductSet);
+        /// <summary>
+        /// Real-money purchases switched off: online when the server says so (<c>purchasesDisabled</c>, Iap:Mode=disabled) or
+        /// the build has no store (StoreMode "disabled"). Offline (dev receipts) purchases always work.
+        /// </summary>
+        public bool PurchasesDisabled => IsOnline &&
+            ((Service as RemoteGameService)?.PurchasesDisabled == true || Store is DisabledStoreGateway);
+
+        /// <summary>Sold right now: in the product set and purchases not disabled (else the shop shows "coming soon").</summary>
+        public bool IsOffered(string productId) => !PurchasesDisabled && StoreCatalog.IsOffered(productId, ProductSet);
 
         /// <summary>After connecting: register the catalogue with the store (and bind purchases to the player).</summary>
         public void InitPlatform(Action<ServiceResult> done = null)
         {
             if (Store == null || Content == null) { done?.Invoke(ServiceResult.Fail(StoreErrors.NotReady)); return; }
+            // Payments on hold: Unity IAP / Play Billing is never initialized.
+            if (PurchasesDisabled || Store is DisabledStoreGateway) { done?.Invoke(ServiceResult.Fail(StoreErrors.Disabled)); return; }
             string account = IsOnline ? StoreCatalog.ObfuscatedAccountId(State?.PlayerId) : null;
             Store.Initialize(StoreCatalog.Products(Content, ProductSet), account, r =>
             {
@@ -132,6 +142,7 @@ namespace RogueStars.Client.App
         {
             var def = Content?.Product(productId);
             if (def == null) { Error("Unknown product"); return; }
+            if (PurchasesDisabled) { Error("Purchases are coming soon"); then?.Invoke(CommandResult.Fail(StoreErrors.Disabled)); return; }
             if (!IsOffered(productId)) { Error(def.Name + " is not available yet"); then?.Invoke(CommandResult.Fail("product_not_offered")); return; }
             Run(new PurchaseStart { ProductId = productId }, start =>
             {

@@ -13,6 +13,12 @@ namespace RogueStars.Client.Services
         public string BaseUrl = "http://10.0.2.2:8080";
         public bool OnlineByDefault;
         /// <summary>
+        /// Production server (Cloud Run, project rogue-stars-515610). BuildAndroid bakes it in (online, Firebase auth) unless
+        /// ROGUESTARS_SERVER_URL names another server or is "local" (keeps BaseUrl, offline, dev auth).
+        /// </summary>
+        public string ReleaseBaseUrl = DefaultReleaseBaseUrl;
+        public const string DefaultReleaseBaseUrl = "https://rogue-stars-server-t72a3eykvq-ew.a.run.app";
+        /// <summary>
         /// "dev" (POST /v1/auth/dev; local server, editor) or "firebase" (Firebase ID token: Play Games sign-in with anonymous
         /// fallback; required by the production server). BuildAndroid sets "firebase" with ROGUESTARS_SERVER_URL unless
         /// ROGUESTARS_AUTH=dev. The editor always uses dev auth.

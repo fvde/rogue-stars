@@ -205,7 +205,7 @@ resource "google_cloud_run_v2_service" "server" {
       }
       env {
         name  = "RogueStars__Iap__Mode"
-        value = "google"
+        value = var.iap_mode
       }
       env {
         name  = "RogueStars__Iap__PackageName"
@@ -258,13 +258,13 @@ resource "google_cloud_run_v2_service" "server" {
 
       startup_probe {
         http_get {
-          path = "/healthz"
+          path = "/health"
         }
       }
 
       liveness_probe {
         http_get {
-          path = "/healthz"
+          path = "/health"
         }
       }
     }

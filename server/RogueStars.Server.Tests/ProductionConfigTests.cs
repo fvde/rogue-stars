@@ -52,8 +52,10 @@ public class ProductionConfigTests : IDisposable
     public async Task FirebaseTokensOfTheProductionProject_AreTheOnlyWayIn()
     {
         var http = _app.CreateClient();
-        var health = await http.GetFromJsonAsync<JsonElement>("/healthz");
+        Assert.Equal(200, (int)(await http.GetAsync("/healthz")).StatusCode);
+        var health = await http.GetFromJsonAsync<JsonElement>("/health"); // public path (Cloud Run reserves paths ending in z)
         Assert.Equal("firebase", health.GetProperty("auth").GetString());
+        Assert.Equal("disabled", health.GetProperty("iap").GetString());
         Assert.Equal("disabled", health.GetProperty("ads").GetString());
         Assert.Equal("initial", health.GetProperty("iapProducts").GetString());
 
@@ -67,6 +69,15 @@ public class ProductionConfigTests : IDisposable
         Assert.Equal(200, session.Status);
         Assert.Equal("firebase-uid-1", session.Body.GetProperty("playerId").GetString());
         Assert.True(session.Body.GetProperty("adsDisabled").GetBoolean());
+
+        // Payments on hold (Iap:Mode=disabled): no products, verify refuses clearly, Diamond-priced items still work.
+        Assert.True(session.Body.GetProperty("purchasesDisabled").GetBoolean());
+        var config = await http.GetFromJsonAsync<JsonElement>("/v1/iap/config");
+        Assert.False(config.GetProperty("enabled").GetBoolean());
+        Assert.Empty(config.GetProperty("products").EnumerateArray());
+        var verify = await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "tok" }));
+        Assert.Equal(503, verify.Status);
+        Assert.Equal("purchases_disabled", verify.Body.GetProperty("error").GetString());
     }
 
     [Fact]

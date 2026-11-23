@@ -42,8 +42,10 @@ public static class PaymentEndpoints
         {
             ok = true,
             obfuscatedAccountId = GooglePlayReceiptValidator.ObfuscatedAccountId(http.PlayerId()),
+            enabled = !options.Value.Iap.IsDisabled,
             productSet = options.Value.Iap.ProductSet,
-            products = PlayCatalog.Offered(engine.Content, options.Value.Iap.ProductSet).Select(p => new
+            products = (options.Value.Iap.IsDisabled ? Enumerable.Empty<RogueStars.Rules.Content.ProductDef>()
+                : PlayCatalog.Offered(engine.Content, options.Value.Iap.ProductSet)).Select(p => new
             {
                 productId = p.Id, storeProductId = p.StoreProductId, type = PlayCatalog.TypeOf(p) == StoreProductType.Consumable ? "consumable" : "non_consumable",
             }),
@@ -55,6 +57,7 @@ public static class PaymentEndpoints
         {
             var log = lf.CreateLogger("Iap");
             string playerId = http.PlayerId();
+            if (options.Value.Iap.IsDisabled) throw new ApiException(StatusCodes.Status503ServiceUnavailable, "purchases_disabled");
             if (!hooks.Has(hooks.Names.PurchaseComplete)) throw new ApiException(StatusCodes.Status501NotImplemented, "purchases_not_available");
             if (string.IsNullOrWhiteSpace(req.ProductId) || string.IsNullOrWhiteSpace(req.PurchaseToken)) throw ApiException.BadRequest("missing_fields");
             if (req.PurchaseToken.Length > 4096) throw ApiException.BadRequest("invalid_token");

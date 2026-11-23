@@ -76,6 +76,38 @@ namespace RogueStars.Client.Tests
             }
         }
 
+        // ---- purchases disabled (Google Play payments on hold) ---------------------------------------------------------
+
+        [Test]
+        public void Online_PurchasesDisabled_ComingSoon_NoStoreCall_DevReceiptsOfflineStillWork()
+        {
+            var o = new Online(purchasesDisabled: true);
+            Assert.That(o.Session.PurchasesDisabled, Is.True);
+            Assert.That(o.Session.IsOffered("diamonds_60"), Is.False, "real-money products show as coming soon");
+            ServiceResult init = null;
+            o.Session.InitPlatform(r => init = r);
+            Assert.That(init.Error, Is.EqualTo(StoreErrors.Disabled), "the store is never initialized");
+            CommandResult result = null;
+            o.Session.Purchase("diamonds_60", r => result = r);
+            Assert.That(result.Error, Is.EqualTo(StoreErrors.Disabled));
+            Assert.That(o.Store.Unfinished, Is.Empty);
+            Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command") || r.Url.Contains("/v1/iap")), Is.False);
+
+            // A build without a store (StoreMode disabled) behaves the same against a server with payments on.
+            var on = new Online();
+            Assert.That(on.Session.PurchasesDisabled, Is.False);
+            on.Session.Store = new DisabledStoreGateway();
+            Assert.That(on.Session.PurchasesDisabled, Is.True);
+
+            using (var off = new Offline())
+            {
+                off.Session.Store = new FakeStoreGateway();
+                Assert.That(off.Session.PurchasesDisabled, Is.False, "offline dev receipts stay for testing");
+            }
+            Assert.That(PlatformConfig.LoadDefault().StoreMode, Is.EqualTo(PlatformConfig.StoreDisabled), "payments on hold by default");
+            Assert.That(ServerConfig.LoadDefault().ReleaseBaseUrl, Does.StartWith("https://rogue-stars-server-"));
+        }
+
         // ---- global ads-disabled mode ---------------------------------------------------------------------------------
 
         [Test]
@@ -210,7 +242,7 @@ namespace RogueStars.Client.Tests
             public System.Func<HttpRequest, HttpResponse> Extra = _ => null;
             public string Wire => JsonConvert.SerializeObject(ServerState, ClientJson.Wire);
 
-            public Online(bool adsDisabled = false)
+            public Online(bool adsDisabled = false, bool purchasesDisabled = false)
             {
                 ServerState = new GameEngine().NewPlayer("dev_buyer", TestUtil.T0, 99);
                 Http.Handler = req =>
@@ -219,7 +251,7 @@ namespace RogueStars.Client.Tests
                     if (r != null) return r;
                     if (req.Url.EndsWith("/v1/auth/dev")) return FakeTransport.Json(200, "{\"token\":\"t\",\"playerId\":\"dev_buyer\"}");
                     if (req.Url.EndsWith("/v1/session") || req.Url.EndsWith("/v1/state"))
-                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"adsDisabled\":" + (adsDisabled ? "true" : "false") + ",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":1,\"state\":" + Wire + "}");
+                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"adsDisabled\":" + (adsDisabled ? "true" : "false") + ",\"purchasesDisabled\":" + (purchasesDisabled ? "true" : "false") + ",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":1,\"state\":" + Wire + "}");
                     if (req.Url.EndsWith("/v1/command"))
                         return FakeTransport.Json(200, "{\"ok\":true,\"events\":[],\"version\":2,\"state\":" + Wire + "}");
                     return FakeTransport.Json(404, "{\"ok\":false,\"error\":\"not_found\"}");

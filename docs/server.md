@@ -81,10 +81,17 @@ POST /v1/command
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/v1/iap/config` | – | `{ ok, obfuscatedAccountId, productSet, products[{productId, storeProductId, type}] }` (type `consumable` / `non_consumable`; only the products of `Iap:ProductSet`) |
-| POST | `/v1/iap/verify` | `{ productId (rules id), purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when the token was already redeemed by this player; `400 unknown_product`; `400 product_not_offered` (not in `Iap:ProductSet`); `402 <reason>` (invalid_receipt, purchase_pending, purchase_not_completed, product_mismatch, unsupported_quantity, account_mismatch, test_purchase_not_allowed, already_consumed); `409 receipt_already_used` (token claimed by another player); `503 store_unavailable`; `501` if `PurchaseComplete` is not registered |
+| POST | `/v1/iap/verify` | `{ productId (rules id), purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when the token was already redeemed by this player; `400 unknown_product`; `400 product_not_offered` (not in `Iap:ProductSet`); `402 <reason>` (invalid_receipt, purchase_pending, purchase_not_completed, product_mismatch, unsupported_quantity, account_mismatch, test_purchase_not_allowed, already_consumed); `409 receipt_already_used` (token claimed by another player); `503 store_unavailable`; `503 purchases_disabled` (`Iap:Mode=disabled`); `501` if `PurchaseComplete` is not registered |
 | GET | `/v1/ads/credits` | – | `{ ok, credits[{eventId, placement, atMs}] }` — verified, unspent ad views (see below) |
 | POST | `/v1/ads/instant` | `{ placementId, requestId }` | command response of the `AdWatched` hook with an empty token: grants a direct-reward placement without an ad. The rules accept it only for No Ads owners or in the ads-disabled mode (`ad token required` otherwise); daily caps apply; idempotent per `requestId`; `400 unknown_placement` / `placement_spent_by_command` / `request_id_required` |
 | GET/POST | `/v1/ads/ssv?user_id=&event_id=&custom_data=&placement=&ad_unit_id=&event_token=` | – | `{ ok, outcome }` (`granted` / `credited` / `unknown_placement` / `rejected:<rule>`); `{ ok, duplicate: true }` for a repeated event; `400 malformed_callback`; `401 invalid_signature`; `403 ad_unit_not_allowed`; `409 event_already_used` (same event id, other user); `404 ads_disabled` in the ads-disabled mode |
+
+#### Purchases disabled (`Iap:Mode = disabled`, the default for now)
+Google Play payments are on hold (no payments profile yet). `/v1/session` returns `purchasesDisabled: true`,
+`/v1/iap/config` returns `enabled: false` and no products, `/v1/iap/verify` answers `503 purchases_disabled` before any
+receipt is looked at. Diamond-priced shop items (`ShopBuyItem`) and everything else are unaffected. The client shows
+real-money products as "Coming soon" and never initializes Unity IAP (docs/client.md). Switch on with `Iap:Mode=google`
+(Terraform `iap_mode`, docs/setup.md step 14).
 
 #### Google Play (`Iap:Mode = google`)
 Implemented in `Payments/GooglePlay.cs` with `Google.Apis.AndroidPublisher.v3`, following
@@ -233,7 +240,7 @@ is resumable; the invasion is marked resolved only when every member got the out
 | POST | `/internal/jobs/weekly-arena?week=` | see Arena |
 | POST | `/internal/jobs/invasion-start` | materialises active calendar invasion occurrences (`{ created[], active[] }`); every 5 min |
 | POST | `/internal/jobs/invasion-resolve` | see Invasions |
-| GET | `/healthz` | `{ status, version, auth, store, ads, iapProducts }`, anonymous |
+| GET | `/health` (public) and `/healthz` | `{ status, version, auth, store, ads, iap, iapProducts }`, anonymous. Cloud Run's front end reserves paths ending in `z`, so `/healthz` is a 404 from outside; Terraform probes and smoke tests use `/health` |
 
 ## Storage
 - `IPlayerStore`: `InMemoryPlayerStore` / `FirestorePlayerStore` — `players/{uid}` = `{ state: json, requests: json,
@@ -280,7 +287,7 @@ Section `RogueStars`, env syntax `RogueStars__<Group>__<Key>`:
 | `RogueStars__Store__FirestoreProjectId` / `FirestoreDatabase` / `CollectionPrefix` | – / `(default)` / "" | |
 | `RogueStars__Jobs__Mode` | `oidc` | `secret` (`local-job-secret`) |
 | `RogueStars__Jobs__Audience` / `ServiceAccountEmail` | – (required for oidc) | |
-| `RogueStars__Iap__Mode` / `PackageName` / `ServiceAccountJson` | `google` / `com.oddbyte.roguestars` | `fake` |
+| `RogueStars__Iap__Mode` / `PackageName` / `ServiceAccountJson` | `disabled` (payments on hold; `google` at monetization go-live) / `com.oddbyte.roguestars` | `fake` |
 | `RogueStars__Iap__ProductSet` | `initial` (only `PlayCatalog.InitialProductIds`, `docs/play-console-products-initial.csv`) | `all` |
 | `RogueStars__Iap__AllowTestPurchases` / `RequireAccountId` | `true` / `false` (Terraform: variable / `true`) | |
 | `RogueStars__Ads__Mode` / `EventKey` | `disabled` (`applovin` once AppLovin exists) | `fake` |

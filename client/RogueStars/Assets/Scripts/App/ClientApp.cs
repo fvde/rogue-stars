@@ -104,6 +104,9 @@ namespace RogueStars.Client.App
         public void Start(IGameService service = null)
         {
             service = service ?? CreateService();
+            // Payments on hold on a device: online no store at all; offline the dev-receipt store keeps purchases testable.
+            if (Platform != null && Platform.StoreMode == PlatformConfig.StoreDisabled && !Application.isEditor)
+                Session.Store = service.IsOnline ? (IStoreGateway)new DisabledStoreGateway() : new FakeStoreGateway();
             Session.Use(service);
             ConnectionStatus = "connecting";
             Router.Reset(new HubScreen());

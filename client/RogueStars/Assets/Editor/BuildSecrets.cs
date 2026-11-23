@@ -12,9 +12,9 @@ namespace RogueStars.Client.Editor
     /// placeholders afterwards (Dispose), so real keys never end up in git. Nothing here is a secret by Google/AppLovin's
     /// definition except the keystore passwords, which only live in the environment (docs/setup.md, "Release signing").
     /// <list type="table">
-    /// <item><c>ROGUESTARS_SERVER_URL</c> → ServerConfig.BaseUrl, online by default, auth "firebase" (unless <c>ROGUESTARS_AUTH=dev</c>).</item>
+    /// <item><c>ROGUESTARS_SERVER_URL</c> (default ServerConfig.ReleaseBaseUrl = production; "local" = keep the dev defaults) → ServerConfig.BaseUrl, online by default, auth "firebase" (unless <c>ROGUESTARS_AUTH=dev</c>).</item>
     /// <item><c>ROGUESTARS_AUTH</c> (dev|firebase) → ServerConfig.AuthMode.</item>
-    /// <item><c>ROGUESTARS_STORE</c> (fake|unity_iap), <c>ROGUESTARS_ADS</c> (disabled|fake|max), <c>ROGUESTARS_MAX_REWARDED_AD_UNIT</c>,
+    /// <item><c>ROGUESTARS_STORE</c> (disabled|fake|unity_iap), <c>ROGUESTARS_ADS</c> (disabled|fake|max), <c>ROGUESTARS_MAX_REWARDED_AD_UNIT</c>,
     /// <c>ROGUESTARS_PRODUCT_SET</c> (initial|all) → PlatformConfig.</item>
     /// <item><c>ROGUESTARS_MAX_SDK_KEY</c> → AppLovinSettings.SdkKey (merged into the Android manifest by the MAX plugin);
     /// the AppLovin Quality Service Gradle plugin is only enabled with a real key (it calls AppLovin with it). Only read with
@@ -71,7 +71,10 @@ namespace RogueStars.Client.Editor
 
             if (server != null)
             {
-                if (Env("ROGUESTARS_SERVER_URL") is string url)
+                // Default: the production server (ServerConfig.ReleaseBaseUrl); "local" keeps the dev defaults (offline, 10.0.2.2).
+                string url = Env("ROGUESTARS_SERVER_URL") ?? server.ReleaseBaseUrl;
+                if (url == "local") url = null;
+                if (!string.IsNullOrEmpty(url))
                 {
                     server.BaseUrl = url;
                     server.OnlineByDefault = true;

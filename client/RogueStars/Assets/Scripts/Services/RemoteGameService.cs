@@ -51,6 +51,8 @@ namespace RogueStars.Client.Services
         public long NowMs => _clock.NowMs + _serverOffsetMs;
         public string PlayerId { get; private set; }
         public long Version { get; private set; }
+        /// <summary>The server's session flag: Google Play payments are switched off (Iap:Mode=disabled).</summary>
+        public bool PurchasesDisabled { get; private set; }
         /// <summary>Client-allowed command names reported by /v1/session.</summary>
         public readonly List<string> AllowedCommands = new List<string>();
         public IGuildApi Guilds { get; }
@@ -86,6 +88,8 @@ namespace RogueStars.Client.Services
                     if (json["commands"] is JArray cmds) foreach (var c in cmds) AllowedCommands.Add((string)c);
                     // Global ads-disabled mode of the server (Ads:Mode=disabled): every placement is instant for everyone.
                     Content.Shop.AdsDisabled = json.Value<bool?>("adsDisabled") ?? false;
+                    // Payments on hold (Iap:Mode=disabled): real-money products are shown as "coming soon".
+                    PurchasesDisabled = json.Value<bool?>("purchasesDisabled") ?? false;
                     ApplyState(json);
                     done?.Invoke(_state != null ? ServiceResult.Success() : ServiceResult.Fail("session_without_state"));
                 });

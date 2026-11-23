@@ -85,13 +85,20 @@ AppBootstrap (only object in Main.unity)
   then completes without an ad: command placements send an empty `AdToken`, direct-reward placements (`daily_diamonds_ad`)
   run `AdWatched` locally offline and `POST /v1/ads/instant` online (`GameSession.NoAds`). On devices `PlatformServices`
   creates `NoAdGateway`: the MAX plugin stays in the project but is never initialized and needs no key.
+- **Purchases disabled (current default)**: Google Play payments are on hold. `PlatformConfig.StoreMode = disabled`
+  → `DisabledStoreGateway` online on devices (Unity IAP / Play Billing never initialized; offline keeps the dev-receipt
+  store), and the server's `purchasesDisabled` session flag (`Iap:Mode=disabled`) does the same for any build:
+  `GameSession.PurchasesDisabled` → the shop shows the catalogue, real-money buttons read "Coming soon", `Purchase`
+  refuses with `purchases_disabled`; Diamond-priced items keep working. Editor/offline: dev receipts as before.
+- **Release server**: `ServerConfig.ReleaseBaseUrl` = `https://rogue-stars-server-t72a3eykvq-ew.a.run.app` (production);
+  `BuildAndroid` bakes it in (online, Firebase auth) unless `ROGUESTARS_SERVER_URL` names another server or `local`.
 - **Product set**: `PlatformConfig.ProductSet` `initial` (default) sells only `StoreCatalog.InitialProductIds`
   (= server `PlayCatalog.InitialProductIds`, `docs/play-console-products-initial.csv`); other products show "Coming soon",
   `GameSession.Purchase` refuses them (`product_not_offered`) and Unity IAP only registers the offered ones. `all` sells the
   whole catalogue. Sessions built without a config (tests) use `all`.
-- **Platform config** (`Assets/Resources/PlatformConfig.asset`): `StoreMode` (`unity_iap`/`fake`), `AdsMode`
+- **Platform config** (`Assets/Resources/PlatformConfig.asset`): `StoreMode` (`disabled`/`unity_iap`/`fake`), `AdsMode`
   (`disabled`/`max`/`fake`), `MaxRewardedAdUnitId`, `ProductSet` — committed with placeholders/defaults; `ServerConfig.asset`
-  has `BaseUrl`, `OnlineByDefault`, `AuthMode`; the MAX SDK key lives in `Assets/MaxSdk/Resources/AppLovinSettings.asset`
+  has `BaseUrl`, `OnlineByDefault`, `ReleaseBaseUrl`, `AuthMode`; the MAX SDK key lives in `Assets/MaxSdk/Resources/AppLovinSettings.asset`
   (committed empty). `BuildAndroid` injects real values from environment variables for one build and restores the
   committed files (`Editor/BuildSecrets.cs`; see docs/setup.md step 11), including the Play Games plugin settings
   (`ROGUESTARS_PLAY_GAMES_APP_ID` / `ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID`). The MAX SDK key is only read with
@@ -177,12 +184,12 @@ upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise 
 checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 88 tests):
+EditMode (`Assets/Tests/EditMode`, 89 tests):
 - `PlatformTests`: store catalogue = server catalogue (types, SKUs, obfuscated account id vector), fakes in the editor,
   purchase → grant → confirm, deferred purchase delivered later, cancelled purchase, rejected/pending receipts never
   confirmed + restore, server-verified ads (credit polling, timeout, direct-reward pending → refresh, No Ads, fake ads
   playing the dev callback), initial product set (= `docs/play-console-products-initial.csv`, others refused without a
-  store call), ads disabled offline (instant, no ad, no entitlement) and online (server flag, `/v1/ads/instant`).
+  store call), purchases disabled (coming soon, no store init/call, offline dev receipts kept), ads disabled offline (instant, no ad, no entitlement) and online (server flag, `/v1/ads/instant`).
 - `FirebaseAuthTests` (fake Firebase SDK + fake Play Games + fake server): Play Games auth code → credential sign-in,
   anonymous fallback (no/declined Play Games, `AllowAnonymous=false`), Firebase unavailable, anonymous → Play Games link
   keeping the uid, link to an existing Play Games player switches accounts, JWT `exp`; online: the Firebase ID token is the

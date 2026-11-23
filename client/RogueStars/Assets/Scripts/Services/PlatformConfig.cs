@@ -12,11 +12,14 @@ namespace RogueStars.Client.Services
     public sealed class PlatformConfig : ScriptableObject
     {
         public const string Placeholder = "YOUR_";
-        public const string StoreFake = "fake", StoreUnityIap = "unity_iap";
+        public const string StoreDisabled = "disabled", StoreFake = "fake", StoreUnityIap = "unity_iap";
         public const string AdsDisabled = "disabled", AdsFake = "fake", AdsMax = "max";
 
-        /// <summary>"fake" or "unity_iap" (Google Play Billing through Unity IAP).</summary>
-        public string StoreMode = StoreUnityIap;
+        /// <summary>
+        /// "disabled" (default for now: Google Play payments on hold — Unity IAP is never initialized, online the shop shows
+        /// real-money products as "coming soon"; offline keeps dev receipts), "fake" or "unity_iap" (Google Play Billing).
+        /// </summary>
+        public string StoreMode = StoreDisabled;
         /// <summary>
         /// "disabled" (default for now: no ad SDK is initialized, every placement completes instantly as with No Ads — the
         /// rules flag ShopConfig.AdsDisabled; online the server's session flag decides), "fake" or "max" (AppLovin MAX).
@@ -48,7 +51,9 @@ namespace RogueStars.Client.Services
     {
         public static IStoreGateway CreateStore(PlatformConfig cfg)
         {
-            if (Application.isEditor || cfg == null || cfg.StoreMode != PlatformConfig.StoreUnityIap) return new FakeStoreGateway();
+            if (Application.isEditor || cfg == null) return new FakeStoreGateway();
+            if (cfg.StoreMode == PlatformConfig.StoreDisabled) return new DisabledStoreGateway();
+            if (cfg.StoreMode != PlatformConfig.StoreUnityIap) return new FakeStoreGateway();
             return new UnityIapStoreGateway();
         }
 

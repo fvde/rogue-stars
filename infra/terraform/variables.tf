@@ -68,6 +68,17 @@ variable "scheduler_time_zone" {
   default     = "Etc/UTC"
 }
 
+variable "iap_mode" {
+  description = "Google Play payments: disabled (default while there is no payments profile: /v1/iap/verify answers 503 purchases_disabled, the client shows real-money products as coming soon) or google (Android Publisher API receipt validation)."
+  type        = string
+  default     = "disabled"
+
+  validation {
+    condition     = contains(["disabled", "google"], var.iap_mode)
+    error_message = "iap_mode must be disabled or google."
+  }
+}
+
 variable "iap_product_set" {
   description = "Products the server sells: initial (only docs/play-console-products-initial.csv, the first products created in Play Console) or all (docs/play-console-products.csv)."
   type        = string
