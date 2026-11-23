@@ -53,7 +53,7 @@ namespace RogueStars.Client.Minigames
             // the start command rebuilds the run screen, which asks again: one host per GAME tile
             foreach (var open in layer.GetComponentsInChildren<MinigameHost>())
                 if (open.Phase != Stage.Done && open.Modal != null && open.Modal.IsOpen) return open.Modal;
-            var bg = Ui.Panel(layer, new Color(0.035f, 0.04f, 0.09f, 0.985f), "Modal:Minigame");
+            var bg = Ui.Panel(layer, new Color(0.035f, 0.04f, 0.09f, 1f), "Modal:Minigame");
             Ui.Stretch(bg.rectTransform);
             var host = bg.gameObject.AddComponent<MinigameHost>();
             host._session = session;
@@ -115,24 +115,28 @@ namespace RogueStars.Client.Minigames
             v.childControlWidth = true; v.childControlHeight = true; v.childForceExpandWidth = true; v.childForceExpandHeight = false;
 
             var top = Ui.Row(col, 60, 12);
+            Ui.Size(top, flexHeight: 0);
             Ui.Chip(top, "MINI-GAME", Theme.Hex(0x2E3570), Theme.Premium, 26, 54);
             Ui.Spacer(top);
             _skip = Ui.Button(top, "Skip", () => Send(MinigameTier.Miss), Theme.Button, 170, 60, true, 26);
             _skip.gameObject.SetActive(false);
             _title = Ui.Display(col, "Mini-game", 64, Theme.Cream, TextAnchor.MiddleCenter, "Title");
-            Ui.Size(_title, height: 76);
+            Ui.Size(_title, height: 76, flexHeight: 0);
             _instruction = Ui.Label(col, "", 34, Theme.Text, TextAnchor.MiddleCenter, "Instruction");
             _instruction.fontStyle = FontStyle.Bold;
-            Ui.Size(_instruction, height: 84);
+            Ui.Size(_instruction, height: 84, flexHeight: 0);
             _timer = Ui.Bar(col, 1, Theme.Good, null, 22);
+            Ui.Size(_timer.Fill.parent.GetComponent<Image>(), flexHeight: 0);
             _status = Ui.Label(col, "", 28, Theme.TextDim, TextAnchor.MiddleCenter, "Status");
-            Ui.Size(_status, height: 40);
+            Ui.Size(_status, height: 40, flexHeight: 0);
+            Ui.Size(Ui.Rect(col, "Above"), flexHeight: 0.4f);
 
             var frame = Ui.RoundPanel(col, Theme.Hex(0x0E1124), 48, "ArenaFrame");
-            Ui.Size(frame, height: MinigameLogic.Height + 20);
+            Ui.Size(frame, height: MinigameLogic.Height + 20, flexHeight: 0);
             UiShapes.Outline(frame.rectTransform, Theme.Hex(0x3E4690), 48, 5);
             var mask = Ui.Stretch(Ui.Rect(frame.transform, "Mask"), 10, 10, 10, 10);
             mask.gameObject.AddComponent<RectMask2D>();
+            Ui.Size(Ui.Rect(col, "Below"), flexHeight: 1);
             _arena = Ui.Rect(mask, "Arena");
             _arena.anchorMin = _arena.anchorMax = new Vector2(0.5f, 0.5f);
             _arena.pivot = Vector2.zero;

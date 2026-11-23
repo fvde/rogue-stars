@@ -109,6 +109,7 @@ namespace RogueStars.Client.Minigames
             {
                 var p = At(h * 30, R - 60);
                 bool target = Index < Targets && h % 12 == _hours[Index] % 12;
+                if (target) Circle(p.X, p.Y, 92, C(Green));
                 Text(p.X, p.Y, h.ToString(), target ? 56 : 44, C(target ? 0x10202A : Cream));
                 var t = At(h * 30, R - 4);
                 Circle(t.X, t.Y, 12, C(Cream, 0.6f));
