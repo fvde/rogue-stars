@@ -54,25 +54,24 @@ namespace RogueStars.Rules.Content
             Game("slot_pod", "Slot Pod", MinigameInput.Tap, "Tap to stop each reel. Match the symbols!");
 
             var t = MinigameTuning;
-            // Coins vs the run economy (≈ 600–800 run coins per run, shop_standard: Common 25, Rare 45, Epic 80, Legendary 140,
-            // heal 30, stat 40): gold ≈ one or two good purchases (an Epic + a stat, or a Legendary), a Miss a token.
-            t.Rewards.Add(Tier(MinigameTier.Miss, 10, false, 0, 0, 0, 0, 0));
-            t.Rewards.Add(Tier(MinigameTier.Bronze, 50, true, 55, 28, 12, 4, 1));
-            t.Rewards.Add(Tier(MinigameTier.Silver, 100, true, 30, 38, 22, 8, 2));
-            t.Rewards.Add(Tier(MinigameTier.Gold, 160, true, 8, 30, 36, 20, 6));
+            // Coins vs the run economy (≈ 600–800 run coins per run, shop_standard: Common 40, Legendary 80, Mythic 120, heal 30,
+            // stat 40): gold ≈ one or two good purchases (a Legendary + a stat, or a Mythic), a Miss a token. Skill-roll odds over
+            // the three run tiers (Common / Legendary / Mythic; the old C+R, E+L and M odds folded).
+            t.Rewards.Add(Tier(MinigameTier.Miss, 10, false, 0, 0, 0));
+            t.Rewards.Add(Tier(MinigameTier.Bronze, 50, true, 83, 16, 1));
+            t.Rewards.Add(Tier(MinigameTier.Silver, 100, true, 68, 30, 2));
+            t.Rewards.Add(Tier(MinigameTier.Gold, 160, true, 38, 56, 6));
         }
 
         private void Game(string id, string name, MinigameInput input, string instruction) =>
             Minigames.Add(new MinigameDef { Id = id, Name = name, Input = input, Instruction = instruction });
 
-        private static MinigameTierReward Tier(MinigameTier tier, long coins, bool draft, double common, double rare, double epic, double legendary, double mythic)
+        private static MinigameTierReward Tier(MinigameTier tier, long coins, bool draft, double common, double legendary, double mythic)
         {
             var r = new MinigameTierReward { Tier = tier, Coins = coins, Draft = draft };
             if (draft)
             {
                 r.DraftRarityWeights[Rarity.Common] = common;
-                r.DraftRarityWeights[Rarity.Rare] = rare;
-                r.DraftRarityWeights[Rarity.Epic] = epic;
                 r.DraftRarityWeights[Rarity.Legendary] = legendary;
                 r.DraftRarityWeights[Rarity.Mythic] = mythic;
             }

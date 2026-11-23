@@ -18,12 +18,44 @@ namespace RogueStars.Rules.Systems
             ctx.Emit("run_outcome", outcome.Source, outcome.EventId ?? "", outcome.Lines.Count.ToString());
         }
 
+        /// <summary>Most tile outcomes kept per move (older ones are dropped; the client reads them after every command).</summary>
+        private const int MaxTileOutcomes = 64;
+
+        /// <summary>Tiles whose landing opens a decision (its own result) or a shop (no summary): no tile outcome.</summary>
+        private static bool OpensDecision(TileDef def)
+        {
+            switch (def.Category)
+            {
+                case TileCategory.Event: case TileCategory.Treasure: case TileCategory.Campfire: case TileCategory.Shop: case TileCategory.Minigame:
+                case TileCategory.BossGate:
+                    return true;
+                default: return false;
+            }
+        }
+
+        /// <summary>Records what a tile did (landing, passing, a fight) as a structured outcome in ActiveRun.TileOutcomes.</summary>
+        private static void TileOutcome(CommandContext ctx, ActiveRun run, RunTile tile, TileDef def, Snap before, string source, bool onlyIfChanged)
+        {
+            var o = new RunOutcome { Source = source, Title = def != null ? def.Name : null, Tile = tile != null ? tile.Id : -1, TileId = tile?.TileId };
+            before.Diff(ctx.Content, run, o.Lines);
+            if (o.Lines.Count == 0)
+            {
+                if (onlyIfChanged) return;
+                bool empty = def != null && (def.Category == TileCategory.Empty || def.Category == TileCategory.Start);
+                o.Lines.Add(new OutcomeLine(empty ? OutcomeKind.Empty : OutcomeKind.Nothing, tile?.TileId, 0, true));
+            }
+            o.Seq = ++run.TileOutcomeSeq;
+            run.TileOutcomes.Add(o);
+            if (run.TileOutcomes.Count > MaxTileOutcomes) run.TileOutcomes.RemoveAt(0);
+            ctx.Emit("run_tile_outcome", source, o.TileId ?? "", o.Lines.Count.ToString());
+        }
+
         /// <summary>What an outcome line is worth to show first: losses and fights after gains, in a stable order.</summary>
         private sealed class Snap
         {
             private long _coins;
             private double _hp, _awakening, _bossPct, _awakenRed;
-            private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles;
+            private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles, _penalty, _skip;
             private List<string> _skills;
             private Dictionary<string, int> _levels;
 
@@ -32,6 +64,7 @@ namespace RogueStars.Rules.Systems
                 _coins = r.Coins, _hp = r.WormHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
                 _awakenRed = r.AwakeningReductionPct, _xp = r.XpTotal, _level = r.Level, _shards = r.Shards, _danger = r.Danger,
                 _stats = r.RunStats.Count, _loot = r.PendingLoot.Count, _rare = r.PendingRare.Count, _battles = r.BattleCount,
+                _penalty = r.StepPenaltyNext, _skip = r.SkipNegativeEvents,
                 _skills = new List<string>(r.Skills), _levels = new Dictionary<string, int>(r.SkillLevels),
             };
 
@@ -69,6 +102,8 @@ namespace RogueStars.Rules.Systems
                 if (Math.Abs(r.AwakeningReductionPct - _awakenRed) >= 0.05) Add(OutcomeKind.AwakenRate, null, Math.Round(_awakenRed - r.AwakeningReductionPct, 1), r.AwakeningReductionPct > _awakenRed);
                 if (Math.Abs(r.BossStatPct - _bossPct) >= 0.05) Add(OutcomeKind.BossStat, null, r.BossStatPct - _bossPct, r.BossStatPct < _bossPct);
                 if (r.Danger != _danger) Add(OutcomeKind.Danger, null, r.Danger - _danger, r.Danger < _danger);
+                if (r.StepPenaltyNext > _penalty) Add(OutcomeKind.StepPenalty, null, r.StepPenaltyNext - _penalty, false);
+                if (r.SkipNegativeEvents < _skip) Add(OutcomeKind.Avoided, null, _skip - r.SkipNegativeEvents, true);
             }
         }
     }

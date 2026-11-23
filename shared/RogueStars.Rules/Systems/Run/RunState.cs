@@ -83,8 +83,18 @@ namespace RogueStars.Rules.Systems
         public int Id;
         public string TileId;
         public List<int> Next = new List<int>();
-        /// <summary>Layout hint for the client (column along the path, lane).</summary>
+        /// <summary>Topology hint (column along the path, lane: 0 trunk / first fork arm, 1 second arm, −1 boss arena).</summary>
         public int X, Y;
+        /// <summary>
+        /// 2D layout position in tile units (RunBoard layout pass): +PosY is "forward" (the path climbs), PosX is lateral
+        /// (the trunk keeps to ±RunTuning.LayoutHalfWidth, fork arms bulge further). Neighbouring path tiles are ~1 apart, no
+        /// two tiles closer than ~0.8. Display only: no rule reads it.
+        /// </summary>
+        public double PosX, PosY;
+        /// <summary>Path direction at this tile in degrees (0 = forward/up, + = to the right), for drawing the path and the worm.</summary>
+        public double Dir;
+        /// <summary>Board segment the tile belongs to (the start tile: 0, the boss arena: the worm's); −1 = no 2D layout (hand-built boards).</summary>
+        public int Segment = -1;
         /// <summary>Extra enemy strength % on this tile (campfire light, boss actions).</summary>
         public double BonusPct;
         public bool Fixed;
@@ -189,6 +199,8 @@ namespace RogueStars.Rules.Systems
         public int DraftsWithoutLegendary;
         public List<ShopOffer> Shop = new List<ShopOffer>();
         public int ShopRerolls;
+        /// <summary>Shops opened this run (the first one always offers a skill at the cheapest price, RunSystem.StartCoins).</summary>
+        public int ShopsVisited;
         public string EventId;
         public int EventTile = -1;
         public string LastEventText;
@@ -196,8 +208,15 @@ namespace RogueStars.Rules.Systems
         public RunOutcome LastOutcome;
         /// <summary>Increases with every new <see cref="LastOutcome"/> (the client shows each outcome once).</summary>
         public int OutcomeSeq;
-        /// <summary>Purchases of the open shop, published as <see cref="LastOutcome"/> when the shop is left.</summary>
-        public RunOutcome ShopOutcome;
+        /// <summary>
+        /// What every tile did since the last roll, in order (GDD §3.2 "every tile shows what it did"): one outcome per tile
+        /// landed on (source "tile", or "battle" for a fight) and per pickup / skill effect while passing (source "pass"), plus
+        /// the encounter fights (ambush miniboss) and a fight retried after a revive ("battle"). Each has RunOutcome.Tile and a
+        /// RunOutcome.Seq from <see cref="TileOutcomeSeq"/> (the client animates those it has not shown yet). Decisions
+        /// (events, chests, campfires, mini-games) report through <see cref="LastOutcome"/>; shops report nothing.
+        /// </summary>
+        public List<RunOutcome> TileOutcomes = new List<RunOutcome>();
+        public int TileOutcomeSeq;
 
         // battles
         public int BattleCount;
@@ -221,7 +240,12 @@ namespace RogueStars.Rules.Systems
     }
 
     /// <summary>Kind of one line of a <see cref="RunOutcome"/>.</summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel, SkillRoll }
+    /// <summary>
+    /// Kind of one line of a <see cref="RunOutcome"/>. Empty: an empty tile (Id = tile id). Nothing: the tile / choice had no
+    /// effect (Id = tile id for tiles, e.g. a toll with no coins left). Avoided: a boon kept a negative tile away. StepPenalty:
+    /// the next roll moves Amount steps less (Gravity Vortex).
+    /// </summary>
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel, SkillRoll, Empty, Avoided, StepPenalty }
 
     /// <summary>
     /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
@@ -261,7 +285,7 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class RunOutcome
     {
-        /// <summary>"event", "treasure", "campfire" or "shop".</summary>
+        /// <summary>"event", "treasure", "campfire" or "minigame" (decision results, LastOutcome); tile outcomes: "tile", "pass", "battle" (TileOutcomes).</summary>
         public string Source;
         public string EventId;
         public string Title;
@@ -273,6 +297,30 @@ namespace RogueStars.Rules.Systems
         public double SuccessChancePct;
         public bool Success;
         public List<OutcomeLine> Lines = new List<OutcomeLine>();
+        /// <summary>Tile outcomes (ActiveRun.TileOutcomes): the run tile index, its tile def id, the sequence number; −1 / null otherwise.</summary>
+        public int Tile = -1;
+        public string TileId;
+        public int Seq;
+    }
+
+    /// <summary>
+    /// One granted run reward with its source. Doublable by the result-screen ad: run loot (pending loot found in the run,
+    /// Burrow floor rewards included), the level's completion rewards and the completion loot rolls, as granted (Biomass surge
+    /// and run-reward modifiers included). Not doublable: first-clear milestone chests / portal bonuses, feat Diamonds and rare
+    /// drops (one-time or rare by design). Rewards stashed by RewardGate (no use yet) are neither listed nor doubled.
+    /// </summary>
+    [Serializable]
+    public sealed class RunRewardLine
+    {
+        public const string RunLoot = "run_loot", Completion = "completion", CompletionRoll = "completion_roll",
+            Milestone = "milestone", Feat = "feat", RareDrop = "rare_drop";
+        public Reward Reward;
+        public string Source;
+        public bool Doublable;
+        /// <summary>True once RunDoubleRewards granted this line a second time.</summary>
+        public bool Doubled;
+
+        public static bool IsDoublable(string source) => source == RunLoot || source == Completion || source == CompletionRoll;
     }
 
     [Serializable]
@@ -282,9 +330,17 @@ namespace RogueStars.Rules.Systems
         public string LevelId;
         public RunMode Mode;
         public bool Won;
+        /// <summary>
+        /// Everything granted for this run, in total (result screen): after RunDoubleRewards the doubled currencies show their
+        /// doubled amounts and the second copies of item drops are listed too.
+        /// </summary>
         public List<Reward> Granted = new List<Reward>();
-        /// <summary>Granted run rewards that the "double run rewards" ad pays again (everything but feat Diamonds).</summary>
+        /// <summary>The single amounts the "double run rewards" ad pays again (see RunRewardLine.IsDoublable).</summary>
         public List<Reward> Doublable = new List<Reward>();
+        /// <summary>One line per granted reward with its source and whether the ad doubles it / doubled it (result screen badges).</summary>
+        public List<RunRewardLine> Rewards = new List<RunRewardLine>();
+        /// <summary>What RunDoubleRewards granted (empty before).</summary>
+        public List<Reward> DoubledGranted = new List<Reward>();
         /// <summary>True if this run used one of the day's Biomass surge runs (RunTuning.DailyBiomassBonusRuns).</summary>
         public bool BiomassBonus;
         /// <summary>True once RunDoubleRewards was used for this run.</summary>

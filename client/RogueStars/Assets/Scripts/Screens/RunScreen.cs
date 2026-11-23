@@ -189,14 +189,28 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y. This is the ONE
-        /// board layout function (tiles, edges, token, camera and tap targets all go through it): when the rules provide
-        /// per-tile 2D layout coordinates, only this changes.
+        /// Board position of a tile (layout point; <see cref="DrawPoint"/> flips it so the path climbs): the rules' per-tile 2D
+        /// layout (<see cref="HasLayout"/>), else snake rows of <see cref="Columns"/> with lanes by Y. This is the ONE board
+        /// layout function (tiles, edges, token, camera and tap targets all go through it).
         /// </summary>
         public static Vector2 TileCenter(RunTile t) => TileCenter(t, 0);
 
+        /// <summary>Pixels per rules layout unit across / along the path (tiles ~1 unit apart; the trunk keeps to ±1.3, arms to ±2.2).</summary>
+        public const float LayoutUnitX = 160, LayoutUnitY = 118;
+
+        /// <summary>True for tiles the rules laid out in 2D (RunTile.Segment ≥ 0); hand-built boards (tests) use the snake.</summary>
+        public static bool HasLayout(RunTile t) => t != null && t.Segment >= 0;
+
         public static Vector2 TileCenter(RunTile t, int x0)
         {
+            if (HasLayout(t))
+            {
+                // the rules' 2D layout (RunTile.PosX / PosY, tile units; +PosY = forward): varied path shapes per segment.
+                // The rise is measured from the same window origin the follow camera uses ((x0 / Columns) * BandH).
+                float lxp = BoardWidth / 2 + (float)t.PosX * LayoutUnitX;
+                float ly = (float)t.PosY * LayoutUnitY + LaneH * 1.5f - (x0 / Columns) * (3 * LaneH + BandGap);
+                return new Vector2(lxp, ly);
+            }
             int lx = t.X - x0;
             int band = lx / Columns;
             int c = lx % Columns;
@@ -211,14 +225,29 @@ namespace RogueStars.Client.Screens
         public static float BoardHeight(ActiveRun run, int x0)
         {
             int maxX = 0;
-            foreach (var t in run.Tiles) if (InWindow(run, t, x0)) maxX = Math.Max(maxX, t.X - x0);
+            float maxY = 0;
+            bool layout = false;
+            foreach (var t in run.Tiles)
+            {
+                if (!InWindow(run, t, x0)) continue;
+                maxX = Math.Max(maxX, t.X - x0);
+                if (HasLayout(t)) { layout = true; maxY = Math.Max(maxY, TileCenter(t, x0).y); }
+            }
+            if (layout) return maxY + LaneH / 2 + 10;
             return (maxX / Columns + 1) * (3 * LaneH + BandGap) + 10;
         }
 
         public static float BoardHeight(List<RunTile> tiles)
         {
             int maxX = 0;
-            foreach (var t in tiles) maxX = Math.Max(maxX, t.X);
+            float maxY = 0;
+            bool layout = false;
+            foreach (var t in tiles)
+            {
+                maxX = Math.Max(maxX, t.X);
+                if (HasLayout(t)) { layout = true; maxY = Math.Max(maxY, TileCenter(t).y); }
+            }
+            if (layout) return maxY + LaneH / 2 + 10;
             int bands = maxX / Columns + 1;
             return bands * (3 * LaneH + BandGap) + 10;
         }
@@ -421,7 +450,7 @@ namespace RogueStars.Client.Screens
                     }, () =>
                     {
                         // a passed pickup (shard, coin cluster) pays as the worm hops over it; the tile keeps its look
-                        if (!last) { var pass = RunPresentation.Pass(Content, toTile); if (pass.HasValue) SpawnPopups(new List<LandingPopup> { pass.Value }, to, false); }
+                        if (!last) { var pass = RunPresentation.Pass(Content, run, toTile); if (pass.HasValue) SpawnPopups(new List<LandingPopup> { pass.Value }, to, false); }
                     });
                 }
             }
@@ -1211,9 +1240,8 @@ namespace RogueStars.Client.Screens
             r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.ShopRerolls + "|" + r.MythicDraft
             + (r.Phase == RunPhase.Shop ? "" : "|" + r.Coins);
 
-        /// <summary>"Level up: +50% of its stats, +3% ATK and max HP" (exact numbers from RunTuning).</summary>
-        public static string LevelUpText(ContentDb c) =>
-            "Level up: +" + Fmt.Pct(c.RunTuning.SkillLevelStatShare * 100) + " of its stats, +" + Fmt.Pct(c.RunTuning.SkillLevelAtkPct) + " ATK and +" + Fmt.Pct(c.RunTuning.SkillLevelHpPct) + " max HP";
+        /// <summary>The skill level-up rule (exact numbers from RunTuning; a level-up improves the skill's own numbers).</summary>
+        public static string LevelUpText(ContentDb c) => RogueStars.Rules.Core.SkillText.LevelUpRule(c);
 
         private readonly List<KeyValuePair<Button, int>> _shopButtons = new List<KeyValuePair<Button, int>>();
         private Text _shopCoins;
@@ -1578,12 +1606,13 @@ namespace RogueStars.Client.Screens
                     Ui.Size(cap, -1, -1, 0);
                     cap.horizontalOverflow = HorizontalWrapMode.Overflow;
                     int ownedLevel = RunDraft.Level(run, sid);
-                    if (ownedLevel > 0) Ui.Chip(tags, "LEVEL " + ownedLevel + " → " + (ownedLevel + 1), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
+                    if (ownedLevel > 0) Ui.Chip(tags, "LEVEL " + ownedLevel + " → " + (ownedLevel + 1) + "/" + Content.RunTuning.MaxSkillLevelOf(rarity), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
                     else if (s?.UpgradesFrom != null) Ui.Chip(tags, "UPGRADE", Theme.Hex(0xD6C2FF), Theme.Hex(0x1D0B33), 18, 34);
                     else if (fam != SkillFamily.None && owned.Contains(fam)) Ui.Chip(tags, "SYNERGY", Theme.Gold, Theme.OnAccent, 18, 34);
-                    Ui.Chip(tags, rarity.ToString(), Theme.Tint(Theme.RarityColor(rarity), 0.4f), Theme.RarityColor(rarity), 18, 34, Theme.RarityColor(rarity));
+                    Ui.Chip(tags, rarity.ToString(), Theme.Tint(rarColor, 0.4f), rarColor, 18, 34, rarColor);
                     Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
-                    string full = Fmt.SkillFull(s);
+                    // a level-up offer shows the numbers it will have (the skill's own effect grows)
+                    string full = ownedLevel > 0 && s != null ? SkillText.Full(Content, s, ownedLevel + 1) : Fmt.SkillFull(s);
                     if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(rarColor, Color.white, 0.7f)).name = "SkillText";
                     if (s?.UpgradesFrom != null && ownedLevel == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
                     if (ownedLevel > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
@@ -1625,14 +1654,16 @@ namespace RogueStars.Client.Screens
                     words.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     // the offer's name is its own text (the tests look the buy button up by the name next to it)
                     Ui.Label(words, what, Theme.FontNormal, o.Sold ? Theme.TextFaint : Theme.Text).fontStyle = FontStyle.Bold;
-                    if (skill && sk != null) Ui.Label(words, sk.Rarity + (sk.Family != SkillFamily.None ? " · " + sk.Family : ""), 22, Theme.RarityColor(sk.Rarity)).name = "OfferRarity";
-                    // Full text: what the offer actually does (a skill name alone means nothing to a new player).
-                    string detail = skill ? Fmt.SkillFull(sk)
+                    if (skill && sk != null) Ui.Label(words, sk.Rarity + (sk.Family != SkillFamily.None ? " · " + sk.Family : ""), 22, RunPresentation.SkillColor(sk)).name = "OfferRarity";
+                    // Full text: what the offer actually does (a skill name alone means nothing to a new player); a level-up
+                    // offer shows its next level's numbers.
+                    int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
+                    string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.Full(Content, sk, ownedLv + 1) : Fmt.SkillFull(sk))
                         : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
                         : "Raises the stat for the rest of this run.";
                     if (!string.IsNullOrEmpty(detail)) Ui.Label(words, detail, 24, o.Sold ? Theme.TextFaint : Color.Lerp(color, Color.white, 0.7f)).name = "OfferText";
                     int lv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                    if (lv > 0) Ui.Label(words, "LEVEL " + lv + " → " + (lv + 1) + " · " + LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
+                    if (lv > 0) Ui.Label(words, "LEVEL " + lv + " → " + (lv + 1) + "/" + Content.RunTuning.MaxSkillLevelOf(sk?.Rarity ?? Rarity.Common) + " · " + LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
                     else if (skill && sk?.UpgradesFrom != null) Ui.Label(words, "Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom), 22, Theme.Good);
                     var buy = Ui.Button(row, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), Theme.Gold, 220, 76, !o.Sold && run.Coins >= o.Price, 28);
                     _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
@@ -1695,7 +1726,7 @@ namespace RogueStars.Client.Screens
                     UiShapes.Outline(row, Theme.Shade(col, 0.9f), 16, 3);
                     Ui.Dot(row, col, 28, "Rarity");
                     int lv = RunDraft.Level(run, id);
-                    Ui.Label(row, (s?.Name ?? id) + (lv > 1 ? " Lv " + lv : "") + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + s.Family : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
+                    Ui.Label(row, (s == null ? id : lv > 0 ? SkillText.Title(Content, s, lv) : s.Name) + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + s.Family : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
                 }
             });
     }

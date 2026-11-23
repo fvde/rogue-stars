@@ -114,8 +114,8 @@ namespace RogueStars.Rules.Content
             for (int lv = 1; lv <= LabLevels; lv++)
             {
                 string sid = lv == 1 ? baseId : baseId + "_" + lv;
-                var r = (Rarity)Math.Min((int)Rarity.Mythic, (int)rarity + (lv + 1) / 2);
-                var b = RunSkill(sid, name + numerals[lv - 1], family, lv == 1 ? rarity : r, SkillSource.Laboratory);
+                // the tier is fixed per skill (owner decision): research levels raise its numbers, never its tier
+                var b = RunSkill(sid, name + numerals[lv - 1], family, rarity, SkillSource.Laboratory);
                 fill(b, lv);
                 def.Levels.Add(new LabLevelDef { SkillId = sid });
             }

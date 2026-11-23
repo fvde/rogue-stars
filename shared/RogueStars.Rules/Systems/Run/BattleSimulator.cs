@@ -22,7 +22,7 @@ namespace RogueStars.Rules.Systems
         /// Player side from a loadout: Mount (untargetable; MetaSkillIds with Source=Mount), Aliens (untargetable),
         /// Worm (targetable; all other MetaSkillIds + run skills + extra stat mods such as run stat growth).
         /// </summary>
-        public static List<CombatantSpec> BuildPlayerSide(CombatLoadout loadout, ContentDb content, IList<string> runSkillIds = null, IList<StatMod> wormExtraStats = null)
+        public static List<CombatantSpec> BuildPlayerSide(CombatLoadout loadout, ContentDb content, IList<string> runSkillIds = null, IList<StatMod> wormExtraStats = null, IDictionary<string, int> runSkillLevels = null)
         {
             content = content ?? ContentDb.Default;
             var list = new List<CombatantSpec>();
@@ -61,6 +61,7 @@ namespace RogueStars.Rules.Systems
                 else worm.SkillIds.Add(id);
             }
             if (runSkillIds != null) worm.SkillIds.AddRange(runSkillIds);
+            if (runSkillLevels != null) foreach (var kv in runSkillLevels) if (kv.Value > 1) worm.SkillLevels[kv.Key] = kv.Value;
             list.Add(worm);
             return list;
         }
@@ -117,7 +118,7 @@ namespace RogueStars.Rules.Systems
             var block = spec.Stats.Clone();
             foreach (var id in spec.SkillIds)
             {
-                var s = content.Skill(id);
+                var s = spec.Skill(content, id);
                 if (s != null) block.AddAll(s.Stats);
             }
             return block;
@@ -214,7 +215,7 @@ namespace RogueStars.Rules.Systems
             foreach (var kv in spec.Stats.Percent) f.Pct[(int)kv.Key] += kv.Value;
             foreach (var id in spec.SkillIds)
             {
-                var s = C.Skill(id);
+                var s = spec.Skill(C, id);
                 if (s == null) continue;
                 f.Skills.Add(s);
                 f.Ready.Add(new int[s.Triggers.Count]);

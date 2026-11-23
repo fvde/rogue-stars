@@ -91,22 +91,28 @@ public class RunDepthTests(ITestOutputHelper output)
         var run = s.Run.Active!;
         var c = e.Content;
         double atk0 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Atk);
-        for (int lv = 1; lv <= c.RunTuning.MaxSkillLevel; lv++)
+        double hp0 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Hp);
+        double atk1 = 0;
+        var power = c.Skill("gen_power")!;
+        Assert.Equal(Rarity.Common, power.Rarity);
+        Assert.Equal(3, c.RunTuning.MaxSkillLevelOf(power.Rarity));                       // Common: two upgrades
+        for (int lv = 1; lv <= 3; lv++)
         {
             run = s.Run.Active!;
             run.Phase = RunPhase.Draft; run.MythicDraft = false;
-            run.DraftOffer.Clear(); run.DraftOffer.Add("gen_power_2"); run.PendingDrafts = 1;
-            if (lv == 1) run.Skills.Add("gen_power"); // the chain's top tier is what levels up
-            Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_power_2" }).Ok);
-            Assert.Equal(lv, RunDraft.Level(s.Run.Active!, "gen_power_2"));
+            run.DraftOffer.Clear(); run.DraftOffer.Add("gen_power"); run.PendingDrafts = 1;
+            Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_power" }).Ok);
+            Assert.Equal(lv, RunDraft.Level(s.Run.Active!, "gen_power"));
+            if (lv == 1) atk1 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, s.Run.Active!), c).Value(StatId.Atk);
         }
         run = s.Run.Active!;
-        double atk5 = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c).Value(StatId.Atk);
-        // level 1: +15%; each further level +50% of it and +3% ATK
-        Assert.True(atk5 > atk0 * 1.15 * 1.3, $"{atk0} → {atk5}");
-        Assert.False(RunDraft.IsEligible(c, run, c.Skill("gen_power_2")));               // max level: no longer offered
-        Assert.False(RunDraft.IsEligible(c, run, c.Skill("gen_power")));                 // replaced lower tier never comes back
-        Assert.Equal(4, run.Gains.Count(g => g.SkillId == "gen_power_2" && g.Level > 1));
+        var block = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c);
+        // level 1: +8% ATK; each further level +50% of the skill's own numbers: level 3 = +16% ATK, and nothing else grows
+        Assert.Equal(16, SkillLeveling.At(c, power, 3).Stats[0].Percent, 6);
+        Assert.True(block.Value(StatId.Atk) > atk1 && atk1 > atk0, $"{atk0} → {atk1} → {block.Value(StatId.Atk)}");
+        Assert.Equal(hp0, block.Value(StatId.Hp), 6); // no generic +HP per level any more
+        Assert.False(RunDraft.IsEligible(c, run, power));                                 // max level: no longer offered
+        Assert.Equal(2, run.Gains.Count(g => g.SkillId == "gen_power" && g.Level > 1));
     }
 
     [Fact]
@@ -136,7 +142,7 @@ public class RunDepthTests(ITestOutputHelper output)
         var runs = Enumerable.Range(1, 20).Select(seed => PlayFarming(e, "ember_wastes_3", seed)).ToList();
         double buys = runs.Average(r => r.ShopBuys);
         // the cheapest and the typical offer: a run's coins pay for 10–20 of them
-        double typical = (table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Rare] + table.SkillPrices[Rarity.Epic] + table.StatPrice) / 4.0;
+        double typical = (2 * table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Legendary] + table.StatPrice) / 4.0;
         output.WriteLine($"shop buys {buys:0.0}; typical offer {typical:0} coins");
         Assert.InRange(buys, 10, 22);
         Assert.Equal(2, table.StatOfferCount);

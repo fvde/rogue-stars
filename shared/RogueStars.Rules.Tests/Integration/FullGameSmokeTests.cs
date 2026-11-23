@@ -189,7 +189,8 @@ public class FullGameSmokeTests
         Assert.Equal("mount_scout_saucer", loadout.MountId);
         Assert.Single(loadout.Aliens);
         Assert.Equal(aliens[0], loadout.Aliens[0].AlienTypeId);
-        Assert.Contains(AttackStyle.Slam, loadout.ArmStyles);
+        // the equipped arm decides the attack style (which arm that is depends on the run drops)
+        Assert.Contains(p.E.Content.PartsConfig.Defs[p.S.Parts.Items[p.S.Parts.Equipped[PartSlot.RightArm]].DefId].Style, loadout.ArmStyles);
         Assert.True(loadout.Power > 0);
         Assert.Equal(WormSystem.ComputePower(loadout, p.E.Content), loadout.Power);
         var arena = ArenaSystem.CreateSnapshot(p.E, p.S, p.Now);

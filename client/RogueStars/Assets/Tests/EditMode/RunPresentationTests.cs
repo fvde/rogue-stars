@@ -48,7 +48,7 @@ namespace RogueStars.Client.Tests
             run.Tiles.Clear();
             var all = new List<string> { "start" };
             all.AddRange(tiles);
-            while (all.Count < 30) all.Add("empty");
+            while (all.Count < 200) all.Add("empty"); // long enough that the rules never append a (2D-laid-out) segment
             for (int i = 0; i < all.Count; i++)
             {
                 var t = new RunTile { Id = i, TileId = all[i], X = i };
@@ -244,6 +244,31 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void EveryResolvingTileKind_PopsFromTheRulesOutcome()
+        {
+            // Empty, buffs, curses, supply, hazards, shards, pickups, boss tiles: the rules publish a tile outcome per landing
+            foreach (var def in C.BoardTiles.Values)
+            {
+                if (Array.IndexOf(RunPresentation.FallbackKinds, def.Category) < 0 || def.Category == TileCategory.Start) continue;
+                var tiles = new string[14];
+                for (int i = 0; i < tiles.Length; i++) tiles[i] = def.Id;
+                S.Wallet.Add(Currencies.Stamina, 20);
+                var run = StartRun(tiles);
+                run.MinibossesSpawned = C.RunTuning.MinibossAtMeter.Count;
+                Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True, def.Id);
+                var a = S.Run.Active;
+                var land = a.Tiles[a.Position];
+                var outcome = RunPresentation.TileOutcome(a, land);
+                Assert.That(outcome, Is.Not.Null, def.Id + ": no tile outcome");
+                var expected = new List<string>();
+                foreach (var l in outcome.Lines) { var p = RunPresentation.FromLine(l, C); if (p.HasValue) expected.Add(p.Value.Text); }
+                Assert.That(expected.Count, Is.GreaterThan(0), def.Id + ": outcome without a popup");
+                Assert.That(RunPresentation.Landing(C, a, land, false, null).ConvertAll(p => p.Text), Is.EqualTo(expected), def.Id);
+                Assert.That(_f.Service.ExecuteNow(new RunAbandon()).Ok, Is.True);
+            }
+        }
+
+        [Test]
         public void LandingOnABuff_PopsTheTileAndShowsThePopup()
         {
             var run = StartRun("buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk");
@@ -291,27 +316,28 @@ namespace RogueStars.Client.Tests
         // ---- 6. rarity colours ----
 
         [Test]
-        public void Skills_AreColouredByRarity_Everywhere()
+        public void Skills_AreColouredByTier_Everywhere()
         {
-            Assert.That(Theme.RarityColor(Rarity.Common), Is.EqualTo(Theme.Hex(0xB8AEA6)), "grey");
-            Assert.That(Theme.RarityColor(Rarity.Rare).b, Is.GreaterThan(Theme.RarityColor(Rarity.Rare).r), "blue");
-            var epic = Theme.RarityColor(Rarity.Epic);
-            Assert.That(epic.r > epic.g && epic.b > epic.g, Is.True, "purple");
-            var leg = Theme.RarityColor(Rarity.Legendary);
+            // run skills have three tiers: Common grey, Legendary orange, Mythic red
+            Assert.That(Theme.SkillTierColor(Rarity.Common), Is.EqualTo(Theme.Hex(0xB8AEA6)), "grey");
+            var leg = Theme.SkillTierColor(Rarity.Legendary);
             Assert.That(leg.r > leg.g && leg.g > leg.b, Is.True, "orange");
-            var myth = Theme.RarityColor(Rarity.Mythic);
+            var myth = Theme.SkillTierColor(Rarity.Mythic);
             Assert.That(myth.r > 0.9f && myth.g < 0.4f && myth.b < 0.4f, Is.True, "red");
+            Assert.That(Theme.SkillTierColor(Rarity.Rare), Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
+            Assert.That(Theme.SkillTierColor(Rarity.Epic), Is.EqualTo(leg));
 
-            // pick two skills of different rarity but (ideally) the same family: colour follows rarity, not family
+            // a Common and a Legendary run skill: colour follows the tier, not the family
             SkillDef common = null, epicSkill = null;
             foreach (var s in C.Skills.Values)
             {
+                if (s.Source != SkillSource.Run || !s.Draftable || s.RequiresFamilyCount > 0 || s.Requires.Count > 0) continue;
                 if (s.Rarity == Rarity.Common && common == null) common = s;
-                if (s.Rarity == Rarity.Epic && epicSkill == null) epicSkill = s;
+                if (s.Rarity == Rarity.Legendary && epicSkill == null) epicSkill = s;
             }
             Assert.That(common, Is.Not.Null); Assert.That(epicSkill, Is.Not.Null);
-            Assert.That(RunPresentation.SkillColor(common), Is.EqualTo(Theme.RarityColor(Rarity.Common)));
-            Assert.That(RunPresentation.SkillColor(epicSkill), Is.EqualTo(Theme.RarityColor(Rarity.Epic)));
+            Assert.That(RunPresentation.SkillColor(common), Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
+            Assert.That(RunPresentation.SkillColor(epicSkill), Is.EqualTo(leg));
 
             var run = StartRun();
             run.Skills.Add(epicSkill.Id);
@@ -321,15 +347,15 @@ namespace RogueStars.Client.Tests
             // skill slot
             var slot = FindNamed(screen.Root, "Slot:" + epicSkill.Id);
             Assert.That(slot, Is.Not.Null);
-            Assert.That(FindNamed(slot, "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.RarityColor(Rarity.Epic)));
+            Assert.That(FindNamed(slot, "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
             // draft cards: the icon is the rarity colour
             var card = FindNamed(_f.App.ModalLayer, "Draft:" + common.Id);
             Assert.That(card, Is.Not.Null, "draft open");
-            Assert.That(FindNamed(card, "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.RarityColor(Rarity.Common)));
-            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Draft:" + epicSkill.Id), "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.RarityColor(Rarity.Epic)));
+            Assert.That(FindNamed(card, "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
+            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Draft:" + epicSkill.Id), "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
 
             // result screen: gained skills by rarity
-            Assert.That(RunPresentation.SkillColor(C, epicSkill.Id), Is.EqualTo(Theme.RarityColor(Rarity.Epic)));
+            Assert.That(RunPresentation.SkillColor(C, epicSkill.Id), Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
         }
 
         // ---- 7. shop ----
@@ -348,7 +374,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.Service.ExecuteNow(new RunShopBuy { Index = offer }).Ok, Is.True);
             Assert.That(_f.Service.ExecuteNow(new RunShopLeave()).Ok, Is.True);
             screen.Rebuild();
-            Assert.That(S.Run.Active.LastOutcome.Source, Is.EqualTo("shop"));
+            Assert.That(S.Run.Active.LastOutcome, Is.Null, "the rules publish no shop outcome");
             Assert.That(screen.OutcomeOpen, Is.False, "no outcome summary after a shop visit");
         }
     }

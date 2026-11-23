@@ -131,7 +131,7 @@ public class BattleSimulatorTests
         lo.WormStats.Add(new StatMod(StatId.Hp, 2000)).Add(new StatMod(StatId.Atk, 120)).Add(new StatMod(StatId.Def, 10))
             .Add(new StatMod(StatId.CritChance, 30)).Add(new StatMod(StatId.ComboChance, 30)).Add(new StatMod(StatId.Dodge, 20));
         lo.Aliens.Add(new CombatAlien { AlienTypeId = "blorb", Stats = new StatBlock().Add(new StatMod(StatId.Atk, 40)) });
-        var skills = new List<string> { "fire_ember_3", "poison_spit_2", "counter_riposte_2", "light_storm", "alien_charmer" };
+        var skills = new List<string> { "fire_ember", "poison_spit", "counter_riposte", "light_storm", "alien_charmer" };
         BattleSetup Setup()
         {
             var s = new BattleSetup();

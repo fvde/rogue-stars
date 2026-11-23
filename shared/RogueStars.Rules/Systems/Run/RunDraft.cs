@@ -47,7 +47,7 @@ namespace RogueStars.Rules.Systems
             return n;
         }
 
-        /// <summary>Level of a skill in this run: 0 = not owned, 1 = owned, 2+ = levelled up (RunTuning.MaxSkillLevel).</summary>
+        /// <summary>Level of a skill in this run: 0 = not owned, 1 = owned, 2+ = levelled up (cap by tier, RunTuning.MaxSkillLevelOf).</summary>
         public static int Level(ActiveRun run, string skillId)
         {
             if (skillId == null || !run.Skills.Contains(skillId)) return 0;
@@ -58,7 +58,7 @@ namespace RogueStars.Rules.Systems
         public static bool CanLevelUp(ContentDb content, ActiveRun run, SkillDef s)
         {
             if (s == null || !run.Skills.Contains(s.Id)) return false;
-            return Level(run, s.Id) < content.RunTuning.MaxSkillLevel && !HasUpgrade(content, s.Id);
+            return Level(run, s.Id) < content.RunTuning.MaxSkillLevelOf(s.Rarity) && !HasUpgrade(content, s.Id) && SkillLeveling.Grows(content, s);
         }
 
         /// <summary>True if another skill upgrades from this one (an upgrade chain's lower tier).</summary>

@@ -154,7 +154,7 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.AutoPaused, Is.False);
             screen.Rebuild();
             Assert.That(screen.OutcomeOpen, Is.False, "no shop result sheet");
-            Assert.That(_f.Service.State.Run.Active.LastOutcome.Lines.Exists(l => l.Kind == OutcomeKind.SkillGained && l.Id == skill), Is.True);
+            Assert.That(_f.Service.State.Run.Active.Skills, Does.Contain(skill)); // no shop outcome from the rules (playtest)
             long rolls = _f.Service.State.Counter("run_rolls");
             screen.Frame(1f);
             Assert.That(_f.Service.State.Counter("run_rolls"), Is.EqualTo(rolls + 1), "auto rolled again");
@@ -287,6 +287,7 @@ namespace RogueStars.Client.Tests
                     int at = board.MainPath[Mathf.Min(board.MainPath.Count - 2, 8 + seed * 3)];
                     var here = board.Tiles[at];
                     var arena = RunBoard.Add(board.Tiles, "boss_gate", here.X + 1, -1);
+                    RunBoard.PlaceAhead(here, arena); // as RunSystem opens it
                     var drawn = new List<RunTile>();
                     foreach (var id in board.MainPath) { drawn.Add(board.Tiles[id]); if (id == at) break; }
                     drawn.Add(arena);

@@ -200,7 +200,7 @@ public class RunSystemTests
         Assert.Equal(1, run.ExtraDicePermanent);
         Assert.Equal(50, run.AwakeningReductionPct);
         Assert.Equal(25 + (run.Skills.Contains("gen_hoarder") ? 20 : 0), run.ExtraLootPct); // the random Epic+ start skill may be Hoarder
-        Assert.Equal(40, run.Coins);
+        Assert.Equal(40 + RunSystem.StartCoins(c, c.RunLevel(run.LevelId)), run.Coins); // the boon's 40 on top of the start coins
         Assert.Contains("fire_kindle", run.Skills);
         Assert.Contains("crit_keen", run.Skills);
         Assert.Contains(run.Skills, id => c.Skill(id)!.Rarity >= Rarity.Epic && id != "fire_kindle" && id != "crit_keen");
@@ -256,6 +256,7 @@ public class RunSystemTests
         var run = s.Run.Active!;
         run.Phase = RunPhase.Event;
         run.EventId = "alien_medic";
+        run.Coins = 0;
         Assert.False(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok); // 40 coins needed
         s.Run.Active!.Coins = 50;
         s.Run.Active.WormHp = 10;

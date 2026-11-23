@@ -114,7 +114,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>Worm combat spec for the current run (loadout + run skills + run stats).</summary>
         public static CombatantSpec WormSpec(ContentDb content, ActiveRun run)
         {
-            var side = BattleSimulator.BuildPlayerSide(run.Loadout, content, run.Skills, WormExtraStats(content, run));
+            var side = BattleSimulator.BuildPlayerSide(run.Loadout, content, run.Skills, WormExtraStats(content, run), run.SkillLevels);
             return side[side.Count - 1];
         }
 
@@ -170,6 +170,7 @@ namespace RogueStars.Rules.Systems
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
             SetupLevel(c, run, level);
+            run.Coins = StartCoins(c, level); // enough for a purchase at the first shop
             s.Run.Active = run;
             RefreshMaxHp(c, run);
 
@@ -227,11 +228,15 @@ namespace RogueStars.Rules.Systems
             for (int i = 0; i < n; i++) { int d = run.Rng.Range(1, 7); run.LastDice.Add(d); sum += d; }
             if (run.StepPenaltyNext > 0) { sum = Math.Max(1, sum - run.StepPenaltyNext); run.StepPenaltyNext = 0; }
             run.Rolls++;
+            run.TileOutcomes.Clear(); // a new move: the previous move's tile outcomes were shown
             ctx.State.Count("run_rolls");
             ctx.Emit("run_roll", sum.ToString(), string.Join("+", run.LastDice));
             var boss = Boss(c, run);
-            if (boss != null) AddAwakening(ctx, run, boss.AwakenPerRoll);
+            // Per-roll skills first (Calm Mind drains the meter), then the boss's pace: draining after the clamp at 100 kept a
+            // full meter at 99 for ever, so with Calm Mind the boss only came at the roll limit.
             RunTriggers(ctx, run, TriggerKind.OnRoll, null);
+            if (boss != null) AddAwakening(ctx, run, boss.AwakenPerRoll);
+            LevelUpFromBank(ctx, run); // carried XP pays one level per roll (never several at once)
             run.StepsLeft = sum;
             Continue(ctx, run);
         }
@@ -286,7 +291,6 @@ namespace RogueStars.Rules.Systems
             Require(!o.Sold, "sold out");
             Require(run.Coins >= o.Price, "not enough run coins");
             if (o.Kind == ShopOfferKind.Skill) Require(RunDraft.IsEligible(ctx.Content, run, ctx.Content.Skill(o.SkillId)), "skill no longer available");
-            var before = Snap.Of(run);
             run.Coins -= o.Price;
             o.Sold = true;
             run.ShopBuys++;
@@ -301,8 +305,6 @@ namespace RogueStars.Rules.Systems
                     break;
             }
             ctx.State.Count("run_shop_buys");
-            if (run.ShopOutcome == null) run.ShopOutcome = new RunOutcome { Source = "shop", Title = "Wandering Shop", Choice = "Purchases" };
-            before.Diff(ctx.Content, run, run.ShopOutcome.Lines);
             ctx.Emit("run_shop_buy", index.ToString(), o.Kind.ToString(), o.Kind == ShopOfferKind.Skill ? o.SkillId : o.Kind == ShopOfferKind.Stat ? o.Stat.Stat.ToString() : "heal");
         }
 
@@ -352,9 +354,7 @@ namespace RogueStars.Rules.Systems
         {
             Require(run.Phase == RunPhase.Shop, "no shop open");
             run.Shop.Clear();
-            run.Phase = RunPhase.AwaitRoll;
-            if (run.ShopOutcome != null && run.ShopOutcome.Lines.Count > 0) PublishOutcome(ctx, run, run.ShopOutcome);
-            run.ShopOutcome = null;
+            run.Phase = RunPhase.AwaitRoll; // no result screen after a shop: the purchases were seen in the shop (playtest)
             Continue(ctx, run);
         }
 
@@ -362,8 +362,10 @@ namespace RogueStars.Rules.Systems
         public const string DoubleRewardsAdPlacement = "double_run_rewards";
 
         /// <summary>
-        /// Result screen ad: the last won run pays its rewards (pending loot, completion rewards and loot rolls, already
-        /// modified by run_reward modifiers) once more. Once per run, daily cap via the ad placement.
+        /// Result screen ad: the last won run pays its doublable rewards (RunRewardLine.IsDoublable: run loot, completion rewards
+        /// and completion loot rolls, as granted: Biomass surge and run_reward modifiers included) once more. Once per run, daily
+        /// cap via the ad placement. The summary reflects it: Granted totals grow (currencies doubled in place, a second copy of
+        /// each item drop), Rewards lines are marked Doubled, DoubledGranted lists what this paid.
         /// </summary>
         private static CommandResult HandleDoubleRewards(RunDoubleRewards cmd, CommandContext ctx)
         {
@@ -374,7 +376,23 @@ namespace RogueStars.Rules.Systems
             Require(summary.Doublable.Count > 0, "nothing to double");
             ShopSystem.ConsumeAdView(ctx, DoubleRewardsAdPlacement, cmd.AdToken);
             summary.Doubled = true;
-            foreach (var r in summary.Doublable) ctx.Grant(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+            foreach (var line in summary.Rewards)
+            {
+                if (!line.Doublable) continue;
+                var r = line.Reward;
+                if (!ctx.Grant(new Reward(r.Kind, r.Id, r.Amount, r.Rarity))) continue; // granted at completion, so it has a use
+                line.Doubled = true;
+                summary.DoubledGranted.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+            }
+            // the result screen's totals: each doubled currency line counts twice, each doubled item drop is listed again
+            summary.Granted.Clear();
+            foreach (var line in summary.Rewards)
+            {
+                var r = line.Reward;
+                bool currency = r.Kind == RewardKinds.Currency;
+                summary.Granted.Add(new Reward(r.Kind, r.Id, line.Doubled && currency ? r.Amount * 2 : r.Amount, r.Rarity));
+                if (line.Doubled && !currency) summary.Granted.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+            }
             s.Count("run_rewards_doubled");
             ctx.Emit("run_rewards_doubled", summary.RunId);
             return CommandResult.Success(summary);
@@ -402,8 +420,10 @@ namespace RogueStars.Rules.Systems
             string kind = run.DefeatKind;
             int xp = run.DefeatXp; long coins = run.DefeatCoins;
             run.DefeatEnemies.Clear(); run.DefeatFollowUp.Clear();
+            var before = Snap.Of(run);
             bool won = enemies.Count == 0 ? true : Fight(ctx, run, enemies, kind, xp, coins, followUp);
             if (enemies.Count == 0) OnBattleWin(ctx, run, kind, xp, coins);
+            if (kind != "boss") TileOutcome(ctx, run, run.Tiles[run.Position], null, before, "battle", false); // the retried fight
             if (!won) return;
             AfterWin(ctx, run, kind, followUp);
             Continue(ctx, run);

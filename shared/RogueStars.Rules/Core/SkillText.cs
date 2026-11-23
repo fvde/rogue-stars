@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using RogueStars.Rules.Content;
+using RogueStars.Rules.Systems;
 
 namespace RogueStars.Rules.Core
 {
@@ -19,6 +21,33 @@ namespace RogueStars.Rules.Core
             foreach (var m in s.Stats) { var t = Stat(m); if (t != null) lines.Add(t); }
             foreach (var t in s.Triggers) { var line = Trigger(t); if (line != null) lines.Add(line); }
             return lines;
+        }
+
+        /// <summary>Effect lines of a run skill at a level (its leveled numbers, SkillLeveling); level ≤ 1 = the base skill.</summary>
+        public static List<string> Effects(ContentDb content, SkillDef s, int level) => Effects(SkillLeveling.At(content, s, level));
+
+        /// <summary>All effect lines of a run skill at a level in one paragraph.</summary>
+        public static string Full(ContentDb content, SkillDef s, int level) => Full(SkillLeveling.At(content, s, level));
+
+        /// <summary>"Spiked Hide Lv 2/3" (Common: 3 levels, Legendary: 2), a Mythic just its name (it never levels).</summary>
+        public static string Title(ContentDb content, SkillDef s, int level)
+        {
+            if (s == null) return "";
+            int max = (content ?? ContentDb.Default).RunTuning.MaxSkillLevelOf(s.Rarity);
+            return max <= 1 ? s.Name : s.Name + " Lv " + Math.Max(1, level) + "/" + max;
+        }
+
+        /// <summary>"Spiked Hide" / "Spiked Hide Lv 3".</summary>
+        public static string Title(SkillDef s, int level) => s == null ? "" : s.Name + (level > 1 ? " Lv " + level : "");
+
+        /// <summary>The level-up rule in one line, with the exact numbers from RunTuning (e.g. "Level up: +25% to all its numbers …").</summary>
+        public static string LevelUpRule(ContentDb content)
+        {
+            var t = (content ?? ContentDb.Default).RunTuning;
+            var sb = new StringBuilder("Level up: +").Append(Num(t.SkillLevelEffectPct)).Append("% to all its numbers (chances up to ")
+                .Append(Num(t.SkillLevelChanceCap)).Append("%)");
+            if (t.SkillLevelStacksEvery > 0) sb.Append(", +1 stack / round every ").Append(t.SkillLevelStacksEvery).Append(" levels");
+            return sb.ToString();
         }
 
         /// <summary>All effect lines joined into one paragraph ("" when the skill has no effects).</summary>

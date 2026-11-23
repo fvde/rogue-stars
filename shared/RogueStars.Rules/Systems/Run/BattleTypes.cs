@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
@@ -31,6 +32,14 @@ namespace RogueStars.Rules.Systems
         public CombatRole Role;
         public StatBlock Stats = new StatBlock();
         public List<string> SkillIds = new List<string>();
+        /// <summary>Run skill levels above 1 (skill id → level): those skills fight at their leveled form (SkillLeveling).</summary>
+        public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
+        /// <summary>The skill as this combatant uses it (leveled run skills; the content def otherwise).</summary>
+        public SkillDef Skill(ContentDb content, string id)
+        {
+            var def = content.Skill(id);
+            return def != null && SkillLevels.TryGetValue(id, out var lv) && lv > 1 ? SkillLeveling.At(content, def, lv) : def;
+        }
         /// <summary>Only targetable fighters can be attacked. Default: worm and enemies yes, aliens/mount/summons no.</summary>
         public bool Targetable = true;
         public AttackStyle Style = AttackStyle.Slam;
