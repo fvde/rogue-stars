@@ -212,7 +212,7 @@ namespace RogueStars.Client.App
             bl.padding = new RectOffset(12, 12, 10, 10);
             var s = _app.Session;
             var profile = HubKit.RoundPanel(bar, HubKit.Card, "ProfileChip");
-            Ui.Size(profile, 430, 84, 0);
+            Ui.Size(profile, ProfileWidth, 84, 0);
             var pb = profile.gameObject.AddComponent<Button>();
             pb.targetGraphic = profile;
             pb.onClick.AddListener(ShowProfile);
@@ -233,7 +233,9 @@ namespace RogueStars.Client.App
             if (s.State == null) return;
             // Up to five currency chips (stamina first) and "All" in a 2-column block to the right of the profile.
             var visible = HubLayout.VisibleCurrencies(s.State, s.Content);
-            var grid = Ui.Grid(bar, new Vector2(282, 44), 2, 6);
+            // Two chip columns in what the profile leaves free of the 978-unit canvas (282-wide cells overflowed it and
+            // clipped the right column: Diamonds, "All").
+            var grid = Ui.Grid(bar, new Vector2(ChipWidth, 44), 2, 6);
             var gl = grid.GetComponent<GridLayoutGroup>();
             gl.childAlignment = TextAnchor.MiddleRight;
             Ui.Size(grid, -1, 146, 1);
@@ -242,6 +244,9 @@ namespace RogueStars.Client.App
             {
                 string id = visible[i];
                 var chip = HubKit.RoundPanel(grid, HubKit.Card, "ChipBg:" + id);
+                var cb = chip.gameObject.AddComponent<Button>(); // tap: what it is for and where to spend it
+                cb.targetGraphic = chip;
+                cb.onClick.AddListener(() => ShowCurrency(id));
                 var dot = Ui.Panel(chip.transform, Theme.CurrencyColor(id), "Dot");
                 dot.sprite = HubKit.Circle;
                 var drt = dot.rectTransform;
@@ -259,6 +264,9 @@ namespace RogueStars.Client.App
 
         /// <summary>Currency chips in the bar before "All".</summary>
         public const int MaxChips = 5;
+
+        /// <summary>Profile chip and currency chip widths: 12 + 400 + 12 + (2 × 265 + 6) + 12 ≤ 978.</summary>
+        public const float ProfileWidth = 400, ChipWidth = 265;
 
         private long _power;
         private long _powerVersion = -1;
@@ -293,8 +301,9 @@ namespace RogueStars.Client.App
         }
 
         /// <summary>
-        /// Every currency the player has a use for (<see cref="HubLayout.VisibleCurrencies"/>, in display order) with its full
-        /// name and balance (and the regen cap where there is one). Rewards without a use never reach the wallet.
+        /// Every currency the player has a use for (<see cref="HubLayout.VisibleCurrencies"/>, in display order): name, balance
+        /// (and the regen cap where there is one) and what it is for (<see cref="CurrencyGuide"/>); a row opens its explainer.
+        /// Rewards without a use never reach the wallet.
         /// </summary>
         public void ShowDetails()
         {
@@ -303,17 +312,66 @@ namespace RogueStars.Client.App
             Ui.Modal(_app.ModalLayer, "Resources", b =>
             {
                 var ids = HubLayout.VisibleCurrencies(s.State, s.Content);
-                var list = Ui.List(b, 1100);
+                Ui.Label(b, "Tap a resource to see where to spend it.", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter, "Hint");
+                // Sized to its rows (a fixed 1100-unit list was a mostly empty box for a new player).
+                var list = Ui.List(b, Mathf.Min(1150, ids.Count * 118 + 28));
                 foreach (var id in ids)
                 {
-                    var row = Ui.Row(list, 52, 10, null, 0, "Currency:" + id);
+                    var cur = id;
+                    var info = CurrencyGuide.For(s.State, s.Content, id);
+                    var row = Ui.Row(list, 108, 14, Theme.Panel, 14, "Currency:" + id);
+                    row.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false; // a round swatch, not a stretched one
+                    var rb = row.gameObject.AddComponent<Button>();
+                    rb.targetGraphic = row.GetComponent<Image>();
+                    rb.onClick.AddListener(() => ShowCurrency(cur));
                     var sw = Ui.Panel(row, Theme.CurrencyColor(id), "Swatch");
-                    Ui.Size(sw, 12, 40, 0);
-                    Ui.Label(row, Fmt.CurrencyName(id, s.Content), Theme.FontSmall, Theme.Text);
+                    sw.sprite = HubKit.Circle;
+                    Ui.Size(sw, 28, 28, 0);
+                    var col = Ui.Column(row, 2, 0, null, "Names");
+                    col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                    Ui.Size(col, -1, -1, 1);
+                    Ui.Label(col, info.Name, Theme.FontSmall, Theme.Text);
+                    Ui.Label(col, info.Use, 20, Theme.TextDim, TextAnchor.MiddleLeft, "Use");
                     var v = Ui.Label(row, ChipText(id).Replace(Fmt.CurrencyShort(id) + " ", ""), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
-                    Ui.Size(v, 320, -1, 0);
+                    Ui.Size(v, 230, -1, 0);
+                    var go = Ui.Label(row, "›", Theme.FontLarge, Theme.Accent, TextAnchor.MiddleCenter, "More");
+                    Ui.Size(go, 30, -1, 0);
                 }
             }, new ModalButton("Close", null));
+        }
+
+        /// <summary>
+        /// One currency's explainer: balance, what it is for (the rules' reward-use text), what the player can do with it
+        /// right now (Ore: equipped parts to level up) and a Go button to where it is spent (<see cref="CurrencyGuide"/>).
+        /// </summary>
+        public UiModal ShowCurrency(string id)
+        {
+            var s = _app.Session;
+            if (s.State == null) return null;
+            Ui.Clear(_app.ModalLayer);
+            var info = CurrencyGuide.For(s.State, s.Content, id);
+            var buttons = new List<ModalButton>();
+            if (info.ScreenId != null)
+            {
+                string screen = info.ScreenId;
+                buttons.Add(new ModalButton(info.GoLabel, () =>
+                {
+                    // already on the gear screen: just bring the inventory into view
+                    if ((screen == "worm" || screen == "parts") && _app.Router.Current is GearScreen gear) gear.FocusInventory();
+                    else _app.Open(screen);
+                }, Theme.Accent));
+            }
+            buttons.Add(new ModalButton("Close", null));
+            var modal = Ui.Modal(_app.ModalLayer, info.Name, b =>
+            {
+                Ui.Display(b, "You have " + ChipText(id).Replace(Fmt.CurrencyShort(id) + " ", ""), Theme.FontLarge, Theme.CurrencyColor(id), TextAnchor.MiddleCenter, "Balance");
+                Ui.Caption(b, "What it's for");
+                Ui.Label(b, info.Use, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "Use");
+                if (!string.IsNullOrEmpty(info.Hint)) Ui.Label(b, info.Hint, Theme.FontSmall, Theme.Good, TextAnchor.MiddleLeft, "Hint");
+                if (info.ScreenId == null) Ui.Label(b, "Nothing to spend it on yet.", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleLeft, "Hint");
+            }, buttons.ToArray());
+            modal.Root.name = "Modal:Currency:" + id;
+            return modal;
         }
 
         private string ChipText(string id)

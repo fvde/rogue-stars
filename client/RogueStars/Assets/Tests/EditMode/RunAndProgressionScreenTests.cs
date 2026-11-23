@@ -496,13 +496,13 @@ namespace RogueStars.Client.Tests
                 Assert.That(screen.Root.GetComponentsInChildren<Button>(true).Length, Is.GreaterThan(2), id);
                 _f.App.Router.Pop();
             }
-            // Equip via the worm slot modal and level up the worm.
+            // A worm slot leads to its parts in the inventory; level up the worm.
             _f.App.Open("worm");
             Button slot = null;
             foreach (var b in _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "Slot:LeftArm") slot = b;
             Assert.That(slot, Is.Not.Null);
             slot.onClick.Invoke();
-            Assert.That(_f.App.ModalLayer.childCount, Is.EqualTo(1));
+            Assert.That(((WormScreen)_f.App.Router.Current).SlotFilter, Is.EqualTo(GearSlotFilter.Arms));
             long before = _f.Service.State.Worm.Level;
             Assert.That(_f.Service.ExecuteNow(new WormLevelUp { Levels = 1 }).Ok, Is.True);
             Assert.That(_f.Service.State.Worm.Level, Is.EqualTo(before + 1));

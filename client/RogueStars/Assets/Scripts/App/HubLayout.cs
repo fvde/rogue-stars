@@ -84,7 +84,7 @@ namespace RogueStars.Client.App
         /// <summary>Unlocked catalog screens that have no tab or column entry (opened from "More").</summary>
         public static List<ScreenEntry> MoreScreens(GameState s, ContentDb c)
         {
-            // parts: from the Worm screen ("All parts"), so day 1 stays PLAY + Worm.
+            // parts: its inventory is on the Worm tab (the Runes button opens the screen), so day 1 stays PLAY + Worm.
             var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "mail" };
             var list = new List<ScreenEntry>();
             foreach (var e in ScreenCatalog.All)
@@ -104,7 +104,7 @@ namespace RogueStars.Client.App
         public static HashSet<string> Reachable(GameState s, ContentDb c, long now)
         {
             var set = new HashSet<string> { "portals", "settings" };
-            if (Features.IsUnlocked(s, c, Features.Parts)) { set.Add("worm"); set.Add("parts"); } // parts: the Worm screen's "All parts"
+            if (Features.IsUnlocked(s, c, Features.Parts)) { set.Add("worm"); set.Add("parts"); } // parts: the Worm tab holds the same inventory
             foreach (var t in Tabs(s, c)) if (t.ScreenId != null) set.Add(t.ScreenId);
             foreach (var r in RightColumn(s, c, now)) if (r.ScreenId != null) set.Add(r.ScreenId);
             foreach (var l in LeftColumn(s, c)) if (l.ScreenId != null) set.Add(l.ScreenId);
