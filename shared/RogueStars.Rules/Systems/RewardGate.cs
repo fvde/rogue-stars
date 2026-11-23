@@ -84,6 +84,7 @@ namespace RogueStars.Rules.Systems
         public static bool Admit(CommandContext ctx, Reward r)
         {
             var s = ctx.State; var c = ctx.Content;
+            if (ctx.IgnoreRewardGate) return true;
             var use = c.RewardUse(r);
             if (Met(s, c, use, ctx.NowMs)) return true;
             bool keepAll = ctx.Command != null && c.GateConfig.KeepAllCommands.Contains(ctx.Command.Type);

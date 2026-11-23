@@ -33,6 +33,8 @@ namespace RogueStars.Rules.Core
         public long NowMs;
         /// <summary>The command being executed (null for settles and new-player initialisation).</summary>
         public GameCommand Command;
+        /// <summary>Dev tools only (offline grant cheats): rewards land at once, even without a use (no reward stash).</summary>
+        public bool IgnoreRewardGate;
         public List<GameEvent> Events = new List<GameEvent>();
 
         public Rng Rng => State.Rng;

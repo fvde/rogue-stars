@@ -105,6 +105,7 @@ namespace RogueStars.Client.Screens
             bool IsCore(ShopItemDef d) => d.Contents.Exists(r => r.Id == ProgressionCurrencies.PartAwakenCores);
             items.Sort((x, y) => IsCore(x) != IsCore(y) ? (IsCore(x) ? -1 : 1) : string.CompareOrdinal(x.Id, y.Id));
             if (items.Count == 0) Note(body, "No arena shop items.");
+            items.RemoveAll(d => d.Contents.Count > 0 && !RewardGate.AnyUsable(State, Content, d.Contents, Now)); // e.g. Awaken Cores before a Mythic part
             foreach (var item in items)
             {
                 var it = item;
@@ -114,7 +115,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(body, 110, 10, core ? Color.Lerp(Theme.Warn, Theme.Panel, 0.7f) : Theme.Panel, 12);
                 row.name = "ArenaItem:" + it.Id;
                 string limit = it.Limit > 0 ? bought + "/" + it.Limit + " this " + (it.Period == LimitPeriod.Weekly ? "week" : it.Period == LimitPeriod.Daily ? "day" : "account") : "no limit";
-                Ui.Label(row, it.Name + "\n<size=22>" + Fmt.Rewards(it.Contents, Content) + " · " + limit + (core ? " · the endgame part awakening currency" : "") + "</size>", Theme.FontSmall, core ? Theme.Warn : Theme.Text);
+                Ui.Label(row, it.Name + "\n<size=22>" + Fmt.Rewards(it.Contents, Content, State, Now) + " · " + limit + (core ? " · the endgame part awakening currency" : "") + "</size>", Theme.FontSmall, core ? Theme.Warn : Theme.Text);
                 bool ok = !soldOut && State.Wallet.CanAfford(it.Price) && Requirements.IsMet(State, Content, it.Requires, Now);
                 Ui.Button(row, soldOut ? "Sold out" : Fmt.Costs(it.Price, Content), () => Run(new ShopBuyItem { ItemId = it.Id }), Theme.CurrencyColor(Currencies.ArenaMedals), 300, 86, ok, Theme.FontSmall).name = "Buy:" + it.Id;
             }

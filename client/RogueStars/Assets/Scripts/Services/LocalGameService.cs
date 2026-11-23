@@ -199,7 +199,8 @@ namespace RogueStars.Client.Services
         public void DevGrant(IEnumerable<Reward> rewards)
         {
             if (_state == null) return;
-            var ctx = new CommandContext { State = _state, Content = Content, Engine = Engine, NowMs = NowMs };
+            // Dev cheat: the rewards land at once, even those without a use yet (no reward stash).
+            var ctx = new CommandContext { State = _state, Content = Content, Engine = Engine, NowMs = NowMs, IgnoreRewardGate = true };
             ctx.GrantAll(rewards);
             Save();
             RaiseChanged();

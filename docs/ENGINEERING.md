@@ -47,7 +47,11 @@ Grant rewards through `ctx.Grant(...)` so every reward kind goes through its own
   need a feature without playing the days record it (`state.Onboarding.Unlocked[id] = t`) or set `Features.DevUnlockAllFlag`.
   `Features.Next` = the single next unlock group for the hub teaser.
 - **Rewards:** `RewardKinds` + granters (`Part`/`Rune` → Progression, `Blueprint`/`Alien` → City,
-  `HeroShards`/`Mount` → Progression).
+  `HeroShards`/`Mount` → Progression). Every grant passes `RewardGate` (GDD §13.1 "rewards follow use"): a reward whose
+  currency / item kind has no use yet (`ContentDb.RewardUses`) goes to the reward stash and `ctx.Grant` returns false (list
+  only what was granted in summaries). A new currency or reward kind needs a `RewardUses` entry (tests enforce it).
+  Displays use `RewardGate.Usable` / `Fmt.Rewards(rewards, content, state)`. Tests that grant without unlocking set
+  `Features.DevUnlockAllFlag` (every reward has a use) or record the unlock.
 - **Combat loadout:** `engine.BuildLoadout(state, now)`; Progression contributes worm stats, parts, hero, mount;
   City contributes aliens squad and building boons; Run contributes laboratory draft pool.
 - **Battle simulation:** `BattleSimulator` (owned by Run) is used by runs, arena and invasions.

@@ -314,6 +314,7 @@ namespace RogueStars.Client.Tests
         public void RunResult_DoubleRewards_WatchesAnAdAndDoublesOnce()
         {
             _f.Service.DevGrantStarterKit();
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true); // Biomass needs a use (City / worm levels) to be paid and doubled
             for (int attempt = 0; attempt < 6 && !(_f.Service.State.Run.LastSummary?.Won ?? false); attempt++)
             {
                 StartFirstRun();

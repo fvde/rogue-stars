@@ -157,9 +157,10 @@ namespace RogueStars.Client.Screens
             foreach (var it in Content.ShopItems.Values)
             {
                 if (it.Section != GuildSystem.ShopSection) continue;
+                if (it.Contents.Count > 0 && !RewardGate.AnyUsable(State, Content, it.Contents, Now)) continue; // rewards follow use
                 var item = it;
                 var row = Ui.Row(body, 90, 10, Theme.Panel, 12);
-                Ui.Label(row, item.Name + "\n<size=22>" + Fmt.Rewards(item.Contents, Content) + "</size>", Theme.FontSmall);
+                Ui.Label(row, item.Name + "\n<size=22>" + Fmt.Rewards(item.Contents, Content, State, Now) + "</size>", Theme.FontSmall);
                 Ui.Button(row, Fmt.Costs(item.Price, Content), () => Run(new GuildShopBuy { ItemId = item.Id }, _ => Rebuild()), Theme.Premium, 300, 76, State.Wallet.CanAfford(item.Price), Theme.FontSmall);
             }
         }

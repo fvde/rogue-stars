@@ -263,6 +263,51 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 All currencies live in one string-keyed wallet with a generic regen engine (cap, per-tick amount, tick
 length, temporary cap boosts, rewards may exceed cap).
 
+### 13.1 Rewards follow use
+A reward is only granted while the player can use it. Every currency and item kind has an entry in
+`ContentDb.RewardUses` (`Content/ContentDb.RewardGate.cs`, one place; tests require an entry for every currency in the
+content) saying what spends it and when the player has that use (any of the listed features, or owning a part of the
+needed rarity). Every grant (run loot and completion, milestone chests, quests and point chests, login and new-player
+calendars, mail, shop, pulls, events, unlock gifts, the starting wallet) passes the reward gate (`RewardGate`): a reward
+without a use does not reach the wallet; it waits in the **reward stash** and is released through its normal granter the
+moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5 000 Biomass").
+
+- **Free sources** (runs, quests, chests, calendars, events, ads) keep at most the entry's stash cap (roughly the first
+  uses after the unlock: a small welcome stash, never a backlog); the rest is dropped. Item kinds count rewards and keep
+  the best rarities.
+- **Paid and explicit sources** (purchases, pass and fund claims, items bought with a currency, mail, pulls) are kept in
+  full. A pull result is always shown (published odds); one without a use is marked "kept for later".
+- Regenerating entry currencies (arena tickets, burrow keys) do not regenerate before their feature; invasion attempts
+  start with the Invasions unlock. City production of a currency without a use stays in the building's storage.
+- The starting wallet holds only what day 1 uses (60 stamina, 300 Diamonds); the rest of the old starting wallet comes with
+  the unlock that uses it (500 Ore with Parts, 500 Biomass with the City, 10 Part / 5 Alien / 5 Blueprint tokens with
+  their Signals, 300 Grain with the Aliens).
+- The client shows only currencies with a use (resource bar, details) and leaves rewards without a use out of every
+  reward display (run result, level details, chests, calendars, quests, mail, shop; offers and shop items whose contents
+  all lack a use are hidden).
+
+| Currency / item | Spent on (rules) | Has a use when | Stash cap (free) |
+|---|---|---|---|
+| Stamina | runs | always | – |
+| Diamonds | stamina refills, revives, timers, pulls, shop | always | – |
+| Biomass | worm levels and talents, city buildings and areas | City (`biomass_farm`, D2) or Worm Level (D3) | 5 000 |
+| Ore | part levels and merges, Replicator, city buildings | Parts (D1, level 1), City or Ore Mine | 1 000 |
+| Gear Cores | part levels 11+ (Uncommon+ parts), Forge | an Uncommon+ part is owned, or Forge (D20) | 200 |
+| Advancement Plates | part level cap raises | a Rare+ part is owned | 20 |
+| Awaken Cores | part awakening | a Mythic+ part is owned | none |
+| Grain | alien levels, breeding | Aliens (D7) or Breeding | 2 000 |
+| Fuel | mount levels | Mounts (D12) | 4 000 |
+| Hero XP | hero levels | Heroes (D10) | 3 000 |
+| Data | laboratory research | Laboratory (D5) | 100 |
+| Part / Alien / Blueprint Tokens | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
+| Mount Cores | mount awakening | Mounts | none |
+| Arena Tickets / Arena Medals | arena fights / arena shop | Arena (D15) | 5 / none |
+| Burrow Keys | Burrow runs | Burrow (D19) | 2 |
+| Invasion Attempts | invasion battles | Invasions (D18) | 3 |
+| Guild Marks | guild shop | Guilds (D17) | none |
+| Hero / Alien / Blueprint / Mount shards | stars (hero unlock, mount awakening) | Heroes / Aliens / City / Mounts | none |
+| Parts, Runes, Blueprints, Aliens, Mounts, hero shard rewards | – | Parts / Runes (D11) / City / Aliens / Mounts / Heroes | Runes 5 (best kept), others none |
+
 ## 14. Monetization (mainstream RPG model, no A/B, no spend-based pricing)
 - Diamond packs (fixed price ladder), starter packs, rolling and flash offers (same for everyone),
   periodic gift packs (daily rewards over N days).
@@ -318,8 +363,9 @@ catches up one group per day. Pairs ("X + Y") are one group and unlock together.
 
 **Visibility:** locked features are invisible — no greyed-out entries. Only the single next group is teased
 (`Features.Next`: "Next: Laboratory — clear level 14", "unlocks tomorrow"). Day-1 hub of a brand-new account: PLAY, the
-Planet tab, the teaser, the stamina chip and the profile chip; the Worm tab (and Mail) join after level 1. Mail and the
-currency chips follow use: a currency shows once its feature unlocks.
+Planet tab, the teaser, the stamina and Diamonds chips and the profile chip; the Worm tab (and Mail) join after level 1. Mail and the
+currency chips follow use (§13.1): a currency shows once the player can use it, so a brand-new account shows the stamina and
+Diamonds chips only (Diamonds buy stamina refills).
 
 **Hub:** bottom tabs for daily features appear one by one (Worm, City, Planet in the centre, Signals, Arena); left
 column = daily goals and live events (invasions, planetary/limited events, from the Invasions unlock); right column =
@@ -328,7 +374,8 @@ run) sits above the tabs.
 
 **Unlock moment:** each unlock opens a full-screen celebration on the hub (never mid-run): the feature's name, one line
 of what it does, the reward (unlock gift and items), ONE guided action that claims the gift and opens the feature, and
-the next teaser. Starter items arrive with the unlock (`UnlockGrants`: first alien, blueprints, Data, hero shards...).
+the next teaser. Starter items arrive with the unlock (`UnlockGrants`: first alien, blueprints, Data, hero shards...) together
+with the reward stash kept for the feature (§13.1), e.g. the starter parts and the first runs' Ore with Parts.
 
 ## 17. Technical architecture
 - **Shared rules** (`shared/RogueStars.Rules`, netstandard2.1, C# 9): all game logic, content definitions,

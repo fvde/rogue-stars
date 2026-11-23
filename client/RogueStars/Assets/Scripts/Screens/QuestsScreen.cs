@@ -42,7 +42,7 @@ namespace RogueStars.Client.Screens
                 Ui.Bar(card, q.Target > 0 ? (float)progress / q.Target : 1, claimed ? Theme.Locked : Theme.Good, System.Math.Min(progress, q.Target) + " / " + q.Target);
                 var row = Ui.Row(card, 80);
                 string extra = (q.Points > 0 ? "  +" + q.Points + " pts" : "") + (q.SeasonXp > 0 ? "  +" + q.SeasonXp + " season XP" : "");
-                Ui.Label(row, Fmt.Rewards(q.Rewards, Content) + extra, Theme.FontSmall, Theme.TextDim);
+                Ui.Label(row, Fmt.Rewards(q.Rewards, Content, State, Now) + extra, Theme.FontSmall, Theme.TextDim);
                 if (claimed) Ui.Label(row, "Claimed", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
                 else Ui.Button(row, "Claim", () => Run(new QuestClaim { QuestId = q.Id }), Theme.Good, 200, 80, QuestSystem.CanClaim(State, Content, q, Now));
             }
@@ -59,7 +59,7 @@ namespace RogueStars.Client.Screens
                 var c = chest;
                 bool claimed = State.Quests.ChestsClaimed.Contains(track + ":" + c.Points);
                 bool ready = points >= c.Points && !claimed;
-                Ui.Button(row, c.Points + (claimed ? "\ndone" : "\nchest"), () => Modal(track + " chest " + c.Points, b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content), Theme.FontNormal),
+                Ui.Button(row, c.Points + (claimed ? "\ndone" : "\nchest"), () => Modal(track + " chest " + c.Points, b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content, State, Now), Theme.FontNormal),
                         ready ? new[] { new ModalButton("Open", () => Run(new QuestClaimChest { Track = track, Points = c.Points }), Theme.Good), new ModalButton("Close", null) }
                               : new[] { new ModalButton("Close", null) }),
                     ready ? Theme.Good : claimed ? Theme.Locked : Theme.Button, -1, 110, true, Theme.FontSmall);
@@ -77,7 +77,7 @@ namespace RogueStars.Client.Screens
             {
                 bool isNext = i == next;
                 var cell = Ui.Panel(grid, isNext ? (canClaim ? Theme.Good : Theme.Accent) : i < next ? Theme.Locked : Theme.PanelAlt, "Day" + (i + 1));
-                var t = Ui.Label(cell.transform, "Day " + (i + 1) + "\n<size=22>" + Fmt.Rewards(cycle[i], Content) + "</size>", Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
+                var t = Ui.Label(cell.transform, "Day " + (i + 1) + "\n<size=22>" + Fmt.Rewards(cycle[i], Content, State, Now) + "</size>", Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
                 Ui.Stretch(t.rectTransform, 8, 8, 8, 8);
             }
             Ui.Button(body, canClaim ? "Claim today's reward" : "Come back tomorrow", () => Run(new LoginClaim()), Theme.Good, -1, Theme.ButtonHeight, canClaim);
@@ -94,7 +94,7 @@ namespace RogueStars.Client.Screens
                 int day = d;
                 bool claimed = State.Quests.NewPlayerDaysClaimed.Contains(day);
                 var row = Ui.Row(body, 90, 10, Theme.Panel, 12);
-                Ui.Label(row, "Day " + day + ": " + Fmt.Rewards(days[day - 1], Content), Theme.FontSmall, claimed ? Theme.TextDim : Theme.Text);
+                Ui.Label(row, "Day " + day + ": " + Fmt.Rewards(days[day - 1], Content, State, Now), Theme.FontSmall, claimed ? Theme.TextDim : Theme.Text);
                 Ui.Button(row, claimed ? "Claimed" : day <= today ? "Claim" : "Locked", () => Run(new NewPlayerClaim { Day = day }), Theme.Good, 220, 76, !claimed && day <= today);
             }
             Section(body, "New-player quests");

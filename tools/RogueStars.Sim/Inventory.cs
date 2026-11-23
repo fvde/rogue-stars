@@ -27,7 +27,10 @@ public static class Inventory
             {
                 p.PlayDay(d);
                 if (Array.IndexOf(days, d + 1) < 0) continue;
-                results.Add((j.t.Name, d + 1, new Dictionary<string, long>(p.S.Wallet.Balances), p.S.Parts.Items.Count,
+                var wallet = new Dictionary<string, long>(p.S.Wallet.Balances);
+                // Rewards waiting for their use (RewardGate) are listed as "stash: <currency>" rows.
+                foreach (var kv in p.S.Stash.Currencies) wallet["stash: " + kv.Key] = kv.Value;
+                results.Add((j.t.Name, d + 1, wallet, p.S.Parts.Items.Count,
                     p.S.Counter(RogueStars.Rules.Systems.Requirements.MainLevelCounter)));
             }
         });
@@ -79,6 +82,7 @@ public static class Inventory
     /// <summary>Per-entity shard currencies are summed per family (shards_hero_*, ...).</summary>
     private static string Bucket(string currency)
     {
+        if (currency.StartsWith("stash: ", StringComparison.Ordinal)) return "stash: " + Bucket(currency.Substring(7));
         foreach (var prefix in new[] { "shards_hero_", "shards_alien_", "shards_bp_", "shards_mount_" })
             if (currency.StartsWith(prefix, StringComparison.Ordinal)) return prefix + "*";
         return currency;

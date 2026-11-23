@@ -101,6 +101,60 @@ namespace RogueStars.Client.App
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Rewards the player can use now, formatted (reward previews, chests, calendars, shop contents): rewards whose currency
+        /// or item kind has no use yet are left out (they would go to the reward stash, <see cref="RogueStars.Rules.Systems.RewardGate"/>).
+        /// </summary>
+        public static string Rewards(IEnumerable<Reward> rewards, ContentDb content, GameState state, long nowMs = 0)
+        {
+            if (state == null || rewards == null) return Rewards(rewards, content);
+            var usable = RogueStars.Rules.Systems.RewardGate.Usable(state, content, rewards, nowMs);
+            if (usable.Count == 0) foreach (var _ in rewards) return "—"; // nothing usable yet (not empty)
+            return Rewards(usable, content);
+        }
+
+        /// <summary>
+        /// Short chip texts for a reward list: currencies summed per id ("+520 Ore"), items of one kind counted when there are
+        /// several ("3 Parts"), single items by name. Order of first appearance.
+        /// </summary>
+        public static List<string> RewardChips(IEnumerable<Reward> rewards, ContentDb content)
+        {
+            var order = new List<string>();
+            var sums = new Dictionary<string, long>();
+            var items = new Dictionary<string, List<Reward>>();
+            if (rewards != null)
+                foreach (var r in rewards)
+                {
+                    string key = r.Kind == RewardKinds.Currency ? "c:" + r.Id : "k:" + r.Kind;
+                    if (!order.Contains(key)) order.Add(key);
+                    if (r.Kind == RewardKinds.Currency) sums[key] = (sums.TryGetValue(key, out var v) ? v : 0) + r.Amount;
+                    else { if (!items.TryGetValue(key, out var l)) items[key] = l = new List<Reward>(); l.Add(r); }
+                }
+            var chips = new List<string>();
+            foreach (var key in order)
+            {
+                if (sums.TryGetValue(key, out var amount)) { chips.Add("+" + Num(amount) + " " + CurrencyName(key.Substring(2), content)); continue; }
+                var l = items[key];
+                long count = 0; foreach (var r in l) count += r.Kind == RewardKinds.HeroShards ? 1 : r.Amount;
+                chips.Add(l.Count == 1 ? Reward(l[0], content) : count + " " + KindPlural(l[0].Kind));
+            }
+            return chips;
+        }
+
+        private static string KindPlural(string kind)
+        {
+            switch (kind)
+            {
+                case RewardKinds.Part: return "Parts";
+                case RewardKinds.Rune: return "Runes";
+                case RewardKinds.Blueprint: return "Blueprints";
+                case RewardKinds.Alien: return "Aliens";
+                case RewardKinds.Mount: return "Mounts";
+                case RewardKinds.HeroShards: return "hero shard packs";
+                default: return kind;
+            }
+        }
+
         public static string Costs(IEnumerable<Cost> costs, ContentDb content = null)
         {
             if (costs == null) return "free";
