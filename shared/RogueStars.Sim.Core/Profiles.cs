@@ -70,8 +70,8 @@ namespace RogueStars.Sim
     }
 
     /// <summary>
-    /// Session-time cost of player actions (minutes). Run time is derived from what actually happened in the run:
-    /// overhead + per roll + per decision popup + per battle round (battle speed ×2 free, ×3 with the monthly pass).
+    /// Session-time cost of player actions (minutes). Run time is derived from what actually happened in the run with the
+    /// wall-clock model <see cref="RunClock"/> (auto mode, battle speed ×2 free, ×3 with the monthly pass).
     /// </summary>
     public static class Timing
     {
@@ -85,9 +85,5 @@ namespace RogueStars.Sim
         public const double ArenaFight = 0.75;
         public const double InvasionAttempt = 1.0;
 
-        public const double RunOverheadSec = 20;     // start, board reveal, results screen
-        public const double RollSec = 2.5;           // auto-roll + token movement
-        public const double DecisionSec = 3;         // draft / event / shop popups auto-resolved after a short delay
-        public const double BattleRoundSec = 1.6;    // at ×1; divided by the battle speed (×2 free, ×3 monthly pass)
     }
 }

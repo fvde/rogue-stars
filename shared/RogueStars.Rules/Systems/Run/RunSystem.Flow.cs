@@ -350,7 +350,7 @@ namespace RogueStars.Rules.Systems
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;
-            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString());
+            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString());
             if (result.PlayerWon())
             {
                 OnBattleWin(ctx, run, kind, xp, coins);

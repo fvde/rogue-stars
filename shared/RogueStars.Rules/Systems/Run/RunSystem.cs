@@ -282,7 +282,7 @@ namespace RogueStars.Rules.Systems
             }
             if (run.ShopOutcome == null) run.ShopOutcome = new RunOutcome { Source = "shop", Title = "Wandering Shop", Choice = "Purchases" };
             before.Diff(ctx.Content, run, run.ShopOutcome.Lines);
-            ctx.Emit("run_shop_buy", index.ToString());
+            ctx.Emit("run_shop_buy", index.ToString(), o.Kind.ToString(), o.Kind == ShopOfferKind.Skill ? o.SkillId : o.Kind == ShopOfferKind.Stat ? o.Stat.Stat.ToString() : "heal");
         }
 
         private static void ShopReroll(CommandContext ctx, ActiveRun run)

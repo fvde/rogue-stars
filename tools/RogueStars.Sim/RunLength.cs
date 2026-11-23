@@ -45,6 +45,22 @@ public static class RunLength
                 + $"{100.0 * boss.Count / l.Count:0}% | {100.0 * won.Count / l.Count:0}% | {l.Average(r => r.Drafts):0.0} | {l.Average(r => r.Battles):0.0} | "
                 + $"{l.Average(r => r.LootOffers):0.0} | {l.Average(r => r.TileLoot):0.0} | {l.Average(r => r.PeakCoins):0} | {l.Average(r => r.Minutes):0.0} | {Cur(Currencies.Biomass):0} | {Cur(Currencies.Ore):0} |");
         }
+        sb.AppendLine();
+        sb.AppendLine("Build and time per run (all runs; skills = new skills + skill levels + stat perks bought; minutes from the RunClock model: "
+            + "manual / auto mode at battle speed ×1 (default) and ×2, farming ×2):");
+        sb.AppendLine();
+        sb.AppendLine("| Band | dice | won | skills | drafted | mythic | shop | other | shop buys | coins earned | coins spent | minibosses | battles | log entries | manual ×1 | auto ×1 | auto ×2 | farming ×2 |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        foreach (var g in runs.GroupBy(r => (band: BandOf(r), dice: r.Dice)).OrderBy(g => order.IndexOf(g.Key.band)).ThenBy(g => g.Key.dice))
+        {
+            var l = g.ToList();
+            double A(Func<RunRecord, double> f) => l.Average(f);
+            double M(RunPlayStyle st, int sp) => l.Average(r => RunClock.Minutes(r.Tally, st, sp));
+            sb.AppendLine($"| {g.Key.band} | {g.Key.dice} | {100.0 * l.Count(r => r.Won) / l.Count:0}% | {A(r => r.BuildGains):0.0} | {A(r => r.DraftPicks):0.0} | {A(r => r.MythicPicks):0.0} | "
+                + $"{A(r => r.ShopSkills + r.ShopPerks):0.0} | {A(r => r.BuildGains - r.DraftPicks - r.MythicPicks - r.ShopSkills - r.ShopPerks):0.0} | {A(r => r.ShopSkills + r.ShopPerks + r.ShopHeals):0.0} | "
+                + $"{A(r => r.CoinsEarned):0} | {A(r => r.CoinsSpent):0} | {A(r => r.Minibosses):0.0} | {A(r => r.Battles):0.0} | {A(r => r.Tally.BattleLogEntries / Math.Max(1.0, r.Tally.Battles)):0} | "
+                + $"{M(RunPlayStyle.Manual, 1):0.0} | {M(RunPlayStyle.Auto, 1):0.0} | {M(RunPlayStyle.Auto, 2):0.0} | {M(RunPlayStyle.Farming, 2):0.0} |");
+        }
         return sb.ToString();
     }
 }
