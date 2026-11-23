@@ -397,22 +397,25 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void ResourceBar_ShowsDataMedalsAndAwakenCores_AndDetails()
+        public void ResourceBar_ShowsUsefulCurrencies_AndDetailsListMedalsAndAwakenCores()
         {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true); // chips show once their features are unlocked
             GrantCurrency(Currencies.Data, 1234);
             GrantCurrency(Currencies.ArenaMedals, 56);
             GrantCurrency(ProgressionCurrencies.PartAwakenCores, 7);
             _f.App.Bar.Tick();
             var texts = new Dictionary<string, string>();
             foreach (var t in _f.Canvas.GetComponentsInChildren<Text>(true)) if (t.name.StartsWith("Chip:")) texts[t.name] = t.text;
+            Assert.That(texts.Count, Is.EqualTo(ResourceBar.MaxChips), "the first chips, the rest behind All");
             Assert.That(texts["Chip:" + Currencies.Data], Is.EqualTo("DATA " + Fmt.Num(S.Wallet.Get(Currencies.Data))));
-            Assert.That(texts["Chip:" + Currencies.ArenaMedals], Is.EqualTo("MEDAL " + Fmt.Num(S.Wallet.Get(Currencies.ArenaMedals))));
-            Assert.That(texts["Chip:" + ProgressionCurrencies.PartAwakenCores], Is.EqualTo("AWAKEN 7"));
+            Assert.That(texts.ContainsKey("Chip:" + Currencies.Stamina), Is.True);
+            var visible = HubLayout.VisibleCurrencies(S, C);
+            Assert.That(visible, Does.Contain(Currencies.ArenaMedals).And.Contain(ProgressionCurrencies.PartAwakenCores));
             Assert.That(S.Wallet.Get(Currencies.Data), Is.GreaterThanOrEqualTo(1234));
             _f.App.Bar.ShowDetails();
-            bool data = false;
-            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.text == "Data") data = true;
-            Assert.That(data, Is.True);
+            var names = new HashSet<string>();
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) names.Add(t.text);
+            Assert.That(names, Does.Contain("Data").And.Contain("Arena Medals").And.Contain("Awaken Cores"));
             Assert.That(Fmt.CurrencyName(ProgressionCurrencies.PartAwakenCores), Is.EqualTo("Awaken Cores"));
             Assert.That(Fmt.CurrencyName(Currencies.ArenaMedals), Is.EqualTo("Arena Medals"));
         }

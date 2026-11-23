@@ -25,16 +25,18 @@ namespace RogueStars.Client.Screens
             Ui.Label(head, "Level " + State.Worm.Level + "  ·  Power " + Fmt.Num(loadout.Power), Theme.FontLarge, Theme.Warn);
             bool levelUnlocked = Session.IsUnlocked(Features.WormLevel);
             long cost = WormSystem.NextLevelCost(State, Content);
-            if (!levelUnlocked) Note(head, "Worm levels unlock later (" + Requirements.Describe(Content, Content.Feature(Features.WormLevel)?.Requires ?? new RequirementSet()) + ").");
-            else if (State.Worm.Level >= cfg.MaxLevel || cost < 0) Note(head, "Max level");
-            else
+            // Levels and the talent road stay hidden until Worm Level unlocks (the hub teases it when it is next).
+            if (levelUnlocked && (State.Worm.Level >= cfg.MaxLevel || cost < 0)) Note(head, "Max level");
+            else if (levelUnlocked)
             {
                 var row = Ui.Row(head, 90, 10);
                 Ui.Button(row, "Level up\n<size=22>" + Fmt.Num(cost) + " Biomass</size>", () => Run(new WormLevelUp { Levels = 1 }), Theme.Good, -1, 90, State.Wallet.CanAfford(Currencies.Biomass, cost), 30);
                 Ui.Button(row, "+10", () => Run(new WormLevelUp { Levels = 10 }), Theme.Button, 160, 90);
             }
 
-            Section(body, "Body slots");
+            var slotsHead = Ui.Row(body, Theme.RowHeight, 12);
+            Section(slotsHead, "Body slots");
+            if (Session.IsUnlocked(Features.Parts)) Ui.Button(slotsHead, "All parts", () => App.Open("parts"), Theme.Accent, 260).name = "OpenParts";
             if (AutoEquipCommands().Count > 0)
                 Ui.Button(body, "Equip best parts", () => { foreach (var c in AutoEquipCommands()) Run(c); }, Theme.Good).name = "AutoEquip";
             var grid = Ui.Grid(body, new Vector2(330, 150), 3, 12);
@@ -55,7 +57,7 @@ namespace RogueStars.Client.Screens
                 var t = Ui.Label(stats, Fmt.Humanize(st.ToString()) + ": " + StatText(st, loadout.WormStats.Value(st)), Theme.FontSmall);
                 t.gameObject.name = "Stat:" + st;
             }
-            Talents(body);
+            if (levelUnlocked) Talents(body); // the talent road unlocks with worm levels (onboarding v2)
         }
 
         /// <summary>Commands that fill empty slots with the best unequipped fitting part (rarity, then level).</summary>
