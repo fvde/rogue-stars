@@ -4,7 +4,7 @@
 #   scripts/release.sh [--track internal] [--notes "What's new"] [--skip-build] [--dry-run]
 #
 # Needs (see docs/setup.md steps 11-12):
-#   - client/RogueStars/Assets/google-services.json (git-ignored)
+#   - nothing local for Firebase: google-services.json is downloaded fresh (scripts/fetch-firebase-config.sh)
 #   - the upload keystore at $ROGUESTARS_KEYSTORE (default ~/keys/roguestars-upload.jks, alias upload)
 #   - its password in the macOS keychain: service "roguestars-upload-keystore"
 #   - gcloud application-default credentials with the androidpublisher scope
@@ -41,7 +41,7 @@ die() { echo "release: $*" >&2; exit 1; }
 # --- preflight -------------------------------------------------------------------------------------------------
 cd "$ROOT"
 [[ -z $(git status --porcelain) ]] || die "working tree not clean (versionCode = commit count, commit first)"
-[[ -f $P/Assets/google-services.json ]] || die "missing client/RogueStars/Assets/google-services.json"
+"$ROOT/scripts/fetch-firebase-config.sh" || die "Firebase config check failed"
 export ROGUESTARS_KEYSTORE=${ROGUESTARS_KEYSTORE:-$HOME/keys/roguestars-upload.jks}
 export ROGUESTARS_KEY_ALIAS=${ROGUESTARS_KEY_ALIAS:-upload}
 [[ -f $ROGUESTARS_KEYSTORE ]] || die "keystore not found: $ROGUESTARS_KEYSTORE"

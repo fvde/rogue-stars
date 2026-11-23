@@ -179,7 +179,7 @@ the board and its ROLL bar, so toasts never cover the board.
 ## Running
 - **First:** `scripts/fetch-unity-packages.sh` (once per checkout/worktree; downloads Firebase App/Auth and EDM from
   Google's archive into `Packages/google/`, cached in `~/Library/Caches/rogue-stars-unity-packages`). Without it Unity cannot
-  resolve the packages. For device builds with Firebase also copy `google-services.json` to `Assets/` (git-ignored).
+  resolve the packages. For device builds with Firebase run `scripts/fetch-firebase-config.sh` (writes the git-ignored `Assets/google-services.json`; `scripts/release.sh` does it itself).
 - **Offline (default):** open `client/RogueStars` in Unity 6.6, open `Assets/Scenes/Main.unity`, press Play
   (Game view in portrait, e.g. 1080×1920). A new save is playable from the start (starter kit from content); Settings → *Unlock all features* is a dev cheat.
 - **Online:** start the server (`cd server/RogueStars.Server && arch -arm64 ~/.dotnet/dotnet run`, dev auth on :8080),

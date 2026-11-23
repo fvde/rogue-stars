@@ -46,8 +46,11 @@ from outside).
 
 ## 2. Firebase project and Android app
 1. Firebase console → project `rogue-stars-515610` → Project settings → *Your apps*: the Android app `$PACKAGE` exists.
-   Its `google-services.json` belongs at `client/RogueStars/Assets/google-services.json` (git-ignored; not a secret but
-   environment specific — a dev project gets its own file). The Firebase editor tooling turns it into Android resources
+   Its `google-services.json` belongs at `client/RogueStars/Assets/google-services.json`. It is git-ignored (the repository
+   is public and the file holds the Firebase API key) and never copied by hand: `scripts/fetch-firebase-config.sh`
+   downloads the current one from the Firebase Management API (gcloud ADC) and fails if it lacks the Play Games OAuth
+   clients (web client = `ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID`, Android client for the app signing SHA-1);
+   `scripts/release.sh` runs it before every build. The Firebase editor tooling turns it into Android resources
    (`Assets/Plugins/Android/FirebaseApp.androidlib`, git-ignored) at build time.
 2. The current file has an **empty `oauth_client`**: no SHA certificate fingerprints are registered yet, which Play Games
    sign-in needs. They are added in step 3 once the signing keys exist; then download the file again.
@@ -65,8 +68,8 @@ Firebase ID token (player id = Firebase uid).
    `keytool -list -v -keystore ~/secure/rogue-stars-upload.jks -alias upload`; local debug-signed builds:
    `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`.)
 3. Firebase console → Project settings → Your apps → `$PACKAGE` → *Add fingerprint*: add all four (app signing SHA-1/
-   SHA-256, upload SHA-1/SHA-256; optionally the debug SHA-1). **Download `google-services.json` again** (now with
-   `oauth_client` entries) and replace `client/RogueStars/Assets/google-services.json`.
+   SHA-256, upload SHA-1/SHA-256; optionally the debug SHA-1). Then run `scripts/fetch-firebase-config.sh`: the new
+   config carries the `oauth_client` entries (release builds fetch it themselves).
 4. Google Cloud console (project `rogue-stars-515610`) → APIs & Services → *OAuth consent screen*: user type External, app
    name, support e-mail; while in *Testing*, add the tester accounts as test users.
 5. Play Console → Grow users → **Play Games Services** → Setup and management → *Configuration* → "Yes, my game already
@@ -191,7 +194,7 @@ Unity 6.6 batchmode (docs/client.md). Build-time values are environment variable
 assets for the build and restores the committed defaults afterwards:
 ```bash
 scripts/fetch-unity-packages.sh                         # once per checkout (Firebase/EDM packages)
-cp /secure/place/google-services.json client/RogueStars/Assets/   # the re-downloaded file from step 3.3
+scripts/fetch-firebase-config.sh                       # current google-services.json from Firebase (release.sh does this too)
 # Server: defaults to the production URL (ServerConfig.ReleaseBaseUrl); ROGUESTARS_SERVER_URL=<url> for another server,
 # ROGUESTARS_SERVER_URL=local for a dev build (offline by default, dev auth, 10.0.2.2:8080). Online builds use Firebase auth.
 export ROGUESTARS_PLAY_GAMES_APP_ID=586749426081 ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID=586749426081-0j1nid07fv9hbvfs0o7k2hudshg02eqc.apps.googleusercontent.com  # production (not secret)
