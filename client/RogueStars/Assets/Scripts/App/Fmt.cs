@@ -197,6 +197,21 @@ namespace RogueStars.Client.App
             return sb.ToString();
         }
 
+        /// <summary>Display name of a stat: "HP", "ATK", "DEF", else the words of its id ("Crit chance").</summary>
+        public static string StatName(RogueStars.Rules.Core.StatId stat)
+        {
+            string id = stat.ToString();
+            if (id == "Hp" || id == "Atk" || id == "Def") return id.ToUpperInvariant();
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < id.Length; i++)
+            {
+                char ch = id[i];
+                if (i > 0 && char.IsUpper(ch)) { sb.Append(' '); sb.Append(char.ToLowerInvariant(ch)); }
+                else sb.Append(ch);
+            }
+            return sb.ToString();
+        }
+
         public static string Humanize(string snake)
         {
             if (string.IsNullOrEmpty(snake)) return "";

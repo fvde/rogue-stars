@@ -344,6 +344,24 @@ namespace RogueStars.Client.UiKit
             return Scroll(frame.transform, out _, 8, 14);
         }
 
+        /// <summary>
+        /// A column inside a layout that scrolls once its content is taller than <paramref name="maxHeight"/> (tall modal
+        /// bodies: the part detail): <paramref name="build"/> fills it, then the frame takes the content's height, capped.
+        /// Returns the content column.
+        /// </summary>
+        public static RectTransform ScrollingColumn(Transform parent, float maxHeight, Action<RectTransform> build, float spacing = 14, float width = ModalInnerWidth)
+        {
+            var frame = Rect(parent, "ScrollFrame");
+            frame.sizeDelta = new Vector2(width, maxHeight); // text wraps at the real width while measuring (the layout sets it later)
+            var le = Size(frame, height: maxHeight);
+            var content = Scroll(frame, out var sr, spacing, 0);
+            build?.Invoke(content);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+            le.preferredHeight = Mathf.Min(maxHeight, LayoutUtility.GetPreferredHeight(content));
+            sr.verticalNormalizedPosition = 1;
+            return content;
+        }
+
         /// <summary>Fixed-column grid; preferred height follows the child count.</summary>
         public static RectTransform Grid(Transform parent, Vector2 cellSize, int columns, float spacing = 12)
         {
@@ -395,6 +413,9 @@ namespace RogueStars.Client.UiKit
             bar.Select(selected);
             return bar;
         }
+
+        /// <summary>Width of a <see cref="Modal"/>'s body (940 box − 2 × 36 padding).</summary>
+        public const float ModalInnerWidth = 868;
 
         /// <summary>Modal dialog over <paramref name="layer"/>; any button closes it unless KeepOpen.</summary>
         public static UiModal Modal(Transform layer, string title, Action<RectTransform> buildBody, params ModalButton[] buttons)

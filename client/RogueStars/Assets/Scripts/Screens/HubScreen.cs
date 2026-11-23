@@ -218,11 +218,23 @@ namespace RogueStars.Client.Screens
             foreach (var t in list)
             {
                 var e = t;
-                string badge = IsNewToday(e.Id) ? "NEW" : null;
+                string badge = TabBadge(e.Id);
                 var b = HubKit.Tab(tabs, e.Glyph, e.Label, e.Id == HubLayout.PlanetTab, badge, () => { if (e.ScreenId != null) App.Open(e.ScreenId); }, "Tab:" + e.Id);
                 if (list.Count < 4) Ui.Size(b.transform.parent, 250, 180, 0);
             }
         }
+
+        /// <summary>
+        /// Badge of a bottom tab: "▲ UP" on the Worm when an equipped part can be levelled with the Ore the player has
+        /// (<see cref="GearGuide.HasAffordableUpgrade"/>), else "NEW" on the day its feature unlocked.
+        /// </summary>
+        public string TabBadge(string tabId)
+        {
+            if (tabId == "worm" && GearGuide.HasAffordableUpgrade(State, Content)) return UpgradeBadge;
+            return IsNewToday(tabId) ? "NEW" : null;
+        }
+
+        public const string UpgradeBadge = "▲ UP";
 
         /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
         private bool IsNewToday(string tabId)
