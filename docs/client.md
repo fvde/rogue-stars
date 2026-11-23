@@ -19,6 +19,7 @@ referenced as the local UPM package `com.roguestars.rules` and compile into `Rog
 | `Assets/Scripts/Ui/` | `RogueStars.Client` | `Ui` toolkit (namespace `RogueStars.Client.UiKit`), `Theme`, `UiShapes` (runtime rounded sprites), `UiMotion` (`UiTweens`, `UiBob`, `UiPulse`), `UiTween`, `UiSequence`, `SafeAreaFitter` |
 | `Assets/Resources/Fonts/` | – | `Fredoka-Bold.ttf` (display font: static wght 700 instance of Fredoka[wdth,wght] from the google/fonts repo, made with fontTools `varLib.instancer`) + `Fredoka-OFL.txt` (SIL Open Font License 1.1) |
 | `Assets/Scripts/Screens/` | `RogueStars.Client` | One class per screen |
+| `Assets/Scripts/Minigames/` | `RogueStars.Client` | Run mini-games: `Logic/` (one Unity-free class per game + `MinigameLogic` base + `MinigameCatalog`), `MinigameRenderer` (shapes → pooled uGUI nodes), `MinigameHost` (the full-screen flow) |
 | `Assets/Editor/` | `RogueStars.Client.Editor` | `Bootstrap`, `ProjectSetup`, `BuildAndroid` |
 | `Assets/Tests/EditMode/` | `RogueStars.Client.Tests` | EditMode tests |
 | `Assets/Tests/PlayMode/` | `RogueStars.Client.PlayTests` | PlayMode playthrough + screenshots |
@@ -192,6 +193,49 @@ tabs; procedural sprites, wireframe palette) are in `Ui/HubKit.cs`; `UiScreen.He
 screen's fixed bottom bar (`UiScreen.FooterHeight`/`ReserveToastStrip`): the Run screen keeps that strip free between
 the board and its ROLL bar, so toasts never cover the board.
 
+## Run mini-games (GDD §3.6)
+A GAME tile (`RunPhase.Minigame`) opens `MinigameHost` as the run screen's decision (`RunScreen.ShowDecision`): it sends
+`RunMinigameStart` (the rules pick the game, seed and reward type), shows the title, the one-line instruction
+(`MinigameDef.Instruction`), the prize ("RUN COINS" / "SKILL ROLL") and an animated hint (a finger tapping, dragging or
+swiping on the game's highlighted target, `MinigameLogic.HintTarget/HintTo`), then **PLAY** (or a tap on the arena) →
+3-2-1 → the game (timer bar, status line) → the tier medal → `RunMinigameFinish {Tier}` → the run screen's result sheet
+("MINI-GAME RESULT", "Medal: Gold", the coins or "Skill roll: pick 1 of 3 (Epic odds)") and, for a skill roll, the draft.
+**Skip** finishes as Miss. Auto mode pauses at the tile; auto-pick (farming) lets the rules resolve it as Miss.
+- **Resolved on the device:** each game's class owns its tier thresholds (`Thresholds` = Bronze/Silver/Gold scores, one
+  place per game); the rules accept any tier once per start. Rewards per tier: GDD §3.6.
+- **Logic/view split:** a game is pure C# (`System.Numerics.Vector2`, the rules' `Rng` from the seed — deterministic),
+  stepped at a fixed 60 Hz (`MinigameLogic.Dt`) in a 900×1100 arena (bottom-left origin); it draws a list of `Shape`s
+  (circle, rounded box, ring, text, lines as rotated boxes) that `MinigameRenderer` maps onto pooled `Image`/`Text` nodes
+  (smooth 256-texel discs and rings for big shapes). Juice: floating texts (`Pop`), screen shake, squash/flip/trail
+  animations computed in the logic; the medal pops in with `UiTween`. Input: `MinigamePointer` (touch and mouse) →
+  `Down/Move/Up` in arena coordinates.
+- **Scripted player:** `MinigameLogic.Bot(aim)` plays well while the score is below the aimed tier and holds back once
+  there — used by the tests, the playthrough and the screenshot showcase.
+- **Test flags:** `MinigameHost.Instant` (no intro / countdown / medal waits), `AutoTier` (finish with a tier right after the
+  start), `Autoplay` (the scripted player plays, aiming a tier), `TimeScale`; `Advance(dt)` / `PlayToEnd(aim)` drive it in
+  EditMode.
+- Board: GAME tiles are labelled "GAME" in mint (`Theme.TileLabel/TileAccent`).
+
+| # | Game | Input | Duration | Scoring | Bronze / Silver / Gold |
+|---|---|---|---|---|---|
+| 1 | Portal Slip | tap | ~10–15 s (25 s cap) | slips through the pulsing portal in 5 attempts (window and period shrink; a slow attempt fails after 2.5 cycles) | 2 / 3 / 5 slips |
+| 2 | Comet Catch | drag (worm along the ground) | 20 s | +1 per icy comet eaten, −2 per fiery one (shadows show where they land) | 5 / 10 / 15 |
+| 4 | Saucer Landing | drag (saucer on a spring, wind gusts) | ~15–25 s (28 s cap) | 3 landings × (softness 0–50 + accuracy 0–50); off the pad 0 | 90 / 170 / 240 pts |
+| 5 | Clock Stopper | tap | ~10–20 s (30 s cap) | 6 target hours; ≤ 6° = 3, ≤ 15° = 2, ≤ 30° = 1 (4 s per target) | 6 / 11 / 15 pts |
+| 6 | Wormhole Dash | tap (switch lane) | 22 s | +1 per coin, −3 per asteroid, speeding up | 8 / 16 / 24 coins |
+| 7 | Shield Parry | tap (3 coloured shields) | ~21 s | 18 shots; matching shield within ±0.17 s of impact = parry; idle presses lock the shields 0.4 s | 6 / 11 / 15 parries |
+| 9 | Slingshot Spore | drag back + release | ~15–25 s (30 s cap) | 8 spores at aliens on bobbing platforms (aim arc shown) | 2 / 4 / 6 hits |
+| 13 | Asteroid Slice | swipe | 20 s | +1 per rock sliced, −3 per friendly alien's rock | 6 / 12 / 18 |
+| 14 | Jelly Stack | tap (drop) | until 3 misses (26 s cap) | tower height; overhang is trimmed, perfect drops regrow | 4 / 8 / 12 blocks |
+| 15 | Signal Echo | tap (4 aliens) | ~5–25 s (30 s cap) | rounds echoed (signals of 2…7 blinks); a wrong alien or a 4 s pause ends it | 2 / 4 / 6 rounds |
+| 16 | Fossil Flip | tap (cards) | 28 s (rift closes) | pairs of 8 found (all shown for 1.4 s at the start) | 3 / 5 / 7 pairs |
+| 21 | Codebreaker Hatch | tap (6 colours, 4 slots, no repeats) | ~15–30 s (30 s cap) | 7 − tries used (6 tries; gold/white pegs) | cracked by try 6 / 5 / 4 |
+| 25 | Odd Alien Out | tap | ~10–27 s | 5 rounds (3×3 … 5×5); 5 pts under 1.2 s … 2 under 5 s; a wrong tap costs 1.2 s | 8 / 14 / 20 pts |
+| 26 | Slot Pod | tap (SPIN, stop each reel, HOLD) | ~15–25 s (30 s cap) | 4 spins: 3 of a kind 12 pod coins, a pair 4; HOLD a reel for 3 pod coins (in-game coins only) | 6 / 14 / 24 pod coins |
+
+Screenshots: `MinigameShowcaseTests` (PlayMode, **Explicit**) renders an intro and every game mid-play at 1080×2340:
+`ROGUESTARS_SHOTS_DIR=/tmp/mg arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-mg.log -runTests -testPlatform PlayMode -testFilter MinigameShowcaseTests -testResults /tmp/rs-mg.xml`
+
 ## Running
 - **First:** `scripts/fetch-unity-packages.sh` (once per checkout/worktree; downloads Firebase App/Auth and EDM from
   Google's archive into `Packages/google/`, cached in `~/Library/Caches/rogue-stars-unity-packages`). Without it Unity cannot
@@ -223,7 +267,12 @@ upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise 
 checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 127 tests):
+EditMode (`Assets/Tests/EditMode`, 197 tests):
+- `MinigameTests`: every game × every tier (56 cases) reaches the tier with its scripted player on seed 7919 within 30 s of
+  simulated time and draws its scene; the catalog covers the rules' 14 games with rising thresholds; same seed = same game;
+  on the run screen a GAME tile stops the worm and opens the host (name, instruction, prize), Gold → coins + "MINI-GAME
+  RESULT · Medal: Gold"; Skip = Miss consolation; intro → PLAY → countdown → an idle game ends by itself → finish; a
+  Silver skill roll opens the draft after the result; board label "GAME".
 - `RewardVisibilityTests` (rewards follow use, GDD §13.1): `HubLayout.CurrencyOrder` covers every mapped currency, the visible
   currencies equal the rules' mapping (new account: stamina + Diamonds; Parts adds Ore; an Uncommon part Gear Cores; dev unlock:
   all), resource bar and details list only usable currencies and every balance, the first run's result shows no Biomass/Ore
@@ -303,7 +352,7 @@ PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nog
 - `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (day-1 hub with
   PLAY only → first run without parts with a manual roll, then auto mode to the boss, making every decision auto pauses at
   through the decision modal (shop: buy a skill then leave, draft: first card, event: default option, branch: path A's
-  landing tile on the board, defeat: give up; outcome results are passed by auto, the first one is captured as
+  landing tile on the board, defeat: give up, a GAME tile (none on level 1; for later runs): the mini-game's scripted player plays it for Silver; outcome results are passed by auto, the first one is captured as
   `10_outcome`) → result → Parts unlock moment → its action opens the Worm → equip the starter parts → hub with the
   Worm tab → worm/parts → city build → dev unlock → hub with everything unlocked → 10× Signal with reveal → stamina refill → parts ladder, part detail with skills, Mythic merge picker,
   awakening preview → lab tree with a running research + a capstone node → arena medal shop → Dark Side → every catalog screen) and renders the canvas through a
