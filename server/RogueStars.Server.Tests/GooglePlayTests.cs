@@ -215,6 +215,8 @@ public class PlayCatalogTests
         Assert.Equal(StoreProductType.NonConsumable, PlayCatalog.TypeOf(c.Product("perm_no_ads")!));
         Assert.Equal(StoreProductType.NonConsumable, PlayCatalog.TypeOf(c.Product("starter_worm")!));
         Assert.DoesNotContain(PlayCatalog.StoreProducts(c), p => p.PriceUsdCents == 0);
+        // Shared vector with the client (StoreCatalog.ObfuscatedAccountId, PlatformTests).
+        Assert.Equal("88ce147471988b7897c8a00627a8fcdae46419e856b351d1b7dba7f3e40bce49", GooglePlayReceiptValidator.ObfuscatedAccountId("dev_buyer"));
     }
 
     /// <summary>docs/play-console-products.csv must match the shop content. Regenerate: UPDATE_PLAY_CATALOG=1 dotnet test.</summary>

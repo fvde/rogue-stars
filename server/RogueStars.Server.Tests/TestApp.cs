@@ -54,6 +54,14 @@ public sealed class TestApp : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(Environment);
+        // ROGUESTARS_TEST_STORE=firestore runs the whole suite against the Firestore emulator (docs/server.md),
+        // each app instance in its own collection prefix.
+        if (System.Environment.GetEnvironmentVariable("ROGUESTARS_TEST_STORE") == "firestore" && !Settings.ContainsKey("RogueStars:Store:Mode"))
+        {
+            builder.UseSetting("RogueStars:Store:Mode", "firestore");
+            builder.UseSetting("RogueStars:Store:FirestoreProjectId", System.Environment.GetEnvironmentVariable("GCLOUD_PROJECT") ?? "demo-roguestars");
+            builder.UseSetting("RogueStars:Store:CollectionPrefix", "t" + Guid.NewGuid().ToString("N")[..12] + "_");
+        }
         foreach (var kv in Settings) builder.UseSetting(kv.Key, kv.Value);
         builder.ConfigureTestServices(s =>
         {
@@ -134,9 +142,9 @@ public sealed record PlayerClient(HttpClient Http, string PlayerId)
         return state.GetProperty("counters").TryGetProperty(key, out var v) ? v.GetInt64() : 0;
     }
 
-    internal static async Task<(int Status, JsonElement Body)> ReadWithStatus(HttpResponseMessage resp) => ((int)resp.StatusCode, await Read(resp));
+    public static async Task<(int Status, JsonElement Body)> ReadWithStatus(HttpResponseMessage resp) => ((int)resp.StatusCode, await Read(resp));
 
-    internal static async Task<JsonElement> Read(HttpResponseMessage resp)
+    public static async Task<JsonElement> Read(HttpResponseMessage resp)
     {
         var text = await resp.Content.ReadAsStringAsync();
         return string.IsNullOrEmpty(text) ? default : JsonDocument.Parse(text).RootElement.Clone();

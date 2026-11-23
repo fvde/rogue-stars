@@ -27,3 +27,7 @@ infra/**/*.tfvars
 shared/**/*.meta
 # Agent worktrees
 .claude/
+# Firebase emulator logs
+firebase-debug.log
+firestore-debug.log
+*-debug.log
