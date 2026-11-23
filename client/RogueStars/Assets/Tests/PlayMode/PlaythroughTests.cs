@@ -25,6 +25,9 @@ namespace RogueStars.Client.PlayTests
     public sealed class PlaythroughTests
     {
         private const int W = 1080, H = 1920;
+        /// <summary>2026-03-02 12:00 UTC: the fixed game clock of the playthrough (same as the EditMode tests).</summary>
+        private const long T0 = 1_772_452_800_000L;
+        private const int Seed = 11;
         private ClientApp _app;
         private LocalGameService _svc;
         private ManualClock _clock;
@@ -72,7 +75,7 @@ namespace RogueStars.Client.PlayTests
             _app.Session.Run(new RunRoll());
             yield return Wait(0.25f);
             yield return Shot("05_run_rolling");
-            yield return WaitUntil(() => !run.Animating && !(_app.Router.Current is BattlePlaybackScreen), 20f, () => { if (_app.Router.Current is BattlePlaybackScreen) BattlePlaybackScreen.TimeScale = 10; });
+            yield return SettleManualRoll(run);
             yield return PlayRunOnAuto();
             Assert.That(_svc.State.Run.Active, Is.Null, "run finished");
             Assert.That(_app.Router.Current, Is.InstanceOf<RunResultScreen>());
@@ -150,27 +153,57 @@ namespace RogueStars.Client.PlayTests
             Debug.Log("[Playthrough] screenshots: " + string.Join(", ", _taken));
         }
 
+        /// <summary>
+        /// The manual roll's animation ends either on the board or in a battle playback. A playback opened outside auto
+        /// mode waits for its Continue button (it never closes itself), so it is played to the end and continued here.
+        /// </summary>
+        private IEnumerator SettleManualRoll(RunScreen run)
+        {
+            var guard = new ProgressGuard(this, "manual roll");
+            while (run.Animating || _app.Router.Current is BattlePlaybackScreen)
+            {
+                if (_app.Router.Current is BattlePlaybackScreen b && !b.AutoClose)
+                {
+                    b.PlayAll();
+                    b.Continue();
+                }
+                guard.Tick();
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// Auto mode until the result screen. Progress is measured in game decisions (state versions), not wall-clock
+        /// time: the run must end within <see cref="MaxRunDecisions"/> commands, and the loop fails with the last
+        /// decision and the run/UI state if nothing happens for a long stretch (stall).
+        /// </summary>
         private IEnumerator PlayRunOnAuto()
         {
             var run = _app.Router.Current as RunScreen;
             if (run == null && _svc.State.Run.Active == null) yield break;
             run?.StartAuto();
             bool battleShot = false, draftShot = false, eventShot = false, otherShot = false;
-            float deadline = Time.realtimeSinceStartup + 600;
-            while (Time.realtimeSinceStartup < deadline)
+            long startVersion = _svc.State.Version;
+            var guard = new ProgressGuard(this, "auto run");
+            while (true)
             {
                 var cur = _app.Router.Current;
                 if (cur is RunResultScreen) yield break;
+                if (_svc.State.Version - startVersion > MaxRunDecisions)
+                    Assert.Fail("run did not finish within " + MaxRunDecisions + " decisions: " + Diagnostics());
                 if (cur is BattlePlaybackScreen b)
                 {
                     if (!battleShot)
                     {
                         BattlePlaybackScreen.TimeScale = 1;
-                        yield return Wait(2.2f);
+                        b.PlaySteps(4);
+                        yield return Wait(0.5f);
                         yield return Shot("06_battle_playback");
                         battleShot = true;
                     }
                     BattlePlaybackScreen.TimeScale = 12;
+                    // a playback that does not close itself (opened outside auto mode) waits for Continue
+                    if (!b.AutoClose) { b.PlayAll(); b.Continue(); }
                 }
                 var active = _svc.State.Run.Active;
                 if (active != null && cur is RunScreen && _app.ModalLayer.childCount > 1)
@@ -180,9 +213,60 @@ namespace RogueStars.Client.PlayTests
                     else if ((active.Phase == RunPhase.Shop || active.Phase == RunPhase.ChooseBranch || active.Phase == RunPhase.Defeated) && !otherShot) { otherShot = true; yield return Shot("09_" + active.Phase.ToString().ToLowerInvariant()); }
                 }
                 if (cur is RunScreen rs && !rs.Auto && _svc.State.Run.Active != null) rs.StartAuto();
+                guard.Tick();
                 yield return null;
             }
-            Assert.Fail("run did not finish on auto in time");
+        }
+
+        /// <summary>Upper bound of commands for one run of the first level on auto (a run takes well under 100).</summary>
+        private const int MaxRunDecisions = 400;
+
+        /// <summary>
+        /// Fails when neither the game state nor the current screen changed for both <see cref="StallFrames"/> frames
+        /// and <see cref="StallSeconds"/> (unscaled), i.e. nothing can make progress any more; the message carries the
+        /// last decision and the run/UI state. Both bounds are far above any animation or auto-mode pause.
+        /// </summary>
+        private sealed class ProgressGuard
+        {
+            private const int StallFrames = 900;
+            private const float StallSeconds = 30f;
+            private readonly PlaythroughTests _t;
+            private readonly string _what;
+            private string _mark;
+            private int _frames;
+            private float _since;
+
+            public ProgressGuard(PlaythroughTests t, string what) { _t = t; _what = what; _mark = t.ProgressMark(); _since = Time.realtimeSinceStartup; }
+
+            public void Tick()
+            {
+                string mark = _t.ProgressMark();
+                if (mark != _mark) { _mark = mark; _frames = 0; _since = Time.realtimeSinceStartup; return; }
+                if (++_frames >= StallFrames && Time.realtimeSinceStartup - _since >= StallSeconds)
+                    Assert.Fail(_what + " stalled (no state or screen change for " + _frames + " frames): " + _t.Diagnostics());
+            }
+        }
+
+        private string ProgressMark()
+        {
+            var cur = _app.Router.Current;
+            string screen = cur == null ? "-" : cur.GetType().Name + (cur is BattlePlaybackScreen b ? (b.Finished ? ":end" : ":play") : "");
+            return _svc.State.Version + "|" + screen + "|" + _app.ModalLayer.childCount;
+        }
+
+        private string Diagnostics()
+        {
+            var a = _svc.State.Run.Active;
+            var cur = _app.Router.Current;
+            var last = _app.Session.LastResult;
+            string run = a == null ? "no active run" :
+                "phase=" + a.Phase + " rolls=" + a.Rolls + "/" + a.MaxRolls + " pos=" + a.Position + " hp=" + a.WormHp + "/" + a.WormMaxHp +
+                " battles=" + a.BattleCount + " event=" + a.EventId + " draft=[" + string.Join(",", a.DraftOffer) + "] coins=" + a.Coins + " awakening=" + a.Awakening;
+            string screen = cur == null ? "none" : cur.GetType().Name;
+            if (cur is RunScreen rs) screen += " auto=" + rs.Auto + " animating=" + rs.Animating;
+            if (cur is BattlePlaybackScreen bp) screen += " finished=" + bp.Finished + " autoClose=" + bp.AutoClose;
+            return "version=" + _svc.State.Version + " lastResult=" + (last == null ? "none" : last.Ok ? "ok" : "fail:" + last.Error) +
+                   " inFlight=" + _app.Session.InFlight + " modals=" + _app.ModalLayer.childCount + " screen=" + screen + " run: " + run;
         }
 
         // ---- setup / helpers ---------------------------------------------------------------------
@@ -194,10 +278,13 @@ namespace RogueStars.Client.PlayTests
             yield return null;
             _app = AppBootstrap.Current;
             Assert.That(_app, Is.Not.Null, "AppBootstrap built the app");
-            _dir = Path.Combine(Application.temporaryCachePath, "playthrough_" + DateTime.UtcNow.Ticks);
+            // Deterministic fresh save: own empty save directory, fixed game clock, fixed service seed (which fixes the
+            // new player's rules RNG), so every run of this test plays the same dice, boards and battles.
+            _dir = Path.Combine(Application.temporaryCachePath, "playthrough_" + Guid.NewGuid().ToString("N"));
+            if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
             Directory.CreateDirectory(_dir);
-            _clock = new ManualClock(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            _svc = new LocalGameService(_dir, "local_playthrough", "Wiggles", _clock, 11);
+            _clock = new ManualClock(T0);
+            _svc = new LocalGameService(_dir, "local_playthrough", "Wiggles", _clock, Seed);
             _app.Start(_svc);
             _shots = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Screenshots"));
             Directory.CreateDirectory(_shots);
@@ -247,12 +334,6 @@ namespace RogueStars.Client.PlayTests
         {
             float end = Time.realtimeSinceStartup + seconds;
             while (Time.realtimeSinceStartup < end) yield return null;
-        }
-
-        private static IEnumerator WaitUntil(Func<bool> cond, float timeout, Action each = null)
-        {
-            float end = Time.realtimeSinceStartup + timeout;
-            while (!cond() && Time.realtimeSinceStartup < end) { each?.Invoke(); yield return null; }
         }
 
         private LevelDef FirstLevel()

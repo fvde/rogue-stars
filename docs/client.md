@@ -112,7 +112,7 @@ arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P
 (package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait). It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 44 tests):
+EditMode (`Assets/Tests/EditMode`, 48 tests):
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
@@ -125,13 +125,22 @@ EditMode (`Assets/Tests/EditMode`, 44 tests):
   result screen, tutorial steps), decision modals per phase, board layout and boss marker never overlap tiles (all main levels × 5 seeds), toast strip/limit, event toasts
   without internal ids, double rewards,
   battle playback ends at the logged HP, rage/shield bars equal the logged values after every entry, Signals reveal, merge-material finder, worm/hero actions.
+- `RunSeedSweepTests`: 100 fresh saves (seeds 1–100, with and without starter parts) play level 1 like the playthrough
+  (manual roll, then `RunAutoStep`) to completion within a 200-decision budget, every auto decision accepted
+  (failure names seed, last decision and run state); same seed + clock replay the same run.
+
+`LocalGameService(dir, id, name, clock, randomSeed)`: with a `randomSeed` the new player's rules RNG is derived from
+it only (no wall clock), so a seeded service on a `ManualClock` plays out identically every time.
 
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
 - `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
   starter parts → first run with a manual roll, then auto mode to the boss → result → hub/worm/parts → city build →
   dev unlock → 10× Signal with reveal → stamina refill → every catalog screen) and renders the canvas through a
   1080×1920 RenderTexture camera into `client/RogueStars/Screenshots/` (gitignored). A curated, downscaled set lives
-  in `docs/client-screenshots/`.
+  in `docs/client-screenshots/`. Deterministic: fixed seed (11) and game clock (2026-03-02 12:00 UTC), a fresh save
+  directory per run. Its first manual roll lands on a battle; a playback opened outside auto mode waits for
+  Continue, which the test presses. The auto run is bounded by game decisions (400 commands) and a stall guard (no
+  state/screen change for 900 frames and 30 s) whose message carries the last result and the run/UI state.
 ```bash
 arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -testPlatform PlayMode -testResults /tmp/rs-play.xml
 ```
