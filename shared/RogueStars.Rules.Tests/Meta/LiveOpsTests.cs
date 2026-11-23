@@ -72,6 +72,7 @@ public class LiveOpsTests
         content.Invasions["void_choir"].RepelledRareRewards[0].ChancePct = 100;
         var e = new GameEngine(content) { Cloner = TestHelpers.Clone };
         var s = e.NewPlayer("p1", TestHelpers.T0, 42); long t = TestHelpers.T0;
+        s.Counters["part_rarity_max"] = (int)PartRarity.Mythic; // Awaken Cores have a use (RewardGate)
         Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "void_choir", OccurrenceId = "o1", Repelled = false, ContributionRank = 1 }, t);
         Assert.Equal(0, Bal(s, ProgressionCurrencies.PartAwakenCores));
         Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "void_choir", OccurrenceId = "o2", Repelled = true, ContributionRank = 1 }, t);
@@ -196,6 +197,9 @@ public class LiveOpsTests
     public void InvasionAttempts_DailyTopUp_KeepsExtras()
     {
         var e = Engine(); var s = Player(e);
+        Assert.Equal(0, Bal(s, Currencies.InvasionAttempts)); // no attempts before invasions give them a use
+        Unlock(s, Features.Invasions);
+        e.Settle(s, TestHelpers.T0 + 1);
         Assert.Equal(3, Bal(s, Currencies.InvasionAttempts));
         s.Wallet.TrySpend(Currencies.InvasionAttempts, 2);
         e.Settle(s, TestHelpers.T0 + H);

@@ -91,13 +91,25 @@ public class FullGameSmokeTests
     {
         var p = new Player(2027);
         var s = p.S;
-        Assert.Equal(3, p.S.Parts.Items.Count);
+        // Rewards follow use: a brand-new account owns only what day 1 uses (stamina, Diamonds); the starter parts and the
+        // Biomass Farm blueprint wait in the reward stash for their features.
+        Assert.Empty(p.S.Parts.Items);
+        Assert.Equal(3, p.S.Stash.Items.Count(r => r.Kind == RewardKinds.Part));
 
-        // Day 1: login, starter Biomass Farm, first collection.
+        // Day 1: the first run without parts (level 1 is eased); completion unlocks Parts, which releases the stash.
+        p.Do(new RunStart { LevelId = "ember_wastes_1" });
+        for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
+        Assert.Null(p.S.Run.Active);
+        Assert.True(p.S.Run.LastSummary.Won);
+        Assert.Equal(1, p.S.Counter("runs_completed"));
+        Assert.Equal(1, p.S.Counter(Requirements.MainLevelCounter));
+        Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Parts));
+        Assert.Equal(3, p.S.Parts.Items.Count);
+        Assert.True(p.S.Wallet.Get(Currencies.Ore) > 0);
+        Assert.Equal(0, p.S.Wallet.Get(Currencies.Biomass)); // no use before the City / worm levels: stashed
+        Assert.True(RewardGate.Stashed(p.S, Currencies.Biomass) > 0);
+        Assert.DoesNotContain(p.S.Run.LastSummary.Granted, r => r.Id == Currencies.Biomass); // the result screen never shows it
         p.Do(new LoginClaim());
-        p.Build("bp_biomass_farm", 4, 4);
-        var collected = (Dictionary<string, long>)p.Do(new CityCollect(), 2 * Hour).Payload!;
-        Assert.True(collected[Currencies.Biomass] > 0);
 
         // Equip the starter parts.
         foreach (var part in p.S.Parts.Items.Values.OrderBy(x => x.Uid).ToList())
@@ -107,16 +119,14 @@ public class FullGameSmokeTests
             p.Do(new PartEquip { Uid = part.Uid, Slot = slot });
         }
 
-        // A complete auto-played run (RunAutoStep) with real worm stats; completion pays out and sets portal progress.
-        long biomassBefore = p.S.Wallet.Get(Currencies.Biomass);
-        p.Do(new RunStart { LevelId = "ember_wastes_1" });
-        for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
-        Assert.Null(p.S.Run.Active);
-        Assert.True(p.S.Run.LastSummary.Won);
-        Assert.Equal(1, p.S.Counter("runs_completed"));
-        Assert.Equal(1, p.S.Counter(Requirements.MainLevelCounter));
-        Assert.True(p.S.Wallet.Get(Currencies.Biomass) > biomassBefore);
-        Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Parts));
+        // Day 2 (level 8): the City unlocks with the Biomass Farm blueprint and the stashed Biomass; first collection.
+        p.S.Counters[Requirements.MainLevelCounter] = 8;
+        Assert.Contains(Features.BiomassFarm, p.PlayUntilDay(2));
+        Assert.True(p.S.Wallet.Get(Currencies.Biomass) > 0);
+        Assert.NotEmpty(RewardGate.ReleasedAt(p.S, Features.BiomassFarm));
+        p.Build("bp_biomass_farm", 4, 4);
+        var collected = (Dictionary<string, long>)p.Do(new CityCollect(), 2 * Hour).Payload!;
+        Assert.True(collected[Currencies.Biomass] > 0);
 
         // Later portal progress (stand-in for many more runs) over 14 days: one unlock per day (pulls, aliens, housing,
         // heroes, mounts, breeding...).

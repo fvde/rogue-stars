@@ -41,6 +41,8 @@ namespace RogueStars.Rules.Content
             BuildMail();
             BuildArena();
             BuildGuild();
+            // Last: reads features, regen rules, arena and live-ops content (what gives each reward a use).
+            BuildRewardGate();
         }
 
         public void AddSkill(SkillDef skill)
@@ -76,5 +78,6 @@ namespace RogueStars.Rules.Content
         partial void BuildMail();
         partial void BuildArena();
         partial void BuildGuild();
+        partial void BuildRewardGate();
     }
 }

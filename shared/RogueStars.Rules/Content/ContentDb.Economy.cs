@@ -51,15 +51,12 @@ namespace RogueStars.Rules.Content
         {
             RegenRules.Add(new RegenRule { Currency = Currencies.Stamina, BaseCap = 60, AmountPerTick = 1, TickMs = 6 * 60_000 });
 
+            // Rewards follow use (GDD §13): only what day-1 features spend. The rest of the old starting wallet arrives
+            // with the unlock that gives it a use (ContentDb.Onboarding: Ore with Parts, Biomass with the City, tokens
+            // with their Signals, Grain with the Aliens).
             var w = EconomyConfig.StartingWallet;
             w[Currencies.Stamina] = 60;
             w[Currencies.Diamonds] = 300;
-            w[Currencies.Biomass] = 500;
-            w[Currencies.Ore] = 500;
-            w[Currencies.Grain] = 300;
-            w[Currencies.PartTokens] = 10;
-            w[Currencies.BlueprintTokens] = 5;
-            w[Currencies.AlienTokens] = 5;
 
             var s = EconomyConfig.StaminaRefill;
             s.Amount = 30;

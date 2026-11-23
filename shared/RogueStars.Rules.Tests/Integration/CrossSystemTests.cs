@@ -52,6 +52,7 @@ public class CrossSystemTests
     {
         var e = Engine(devReceipts: true);
         var s = e.NewPlayer("p1", T0, 1);
+        s.Flags.Add(Features.DevUnlockAllFlag); // not about gating: blueprints need the City
         s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
         long baseCap = C.Regen(Currencies.Stamina)!.BaseCap;
         Assert.Equal(baseCap, EconomySystem.RegenCap(s, e.Content, Currencies.Stamina));
@@ -73,6 +74,7 @@ public class CrossSystemTests
     {
         var e = Engine();
         var s = e.NewPlayer("p1", T0, 1);
+        s.Flags.Add(Features.DevUnlockAllFlag); // not about gating: blueprints need the City
         s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
         long t = BuildActive(e, ref s, "bp_regen_spire", 4, 4, T0);
         e.Settle(s, t);
@@ -86,7 +88,9 @@ public class CrossSystemTests
     {
         var e = Engine();
         var s = e.NewPlayer("p1", T0, 1);
+        s.Flags.Add(Features.DevUnlockAllFlag); // arena tickets only regenerate once the Arena gives them a use
         var rule = C.Regen(Currencies.ArenaTickets)!;
+        e.Settle(s, T0); // releases the stashed starting tickets
         s.Wallet.Balances[Currencies.ArenaTickets] = 0;
         e.Settle(s, T0);
         // A ×2 regen modifier halves the tick; a second (unmodified) settler would have settled at base speed.
@@ -169,8 +173,9 @@ public class CrossSystemTests
         var e = Engine();
         var s = e.NewPlayer("p1", T0, 1);
         Assert.Equal(e.Content.EconomyConfig.StartingWallet[Currencies.Diamonds], s.Wallet.Get(Currencies.Diamonds));
-        Assert.Equal(3, s.Parts.Items.Count);
-        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
+        // Rewards follow use: the starter parts and the farm blueprint wait in the stash for Parts / the City.
+        Assert.Empty(s.Parts.Items);
+        Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Empty(s.Aliens.Owned);
 
         // Level 20 by day 8: Laboratory (day 5, blueprint), Aliens (day 7, first alien) and Housing (day 8, squad slot building).
@@ -178,8 +183,15 @@ public class CrossSystemTests
         var r = Ok(e, ref s, new CityCollect(), T0 + 1000);
         Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Quests); // day-1 unlocks are not limited
         Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Parts);
+        Assert.Equal(3, s.Parts.Items.Count); // released by the Parts unlock, with the Ore the starting wallet used to hold
+        Assert.Equal(500, s.Wallet.Get(Currencies.Ore));
+        Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
+        Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Null(AlienSystem.Owned(s, "alien_blorp"));
-        PlayDays(e, ref s, 2, 8);
+        PlayDays(e, ref s, 2, 2);
+        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm")); // the City (day 2)
+        Assert.Equal(500, s.Wallet.Get(Currencies.Biomass));
+        PlayDays(e, ref s, 3, 8);
         Assert.Contains(Features.Aliens, s.Onboarding.Unlocked.Keys);
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
         Assert.NotNull(CitySystem.Owned(s, "bp_housing_pod"));

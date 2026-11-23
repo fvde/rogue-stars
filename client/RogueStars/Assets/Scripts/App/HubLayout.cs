@@ -113,36 +113,24 @@ namespace RogueStars.Client.App
             return set;
         }
 
-        /// <summary>Top-bar currencies in display order and the features that give them a use (none = always: stamina).</summary>
-        private static readonly KeyValuePair<string, string[]>[] CurrencyUse =
+        /// <summary>Display order of the wallet currencies (top bar first, then the details list).</summary>
+        public static readonly string[] CurrencyOrder =
         {
-            new KeyValuePair<string, string[]>(Currencies.Stamina, new string[0]),
-            new KeyValuePair<string, string[]>(Currencies.Diamonds, new[] { Features.Shop }),
-            new KeyValuePair<string, string[]>(Currencies.Biomass, new[] { Features.BiomassFarm, Features.WormLevel }),
-            new KeyValuePair<string, string[]>(Currencies.Data, new[] { Features.Laboratory }),
-            new KeyValuePair<string, string[]>(Currencies.Grain, new[] { Features.GrainFarm }),
-            new KeyValuePair<string, string[]>(Currencies.Ore, new[] { Features.OreMine }),
-            new KeyValuePair<string, string[]>(Currencies.Fuel, new[] { Features.Mounts }),
-            new KeyValuePair<string, string[]>(Currencies.ArenaTickets, new[] { Features.Arena }),
-            new KeyValuePair<string, string[]>(Currencies.ArenaMedals, new[] { Features.Arena }),
-            new KeyValuePair<string, string[]>(Currencies.GearCores, new[] { Features.Forge }),
+            Currencies.Stamina, Currencies.Diamonds, Currencies.Biomass, Currencies.Data, Currencies.Grain, Currencies.Ore,
+            Currencies.Fuel, Currencies.ArenaTickets, Currencies.ArenaMedals, Currencies.GearCores, Currencies.HeroXp,
+            Currencies.PartTokens, Currencies.AlienTokens, Currencies.BlueprintTokens, Currencies.BurrowKeys, Currencies.InvasionAttempts,
+            Currencies.GuildMarks, Currencies.MountCores, Currencies.AdvancementPlates, ProgressionCurrencies.PartAwakenCores,
         };
 
         /// <summary>
-        /// Currencies the player has a use for yet, in display order (the bar shows the first few, "All" lists the rest):
-        /// stamina always, the others once their feature unlocks.
+        /// Currencies the player has a use for yet, in display order (the bar shows the first few, "All" lists the rest).
+        /// Which ones is the rules' reward-use mapping (<see cref="RewardGate.CurrencyHasUse"/>, ContentDb.RewardUses): the
+        /// same rule that keeps unusable rewards out of the wallet.
         /// </summary>
         public static List<string> VisibleCurrencies(GameState s, ContentDb c)
         {
             var list = new List<string>();
-            foreach (var kv in CurrencyUse)
-            {
-                bool show = kv.Value.Length == 0;
-                foreach (var f in kv.Value) if (Features.IsUnlocked(s, c, f)) show = true;
-                if (show) list.Add(kv.Key);
-            }
-            // Awaken Cores have a use as soon as there is one to spend (Mythic+ awakening).
-            if (s.Wallet.Get(ProgressionCurrencies.PartAwakenCores) > 0) list.Add(ProgressionCurrencies.PartAwakenCores);
+            foreach (var id in CurrencyOrder) if (RewardGate.CurrencyHasUse(s, c, id)) list.Add(id);
             return list;
         }
 

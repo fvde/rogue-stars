@@ -80,11 +80,11 @@ namespace RogueStars.Client.Tests
             Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("Parts — clear level 1"));
             Assert.That(Named(hub.Root, "Figure").text, Is.EqualTo("0/1"));
 
+            // Rewards follow use: a brand-new account holds stamina and Diamonds (stamina refills) only, and shows just those.
             var chips = _f.Canvas.GetComponentsInChildren<Text>(true).Where(t => t.name.StartsWith("Chip:")).Select(t => t.name).ToList();
-            Assert.That(chips, Is.EqualTo(new[] { "Chip:" + Currencies.Stamina }));
+            Assert.That(chips, Is.EqualTo(new[] { "Chip:" + Currencies.Stamina, "Chip:" + Currencies.Diamonds }));
             var bar = _f.App.Bar;
             Assert.That(_f.Canvas.GetComponentsInChildren<Button>(true).Any(b => b.name == "ProfileChip"), Is.True);
-            Assert.That(_f.Canvas.GetComponentsInChildren<Button>(true).Any(b => b.name == "CurrencyDetails"), Is.False);
             Assert.That(bar, Is.Not.Null);
             Assert.That(HubLayout.Reachable(S, C, _f.Service.NowMs), Is.EquivalentTo(new[] { "portals", "settings" }));
         }
@@ -144,8 +144,10 @@ namespace RogueStars.Client.Tests
 
             // Currency chips follow the same unlocks.
             var visible = HubLayout.VisibleCurrencies(S, C);
-            Assert.That(visible, Does.Contain(Currencies.Biomass).And.Contain(Currencies.Diamonds).And.Contain(Currencies.Data).And.Contain(Currencies.ArenaTickets));
-            Assert.That(visible, Does.Not.Contain(Currencies.Grain).And.Not.Contain(Currencies.Ore).And.Not.Contain(Currencies.Fuel));
+            Assert.That(visible, Does.Contain(Currencies.Biomass).And.Contain(Currencies.Diamonds).And.Contain(Currencies.Data).And.Contain(Currencies.ArenaTickets)
+                .And.Contain(Currencies.Ore).And.Contain(Currencies.PartTokens).And.Contain(Currencies.InvasionAttempts));
+            Assert.That(visible, Does.Not.Contain(Currencies.Grain).And.Not.Contain(Currencies.Fuel).And.Not.Contain(Currencies.HeroXp)
+                .And.Not.Contain(Currencies.AlienTokens).And.Not.Contain(Currencies.GuildMarks));
         }
 
         [Test]

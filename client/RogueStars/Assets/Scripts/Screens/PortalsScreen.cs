@@ -587,11 +587,11 @@ namespace RogueStars.Client.Screens
                     for (int i = 0; i < 3; i++)
                         Ui.Label(b, (i < prog.Feats.Count && prog.Feats[i] ? "★ " : "☆ ") + feats[i], Theme.FontSmall, i < prog.Feats.Count && prog.Feats[i] ? Theme.Good : Theme.TextDim);
                 }
-                if (level.CompletionRewards.Count > 0) Note(b, "Completion: " + Fmt.Rewards(level.CompletionRewards, Content));
+                if (level.CompletionRewards.Count > 0) Note(b, "Completion: " + Fmt.Rewards(level.CompletionRewards, Content, State, Now));
                 string marker = mode == RunMode.Normal && portal.Kind == PortalKind.Main ? MilestoneMarker(Content, level.Number) : null;
                 if (marker != null && level.FirstClearRewards.Count > 0)
                     Ui.Label(b, (marker == "BONUS" ? "Portal bonus" : "Milestone chest") + " (first clear" + (prog.Cleared ? ", claimed" : "") + "): "
-                                + Fmt.Rewards(level.FirstClearRewards, Content), Theme.FontSmall, prog.Cleared ? Theme.TextDim : Theme.Premium);
+                                + Fmt.Rewards(level.FirstClearRewards, Content, State, Now), Theme.FontSmall, prog.Cleared ? Theme.TextDim : Theme.Premium);
                 if (State.Run.Active != null) Ui.Label(b, "Finish or abandon your current run first.", Theme.FontSmall, Theme.Bad);
             },
             new ModalButton("Cancel", null),

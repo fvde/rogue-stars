@@ -82,7 +82,7 @@ namespace RogueStars.Rules.Core
             if (!_handlers.TryGetValue(command.Type, out var handler)) return CommandResult.Fail("unknown command " + command.Type);
 
             GameState working = Cloner != null ? Cloner(state) : state;
-            var ctx = new CommandContext { State = working, Content = Content, Engine = this, NowMs = nowMs };
+            var ctx = new CommandContext { State = working, Content = Content, Engine = this, NowMs = nowMs, Command = command };
             CommandResult result;
             try
             {

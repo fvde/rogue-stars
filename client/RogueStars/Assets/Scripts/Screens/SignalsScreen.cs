@@ -93,7 +93,10 @@ namespace RogueStars.Client.Screens
                 {
                     var color = Theme.RarityColor(it.Tier);
                     var c = Ui.Panel(grid, Color.Lerp(color, Theme.Panel, 0.35f), "Card");
-                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(new Reward(it.Kind, it.Id, it.Amount, it.Rarity), Content) + "\n<size=18>" + it.Tier + "</size>", 20, Color.white, TextAnchor.MiddleCenter);
+                    var pulled = new Reward(it.Kind, it.Id, it.Amount, it.Rarity);
+                    // A pull result is always shown (published odds); one without a use yet waits in the reward stash.
+                    string kept = RewardGate.HasUse(State, Content, pulled, Now) ? "" : "\n<size=16>kept for later</size>";
+                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + "\n<size=18>" + it.Tier + "</size>" + kept, 20, Color.white, TextAnchor.MiddleCenter);
                     Ui.Stretch(t.rectTransform, 6, 6, 6, 6);
                     cards.Add(c.rectTransform);
                     if (Application.isPlaying) c.gameObject.SetActive(false);

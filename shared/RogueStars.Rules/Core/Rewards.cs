@@ -47,12 +47,18 @@ namespace RogueStars.Rules.Core
 
         public bool CanGrant(string kind) => _granters.ContainsKey(kind);
 
-        public void Grant(CommandContext ctx, Reward reward)
+        /// <summary>
+        /// Grants through the owner's granter, unless the reward has no use yet: then it waits in the reward stash
+        /// (<see cref="RogueStars.Rules.Systems.RewardGate"/>). Returns true when it was granted now.
+        /// </summary>
+        public bool Grant(CommandContext ctx, Reward reward)
         {
-            if (reward == null || reward.Amount <= 0) return;
+            if (reward == null || reward.Amount <= 0) return false;
             if (!_granters.TryGetValue(reward.Kind, out var g)) throw new InvalidOperationException("No granter for reward kind " + reward.Kind);
+            if (!RogueStars.Rules.Systems.RewardGate.Admit(ctx, reward)) return false;
             g(ctx, reward);
             ctx.Emit("reward", reward.Kind, reward.Id, reward.Amount.ToString());
+            return true;
         }
 
         public void GrantAll(CommandContext ctx, IEnumerable<Reward> rewards)

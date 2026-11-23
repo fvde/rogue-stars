@@ -579,6 +579,8 @@ namespace RogueStars.Rules.Systems
         {
             long whole = (long)Math.Floor(b.Stored + 1e-9);
             if (whole <= 0) return;
+            // Rewards follow use: a currency without a use yet (Grain before Aliens) stays in the building's storage.
+            if (!RewardGate.CurrencyHasUse(ctx.State, ctx.Content, def.ProduceCurrency, ctx.NowMs)) return;
             b.Stored = Math.Max(0, b.Stored - whole);
             ctx.State.Wallet.Add(def.ProduceCurrency, whole);
             ctx.State.Count("city_resources_collected", whole);

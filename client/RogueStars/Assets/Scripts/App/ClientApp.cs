@@ -192,12 +192,6 @@ namespace RogueStars.Client.App
     /// <summary>Top bar: profile chip and the currencies the player has a use for (with the stamina regen timer).</summary>
     public sealed class ResourceBar
     {
-        private static readonly string[] Shown =
-        {
-            Currencies.Biomass, Currencies.Grain, Currencies.Ore, Currencies.Diamonds,
-            Currencies.Stamina, Currencies.Fuel, Currencies.GearCores, Currencies.ArenaTickets,
-        };
-
         private readonly ClientApp _app;
         private readonly RectTransform _root;
         private readonly List<KeyValuePair<Text, Func<string>>> _live = new List<KeyValuePair<Text, Func<string>>>();
@@ -298,22 +292,17 @@ namespace RogueStars.Client.App
             }, buttons.ToArray());
         }
 
-        /// <summary>Endgame/meta currencies listed first in the details after the main ones.</summary>
-        public static readonly string[] Secondary = { Currencies.Data, Currencies.ArenaMedals, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores };
-
-        /// <summary>Every non-zero currency of the wallet with its full name (and the regen cap where there is one).</summary>
+        /// <summary>
+        /// Every currency the player has a use for (<see cref="HubLayout.VisibleCurrencies"/>, in display order) with its full
+        /// name and balance (and the regen cap where there is one). Rewards without a use never reach the wallet.
+        /// </summary>
         public void ShowDetails()
         {
             var s = _app.Session;
             if (s.State == null) return;
             Ui.Modal(_app.ModalLayer, "Resources", b =>
             {
-                var ids = new List<string>(Shown);
-                foreach (var id in Secondary) ids.Add(id);
-                var rest = new List<string>();
-                foreach (var kv in s.State.Wallet.Balances) if (!ids.Contains(kv.Key) && kv.Value != 0) rest.Add(kv.Key);
-                rest.Sort(string.CompareOrdinal);
-                ids.AddRange(rest);
+                var ids = HubLayout.VisibleCurrencies(s.State, s.Content);
                 var list = Ui.List(b, 1100);
                 foreach (var id in ids)
                 {

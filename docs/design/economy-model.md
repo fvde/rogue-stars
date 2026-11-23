@@ -145,6 +145,32 @@ identically on demand); per-level progress more than 100 levels behind the best 
 The full meta-progression (every system, 9 player profiles, 2 years) is simulated by `tools/RogueStars.Sim`; see
 `docs/balance/progression-report.md` for the curves, walls and the balance pass that set the numbers above.
 
+## Rewards follow use (GDD §13.1)
+
+Rewards without a use wait in the reward stash and are released when the use unlocks; free sources keep at most a small
+cap per currency (`RewardUseDef.StashCap`), paid/explicit sources everything. The caps are sized from the first sinks
+after each unlock and checked with the simulator (`--unlocks`, `--inventory`; `--variant stash_<id>_<cap>` /
+`open_<id>` / `no_reward_gate` to experiment): Biomass 5 000 (a few worm levels), Ore 1 000, Grain 2 000, Fuel 4 000, Hero XP
+3 000, Data 100, Gear Cores 200, Advancement Plates 20, tokens 30 per pull type (three 10-pulls on the Signal's first day),
+Runes 5. With caps of 10 tokens the binge bot lost 3–7 main levels in weeks 2–4 (fewer early pulls); at 30 it is within
+noise of uncapped. The day-1 Biomass of a binge player (~38k, all of it surge Biomass) is mostly dropped: the cap is what
+the first worm levels need, and from day 2 the surge pays into a usable wallet again. The 60-day guard bands
+(`ProgressionGuardTests`) hold unchanged.
+
+What a new F2P player owns at the end of day 1 / 3 / 7 (median of 15 seeds, `--inventory`; before = the commit before the
+reward gate):
+
+| Profile | before: currencies in the wallet (day 1) | after (day 1) | after: stash waiting on day 7 |
+|---|---|---|---|
+| Casual | 14 (Biomass 7.6k, Grain 368, Fuel 300, Data 20, 3 token types, tickets, keys, attempts...) | stamina 100, Diamonds 810, Ore 143 | Fuel 2.2k, Grain 222, Hero XP 108, Data 80, tokens 8–27, tickets 5, keys 2 |
+| Active | 15 | stamina, Diamonds 1.1k, Ore 123, Gear Cores 105 | Fuel 3k, Hero XP 1.2k, Blueprint tokens 15, tickets 5, keys 2 |
+| Hardcore | 15 | stamina, Diamonds 1.2k, Ore 166, Gear Cores 116 | Fuel 4k (cap), Hero XP 3k (cap), Blueprint tokens 18, tickets, keys |
+
+Main level (median): Casual 3 / 8 / 11 (before 3 / 10 / 14), Active 8 / 13 / 23 (8 / 14 / 23), Hardcore 10 / 18 / 25
+(10 / 18 / 26) on day 1 / 3 / 7. The casual gap is mostly the bot no longer building the Biomass Farm on day 1: the rules
+did not gate `CityBuild`, so the bot used the City days before the client shows it; the farm blueprint now arrives with
+the City unlock (`--variant open_blueprint,open_biomass,open_ore` restores 14).
+
 ## Levers
 - Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).
 - Hero pacing: `HeroConfig.StarShardCosts`, hero-shard share/amounts in the Alien pool, featured hero amount.

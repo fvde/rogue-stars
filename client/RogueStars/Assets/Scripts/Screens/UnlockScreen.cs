@@ -43,6 +43,8 @@ namespace RogueStars.Client.Screens
                 names.Add(f.Name);
                 rewards.AddRange(f.UnlockRewards);
                 rewards.AddRange(f.UnlockGrants);
+                // Rewards follow use: what was kept for this feature until now (GDD §13).
+                rewards.AddRange(RewardGate.ReleasedAt(State, id));
             }
             long day = Requirements.AccountAgeDays(State, Content, Now) + 1;
             var kicker = Ui.Label(body, "DAY " + day + " · NEW ON YOUR PLANET", 30, HubKit.Cyan, TextAnchor.MiddleCenter, "Kicker");
@@ -70,8 +72,8 @@ namespace RogueStars.Client.Screens
             {
                 var row = Ui.Row(body, 70, 16, null, 0, "Rewards");
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-                foreach (var r in rewards)
-                    HubKit.Chip(row, (r.Kind == RewardKinds.Currency ? "+" : "") + Fmt.Reward(r, Content), HubKit.Ink, HubKit.Card, -1, 64, "Reward");
+                foreach (var chip in Fmt.RewardChips(rewards, Content))
+                    HubKit.Chip(row, chip, HubKit.Ink, HubKit.Card, -1, 64, "Reward");
             }
 
             var action = HubLayout.UnlockAction(_ids[0]);

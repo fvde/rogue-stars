@@ -247,6 +247,7 @@ public class ShopTests
     public void DiamondShopItems_DailyLimits_AndCost()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
+        Unlock(s, Features.PartPulls); // part tokens need the Part Signal (otherwise they wait in the reward stash)
         Ok(e, ref s, new ShopBuyItem { ItemId = "daily_free_gift" }, t);
         Fail(e, ref s, new ShopBuyItem { ItemId = "daily_free_gift" }, t);
         Ok(e, ref s, new ShopBuyItem { ItemId = "daily_free_gift" }, Day0 + D);

@@ -39,7 +39,7 @@ namespace RogueStars.Rules.Systems
                     var rule = ctx.Content.Regen(cur);
                     if (rule == null) continue;
                     long have = ctx.State.Wallet.Get(cur);
-                    if (have < rule.BaseCap) ctx.State.Wallet.Add(cur, rule.BaseCap - have);
+                    if (have < rule.BaseCap) ctx.Grant(Reward.Cur(cur, rule.BaseCap - have)); // stashed until the Burrow unlocks
                     ctx.State.Wallet.SettleRegen(rule, ctx.NowMs);
                 }
             });

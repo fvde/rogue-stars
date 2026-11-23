@@ -200,6 +200,13 @@ namespace RogueStars.Rules.Content
             kit.Add(new Reward(RewardKinds.Part, "body_plated_shell", 1, (int)PartRarity.Common));
             kit.Add(new Reward(RewardKinds.Blueprint, "bp_biomass_farm", 1));
             void G(string featureId, Reward r) => FeatureDefs[featureId].UnlockGrants.Add(r);
+            // The former starting wallet, each part with the unlock that gives it a use (rewards follow use, GDD §13).
+            G(Features.Parts, Reward.Cur(Currencies.Ore, 500));
+            G(Features.BiomassFarm, Reward.Cur(Currencies.Biomass, 500));
+            G(Features.PartPulls, Reward.Cur(Currencies.PartTokens, 10)); // "your first pulls are on the house"
+            G(Features.Aliens, Reward.Cur(Currencies.Grain, 300));
+            G(Features.AlienPulls, Reward.Cur(Currencies.AlienTokens, 5));
+            G(Features.Blueprints, Reward.Cur(Currencies.BlueprintTokens, 5));
             G(Features.GrainFarm, new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1));
             G(Features.Laboratory, new Reward(RewardKinds.Blueprint, "bp_laboratory", 1));
             G(Features.Laboratory, Reward.Cur(Currencies.Data, 60)); // the first researches (later: daily chests, Dark Side)

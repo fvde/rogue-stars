@@ -33,7 +33,10 @@ namespace RogueStars.Client.Tests
             Assert.That(s.IsOnline, Is.False);
             Assert.That(s.State.PlayerId, Is.EqualTo("local_p1"));
             Assert.That(s.State.DisplayName, Is.EqualTo("Wormy"));
-            Assert.That(s.State.Wallet.Get(Currencies.ArenaTickets), Is.GreaterThan(0));
+            Assert.That(s.State.Wallet.Get(Currencies.Stamina), Is.GreaterThan(0));
+            // Rewards follow use: the starting arena tickets wait in the reward stash until the Arena unlocks.
+            Assert.That(s.State.Wallet.Get(Currencies.ArenaTickets), Is.EqualTo(0));
+            Assert.That(RogueStars.Rules.Systems.RewardGate.Stashed(s.State, Currencies.ArenaTickets), Is.GreaterThan(0));
             Assert.That(s.State.City.UnlockedAreas, Is.Not.Empty);
             Assert.That(File.Exists(s.SavePath), Is.True);
             Assert.That(s.Content.Shop.AllowDevReceipts, Is.True, "offline content enables dev receipts");

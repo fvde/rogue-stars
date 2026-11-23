@@ -33,6 +33,8 @@ namespace RogueStars.Client.App
                 case "gacha_pull":
                 case "mail_expired":
                 case "run_negative_skipped":
+                case "reward_stashed": // no use yet: nothing to show (GDD §13 rewards follow use)
+                case "stash_released": // followed by the usual "reward" events
                     return null;
                 case "city_collected": return "+" + A(2) + " " + Fmt.CurrencyName(A(1), c);
                 case "building_placed": return Bp(0) + " placed";

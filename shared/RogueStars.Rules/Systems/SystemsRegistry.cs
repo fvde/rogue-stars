@@ -34,6 +34,9 @@ namespace RogueStars.Rules.Systems
             MailSystem.Register(e);
             ArenaSystem.Register(e);
             GuildSystem.Register(e);
+            // Rewards follow use: release stashed rewards whose use unlocked without a feature (e.g. an Uncommon part
+            // for Gear Cores). Feature unlocks release in the onboarding settler. After every other settler.
+            e.RegisterSettler(RewardGate.ReleaseReady);
 
             // Final loadout step, registered after every contributor: the power score sees worm, parts, hero,
             // mount, squad aliens, building boons and laboratory skills. Keep this the last registration.

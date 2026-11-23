@@ -937,7 +937,7 @@ namespace RogueStars.Rules.Systems
                 for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, i < doublable);
                 foreach (var r in run.PendingRare)
                 {
-                    ctx.Grant(r);
+                    if (!ctx.Grant(r)) continue; // no use yet: stashed (RewardGate), not shown as granted
                     summary.Granted.Add(r);
                     ctx.Emit("run_rare_drop", r.Kind, r.Id, r.Amount.ToString());
                 }
@@ -976,7 +976,7 @@ namespace RogueStars.Rules.Systems
                 reward.Amount = Math.Max(0, (long)Math.Round(reward.Amount * m));
             }
             if (reward.Amount <= 0) return;
-            ctx.Grant(reward);
+            if (!ctx.Grant(reward)) return; // no use yet: stashed (RewardGate), not shown as granted
             summary.Granted.Add(reward);
             if (doublable) summary.Doublable.Add(reward);
         }
