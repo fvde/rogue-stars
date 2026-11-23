@@ -202,6 +202,13 @@ namespace RogueStars.Client.App
         {
             string id = stat.ToString();
             if (id == "Hp" || id == "Atk" || id == "Def") return id.ToUpperInvariant();
+            return Words(id);
+        }
+
+        /// <summary>The words of a PascalCase id: "AlienSynergy" → "Alien synergy".</summary>
+        public static string Words(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return "";
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < id.Length; i++)
             {
