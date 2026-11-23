@@ -1,0 +1,21 @@
+{
+  "name": "concepts-01",
+  "width": 768,
+  "height": 1344,
+  "seeds": [11, 22],
+  "models": ["flux", "sdxl"],
+  "negative": "blurry, low quality, deformed, mutated, extra limbs, watermark, signature, jpeg artifacts, photo, realistic photograph, ugly, messy",
+  "styles": {
+    "vibrant": "vibrant stylized 2D mobile game art, bold clean shapes, soft cel shading, rich saturated colors, crisp lighting, polished top-tier mobile game quality",
+    "painterly": "hand-painted stylized fantasy illustration, painterly brush textures, dramatic warm rim light, high detail, premium mobile RPG key art",
+    "biolume": "bioluminescent alien world, glowing cyan lime and violet light, dark moody atmosphere, translucent jelly-like creatures, cinematic, highly detailed digital painting",
+    "toy3d": "cute 3D render, soft clay toy look, subsurface scattering, studio lighting, pastel colors with bright accents, charming animated film quality"
+  },
+  "subjects": {
+    "hero": "full body character design of a cute but cool space worm hero with two antennae, segmented pink body, big expressive eyes, wearing a sci-fi visor and one mechanical arm, heroic pose, centered, simple background, game character concept art",
+    "home": "vertical mobile game main menu screen, an alien planet landscape at dusk, a worm hero riding a small flying saucer in the center, glowing crystals and giant mushrooms, cozy alien colony domes in the distance, game UI icons along the left and right edges, big launch button at the bottom",
+    "board": "vertical mobile game screen, isometric winding path of stone tiles across an alien coral planet, a small worm hero standing on one tile, skulls and treasure chests on tiles, a boss monster waiting at the far end, big dice button at the bottom",
+    "battle": "vertical mobile game battle screen, side view, a worm hero on a flying saucer fighting a giant frost crab alien, flying ice shards, big floating damage numbers, health bars, two small blob alien companions",
+    "aliens": "character lineup sheet of five quirky alien creatures side by side: a one-eyed slime blob, a three-eyed merchant, a tentacled jelly, a crystal beetle, a mushroom alien, consistent style, plain light background, game art"
+  }
+}

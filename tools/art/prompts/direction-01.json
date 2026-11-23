@@ -1,0 +1,29 @@
+{
+  "name": "direction-01",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    101,
+    102
+  ],
+  "models": [
+    "sdxl_ref",
+    "flux"
+  ],
+  "style_refs": [
+    "keyart.png",
+    "battle.png",
+    "board-a.png"
+  ],
+  "ref_weight": 0.6,
+  "negative": "blurry, low quality, deformed, mutated, extra limbs, watermark, signature, text, letters, numbers, user interface, jpeg artifacts, photo, realistic, 3d render, ugly, messy, dull colors, humanoid, human body, arms, legs, hands, astronaut suit, robot",
+  "styles": {
+    "cartoon": "hand-painted 2D cartoon mobile game art, clean dark outlines, soft cel shading, chibi proportions, vibrant saturated colors, painterly detailed background, glowing magical effects, polished premium mobile RPG illustration"
+  },
+  "subjects": {
+    "hero": "(cute worm creature:1.4), limbless caterpillar-like worm made of round bubblegum-pink segments, no arms, no legs, one big round head with huge expressive eyes and two antennae with glowing green tips, wearing a small glass space bubble helmet, a brass time-travel ring with a clock face around its body, full body, centered, simple dark violet background",
+    "home": "alien planet at dusk with a swirling purple time portal in the sky, a chibi pink worm hero riding a small silver flying saucer in the center, glowing cyan crystals, giant alien mushrooms, cozy alien colony domes, broken clock gears floating in the air, wide establishing shot, vertical composition",
+    "board": "isometric board game path of floating stone tiles winding through a time rift, half prehistoric jungle with dinosaur bones and half frozen futuristic city, tiles with skulls, question marks and treasure chests, a tiny chibi pink worm hero standing on one tile, swirling portal at the far end, vertical composition",
+    "battle": "side view battle scene, chibi pink worm hero riding a flying saucer facing a giant tentacled portal monster made of clock parts and purple void energy, two small blob alien companions, energy beams and sparks, alien desert ground, dynamic action"
+  }
+}
