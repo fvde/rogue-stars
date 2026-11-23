@@ -53,3 +53,6 @@ client/RogueStars/Assets/GeneratedLocalRepo.meta
 # Written by the Play Games plugin upgrader on every editor load (empty APP_ID) and by BuildSecrets per build
 client/RogueStars/Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/
 client/RogueStars/Assets/Plugins/Android/GooglePlayGamesManifest.androidlib.meta
+
+# Unity Test Framework leftovers
+client/RogueStars/Assets/InitTestScene*
