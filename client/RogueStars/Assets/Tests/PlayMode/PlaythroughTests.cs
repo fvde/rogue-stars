@@ -47,14 +47,10 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("01_hub_new_player");
             Assert.That(_svc.State.Run.RunsStarted, Is.EqualTo(0));
 
-            // 2) the hub's next goal asks to equip the starter parts first
-            Assert.That(Tutorial.Next(_svc.State, _svc.Content)?.ScreenId, Is.EqualTo("worm"));
-            _app.Open("worm");
-            ClickNamed("AutoEquip");
-            yield return Wait(0.3f);
-            yield return Shot("02_worm_equipped");
-            Assert.That(_svc.State.Parts.Equipped.Count, Is.GreaterThanOrEqualTo(3));
-            _app.Router.Pop();
+            // 2) day 1 (onboarding v2): only PLAY — the first run is played by a worm without parts
+            Assert.That(Tutorial.Next(_svc.State, _svc.Content, _svc.NowMs)?.ScreenId, Is.EqualTo("portals"));
+            Assert.That(FirstNamed("Tab:worm"), Is.Null, "no Worm tab before level 1");
+            Assert.That(_svc.State.Parts.Equipped, Is.Empty);
 
             // 3) portals → first level
             _app.Open("portals");
@@ -93,9 +89,27 @@ namespace RogueStars.Client.PlayTests
             Assert.That(_svc.State.Onboarding.TutorialDone, Does.Contain("first_run"));
             Assert.That(_svc.State.Counter("run_rolls"), Is.GreaterThan(0));
 
-            // 4) spend rewards: equip parts, level the worm, build the farm
-            _app.Router.Reset(new HubScreen());
+            // 4) the unlock moment (Parts) → its one action opens the worm → equip the starter parts
+            Ui.Clear(_app.ModalLayer);
+            var hub = new HubScreen();
+            _app.Router.Reset(hub);
+            Assert.That(hub.ShowPendingUnlock(), Is.True, "Parts unlock moment after level 1");
+            yield return Wait(0.5f);
+            yield return Shot("11a_unlock_parts");
+            ClickNamed("UnlockAction");
+            yield return Wait(0.3f);
+            Assert.That(_app.Router.Current, Is.InstanceOf<WormScreen>());
+            ClickNamed("AutoEquip");
+            yield return Wait(0.3f);
+            yield return Shot("11b_worm_equipped");
+            Assert.That(_svc.State.Parts.Equipped.Count, Is.GreaterThanOrEqualTo(3));
+            _app.Router.Pop();
+            yield return Wait(0.3f);
+            Assert.That(_app.Router.Current, Is.InstanceOf<HubScreen>());
+            Assert.That(FirstNamed("Tab:worm"), Is.Not.Null, "Worm tab after level 1");
             yield return Shot("11_hub_after_first_run");
+
+            // spend rewards: equip parts, level the worm, build the farm
             foreach (PartSlot slot in Enum.GetValues(typeof(PartSlot)))
                 foreach (var uid in PartsSystem.SortedPartUids(_svc.State))
                 {
@@ -125,6 +139,9 @@ namespace RogueStars.Client.PlayTests
             // 5) unlock the rest (dev) to show every screen populated; pull signals with the reveal
             _svc.DevSetFlag(Features.DevUnlockAllFlag, true);
             _svc.DevGrantStarterKit();
+            yield return Wait(0.3f);
+            Assert.That(_app.Router.Current, Is.InstanceOf<HubScreen>());
+            yield return Shot("15b_hub_all_unlocked");
             _app.Open("signals");
             yield return Shot("16_signals");
             var pull = _svc.ExecuteNow(new GachaPull { PullType = GachaType.Part, Count = 10, Payment = GachaPayment.Tokens });

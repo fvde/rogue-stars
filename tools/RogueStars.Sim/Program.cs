@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using RogueStars.Sim;
 
 // Usage: dotnet run --project tools/RogueStars.Sim -c Release -- [--days 730] [--seeds 3] [--profiles Active:F2P,Active:Whale]
+//        --unlocks [--days 30] [--seeds 3]: onboarding unlock day/level per feature (Casual, Active ~1 h/day, Hardcore binge)
 //        [--out docs/balance] [--label after] [--quiet] [--variant no_lab_stats,old_biomass]
 var opts = Args.Parse(args);
 if (opts.Has("reward-table"))
@@ -9,6 +10,19 @@ if (opts.Has("reward-table"))
     // Content-only: the endless reward table (docs/design/economy-model.md); --variant alpha_X to try another α.
     var rc = opts.Has("variant") ? Variants.Create(opts.Str("variant", "")) : SimContent.Create();
     Console.WriteLine(Endless.RewardTable(rc, 100, 250, 500, 1000, 2000));
+    return;
+}
+if (opts.Has("unlocks"))
+{
+    // Onboarding schedule check: unlock day/level per feature for a ~1 h/day player (Active) and a binge player (Hardcore).
+    int ud = opts.Int("days", 30), us = opts.Int("seeds", 3);
+    var ujobs = new[] { TimeProfile.Casual, TimeProfile.Active, TimeProfile.Hardcore }
+        .SelectMany(t => Enumerable.Range(1, us).Select(seed => (t, seed: (long)seed))).ToList();
+    var ures = new ConcurrentBag<SimResult>();
+    string uv = opts.Str("variant", "");
+    Parallel.ForEach(ujobs, j => ures.Add(Simulation.Run(j.t, SpendProfile.F2P, j.seed, ud, string.IsNullOrEmpty(uv) ? null : () => Variants.Create(uv))));
+    var ordered0 = ures.OrderBy(r => Array.FindIndex(TimeProfile.All, t => t.Name == r.Time)).ThenBy(r => r.Seed).ToList();
+    Console.WriteLine(Unlocks.Markdown(ordered0, string.IsNullOrEmpty(uv) ? SimContent.Create() : Variants.Create(uv)));
     return;
 }
 int days = opts.Int("days", 730);

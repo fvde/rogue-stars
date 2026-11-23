@@ -281,8 +281,11 @@ namespace RogueStars.Client.Tests
             // Short-lived.
             _f.App.Update(ToastCenter.Lifetime + 0.1f);
             Assert.That(_f.App.Toasts.Count, Is.EqualTo(0));
-            // Other screens: back to the default inset.
+            // The hub keeps toasts above its PLAY card and tabs; screens without a bottom bar use the default inset.
             _f.App.Router.Pop();
+            _f.App.Update(0.01f);
+            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(_f.App.Router.Current.FooterHeight + 4).Within(0.01f));
+            _f.App.Open("mail");
             _f.App.Update(0.01f);
             Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(ToastCenter.DefaultBottomInset).Within(0.01f));
         }

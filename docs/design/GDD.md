@@ -281,10 +281,54 @@ new-player 7-day event, mailbox, idle production (city), push notification hooks
 gifts. Lobby popups capped.
 
 ## 16. Onboarding / unlock order
-Worm wakes → first Portal → first Part drop → Biomass farm → Worm level → Laboratory → Grain farm →
-Aliens arrive (first alien) → Housing (squad slot 1) → Blueprint pulls → Ore mine → Heroes → Mounts →
-Breeding Pen → Arena → Guilds → Invasions → Overcharged → Burrow → Dark Side. Gates are content-defined
-(chapter cleared or other requirement); locked features are visible with their requirement.
+A three-week journey, one new thing at a time (onboarding v2). Every feature has a gate = **main level cleared AND
+earliest account day** (`RequirementKind.AccountAgeDays`, counted in daily resets: day 1 = the creation day, day 2 starts
+at the first reset after it). Day-1 unlocks are not limited; after that **at most one unlock group per day** (the lowest
+pending one, deterministic), so a binge player hits the day gate, a slow player the level gate, and a returning player
+catches up one group per day. Pairs ("X + Y") are one group and unlock together.
+
+| Day | Level | Unlock (feature id) | Guided action |
+|---|---|---|---|
+| 1 | – | only PLAY: the scripted first run (level 1 eased −35% so a worm without parts wins it) | – |
+| 1 | 1 | Parts / Worm tab (`parts`): equip the three starter parts | Equip your parts |
+| 1 | 5 | Daily goals (`quests`) | See today's goals |
+| 2 | 8 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
+| 3 | 6* | Worm level & talents (`worm_level`) | Level up the worm |
+| 4 | 12 | Part Signal + Shop (`part_pulls`, `shop`); the first pulls are on the starting tokens | Tune in |
+| 5 | 14 | Laboratory (`laboratory`) | Start first research |
+| 6 | 16 | Grain Farm (`grain_farm`) | Build the grain farm |
+| 7 | 18 | Aliens (first alien) + Alien Signal (`aliens`, `alien_pulls`) | Meet your alien |
+| 8 | 20 | Housing → first squad slot (`alien_squad`) | Build housing |
+| 9 | 22 | Blueprint Signal (`blueprints`) | Pull a blueprint |
+| 10 | 24 | Heroes (`heroes`) | Choose a hero |
+| 11 | 26 | Ore Mine + Runes (`ore_mine`, `runes`) | Build the ore mine |
+| 12 | 28 | Mounts (`mounts`) | Saddle up |
+| 13 | 29 | Funds (`funds`; not in the approved list, fills the free day 13) | See the funds |
+| 14 | 30 | Breeding Pen + Season pass (`breeding`, `season_pass`) | Build the pen |
+| 15 | 32 | Arena (`arena`) | Enter the arena |
+| 16 | 34 | Overcharged levels (`overcharged`) | Play overcharged |
+| 17 | 36 | Guilds (`guilds`) | Find a guild |
+| 18 | 38 | Invasions (`invasions`; also opens the hub's live-event column and the Observatory) | Defend the planet |
+| 19 | 40 | Burrow (`burrow`) | Dig in |
+| 20 | 42 | Forge (`forge`) | Open the forge |
+| 21 | 45 | Dark Side of the Planet (`dark_side`) | Cross over |
+
+\* Approved as level 10. At level 10 casual players cannot clear the gate level without worm levels and stall for
+~12 days (simulator); level 6 keeps day 3 for ~1 h/day and binge players. See `docs/balance/onboarding-unlocks.md`.
+
+**Visibility:** locked features are invisible — no greyed-out entries. Only the single next group is teased
+(`Features.Next`: "Next: Laboratory — clear level 14", "unlocks tomorrow"). Day-1 hub of a brand-new account: PLAY, the
+Planet tab, the teaser, the stamina chip and the profile chip; the Worm tab (and Mail) join after level 1. Mail and the
+currency chips follow use: a currency shows once its feature unlocks.
+
+**Hub:** bottom tabs for daily features appear one by one (Worm, City, Planet in the centre, Signals, Arena); left
+column = daily goals and live events (invasions, planetary/limited events, from the Invasions unlock); right column =
+shop, offer, pass, mail, "More" (laboratory, aliens, heroes, mounts, breeding, guild); the PLAY card (Continue during a
+run) sits above the tabs.
+
+**Unlock moment:** each unlock opens a full-screen celebration on the hub (never mid-run): the feature's name, one line
+of what it does, the reward (unlock gift and items), ONE guided action that claims the gift and opens the feature, and
+the next teaser. Starter items arrive with the unlock (`UnlockGrants`: first alien, blueprints, Data, hero shards...).
 
 ## 17. Technical architecture
 - **Shared rules** (`shared/RogueStars.Rules`, netstandard2.1, C# 9): all game logic, content definitions,

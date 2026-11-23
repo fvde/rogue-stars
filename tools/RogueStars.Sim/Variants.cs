@@ -51,6 +51,14 @@ public static class Variants
             }
             return;
         }
+        if (v.StartsWith("gate_"))
+        {
+            // Onboarding experiment: gate_<featureId>_L<level> moves a feature's main-level gate (e.g. gate_worm_level_L3).
+            int at = v.LastIndexOf("_L", StringComparison.Ordinal);
+            var f = c.Feature(v.Substring(5, at - 5)) ?? throw new ArgumentException("unknown feature in " + v);
+            foreach (var r in f.Requires.Items) if (r.Kind == RequirementKind.MainLevel) r.Target = long.Parse(v.Substring(at + 2));
+            return;
+        }
         if (v.StartsWith("alpha_"))
         {
             // Endless campaign reward exponent α (generated portals and Dark Side levels are built lazily, after this).

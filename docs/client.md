@@ -29,7 +29,7 @@ AppBootstrap (only object in Main.unity)
      │    └─ IGameService = LocalGameService (offline) | RemoteGameService (online)
      ├─ ScreenRouter ── stack of UiScreen; Android back closes the top modal, then pops
      ├─ ToastCenter ── GameEvents (EventText: display names only, never uids/player ids), errors and info: max 2, 1.8 s, in a strip above the screen's bottom bar
-     └─ ResourceBar ── main currencies + regen timers (live); Data / Arena Medals / Awaken Cores in the first row, "All" opens every balance
+     └─ ResourceBar ── profile chip (worm level, name, power → profile: Worm, Settings) + up to 5 currency chips the player has a use for (HubLayout.VisibleCurrencies: stamina always, others as their features unlock) with regen timers (live); "All" opens every balance
 ```
 - **Same commands for both modes.** Screens only create rules command objects (`new CityUpgrade { BlueprintId = … }`)
   and call `Session.Run`. They read `Session.State`/`Content` and the rules' static query helpers
@@ -121,35 +121,38 @@ AppBootstrap (only object in Main.unity)
 ## Screens
 | Screen | Feature gate | Notes |
 |---|---|---|
-| Hub (Planet) | – | the frontier main portal and its neighbours (`ContentDb.MainPortal`) + next level (`RunSystem.NextMainLevel`) + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
+| Hub (Planet) | – | onboarding v2 (GDD §16, design canvas Main/HubDay1), what shows comes from `App/HubLayout.cs`: left column = daily goals + live events (from the Invasions unlock, ≤ 3 icons + Observatory), planet + frontier portal chip in the centre, right column = Shop, Offer (timed offer on sale), Pass, Mail, More (every other unlocked screen); the tutorial goal card when it needs another screen; the **next-unlock teaser** (`Features.Next`: "Laboratory — clear level 14", "unlocks tomorrow", level progress or the unlock day); fixed footer: PLAY card (portal · level, stamina cost; Continue during a run) and the bottom tabs (Worm, City, Planet, Signals, Arena) that appear as their features unlock (NEW badge on the unlock day). Locked features are never shown. Pending celebrations open the **unlock moment** |
+| Unlock moment | – | `UnlockScreen` (design canvas Unlock): full screen, "DAY n · NEW ON YOUR PLANET", the unlock group's name, its `FeatureDef.Description`, reward chips (`UnlockRewards` + `UnlockGrants`), ONE guided action (`HubLayout.UnlockAction`: claims `FeatureCelebrate` for every member, then replaces itself with the feature's screen) and the next teaser. Opened by the hub (`HubScreen.ShowPendingUnlock`, from `Frame` while the hub is on top, never mid-run); backing out snoozes it for the session and the hub shows "NEW: … — tap to open" |
 | Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, milestone chest / portal bonus, entry cost), stamina refill modal (daily free / ad / Diamonds), **daily Biomass surge** counter (`RunSystem.BiomassBonusRunsLeft`). The campaign is endless and never iterated: Main/Overcharged show a page of 5 portals (`PortalsScreen.MainWindow`: 2 cleared, the frontier portal holding `NextMainLevel`, 2 upcoming; Prev pages back through cleared portals, Next never past frontier + 2, *Jump to level n*), each with its global level range and **CHEST** (every 10th level) / **BONUS** (every 50th, `CampaignDef.MilestoneEveryLevels`/`PortalBonusEveryLevels`) markers, ✓ once claimed; the endless Dark Side (`ContentDb.DarkSideLevel`) is paged 25 at a time around the next level (`dark_side_level_max` + 1), one page ahead at most, each level showing its Data |
 | Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker ("BOSS n%", placed in a free cell next to the gate, never on a tile), worm token animated along the trail, dice roll animation; fixed bottom bar (dice + last landing, ROLL/Auto, Decision/Auto-pick/Abandon) with a reserved toast strip above it; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop for the clear steps (roll, tiles, battles with fast playback), any tap stops it; at a player decision (`RunSystem.RequiresPlayer`) it pauses ("AUTO PAUSED — your choice", tap-to-stop overlay removed), the decision modal stays open, and auto resumes by itself after the decision while still on; "Auto-pick: On/Off" (bottom bar and Settings, `ClientSettings.AutoPickDrafts`, off by default) = farming: default choices, shops left without buying |
 | Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars (values straight from the log entries: `TargetHp/TargetShield/TargetRage`, `ActorShield/ActorRage`, fighters' `StartShield/StartRage`), status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
 | Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), "Biomass surge ×4 applied" + surge runs left, **double rewards** (rewarded ad, instant with No Ads → `RunDoubleRewards`, daily cap shown), Again / Portals |
-| Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
+| Worm | `parts` | level up (×1/×10, Biomass) and the talent road (ranks, tier completion, perk) once `worm_level` unlocks, power and stats, six body slots with equip modal + "Equip best parts", "All parts" (Parts screen) |
 | Parts | `parts` | 14-step ladder (Common … Mythic, Mythic+1/+2, Mythic S, S+1/+2, Mythic SS, SS+1/+2; `Theme.PartRarityColor`), inventory with slot filters (equipped first, then rarity), quick merge (asks first if locked parts below Legendary exist); detail modal: stats, the five skills locked/unlocked by rarity (Epic/Legendary/Mythic/Mythic S/Mythic SS), level up / cap raise / level reset, equip, **lock** (client-side `PartLocks`, PlayerPrefs per player), rune sockets, Forge, dismantle (confirm for Legendary+/locked); **merge picker**: own-def copies (needed/owned), fodder points and LE, Ore, candidate list with add/remove, auto-select of the best fodder (`PartPlanner`: cheapest set without superfluous parts, other defs first; locked, Mythic+ and Legendary+ copies of equipped defs only as a fallback that needs a confirmation; equipped/awakened/forged never), checked by `PartsSystem.ValidateMerge`; **Replicator** (Mythic+ parts: 10 LE of other-def Legendary+ surplus + Ore → Legendary copy, `ValidateReplicate`); **awakening** (Mythic+, once, 50 Awaken Cores): preview of the new name, stats before → after and the five skills swapped; Runes tab: lock, merge 3→1 |
 | Signals | `part_pulls` (+ per type) | Part / Blueprint / Alien Signals, featured mythic banner with countdown vs standard pool, published odds, 1×/10× with tokens or Diamonds, daily ad pull, reveal animation |
 | Laboratory | `laboratory` | header: Data, next research cost/duration (`LaboratorySystem.NextDataCost`/`NextDurationMs`, Annex ×2), slots busy, Research Annex requirement/staffing (`LaboratoryScreen.AnnexStatus`); active research slots (main/Annex) with Diamonds/ad/free speed-ups and collect; **tree** per branch (offense/defense/elements/command, `LabTreeLayout`: one row per tier, nodes ordered by their prerequisites, no overlaps): stat nodes steel-edged, skill nodes family-coloured with a SKILL band and on/off, edges gold = ALL prerequisites, thin = ANY; node modal: effect now/next, ANY/ALL prerequisites (other branches named), research button with the block reason, draft-pool toggle for skill nodes |
 | Heroes / Mounts | `heroes` / `mounts` | unlock from shards, stars, levels (Hero XP / Fuel), awakening (mounts), equip, trait/weapon skills by star |
-| City | – | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock; staffed boons (Research Annex): banner while unbuilt/unstaffed and "needs 2 alien workers of 3★+ (staffed n/2)" in the details |
+| City | `biomass_farm` | 12×12 grid with areas (locked areas labelled), place/move/store buildings, upgrade with timers + speed-ups, collect (one/all), production priority, blueprint star-up, workers, area unlock; staffed boons (Research Annex): banner while unbuilt/unstaffed and "needs 2 alien workers of 3★+ (staffed n/2)" in the details |
 | Aliens | `aliens` | list by rarity, stats, level/star up, assign to building, squad toggle |
 | Breeding Pen | `breeding` | pick parents (cost/duration preview), jobs with timers, collect, replace/discard modal comparing genes |
-| Observatory | – | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
+| Observatory | `invasions` | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
 | Quests | `quests` | daily/weekly with point chests, achievements, 7-day login calendar, new-player event |
-| Shop | – | offers (starter/rolling/flash/gift), Diamond packs, monthly pass, season pass, funds, permanent, Diamond items, rewarded ads |
+| Shop | `shop` | offers (starter/rolling/flash/gift), Diamond packs, monthly pass, season pass, funds, permanent, Diamond items, rewarded ads |
 | Mail | – | inbox, open/read, claim, claim all, delete |
 | Arena | `arena` | league/points/tickets/Arena Medals, opponents + fight result modal, weekly leaderboard, **medal shop** (`ShopBuyItem`, section `arena`: Awaken Core 200 medals 2/week first, part tokens, Data, Gear Cores; bought n/limit this week, reset countdown, "Sold out"); the Diamond shop no longer lists arena/guild items |
 | Guild | `guilds` | online only (offline shows "requires online"): create/search/join, members by weekly invasion damage, chat, guild shop, leave |
 | Settings | – | offline/online, server URL, display name, run auto mode "Auto-pick drafts (farming)" toggle, reset save, dev cheats (unlock all features) |
 
-**Adding a screen:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and add a `ScreenEntry` to
-`ScreenCatalog.All` (`Todo(...)` creates a placeholder). The hub, navigation gating and the smoke tests pick it up
-automatically. Extend `Fmt.Reward` / `EventText` for new reward kinds and events.
+**Adding a screen:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and add a `ScreenEntry` (with its feature
+gate) to `ScreenCatalog.All` (`Todo(...)` creates a placeholder). The hub lists it under "More" once unlocked unless
+`HubLayout` gives it a tab or a column slot; the smoke tests pick it up automatically. Extend `Fmt.Reward` / `EventText` for new reward kinds and events.
 
-**Onboarding / tutorial** (`App/Tutorial.cs`): no forced popups. Content tutorial steps are completed automatically
-(`TutorialAdvance`) as soon as the player has done the thing (counters/state), and the hub shows the next goal with a
-Go button; before the first run it asks to equip the starter parts, and when nothing is actionable it points at the
-next feature unlock. Unlocks, goals and rewards appear as toasts (at most two, 1.8 s, never blocking input) in a strip just above the
+**Onboarding / tutorial** (`App/Tutorial.cs`, GDD §16): no forced popups besides the unlock moment. Content tutorial
+steps are completed automatically (`TutorialAdvance`) as soon as the player has done the thing (counters/state); the hub
+shows the next goal with a Go button when it needs another screen (the run goals are the PLAY card). The first run is
+played without parts; once Parts unlock (level 1) it asks to equip the starter parts, and when nothing is actionable it
+points at `Features.Next`. UI helpers of the hub and the moment (rounded cards, planet, icon buttons, PLAY card, teaser,
+tabs; procedural sprites, wireframe palette) are in `Ui/HubKit.cs`; `UiScreen.HeaderHeight` = 0 hides the header. Unlocks, goals and rewards appear as toasts (at most two, 1.8 s, never blocking input) in a strip just above the
 screen's fixed bottom bar (`UiScreen.FooterHeight`/`ReserveToastStrip`): the Run screen keeps that strip free between
 the board and its ROLL/Decision bar, so toasts never cover the board.
 
@@ -184,7 +187,14 @@ upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise 
 checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 97 tests):
+EditMode (`Assets/Tests/EditMode`, 106 tests):
+- `HubOnboardingTests`: the day-1 hub of a brand-new account (only PLAY, the Planet tab, the teaser "Parts — clear level 1",
+  the stamina and profile chips; nothing greyed out), level 1 cleared for real → unlock moment (name, description,
+  +20 Diamonds, one action "EQUIP YOUR PARTS") claims the gift and opens the Worm, back = hub with the Worm tab (NEW) and
+  the equip goal; tabs, side icons and currency chips appear as features unlock; every unlocked catalog screen is
+  reachable (tabs, columns, More, profile); teaser texts for the level gate and the day gate; the day-2 City moment
+  ("DAY 2", "BUILD THE FARM", "Tomorrow: Worm Level & Talents") opens the City; a pair (Part Signal + Shop) is one moment
+  that claims both; backing out does not reopen it every frame; Continue replaces PLAY during a run.
 - `PortalsEndlessTests`: portal/Dark Side windows and milestone markers (pure), fresh save, frontier past level 500 (first
   generated portal), level 1234 (window 1211–1260, paging back, jump to frontier, chest/bonus markers, chest in the modal),
   Dark Side past level 1000 (paging, one page ahead), hub frontier portals.
@@ -227,11 +237,11 @@ EditMode (`Assets/Tests/EditMode`, 97 tests):
 it only (no wall clock), so a seeded service on a `ManualClock` plays out identically every time.
 
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
-- `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
-  starter parts → first run with a manual roll, then auto mode to the boss, making every decision auto pauses at
+- `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (day-1 hub with
+  PLAY only → first run without parts with a manual roll, then auto mode to the boss, making every decision auto pauses at
   through the decision modal (shop: buy a skill then leave, draft: first card, event: default option, branch: path A,
-  defeat: give up) → result → hub/worm/parts → city build →
-  dev unlock → 10× Signal with reveal → stamina refill → parts ladder, part detail with skills, Mythic merge picker,
+  defeat: give up) → result → Parts unlock moment → its action opens the Worm → equip the starter parts → hub with the
+  Worm tab → worm/parts → city build → dev unlock → hub with everything unlocked → 10× Signal with reveal → stamina refill → parts ladder, part detail with skills, Mythic merge picker,
   awakening preview → lab tree with a running research + a capstone node → arena medal shop → Dark Side → every catalog screen) and renders the canvas through a
   1080×1920 RenderTexture camera into `client/RogueStars/Screenshots/` (gitignored). A curated, downscaled set lives
   in `docs/client-screenshots/`. Deterministic: fixed seed (11) and game clock (2026-03-02 12:00 UTC), a fresh save

@@ -8,8 +8,10 @@ namespace RogueStars.Client.App
 {
     /// <summary>
     /// Non-intrusive tutorial: content tutorial steps (Meta onboarding) are completed automatically when the
-    /// player has done the thing (TutorialAdvance grants the step reward); the hub shows the next goal as a card
-    /// with a "Go" button. No forced popups.
+    /// player has done the thing (TutorialAdvance grants the step reward); the hub shows the next goal that needs another
+    /// screen as a card with a "Go" button (PLAY covers the run goals). Steps follow the onboarding v2 order: the first
+    /// run before anything else, then equip the starter parts (Parts unlock after level 1), City, worm level, laboratory,
+    /// aliens, heroes. No forced popups.
     /// </summary>
     public static class Tutorial
     {
@@ -49,17 +51,17 @@ namespace RogueStars.Client.App
         }
 
         /// <summary>The first goal not done yet whose prerequisites are met (null when the tutorial is over).</summary>
-        public static Goal Next(GameState s, ContentDb c)
+        public static Goal Next(GameState s, ContentDb c, long nowMs = 0)
         {
             if (s == null) return null;
-            if (HasEquippablePart(s, c))
+            if (Features.IsUnlocked(s, c, Features.Parts) && HasEquippablePart(s, c))
                 return new Goal { StepId = null, Text = "Equip your starter parts on the worm", ScreenId = "worm", Done = st => !HasEquippablePart(st, c) };
             foreach (var g in Goals)
                 if (!s.Onboarding.TutorialDone.Contains(g.StepId) && Completable(s, c, g.StepId)) return g;
-            // Nothing to do right now: point at the next feature unlock (usually "clear main level N").
-            var locked = Features.Locked(s, c);
-            if (locked.Count > 0)
-                return new Goal { StepId = null, Text = "Next unlock: " + locked[0].Name + " — " + locked[0].RequirementText, ScreenId = "portals", Done = st => false };
+            // Nothing to do right now: point at the next feature unlock ("clear level N" / "unlocks tomorrow").
+            var next = Features.Next(s, c, nowMs);
+            if (next != null)
+                return new Goal { StepId = null, Text = "Next unlock: " + next.Name + " — " + next.Text, ScreenId = "portals", Done = st => false };
             return null;
         }
 

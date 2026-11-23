@@ -41,7 +41,10 @@ Handlers validate first (throw `RuleException` via `GameEngine.Require`) and onl
 Grant rewards through `ctx.Grant(...)` so every reward kind goes through its owner's granter.
 
 ## Integration points between workstreams
-- **Feature gates:** `Features.IsUnlocked(state, content, Features.X)` (owned by Meta).
+- **Feature gates:** `Features.IsUnlocked(state, content, Features.X)` (owned by Meta). Reads recorded unlocks only: the
+  onboarding settler applies the gate (main level AND account day) and the one-group-per-day limit (GDD §16). Tests that
+  need a feature without playing the days record it (`state.Onboarding.Unlocked[id] = t`) or set `Features.DevUnlockAllFlag`.
+  `Features.Next` = the single next unlock group for the hub teaser.
 - **Rewards:** `RewardKinds` + granters (`Part`/`Rune` → Progression, `Blueprint`/`Alien` → City,
   `HeroShards`/`Mount` → Progression).
 - **Combat loadout:** `engine.BuildLoadout(state, now)`; Progression contributes worm stats, parts, hero, mount;

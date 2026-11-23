@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
@@ -24,20 +25,56 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>
-        /// Records newly met feature unlocks (sticky) and emits "feature_unlocked". Runs as a settler before
-        /// every command; other systems may also call it right after progress that can unlock features.
+        /// Records newly met feature unlocks (sticky) and emits "feature_unlocked". Runs as a settler before every
+        /// command; other systems may also call it right after progress that can unlock features.
+        /// Groups unlock as a whole once every member's requirements are met. Day-1 groups (no account-day gate) are
+        /// never limited; every later group needs a free daily slot: at most one such group per reset day (the lowest in
+        /// onboarding order), so a player who comes back after a break catches up one group per day.
         /// </summary>
         public static void CheckUnlocks(CommandContext ctx)
         {
             var s = ctx.State;
-            foreach (var f in ctx.Content.FeatureOrder)
+            var c = ctx.Content;
+            bool usedToday = UnlockedToday(s, c, ctx.NowMs);
+            foreach (var group in Features.Groups(c))
             {
-                if (s.Onboarding.Unlocked.ContainsKey(f.Id)) continue;
-                if (!Requirements.IsMet(s, ctx.Content, f.Requires, ctx.NowMs)) continue;
-                s.Onboarding.Unlocked[f.Id] = ctx.NowMs;
-                ctx.Emit("feature_unlocked", f.Id);
-                ctx.GrantAll(f.UnlockGrants);
+                if (Features.GroupUnlocked(s, group)) continue;
+                if (!GroupRequirementsMet(s, c, group, ctx.NowMs)) continue;
+                bool limited = Features.GroupDay(group) > 1;
+                if (limited && usedToday) return;
+                foreach (var f in group)
+                {
+                    if (s.Onboarding.Unlocked.ContainsKey(f.Id)) continue;
+                    s.Onboarding.Unlocked[f.Id] = ctx.NowMs;
+                    ctx.Emit("feature_unlocked", f.Id);
+                    ctx.GrantAll(f.UnlockGrants);
+                }
+                if (limited) usedToday = true;
             }
+        }
+
+        /// <summary>Every member's own requirements are met at <paramref name="nowMs"/> (ignores the daily limit).</summary>
+        public static bool GroupRequirementsMet(GameState s, ContentDb c, List<FeatureDef> group, long nowMs)
+        {
+            foreach (var f in group)
+                if (!s.Onboarding.Unlocked.ContainsKey(f.Id) && !Requirements.IsMet(s, c, f.Requires, nowMs)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// True when today's daily unlock slot is used: a day-gated feature (earliest day ≥ 2) was recorded on the reset
+        /// day of <paramref name="nowMs"/>.
+        /// </summary>
+        public static bool UnlockedToday(GameState s, ContentDb c, long nowMs)
+        {
+            long today = MetaTime.DayIndex(c, nowMs);
+            foreach (var kv in s.Onboarding.Unlocked)
+            {
+                if (MetaTime.DayIndex(c, kv.Value) != today) continue;
+                var def = c.Feature(kv.Key);
+                if (def != null && Features.UnlockDay(def) > 1) return true;
+            }
+            return false;
         }
 
         /// <summary>Unlocked features whose celebration has not been opened yet (UI badge, not a forced popup).</summary>
@@ -98,7 +135,7 @@ namespace RogueStars.Rules.Systems
         }
     }
 
-    /// <summary>Unlock state of one feature for the "locked features are visible" UI.</summary>
+    /// <summary>Unlock state of one feature (requirement text/progress).</summary>
     public sealed class FeatureStatus
     {
         public string Id;
@@ -106,6 +143,34 @@ namespace RogueStars.Rules.Systems
         public int Order;
         public bool Unlocked;
         public string RequirementText;
+        public List<RequirementProgress> Progress = new List<RequirementProgress>();
+    }
+
+    /// <summary>
+    /// The single next locked unlock group, for the hub teaser (<see cref="Features.Next"/>). Everything after it stays
+    /// hidden.
+    /// </summary>
+    public sealed class NextUnlock
+    {
+        public string GroupId;
+        /// <summary>Member feature ids in onboarding order.</summary>
+        public List<string> Ids = new List<string>();
+        /// <summary>Member names joined with " + ".</summary>
+        public string Name;
+        /// <summary>Main level to clear (0 = no level gate).</summary>
+        public long Level;
+        public long CurrentLevel;
+        public bool LevelMet;
+        /// <summary>Earliest account day (1 = creation day).</summary>
+        public int Day;
+        /// <summary>The account's current day (1 = creation day).</summary>
+        public int CurrentDay;
+        /// <summary>Whole days until the group can unlock: the day gate, or tomorrow when today's unlock is used up. 0 = today.</summary>
+        public int DaysToWait;
+        /// <summary>Requirements met but today's one unlock is already used.</summary>
+        public bool WaitingForDailyLimit;
+        /// <summary>"clear level 12", "clear level 12 · unlocks tomorrow", "unlocks tomorrow", "unlocks in 3 days".</summary>
+        public string Text;
         public List<RequirementProgress> Progress = new List<RequirementProgress>();
     }
 
@@ -141,17 +206,21 @@ namespace RogueStars.Rules.Systems
         public const string AlienPulls = "alien_pulls";
         public const string Forge = "forge";
         public const string Runes = "runes";
+        /// <summary>The shop (offers, packs, daily gift). Client navigation gate; purchases themselves are not gated.</summary>
+        public const string Shop = "shop";
 
         /// <summary>State flag that unlocks every feature (dev cheats, other workstreams' tests).</summary>
         public const string DevUnlockAllFlag = "dev_unlock_all";
 
+        /// <summary>
+        /// Unlocked = recorded by the onboarding settler (<see cref="OnboardingSystem.CheckUnlocks"/>, which applies the day
+        /// gate and the one-per-day limit), the dev flag, or an ungated id. Requirements being met is not enough.
+        /// </summary>
         public static bool IsUnlocked(GameState state, ContentDb content, string featureId)
         {
             if (state.Flags.Contains(DevUnlockAllFlag)) return true;
             if (state.Onboarding.Unlocked.ContainsKey(featureId)) return true;
-            var def = content.Feature(featureId);
-            if (def == null) return true;
-            return Requirements.IsMet(state, content, def.Requires);
+            return content.Feature(featureId) == null;
         }
 
         /// <summary>Throws RuleException("feature locked") unless the feature is unlocked (gate for command handlers).</summary>
@@ -175,7 +244,102 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Only the locked features (visible with their requirement).</summary>
+        /// <summary>Unlock groups in onboarding order (each group's members in order).</summary>
+        public static List<List<FeatureDef>> Groups(ContentDb content)
+        {
+            var groups = new List<List<FeatureDef>>();
+            var index = new Dictionary<string, List<FeatureDef>>();
+            foreach (var f in content.FeatureOrder)
+            {
+                if (!index.TryGetValue(f.GroupId, out var g)) { g = new List<FeatureDef>(); index[f.GroupId] = g; groups.Add(g); }
+                g.Add(f);
+            }
+            return groups;
+        }
+
+        /// <summary>Earliest account day of a feature (1 = creation day): its AccountAgeDays requirement + 1.</summary>
+        public static int UnlockDay(FeatureDef def)
+        {
+            long age = 0;
+            foreach (var r in def.Requires.Items) if (r.Kind == RequirementKind.AccountAgeDays) age = Math.Max(age, r.Target);
+            return (int)age + 1;
+        }
+
+        /// <summary>Earliest account day of a group (its latest member).</summary>
+        public static int GroupDay(List<FeatureDef> group)
+        {
+            int day = 1;
+            foreach (var f in group) day = Math.Max(day, UnlockDay(f));
+            return day;
+        }
+
+        /// <summary>Main level a feature needs (0 = none).</summary>
+        public static long UnlockLevel(FeatureDef def)
+        {
+            long level = 0;
+            foreach (var r in def.Requires.Items) if (r.Kind == RequirementKind.MainLevel) level = Math.Max(level, r.Target);
+            return level;
+        }
+
+        public static bool GroupUnlocked(GameState state, List<FeatureDef> group)
+        {
+            foreach (var f in group) if (!state.Onboarding.Unlocked.ContainsKey(f.Id)) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The single next locked unlock group (lowest onboarding order) with its level/day progress and teaser text;
+        /// null when everything is unlocked (or the dev flag is set).
+        /// </summary>
+        public static NextUnlock Next(GameState state, ContentDb content, long nowMs)
+        {
+            if (state.Flags.Contains(DevUnlockAllFlag)) return null;
+            foreach (var group in Groups(content))
+            {
+                if (GroupUnlocked(state, group)) continue;
+                var n = new NextUnlock { GroupId = group[0].GroupId };
+                var names = new List<string>();
+                long age = Requirements.AccountAgeDays(state, content, nowMs);
+                n.CurrentDay = (int)age + 1;
+                n.Day = 1;
+                bool otherMet = true;
+                foreach (var f in group)
+                {
+                    n.Ids.Add(f.Id);
+                    names.Add(f.Name);
+                    foreach (var p in Requirements.Progress(state, content, f.Requires, nowMs))
+                    {
+                        if (p.Requirement.Kind == RequirementKind.MainLevel) { n.Level = Math.Max(n.Level, p.Target); n.CurrentLevel = p.Current; }
+                        else if (p.Requirement.Kind == RequirementKind.AccountAgeDays) n.Day = (int)Math.Max(n.Day, p.Target + 1);
+                        else if (!p.Met) otherMet = false;
+                        if (!n.Progress.Exists(x => x.Text == p.Text)) n.Progress.Add(p);
+                    }
+                }
+                n.Name = string.Join(" + ", names);
+                n.LevelMet = n.CurrentLevel >= n.Level;
+                int dayWait = Math.Max(0, n.Day - n.CurrentDay);
+                bool usedToday = GroupDay(group) > 1 && OnboardingSystem.UnlockedToday(state, content, nowMs);
+                n.DaysToWait = Math.Max(dayWait, usedToday ? 1 : 0);
+                n.WaitingForDailyLimit = usedToday && dayWait == 0 && n.LevelMet && otherMet;
+                n.Text = TeaserText(n, otherMet);
+                return n;
+            }
+            return null;
+        }
+
+        private static string TeaserText(NextUnlock n, bool otherMet)
+        {
+            var parts = new List<string>();
+            if (!n.LevelMet && n.Level > 0) parts.Add("clear level " + n.Level);
+            if (!otherMet)
+                foreach (var p in n.Progress)
+                    if (!p.Met && p.Requirement.Kind != RequirementKind.MainLevel && p.Requirement.Kind != RequirementKind.AccountAgeDays) parts.Add(p.Text);
+            if (n.DaysToWait == 1) parts.Add("unlocks tomorrow");
+            else if (n.DaysToWait > 1) parts.Add("unlocks in " + n.DaysToWait + " days");
+            return parts.Count == 0 ? "unlocking now" : string.Join(" · ", parts);
+        }
+
+        /// <summary>Only the locked features (with their requirement).</summary>
         public static List<FeatureStatus> Locked(GameState state, ContentDb content, long nowMs = 0)
         {
             var all = List(state, content, nowMs);

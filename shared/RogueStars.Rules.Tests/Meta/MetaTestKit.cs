@@ -39,5 +39,11 @@ public static class MetaTestKit
 
     public static void UnlockAll(GameState s) => s.Flags.Add(Features.DevUnlockAllFlag);
 
+    /// <summary>Record feature unlocks directly (as the onboarding settler would), bypassing day gates.</summary>
+    public static void Unlock(GameState s, params string[] featureIds)
+    {
+        foreach (var id in featureIds) s.Onboarding.Unlocked[id] = s.CreatedMs;
+    }
+
     public static long Bal(GameState s, string currency) => s.Wallet.Get(currency);
 }

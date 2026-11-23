@@ -107,6 +107,7 @@ public class ArenaTests
         Assert.Equal(5, Bal(s, Currencies.ArenaTickets));
         Assert.Equal("feature locked", Fail(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t));
         s.Counters[Requirements.MainLevelCounter] = 16;
+        Unlock(s, Features.Arena);
         Fail(e, ref s, new ArenaFightResult { Won = true, OpponentPoints = 1000 }, t);
         for (int i = 0; i < 5; i++) Ok(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t);
         Assert.Equal("no arena tickets", Fail(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t));
@@ -136,6 +137,7 @@ public class ArenaTests
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
         s.Counters[Requirements.MainLevelCounter] = 16;
+        Unlock(s, Features.Arena);
         Ok(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t);
         var won = Assert.IsType<ArenaFightOutcome>(Ok(e, ref s, new ArenaFightResult { Won = true, OpponentPoints = 1000 }, t).Payload);
         Assert.Equal(20, won.Delta);
@@ -218,6 +220,7 @@ public class GuildTests
         s.Wallet.Add(Currencies.ArenaMedals, 10_000);
         Assert.Equal("item locked", Fail(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t));
         s.Counters[Requirements.MainLevelCounter] = 16;
+        Unlock(s, Features.Arena);
         var item = e.Content.ShopItem("arena_awaken_core")!;
         Assert.Equal(ContentDb.ArenaShopSection, item.Section);
         for (int i = 0; i < item.Limit; i++) Ok(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t);

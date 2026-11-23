@@ -26,6 +26,8 @@ namespace RogueStars.Client.App
         public RectTransform Root { get; private set; }
         public bool IsCreated => Root != null;
         public abstract string Title { get; }
+        /// <summary>Height of the header (back + title); 0 = no header (the hub and full-screen moments draw their own).</summary>
+        public virtual float HeaderHeight => 110;
         /// <summary>Show the back button (false for the root hub).</summary>
         public virtual bool ShowBack => true;
         /// <summary>Rebuild automatically on every state change (false for screens with text input).</summary>
@@ -53,12 +55,16 @@ namespace RogueStars.Client.App
         {
             App = app;
             Root = Ui.Stretch(Ui.Rect(parent, "Screen:" + GetType().Name));
-            var header = Ui.Row(Root, 110, 16, Theme.Header, 16, "Header");
-            header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1); header.pivot = new Vector2(0.5f, 1);
-            header.sizeDelta = new Vector2(0, 110); header.anchoredPosition = Vector2.zero;
-            if (ShowBack) Ui.Button(header, "< Back", () => app.Router.Pop(), Theme.Button, 200, 84);
-            _title = Ui.Label(header, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
-            BuildHeaderExtras(header);
+            float headerHeight = HeaderHeight;
+            if (headerHeight > 0)
+            {
+                var header = Ui.Row(Root, headerHeight, 16, Theme.Header, 16, "Header");
+                header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1); header.pivot = new Vector2(0.5f, 1);
+                header.sizeDelta = new Vector2(0, headerHeight); header.anchoredPosition = Vector2.zero;
+                if (ShowBack) Ui.Button(header, "< Back", () => app.Router.Pop(), Theme.Button, 200, 84);
+                _title = Ui.Label(header, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
+                BuildHeaderExtras(header);
+            }
             float bottom = 0;
             if (FooterHeight > 0)
             {
@@ -73,7 +79,7 @@ namespace RogueStars.Client.App
                 }
                 bottom = FooterHeight + (ReserveToastStrip ? ToastCenter.StripHeight + 8 : 0);
             }
-            BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, 110, 0, bottom);
+            BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
             Rebuild();
         }

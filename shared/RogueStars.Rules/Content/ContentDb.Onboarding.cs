@@ -20,7 +20,10 @@ namespace RogueStars.Rules.Content
         Currency,
         /// <summary>Feature Key unlocked.</summary>
         Feature,
-        /// <summary>Account at least Target days old.</summary>
+        /// <summary>
+        /// Account at least Target days old, counted in daily resets (GameClock.DayIndex): 0 on the creation day,
+        /// 1 from the first reset after it ("day 2"), ...
+        /// </summary>
         AccountAgeDays,
     }
 
@@ -48,12 +51,23 @@ namespace RogueStars.Rules.Content
         public static RequirementSet AnyOf(params RequirementDef[] items) { var s = All(items); s.Any = true; return s; }
     }
 
-    /// <summary>A gated feature (GDD §16). Locked features stay visible with their requirement text.</summary>
+    /// <summary>
+    /// A gated feature (GDD §16). The client hides locked features; only the next one is teased
+    /// (<see cref="RogueStars.Rules.Systems.Features.Next"/>).
+    /// </summary>
     [Serializable]
     public sealed class FeatureDef
     {
         public string Id;
         public string Name;
+        /// <summary>One line of what the feature does (unlock moment).</summary>
+        public string Description;
+        /// <summary>
+        /// Unlock group: features with the same group unlock together (one celebration day). Null = its own group
+        /// (the id). Members share their requirements.
+        /// </summary>
+        public string Group;
+        public string GroupId => string.IsNullOrEmpty(Group) ? Id : Group;
         /// <summary>Position in the onboarding order (GDD §16).</summary>
         public int Order;
         public RequirementSet Requires = new RequirementSet();
@@ -122,45 +136,56 @@ namespace RogueStars.Rules.Content
         }
 
         private static RequirementDef ReqMain(long level) => new RequirementDef(RequirementKind.MainLevel, null, level);
-        private static RequirementDef ReqWorm(long level) => new RequirementDef(RequirementKind.WormLevel, null, level);
         private static RequirementDef ReqFeature(string id) => new RequirementDef(RequirementKind.Feature, id, 1);
+        /// <summary>Earliest account day (1 = the creation day): AccountAgeDays ≥ day − 1.</summary>
+        private static RequirementDef ReqDay(int day) => new RequirementDef(RequirementKind.AccountAgeDays, null, day - 1);
 
         partial void BuildOnboarding()
         {
             int order = 0;
-            void F(string id, string name, RequirementSet req, long diamonds = 0, string tutorial = null)
+            void F(string id, string name, int day, long level, long diamonds, string tutorial, string description, string group = null)
             {
-                var f = new FeatureDef { Id = id, Name = name, Order = ++order, Requires = req, TutorialStep = tutorial };
+                var req = RequirementSet.All(ReqMain(level));
+                if (day > 1) req.Items.Add(ReqDay(day));
+                var f = new FeatureDef { Id = id, Name = name, Order = ++order, Requires = req, TutorialStep = tutorial, Description = description, Group = group };
                 if (diamonds > 0) f.UnlockRewards.Add(Reward.Cur(Currencies.Diamonds, diamonds));
                 AddFeature(f);
             }
 
-            // GDD §16 order. Main level numbers are global (portal 1 = levels 1..10, portal 2 = 11..20, ...).
-            F(Features.Parts, "Parts", RequirementSet.All(ReqMain(1)), 20, "equip_part");
-            F(Features.Quests, "Quests", RequirementSet.All(ReqMain(1)));
-            F(Features.BiomassFarm, "Biomass Farm", RequirementSet.All(ReqMain(2)), 20, "build_biomass_farm");
-            F(Features.WormLevel, "Worm Level", RequirementSet.All(ReqMain(3)), 20, "level_worm");
-            F(Features.PartPulls, "Part Signal", RequirementSet.All(ReqMain(3)), 30);
-            F(Features.SeasonPass, "Season Pass", RequirementSet.All(ReqMain(3)));
-            F(Features.Laboratory, "Laboratory", RequirementSet.All(ReqMain(4)), 30, "research_skill");
-            F(Features.GrainFarm, "Grain Farm", RequirementSet.All(ReqMain(5)), 20);
-            F(Features.Aliens, "Aliens", RequirementSet.All(ReqMain(6)), 50, "meet_alien");
-            F(Features.AlienPulls, "Alien Signal", RequirementSet.All(ReqFeature(Features.Aliens)), 30);
-            F(Features.AlienSquad, "Housing (Squad Slot 1)", RequirementSet.All(ReqMain(7)), 30);
-            F(Features.Blueprints, "Blueprint Signal", RequirementSet.All(ReqMain(8)), 50);
-            F(Features.OreMine, "Ore Mine", RequirementSet.All(ReqMain(9)), 20);
-            F(Features.Heroes, "Heroes", RequirementSet.All(ReqMain(10)), 50, "equip_hero");
-            F(Features.Runes, "Runes", RequirementSet.All(ReqMain(11)), 30);
-            F(Features.Funds, "Funds", RequirementSet.All(ReqMain(11)));
-            F(Features.Mounts, "Mounts", RequirementSet.All(ReqMain(12)), 50);
-            F(Features.Breeding, "Breeding Pen", RequirementSet.All(ReqMain(14), ReqFeature(Features.Aliens)), 50);
-            F(Features.Arena, "Arena", RequirementSet.All(ReqMain(16)), 50);
-            F(Features.Guilds, "Guilds", RequirementSet.All(ReqMain(18)), 50);
-            F(Features.Invasions, "Invasions", RequirementSet.All(ReqMain(20)), 50);
-            F(Features.Overcharged, "Overcharged Levels", RequirementSet.All(ReqMain(22)), 50);
-            F(Features.Forge, "Forge", RequirementSet.AnyOf(ReqWorm(25), ReqMain(28)), 50);
-            F(Features.Burrow, "Burrow", RequirementSet.All(ReqMain(25), ReqWorm(15)), 50);
-            F(Features.DarkSide, "Dark Side of the Planet", RequirementSet.All(ReqMain(Campaign.DarkSideFromLevel)), 100);
+            // GDD §16 onboarding v2: a three-week journey. Gate = main level cleared AND earliest account day (D1 = the
+            // creation day, counted in reset days); after day 1 at most one unlock group per day (OnboardingSystem).
+            // Main level numbers are global (portal 1 = levels 1..10, portal 2 = 11..20, ...).
+            // Week 1: the worm and the run.
+            F(Features.Parts, "Parts", 1, 1, 20, "equip_part", "Bolt parts onto your worm: every slot adds stats, rarer parts add skills.");
+            F(Features.Quests, "Daily Goals", 1, 5, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
+            F(Features.BiomassFarm, "City: Biomass Farm", 2, 8, 20, "build_biomass_farm", "Your first plot: the Biomass Farm grows Biomass while you are away.");
+            // Approved as D3 L10; L6 keeps the day-3 unlock for ~1 h/day and binge players (they reach L9–10 by day 3) but avoids a
+            // 9-day wall for casual players, who cannot clear level 10 without worm levels (sim: casual stuck at L9 day 10–22).
+            F(Features.WormLevel, "Worm Level & Talents", 3, 6, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
+            F(Features.PartPulls, "Part Signal", 4, 12, 30, null, "Tune in to the Part Signal for new parts. Your first pulls are on the house.");
+            F(Features.Shop, "Shop", 4, 12, 0, null, "Offers, Diamond packs and the daily free gift.", group: Features.PartPulls);
+            F(Features.Laboratory, "Laboratory", 5, 14, 30, "research_skill", "Research makes your worm permanently stronger or adds new skills to every run.");
+            F(Features.GrainFarm, "Grain Farm", 6, 16, 20, null, "Grain feeds the colony: aliens and buildings run on it.");
+            F(Features.Aliens, "Aliens", 7, 18, 50, "meet_alien", "Your first alien arrives. Aliens fight in your squad and staff buildings.");
+            F(Features.AlienPulls, "Alien Signal", 7, 18, 30, null, "Call more aliens from across the galaxy.", group: Features.Aliens);
+            // Week 2: the colony grows.
+            F(Features.AlienSquad, "Housing (Squad Slot 1)", 8, 20, 30, null, "Build Housing to open your first squad slot: an alien fights beside the worm.");
+            F(Features.Blueprints, "Blueprint Signal", 9, 22, 50, null, "Pull new building blueprints for the City.");
+            F(Features.Heroes, "Heroes", 10, 24, 50, "equip_hero", "Choose a hero persona: traits and a signature weapon for every run.");
+            F(Features.OreMine, "Ore Mine", 11, 26, 20, null, "Ore powers part merges, the Replicator and upgrades.");
+            F(Features.Runes, "Runes", 11, 26, 30, null, "Socket runes into parts for extra stats.", group: Features.OreMine);
+            F(Features.Mounts, "Mounts", 12, 28, 50, null, "Ride into battle: mounts add stats, a shield and their own attacks.");
+            F(Features.Funds, "Funds", 13, 29, 0, null, "Growth funds pay out Diamonds as you clear main levels.");
+            F(Features.Breeding, "Breeding Pen", 14, 30, 50, null, "Breed two aliens for a child with better genes.");
+            F(Features.SeasonPass, "Season Pass", 14, 30, 0, null, "Earn pass points from daily goals for a track of rewards every season.", group: Features.Breeding);
+            // Week 3: the wider galaxy.
+            F(Features.Arena, "Arena", 15, 32, 50, null, "Fight other players' worms for league points and Arena Medals.");
+            F(Features.Overcharged, "Overcharged Levels", 16, 34, 50, null, "Replay cleared levels with harder modifiers for bigger rewards.");
+            F(Features.Guilds, "Guilds", 17, 36, 50, null, "Join a guild: chat, a guild shop and invasions together.");
+            F(Features.Invasions, "Invasions", 18, 38, 50, null, "Invaders attack the planet: deal damage with your guild for rewards.");
+            F(Features.Burrow, "Burrow", 19, 40, 50, null, "Dig ever deeper with Burrow keys: cash out or risk it all.");
+            F(Features.Forge, "Forge", 20, 42, 50, null, "Forge extra slots into your best parts.");
+            F(Features.DarkSide, "Dark Side of the Planet", 21, 45, 100, null, "An endless dark campaign that pays in laboratory Data.");
 
             void T(string id, string name, string after, string feature, long diamonds = 0)
             {
@@ -192,7 +217,7 @@ namespace RogueStars.Rules.Content
             T("first_run", "Finish your first run", "first_battle", null, 20);
             T("equip_part", "Equip a part", "first_run", Features.Parts, 10);
             T("build_biomass_farm", "Build the Biomass Farm", "equip_part", Features.BiomassFarm, 10);
-            T("level_worm", "Level up the worm", "build_biomass_farm", Features.WormLevel, 10);
+            T("level_worm", "Level up the worm", "equip_part", Features.WormLevel, 10); // casual players can reach it before the City
             T("research_skill", "Research a skill", "level_worm", Features.Laboratory, 10);
             T("meet_alien", "Meet your first alien", "research_skill", Features.Aliens, 10);
             T("equip_hero", "Choose a hero persona", null, Features.Heroes, 10);
