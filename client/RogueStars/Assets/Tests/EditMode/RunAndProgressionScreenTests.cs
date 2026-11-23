@@ -19,10 +19,7 @@ namespace RogueStars.Client.Tests
 
         private LevelDef FirstLevel()
         {
-            PortalDef first = null;
-            foreach (var p in _f.Service.Content.Portals.Values)
-                if (p.Kind == PortalKind.Main && (first == null || p.Order < first.Order)) first = p;
-            return _f.Service.Content.RunLevel(first.LevelIds[0]);
+            return _f.Service.Content.MainLevel(1);
         }
 
         private void StartFirstRun()

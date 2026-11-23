@@ -404,10 +404,7 @@ namespace RogueStars.Client.PlayTests
 
         private LevelDef FirstLevel()
         {
-            PortalDef first = null;
-            foreach (var p in _svc.Content.Portals.Values)
-                if (p.Kind == PortalKind.Main && (first == null || p.Order < first.Order)) first = p;
-            return _svc.Content.RunLevel(first.LevelIds[0]);
+            return _svc.Content.MainLevel(1);
         }
 
         private Button FirstNamed(string prefix)

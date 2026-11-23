@@ -39,10 +39,7 @@ namespace RogueStars.Client.Tests
 
         private static LevelDef FirstLevel(ContentDb content)
         {
-            PortalDef first = null;
-            foreach (var p in content.Portals.Values)
-                if (p.Kind == PortalKind.Main && (first == null || p.Order < first.Order)) first = p;
-            return content.RunLevel(first.LevelIds[0]);
+            return content.MainLevel(1);
         }
 
         private static void EquipStarterParts(LocalGameService s)

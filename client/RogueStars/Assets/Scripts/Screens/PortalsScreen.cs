@@ -9,14 +9,26 @@ using UnityEngine.UI;
 
 namespace RogueStars.Client.Screens
 {
-    /// <summary>Portal / level select: main portals with feats, Overcharged, Burrow and Dark Side; stamina cost + refill.</summary>
+    /// <summary>
+    /// Portal / level select: main portals with feats, Overcharged, Burrow and Dark Side; stamina cost + refill. The main
+    /// campaign and the Dark Side are endless: both are shown as a bounded window around the frontier (RunSystem.NextMainLevel,
+    /// the Dark Side max counter) built with ContentDb.MainPortal / DarkSideLevel; nothing iterates the whole campaign.
+    /// </summary>
     public sealed class PortalsScreen : UiScreen
     {
         private static readonly string[] Tabs = { "Main", "Overcharged", "Burrow", "Dark Side" };
         private int _tab;
         /// <summary>Dark Side page (-1 = the page with the next level to clear).</summary>
         private int _page = -1;
+        /// <summary>First main portal index shown (-1 = the window around the frontier).</summary>
+        private int _mainStart = -1;
         public const int DarkSidePageSize = 25;
+        /// <summary>Dark Side pages browsable past the one holding the next level.</summary>
+        public const int DarkSidePagesAhead = 1;
+        /// <summary>Main portals per page: cleared ones before the frontier portal, the frontier, upcoming ones after it.</summary>
+        public const int MainPageSize = 5;
+        public const int MainPortalsBehind = 2;
+        public const int MainPortalsAhead = 2;
 
         /// <summary>Daily Biomass surge: the first won portal runs of the day pay Biomass ×N.</summary>
         public static Text SurgeLabel(Transform parent, GameState s, ContentDb c, long now)
@@ -28,6 +40,52 @@ namespace RogueStars.Client.Screens
             label.name = "BiomassSurge";
             return label;
         }
+
+        // ---- endless windows (pure, O(1); tested) -----------------------------------------------------------
+
+        /// <summary>0-based index of the main portal holding the next level to clear.</summary>
+        public static int FrontierPortalIndex(GameState s, ContentDb c)
+        {
+            long next = s.Counter(Requirements.MainLevelCounter) + 1;
+            return (int)System.Math.Min(ContentDb.MaxGeneratedIndex - 1, (next - 1) / System.Math.Max(1, c.Campaign.LevelsPerPortal));
+        }
+
+        /// <summary>
+        /// The main portals to show: <paramref name="requestedStart"/> (-1 = around the frontier) clamped so the window
+        /// never starts before portal 0 and never goes past <see cref="MainPortalsAhead"/> portals beyond the frontier.
+        /// Returns the first index and the number of portals (≤ <see cref="MainPageSize"/>).
+        /// </summary>
+        public static (int start, int count) MainWindow(int frontier, int requestedStart)
+        {
+            int last = frontier + MainPortalsAhead;
+            int maxStart = System.Math.Max(0, last - MainPageSize + 1);
+            int start = requestedStart < 0 ? System.Math.Max(0, frontier - MainPortalsBehind) : requestedStart;
+            start = System.Math.Max(0, System.Math.Min(maxStart, start));
+            return (start, System.Math.Min(MainPageSize, last - start + 1));
+        }
+
+        /// <summary>Next Dark Side level to clear (1-based).</summary>
+        public static int DarkSideFrontier(GameState s) => (int)System.Math.Min(ContentDb.MaxGeneratedIndex - 1, s.Counter(RunSystem.DarkSideMaxCounter) + 1);
+
+        /// <summary>Dark Side page to show (-1 = the frontier's page), clamped to [0, frontier page + DarkSidePagesAhead].</summary>
+        public static int DarkSidePage(int frontier, int requested)
+        {
+            int frontierPage = (frontier - 1) / DarkSidePageSize;
+            return requested < 0 ? frontierPage : Mathf.Clamp(requested, 0, frontierPage + DarkSidePagesAhead);
+        }
+
+        /// <summary>"BONUS" on every portal-bonus level (every 50th), "CHEST" on every other milestone level (every 10th), else null.</summary>
+        public static string MilestoneMarker(ContentDb c, int levelNumber)
+        {
+            var k = c.Campaign;
+            if (levelNumber <= 0) return null;
+            if (k.PortalBonusEveryLevels > 0 && levelNumber % k.PortalBonusEveryLevels == 0) return "BONUS";
+            if (k.MilestoneEveryLevels > 0 && levelNumber % k.MilestoneEveryLevels == 0) return "CHEST";
+            return null;
+        }
+
+        /// <summary>Level numbers in full (no K/M abbreviation: "level 12345").</summary>
+        public static string LevelNum(long n) => n.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         public override string Title => "Portals";
 
@@ -45,51 +103,72 @@ namespace RogueStars.Client.Screens
                           + "   Burrow Keys " + State.Wallet.Get(Currencies.BurrowKeys), Theme.FontNormal, Theme.CurrencyColor(Currencies.Stamina));
             Ui.Button(top, "Refill", () => StaminaModal.Show(this, App), Theme.Good, 200);
             SurgeLabel(body, State, Content, Now);
-            Ui.TabBar(body, Tabs, _tab, i => { _tab = i; _page = -1; Rebuild(); });
+            Ui.TabBar(body, Tabs, _tab, i => { _tab = i; _page = -1; _mainStart = -1; Rebuild(); });
 
             var mode = _tab == 1 ? RunMode.Overcharged : _tab == 2 ? RunMode.Burrow : _tab == 3 ? RunMode.DarkSide : RunMode.Normal;
-            var kind = _tab == 2 ? PortalKind.Burrow : _tab == 3 ? PortalKind.DarkSide : PortalKind.Main;
             string gate = mode == RunMode.Overcharged ? Features.Overcharged : mode == RunMode.Burrow ? Features.Burrow : mode == RunMode.DarkSide ? Features.DarkSide : null;
             if (gate != null && !Session.IsUnlocked(gate))
             {
                 var f = Content.Feature(gate);
                 Note(body, (f?.Name ?? gate) + " is locked: " + Requirements.Describe(Content, f?.Requires ?? new RequirementSet()));
             }
-            var portals = new List<PortalDef>();
-            foreach (var p in Content.Portals.Values) if (p.Kind == kind) portals.Add(p);
-            portals.Sort((a, b) => a.Order.CompareTo(b.Order));
             if (mode == RunMode.DarkSide)
             {
                 KeyValue(body, "Data", Fmt.Num(State.Wallet.Get(Currencies.Data)) + " (Laboratory research)", Theme.CurrencyColor(Currencies.Data));
-                foreach (var p in portals) DarkSideCard(body, p);
+                var dark = Content.Portal(ContentDb.DarkSidePortalId);
+                if (dark != null) DarkSideCard(body, dark);
                 return;
             }
-            foreach (var p in portals) PortalCard(body, p, mode);
+            if (mode == RunMode.Burrow)
+            {
+                // The Burrow is a single small portal.
+                foreach (var p in Content.Portals.Values) if (p.Kind == PortalKind.Burrow) PortalCard(body, p, mode, -1);
+                return;
+            }
+            MainPortals(body, mode);
         }
 
-        /// <summary>The procedural Dark Side: many levels, shown in pages around the next level to clear, with each level's Data.</summary>
+        /// <summary>Main / Overcharged: a page of main portals around the frontier, with paging back to cleared ones.</summary>
+        private void MainPortals(RectTransform body, RunMode mode)
+        {
+            int frontier = FrontierPortalIndex(State, Content);
+            var (start, count) = MainWindow(frontier, _mainStart);
+            int per = System.Math.Max(1, Content.Campaign.LevelsPerPortal);
+            var nav = Ui.Row(body, 70, 8);
+            Ui.Button(nav, "< Prev", () => { _mainStart = System.Math.Max(0, start - MainPageSize); Rebuild(); }, Theme.Button, 180, 70, start > 0).name = "MainPrev";
+            var range = Ui.Label(nav, "Levels " + LevelNum(start * per + 1) + "–" + LevelNum((start + count) * per) + " · next " + LevelNum((long)State.Counter(Requirements.MainLevelCounter) + 1),
+                Theme.FontSmall, Theme.Text, TextAnchor.MiddleCenter);
+            range.name = "MainRange";
+            Ui.Button(nav, "Next >", () => { _mainStart = start + MainPageSize; Rebuild(); }, Theme.Button, 180, 70, start + count - 1 < frontier + MainPortalsAhead).name = "MainNext";
+            if (_mainStart >= 0 && (frontier < start || frontier >= start + count))
+                Ui.Button(body, "Jump to level " + LevelNum((long)State.Counter(Requirements.MainLevelCounter) + 1), () => { _mainStart = -1; Rebuild(); }, Theme.Warn).name = "MainFrontier";
+            for (int i = start; i < start + count; i++)
+            {
+                var portal = Content.MainPortal(i);
+                if (portal != null) PortalCard(body, portal, mode, i == frontier ? 0 : i < frontier ? -1 : 1);
+            }
+        }
+
+        /// <summary>The endless Dark Side: pages of levels around the next level to clear, each level showing its Data.</summary>
         private void DarkSideCard(RectTransform body, PortalDef portal)
         {
-            var levels = new List<LevelDef>();
-            foreach (var id in portal.LevelIds) { var l = Content.RunLevel(id); if (l != null) levels.Add(l); }
-            if (levels.Count == 0) return;
-            int next = levels.Count - 1;
-            for (int i = 0; i < levels.Count; i++) if (!RunSystem.Progress(State, levels[i].Id).Cleared) { next = i; break; }
-            int pages = (levels.Count + DarkSidePageSize - 1) / DarkSidePageSize;
-            int page = _page >= 0 ? Mathf.Clamp(_page, 0, pages - 1) : next / DarkSidePageSize;
+            int next = DarkSideFrontier(State);
+            int page = DarkSidePage(next, _page);
+            int lastPage = DarkSidePage(next, int.MaxValue);
             var card = Card(body, Theme.PanelAlt);
-            Ui.Label(card, portal.Name + " — " + levels.Count + " procedural levels", Theme.FontLarge, Theme.Premium);
-            Note(card, "Cleared " + next + (next == levels.Count - 1 && RunSystem.Progress(State, levels[next].Id).Cleared ? "+1" : "") + "/" + levels.Count + " · Data per clear grows with the level.");
+            Ui.Label(card, portal.Name + " — endless procedural levels", Theme.FontLarge, Theme.Premium);
+            Note(card, "Cleared " + LevelNum(next - 1) + " · next level " + LevelNum(next) + " · Data per clear grows with the level.");
             var nav = Ui.Row(card, 70, 8);
             Ui.Button(nav, "< Prev", () => { _page = Mathf.Max(0, page - 1); Rebuild(); }, Theme.Button, 180, 70, page > 0).name = "DarkPrev";
-            Ui.Label(nav, "Levels " + (page * DarkSidePageSize + 1) + "–" + Mathf.Min(levels.Count, (page + 1) * DarkSidePageSize), Theme.FontSmall, Theme.Text, TextAnchor.MiddleCenter);
-            Ui.Button(nav, "Next >", () => { _page = Mathf.Min(pages - 1, page + 1); Rebuild(); }, Theme.Button, 180, 70, page < pages - 1).name = "DarkNext";
+            Ui.Label(nav, "Levels " + LevelNum(page * DarkSidePageSize + 1) + "–" + LevelNum((page + 1) * DarkSidePageSize), Theme.FontSmall, Theme.Text, TextAnchor.MiddleCenter);
+            Ui.Button(nav, "Next >", () => { _page = page + 1; Rebuild(); }, Theme.Button, 180, 70, page < lastPage).name = "DarkNext";
             var grid = Ui.Grid(card, new Vector2(186, 150), 5, 10);
-            for (int i = page * DarkSidePageSize; i < levels.Count && i < (page + 1) * DarkSidePageSize; i++)
+            for (int i = page * DarkSidePageSize + 1; i <= (page + 1) * DarkSidePageSize; i++)
             {
-                var lv = levels[i];
+                var lv = Content.DarkSideLevel(i);
+                if (lv == null) break;
                 bool unlocked = RunSystem.IsLevelUnlocked(State, Content, lv.Id, RunMode.DarkSide);
-                var prog = RunSystem.Progress(State, lv.Id);
+                var prog = RunSystem.Progress(State, Content, lv.Id);
                 long data = 0;
                 foreach (var r in lv.CompletionRewards) if (r.Id == Currencies.Data) data += (long)System.Math.Round(r.Amount * lv.RewardMultiplier);
                 string label = lv.Index + "\n<size=22>" + (prog.Cleared ? "cleared" : "+" + Fmt.Num(data) + " Data") + "</size>";
@@ -98,23 +177,37 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        private void PortalCard(RectTransform body, PortalDef portal, RunMode mode)
+        /// <summary>One portal's level grid. <paramref name="frontier"/>: -1 before the frontier portal, 0 = it, 1 = after it.</summary>
+        private void PortalCard(RectTransform body, PortalDef portal, RunMode mode, int frontier)
         {
             var card = Card(body, Theme.PanelAlt);
-            Ui.Label(card, portal.Name + (mode == RunMode.Overcharged ? " (Overcharged)" : ""), Theme.FontLarge, mode == RunMode.Overcharged ? Theme.Warn : Theme.Premium);
-            var grid = Ui.Grid(card, new Vector2(186, 150), 5, 10);
+            card.name = "Portal:" + portal.Id;
+            int first = int.MaxValue, last = 0;
+            var levels = new List<LevelDef>(portal.LevelIds.Count);
             foreach (var levelId in portal.LevelIds)
             {
                 var level = Content.RunLevel(levelId);
                 if (level == null) continue;
+                levels.Add(level);
+                if (level.Number > 0) { first = System.Math.Min(first, level.Number); last = System.Math.Max(last, level.Number); }
+            }
+            string header = portal.Name + (mode == RunMode.Overcharged ? " (Overcharged)" : "");
+            if (portal.Kind == PortalKind.Main && last > 0) header += "\n<size=24>Levels " + LevelNum(first) + "–" + LevelNum(last) + (frontier == 0 ? " · FRONTIER" : "") + "</size>";
+            Ui.Label(card, header, Theme.FontLarge, mode == RunMode.Overcharged ? Theme.Warn : frontier == 0 ? Theme.Good : Theme.Premium);
+            var grid = Ui.Grid(card, new Vector2(186, 150), 5, 10);
+            foreach (var level in levels)
+            {
                 var lv = level;
                 bool unlocked = RunSystem.IsLevelUnlocked(State, Content, lv.Id, mode);
                 if (mode == RunMode.Burrow && lv.Index != 1) continue;
-                var prog = RunSystem.Progress(State, lv.Id);
+                var prog = RunSystem.Progress(State, Content, lv.Id);
                 bool cleared = mode == RunMode.Overcharged ? prog.OverchargedCleared : prog.Cleared;
                 string feats = "";
                 for (int i = 0; i < 3; i++) feats += i < prog.Feats.Count && prog.Feats[i] ? "★" : "☆";
-                string label = (mode == RunMode.Burrow ? "Dive" : lv.Index.ToString()) + "\n<size=24>" + (mode == RunMode.Burrow ? "best floor " + prog.BestFloor : feats) + "</size>";
+                string marker = mode == RunMode.Normal && portal.Kind == PortalKind.Main ? MilestoneMarker(Content, lv.Number) : null;
+                string label = (mode == RunMode.Burrow ? "Dive" : lv.Index.ToString())
+                               + (marker != null ? " <size=20><color=" + (marker == "BONUS" ? "#FF9F43" : "#FFD86B") + ">" + marker + (prog.Cleared ? " ✓" : "") + "</color></size>" : "")
+                               + "\n<size=24>" + (mode == RunMode.Burrow ? "best floor " + prog.BestFloor : feats) + "</size>";
                 var color = !unlocked ? Theme.Locked : cleared ? Color.Lerp(Theme.Good, Theme.Panel, 0.45f) : Theme.Accent;
                 Ui.Button(grid, label, () => LevelModal(portal, lv, mode), color, -1, 150, unlocked, Theme.FontLarge).name = "Level:" + lv.Id;
             }
@@ -123,7 +216,7 @@ namespace RogueStars.Client.Screens
         private void LevelModal(PortalDef portal, LevelDef level, RunMode mode)
         {
             var cost = RunSystem.EntryCost(Content, level.Id, mode);
-            var prog = RunSystem.Progress(State, level.Id);
+            var prog = RunSystem.Progress(State, Content, level.Id);
             var boss = level.BossId != null && Content.RunBosses.TryGetValue(level.BossId, out var bd) ? bd : null;
             Modal(portal.Name + " — " + level.Name, b =>
             {
@@ -139,6 +232,10 @@ namespace RogueStars.Client.Screens
                         Ui.Label(b, (i < prog.Feats.Count && prog.Feats[i] ? "★ " : "☆ ") + feats[i], Theme.FontSmall, i < prog.Feats.Count && prog.Feats[i] ? Theme.Good : Theme.TextDim);
                 }
                 if (level.CompletionRewards.Count > 0) Note(b, "Completion: " + Fmt.Rewards(level.CompletionRewards, Content));
+                string marker = mode == RunMode.Normal && portal.Kind == PortalKind.Main ? MilestoneMarker(Content, level.Number) : null;
+                if (marker != null && level.FirstClearRewards.Count > 0)
+                    Ui.Label(b, (marker == "BONUS" ? "Portal bonus" : "Milestone chest") + " (first clear" + (prog.Cleared ? ", claimed" : "") + "): "
+                                + Fmt.Rewards(level.FirstClearRewards, Content), Theme.FontSmall, prog.Cleared ? Theme.TextDim : Theme.Premium);
                 if (State.Run.Active != null) Ui.Label(b, "Finish or abandon your current run first.", Theme.FontSmall, Theme.Bad);
             },
             new ModalButton("Cancel", null),

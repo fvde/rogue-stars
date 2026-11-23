@@ -30,18 +30,20 @@ namespace RogueStars.Client.Screens
             var card = Card(body, Theme.PanelAlt);
             Section(card, "Portals");
             var portals = Ui.Row(card, 150, 12);
-            var mains = new System.Collections.Generic.List<PortalDef>();
-            foreach (var p in Content.Portals.Values) if (p.Kind == PortalKind.Main) mains.Add(p);
-            mains.Sort((a, b) => a.Order.CompareTo(b.Order));
-            for (int i = 0; i < mains.Count && i < 3; i++)
+            // Endless campaign: the frontier portal and its neighbours (never the whole list).
+            int frontier = PortalsScreen.FrontierPortalIndex(State, Content);
+            for (int i = System.Math.Max(0, frontier - 1), end = System.Math.Max(0, frontier - 1) + 3; i < end; i++)
             {
-                var portal = mains[i];
+                var portal = Content.MainPortal(i);
+                if (portal == null) continue;
                 bool open = portal.LevelIds.Count > 0 && RunSystem.IsLevelUnlocked(State, Content, portal.LevelIds[0], RunMode.Normal);
                 int cleared = 0;
-                foreach (var id in portal.LevelIds) if (RunSystem.Progress(State, id).Cleared) cleared++;
+                foreach (var id in portal.LevelIds) if (RunSystem.Progress(State, Content, id).Cleared) cleared++;
                 Ui.Button(portals, portal.Name + "\n<size=22>" + (open ? cleared + "/" + portal.LevelIds.Count + " cleared" : "locked") + "</size>",
-                    () => App.Open("portals"), open ? Theme.ValenceColor(Valence.Special) : Theme.Locked, -1, 150, true, Theme.FontNormal);
+                    () => App.Open("portals"), open ? Theme.ValenceColor(Valence.Special) : Theme.Locked, -1, 150, true, Theme.FontNormal).name = "HubPortal:" + portal.Id;
             }
+            var next = RunSystem.NextMainLevel(State, Content);
+            if (next != null) Ui.Label(card, "Next: level " + PortalsScreen.LevelNum(next.Number) + " — " + next.Name, Theme.FontSmall, Theme.TextDim).name = "HubNextLevel";
             if (State.Run.Active != null)
                 Ui.Button(card, "Continue run", () => App.Router.Push(new RunScreen()), Theme.Warn);
             else
