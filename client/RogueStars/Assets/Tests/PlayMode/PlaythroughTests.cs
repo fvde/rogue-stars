@@ -268,7 +268,7 @@ namespace RogueStars.Client.PlayTests
             var run = _app.Router.Current as RunScreen;
             if (run == null && _svc.State.Run.Active == null) yield break;
             run?.StartAuto();
-            bool battleShot = false, draftShot = false, eventShot = false, otherShot = false;
+            bool battleShot = false, draftShot = false, eventShot = false, otherShot = false, outcomeShot = false, forkShot = false;
             long startVersion = _svc.State.Version;
             var guard = new ProgressGuard(this, "auto run");
             while (true)
@@ -293,11 +293,20 @@ namespace RogueStars.Client.PlayTests
                 }
                 var active = _svc.State.Run.Active;
                 // auto pauses at every real decision (shop, draft, event, chest, campfire, branch, revive): decide here
-                if (active != null && cur is RunScreen paused && paused.AutoPaused && !paused.Animating && _app.ModalLayer.childCount > 0)
+                if (cur is RunScreen withResult && withResult.OutcomeOpen && !outcomeShot)
+                {
+                    outcomeShot = true;
+                    var shown = _svc.State.Run.Active?.LastOutcome;
+                    yield return Wait(shown != null && shown.Chance ? RunScreen.ChanceSpinSeconds + 0.3f : 0.3f);
+                    yield return Shot("09b_outcome");
+                }
+                if (active != null && cur is RunScreen paused && paused.AutoPaused && !paused.Animating && !paused.OutcomeOpen
+                    && (_app.ModalLayer.childCount > 0 || active.Phase == RunPhase.ChooseBranch))
                 {
                     if (active.Phase == RunPhase.Draft && !draftShot) { draftShot = true; yield return Shot("07_draft"); }
                     else if (active.Phase == RunPhase.Event && !eventShot) { eventShot = true; yield return Shot("08_event"); }
-                    else if ((active.Phase == RunPhase.Shop || active.Phase == RunPhase.ChooseBranch || active.Phase == RunPhase.Defeated) && !otherShot) { otherShot = true; yield return Shot("09_" + active.Phase.ToString().ToLowerInvariant()); }
+                    else if (active.Phase == RunPhase.ChooseBranch && !forkShot) { forkShot = true; yield return Shot("09c_fork"); }
+                    else if ((active.Phase == RunPhase.Shop || active.Phase == RunPhase.Defeated) && !otherShot) { otherShot = true; yield return Shot("09_" + active.Phase.ToString().ToLowerInvariant()); }
                     Decide(active);
                     Assert.That(paused.Auto, Is.True, "auto stays on across a decision");
                 }
@@ -310,7 +319,7 @@ namespace RogueStars.Client.PlayTests
         /// <summary>
         /// The player's decision at an auto pause, made through the decision modal's buttons: shop → buy the first
         /// affordable skill (once per shop visit), then leave; draft → first card; event / chest / campfire → the default
-        /// option (first affordable otherwise); branch → path A; defeat → give up (the loop retries the level).
+        /// option (first affordable otherwise); branch → path A's landing tile on the board; defeat → give up (the loop retries the level).
         /// </summary>
         private void Decide(ActiveRun a)
         {
@@ -330,7 +339,10 @@ namespace RogueStars.Client.PlayTests
                     break;
                 }
                 case RunPhase.Draft: pick = ModalButton(b => b.name == "Button:Pick"); break;
-                case RunPhase.ChooseBranch: pick = ModalButton(b => b.name.StartsWith("Button:Path A")); break;
+                case RunPhase.ChooseBranch:
+                    // forks are picked on the board: the tile where path A lands
+                    foreach (var b in _app.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "BranchPick:A") pick = b;
+                    break;
                 case RunPhase.Defeated: pick = ModalButton(b => b.name == "Button:Give up"); break;
                 case RunPhase.BurrowChoice: pick = ModalButton(b => b.name == "Button:Cash out"); break;
                 case RunPhase.Event:

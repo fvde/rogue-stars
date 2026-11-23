@@ -26,14 +26,15 @@ namespace RogueStars.Client.Screens
     public sealed class RunScreen : UiScreen
     {
         // ---- board geometry (top-left origin, y down; drawn flipped so the path climbs) ----
-        public const int Columns = 8;
-        public const float Cell = 116, LaneH = 72, BandGap = 16, Pad = 20;
-        public const float TileW = 100, TileH = 60, GateGrow = 20;
+        // Zoomed in: 5 big tiles per row (readable labels, thumb-sized tap targets at forks); the view follows the worm.
+        public const int Columns = 5;
+        public const float Cell = 186, LaneH = 112, BandGap = 24, Pad = 20;
+        public const float TileW = 164, TileH = 94, GateGrow = 22;
         /// <summary>Kept for callers of the old square tiles: the tile height.</summary>
         public const float TileSize = TileH;
         public const float BoardWidth = Columns * Cell + 2 * Pad;
         /// <summary>Boss marker ("BOSS 42%") size; placed in a free cell next to the gate (<see cref="BossMarkerCenter"/>).</summary>
-        public static readonly Vector2 BossMarkerSize = new Vector2(104, 50);
+        public static readonly Vector2 BossMarkerSize = new Vector2(150, 64);
 
         // ---- bottom bar ----
         public const float InfoRowH = 52, SlotRowH = 80, RollRowH = 150, HintRowH = 34;
@@ -53,6 +54,17 @@ namespace RogueStars.Client.Screens
         private bool _toResult;
         private bool _summaryBattleShown;
         private Text _coins;
+        private int _outcomeSeen;
+        private UiModal _outcome;
+        private float _outcomeTimer;
+        private bool _outcomeRevealing;
+
+        /// <summary>Skip mode for tests: the chance roll of an outcome lands at once (no spinning animation).</summary>
+        public static bool InstantOutcomes;
+        /// <summary>Auto mode closes an outcome result after this many seconds (after its chance roll).</summary>
+        public const float AutoOutcomeSeconds = 1.4f;
+        /// <summary>Duration of the spinning chance indicator.</summary>
+        public const float ChanceSpinSeconds = 1.3f;
 
         public override string Title
         {
@@ -72,9 +84,7 @@ namespace RogueStars.Client.Screens
             {
                 var run = State?.Run.Active;
                 if (run == null) return null;
-                var cur = run.Position >= 0 && run.Position < run.Tiles.Count ? run.Tiles[run.Position] : null;
-                int last = run.BossGateTile >= 0 && run.BossGateTile < run.Tiles.Count ? run.Tiles[run.BossGateTile].X : 0;
-                return "Tile " + ((cur?.X ?? 0) + 1) + " of " + (last + 1) + " · Roll " + run.Rolls + "/" + run.MaxRolls + " · Threat " + run.Threat
+                return "Lap " + (run.Laps + 1) + " · " + RollText(Content, run) + " · Boss " + run.Awakening.ToString("0") + "% awake · Threat " + run.Threat
                        + (run.Mode != RunMode.Normal ? " · " + run.Mode : "") + (run.Mode == RunMode.Burrow ? " floor " + run.Floor : "");
             }
         }
@@ -94,6 +104,46 @@ namespace RogueStars.Client.Screens
         public bool Animating => _anim != null && _anim.Busy;
 
         // ---- layout (pure; tested) -------------------------------------------------------------
+
+        /// <summary>"Roll 12/30": rolls so far and the roll the boss is expected after (its awakening meter is the clock).</summary>
+        public static string RollText(ContentDb content, ActiveRun run) => "Roll " + run.Rolls + "/" + RunSystem.BossRollEstimate(content, run);
+
+        /// <summary>
+        /// Where the worm lands if it takes branch option <paramref name="option"/> (index into BranchOptions) with the steps
+        /// it has left: along the path, stopping early at a forced stop (shop) or at the next fork. Pure; tested.
+        /// </summary>
+        public static int BranchLanding(ActiveRun run, int option, ContentDb content)
+        {
+            if (option < 0 || option >= run.BranchOptions.Count) return -1;
+            int cur = run.BranchOptions[option];
+            int left = Math.Max(0, run.StepsLeft - 1);
+            for (int guard = 0; left > 0 && guard < 200; guard++)
+            {
+                var t = run.Tiles[cur];
+                var def = content.BoardTiles.TryGetValue(t.TileId ?? "", out var d) ? d : null;
+                if (def != null && def.ForceStop) break;
+                if (t.Next.Count != 1) break;
+                cur = t.Next[0];
+                left--;
+            }
+            return cur;
+        }
+
+        /// <summary>Tiles between a branch option and its landing tile (both included), for the highlighted path.</summary>
+        public static List<int> BranchPath(ActiveRun run, int option, ContentDb content)
+        {
+            var path = new List<int>();
+            int land = BranchLanding(run, option, content);
+            if (land < 0) return path;
+            int cur = run.BranchOptions[option];
+            path.Add(cur);
+            for (int guard = 0; cur != land && guard < 200; guard++)
+            {
+                cur = run.Tiles[cur].Next[0];
+                path.Add(cur);
+            }
+            return path;
+        }
 
         /// <summary>Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y.</summary>
         public static Vector2 TileCenter(RunTile t)
@@ -212,7 +262,8 @@ namespace RogueStars.Client.Screens
                             if (fx.Value >= 0) Add(true, "+" + Fmt.Pct(fx.Value) + " " + fx.Stat.ToString().ToUpperInvariant());
                             else Add(false, "RISK −" + Fmt.Pct(-fx.Value) + " " + fx.Stat.ToString().ToUpperInvariant());
                             break;
-                        case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "KEEP loot (paid on clear)"); break;
+                        case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "ACCOUNT LOOT (paid on clear)"); break;
+                        case RunEffectKind.AwakenRatePct: Add(fx.Value < 0, fx.Value < 0 ? "Boss wakes slower" : "RISK boss wakes " + Fmt.Pct(fx.Value) + " faster"); break;
                         case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Math.Abs(fx.Value).ToString("0") + " coins"); break;
                         case RunEffectKind.Xp: Add(true, "+XP"); break;
                         case RunEffectKind.Shards: Add(true, "+shards"); break;
@@ -251,7 +302,7 @@ namespace RogueStars.Client.Screens
             if (run == null) { BuildFinished(body); return; }
             var level = Content.RunLevel(run.LevelId);
             bool newRun = run.RunId != _runId;
-            if (newRun) { _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; }
+            if (newRun) { _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; _outcomeSeen = run.OutcomeSeq; }
 
             Hud(body, run, level);
             var token = Board(body, run, out var dice, out float boardH, out var focus);
@@ -280,8 +331,9 @@ namespace RogueStars.Client.Screens
                     var to = DrawPoint(TileCenter(run.Tiles[path[i]]), boardH);
                     _anim.Then(0.16f, t =>
                     {
-                        // a little hop per step
-                        token.anchoredPosition = Vector2.Lerp(from, to, t) + new Vector2(0, 18 * Mathf.Sin(t * Mathf.PI));
+                        // a little hop per step; the view follows the worm
+                        token.anchoredPosition = Vector2.Lerp(from, to, t) + new Vector2(0, 24 * Mathf.Sin(t * Mathf.PI));
+                        CenterOn(token);
                     });
                 }
             }
@@ -290,7 +342,7 @@ namespace RogueStars.Client.Screens
                 var result = run.LastBattle;
                 _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(result, _auto)));
             }
-            _anim.Call(() => ShowDecision(run));
+            _anim.Call(() => ShowOutcomeOrDecision(run));
         }
 
         private static string DiceText(ActiveRun run) => run.LastDice.Count == 0 ? "-" : string.Join(" + ", run.LastDice.ConvertAll(d => d.ToString()));
@@ -310,6 +362,7 @@ namespace RogueStars.Client.Screens
             int need = Content.RunTuning.XpBase + Content.RunTuning.XpPerLevel * (run.Level - 1);
             var lvl = Ui.Bar(chips, need > 0 ? (float)run.Xp / need : 0, Theme.Premium, "Lv " + run.Level + " · XP " + run.Xp + "/" + need, 44);
             Ui.Size(lvl.Fill.parent.GetComponent<Image>(), -1, 44, 1);
+            Ui.Chip(chips, RollText(Content, run), Theme.Tint(Theme.Bad, 0.25f), Theme.Hex(0xFFD2C2), 26, 48, null, "RollCounter");
             Ui.Chip(chips, "Danger " + run.Danger, run.Danger > 0 ? Theme.Tint(Theme.Bad, 0.35f) : Theme.Panel, run.Danger > 0 ? Theme.Hex(0xFFB3B5) : Theme.TextFaint, 24, 48);
             if (run.Shards > 0) Ui.Chip(chips, "Shards " + run.Shards, Theme.Tint(Theme.Premium, 0.3f), Theme.Premium, 24, 48);
             Ui.Button(chips, "Auto-pick: " + (Farming ? "On" : "Off"), ToggleFarming, Farming ? Theme.Premium : Theme.Panel, 250, 52, true, 24).name = "AutoPickToggle";
@@ -320,8 +373,10 @@ namespace RogueStars.Client.Screens
             UiShapes.Outline(banner, Theme.Bad, 26, 5);
             banner.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
             Ui.Display(banner, "BOSS · " + (boss?.Name ?? "Boss"), 32, Theme.Hex(0xFF9FA2), TextAnchor.MiddleLeft);
-            var awake = Ui.Bar(banner, (float)(run.Awakening / 100.0), Theme.Bad, run.Awakening.ToString("0") + "% awake", 30);
-            Ui.Size(awake.Fill.parent.GetComponent<Image>(), 300, 30, 0);
+            int left = Math.Max(0, RunSystem.BossRollEstimate(Content, run) - run.Rolls);
+            string clock = run.Awakening.ToString("0") + "% awake · " + (left <= 0 ? "comes now" : left == 1 ? "1 roll left" : left + " rolls left");
+            var awake = Ui.Bar(banner, (float)(run.Awakening / 100.0), Theme.Bad, clock, 30);
+            Ui.Size(awake.Fill.parent.GetComponent<Image>(), 400, 30, 0);
         }
 
         private RectTransform Board(RectTransform body, ActiveRun run, out Text dice, out float h, out RectTransform focus)
@@ -342,7 +397,7 @@ namespace RogueStars.Client.Screens
             for (int i = 1; i < run.Trail.Count; i++) walked.Add(((long)run.Trail[i - 1] << 32) | (uint)run.Trail[i]);
             foreach (var t in run.Tiles)
                 foreach (var n in t.Next)
-                    if (n >= 0 && n < run.Tiles.Count)
+                    if (n >= 0 && n < run.Tiles.Count && t.Id != run.BossGateTile) // the gate's lap edge is its "next lap" label
                     {
                         bool lit = walked.Contains(((long)t.Id << 32) | (uint)n);
                         var color = lit ? Theme.Shade(Theme.AccentLight, 0.8f) : n < t.Id ? Theme.Shade(Theme.Gold, 0.55f) : Theme.Border;
@@ -350,10 +405,22 @@ namespace RogueStars.Client.Screens
                     }
 
             RectTransform currentTile = null;
+            // At a fork: the path each option walks with the steps left and the tile it lands on (A / B on the board).
+            var onPath = new Dictionary<int, int>();
+            if (run.Phase == RunPhase.ChooseBranch)
+                for (int i = 0; i < run.BranchOptions.Count; i++)
+                    foreach (var id in BranchPath(run, i, Content)) if (!onPath.ContainsKey(id)) onPath[id] = i;
             foreach (var t in run.Tiles)
             {
                 var look = LookOf(run, t, Content);
                 var center = P(t);
+                if (onPath.TryGetValue(t.Id, out int pathOpt) && !look.Option)
+                {
+                    var pc = BranchColor(pathOpt);
+                    var trail = Ui.RoundPanel(board, new Color(pc.r, pc.g, pc.b, 0.28f), 22, "BranchPath");
+                    trail.raycastTarget = false;
+                    PlaceAt(trail.rectTransform, center, new Vector2(TileW + 16, TileH + 16));
+                }
                 if (look.Option)
                 {
                     var glow = Ui.RoundPanel(board, new Color(Theme.Gold.r, Theme.Gold.g, Theme.Gold.b, 0.45f), 26, "Option");
@@ -375,23 +442,50 @@ namespace RogueStars.Client.Screens
                 UiShapes.Outline(img.rectTransform, border, 16, look.Gate ? 5 : 4);
                 if (look.Current) currentTile = img.rectTransform;
                 string label = look.Label;
-                if (look.Fork && !look.Visited) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=15>fork</size>";
+                if (look.Fork && !look.Visited) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=20>fork</size>";
                 if (look.Option) label = (run.BranchOptions.IndexOf(t.Id) == 0 ? "A · " : "B · ") + label;
+                if (look.Gate) label += "\n<size=18>next lap</size>";
                 if (!string.IsNullOrEmpty(label))
                 {
-                    var lab = Ui.Display(img.transform, label, look.Gate ? 26 : label.Length > 6 ? 17 : 20, text, TextAnchor.MiddleCenter);
+                    var lab = Ui.Display(img.transform, label, look.Gate ? 32 : label.Length > 6 ? 24 : 30, text, TextAnchor.MiddleCenter);
                     lab.lineSpacing = 0.8f;
                     Ui.Stretch(lab.rectTransform, 2, 2, 2, 2);
                 }
                 if (t.BonusPct > 0 && !look.Visited)
                 {
-                    var pip = Ui.Chip(img.transform, "+" + t.BonusPct.ToString("0") + "%", Theme.Bad, Theme.Text, 16, 26, null, "Bonus");
+                    var pip = Ui.Chip(img.transform, "+" + t.BonusPct.ToString("0") + "%", Theme.Bad, Theme.Text, 20, 32, null, "Bonus");
                     pip.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                     pip.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
                     pip.anchorMin = pip.anchorMax = new Vector2(1, 1); pip.pivot = new Vector2(0.7f, 0.6f);
-                    pip.sizeDelta = new Vector2(0, 26); pip.anchoredPosition = Vector2.zero;
+                    pip.sizeDelta = new Vector2(0, 32); pip.anchoredPosition = Vector2.zero;
                 }
             }
+            // fork: tap targets on the board — the tile the worm would land on (marked A / B) and the option tile itself
+            if (run.Phase == RunPhase.ChooseBranch)
+                for (int i = 0; i < run.BranchOptions.Count; i++)
+                {
+                    int index = i;
+                    string letter = i == 0 ? "A" : "B";
+                    var col = BranchColor(i);
+                    int landId = BranchLanding(run, i, Content);
+                    if (landId < 0) continue;
+                    var pick = Ui.Button(board, "", () => PickBranch(index), new Color(col.r, col.g, col.b, 0.18f), TileW + 30, TileH + 30, true, 20);
+                    pick.name = "BranchPick:" + letter;
+                    var prt = (RectTransform)pick.transform;
+                    PlaceAt(prt, P(run.Tiles[landId]), new Vector2(TileW + 30, TileH + 30));
+                    UiShapes.Outline(prt, col, 24, 6);
+                    var badge = Ui.RoundPanel(prt, col, 30, "LandingBadge");
+                    badge.raycastTarget = false;
+                    var brt = badge.rectTransform;
+                    brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 1); brt.pivot = new Vector2(0.5f, 0.5f);
+                    brt.sizeDelta = new Vector2(150, 56); brt.anchoredPosition = new Vector2(0, 8);
+                    var bl = Ui.Display(badge.transform, letter + " · LAND", 26, Theme.TextOn(col), TextAnchor.MiddleCenter);
+                    Ui.Stretch(bl.rectTransform);
+                    UiPulse.On(badge, 0.06f, 1.2f, 0.6f);
+                    var opt = Ui.Button(board, "", () => PickBranch(index), new Color(0, 0, 0, 0.01f), TileW, TileH, true, 20);
+                    opt.name = "BranchOption:" + letter;
+                    PlaceAt((RectTransform)opt.transform, P(run.Tiles[run.BranchOptions[i]]), new Vector2(TileW, TileH));
+                }
             // boss on the board, next to its gate
             var gateTile = run.BossGateTile >= 0 && run.BossGateTile < run.Tiles.Count ? run.Tiles[run.BossGateTile] : null;
             if (gateTile != null)
@@ -443,6 +537,10 @@ namespace RogueStars.Client.Screens
             dice = Ui.Display(diceChip.transform, DiceText(run), 30, Theme.OnAccent, TextAnchor.MiddleCenter);
             Ui.Stretch(dice.rectTransform);
             var land = cur != null && Content.BoardTiles.TryGetValue(cur.TileId ?? "", out var ld) ? ld : null;
+            // HP stays visible in the fixed bar while the board follows the worm
+            double hpFrac = run.WormMaxHp > 0 ? run.WormHp / run.WormMaxHp : 1;
+            var hpColor = hpFrac > 0.5 ? Theme.Good : hpFrac > 0.25 ? Theme.Warn : Theme.Bad;
+            Ui.Chip(info, "HP " + Fmt.Num(Math.Max(0, run.WormHp)) + "/" + Fmt.Num(run.WormMaxHp), Theme.Tint(hpColor, 0.3f), Color.Lerp(hpColor, Color.white, 0.5f), 24, InfoRowH, null, "HpChip");
             var what = Ui.Label(info, run.LastEventText ?? (land != null ? land.Name + (string.IsNullOrEmpty(land.Text) ? "" : ": " + land.Text) : ""), 24, Theme.TextDim);
             what.verticalOverflow = VerticalWrapMode.Truncate;
             return token;
@@ -499,7 +597,9 @@ namespace RogueStars.Client.Screens
             loot.GetComponentInChildren<Text>().color = Theme.Gold;
             bool canRoll = run.Phase == RunPhase.AwaitRoll;
             bool deciding = !canRoll && run.Phase != RunPhase.Completed && run.Phase != RunPhase.Failed;
-            string rollText = !_auto
+            bool fork = run.Phase == RunPhase.ChooseBranch;
+            string rollText = fork ? "PICK A PATH\n<size=24>tap A or B on the board</size>"
+                : !_auto
                 ? canRoll ? "ROLL\n<size=24>hold for auto</size>" : "CHOOSE\n<size=24>your decision</size>"
                 : AutoPaused ? "AUTO PAUSED\n<size=24>your choice</size>" : "AUTO…";
             var roll = Ui.Button(row, rollText, null, canRoll || _auto && !AutoPaused ? Theme.Accent : deciding ? Theme.Gold : Theme.Locked, -1, RollRowH, canRoll || _auto || deciding, 56);
@@ -512,7 +612,8 @@ namespace RogueStars.Client.Screens
                 {
                     var r = State.Run.Active;
                     if (r != null && r.Phase == RunPhase.AwaitRoll) Run(new RunRoll());
-                    else if (r != null) { _decisionKey = null; ShowDecision(r); }
+                    else if (r != null && r.Phase == RunPhase.ChooseBranch) Rebuild(); // re-centres the board on the fork
+                    else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
             };
             hold.OnHold = StartAuto;
@@ -522,9 +623,10 @@ namespace RogueStars.Client.Screens
             auto.GetComponentInChildren<Text>().color = _auto ? Theme.Premium : Theme.TextDim;
             if (_auto) UiShapes.Outline((RectTransform)auto.transform, Theme.Premium, Theme.RadiusButton, 4);
 
-            var hint = Ui.Label(bar, _auto && AutoPaused ? "AUTO PAUSED — your choice. Auto continues after you decide."
+            var hint = Ui.Label(bar, fork ? "Fork! A and B mark where each path lands you with the steps you have left."
+                    : _auto && AutoPaused ? "AUTO PAUSED — your choice. Auto continues after you decide."
                     : "Auto rolls and fights for you, and stops at shops, events, chests, forks and drafts.",
-                22, _auto && AutoPaused ? Theme.Gold : Theme.TextDim, TextAnchor.MiddleCenter, "Hint");
+                22, fork || _auto && AutoPaused ? Theme.Gold : Theme.TextDim, TextAnchor.MiddleCenter, "Hint");
             Ui.Size(hint, -1, HintRowH);
         }
 
@@ -568,6 +670,14 @@ namespace RogueStars.Client.Screens
             {
                 _toResult = false;
                 App.Router.Replace(new RunResultScreen());
+                return;
+            }
+            if (_outcome != null && _outcome.IsOpen)
+            {
+                // the result of an event / chest / campfire / shop: auto passes it after a short look
+                if (!_auto || _outcomeRevealing) { _outcomeTimer = 0; RemoveAutoOverlay(); return; }
+                _outcomeTimer += dt;
+                if (_outcomeTimer >= AutoOutcomeSeconds) CloseOutcome();
                 return;
             }
             if (!_auto) return;
@@ -637,6 +747,7 @@ namespace RogueStars.Client.Screens
         public override void OnHide()
         {
             CloseDecision();
+            if (_outcome != null && _outcome.IsOpen) { _outcome.Close(); _outcomeSeen = Math.Max(0, _outcomeSeen - 1); } // shown again on return
             if (_autoOverlay != null) Ui.DestroyGo(_autoOverlay);
             _autoOverlay = null;
         }
@@ -657,6 +768,7 @@ namespace RogueStars.Client.Screens
         private void ShowDecision(ActiveRun stale)
         {
             if (Root == null || App.Router.Current != this) return;
+            if (_outcome != null && _outcome.IsOpen) return; // the outcome result first; its Continue opens the decision
             var run = State.Run.Active;
             if (run == null || run.RunId != stale.RunId) return;
             string key = DecisionKey(run);
@@ -665,7 +777,7 @@ namespace RogueStars.Client.Screens
             _decisionKey = key;
             switch (run.Phase)
             {
-                case RunPhase.ChooseBranch: _decision = BranchModal(run); break;
+                case RunPhase.ChooseBranch: _decision = null; break; // picked on the board (A / B landing tiles)
                 case RunPhase.Event: _decision = EventModal(run); break;
                 case RunPhase.Draft: _decision = DraftModal(run); break;
                 case RunPhase.Shop: _decision = ShopModal(run); break;
@@ -674,33 +786,14 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        private UiModal BranchModal(ActiveRun run)
+        /// <summary>Branch colours: A orange, B gold.</summary>
+        public static Color BranchColor(int option) => option == 0 ? Theme.Accent : Theme.Gold;
+
+        private void PickBranch(int index)
         {
-            var buttons = new List<ModalButton>();
-            for (int i = 0; i < run.BranchOptions.Count; i++)
-            {
-                int index = i;
-                var tile = run.Tiles[run.BranchOptions[i]];
-                var ahead = RunBoard.Ahead(run.Tiles, tile.Id, 3);
-                var names = new List<string>();
-                foreach (var id in ahead) names.Add(TileName(run.Tiles[id]));
-                buttons.Add(new ModalButton((i == 0 ? "Path A" : "Path B") + ": " + string.Join(", ", names), () => Run(new RunChooseBranch { Index = index }), i == 0 ? Theme.Accent : Theme.Gold));
-            }
-            return Modal("Fork in the path", b =>
-            {
-                Note(b, "The glowing tiles on the board are your options (A / B). " + run.StepsLeft + " steps left.");
-                for (int i = 0; i < run.BranchOptions.Count; i++)
-                {
-                    var row = Ui.ChipRow(b, 52, 8);
-                    Ui.Chip(row, i == 0 ? "A" : "B", i == 0 ? Theme.Accent : Theme.Gold, Theme.OnAccent, 24, 48);
-                    foreach (var id in RunBoard.Ahead(run.Tiles, run.Tiles[run.BranchOptions[i]].Id, 4))
-                    {
-                        var look = LookOf(run, run.Tiles[id], Content);
-                        if (string.IsNullOrEmpty(look.Label)) continue;
-                        Ui.Chip(row, look.Label.Replace("\n", " "), Theme.Panel, Color.Lerp(look.Accent, Color.white, 0.5f), 20, 44, look.Accent);
-                    }
-                }
-            }, buttons.ToArray());
+            var r = State.Run.Active;
+            if (r == null || r.Phase != RunPhase.ChooseBranch || Animating) return;
+            Run(new RunChooseBranch { Index = index });
         }
 
         private string TileName(RunTile t) => Content.BoardTiles.TryGetValue(t.TileId ?? "", out var d) ? d.Name : t.TileId;
@@ -754,6 +847,177 @@ namespace RogueStars.Client.Screens
                     if (!affordable) Ui.Label(card, "Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"), 22, Theme.Bad);
                 }
                 Ui.Label(box, _auto ? "Auto mode waits for your choice." : "Tap an option to decide.", 22, Theme.Hex(0x8E95C8), TextAnchor.MiddleCenter);
+            });
+        }
+
+        // ---- outcome results (event / chest / campfire / shop) ----------------------------------
+
+        /// <summary>Show the newest outcome (ActiveRun.LastOutcome) once, else the pending decision.</summary>
+        private void ShowOutcomeOrDecision(ActiveRun stale)
+        {
+            if (Root == null || App.Router.Current != this) return;
+            var run = State.Run.Active;
+            if (run == null || run.RunId != stale.RunId) return;
+            if (_outcome != null && _outcome.IsOpen) return;
+            if (run.LastOutcome != null && run.OutcomeSeq > _outcomeSeen)
+            {
+                _outcomeSeen = run.OutcomeSeq;
+                CloseDecision();
+                _outcome = OutcomeSheet(run.LastOutcome);
+                _outcomeTimer = 0;
+                return;
+            }
+            ShowDecision(run);
+        }
+
+        private void CloseOutcome()
+        {
+            if (_outcome != null && _outcome.IsOpen) _outcome.Close();
+            _outcome = null;
+            _outcomeRevealing = false;
+            var run = State.Run.Active;
+            if (run != null) { _decisionKey = null; ShowDecision(run); }
+        }
+
+        /// <summary>The result screen is open (tests).</summary>
+        public bool OutcomeOpen => _outcome != null && _outcome.IsOpen;
+
+        private static string SourceCaption(string source) =>
+            source == "treasure" ? "CHEST" : source == "campfire" ? "CAMPFIRE" : source == "shop" ? "SHOP" : "EVENT";
+
+        /// <summary>One result line as text, e.g. "+30 coins", "−5% max HP", "New skill: Ember Kindle" (pure; tested).</summary>
+        public static string OutcomeLineText(OutcomeLine l, ContentDb content)
+        {
+            string sign = l.Amount >= 0 ? "+" : "−";
+            double a = Math.Abs(l.Amount);
+            switch (l.Kind)
+            {
+                case OutcomeKind.Coins: return sign + a.ToString("0") + " coins";
+                case OutcomeKind.Hp: return sign + Fmt.Num(a) + " HP";
+                case OutcomeKind.Stat:
+                    return sign + Fmt.Pct(a) + " " + (l.Id == "Hp" ? "max HP" : l.Id == "Atk" ? "ATK" : l.Id == "Def" ? "DEF" : l.Id) + " for the run";
+                case OutcomeKind.SkillGained: return "New skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
+                case OutcomeKind.SkillLost: return "Lost skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
+                case OutcomeKind.Xp: return "+" + a.ToString("0") + " XP";
+                case OutcomeKind.LevelUp: return "Level up! +" + a.ToString("0") + " skill draft" + (a > 1 ? "s" : "");
+                case OutcomeKind.Shards: return sign + a.ToString("0") + " portal shard" + (a == 1 ? "" : "s");
+                case OutcomeKind.AccountLoot:
+                    return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — account loot, paid when you beat the boss";
+                case OutcomeKind.Awakening: return "Boss awakening " + sign + a.ToString("0.#");
+                case OutcomeKind.AwakenRate: return "Boss awakens " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower") + " for the rest of the run";
+                case OutcomeKind.BossStat: return "Boss " + sign + Fmt.Pct(a) + " stronger";
+                case OutcomeKind.Danger: return "Danger " + sign + a.ToString("0");
+                case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
+                default: return "Nothing happened.";
+            }
+        }
+
+        /// <summary>Icon glyph and colour of a result line.</summary>
+        private static KeyValuePair<string, Color> OutcomeIcon(OutcomeLine l, ContentDb content)
+        {
+            switch (l.Kind)
+            {
+                case OutcomeKind.Coins: return new KeyValuePair<string, Color>("C", Theme.Gold);
+                case OutcomeKind.Hp: return new KeyValuePair<string, Color>("HP", l.Good ? Theme.Good : Theme.Bad);
+                case OutcomeKind.Stat: return new KeyValuePair<string, Color>("%", l.Good ? Theme.Good : Theme.Bad);
+                case OutcomeKind.SkillGained:
+                case OutcomeKind.SkillLost:
+                    return new KeyValuePair<string, Color>("S", Theme.FamilyColor(content.Skill(l.Id)?.Family ?? SkillFamily.None));
+                case OutcomeKind.Xp: case OutcomeKind.LevelUp: return new KeyValuePair<string, Color>("XP", Theme.Premium);
+                case OutcomeKind.Shards: return new KeyValuePair<string, Color>("SH", Theme.Premium);
+                case OutcomeKind.AccountLoot:
+                {
+                    var r = l.Reward;
+                    var c = r == null ? Theme.Gold : r.Kind == RewardKinds.Currency ? Theme.CurrencyColor(r.Id) : Theme.RarityColor((Rarity)Mathf.Clamp(r.Rarity, 0, (int)Rarity.Mythic));
+                    return new KeyValuePair<string, Color>("L", c);
+                }
+                case OutcomeKind.Battle: return new KeyValuePair<string, Color>("VS", l.Good ? Theme.Good : Theme.Bad);
+                case OutcomeKind.Nothing: return new KeyValuePair<string, Color>("-", Theme.TextFaint);
+                default: return new KeyValuePair<string, Color>("!", Theme.Bad); // boss awakening, boss strength, danger
+            }
+        }
+
+        private UiModal OutcomeSheet(RunOutcome o)
+        {
+            var deep = Theme.Hex(0x1C1F3A);
+            return Ui.Sheet(App.ModalLayer, "Outcome", deep, Theme.Hex(0x3E4690), (box, modal) =>
+            {
+                Ui.Caption(box, SourceCaption(o.Source) + " RESULT", Theme.Premium);
+                Ui.Display(box, o.Title ?? "Result", 50, Theme.Text);
+                if (!string.IsNullOrEmpty(o.Choice) && o.Source != "shop") Ui.Label(box, "You chose: " + o.Choice, Theme.FontNormal, Theme.Hex(0xD7DBFA));
+
+                RectTransform meter = null, marker = null;
+                Text stamp = null;
+                float landing = 0.5f;
+                if (o.Chance)
+                {
+                    // the chance roll: a bar split into the lucky zone (green, its % chance) and the rest (red); a marker
+                    // sweeps back and forth and lands in the zone the rules picked
+                    float pct = Mathf.Clamp01((float)(o.SuccessChancePct / 100.0));
+                    var panel = Ui.Column(box, 10, 0, null, "ChanceMeter");
+                    Ui.Label(panel, Fmt.Pct(Math.Round(o.SuccessChancePct)) + " chance", 34, Theme.Gold, TextAnchor.MiddleCenter, "ChanceLabel").fontStyle = FontStyle.Bold;
+                    var track = Ui.Rect(panel, "Track");
+                    Ui.Size(track, -1, 64);
+                    var good = Ui.RoundPanel(track, Theme.Shade(Theme.Good, 0.8f), 18, "Lucky");
+                    good.rectTransform.anchorMin = new Vector2(0, 0); good.rectTransform.anchorMax = new Vector2(pct, 1);
+                    good.rectTransform.offsetMin = good.rectTransform.offsetMax = Vector2.zero;
+                    var bad = Ui.RoundPanel(track, Theme.Shade(Theme.Bad, 0.8f), 18, "Unlucky");
+                    bad.rectTransform.anchorMin = new Vector2(pct, 0); bad.rectTransform.anchorMax = new Vector2(1, 1);
+                    bad.rectTransform.offsetMin = bad.rectTransform.offsetMax = Vector2.zero;
+                    var m = Ui.RoundPanel(track, Theme.Cream, 8, "Marker");
+                    marker = m.rectTransform;
+                    marker.anchorMin = marker.anchorMax = new Vector2(0, 0.5f);
+                    marker.pivot = new Vector2(0.5f, 0.5f);
+                    marker.sizeDelta = new Vector2(18, 92);
+                    landing = o.Success ? pct * 0.5f : pct + (1 - pct) * 0.5f;
+                    stamp = Ui.Display(panel, "", 48, Theme.Text, TextAnchor.MiddleCenter, "ChanceResult");
+                    meter = track;
+                }
+
+                var details = Ui.Column(box, 10, 0, null, "Lines");
+                if (!string.IsNullOrEmpty(o.Text)) Ui.Label(details, o.Text, Theme.FontNormal, Theme.Hex(0xAEB6F2), TextAnchor.MiddleCenter, "OutcomeText");
+                foreach (var l in o.Lines)
+                {
+                    var icon = OutcomeIcon(l, Content);
+                    var row = Ui.Row(details, 70, 16, l.Good ? Theme.Hex(0x173D2A) : Theme.Hex(0x4A1A1D), 18, "Line:" + l.Kind);
+                    var dot = Ui.RoundPanel(row, icon.Value, 30, "Icon");
+                    Ui.Size(dot, 58, 58, 0);
+                    var glyph = Ui.Display(dot.transform, icon.Key, icon.Key.Length > 1 ? 22 : 30, Theme.TextOn(icon.Value), TextAnchor.MiddleCenter);
+                    Ui.Stretch(glyph.rectTransform);
+                    var t = Ui.Label(row, OutcomeLineText(l, Content), 28, l.Good ? Theme.Hex(0x9CF0B5) : Theme.Hex(0xFFB3B5));
+                    t.fontStyle = FontStyle.Bold;
+                    Ui.Size(t, -1, -1, 1);
+                }
+                var cont = Ui.Button(box, "Continue", CloseOutcome, Theme.Accent, -1, 110, true, 40);
+                cont.name = "OutcomeContinue";
+                Ui.Label(box, _auto ? "Auto continues in a moment." : "Tap Continue.", 22, Theme.Hex(0x8E95C8), TextAnchor.MiddleCenter);
+
+                if (marker != null)
+                {
+                    var group = details.gameObject.AddComponent<CanvasGroup>();
+                    void Land()
+                    {
+                        float w = meter.rect.width;
+                        marker.anchoredPosition = new Vector2(landing * w, 0);
+                        stamp.text = o.Success ? "SUCCESS!" : "NO LUCK";
+                        stamp.color = o.Success ? Theme.Good : Theme.Bad;
+                        group.alpha = 1;
+                        _outcomeRevealing = false;
+                    }
+                    if (InstantOutcomes || !Application.isPlaying) { Land(); return; }
+                    group.alpha = 0;
+                    _outcomeRevealing = true;
+                    var seq = UiSequence.On(modal.Root);
+                    seq.Then(ChanceSpinSeconds, t =>
+                    {
+                        // fast sweeps that slow down and settle on the landing spot
+                        float w = meter.rect.width;
+                        float decay = (1 - t) * (1 - t);
+                        float x = landing + 0.5f * decay * Mathf.Sin(t * Mathf.PI * 9);
+                        marker.anchoredPosition = new Vector2(Mathf.Clamp01(x) * w, 0);
+                        stamp.text = t < 1 ? "rolling…" : "";
+                    }, Land);
+                }
             });
         }
 

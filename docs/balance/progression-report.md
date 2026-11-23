@@ -452,6 +452,65 @@ first access into a bounded cache (600 levels, regenerated identically). State: 
 per-level records (the last 100 main and 100 Dark Side levels plus the Burrow) and a 400–650-byte archive for everything
 older (one character per level, nothing for a fully completed prefix), instead of one record per level played.
 
+## Run length (~30-roll runs, GDD §3.3)
+
+Playtest: runs ended after 6–10 rolls (the worm reached the boss gate of a 25–46-tile board long before the roll limit),
+with ~1 draft per run — no build ever formed. Now the board is a circuit (the gate leads back to the first tile), the
+boss's awakening meter is the clock (3.6 points per roll, boss tiles ±10, some event choices; the boss comes when it is
+full, hard limit 45 rolls) and the run XP curve is 4 + 1 per level. Ordinary tiles pay in-run resources only; account
+loot comes from completion (3 loot rolls, was 2) and at most 3 risky opportunities per run.
+
+`dotnet run --project tools/RogueStars.Sim -c Release -- --run-length --days 365 --seeds 2` (Active F2P + Hardcore
+Whale, every run recorded; "boss" = runs that reached the boss; the bot takes default choices, i.e. never the risky
+account-loot options):
+
+| Band | dice | rolls/run before → after (boss reached) | drafts/run before → after | won before → after |
+|---|---|---|---|---|
+| main 1–3 | 1 | 7.8 → 33.7 | 0.9 → 9.6 | 100% → 100% |
+| main 4–10 | 1 | 9.8 → 29.1 | 1.4 → 8.7 | 99% → 98% |
+| main 4–10 | 2 | 5.8 → 30.3 | 0.6 → 8.8 | 94% → 84% |
+| main 11–30 | 1 | 10.1 → 29.7 | 1.4 → 8.5 | 91% → 79% |
+| main 11–30 | 2 | 6.3 → 30.0 | 0.7 → 9.1 | 90% → 87% |
+| main 31–60 | 1 | 10.2 → 30.6 | 1.2 → 7.6 | 50% → 37% |
+| main 31–60 | 2 | 6.8 → 31.4 | 0.7 → 8.7 | 41% → 51% |
+| main 61–150 | 1 | 11.1 → 32.5 | 1.2 → 7.5 | 26% → 22% |
+| main 61–150 | 2 | 7.3 → 33.3 | 0.7 → 8.6 | 29% → 33% |
+| main 151–400 | 1 | 11.0 → 34.2 | 1.2 → 8.0 | 25% → 23% |
+| main 151–400 | 2 | 7.3 → 34.1 | 0.8 → 8.7 | 34% → 31% |
+| Dark Side | 2 | 6.0 → 33.2 | 0.6 → 8.6 | 24% → 21% |
+
+(Win rates past level 30 are frontier pushes: the bot retries a level until it wins.) Late bands run a little longer
+than 30 because the bot's own Stasis Beacon (5–18% slower meter) and drafted Calm Mind stretch them — the intended
+"skills shift it". Without any skill the rules test `RunLengthTests` measures 29.5–31.8 rolls on average for main levels
+1, 3, 8 (two dice), 25, 100, 500 and Dark Side 10 (27–33 required), 8–10 drafts (8–12 required), and a 20% slower meter
+adds ~8 rolls. A run takes ~2.5 minutes of session time instead of ~1, so time-limited players play fewer runs (~30% fewer
+runs) — the third completion loot roll and the bigger build per run keep the campaign pace:
+
+| Main level reached (seed 1–2) | before | after |
+|---|---|---|
+| Active F2P, day 60 (guard band 40–75) | 58 | 54 |
+| Active Whale, day 60 (guard band 50–100) | 79 | 83 |
+| Active F2P, day 365 | 198 / 200 | 241 / 217 |
+| Hardcore Whale, day 365 | 432 / 402 | 411 / 402 |
+
+**Account loot per run** (rewards that outlive the run, found during it): before, ordinary Cache tiles and events paid
+0.2–0.9 items per run for the default-choice bot (uncapped, no risk attached). After: ordinary tiles pay none; account-loot
+opportunities (guarded Treasure Pods, Abandoned Cache, Gravity Well, Wild Beast, Rift Echo, Black Market) average 0.8–1.1
+per run and never exceed 3 (sim and `RunLengthTests`: 1.14 per run, max 3); a player who always takes the risk finds 1.6
+items per run on average, the default-choice bot none (its income is the completion rolls). Per-run currencies at the
+frontier (completion + 3 rolls, docs/design/economy-model.md table): Biomass/Ore +6%, Fuel/Gear Cores +50% (they only come
+from loot rolls); per day roughly unchanged because of fewer runs. The Burrow now always dives 10 short floors (6 rolls
+each, 60 rolls per run as before); its per-floor completion rewards are unchanged.
+
+Early levels: `EarlyLevelBalanceTests` still holds (levels 1–3 lost ≤ 2 times in 60 new players, 4–6 ≤ 30) — the longer
+runs give the first runs 8+ drafts, board fights are −15% (`RunTuning.BoardEnemyPct`) and every won fight heals 15% (was
+8%), the fully awake boss is +15% (was +30%) since the meter now always fills.
+
+**Guard test changes:** all existing bands unchanged (day 7/30/60 levels, walls, ratios, long-haul checks still pass).
+New: `Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers` — runs that reach the boss average 27–35 rolls (wider than
+the rules test's 27–33 because the bot's Stasis Beacon / Calm Mind are allowed to stretch them), 8–12 drafts, at most 3
+account-loot opportunities in any run and 0.5–2 on average.
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still
@@ -487,7 +546,8 @@ older (one character per level, nothing for a fully completed prefix), instead o
 power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mount ≤ 5★ and not awakened — was ≤ 4★ before the
 endless campaign's milestone chests, which tip seed 1 over 5★ just before day 60, parts below Mythic S on average,
 lab incomplete and < 5% of its research hours), no awakening for anyone in 60 days (whale < 50 cores), no below-Legendary
-part pile (≤ 12 spare), 5–16 mythics per pull type in 60 days, and determinism by seed. (Redesign: bands unchanged, the
+part pile (≤ 12 spare), 5–16 mythics per pull type in 60 days, run length (27–35 rolls to the boss, 8–12 drafts, ≤ 3
+account-loot opportunities per run, see "Run length") and determinism by seed. (Redesign: bands unchanged, the
 part/lab/core checks are new.) Move a band only after re-running the
 simulator and updating this report.
 

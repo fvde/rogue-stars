@@ -24,7 +24,11 @@ Aliens, Laboratory → stronger runs, harder portals.
 ## 3. The Run
 ### 3.1 Board
 - Each Portal level defines a board: a graph of tiles. Boards branch; some loop. At a branch the player
-  picks a leg (reachable tiles previewed).
+  picks a leg: the board highlights, for each leg, the path and the tile the worm would **land on** with the steps
+  it has left (A / B markers; tap the landing tile or the leg's first tile).
+- **The board is a circuit:** the boss gate sits at the end of the spine and leads back to the first tile, so the worm
+  laps the board and never runs out of board before the boss (lap ≈ 25–45 tiles with one die, ×1.5 with two). The
+  boss does not wait at the gate: it comes when its awakening meter is full (§3.3).
 - **Dice:** the player rolls dice (count per level, default 1 d6; skills/buildings can add dice or
   modifiers). The sum is the number of steps. Clean random: no forced or pre-chosen rolls.
 - Tiles trigger on landing. Some tiles also trigger on **pass** (e.g. pickups); skills can add pass effects.
@@ -36,7 +40,8 @@ Aliens, Laboratory → stronger runs, harder portals.
   steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss tiles) and battles
   (fast playback). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
   treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out — auto **pauses**, shows the
-  decision and hands control back; after the player decides it resumes by itself while auto is still on. Giving up
+  decision and hands control back; after the player decides it resumes by itself while auto is still on. The result screen of an event / chest / campfire / shop (§3.3) is shown for a moment and passed by
+  auto. Giving up
   when no revive is left is not a choice and is automatic.
 - **Auto-pick drafts (farming)**, a player setting, off by default: for easy re-runs auto also takes the default
   choice (best draft pick, the event's default option, first branch, give up when defeated, cash out in the Burrow).
@@ -48,10 +53,10 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Tile | Effect |
 |---|---|
 | Enemy (lv 1–3) | Auto-battle; XP and run coins by level |
-| Elite | Harder battle, better loot |
+| Elite | Harder battle, more XP and coins |
 | Stat buff / debuff | ± % of a stat for the rest of the run (can cost or grant stat %) |
-| Loot | Run loot (pending outside-run rewards). **Each loot item carried raises the Danger level** (enemy stats +x%) |
-| Treasure | Choose: open (more loot, more danger) or leave |
+| Supply cache | Run coins and run XP (in-run resources only) |
+| Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
 | Campfire | Heal or upgrade a skill; strengthens nearby enemy tiles |
 | Shop (force stop) | Buy skills / buffs / heal with run coins; reroll with rising price |
@@ -60,15 +65,38 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
 | Miniboss | Spawns at fixed points |
 
+**Account loot is rare and always risky.** Rewards that outlive the run (currencies, parts, tokens: "account loot") are
+paid mainly by the level's completion rewards (+ 3 loot-table rolls) and first-clear milestones. During a run they come
+only from **at most 3 opportunities per run** (`RunTuning.MaxAccountLootOffersPerRun`; per floor in the Burrow): guarded
+Treasure Pods and a few events, each with a clear price — a fight (elite / guardian / echo), a heavy loss (HP, max HP)
+or a lasting effect for the rest of the run (e.g. "the boss awakens 15% faster", "−8% max HP"). Later caches are
+empty / replaced by other events. Ordinary tiles pay in-run resources (coins, XP, HP, temporary buffs). The option text
+says "account loot, paid on clear" and names the risk; the result screen lists the item and the price paid. **Each
+account-loot item carried raises the Danger level** (enemy stats +x%).
+
 Risk/reward mini-events replace gambling minigames: e.g. *Unstable Reactor* (take a skill now; the boss
 gains +X% ATK), *Smuggler* (trade max HP for a rare skill), *Rift Echo* (fight an echo of a strong enemy for a
 part drop that only pays out on completion). No wheels, slots or card games.
 
 ### 3.3 Boss and awakening meter
-The boss is visible from the start. An **awakening meter** fills per roll and from boss tiles; at
-thresholds the boss acts on the board (buff enemy tiles, transform tiles, summon). Skills and city buildings
-interact with the meter (slow it, drain it, convert it into rewards). The run ends with the boss fight
-after a set number of rolls or when the token reaches the boss gate.
+The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 3.6 points) and from
+boss tiles (feed +10/+12, relief −10, tribute +5 with run coins) and some event choices; at thresholds (25/50/75) the boss
+acts on the board (buff enemy tiles, transform tiles, summon) and at 100 it is fully awake (+15%). **The meter is the
+run's clock: when it is full the boss comes, right after the current move** (at the latest after the level's hard roll
+limit, `LevelDef.MaxRolls` 45). Without skills a run lasts **~30 rolls** (27–33 on average for every level band, one or
+two dice; base pace 28 rolls, relief tiles and choices shift it); runs give ~8–12 skill drafts (run XP curve 4 + 1 per
+level) and ~10 fights, so a build takes shape. Skills and city buildings interact with the meter: slowing it (Stasis
+Beacon 5–18%, Calm Mind −1 per roll, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
+with danger), events and boss tiles can speed it up. The HUD shows **"Roll n/N"**: N = the roll after which the boss is
+expected at the current pace (`RunSystem.BossRollEstimate`), and the boss banner shows "x rolls left". Board fights are
+a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and every won fight heals 15%, since a run has
+~3× the fights of the old short runs. Burrow floors are short (6 rolls, the boss comes at the roll limit).
+
+**Outcome results:** every event / chest / campfire choice and every shop visit with a purchase produces a structured
+outcome (`ActiveRun.LastOutcome`: source, choice, whether chance was involved, the lucky outcome's chance and whether it
+hit, and one line per gain or loss — coins, HP, stats, skills, XP / level-ups, shards, account loot, boss awakening and
+its pace, boss strength, danger, fights). The client animates the chance roll (a marker sweeping over the % bar) and then
+shows the result screen with icons and numbers; auto mode passes it after a short look.
 
 ### 3.4 Run rewards and failure
 - Run loot is **pending** until the boss is beaten. Fail → all pending loot is lost (no banking).
