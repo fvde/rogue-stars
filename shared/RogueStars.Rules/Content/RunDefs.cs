@@ -410,6 +410,12 @@ namespace RogueStars.Rules.Content
         /// roster (lifesteal boss, bleed/poison packs) is markedly stronger, so main portals even it out.
         /// </summary>
         public List<double> FamilyStrengthPct = new List<double> { 0, 0, 0, -25 };
+        /// <summary>
+        /// Extra enemy HP/ATK % per biome family from portal <see cref="LateFamilyFromPortal"/> on (endless campaign): the glacier
+        /// roster (freeze-all boss, shields, counters) stalls late-game worms for weeks every fourth portal without it.
+        /// </summary>
+        public List<double> LateFamilyStrengthPct = new List<double> { 0, -20, 0, 0 };
+        public int LateFamilyFromPortal = 40;
 
         /// <summary>Main level that opens the Dark Side (feature gate, ContentDb.Onboarding); its levels start just below it.</summary>
         public int DarkSideFromLevel = 40;
@@ -439,7 +445,7 @@ namespace RogueStars.Rules.Content
         /// </summary>
         public int EndlessFromPortal = 50;
         /// <summary>α: per-run currencies grow as threat^α (α &lt; 1, sublinear to threat and upgrade costs).</summary>
-        public double EndlessRewardExponent = 0.5;
+        public double EndlessRewardExponent = 0.7;
         /// <summary>Dark Side level from which Data follows threat^α (anchor = this level's legacy Data).</summary>
         public int DarkSideEndlessFrom = 150;
         /// <summary>Run item drops (parts, runes, blueprints, aliens) of portal i ≥ EndlessFromPortal gain

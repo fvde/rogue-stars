@@ -70,8 +70,14 @@ after a set number of rolls or when the token reaches the boss gate.
 ### 3.5 Portals, levels and modes
 - Portals open one by one on the planet; each Portal = a biome with N levels (main). Each level has 3 feats
   (clear, HP left ≥ x%, beat boss within N rounds).
+- **The main campaign is endless:** after the 50 named portals (levels 1–500) new portals keep coming on the same long
+  threat curve, generated from the portal number (adjective + biome names, the four biome families in turn, family
+  bosses in six rotating variants with new boss-tile combinations every 5 portals). Per-run rewards keep growing more
+  slowly than threat (threat^0.7), every 10th level pays a one-time milestone chest (Diamonds + one token of each pull
+  type) and every 50th a bigger portal-completion bonus; run item drops shift up in rarity past level 500 but never
+  above Legendary. Formulas: `docs/design/economy-model.md` ("Endless campaign rewards").
 - **Overcharged** levels: harder variant of each portal, 2× stamina, better rewards.
-- **Dark Side of the Planet:** late mode (opens at main level 40), 150 procedural levels along the campaign curve (dark
+- **Dark Side of the Planet:** late mode (opens at main level 40), endless procedural levels along the campaign curve (dark
   level i ≈ main level 40 + 3·(i−1)) with extreme modifiers (+45…90% enemy HP/ATK, −50% healing, faster awakening and
   danger), own rewards and leaderboard. The long-term source of **Data** for the Laboratory (Data per clear grows with
   the level).

@@ -29,7 +29,7 @@ materials are refunded 100% of their level materials and give back their runes.
 | Mythic SS+2 | 11.0 | 115 | 6 | 5 | 5 |
 
 Max level 145 (SS+2 with all six plate raises). The top multipliers stay close to the old Mythic+3 (9.8 at Mythic SS) so the
-500-level campaign curve still fits; the long road is in the merge cost, the skills and awakening, not in raw stats. Forge: Epic+, two unlocks (+1 rune slot and +10% / +15% base stats each),
+campaign curve still fits (levels 1–500; the endless levels beyond are power-gated); the long road is in the merge cost, the skills and awakening, not in raw stats. Forge: Epic+, two unlocks (+1 rune slot and +10% / +15% base stats each),
 rune slots capped at 5. Ore per level `30·L^1.4`, Gear Cores `2·(L−9)^1.25` from level 10.
 
 ## Merge recipes and fodder points

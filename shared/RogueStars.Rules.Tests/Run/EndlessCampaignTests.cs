@@ -6,6 +6,15 @@ namespace RogueStars.Rules.Tests.Run;
 
 public class EndlessCampaignTests
 {
+    /// <summary>Biome family strength factor of main portal <paramref name="index"/> (base offset × late offset).</summary>
+    internal static double FamilyFactor(ContentDb c, int index)
+    {
+        var k = c.Campaign;
+        double f = 1 + k.FamilyStrengthPct[index % k.FamilyStrengthPct.Count] / 100.0;
+        if (index >= k.LateFamilyFromPortal) f *= 1 + k.LateFamilyStrengthPct[index % k.LateFamilyStrengthPct.Count] / 100.0;
+        return f;
+    }
+
     [Fact]
     public void MainLevels_ContinuePastTheNamedPortals_OnTheSameRisingCurve()
     {
@@ -22,8 +31,7 @@ public class EndlessCampaignTests
             Assert.True(ids.Add(l.Id), l.Id);
             Assert.Same(c.Portal(l.PortalId), c.MainPortal((n - 1) / c.Campaign.LevelsPerPortal));
             if (l.Index == 1) Assert.True(names.Add(c.Portal(l.PortalId).Name), c.Portal(l.PortalId).Name);
-            double family = c.Campaign.FamilyStrengthPct[(n - 1) / c.Campaign.LevelsPerPortal % c.Campaign.FamilyStrengthPct.Count];
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / (1 + family / 100.0);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / FamilyFactor(c, (n - 1) / c.Campaign.LevelsPerPortal);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.NotNull(c.RunLootTable(l.LootTableId));

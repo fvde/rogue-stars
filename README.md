@@ -63,7 +63,7 @@ Playable prototype (placeholder UI), offline and online.
 
 - **Rules:** run board, battles, worm/parts/runes/heroes/mounts, city/aliens/breeding, laboratory, gacha, quests, shop,
   mail, arena, guilds, live ops (weekly + surprise invasions, never two of one type at once, max 2 concurrent;
-  planetary events). 500-level campaign tuned with the simulator (mid-campaign plateau removed).
+  planetary events). Endless procedural campaign and Dark Side (50 named portals, then generated) tuned with the simulator.
 - **Server:** authoritative command endpoint, idempotency, compare-and-set saves, arena, guilds, invasions (instances
   = rules live-ops occurrences), jobs, Google Play receipt validation (productsv2, server consume/acknowledge), AppLovin
   MAX S2S verification, Firestore (emulator-tested), Cloud Run + Cloud Build + Terraform; owner runbook docs/setup.md.

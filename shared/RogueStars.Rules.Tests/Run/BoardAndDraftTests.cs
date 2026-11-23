@@ -248,8 +248,7 @@ public class ContentTests
         {
             var l = mains[n - 1];
             Assert.Equal(n, RunSystem.MainLevelNumber(c, l.Id));
-            double family = c.Campaign.FamilyStrengthPct[(n - 1) / c.Campaign.LevelsPerPortal % c.Campaign.FamilyStrengthPct.Count];
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / (1 + family / 100.0);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / EndlessCampaignTests.FamilyFactor(c, (n - 1) / c.Campaign.LevelsPerPortal);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.InRange(l.StaminaCost, 5, c.Campaign.StaminaMax);

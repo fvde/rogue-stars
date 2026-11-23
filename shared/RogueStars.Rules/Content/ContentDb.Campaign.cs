@@ -235,6 +235,8 @@ namespace RogueStars.Rules.Content
             var portal = new PortalDef { Id = id, Name = name, Kind = PortalKind.Main, Order = index };
             double scale = MainRewardScale(index);
             double familyPct = c.FamilyStrengthPct[index % c.FamilyStrengthPct.Count];
+            if (index >= c.LateFamilyFromPortal && c.LateFamilyStrengthPct.Count > 0)
+                familyPct = ((1 + familyPct / 100.0) * (1 + c.LateFamilyStrengthPct[index % c.LateFamilyStrengthPct.Count] / 100.0) - 1) * 100;
             for (int i = 1; i <= c.LevelsPerPortal; i++)
             {
                 int n = index * c.LevelsPerPortal + i;
