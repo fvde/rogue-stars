@@ -31,6 +31,8 @@ public sealed partial class SimPlayer
     private long _monthBudgetUsed;
     private int _month = -1;
     public long Commands, FailedCommands;
+    /// <summary>Feature id → (account day 1-based, highest main level cleared) when the unlock was recorded.</summary>
+    public readonly Dictionary<string, (int day, long level)> Unlocks = new();
     public double MinutesPlayed, MinutesInRuns;
     public int RunsPlayed, RunsWon;
 
@@ -83,6 +85,10 @@ public sealed partial class SimPlayer
         var r = E.Execute(ref S, cmd, Now);
         Commands++;
         if (!r.Ok) { FailedCommands++; return r; }
+        if (S.Onboarding.Unlocked.Count != Unlocks.Count)
+            foreach (var kv in S.Onboarding.Unlocked)
+                if (!Unlocks.ContainsKey(kv.Key))
+                    Unlocks[kv.Key] = ((int)Requirements.AccountAgeDays(S, C, kv.Value) + 1, S.Counter(Requirements.MainLevelCounter));
         for (int i = 0; i < Tracked.Length; i++)
         {
             long d = S.Wallet.Get(Tracked[i]) - _before[i];

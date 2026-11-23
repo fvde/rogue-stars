@@ -82,6 +82,7 @@ public static class Output
         File.WriteAllText(Path.Combine(dataDir, "analysis" + suffix + ".md"), Report.AnalysisMarkdown(analysis));
         File.WriteAllText(Path.Combine(dataDir, "redesign" + suffix + ".md"), Redesign.Markdown(results, SimContent.Create(), days));
         File.WriteAllText(Path.Combine(dataDir, "endless" + suffix + ".md"), Endless.Markdown(results, SimContent.Create(), days));
+        File.WriteAllText(Path.Combine(dataDir, "unlocks" + suffix + ".md"), Unlocks.Markdown(results, SimContent.Create()));
         Console.WriteLine(Report.Summary(med, analysis));
     }
 }

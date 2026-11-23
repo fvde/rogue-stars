@@ -42,6 +42,22 @@ public class FullGameSmokeTests
             return r;
         }
 
+        /// <summary>
+        /// Plays one command (CityCollect) per account day until <paramref name="day"/> (1 = creation day): feature
+        /// unlocks are gated by account day and limited to one group per day after day 1. Returns the unlocked ids.
+        /// </summary>
+        public List<string> PlayUntilDay(int day)
+        {
+            var unlocked = new List<string>();
+            long created = GameClock.DayIndex(E.Content, S.CreatedMs);
+            while (GameClock.DayIndex(E.Content, Now) - created + 1 < day)
+            {
+                long next = GameClock.DayStartMs(E.Content, GameClock.DayIndex(E.Content, Now) + 1) + Hour;
+                unlocked.AddRange(Do(new CityCollect(), next - Now).Events.Where(ev => ev.Type == "feature_unlocked").Select(ev => ev.Args[0]));
+            }
+            return unlocked;
+        }
+
         public void AssertInvariants()
         {
             foreach (var kv in S.Wallet.Balances) Assert.True(kv.Value >= 0, "negative balance " + kv.Key);
@@ -102,10 +118,11 @@ public class FullGameSmokeTests
         Assert.True(p.S.Wallet.Get(Currencies.Biomass) > biomassBefore);
         Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Parts));
 
-        // Later portal progress (stand-in for many more runs): unlocks pulls, aliens, housing, heroes, mounts, breeding.
-        p.S.Counters[Requirements.MainLevelCounter] = 16;
+        // Later portal progress (stand-in for many more runs) over 14 days: one unlock per day (pulls, aliens, housing,
+        // heroes, mounts, breeding...).
+        p.S.Counters[Requirements.MainLevelCounter] = 30;
         p.RunRewards(200_000, 200_000, 100_000);
-        var unlockEvents = p.Do(new CityCollect(), Min).Events.Where(ev => ev.Type == "feature_unlocked").Select(ev => ev.Args[0]).ToList();
+        var unlockEvents = p.PlayUntilDay(14);
         Assert.Contains(Features.Aliens, unlockEvents);
         Assert.Contains(Features.Mounts, unlockEvents);
         Assert.NotNull(AlienSystem.Owned(p.S, "alien_blorp"));
@@ -147,6 +164,7 @@ public class FullGameSmokeTests
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
 
         // Quests: login, part pull, ad (No-token ad fails, a real token works).
+        p.Do(new LoginClaim()); // a new day since the unlock days above
         p.Do(new BuyStamina { Method = StaminaRefillMethod.Ad, AdToken = "ad-1" });
         p.Do(new QuestClaimAll());
         Assert.True(p.S.Counter("daily_quests_claimed") >= 3);
@@ -178,6 +196,7 @@ public class FullGameSmokeTests
     {
         var p = new Player(99);
         p.S.Counters[Requirements.MainLevelCounter] = 40;
+        p.PlayUntilDay(19); // day-gated unlocks, one per day: everything up to the Burrow
         p.RunRewards(500_000, 500_000, 200_000);
         p.Do(new PurchaseStart { ProductId = "diamonds_8000" });
         p.Do(new PurchaseComplete { ProductId = "diamonds_8000", ReceiptId = "dev:rt-1" });

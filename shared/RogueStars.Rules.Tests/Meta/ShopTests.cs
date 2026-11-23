@@ -205,6 +205,7 @@ public class ShopTests
     {
         var e = Engine(devReceipts: true); var s = Player(e); long t = TestHelpers.T0;
         s.Counters[Requirements.MainLevelCounter] = 3;
+        Unlock(s, Features.SeasonPass);
         s.Count("runs_completed", 25); // 25 × 20 XP = 500 → level 5
         Assert.Equal(5, ShopSystem.SeasonLevel(s, e.Content));
         Ok(e, ref s, new SeasonPassClaim { Level = 1 }, t);
@@ -231,6 +232,7 @@ public class ShopTests
         var e = Engine(devReceipts: true); var s = Player(e); long t = TestHelpers.T0;
         Assert.Equal("product locked", Fail(e, ref s, new PurchaseStart { ProductId = "fund_worm" }, t));
         s.Counters[Requirements.MainLevelCounter] = 11;
+        Unlock(s, Features.Funds);
         s.Worm.Level = 12; // gates/funds read the real worm level (provider)
         Assert.Equal("fund not owned", Fail(e, ref s, new FundClaim { FundId = "worm", Step = 0 }, t));
         Buy(e, ref s, "fund_worm", t);

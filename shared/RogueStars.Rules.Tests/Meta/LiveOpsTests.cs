@@ -216,6 +216,7 @@ public class LiveOpsTests
         Assert.Equal("gloop_tide", inv.RefId);
         Assert.Equal("feature locked", Fail(e, ref s, new InvasionStartAttempt { OccurrenceId = inv.OccurrenceId }, t));
         s.Counters[Requirements.MainLevelCounter] = 20;
+        Unlock(s, Features.Invasions);
         Fail(e, ref s, new InvasionRecordDamage { OccurrenceId = inv.OccurrenceId, Damage = 100 }, t);
         Ok(e, ref s, new InvasionStartAttempt { OccurrenceId = inv.OccurrenceId }, t);
         Assert.Equal(2, Bal(s, Currencies.InvasionAttempts));

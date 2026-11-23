@@ -44,6 +44,13 @@ namespace RogueStars.Rules.Systems
             }
         }
 
+        /// <summary>
+        /// Account age in daily resets (GameClock.DayIndex): 0 on the creation day ("day 1"), 1 after the first reset, ...
+        /// Never negative.
+        /// </summary>
+        public static long AccountAgeDays(GameState state, ContentDb content, long nowMs) =>
+            Math.Max(0, MetaTime.DayIndex(content, nowMs) - MetaTime.DayIndex(content, state.CreatedMs));
+
         /// <summary>Current value of the requirement's measured quantity.</summary>
         public static long Current(GameState state, ContentDb content, RequirementDef req) => Current(state, content, req, 0);
 
@@ -60,20 +67,11 @@ namespace RogueStars.Rules.Systems
                 case RequirementKind.Flag: return state.Flags.Contains(req.Key) ? 1 : 0;
                 case RequirementKind.Currency: return state.Wallet.Get(req.Key);
                 case RequirementKind.Feature:
-                    if (depth > 8) return 0; // guard against cyclic content
-                    return FeatureUnlockedInternal(state, content, req.Key, depth + 1) ? 1 : 0;
+                    // Recorded unlocks only (the onboarding settler applies day gates and the daily limit).
+                    return Features.IsUnlocked(state, content, req.Key) ? 1 : 0;
                 case RequirementKind.AccountAgeDays: return 0; // needs time: see Current(state, content, req, now)
                 default: return 0;
             }
-        }
-
-        private static bool FeatureUnlockedInternal(GameState state, ContentDb content, string featureId, int depth)
-        {
-            if (state.Flags.Contains(Features.DevUnlockAllFlag)) return true;
-            if (state.Onboarding.Unlocked.ContainsKey(featureId)) return true;
-            var def = content.Feature(featureId);
-            if (def == null) return true;
-            return IsMet(state, content, def.Requires, 0, depth);
         }
 
         private static long Target(RequirementDef req)
@@ -87,7 +85,7 @@ namespace RogueStars.Rules.Systems
         private static bool IsMet(GameState state, ContentDb content, RequirementDef req, long nowMs, int depth)
         {
             if (req == null) return true;
-            if (req.Kind == RequirementKind.AccountAgeDays) return nowMs - state.CreatedMs >= req.Target * MetaTime.Day;
+            if (req.Kind == RequirementKind.AccountAgeDays) return AccountAgeDays(state, content, nowMs) >= req.Target;
             return Current(state, content, req, depth) >= Target(req);
         }
 
@@ -113,9 +111,7 @@ namespace RogueStars.Rules.Systems
             if (set == null) return list;
             foreach (var r in set.Items)
             {
-                long cur = r.Kind == RequirementKind.AccountAgeDays
-                    ? Math.Max(0, (nowMs - state.CreatedMs) / MetaTime.Day)
-                    : Current(state, content, r);
+                long cur = r.Kind == RequirementKind.AccountAgeDays ? AccountAgeDays(state, content, nowMs) : Current(state, content, r);
                 list.Add(new RequirementProgress { Requirement = r, Current = cur, Target = Target(r), Met = IsMet(state, content, r, nowMs), Text = Describe(content, r) });
             }
             return list;
@@ -136,7 +132,7 @@ namespace RogueStars.Rules.Systems
                 case RequirementKind.Feature:
                     var f = content?.Feature(r.Key);
                     return "Unlock " + (f != null ? f.Name : r.Key);
-                case RequirementKind.AccountAgeDays: return "Play for " + r.Target + " days";
+                case RequirementKind.AccountAgeDays: return "Unlocks on day " + (r.Target + 1);
                 default: return r.Kind.ToString();
             }
         }
