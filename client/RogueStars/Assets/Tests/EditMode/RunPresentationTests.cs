@@ -48,7 +48,7 @@ namespace RogueStars.Client.Tests
             run.Tiles.Clear();
             var all = new List<string> { "start" };
             all.AddRange(tiles);
-            while (all.Count < 30) all.Add("empty");
+            while (all.Count < 200) all.Add("empty"); // long enough that the rules never append a (2D-laid-out) segment
             for (int i = 0; i < all.Count; i++)
             {
                 var t = new RunTile { Id = i, TileId = all[i], X = i };
@@ -374,7 +374,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.Service.ExecuteNow(new RunShopBuy { Index = offer }).Ok, Is.True);
             Assert.That(_f.Service.ExecuteNow(new RunShopLeave()).Ok, Is.True);
             screen.Rebuild();
-            Assert.That(S.Run.Active.LastOutcome.Source, Is.EqualTo("shop"));
+            Assert.That(S.Run.Active.LastOutcome, Is.Null, "the rules publish no shop outcome");
             Assert.That(screen.OutcomeOpen, Is.False, "no outcome summary after a shop visit");
         }
     }

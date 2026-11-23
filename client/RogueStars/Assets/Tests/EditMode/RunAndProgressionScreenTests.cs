@@ -154,7 +154,7 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.AutoPaused, Is.False);
             screen.Rebuild();
             Assert.That(screen.OutcomeOpen, Is.False, "no shop result sheet");
-            Assert.That(_f.Service.State.Run.Active.LastOutcome.Lines.Exists(l => l.Kind == OutcomeKind.SkillGained && l.Id == skill), Is.True);
+            Assert.That(_f.Service.State.Run.Active.Skills, Does.Contain(skill)); // no shop outcome from the rules (playtest)
             long rolls = _f.Service.State.Counter("run_rolls");
             screen.Frame(1f);
             Assert.That(_f.Service.State.Counter("run_rolls"), Is.EqualTo(rolls + 1), "auto rolled again");

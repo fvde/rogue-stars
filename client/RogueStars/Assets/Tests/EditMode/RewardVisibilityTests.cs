@@ -116,7 +116,8 @@ namespace RogueStars.Client.Tests
             var moment = (UnlockScreen)_f.App.Router.Current;
             var chips = moment.Root.GetComponentsInChildren<Text>(true).Where(t => t.transform.parent != null && t.transform.parent.name == "Reward").Select(t => t.text).ToList();
             Assert.That(chips, Does.Contain("+20 Diamonds"));
-            Assert.That(chips, Does.Contain("3 Parts"), "the starter parts were kept for the Parts unlock: " + string.Join(" | ", chips));
+            // the starter parts (3) and any part the first run dropped were kept for the Parts unlock
+            Assert.That(chips.Any(t => t.EndsWith(" Parts") && int.TryParse(t.Split(' ')[0], out var n) && n >= 3), Is.True, "the starter parts were kept for the Parts unlock: " + string.Join(" | ", chips));
             Assert.That(chips.Any(t => t.StartsWith("+") && t.EndsWith(" Ore")), Is.True, "the Ore of the old starting wallet and the first run");
         }
 
