@@ -121,45 +121,43 @@ namespace RogueStars.Client.Editor
         /// <summary>Writes the Play Games plugin configuration exactly like its Android setup window (GPGSUtil) does.</summary>
         private void ApplyPlayGames(string appId, string webClientId)
         {
-            // The plugin's upgrader writes a manifest with an empty APP_ID on first import; never ship that (the Play Games
-            // SDK aborts on it if anything initializes it).
-            string manifestPath = PlayGamesManifestDir + "/AndroidManifest.xml";
-            if (File.Exists(manifestPath) && File.ReadAllText(manifestPath).Contains("android:value=\"\\u003\""))
-            {
-                Debug.LogWarning("[BuildSecrets] removing the Play Games manifest with an empty APP_ID (plugin upgrader output)");
-                AssetDatabase.DeleteAsset(PlayGamesManifestDir);
-            }
+            // The plugin's upgrader (re)writes GooglePlayGamesManifest.androidlib with an empty APP_ID on every editor load
+            // when it is missing (git-ignored for that reason). It is always replaced or removed here: never ship an empty
+            // APP_ID (the Play Games SDK aborts on it).
+            if (AssetDatabase.IsValidFolder(PlayGamesManifestDir) || Directory.Exists(PlayGamesManifestDir)) AssetDatabase.DeleteAsset(PlayGamesManifestDir);
+            if (Directory.Exists(PlayGamesManifestDir)) Directory.Delete(PlayGamesManifestDir, true);
+            _pgsManifestCreated = true; // removed again after the build
+
             var existing = AssetDatabase.LoadAssetAtPath<PlayGamesSettings>(PlayGamesSettingsPath);
+            if ((appId == null) != (webClientId == null))
+                Debug.LogWarning("[BuildSecrets] set both ROGUESTARS_PLAY_GAMES_APP_ID and ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID");
             if (appId == null || webClientId == null)
             {
-                PlayGames = existing != null && !string.IsNullOrEmpty(existing.AppId) && !string.IsNullOrEmpty(existing.WebClientId) &&
-                            File.Exists(PlayGamesManifestDir + "/AndroidManifest.xml");
-                if (appId != null || webClientId != null)
-                    Debug.LogWarning("[BuildSecrets] set both ROGUESTARS_PLAY_GAMES_APP_ID and ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID");
-                return;
+                // Committed configuration (plugin setup window) if any.
+                appId = existing != null && !string.IsNullOrEmpty(existing.AppId) ? existing.AppId : null;
+                webClientId = existing != null && !string.IsNullOrEmpty(existing.WebClientId) ? existing.WebClientId : null;
+                if (appId == null || webClientId == null) { PlayGames = false; return; }
             }
-            if (!System.Text.RegularExpressions.Regex.IsMatch(appId, @"^\d{6,}$")) throw new InvalidOperationException("ROGUESTARS_PLAY_GAMES_APP_ID must be the numeric Play Games project id");
-            if (!webClientId.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal)) throw new InvalidOperationException("ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID must be an OAuth client id (…apps.googleusercontent.com)");
-
-            if (existing == null)
+            else
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(PlayGamesSettingsPath));
-                existing = ScriptableObject.CreateInstance<PlayGamesSettings>();
-                AssetDatabase.CreateAsset(existing, PlayGamesSettingsPath);
-                _pgsSettingsCreated = true;
+                if (existing == null)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(PlayGamesSettingsPath));
+                    existing = ScriptableObject.CreateInstance<PlayGamesSettings>();
+                    AssetDatabase.CreateAsset(existing, PlayGamesSettingsPath);
+                    _pgsSettingsCreated = true;
+                }
+                else _pgsSettingsJson = EditorJsonUtility.ToJson(existing);
+                existing.AppId = appId;
+                existing.WebClientId = webClientId;
+                EditorUtility.SetDirty(existing);
             }
-            else _pgsSettingsJson = EditorJsonUtility.ToJson(existing);
-            existing.AppId = appId;
-            existing.WebClientId = webClientId;
-            EditorUtility.SetDirty(existing);
+            if (!System.Text.RegularExpressions.Regex.IsMatch(appId, @"^\d{6,}$")) throw new InvalidOperationException("Play Games APP_ID must be the numeric Play Games project id");
+            if (!webClientId.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal)) throw new InvalidOperationException("Play Games web client id must be an OAuth client id (…apps.googleusercontent.com)");
 
-            if (!File.Exists(PlayGamesManifestDir + "/AndroidManifest.xml"))
-            {
-                Directory.CreateDirectory(PlayGamesManifestDir);
-                File.WriteAllText(PlayGamesManifestDir + "/project.properties", "target=android-16\nandroid.library=true\n");
-                File.WriteAllText(PlayGamesManifestDir + "/AndroidManifest.xml", PlayGamesManifest(appId));
-                _pgsManifestCreated = true;
-            }
+            Directory.CreateDirectory(PlayGamesManifestDir);
+            File.WriteAllText(PlayGamesManifestDir + "/project.properties", "target=android-16\nandroid.library=true\n");
+            File.WriteAllText(PlayGamesManifestDir + "/AndroidManifest.xml", PlayGamesManifest(appId));
             PlayGames = true;
         }
 
@@ -198,7 +196,12 @@ namespace RogueStars.Client.Editor
                 var pgs = AssetDatabase.LoadAssetAtPath<PlayGamesSettings>(PlayGamesSettingsPath);
                 if (pgs != null) { EditorJsonUtility.FromJsonOverwrite(_pgsSettingsJson, pgs); EditorUtility.SetDirty(pgs); }
             }
-            if (_pgsManifestCreated) AssetDatabase.DeleteAsset(PlayGamesManifestDir);
+            if (_pgsManifestCreated)
+            {
+                AssetDatabase.DeleteAsset(PlayGamesManifestDir);
+                if (Directory.Exists(PlayGamesManifestDir)) Directory.Delete(PlayGamesManifestDir, true);
+                if (File.Exists(PlayGamesManifestDir + ".meta")) File.Delete(PlayGamesManifestDir + ".meta");
+            }
             if (Signed)
             {
                 PlayerSettings.Android.useCustomKeystore = _customKeystore;

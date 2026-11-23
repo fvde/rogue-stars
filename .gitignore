@@ -50,3 +50,6 @@ client/RogueStars/Assets/StreamingAssets.meta
 # Local Maven repos copied out of the Firebase packages by External Dependency Manager on every resolve
 client/RogueStars/Assets/GeneratedLocalRepo/
 client/RogueStars/Assets/GeneratedLocalRepo.meta
+# Written by the Play Games plugin upgrader on every editor load (empty APP_ID) and by BuildSecrets per build
+client/RogueStars/Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/
+client/RogueStars/Assets/Plugins/Android/GooglePlayGamesManifest.androidlib.meta
