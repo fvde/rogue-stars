@@ -109,7 +109,7 @@ namespace RogueStars.Client.Tests
             var screen = (RunScreen)_f.App.Router.Current;
             int est = RunSystem.BossRollEstimate(C, run);
             Assert.That(est, Is.InRange(25, 35));
-            Assert.That(screen.Subtitle, Does.StartWith("Lap 1 · Roll 0/" + est));
+            Assert.That(screen.Subtitle, Does.StartWith("Roll 0/" + est));                 // no laps: the path never repeats
             Assert.That(Texts(FindNamed(screen.Root, "RollCounter")), Does.Contain("Roll 0/" + est));
             Assert.That(Texts(FindNamed(screen.Root, "BossBanner")), Does.Contain(est + " rolls left"));
         }

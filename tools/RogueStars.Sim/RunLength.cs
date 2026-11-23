@@ -61,6 +61,17 @@ public static class RunLength
                 + $"{A(r => r.CoinsEarned):0} | {A(r => r.CoinsSpent):0} | {A(r => r.Minibosses):0.0} | {A(r => r.Battles):0.0} | {A(r => r.Tally.BattleLogEntries / Math.Max(1.0, r.Tally.Battles)):0} | "
                 + $"{M(RunPlayStyle.Manual, 1):0.0} | {M(RunPlayStyle.Auto, 1):0.0} | {M(RunPlayStyle.Auto, 2):0.0} | {M(RunPlayStyle.Farming, 2):0.0} |");
         }
+        var main = runs.Where(r => r.Mode != RunMode.Burrow).ToList();
+        var mainBoss = main.Where(r => r.BossReached).ToList();
+        if (mainBoss.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"All non-Burrow runs ({main.Count}; {mainBoss.Count} reached the boss): skills {mainBoss.Average(r => r.BuildGains):0.0} (boss reached), "
+                + $"shop buys {mainBoss.Average(r => r.ShopSkills + r.ShopPerks + r.ShopHeals):0.0}, mythic picks {mainBoss.Average(r => r.MythicPicks):0.0}, "
+                + $"coins earned {mainBoss.Average(r => r.CoinsEarned):0} / spent {mainBoss.Average(r => r.CoinsSpent):0}; minutes per run: manual ×1 "
+                + $"{main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Manual, 1)):0.0}, auto ×1 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Auto, 1)):0.0}, "
+                + $"auto ×2 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Auto, 2)):0.0}, at the player's speed {main.Average(r => r.Minutes):0.0}, farming ×2 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Farming, 2)):0.0}.");
+        }
         return sb.ToString();
     }
 }

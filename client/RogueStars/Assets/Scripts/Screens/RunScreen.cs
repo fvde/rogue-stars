@@ -800,7 +800,8 @@ namespace RogueStars.Client.Screens
             _autoOverlay = null;
         }
 
-        public override void OnShow() { _decisionKey = null; }
+        /// <summary>Back on screen: reopen a decision that OnHide closed (an open one stays as it is, no close / reopen flicker).</summary>
+        public override void OnShow() { if (_decision == null || !_decision.IsOpen) _decisionKey = null; }
 
         // ---- decisions ---------------------------------------------------------------------------
 

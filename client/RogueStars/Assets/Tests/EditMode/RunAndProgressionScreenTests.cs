@@ -158,7 +158,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AutoMode_FarmingToggle_LeavesShopWithoutBuying()
+        public void AutoMode_FarmingToggle_BuysSensiblyInShops_ThenLeaves()
         {
             bool before = _f.App.Settings.AutoPickDrafts;
             try
@@ -179,10 +179,16 @@ namespace RogueStars.Client.Tests
                 var screen = RunIntoShop();
                 Assert.That(screen.Farming, Is.True);
                 Assert.That(screen.AutoPaused, Is.False);
-                screen.Frame(1f);                                 // farming: leave the shop untouched
+                // farming buys what the draft logic wants most, one offer per step, then leaves
+                for (int i = 0; i < 30 && _f.Service.State.Run.Active != null && _f.Service.State.Run.Active.Phase == RunPhase.Shop; i++)
+                    screen.Frame(1f + RunScreen.AutoOutcomeSeconds);
                 var active = _f.Service.State.Run.Active;
-                Assert.That(active == null || active.Phase != RunPhase.Shop, Is.True);
-                if (active != null) Assert.That(active.Coins, Is.EqualTo(1000), "nothing bought");
+                Assert.That(active == null || active.Phase != RunPhase.Shop, Is.True, "left the shop");
+                if (active != null)
+                {
+                    Assert.That(active.ShopBuys, Is.GreaterThan(0), "bought perks");
+                    Assert.That(active.Coins, Is.LessThan(1000));
+                }
             }
             finally { _f.App.Settings.SetAutoPickDrafts(before); }
         }

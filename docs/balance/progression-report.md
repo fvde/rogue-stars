@@ -511,6 +511,85 @@ New: `Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers` — runs that rea
 the rules test's 27–33 because the bot's Stasis Beacon / Calm Mind are allowed to stretch them), 8–12 drafts, at most 3
 account-loot opportunities in any run and 0.5–2 on average.
 
+## Run depth (20–40 skills per run, mythic choices, shops, 4–8 minute runs)
+
+Playtest of the ~30-roll runs: ~9 drafts made a thin build, runs felt short (~2.5 min by the old estimate), the looping
+board felt weird (the same fork three times in one run), auto mode seemed to skip choices and some fight tiles "did
+nothing". Changes (GDD §3.1–3.3):
+
+- **Board:** a long path that never repeats, generated ahead in themed segments (no laps; the boss arena opens ahead of
+  the worm when the meter is full; resolved tiles stay and are drawn cleared; the Gravity Vortex shortens the next roll
+  instead of pushing back).
+- **Build:** a skill offered again levels up (max 5: +50% of its passive stats, +3% ATK and max HP per level); three
+  minibosses come with the awakening clock (25/50/75%) plus a lair per segment, each beaten one grants a **MYTHIC
+  choice** (1 of 3; 21 new Mythics → 30, two or more per family); two shops per segment with 4 skills, 2 stat perks and a
+  heal; run-coin income ×~3 (prices unchanged); farming ("auto-pick") buys sensibly in shops.
+- **Balance against the bigger build:** board fights +0.8% HP/ATK per roll of the run, the boss +60%, minibosses +5% per
+  miniboss beaten, run XP curve 3 + 1 per level (was 4 + 1; minibosses pay no XP).
+- **Encounters** (a clock miniboss, the boss arena) are their own step, so every fight gets its own battle playback; short
+  fights stay at least 1.8 s on screen.
+
+### Run time model (`RunClock`)
+
+The old session-time estimate (20 s + 2.5 s per roll + 3 s per popup + 1.6 s per battle round ÷ speed) undercounted the
+battle playback: the client plays **0.55 s per battle log entry** ÷ speed and a round has 3–10 entries (late fights with
+aliens, mount and statuses ~100 entries per fight). `shared/RogueStars.Sim.Core/RunClock.cs` models a run from what
+happened in it: intro 5 s + result screen 10 s; per roll the dice (0.45 s) plus a tap (manual 0.9 s) or the auto step gap
+(0.6 s); 0.16 s per hop; per fight 0.4 s + log entries × 0.55 s ÷ speed + Continue (manual 1.5 s) or auto close (0.8 s);
+decisions (draft 6 s, mythic 8 s, event 6 s, fork 2.5 s, shop 5 s + 2 s per purchase + 1.5 s per reroll; farming 0.6 s
+each); outcome results (chance roll 1.3 s, then 2.5 s manual / 1.4 s auto). Styles: **manual**, **auto** (auto mode, the
+player decides at every pause) and **farming** (auto-pick). The bots' session time is auto mode at their battle speed (×2
+free, ×3 with the monthly pass). `--run-length` prints it per band.
+
+### Before → after
+
+`dotnet run --project tools/RogueStars.Sim -c Release -- --run-length --days 60 --seeds 3` (Active F2P + Hardcore Whale;
+before = main da37f0c, 2 seeds, measured with the same RunClock; the old bot never bought in shops). Skills = new skills +
+skill levels + stat perks, runs that reached the boss. Minutes = auto mode at battle speed ×2 (manual ×1 in brackets).
+
+| Band | dice | rolls (boss) | skills (drafts / mythic / shop) | shop buys | coins earned / spent | minibosses | won | minutes auto ×2 (manual ×1) |
+|---|---|---|---|---|---|---|---|---|
+| main 1–3 | 1 | 31.1 → 32.0 | 9.1 → 31.4 (9.8 / 4.4 / 17.3) | 0 → 17.3 | 195 / 3 → 797 / 755 | 0.8 → 4.4 | 100% → 100% | 3.9 (4.6) → 5.9 (7.0) |
+| main 4–10 | 2 | 30.1 → 31.2 | 8.9 → 29.9 (8.9 / 3.5 / 16.0) | 0 → 16.0 | 214 / 8 → 704 / 663 | 0.5 → 3.5 | 87% → 88% | 4.7 (5.8) → 6.4 (8.0) |
+| main 11–30 | 1 | 29.3 → 30.1 | 7.6 → 28.1 (7.9 / 2.8 / 10.8) | 0.1 → 11.2 | 156 / 9 → 526 / 468 | 0.3 → 2.8 | 60% → 57% | 4.2 (5.8) → 5.4 (7.5) |
+| main 11–30 | 2 | 30.6 → 31.4 | 9.1 → 29.9 (8.6 / 3.0 / 14.8) | 0 → 15.0 | 206 / 9 → 695 / 644 | 0.3 → 3.0 | 79% → 79% | 5.7 (7.8) → 6.9 (9.1) |
+| main 31–60 | 1 | 29.5 → 30.5 | 7.5 → 29.5 (7.7 / 2.8 / 12.1) | 0.1 → 12.3 | 155 / 8 → 613 / 541 | 0.3 → 2.8 | 23% → 38% | 5.6 (8.7) → 7.4 (11.4) |
+| main 31–60 | 2 | 30.3 → 31.4 | 8.2 → 32.0 (8.1 / 2.7 / 14.7) | 0.1 → 15.0 | 187 / 8 → 713 / 656 | 0.2 → 2.7 | 29% → 38% | 7.1 (10.7) → 8.8 (13.4) |
+| main 61–150 | 1 | 31.3 → 32.6 | 8.8 → 31.0 (8.0 / 2.7 / 12.5) | 0.1 → 12.8 | 198 / 6 → 644 / 571 | 0.3 → 2.7 | 22% → 25% | 7.6 (12.4) → 8.6 (13.6) |
+| main 61–150 | 2 | 33.8 → 34.1 | 9.0 → 33.2 (8.6 / 2.7 / 15.5) | 0.1 → 15.8 | 209 / 7 → 774 / 711 | 0.2 → 2.7 | 23% → 25% | 8.3 (12.9) → 9.9 (15.2) |
+| overcharged | 1 / 2 | 30.5 / 30.6 → 32.3 / 32.3 | 8.1 / 8.0 → 31.1 / 32.1 | 0.1 → 14.4 / 15.9 | ~175 → ~730 | 0.3 → 3.0 | 35% / 41% → 46% / 45% | 6.4 (10.0) → 7.9 (12.0) |
+| Dark Side | 2 | 32.3 → 32.0 | 9.6 → 26.6 (8.1 / 2.6 / 10.0) | 0.2 → 10.3 | 220 / 12 → 695 / 641 | 0.3 → 2.6 | 60% → 54% | 7.2 (10.6) → 7.3 (10.6) |
+
+Win rates past level 30 are frontier pushes (the bot retries a level until it wins); the first bands stay at 100% and
+`EarlyLevelBalanceTests` holds (levels 1–3 lost at most twice in 60 new players). Level-up drafts stay at 8–10 (fewer in
+bands where lost runs end early); mythic picks equal minibosses beaten; skills per run that reaches the boss are 27–33 in
+every band (20–41 between runs in `RunDepthTests`). The Burrow (10 short floors in one run, one shop per floor) gives ~47
+skills, ~35 shop buys and ~11 minutes per dive.
+
+**All runs of the guard profiles** (Active F2P + Active Whale, 60 days, seed 1, non-Burrow): skills 29.7 (boss reached),
+shop buys 16.6, mythic picks 3.5, coins earned 807 / spent 750; minutes per run manual ×1 11.8, auto ×1 11.4, **auto ×2
+7.9**, at the players' own speed 7.2 (whale ×3), farming ×2 5.4. Before (same model) the bands most runs are played in took
+~3.9–5.7 minutes; the "2.5 minutes" was the old estimate. The extra time comes from content (≈3 minibosses with their
+mythic choice, ~16 purchases in ~6 shop visits, 1–2 more fights), not from slower animations. Late frontier runs at ×2 take
+8.5–10 minutes because their fights are long (~100 log entries); ×3 (pass) brings them to ~7. Recommendation: group
+status ticks of a round into one playback beat if late runs should get shorter.
+
+**Account income per run** stays at the economy model: Biomass / Ore per won run before → after (the mix of levels inside
+a band moves a little): main 1–3 312/87 → 331/84, 11–30 (2 dice) 1776/324 → 1893/342, 31–60 (2 dice) 6065/939 →
+5858/799, 61–150 (1 die) 7293/1028 → 7856/1214, Dark Side 467/175 → 402/175. Shops spend in-run coins only; account-loot
+opportunities stay at 0.7–1.1 per run, never more than 3 (the chests ahead turn into supply caches once the three are
+used).
+
+**Campaign pace** (main level at day 60): Active F2P 57 / 56 (before, old time model) → 57 / 60 / 57; Hardcore Whale
+99 / 89 → 88 / 98 / 100 — runs take longer, the deeper build wins more of them, the pace is unchanged (guard bands hold).
+The **Biomass surge** only exists once Biomass has a use (City or worm levels): before that no surge run is consumed and
+no surge counter or text is shown.
+
+**Guard test changes:** `Runs_BuildDeep_ShopALot_AndLast4To8Minutes` (new): runs that reach the boss average 20–40
+skills, 10–20 shop purchases and 2–5 mythic picks and spend no more coins than they earn; all non-Burrow runs average 4–8
+minutes at the players' battle speed. `Runs_LastAbout30Rolls_…` unchanged (27–35 rolls, 8–12 drafts, ≤ 3 account-loot
+opportunities).
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still
