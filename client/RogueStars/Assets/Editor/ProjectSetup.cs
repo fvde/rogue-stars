@@ -35,6 +35,11 @@ namespace RogueStars.Client.Editor
             PlayerSettings.Android.forceInternetPermission = true;
 
             Bootstrap.EnsureServerConfig();
+            Bootstrap.EnsurePlatformConfig();
+            // AppLovin MAX: the SDK key is injected per build (BuildSecrets). Without a key the Quality Service Gradle
+            // plugin must stay off (it would call AppLovin with the key).
+            var max = AppLovinSettings.Instance;
+            if (string.IsNullOrEmpty(max.SdkKey) && max.QualityServiceEnabled) { max.QualityServiceEnabled = false; EditorUtility.SetDirty(max); }
             AssetDatabase.SaveAssets();
             Debug.Log("[ProjectSetup] Applied player settings for " + PackageName);
         }

@@ -84,11 +84,20 @@ public static class PlayerEndpoints
             return Results.Ok(new { ok = true, serverTimeMs = clock.NowMs, version = state.Version, state = StateJson.ToWire(state) });
         });
 
-        v1.MapPost("/command", async (HttpContext http, CommandRequest req, CommandCatalog catalog, CommandService commands, CancellationToken ct) =>
+        v1.MapPost("/command", async (HttpContext http, CommandRequest req, CommandCatalog catalog, CommandService commands,
+            Payments.AdCreditService adCredits, CancellationToken ct) =>
         {
             if (req.RequestId is { Length: > 128 }) throw ApiException.BadRequest("request_id_too_long");
             var command = catalog.FromClient(req.Type, req.Args);
+            // Ad-funded commands spend a verified AppLovin S2S event (see Payments/AdCredits.cs).
+            string? adToken = adCredits.Enforced ? Payments.AdCreditService.TokenOf(command) : null;
+            if (adToken != null)
+            {
+                if (string.IsNullOrEmpty(req.RequestId)) throw ApiException.BadRequest("request_id_required");
+                if (!await adCredits.TrySpendAsync(http.PlayerId(), adToken, req.RequestId, ct)) throw ApiException.Forbidden("ad_not_verified");
+            }
             var response = await commands.ExecuteAsync(http.PlayerId(), command, req.RequestId, req.ExpectedVersion, ct);
+            if (adToken != null && !response.Ok) await adCredits.RefundAsync(http.PlayerId(), adToken, req.RequestId!, ct);
             return Results.Json(response, StateJson.Wire); // rule rejections are 200 with ok:false
         });
     }

@@ -11,6 +11,7 @@ locals {
     "iam.googleapis.com",
     "logging.googleapis.com",
     "androidpublisher.googleapis.com",
+    "cloudbuild.googleapis.com",
   ]
 
   secrets = {
@@ -67,6 +68,32 @@ resource "google_service_account" "server" {
 resource "google_service_account" "scheduler" {
   account_id   = "rogue-stars-scheduler"
   display_name = "Rogue Stars Cloud Scheduler job invoker"
+}
+
+# Cloud Build (cloudbuild.yaml) runs as this account: push images to the repository, write build logs, read the
+# uploaded source tarball (gs://<project>_cloudbuild).
+resource "google_service_account" "build" {
+  account_id   = "rogue-stars-build"
+  display_name = "Rogue Stars Cloud Build (server image)"
+}
+
+resource "google_artifact_registry_repository_iam_member" "build_push" {
+  location   = google_artifact_registry_repository.server.location
+  repository = google_artifact_registry_repository.server.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_project_iam_member" "build_logging" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_project_iam_member" "build_source" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.build.email}"
 }
 
 resource "google_project_iam_member" "server_firestore" {
@@ -185,12 +212,35 @@ resource "google_cloud_run_v2_service" "server" {
         value = var.play_package_name
       }
       env {
+        name  = "RogueStars__Iap__AllowTestPurchases"
+        value = tostring(var.iap_allow_test_purchases)
+      }
+      env {
+        name  = "RogueStars__Iap__RequireAccountId"
+        value = "true"
+      }
+      env {
         name  = "RogueStars__Ads__Mode"
         value = "applovin"
       }
+      env {
+        name  = "RogueStars__Ads__Verification"
+        value = var.ads_verification
+      }
 
       dynamic "env" {
-        for_each = var.secrets_populated ? { "RogueStars__Iap__ServiceAccountJson" = "play_publisher", "RogueStars__Ads__EventKey" = "ads_ssv_key" } : {}
+        for_each = { for i, id in var.ads_allowed_ad_unit_ids : "RogueStars__Ads__AllowedAdUnitIds__${i}" => id }
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = merge(
+          var.secrets_populated ? { "RogueStars__Ads__EventKey" = "ads_ssv_key" } : {},
+          var.secrets_populated && var.play_credentials_in_secret ? { "RogueStars__Iap__ServiceAccountJson" = "play_publisher" } : {},
+        )
         content {
           name = env.key
           value_source {

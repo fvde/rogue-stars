@@ -42,5 +42,15 @@ namespace RogueStars.Client.Editor
             var cfg = ScriptableObject.CreateInstance<ServerConfig>();
             AssetDatabase.CreateAsset(cfg, ServerConfigPath);
         }
+
+        public const string PlatformConfigPath = "Assets/Resources/PlatformConfig.asset";
+
+        /// <summary>Store/ads selection with placeholder ad unit ids (real values are injected by BuildAndroid).</summary>
+        public static void EnsurePlatformConfig()
+        {
+            if (AssetDatabase.LoadAssetAtPath<PlatformConfig>(PlatformConfigPath) != null) return;
+            Directory.CreateDirectory("Assets/Resources");
+            AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<PlatformConfig>(), PlatformConfigPath);
+        }
     }
 }

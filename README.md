@@ -65,10 +65,13 @@ Playable prototype (placeholder UI), offline and online.
   mail, arena, guilds, live ops (weekly + surprise invasions, never two of one type at once, max 2 concurrent;
   planetary events). 500-level campaign tuned with the simulator (mid-campaign plateau removed).
 - **Server:** authoritative command endpoint, idempotency, compare-and-set saves, arena, guilds, invasions (instances
-  = rules live-ops occurrences), jobs, fake/real IAP verification, Cloud Run + Firestore via Terraform.
+  = rules live-ops occurrences), jobs, Google Play receipt validation (productsv2, server consume/acknowledge), AppLovin
+  MAX S2S verification, Firestore (emulator-tested), Cloud Run + Cloud Build + Terraform; owner runbook docs/setup.md.
 - **Client:** every screen, battle playback from the logged HP/shield/rage, offline + online services, playthrough
-  screenshots in [docs/client-screenshots](docs/client-screenshots), Android APK build.
-- **Tests:** .NET 299 (rules 238, server 42, simulator guard 19), Unity EditMode 44 + PlayMode playthrough 1; APK ≈ 27 MB.
-- **Open:** Firebase auth in the client, Google Play Billing and AppLovin MAX gateways, push notifications, real art;
+  screenshots in [docs/client-screenshots](docs/client-screenshots), Unity IAP (Google Play Billing) and AppLovin MAX
+  gateways (fakes in the editor), Android APK build.
+- **Tests:** .NET 320 (rules 238, server 63, simulator guard 19) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
+  Unity EditMode 55 + PlayMode playthrough 1; APK ≈ 30 MB.
+- **Open:** Firebase auth in the client, ad mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).

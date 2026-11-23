@@ -1,0 +1,15 @@
+# Source uploaded by `gcloud builds submit` (cloudbuild.yaml): only what the server image and its tests need.
+.gcloudignore
+.git/
+.gitignore
+.claude/
+**/artifacts/
+**/bin/
+**/obj/
+client/
+docs/*
+!docs/play-console-products.csv
+infra/
+tools/
+scripts/
+*.log

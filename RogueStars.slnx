@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/server/">
+    <Project Path="server/RogueStars.Server.FirestoreTests/RogueStars.Server.FirestoreTests.csproj" />
     <Project Path="server/RogueStars.Server.Tests/RogueStars.Server.Tests.csproj" />
     <Project Path="server/RogueStars.Server/RogueStars.Server.csproj" />
   </Folder>

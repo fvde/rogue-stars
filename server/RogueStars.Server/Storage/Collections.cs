@@ -20,4 +20,5 @@ public static class Collections
     public const string InvasionPlayers = "invasion_players";  // {invasionId}_{playerId}
     public const string IapReceipts = "iap_receipts";          // {sha256(purchaseToken)}
     public const string AdEvents = "ad_events";                // {sha256(eventId)}
+    public const string AdCredits = "ad_credits";              // {playerId}
 }

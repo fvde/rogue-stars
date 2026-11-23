@@ -54,6 +54,8 @@ else
     {
         ProjectId = options.Store.FirestoreProjectId ?? throw new InvalidOperationException("RogueStars:Store:FirestoreProjectId is required"),
         DatabaseId = string.IsNullOrEmpty(options.Store.FirestoreDatabase) ? "(default)" : options.Store.FirestoreDatabase,
+        // FIRESTORE_EMULATOR_HOST (set by `firebase emulators:exec`) switches to the local emulator.
+        EmulatorDetection = Google.Api.Gax.EmulatorDetection.EmulatorOrProduction,
     }.Build());
     builder.Services.AddSingleton<IPlayerStore>(sp => new FirestorePlayerStore(sp.GetRequiredService<FirestoreDb>(), options.Store));
     builder.Services.AddSingleton<IDocStore>(sp => new FirestoreDocStore(sp.GetRequiredService<FirestoreDb>(), options.Store));
@@ -75,9 +77,11 @@ builder.Services.AddSingleton<JobAuthFilter>();
 
 // Payments
 if (options.Iap.Mode == "fake") builder.Services.AddSingleton<IReceiptValidator, FakeReceiptValidator>();
-else builder.Services.AddHttpClient<IReceiptValidator, GooglePlayReceiptValidator>();
+else builder.Services.AddSingleton<IReceiptValidator>(sp => new GooglePlayReceiptValidator(
+    sp.GetRequiredService<IOptions<ServerOptions>>(), sp.GetRequiredService<ILogger<GooglePlayReceiptValidator>>()));
 if (options.Ads.Mode == "fake") builder.Services.AddSingleton<IAdVerifier, FakeAdVerifier>();
 else builder.Services.AddSingleton<IAdVerifier, AppLovinAdVerifier>();
+builder.Services.AddSingleton<AdCreditService>();
 
 // Game services
 builder.Services.AddSingleton<CommandCatalog>();

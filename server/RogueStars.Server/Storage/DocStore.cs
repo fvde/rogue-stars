@@ -36,6 +36,8 @@ public static class DocStoreExtensions
             var next = mutate(current?.Value);
             if (next == null) return current?.Value;
             if (await store.TryPutAsync(collection, id, next, current?.Version ?? 0, ct)) return next;
+            // Jittered backoff so many writers on one hot document (guild, arena group) do not keep colliding.
+            await Task.Delay(Random.Shared.Next(1, 4 << Math.Min(attempt, 5)), ct);
         }
         throw ApiException.Conflict("contention");
     }
@@ -99,7 +101,7 @@ public sealed class InMemoryDocStore : IDocStore
     }
 }
 
-/// <summary>Firestore documents <c>{ json: string, version: long, updatedAt: timestamp }</c>.</summary>
+/// <summary>Firestore documents <c>{ json: string, version: long, updatedAt: timestamp }</c>; optimistic compare-and-set (<see cref="FirestoreCas"/>).</summary>
 public sealed class FirestoreDocStore(FirestoreDb db, StoreOptions options) : IDocStore
 {
     private CollectionReference Col(string name) => db.Collection(options.CollectionPrefix + name);
@@ -110,35 +112,16 @@ public sealed class FirestoreDocStore(FirestoreDb db, StoreOptions options) : ID
         return snap.Exists ? ToDoc<T>(snap) : null;
     }
 
-    public Task<bool> TryPutAsync<T>(string collection, string id, T value, long expectedVersion, CancellationToken ct = default) where T : class
-    {
-        var doc = Col(collection).Document(id);
-        return db.RunTransactionAsync(async tx =>
+    public Task<bool> TryPutAsync<T>(string collection, string id, T value, long expectedVersion, CancellationToken ct = default) where T : class =>
+        FirestoreCas.TryWriteAsync(Col(collection).Document(id), expectedVersion, create: expectedVersion == 0, () => new Dictionary<string, object>
         {
-            var snap = await tx.GetSnapshotAsync(doc, ct);
-            long current = snap.Exists ? snap.GetValue<long>("version") : 0;
-            if (current != expectedVersion) return false;
-            tx.Set(doc, new Dictionary<string, object>
-            {
-                ["json"] = StateJson.Serialize(value),
-                ["version"] = current + 1,
-                ["updatedAt"] = FieldValue.ServerTimestamp,
-            });
-            return true;
-        }, cancellationToken: ct);
-    }
+            ["json"] = StateJson.Serialize(value),
+            ["version"] = expectedVersion + 1,
+            ["updatedAt"] = FieldValue.ServerTimestamp,
+        }, ct);
 
-    public Task<bool> TryDeleteAsync(string collection, string id, long expectedVersion, CancellationToken ct = default)
-    {
-        var doc = Col(collection).Document(id);
-        return db.RunTransactionAsync(async tx =>
-        {
-            var snap = await tx.GetSnapshotAsync(doc, ct);
-            if (!snap.Exists || snap.GetValue<long>("version") != expectedVersion) return false;
-            tx.Delete(doc);
-            return true;
-        }, cancellationToken: ct);
-    }
+    public Task<bool> TryDeleteAsync(string collection, string id, long expectedVersion, CancellationToken ct = default) =>
+        FirestoreCas.TryDeleteAsync(Col(collection).Document(id), expectedVersion, ct);
 
     public async Task<IReadOnlyList<Doc<T>>> ListAsync<T>(string collection, string? idPrefix = null, int limit = 100, CancellationToken ct = default) where T : class
     {

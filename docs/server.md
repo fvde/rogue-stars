@@ -29,8 +29,8 @@ The server issues these itself. Their classes belong to the rules workstreams; t
 
 | Config key | Default name (rules command) | Issued by | Args passed | Rules effect | When missing |
 |---|---|---|---|---|---|
-| `PurchaseComplete` | `PurchaseComplete` (Meta/Shop) | `/v1/iap/verify` | `ProductId, ReceiptId (= store order id)` (+ `OrderId, PurchaseToken, Store, Test`, ignored) | grants the product; needs the client's `PurchaseStart` (pending record) first, else `200 {ok:false, error:"no pending purchase"}` and the receipt can be retried | `501` |
-| `AdWatched` | `AdWatched` (Meta/Shop) | `/v1/ads/ssv` | `PlacementId (= custom_data), AdToken (= event_id)` | consumes the placement's daily ad cap and grants its direct rewards (placements whose effect belongs to another system are consumed by that system's command) | `501` |
+| `PurchaseComplete` | `PurchaseComplete` (Meta/Shop) | `/v1/iap/verify` | `ProductId, ReceiptId (= Play order id, or gp:<token hash>)` (+ `OrderId, PurchaseToken, Store, Test`, ignored) | grants the product; needs the client's `PurchaseStart` (pending record) first, else `200 {ok:false, error:"no pending purchase"}` and the receipt can be retried | `501` |
+| `AdWatched` | `AdWatched` (Meta/Shop) | `/v1/ads/ssv` | `PlacementId (= custom_data), AdToken (= event_id)` | consumes the placement's daily ad cap and grants its direct rewards (placements whose effect belongs to another system become ad credits spent by that system's command) | `501` |
 | `InvasionAttack` | `InvasionRecordDamage` (Meta/LiveOps) | `/v1/invasions/{id}/attack` | `OccurrenceId (= the instance's rules occurrence id), Damage, InvasionId (= TypeId), StartMs, EndMs` | starts the attempt atomically (feature gate, one `invasion_attempts`), records damage/score, guild contribution; a failure rejects the attack (`409`) | attacks are free |
 | `InvasionOutcome` | `LiveOpsApplyOutcome` (Meta/LiveOps) | invasion-resolve job | `InvasionId (= TypeId), OccurrenceId, Repelled, ContributionRank` | lasting win/lose modifiers of the content invasion + rank rewards (+ a chance of an Awaken Core for top contributors of a repelled high-tier invader, rolled by the rules) | invasion stays pending |
 | `ArenaStart` | `ArenaStartFight` (Meta/Arena) | `/v1/arena/fight`, before resolving | `OpponentId` | feature gate + one arena ticket; a failure rejects the fight (`409`) | fights are free |
@@ -45,7 +45,7 @@ contributions and outcomes are keyed by (see Invasions), and `typeId` = a conten
 otherwise creation fails with `400 unknown_invasion_type`.
 
 Every hook call carries a deterministic request id (e.g. `arena-2026-W47-<player>`, `inv-outcome-<invasion>`,
-`iap-<orderId>`), so retried jobs and callbacks never apply twice.
+`iap-<purchase token hash>`, `ad-<event id hash>`), so retried jobs and callbacks never apply twice.
 
 ## Auth
 | Mode | Config | Behaviour |
@@ -80,18 +80,72 @@ POST /v1/command
 ### Payments
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/v1/iap/verify` | `{ productId, purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when re-sent; `402` invalid receipt; `409 receipt_already_used` (token claimed by another player); `501` if `PurchaseComplete` is not registered |
-| GET/POST | `/v1/ads/ssv?user_id=&event_id=&custom_data=&ad_unit_id=&event_token=` | – | `{ ok, error }`; `{ ok, duplicate: true }` for a repeated event; `401 invalid_signature` |
+| GET | `/v1/iap/config` | – | `{ ok, obfuscatedAccountId, products[{productId, storeProductId, type}] }` (type `consumable` / `non_consumable`) |
+| POST | `/v1/iap/verify` | `{ productId (rules id), purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when the token was already redeemed by this player; `400 unknown_product`; `402 <reason>` (invalid_receipt, purchase_pending, purchase_not_completed, product_mismatch, unsupported_quantity, account_mismatch, test_purchase_not_allowed, already_consumed); `409 receipt_already_used` (token claimed by another player); `503 store_unavailable`; `501` if `PurchaseComplete` is not registered |
+| GET | `/v1/ads/credits` | – | `{ ok, credits[{eventId, placement, atMs}] }` — verified, unspent ad views (see below) |
+| GET/POST | `/v1/ads/ssv?user_id=&event_id=&custom_data=&placement=&ad_unit_id=&event_token=` | – | `{ ok, outcome }` (`granted` / `credited` / `unknown_placement` / `rejected:<rule>`); `{ ok, duplicate: true }` for a repeated event; `400 malformed_callback`; `401 invalid_signature`; `403 ad_unit_not_allowed`; `409 event_already_used` (same event id, other user) |
 
-IAP validation (`google`): Android Publisher `purchases.products.get` with the Play service account JSON
-(`RogueStars:Iap:ServiceAccountJson`, from Secret Manager) or ADC; `purchaseState == 0` required. The client
-consumes/acknowledges via the Billing Library after the server confirms. `fake`: tokens starting with `fake-` are
-valid.
+#### Google Play (`Iap:Mode = google`)
+Implemented in `Payments/GooglePlay.cs` with `Google.Apis.AndroidPublisher.v3`, following
+https://developer.android.com/google/play/billing/security#verify:
+1. The rules product id is mapped to its SKU (`ProductDef.StoreProductId`, e.g. `rs.diamonds_60`) and Play type
+   (`Payments/PlayCatalog.cs`: lifetime limit 1 → non-consumable, everything else → consumable; the **monthly pass is a
+   consumable 30-day block**, not a subscription, because the rules stack 30 daily claims per purchase and model no renewal).
+2. Lookup `purchases.productsv2.getproductpurchasev2(package, token)`. Granted only when
+   `purchaseStateContext.purchaseState == PURCHASED` (PENDING → `402 purchase_pending`; the client keeps the purchase
+   unconfirmed and retries when Play delivers it), the single line item's `productId` is the SKU, quantity is 1, and
+   `obfuscatedExternalAccountId` equals `hex(sha256("rs-account:" + playerId))` (the client sets it through Unity IAP;
+   required when `Iap:RequireAccountId`, which Terraform enables). `testPurchaseContext` marks license testers
+   (accepted while `Iap:AllowTestPurchases`). A token that Google reports consumed/acknowledged but that we never granted
+   is refused (`already_consumed`).
+3. The purchase token (globally unique) is the key of `iap_receipts/{sha256(token)}`: one player, one grant. Order ids
+   are only informational (promo purchases have none; the receipt id is then `gp:<token hash>`).
+4. After the grant: consumables `purchases.products.consume`, non-consumables `purchases.products.acknowledge`
+   (server-side, as Google recommends; Play refunds unacknowledged purchases after 3 days). A failed finalize is retried on
+   the next `/v1/iap/verify` of the same token. Rejected receipts are never acknowledged (Play refunds them).
 
-Ads (`applovin`): `event_token` must equal `hex(sha256(event_id + EventKey))` — the parameter name
-(`Ads:HashParameter`) and algorithm (`Ads:HashAlgorithm`, sha256/sha1) are configurable; **verify both against the
-current AppLovin MAX S2S documentation before launch**. Configure the MAX callback URL with `user_id={USER_ID}`
-(= Firebase uid), `custom_data` = placement.
+Credentials: `Iap:ServiceAccountJson` (Secret Manager `rogue-stars-play-publisher-credentials`) or the Cloud Run
+identity (ADC) — either must be invited in Play Console (docs/setup.md). `fake` mode: tokens starting with `fake-` are valid.
+The Play Console catalogue `docs/play-console-products.csv` is generated from the shop content
+(`UPDATE_PLAY_CATALOG=1 dotnet test --filter PlayConsoleCsv`; a test fails when it is stale).
+
+#### AppLovin MAX S2S rewarded callbacks (`Ads:Mode = applovin`)
+Source: AppLovin, *S2S Rewarded Callback API* — https://support.applovin.com/en/max/advanced-features/s2s-rewarded-callback-api
+(macro table) and *How Server-to-Server Callback Works* — https://support.applovin.com/en/max/faq/how-server-to-server-callback-works
+(worked example). The documented rule, quoted:
+
+> `{EVENT_TOKEN}` — `sha1( EVENT_ID + Your-Event-Key )`
+>
+> `{EVENT_TOKEN_ALL}` — `sha256( All macros alphabetically, URL-decoded + Your-Event-Key )` — "if EVENT_TOKEN is one of
+> your macros, it is omitted from the 'All macros alphabetically' string"
+>
+> "if your event key is `uHXOnmfO2f3wd-syBwXxsj7m53qiJoI9VzXTvE8LOSnIWjS6zzxS8HgSIBJSbQWdS1czmgwXSWDaKwehtjyYl_` and the
+> Event ID is `14a97273742c0c9e8864fe40193dad5506e930bc`, the {EVENT_TOKEN} macro will populate with
+> `3724081c17d32a66276ffff2a14b124a278934e9`"
+
+- Callbacks are HTTP(S) **GET**, may arrive minutes after the ad, time out after 5 s and are retried up to twice; they never
+  pass through the device. The Event Key is in the AppLovin dashboard under Account → General → Keys (Secret Manager
+  `rogue-stars-applovin-ssv-key`).
+- Implementation (`Payments/AppLovinAds.cs`): `Ads:Verification = event_token` (default) checks
+  `event_token == lowercase hex(sha1(event_id + EventKey))` in constant time; the FAQ example is a unit-test vector.
+  `event_token_all` (opt-in) hashes the URL-decoded values of the macros present in the URL, ordered by macro name, plus the
+  key. AppLovin publishes no worked example for it, so in the default mode it is checked in shadow and logged
+  (`EVENT_TOKEN_ALL shadow check … match/MISMATCH`): switch only after a real callback logged `match`.
+- **Callback URL** to configure on each rewarded ad unit (MAX → Ad Units → Edit → *Server Side Callback URL*):
+  `https://<service-url>/v1/ads/ssv?user_id={USER_ID}&event_id={EVENT_ID}&custom_data={CUSTOM_DATA}&placement={PLACEMENT}&ad_unit_id={AD_UNIT_ID}&event_token={EVENT_TOKEN}&event_token_all={EVENT_TOKEN_ALL}`
+- **Mapping:** `{USER_ID}` = our player id (client `MaxSdk.SetUserId(playerId)` before each show); `{CUSTOM_DATA}` = the
+  rules ad placement id (`MaxSdk.ShowRewardedAd(adUnit, placement, customData: placement)`; `{PLACEMENT}` is the fallback).
+  `EVENT_TOKEN` signs only the event id, so `user_id`/`custom_data` are trusted because the callback is server-to-server
+  and each event id is claimed once: `ad_events/{sha256(event_id)}` is created first (first writer wins), a repeat is
+  `duplicate`, the same event id for a different `user_id` is `409`. The claim outlives the player's request window
+  (64 ids; test `Replay_IsRejected_EvenAfterThePlayersRequestWindowMovedOn`). Unknown placements are recorded and not
+  granted; `Ads:AllowedAdUnitIds` optionally pins the ad units.
+- Placements with direct rewards (e.g. `daily_diamonds_ad`) run the `AdWatched` hook. Placements consumed by a rules
+  command (`revive`, `stamina_refill`, `timer_speedup`, `free_pull_*`, `double_run_rewards`) become an **ad credit**
+  (`ad_credits/{playerId}`, 24 h): a client command carrying an `AdToken` (`RunRevive`, `BuyStamina`, `GachaPull`,
+  `TimerSpeedUp`, `RunDoubleRewards`) must use the event id of an unspent credit (`403 ad_not_verified` otherwise,
+  `400 request_id_required` without a request id); the credit is spent by that request id and refunded when the rules
+  reject the command. An empty token (No Ads entitlement) skips the check. `Ads:Mode = fake` disables the check (dev).
 
 ### Arena
 | Method | Path | Body | Response |
@@ -166,10 +220,37 @@ is resumable; the invasion is marked resolved only when every member got the out
 
 ## Storage
 - `IPlayerStore`: `InMemoryPlayerStore` / `FirestorePlayerStore` — `players/{uid}` = `{ state: json, requests: json,
-  version, updatedAt }`, compare-and-set in a Firestore transaction. State must stay below Firestore's 1 MiB doc limit.
+  version, updatedAt }`. A JSON field above 256 KiB is stored gzip-compressed instead (`stateGz` / `requestsGz`, bytes);
+  if the document would still exceed ~1,000,000 bytes the oldest request payloads are dropped. Measured with the
+  simulator (2-year Hardcore Whale, the largest profile, plus a real 64-request window of run steps): state JSON
+  **313 KB**, request window 52 KB (largest single request 4.1 KB → worst-case window 263 KB), **stored 77.5 KB**
+  after compression. Uncompressed the document would be 0.37–0.58 MB, i.e. above half the 1 MiB (1,048,576 bytes) limit
+  with little headroom for content growth; compressed it is ~7 % of it.
 - `IDocStore` (cross-player): `InMemoryDocStore` / `FirestoreDocStore` — `{ json, version, updatedAt }` per document,
-  compare-and-set writes, `MutateAsync` read-modify-write loops. Collections are listed in `Storage/Collections.cs`;
+  `MutateAsync` read-modify-write loops with jittered backoff. Collections are listed in `Storage/Collections.cs`;
   ids are designed so no composite indexes are needed. `Store:CollectionPrefix` separates environments.
+- Compare-and-set on Firestore is optimistic (`FirestoreCas`): read the document, compare `version`, write with an exact
+  `update_time` precondition (create = must not exist). A lost race returns false and the caller retries on fresh data.
+  Pessimistic transactions were replaced because hot documents hit lock timeouts under contention (found by the emulator
+  tests).
+
+### Firestore emulator tests
+`server/RogueStars.Server.FirestoreTests` (trait `Category=Firestore`) runs against the local Firestore emulator:
+CRUD and compare-and-set of both stores, 12 concurrent writers on one player (exactly one wins per version), 16 concurrent
+`MutateAsync` writers (no lost update), id-prefix listing, first-writer-wins claims, the 2-year state (size above, round
+trip), a 3 MB synthetic state (compression), and a full server flow on Firestore (session, idempotent replay,
+`expectedVersion`, concurrent commands, IAP and ad claims, arena fight + weekly job, guild create/join/chat, invasion
+attack + guild contribution + resolve job, daily reset). They are **skipped** unless `FIRESTORE_EMULATOR_HOST` is set, so
+`dotnet test RogueStars.slnx` never needs the emulator. Run them (Node + Java 21+, project id `demo-roguestars`, which
+never reaches a real project):
+```bash
+scripts/firestore-tests.sh          # emulator suite + the whole server unit suite on Firestore (ROGUESTARS_TEST_STORE=firestore)
+scripts/firestore-tests.sh --quick  # emulator suite only
+# equivalent: npx firebase-tools@14 emulators:exec --only firestore --project demo-roguestars \
+#   --config scripts/firebase.emulator.json "dotnet test server/RogueStars.Server.FirestoreTests --filter Category=Firestore"
+```
+CI: a separate step after the unit tests (Node + `actions/setup-java`). The first run simulates 730 days (~7 min); the
+state is cached in `$TMPDIR/roguestars-sim/` per rules build.
 
 ## Configuration (environment variables)
 Section `RogueStars`, env syntax `RogueStars__<Group>__<Key>`:
@@ -183,7 +264,9 @@ Section `RogueStars`, env syntax `RogueStars__<Group>__<Key>`:
 | `RogueStars__Jobs__Mode` | `oidc` | `secret` (`local-job-secret`) |
 | `RogueStars__Jobs__Audience` / `ServiceAccountEmail` | – (required for oidc) | |
 | `RogueStars__Iap__Mode` / `PackageName` / `ServiceAccountJson` | `google` | `fake` |
+| `RogueStars__Iap__AllowTestPurchases` / `RequireAccountId` | `true` / `false` (Terraform: variable / `true`) | |
 | `RogueStars__Ads__Mode` / `EventKey` | `applovin` | `fake` |
+| `RogueStars__Ads__Verification` / `AllowedAdUnitIds__<n>` / `CreditTtlHours` | `event_token` / any / 24 | |
 | `RogueStars__Commands__*` | hook names above, deny/allow lists | |
 | `RogueStars__Arena__*`, `RogueStars__Guilds__*`, `RogueStars__Invasions__*` | tuning (see `ServerOptions.cs`) | |
 | `PORT` | 8080 (Cloud Run) | |
@@ -202,12 +285,13 @@ curl -s -XPOST localhost:8080/v1/command -H "authorization: Bearer $TOKEN" -H 'c
   -d '{"type":"<CommandName>","requestId":"1","args":{}}'
 curl -s -XPOST localhost:8080/internal/jobs/daily-reset -H 'X-Job-Secret: local-job-secret'
 ```
-Tests: `dotnet test RogueStars.slnx` from the repo root.
+Tests: `dotnet test RogueStars.slnx` from the repo root (Firestore emulator tests: see Storage).
 
 ## Deployment
 `server/Dockerfile` (build context = repo root) publishes rules + server and runs as the image's non-root user on
-port 8080. Infrastructure, image push and secrets: see `infra/terraform/README.md`. Cloud Scheduler calls the
-three job endpoints with OIDC tokens of the scheduler service account.
+port 8080; `cloudbuild.yaml` runs the unit tests and builds/pushes it on Cloud Build. Owner runbook: `docs/setup.md`;
+Terraform details: `infra/terraform/README.md`. Cloud Scheduler calls the four job endpoints with OIDC tokens of the
+scheduler service account.
 
 ## Open wiring (after merge)
 - `IBattleResolver` is `SimulatorBattleResolver`: arena = `BattleSimulator.PlayerVsSnapshot`, invasion attack =
@@ -217,3 +301,5 @@ three job endpoints with OIDC tokens of the scheduler service account.
 - Hook commands above are the real rules commands (server tests exercise them end-to-end).
 - Scale notes: weekly/invasion jobs process groups sequentially (fine for the prototype; fan out per group later);
   chat rate limit and ad/IAP dedup are document based and hold across instances.
+- The Unity client still signs in with dev auth (`/v1/auth/dev`). Production (`Auth:Mode=firebase`) needs the Firebase
+  Auth SDK in the client (Play Games / anonymous sign-in → ID token); not integrated yet (docs/setup.md, step 3).
