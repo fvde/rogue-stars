@@ -45,6 +45,36 @@ namespace RogueStars.Client.UiKit
             }
         }
 
+        private static Sprite _circleRing;
+
+        /// <summary>
+        /// An anti-aliased circular ring (outer radius = the sprite's half size, thickness 15% of the diameter): progress
+        /// rings (Image.Type.Filled, radial) such as the run level's XP ring.
+        /// </summary>
+        public static Sprite CircleRing
+        {
+            get
+            {
+                if (_circleRing != null) return _circleRing;
+                const int n = 128;
+                const float thick = n * 0.15f;
+                var tex = NewTexture(n, "rs_circle_ring");
+                var px = new Color32[n * n];
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float d = Mathf.Sqrt((x + 0.5f - n / 2f) * (x + 0.5f - n / 2f) + (y + 0.5f - n / 2f) * (y + 0.5f - n / 2f));
+                        float a = Mathf.Clamp01(n / 2f - d + 0.5f) * Mathf.Clamp01(d - (n / 2f - thick) + 0.5f);
+                        px[y * n + x] = new Color32(255, 255, 255, (byte)(255 * a));
+                    }
+                tex.SetPixels32(px);
+                tex.Apply(false, true);
+                _circleRing = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100);
+                _circleRing.name = "rs_circle_ring";
+                return _circleRing;
+            }
+        }
+
         /// <summary>Rounded outline of <paramref name="thicknessTexels"/> texels at radius <see cref="R"/>.</summary>
         public static Sprite Ring(int thicknessTexels)
         {
