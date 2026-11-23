@@ -3,7 +3,9 @@
     "rootNamespace": "RogueStars.Client",
     "references": [
         "RogueStars.Rules",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.Purchasing",
+        "MaxSdk.Scripts"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

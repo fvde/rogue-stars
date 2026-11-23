@@ -4,7 +4,8 @@
     "references": [
         "RogueStars.Client",
         "RogueStars.Rules",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "MaxSdk.Scripts.IntegrationManager.Editor"
     ],
     "includePlatforms": [
         "Editor"

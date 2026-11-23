@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<projectSettings>
+  <projectSetting />
+  <projectSetting name="com.google.external-dependency-managerAnalyticsEnabled" value="False" />
+  <projectSetting name="Google.AndroidResolver.AutoResolveOnBuild" value="False" />
+  <projectSetting name="Google.AndroidResolver.EnableAutoResolution" value="False" />
+  <projectSetting name="Google.AndroidResolver.PatchMainTemplateGradle" value="True" />
+  <projectSetting name="Google.AndroidResolver.PatchPropertiesTemplateGradle" value="True" />
+  <projectSetting name="Google.AndroidResolver.PatchSettingsTemplateGradle" value="True" />
+  <projectSetting name="Google.AndroidResolver.PromptBeforeAutoResolution" value="False" />
+  <projectSetting name="Google.AndroidResolver.UseFullCustomMavenRepoPathWhenExport" value="True" />
+  <projectSetting name="Google.AndroidResolver.UseFullCustomMavenRepoPathWhenNotExport" value="False" />
+  <projectSetting name="Google.AndroidResolver.UseJetifier" value="True" />
+  <projectSetting name="Google.VersionHandler.VerboseLoggingEnabled" value="False" />
+</projectSettings>

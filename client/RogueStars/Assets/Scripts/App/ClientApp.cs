@@ -73,6 +73,10 @@ namespace RogueStars.Client.App
             var toastLayer = Ui.Stretch(Ui.Rect(safe, "ToastLayer"));
             app.Toasts = new ToastCenter(toastLayer);
 
+            var platform = PlatformConfig.LoadDefault();
+            app.Session.Store = PlatformServices.CreateStore(platform);
+            app.Session.PlatformAds = PlatformServices.CreateAds(platform);
+            if (app.Session.PlatformAds is MaxAdGateway max) max.UserId = () => app.Session.State?.PlayerId;
             app.Session.Changed += app.OnStateChanged;
             app.Session.EventRaised += e => app.Toasts.Event(e, app.Session.Content, app.Session.State);
             app.Session.ErrorRaised += m => app.Toasts.Error(m);
@@ -103,6 +107,7 @@ namespace RogueStars.Client.App
                 if (r.Ok)
                 {
                     if (service.IsOnline) Toasts.Info("Connected to server");
+                    Session.InitPlatform();
                     OnStateChanged();
                     return;
                 }
@@ -144,6 +149,7 @@ namespace RogueStars.Client.App
         {
             Toasts.SetBottomInset(Router.Current?.ToastBottomInset ?? ToastCenter.DefaultBottomInset);
             Toasts.Tick(dt);
+            Session.Tick(dt);
             Router.Current?.Frame(dt);
             _tick += dt;
             if (_tick >= 0.5f)

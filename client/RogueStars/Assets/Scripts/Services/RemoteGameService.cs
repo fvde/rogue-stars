@@ -22,7 +22,7 @@ namespace RogueStars.Client.Services
     /// requestId and the returned state replaces the local copy. The local engine is only used for queries.
     /// Auth: dev mode (POST /v1/auth/dev). TODO(auth): Firebase ID token provider for production.
     /// </summary>
-    public sealed class RemoteGameService : IGameService
+    public sealed class RemoteGameService : IGameService, IAdRewardService
     {
         private readonly RemoteConfig _config;
         private readonly IHttpTransport _http;
@@ -160,6 +160,18 @@ namespace RogueStars.Client.Services
                 _state = stateJson.ToObject<GameState>(ClientJson.WireSerializer);
                 StateChanged?.Invoke();
             }
+        }
+
+        // ---- rewarded ads -----------------------------------------------------------------------
+
+        public void AdCredits(Action<ServiceResult<List<AdCreditInfo>>> done) =>
+            Get("/v1/ads/credits", json => ((JArray)json["credits"] ?? new JArray()).ToObject<List<AdCreditInfo>>(ClientJson.WireSerializer), done);
+
+        public void SimulateAdCallback(string placementId, string eventId, Action<ServiceResult> done)
+        {
+            string path = "/v1/ads/ssv?user_id=" + Uri.EscapeDataString(PlayerId ?? "") + "&event_id=" + Uri.EscapeDataString(eventId) +
+                          "&custom_data=" + Uri.EscapeDataString(placementId ?? "");
+            Call("GET", path, null, (json, err) => done?.Invoke(json != null && json["ok"] != null ? ServiceResult.Success() : ServiceResult.Fail(err ?? "bad_response")), auth: false);
         }
 
         // ---- arena ------------------------------------------------------------------------------
