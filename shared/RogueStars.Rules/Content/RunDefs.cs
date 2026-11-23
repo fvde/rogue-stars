@@ -416,8 +416,13 @@ namespace RogueStars.Rules.Content
         /// </summary>
         public List<double> LateFamilyStrengthPct = new List<double> { 0, -20, 0, 0 };
         public int LateFamilyFromPortal = 40;
+        /// <summary>
+        /// Enemy HP/ATK % of main level 1 (onboarding v2: the first run is played before Parts unlock, by a worm without
+        /// parts; at 0 only about half of first attempts win, at −35 nearly all).
+        /// </summary>
+        public double FirstLevelEnemyPct = -35;
 
-        /// <summary>Main level that opens the Dark Side (feature gate, ContentDb.Onboarding); its levels start just below it.</summary>
+        /// <summary>First Dark Side level (the feature itself unlocks at main level 45 on day 21, ContentDb.Onboarding).</summary>
         public int DarkSideFromLevel = 40;
         /// <summary>
         /// Dark Side: endless procedural levels along the campaign curve. Dark level i sits at main level

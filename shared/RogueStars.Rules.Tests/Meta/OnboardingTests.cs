@@ -235,6 +235,26 @@ public class OnboardingTests
     }
 
     [Fact]
+    public void FirstRun_WithoutParts_IsWonForNearlyEverySeed()
+    {
+        // Parts unlock after level 1, so the scripted first run is played by a worm without parts (eased level 1).
+        var c = ContentDb.Default;
+        var l1 = c.MainLevel(1);
+        Assert.Equal(c.Campaign.FirstLevelEnemyPct, l1.Modifiers.EnemyHpPct);
+        int wins = 0;
+        for (int seed = 1; seed <= 60; seed++)
+        {
+            var e = new GameEngine(c);
+            var s = e.NewPlayer("p", TestHelpers.T0, seed);
+            Assert.Empty(s.Parts.Equipped);
+            Ok(e, ref s, new RunStart { PortalId = l1.PortalId, LevelId = l1.Id, Mode = RunMode.Normal }, TestHelpers.T0);
+            for (int i = 0; i < 500 && s.Run.Active != null; i++) Ok(e, ref s, new RunAutoStep { Farming = true, FarmShops = true }, TestHelpers.T0);
+            if (s.Run.LastSummary.Won) wins++;
+        }
+        Assert.InRange(wins, 58, 60);
+    }
+
+    [Fact]
     public void LobbyPopups_CappedPerDay()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
