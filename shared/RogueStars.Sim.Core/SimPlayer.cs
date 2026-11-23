@@ -349,7 +349,7 @@ namespace RogueStars.Sim
     /// <summary>One played run (simulator run-length report).</summary>
     public sealed class RunRecord
     {
-        public int Day, Level, Dice, Rolls, Drafts, LevelUps, Battles, TileLoot, LootOffers, XpTotal;
+        public int Day, Level, Dice, Rolls, Drafts, LevelUps, Battles, TileLoot, LootOffers, XpTotal, Minigames;
         public RunMode Mode;
         public bool Won, BossReached;
         public long PeakCoins;

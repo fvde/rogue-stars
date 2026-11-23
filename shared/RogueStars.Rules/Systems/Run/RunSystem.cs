@@ -30,6 +30,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r, c); return Ok(ctx); });
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
             e.Register<RunDoubleRewards>(HandleDoubleRewards);
+            RegisterMinigames(e);
             e.Register<RunBurrowCashOut>((c, ctx) => { var r = Need(ctx); Require(r.Phase == RunPhase.BurrowChoice, "not at a burrow cash-out"); Finish(ctx, r, true); return Ok(ctx); });
 
             e.RegisterNewPlayer(ctx =>
@@ -208,6 +209,7 @@ namespace RogueStars.Rules.Systems
             run.BossFought = false;
             run.BossRounds = 0;
             run.Phase = RunPhase.AwaitRoll;
+            PlaceMinigameTiles(c, run);
         }
 
         private static void Roll(CommandContext ctx, ActiveRun run)
@@ -381,6 +383,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Shop: return RunDecision.Shop;
                 case RunPhase.Defeated: return run.ReviveUsed ? RunDecision.GiveUp : RunDecision.Revive;
                 case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
+                case RunPhase.Minigame: return RunDecision.Minigame;
                 case RunPhase.Event:
                 {
                     var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
@@ -453,6 +456,7 @@ namespace RogueStars.Rules.Systems
                 }
                 case RunPhase.Defeated: Finish(ctx, run, false); break;
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
+                case RunPhase.Minigame: MinigameAuto(ctx, run); break;
             }
         }
     }

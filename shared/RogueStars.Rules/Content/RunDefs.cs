@@ -13,7 +13,7 @@ namespace RogueStars.Rules.Content
     public enum TileCategory
     {
         Start, Empty, Enemy, Elite, Miniboss, StatBuff, StatDebuff, Loot, Treasure, Event, Campfire, Shop,
-        Hazard, Shard, Pickup, BossTile, BossGate,
+        Hazard, Shard, Pickup, BossTile, BossGate, Minigame,
     }
 
     /// <summary>Tile valence colour for the client (and for "skip negative events" boons).</summary>

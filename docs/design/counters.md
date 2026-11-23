@@ -132,3 +132,6 @@ Meta content now reads the keys the owning workstreams actually write:
 - (endless campaign) `main_level_max` keeps growing past level 500 (the campaign never ends).
 - `dark_side_level_max` — highest Dark Side level cleared, kept as a **max** (drives the Dark Side progress archive) — Run
 - `milestone_chests` — one-time milestone chests / portal-completion bonuses collected (first Normal clear of every 10th main level) — Run
+- `run_minigames_started` — run mini-games started (RunMinigameStart on a GAME tile) — Run
+- `run_minigames_played` — run mini-games finished with any tier (RunMinigameFinish, farming included) — Run
+- `run_minigames_gold` — run mini-games finished with a Gold medal — Run

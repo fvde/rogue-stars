@@ -173,7 +173,7 @@ namespace RogueStars.Sim
             minutes = 0;
             var r = Exec(new RunStart { LevelId = levelId, Mode = mode });
             if (!r.Ok) return null;
-            int rolls = 0, decisions = 0, drafts = 0, battles = 0, levelUps = 0; double rounds = 0;
+            int rolls = 0, decisions = 0, drafts = 0, battles = 0, levelUps = 0, minigames = 0; double rounds = 0;
             bool bossReached = false;
             int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
             long coinsSeen = 0;
@@ -188,6 +188,7 @@ namespace RogueStars.Sim
                         case "run_battle": battles++; rounds += double.Parse(ev.Args[2]); break;
                         case "run_level_up": levelUps++; break;
                         case "run_boss_fight": bossReached = true; break;
+                        case "run_minigame_start": minigames++; break;
                     }
                 if (S.Run.Active != null) { lootSeen = S.Run.Active.PendingLoot.Count; coinsSeen = Math.Max(coinsSeen, S.Run.Active.Coins); }
             }
@@ -210,19 +211,20 @@ namespace RogueStars.Sim
                 }
                 else if (a.Phase == RunPhase.Defeated && !a.ReviveUsed && Spend.MonthlyBudgetCents > 0 && Spendable(C.RunTuning.ReviveDiamondCost))
                     step = Exec(new RunRevive { Method = ReviveMethod.Diamonds });
+                else if (a.Phase == RunPhase.Minigame) step = PlayMinigame();
                 else step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) { Exec(new RunAbandon()); break; }
                 Tally(step);
             }
             double speed = ShopSystem.HasBattleSpeed3(S, C, Now) ? 3 : 2;
-            minutes = (Timing.RunOverheadSec + rolls * Timing.RollSec + decisions * Timing.DecisionSec + rounds * Timing.BattleRoundSec / speed) / 60.0;
+            minutes = (Timing.RunOverheadSec + rolls * Timing.RollSec + decisions * Timing.DecisionSec + minigames * MinigameSec + rounds * Timing.BattleRoundSec / speed) / 60.0;
             var level = C.RunLevel(levelId);
             if (KeepRunLog && S.Run.LastSummary != null)
                 RunLog.Add(new RunRecord
                 {
                     Day = DayIndex + 1, Level = level?.Number ?? 0, Mode = mode, Dice = dice, Rolls = rolls, Drafts = drafts, LevelUps = levelUps,
-                    Battles = battles, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
+                    Battles = battles, Minigames = minigames, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
                     LootOffers = S.Run.LastSummary.AccountLootOffers, XpTotal = S.Run.LastSummary.XpTotal,
                     Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted),
                 });

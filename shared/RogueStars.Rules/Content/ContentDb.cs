@@ -25,6 +25,7 @@ namespace RogueStars.Rules.Content
             // blueprints and alien types, so BuildGacha runs after those.
             BuildSkills();
             BuildRun();
+            BuildMinigames(); // after BuildRun: registers the GAME board tile
             BuildWorm();
             BuildParts();
             BuildHeroes();
@@ -62,6 +63,7 @@ namespace RogueStars.Rules.Content
 
         partial void BuildSkills();
         partial void BuildRun();
+        partial void BuildMinigames();
         partial void BuildWorm();
         partial void BuildParts();
         partial void BuildHeroes();

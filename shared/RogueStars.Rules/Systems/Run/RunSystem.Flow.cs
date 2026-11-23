@@ -143,6 +143,9 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.Shop:
                     OpenShop(ctx, run);
                     break;
+                case TileCategory.Minigame:
+                    OpenMinigame(ctx, run, tile);
+                    break;
                 case TileCategory.Hazard:
                     if (def.Value > 0) DamageWorm(run, def.Value);
                     if (def.Coins > 0) run.Coins = Math.Max(0, run.Coins - def.Coins);

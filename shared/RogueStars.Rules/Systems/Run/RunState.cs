@@ -20,13 +20,13 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed }
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Minigame }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Minigame }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -103,7 +103,7 @@ namespace RogueStars.Rules.Systems
     }
 
     [Serializable]
-    public sealed class ActiveRun
+    public sealed partial class ActiveRun
     {
         public string RunId;
         public string PortalId;
@@ -200,7 +200,7 @@ namespace RogueStars.Rules.Systems
     }
 
     /// <summary>Kind of one line of a <see cref="RunOutcome"/>.</summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing }
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillRoll }
 
     /// <summary>One thing that happened (gained / lost), with its number; Good = in the player's favour.</summary>
     [Serializable]
