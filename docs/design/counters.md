@@ -136,3 +136,6 @@ Meta content now reads the keys the owning workstreams actually write:
 - (run depth) `run_mythic_picks` — mythic choices taken after a beaten miniboss (also counted in `run_skills_drafted`) — Run
 - (run depth) `run_shop_buys` — run-shop purchases (skills, stat perks, heals; in-run coins) — Run
 - (run depth) `run_elites_killed` also counts the awakening clock's minibosses.
+- `run_minigames_started` — run mini-games started (RunMinigameStart on a GAME tile) — Run
+- `run_minigames_played` — run mini-games finished with any tier (RunMinigameFinish, farming included) — Run
+- `run_minigames_gold` — run mini-games finished with a Gold medal — Run

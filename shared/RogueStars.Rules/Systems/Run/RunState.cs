@@ -20,13 +20,13 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter }
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter, Minigame }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter, Minigame }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -105,7 +105,7 @@ namespace RogueStars.Rules.Systems
     }
 
     [Serializable]
-    public sealed class ActiveRun
+    public sealed partial class ActiveRun
     {
         public string RunId;
         public string PortalId;
@@ -221,11 +221,11 @@ namespace RogueStars.Rules.Systems
     }
 
     /// <summary>Kind of one line of a <see cref="RunOutcome"/>.</summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel }
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel, SkillRoll }
 
     /// <summary>
     /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
-    /// Source: "draft" (level-up draft), "mythic" (miniboss choice), "shop", "event" (events, chests, campfires) or "boon"
+    /// Source: "draft" (level-up draft), "mythic" (miniboss choice), "shop", "event" (events, chests, campfires), "minigame" (a mini-game's skill roll) or "boon"
     /// (granted at run start by meta skills).
     /// </summary>
     [Serializable]

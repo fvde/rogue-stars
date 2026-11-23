@@ -25,14 +25,14 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>The start tile plus <see cref="RunTuning.InitialSegments"/> segments.</summary>
-        public static Board Generate(ContentDb content, LevelDef level, Rng rng)
+        public static Board Generate(ContentDb content, LevelDef level, Rng rng, ActiveRun run = null)
         {
             var b = new Board();
             var start = Add(b.Tiles, "start", 0, 0);
             b.MainPath.Add(start.Id);
             b.EndTile = start.Id;
             int n = Math.Max(1, content.RunTuning.InitialSegments);
-            for (int i = 0; i < n; i++) AppendSegment(content, level, b, rng);
+            for (int i = 0; i < n; i++) AppendSegment(content, level, b, rng, run);
             return b;
         }
 
@@ -40,7 +40,7 @@ namespace RogueStars.Rules.Systems
         public static Board Wrap(List<RunTile> tiles, int endTile, int segments) => new Board { Tiles = tiles, EndTile = endTile, Segments = segments };
 
         /// <summary>Appends one segment after the open end (new tiles only; nothing behind the worm changes).</summary>
-        public static void AppendSegment(ContentDb content, LevelDef level, Board b, Rng rng)
+        public static void AppendSegment(ContentDb content, LevelDef level, Board b, Rng rng, ActiveRun run = null)
         {
             var t = content.RunTuning;
             int segment = b.Segments++;
@@ -116,11 +116,11 @@ namespace RogueStars.Rules.Systems
             foreach (var x in all)
                 if (x.TileId != null && content.BoardTiles.TryGetValue(x.TileId, out var d) && d.Once) usedOnce.Add(x.TileId);
             foreach (var x in all)
-                if (x.TileId == null) x.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce, theme);
+                if (x.TileId == null) x.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce, theme, run);
         }
 
         /// <summary>Weighted pick from a tile pool (optionally re-weighted by a segment theme); "once" tiles at most once (usedOnce).</summary>
-        public static string PickPoolTile(ContentDb content, string poolId, Rng rng, HashSet<string> usedOnce, SegmentTheme theme = null)
+        public static string PickPoolTile(ContentDb content, string poolId, Rng rng, HashSet<string> usedOnce, SegmentTheme theme = null, ActiveRun run = null)
         {
             if (poolId == null || !content.TilePools.TryGetValue(poolId, out var pool) || pool.Count == 0) return "empty";
             var weights = new double[pool.Count];
@@ -129,10 +129,12 @@ namespace RogueStars.Rules.Systems
                 var def = content.BoardTiles.TryGetValue(pool[i].Id, out var d) ? d : null;
                 bool once = def != null && def.Once;
                 weights[i] = once && usedOnce != null && usedOnce.Contains(pool[i].Id) ? 0 : pool[i].Weight * (theme != null && def != null ? theme.Weight(def) : 1);
+                if (!RunTileLimits.Allowed(content, run, pool[i].Id)) weights[i] = 0; // per-run limits (TileDef.MaxPerRun)
             }
             int idx = rng.PickWeighted(weights);
             if (idx < 0) return "empty";
             string id = pool[idx].Id;
+            RunTileLimits.Placed(content, run, id);
             if (usedOnce != null && content.BoardTiles.TryGetValue(id, out var def2) && def2.Once) usedOnce.Add(id);
             return id;
         }

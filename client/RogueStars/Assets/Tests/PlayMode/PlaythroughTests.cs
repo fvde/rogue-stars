@@ -268,6 +268,10 @@ namespace RogueStars.Client.PlayTests
             var run = _app.Router.Current as RunScreen;
             if (run == null && _svc.State.Run.Active == null) yield break;
             run?.StartAuto();
+            // GAME tiles: the mini-game's scripted player plays them (Silver, the median player), sped up
+            RogueStars.Client.Minigames.MinigameHost.Autoplay = MinigameTier.Silver;
+            RogueStars.Client.Minigames.MinigameHost.TimeScale = 4;
+            bool minigameShot = false;
             bool battleShot = false, draftShot = false, eventShot = false, otherShot = false, outcomeShot = false, forkShot = false;
             long startVersion = _svc.State.Version;
             var guard = new ProgressGuard(this, "auto run");
@@ -305,6 +309,7 @@ namespace RogueStars.Client.PlayTests
                 {
                     if (active.Phase == RunPhase.Draft && !draftShot) { draftShot = true; yield return Shot("07_draft"); }
                     else if (active.Phase == RunPhase.Event && !eventShot) { eventShot = true; yield return Shot("08_event"); }
+                    else if (active.Phase == RunPhase.Minigame && !minigameShot) { minigameShot = true; yield return Wait(1.5f); yield return Shot("09d_minigame"); }
                     else if (active.Phase == RunPhase.ChooseBranch && !forkShot) { forkShot = true; yield return Shot("09c_fork"); }
                     else if ((active.Phase == RunPhase.Shop || active.Phase == RunPhase.Defeated) && !otherShot) { otherShot = true; yield return Shot("09_" + active.Phase.ToString().ToLowerInvariant()); }
                     Decide(active);
@@ -529,6 +534,8 @@ namespace RogueStars.Client.PlayTests
         public void TearDown()
         {
             BattlePlaybackScreen.TimeScale = 1;
+            RogueStars.Client.Minigames.MinigameHost.Autoplay = null;
+            RogueStars.Client.Minigames.MinigameHost.TimeScale = 1;
             if (_cam != null) UnityEngine.Object.Destroy(_cam.gameObject);
             if (_rt != null) _rt.Release();
             try { if (_dir != null) Directory.Delete(_dir, true); } catch (IOException) { }

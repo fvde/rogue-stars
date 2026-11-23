@@ -88,7 +88,7 @@ namespace RogueStars.Rules.Systems
             for (int guard = 0; guard < 20 && RunBoard.StepsToEnd(run.Tiles, run.Position, run.BoardEnd) < need; guard++)
             {
                 var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments);
-                RunBoard.AppendSegment(c, level, b, run.Rng);
+                RunBoard.AppendSegment(c, level, b, run.Rng, run);
                 run.BoardEnd = b.EndTile;
                 run.BoardSegments = b.Segments;
                 if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
@@ -208,6 +208,9 @@ namespace RogueStars.Rules.Systems
                     break;
                 case TileCategory.Shop:
                     OpenShop(ctx, run);
+                    break;
+                case TileCategory.Minigame:
+                    OpenMinigame(ctx, run, tile);
                     break;
                 case TileCategory.Hazard:
                     if (def.Value > 0) DamageWorm(run, def.Value);

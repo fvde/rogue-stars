@@ -13,7 +13,7 @@ namespace RogueStars.Rules.Content
     public enum TileCategory
     {
         Start, Empty, Enemy, Elite, Miniboss, StatBuff, StatDebuff, Loot, Treasure, Event, Campfire, Shop,
-        Hazard, Shard, Pickup, BossTile, BossGate,
+        Hazard, Shard, Pickup, BossTile, BossGate, Minigame,
     }
 
     /// <summary>Tile valence colour for the client (and for "skip negative events" boons).</summary>
@@ -158,6 +158,8 @@ namespace RogueStars.Rules.Content
         public bool Once;
         /// <summary>Replaced from the pool after it resolved.</summary>
         public bool Consumable = true;
+        /// <summary>At most this many per run from the tile pools (0 = no limit; RunTileLimits).</summary>
+        public int MaxPerRun;
     }
 
     [Serializable]

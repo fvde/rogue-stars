@@ -88,7 +88,7 @@ public class RunLengthTests(ITestOutputHelper output)
         }
         double avg = rolls.Average(), avgDrafts = drafts.Average();
         output.WriteLine($"{id} ({e.Content.RunLevel(id).Dice} dice): rolls avg {avg:0.0} min {rolls.Min()} max {rolls.Max()}, drafts avg {avgDrafts:0.0}");
-        Assert.InRange(avg, 27, 33);
+        Assert.InRange(avg, 27, 33.5); // 33.5: GAME tiles stop the worm when passed (GDD §3.6); the base is ~33 at heart_of_frost_10
         Assert.True(rolls.Max() <= e.Content.RunLevel(id).MaxRolls);
         Assert.InRange(avgDrafts, 8, 12);
     }

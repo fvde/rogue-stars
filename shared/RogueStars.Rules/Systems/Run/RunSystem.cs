@@ -31,6 +31,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r, c); return Ok(ctx); });
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
             e.Register<RunDoubleRewards>(HandleDoubleRewards);
+            RegisterMinigames(e);
             e.Register<RunBurrowCashOut>((c, ctx) => { var r = Need(ctx); Require(r.Phase == RunPhase.BurrowChoice, "not at a burrow cash-out"); Finish(ctx, r, true); return Ok(ctx); });
 
             e.RegisterNewPlayer(ctx =>
@@ -188,7 +189,7 @@ namespace RogueStars.Rules.Systems
             var portal = c.Portal(level.PortalId);
             run.LevelId = level.Id;
             run.Threat = level.Threat + (run.Mode == RunMode.Overcharged ? portal.OverchargedThreatBonus : 0);
-            var board = RunBoard.Generate(c, level, run.Rng);
+            var board = RunBoard.Generate(c, level, run.Rng, run);
             run.Tiles = board.Tiles;
             run.BoardEnd = board.EndTile;
             run.BoardSegments = board.Segments;
@@ -251,7 +252,8 @@ namespace RogueStars.Rules.Systems
             Require(skillId != null && run.DraftOffer.Contains(skillId), "skill not offered");
             var s = ctx.Content.Skill(skillId);
             bool mythic = run.MythicDraft;
-            GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : "draft");
+            GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : run.Minigame.DraftOpen ? "minigame" : "draft");
+            run.Minigame.DraftOpen = false;
             if (mythic) run.PendingMythicDrafts = Math.Max(0, run.PendingMythicDrafts - 1);
             else
             {
@@ -432,6 +434,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Defeated: return run.ReviveUsed ? RunDecision.GiveUp : RunDecision.Revive;
                 case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
                 case RunPhase.Encounter: return RunDecision.Encounter;
+                case RunPhase.Minigame: return RunDecision.Minigame;
                 case RunPhase.Event:
                 {
                     var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
@@ -499,6 +502,7 @@ namespace RogueStars.Rules.Systems
                 }
                 case RunPhase.Defeated: Finish(ctx, run, false); break;
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
+                case RunPhase.Minigame: MinigameAuto(ctx, run); break;
             }
         }
     }

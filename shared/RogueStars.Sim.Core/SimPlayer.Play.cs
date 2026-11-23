@@ -173,7 +173,7 @@ namespace RogueStars.Sim
             minutes = 0;
             var r = Exec(new RunStart { LevelId = levelId, Mode = mode });
             if (!r.Ok) return null;
-            int rolls = 0, drafts = 0, battles = 0, levelUps = 0;
+            int rolls = 0, drafts = 0, battles = 0, levelUps = 0, minigames = 0;
             bool bossReached = false;
             int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
             long coinsSeen = 0, coinsNow = 0, coinsEarned = 0, coinsSpent = 0; // starting coins (boons) count as earned
@@ -207,6 +207,7 @@ namespace RogueStars.Sim
                             break;
                         case "run_level_up": levelUps++; break;
                         case "run_boss_fight": bossReached = true; break;
+                        case "run_minigame_start": minigames++; break;
                         case "run_revived": tally.Revives++; break;
                     }
                 var act = S.Run.Active;
@@ -244,6 +245,7 @@ namespace RogueStars.Sim
                 }
                 else if (a.Phase == RunPhase.Defeated && !a.ReviveUsed && Spend.MonthlyBudgetCents > 0 && Spendable(C.RunTuning.ReviveDiamondCost))
                     step = Exec(new RunRevive { Method = ReviveMethod.Diamonds });
+                else if (a.Phase == RunPhase.Minigame) step = PlayMinigame();
                 else step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) { Exec(new RunAbandon()); break; }
@@ -253,12 +255,13 @@ namespace RogueStars.Sim
             // ×3 with the monthly pass), see RunClock.
             int speed = ShopSystem.HasBattleSpeed3(S, C, Now) ? 3 : 2;
             minutes = RunClock.Minutes(tally, RunPlayStyle.Auto, speed);
+            minutes += minigames * MinigameSec / 60.0; // GAME tiles are played by the player
             var level = C.RunLevel(levelId);
             if (KeepRunLog && S.Run.LastSummary != null)
                 RunLog.Add(new RunRecord
                 {
                     Day = DayIndex + 1, Level = level?.Number ?? 0, Mode = mode, Dice = dice, Rolls = rolls, Drafts = drafts, LevelUps = levelUps,
-                    Battles = battles, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
+                    Battles = battles, Minigames = minigames, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
                     LootOffers = S.Run.LastSummary.AccountLootOffers, XpTotal = S.Run.LastSummary.XpTotal,
                     Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted), Tally = tally,
                     CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,

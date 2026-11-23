@@ -121,7 +121,10 @@ public class ProgressionGuardTests
             Assert.InRange(boss.Average(x => x.BuildGains), 20, 40);
             Assert.InRange(boss.Average(x => x.ShopSkills + x.ShopPerks + x.ShopHeals), 10, 20);
             Assert.InRange(boss.Average(x => x.MythicPicks), 2, 5);
-            Assert.InRange(runs.Average(x => x.Minutes), 4, 8); // the player's battle speed: ×2 free, ×3 with the pass
+            // the board itself (mini-games excluded: GAME tiles add their own ~0.5 min, GDD §3.6)
+            // (8.5: mini-game prizes add shop visits / skill-roll drafts on the board too)
+            Assert.InRange(runs.Average(x => x.Minutes - x.Minigames * SimPlayer.MinigameSec / 60.0), 4, 8.5); // the player's battle speed: ×2 free, ×3 with the pass
+            Assert.InRange(runs.Average(x => x.Minutes), 4, 9);
             Assert.True(boss.Average(x => x.CoinsSpent) <= boss.Average(x => x.CoinsEarned), r.Profile + ": shops spend in-run coins only");
         }
     }

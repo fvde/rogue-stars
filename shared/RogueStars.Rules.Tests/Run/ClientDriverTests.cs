@@ -57,6 +57,9 @@ public class ClientDriverTests(ITestOutputHelper output)
                     }
                     case RunPhase.Defeated: cmd = new RunAbandon(); break;
                     case RunPhase.BurrowChoice: cmd = new RunBurrowCashOut(); break;
+                    case RunPhase.Minigame:
+                        cmd = a.Minigame.Started ? new RunMinigameFinish { Tier = (MinigameTier)rng.Next(4) } : new RunMinigameStart();
+                        break;
                     default: throw new InvalidOperationException("unexpected player phase " + phase);
                 }
             }
@@ -71,7 +74,7 @@ public class ClientDriverTests(ITestOutputHelper output)
             {
                 // an auto step never answers a player decision ...
                 Assert.DoesNotContain(r.Events, ev => DecisionResolved.Contains(ev.Type));
-                Assert.False(phase is RunPhase.Event or RunPhase.Draft or RunPhase.Shop or RunPhase.ChooseBranch or RunPhase.BurrowChoice, line);
+                Assert.False(phase is RunPhase.Event or RunPhase.Minigame or RunPhase.Draft or RunPhase.Shop or RunPhase.ChooseBranch or RunPhase.BurrowChoice, line);
                 Assert.False(phase == RunPhase.Defeated && !a.ReviveUsed, line);
                 // ... and a decision it opens is still open when it returns
                 if (r.Events.Any(ev => DecisionOpened.Contains(ev.Type)))

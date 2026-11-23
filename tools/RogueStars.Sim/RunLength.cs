@@ -31,8 +31,8 @@ public static class RunLength
     {
         var runs = results.SelectMany(r => r.RunLog).ToList();
         var sb = new StringBuilder();
-        sb.AppendLine("| Band | dice | runs | rolls (all) | rolls (boss reached) | p10-p90 (boss) | boss reached | won | drafts | battles | loot offers | loot found | peak coins | min | Biomass / won | Ore / won |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        sb.AppendLine("| Band | dice | runs | rolls (all) | rolls (boss reached) | p10-p90 (boss) | boss reached | won | drafts | battles | games | loot offers | loot found | peak coins | min | Biomass / won | Ore / won |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         var order = Bands.Select(b => b.name).Concat(new[] { "overcharged", "dark side", "burrow (per run)" }).ToList();
         foreach (var g in runs.GroupBy(r => (band: BandOf(r), dice: r.Dice)).OrderBy(g => order.IndexOf(g.Key.band)).ThenBy(g => g.Key.dice))
         {
@@ -42,7 +42,7 @@ public static class RunLength
             double P(List<double> xs, double q) => xs.Count == 0 ? double.NaN : xs[Math.Min(xs.Count - 1, (int)(q * xs.Count))];
             double Cur(string id) => won.Count == 0 ? 0 : won.Average(r => r.Granted.Where(x => x.Kind == RewardKinds.Currency && x.Id == id).Sum(x => (double)x.Amount));
             sb.AppendLine($"| {g.Key.band} | {g.Key.dice} | {l.Count} | {l.Average(r => r.Rolls):0.0} | {(boss.Count > 0 ? boss.Average() : double.NaN):0.0} | {P(boss, 0.1):0}-{P(boss, 0.9):0} | "
-                + $"{100.0 * boss.Count / l.Count:0}% | {100.0 * won.Count / l.Count:0}% | {l.Average(r => r.Drafts):0.0} | {l.Average(r => r.Battles):0.0} | "
+                + $"{100.0 * boss.Count / l.Count:0}% | {100.0 * won.Count / l.Count:0}% | {l.Average(r => r.Drafts):0.0} | {l.Average(r => r.Battles):0.0} | {l.Average(r => r.Minigames):0.0} | "
                 + $"{l.Average(r => r.LootOffers):0.0} | {l.Average(r => r.TileLoot):0.0} | {l.Average(r => r.PeakCoins):0} | {l.Average(r => r.Minutes):0.0} | {Cur(Currencies.Biomass):0} | {Cur(Currencies.Ore):0} |");
         }
         sb.AppendLine();

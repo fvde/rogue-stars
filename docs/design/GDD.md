@@ -45,7 +45,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 - **Auto mode:** holding Roll enables auto-roll; any tap interrupts. Auto only automates the **clear, choice-free**
   steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss tiles) and battles
   (fast playback). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
-  treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out — auto **pauses**, shows the
+  treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out, mini-game (§3.6) — auto **pauses**, shows the
   decision and hands control back; after the player decides it resumes by itself while auto is still on. The result screen of an event / chest / campfire / shop (§3.3) is shown for a moment and passed by
   auto. Giving up
   when no revive is left is not a choice and is automatic.
@@ -73,6 +73,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
 | Miniboss | A lair per segment (fight on landing) plus three that attack with the awakening clock (25/50/75%). Each beaten miniboss grants a **MYTHIC choice** |
+| GAME (Alien Arcade) | A short skill mini-game (§3.6) for run coins or a skill roll; stops the worm when passed |
 
 **Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply
 caches, so no chest does nothing.) Rewards that outlive the run (currencies, parts, tokens: "account loot") are
@@ -84,9 +85,10 @@ empty / replaced by other events. Ordinary tiles pay in-run resources (coins, XP
 says "account loot, paid on clear" and names the risk; the result screen lists the item and the price paid. **Each
 account-loot item carried raises the Danger level** (enemy stats +x%).
 
-Risk/reward mini-events replace gambling minigames: e.g. *Unstable Reactor* (take a skill now; the boss
-gains +X% ATK), *Smuggler* (trade max HP for a rare skill), *Rift Echo* (fight an echo of a strong enemy for a
-part drop that only pays out on completion). No wheels, slots or card games.
+Risk/reward mini-events: e.g. *Unstable Reactor* (take a skill now; the boss gains +X% ATK), *Smuggler* (trade max HP
+for a rare skill), *Rift Echo* (fight an echo of a strong enemy for a part drop that only pays out on completion). No
+pure-chance gambling: the arcade's mini-games (§3.6) are skill games; even *Slot Pod* is a timing game played for
+in-game pod coins, never for real money or Diamonds.
 
 ### 3.3 Boss and awakening meter
 The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 3.6 points) and from
@@ -155,6 +157,39 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - **Invasion fights** (limited attempts): see §9.
 - **Arena**: async PvP, see §10.
 - **Threat curve:** enemy strength scales per level along a long curve (designed for years of content).
+
+### 3.6 Mini-games (Alien Arcade)
+- **GAME tiles** come from every tile pool (`MinigameTuning.PoolWeight`), at most `MaxPerRun` = 2 per run
+  (`TileDef.MaxPerRun`, enforced where the segment generator picks pool tiles, `RunBoard.AppendSegment` → `PickPoolTile` →
+  `RunTileLimits`, counted per run), so every segment can hold one until the run has had two; ~1.4 played per run (simulator). The first main level (the tutorial run) has none
+  (`MinMainLevel` 2). A GAME tile **forces a stop** like a
+  shop, so every one on the worm's path is played; afterwards it is **cleared** like every resolved tile.
+- Landing → `RunPhase.Minigame` (decision `Minigame`). **Auto mode pauses** there (the player plays). **Farming**
+  (auto-pick) resolves it as `MinigameTuning.FarmingTier` = **Miss** (consolation coins only, no skill roll): AFK play
+  never earns the skill rewards.
+- `RunMinigameStart`: the rules pick the game (never one already played this run; seeded by the run RNG), the seed for
+  the client game and the reward type (`SkillRollChancePct` 50%: **run coins** or a **skill roll**; coins when the
+  draft pool is empty). `RunMinigameFinish {Tier}`: **resolved on the device** — the client plays the game and decides
+  the tier (thresholds in each game's client class); the rules only validate the tier value and accept exactly one
+  finish per start. Skip = finish as Miss.
+- Rewards per tier (`MinigameTuning.Rewards`, the one table to retune; coins scale with the level's shop prices,
+  `shop_dark` ×1.49):
+
+| Tier | Run coins | Skill roll (1 of 3, rarity odds C/R/E/L/M) |
+|---|---|---|
+| Miss | 10 | no draft, 10 coins |
+| Bronze | 50 | 55 / 28 / 12 / 4 / 1 (the normal level-up odds) |
+| Silver | 100 | 30 / 38 / 22 / 8 / 2 |
+| Gold | 160 (≈ an Epic skill + a stat perk, or a Legendary) | 8 / 30 / 36 / 20 / 6 |
+
+- Coins are sized for the run economy (~600–800 run coins per run, 10–20 shop buys): two Golds ≈ 40% of a run's income.
+- The result screen (§3.3 outcome, source `minigame`) shows the medal and the reward; a skill roll then opens the draft,
+  and its pick is a `RunGain` with source `minigame` (the build list).
+- **The 14 games** (single screen, 15–30 s, one-line instruction + animated hint; details in docs/client.md):
+  Portal Slip, Comet Catch, Saucer Landing, Clock Stopper, Wormhole Dash, Shield Parry, Slingshot Spore, Asteroid
+  Slice, Jelly Stack, Signal Echo, Fossil Flip, Codebreaker Hatch, Odd Alien Out, Slot Pod.
+- Simulator: the bot plays GAME tiles with a configurable skill (`SimPlayer.MinigameSkill`, median player = Silver: 60%
+  on it, 20% one tier below / above); counters `run_minigames_started/_played/_gold`.
 
 ## 4. Combat (fully automatic, deterministic, seeded)
 - Battles are turn-based in rounds with a round cap; reaching the cap with enemies alive is a loss.
