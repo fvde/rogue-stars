@@ -1,0 +1,34 @@
+{
+  "name": "pkg-boards",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    3001
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-board.json",
+  "suffix": ", high-angle three-quarter top-down view of a game level ground plane filling the whole frame, open empty area in the middle for a board path, props and scenery only along the left and right edges, vertical mobile game background, no path",
+  "negative": "horizon, sky, side view, landscape painting, characters, creatures, path, road, text, user interface, watermark, blurry, photo, 3d render",
+  "fullframe": true,
+  "subjects": {
+    "seabed": "alien seabed with sand, flat stone slabs, coral and sunken ruins",
+    "lava": "volcanic rock floor with glowing lava cracks and obsidian crystals",
+    "ice": "frozen ice floor with snow drifts and blue crystals",
+    "toxic_swamp": "toxic green swamp mud with bubbling pools and glowing reeds",
+    "crystal_cave": "pink and violet crystal cave floor with gem clusters",
+    "alien_jungle": "alien jungle floor with giant leaves, roots and glowing flowers",
+    "desert_ruins": "desert sand with half-buried alien ruins and broken pillars",
+    "space_station": "space station deck with metal plates, cables and glowing panels",
+    "mushroom_forest": "mushroom forest floor with giant spotted mushrooms and moss",
+    "cloud_islands": "floating cloud island tops with soft grass and sky gaps at the edges",
+    "clockwork_city": "time-travel clockwork plaza floor with brass gears and cogs",
+    "prehistoric": "prehistoric jungle clearing with ferns, eggs and dinosaur bones",
+    "neon_city": "futuristic neon city rooftop floor with glowing lines",
+    "shipwreck": "graveyard of crashed spaceships on a rusty metal plain",
+    "candy_planet": "candy planet ground with jelly pools and sugar crystals",
+    "moon_craters": "grey moon surface with craters and moon rocks",
+    "coral_reef": "bright coral reef floor with anemones and shells",
+    "ash_wastes": "ashen volcanic wasteland with smoldering embers",
+    "frozen_future": "frozen futuristic city plaza with icy holograms",
+    "gas_giant": "floating metal platforms above swirling gas giant clouds"
+  }
+}

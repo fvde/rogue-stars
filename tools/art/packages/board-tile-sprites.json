@@ -1,0 +1,33 @@
+{
+  "name": "pkg-board-tile-sprites",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    3101
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one single tile, centered, isolated on a plain pure white background, no other objects, no text",
+  "negative": "multiple tiles, background scenery, characters, text, watermark, blurry, photo",
+  "subjects": {
+    "seabed": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: alien seabed with sand, flat stone slabs, coral and sunken ruins",
+    "lava": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: volcanic rock floor with glowing lava cracks and obsidian crystals",
+    "ice": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: frozen ice floor with snow drifts and blue crystals",
+    "toxic_swamp": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: toxic green swamp mud with bubbling pools and glowing reeds",
+    "crystal_cave": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: pink and violet crystal cave floor with gem clusters",
+    "alien_jungle": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: alien jungle floor with giant leaves, roots and glowing flowers",
+    "desert_ruins": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: desert sand with half-buried alien ruins and broken pillars",
+    "space_station": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: space station deck with metal plates, cables and glowing panels",
+    "mushroom_forest": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: mushroom forest floor with giant spotted mushrooms and moss",
+    "cloud_islands": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: floating cloud island tops with soft grass and sky gaps at the edges",
+    "clockwork_city": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: time-travel clockwork plaza floor with brass gears and cogs",
+    "prehistoric": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: prehistoric jungle clearing with ferns, eggs and dinosaur bones",
+    "neon_city": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: futuristic neon city rooftop floor with glowing lines",
+    "shipwreck": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: graveyard of crashed spaceships on a rusty metal plain",
+    "candy_planet": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: candy planet ground with jelly pools and sugar crystals",
+    "moon_craters": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: grey moon surface with craters and moon rocks",
+    "coral_reef": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: bright coral reef floor with anemones and shells",
+    "ash_wastes": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: ashen volcanic wasteland with smoldering embers",
+    "frozen_future": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: frozen futuristic city plaza with icy holograms",
+    "gas_giant": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: floating metal platforms above swirling gas giant clouds"
+  }
+}

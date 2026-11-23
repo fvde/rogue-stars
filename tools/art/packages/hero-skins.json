@@ -1,8 +1,13 @@
 {
   "name": "pkg-hero-skins",
-  "width": 1024, "height": 1024, "seeds": [1701, 1702],
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    1701,
+    1702
+  ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
-  "suffix": ", a limbless worm hero in costume, no arms, no legs, full body, centered, isolated on a plain white background, no scenery",
+  "suffix": ", based on a simple cute pink limbless worm with a small round head, two dot eyes and two short antennae, wearing the costume, no arms, no legs, full body, centered, isolated on a plain white background, no scenery",
   "negative": "arms, legs, hands, human body, humanoid, multiple characters, background scenery, text, watermark, blurry, photo",
   "subjects": {
     "hero_star_knight": "Star Knight Worm, a worm in shining silver knight armor plates with a star crest helmet and a small cape",

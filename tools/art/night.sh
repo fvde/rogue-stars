@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 [[ -f tools/art/prompts/direction.json ]] || { echo "missing tools/art/prompts/direction.json" >&2; exit 1; }
 curl -sf 127.0.0.1:8188/system_stats >/dev/null || { echo "ComfyUI not running on :8188" >&2; exit 1; }
 PY="arch -arm64 $HOME/AI/ComfyUI/.venv/bin/python"
-ORDER="aliens enemies parts mounts hero-skins bosses buildings skills"
+ORDER="boards board-tile-sprites aliens enemies parts mounts hero-skins bosses buildings skills"
 for pass in 1 2; do
   for p in $ORDER; do
     sheet=tools/art/packages/$p.json
@@ -19,7 +19,8 @@ for pass in 1 2; do
       python3 tools/art/gen.py "$sheet" --seeds "$seeds"
     fi
     name=$(python3 -c "import json;print(json.load(open('$sheet'))['name'])")
-    $PY tools/art/export_assets.py "$HOME/AI/out/$name" >/dev/null 2>&1 || echo "export failed: $name"
+    full=$(python3 -c "import json;print('--fullframe' if json.load(open('$sheet')).get('fullframe') else '')")
+    $PY tools/art/export_assets.py "$HOME/AI/out/$name" $full >/dev/null 2>&1 || echo "export failed: $name"
     echo "== pass $pass $p done $(date +%H:%M)"
   done
 done

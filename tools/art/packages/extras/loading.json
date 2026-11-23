@@ -5,7 +5,7 @@
   "seeds": [
     2000
   ],
-  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-board.json",
   "suffix": ", vertical mobile game splash art, dramatic composition, no text, no logo",
   "negative": "text, letters, logo, watermark, blurry, photo",
   "subjects": {

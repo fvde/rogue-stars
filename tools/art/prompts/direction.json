@@ -1,0 +1,21 @@
+{
+  "variants": [
+    {
+      "key": "C",
+      "model": "flux",
+      "style": "2D cartoon mobile game sprite, bold clean black outline, flat bright colors, cel shading, simple readable silhouette",
+      "note": "Flux, outlined sprite (hero style)"
+    },
+    {
+      "key": "A",
+      "model": "sdxl_ref",
+      "style_refs": [
+        "battle.png"
+      ],
+      "ref_weight": 0.45,
+      "ref_mode": "style transfer",
+      "style": "2D game sprite, thick dark outline, flat cel shading, vibrant colors",
+      "note": "SDXL + light battle ref (enemy look)"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "variants": [
+    {
+      "key": "BA",
+      "model": "sdxl_ref",
+      "style_refs": [
+        "board-a.png",
+        "board-b.png"
+      ],
+      "ref_weight": 0.5,
+      "ref_mode": "linear",
+      "style": "hand-painted cartoon game art, dark outlines, rich detail, vibrant saturated colors",
+      "note": "SDXL + board refs, full adapter 0.5 (board A)"
+    },
+    {
+      "key": "BB",
+      "model": "sdxl_ref",
+      "style_refs": [
+        "board-a.png",
+        "board-b.png"
+      ],
+      "ref_weight": 0.75,
+      "ref_mode": "composition",
+      "style": "2D cartoon game art, dark outlines, saturated colors",
+      "note": "SDXL + board refs, composition 0.75 (board B)"
+    }
+  ]
+}
