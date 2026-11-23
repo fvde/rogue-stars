@@ -28,7 +28,7 @@ namespace RogueStars.Rules.Systems
         public int CapRaises;
         /// <summary>Forge slot unlocks done.</summary>
         public int ForgedSlots;
-        /// <summary>0 = none, 1 = S, 2 = SS.</summary>
+        /// <summary>1 once awakened (Mythic+, one time): awakened name, stats and skills; 0 otherwise.</summary>
         public int Awaken;
         /// <summary>Socketed rune uid per slot; "" = empty. Length grows with available slots.</summary>
         public List<string> Runes = new List<string>();

@@ -7,7 +7,7 @@ namespace RogueStars.Rules.Systems
     /// <summary>Currency ids introduced by the Progression workstream (in addition to Core.Currencies).</summary>
     public static class ProgressionCurrencies
     {
-        /// <summary>Endgame material for S / SS part awakening.</summary>
+        /// <summary>Awaken Cores: extremely rare endgame material for part awakening (PvP shop, invasions, deep Burrow).</summary>
         public const string PartAwakenCores = "part_awaken_cores";
     }
 

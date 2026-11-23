@@ -10,12 +10,16 @@ namespace RogueStars.Rules.Content
     /// <summary>The six equipment slots of the worm.</summary>
     public enum PartSlot { Head, Body, Tail, Legs, LeftArm, RightArm }
 
-    /// <summary>The 15-step part rarity ladder raised by merging.</summary>
+    /// <summary>
+    /// The 14-step part rarity ladder raised by merging (docs/design/parts.md). Mythic S and Mythic SS are rungs of the
+    /// ladder (each unlocks a part skill); awakening is separate (<see cref="PartsConfig.AwakenCost"/>).
+    /// </summary>
     public enum PartRarity
     {
-        Common, Uncommon, Rare, RarePlus, Epic, Epic1, Epic2,
-        Legendary, Legendary1, Legendary2, Legendary3,
-        Mythic, Mythic1, Mythic2, Mythic3,
+        Common, Uncommon, Rare, Epic, Legendary,
+        Mythic, Mythic1, Mythic2,
+        MythicS, MythicS1, MythicS2,
+        MythicSS, MythicSS1, MythicSS2,
     }
 
     [Serializable]
@@ -26,30 +30,38 @@ namespace RogueStars.Rules.Content
         public PartKind Kind;
         /// <summary>Attack style; only meaningful for arm parts.</summary>
         public AttackStyle Style;
-        /// <summary>Family this part favours (its signature/awakening skills belong to it).</summary>
+        /// <summary>Family this part favours (its skills are built around it).</summary>
         public SkillFamily Family;
         /// <summary>Stats at Common, level 1 (scaled by rarity multiplier and Forge bonus).</summary>
         public List<StatMod> BaseStats = new List<StatMod>();
         /// <summary>Stats per level above 1 (scaled by rarity multiplier, not by Forge).</summary>
         public List<StatMod> StatsPerLevel = new List<StatMod>();
-        /// <summary>Signature skill active at PartsConfig.SignatureRarity, upgraded at Signature2Rarity.</summary>
-        public string SignatureSkillId;
-        public string Signature2SkillId;
-        /// <summary>S and SS awakening skills (SS replaces S).</summary>
-        public string AwakenSSkillId;
-        public string AwakenSSSkillId;
+        /// <summary>
+        /// The part's five skills (Source = Part); skill i is active from PartsConfig.SkillUnlockRarities[i]
+        /// (Epic, Legendary, Mythic, Mythic S, Mythic SS).
+        /// </summary>
+        public List<string> SkillIds = new List<string>();
+
+        /// <summary>Awakened version (Mythic+ parts, once): new name, stronger stats, five redesigned skills (same unlock rarities).</summary>
+        public string AwakenedName;
+        public List<StatMod> AwakenedBaseStats = new List<StatMod>();
+        public List<StatMod> AwakenedStatsPerLevel = new List<StatMod>();
+        public List<string> AwakenedSkillIds = new List<string>();
     }
 
-    /// <summary>Merge recipe to reach a rarity step: the target part (one step below) plus materials.</summary>
+    /// <summary>
+    /// Merge recipe to reach a rarity step: the target part (one step below) plus materials.
+    /// <see cref="SameDefCount"/> copies of the target's own def at <see cref="SameDefRarity"/> or higher, plus other parts
+    /// (any def, any kind, each at <see cref="FodderMinRarity"/> or higher) worth at least <see cref="FodderPoints"/>
+    /// fodder points (<see cref="PartRarityDef.FodderValue"/>; no superfluous material).
+    /// </summary>
     [Serializable]
     public sealed class PartMergeRecipe
     {
-        /// <summary>Extra copies of the same part def needed, at exactly SameDefRarity.</summary>
         public int SameDefCount;
         public PartRarity SameDefRarity;
-        /// <summary>Any parts of the same kind (any def) needed, at exactly FodderRarity.</summary>
-        public int FodderCount;
-        public PartRarity FodderRarity;
+        public long FodderPoints;
+        public PartRarity FodderMinRarity;
     }
 
     [Serializable]
@@ -67,6 +79,11 @@ namespace RogueStars.Rules.Content
         public long DismantleOre;
         /// <summary>Recipe to reach this rarity from the previous step (null for Common).</summary>
         public PartMergeRecipe Merge;
+        /// <summary>
+        /// Fodder points this part is worth as merge material: everything that went into it (Common 1, ×3 per step up to
+        /// Legendary = 81, then the cumulative recipe cost).
+        /// </summary>
+        public long FodderValue;
     }
 
     [Serializable]
@@ -102,17 +119,16 @@ namespace RogueStars.Rules.Content
         public int CapRaiseLevels = 5;
         /// <summary>Advancement Plates for the n-th cap raise (index = raises already done).</summary>
         public List<long> CapRaisePlates = new List<long>();
-        public int MaxRuneSlots = 4;
+        public int MaxRuneSlots = 5;
         public PartRarity ForgeMinRarity = PartRarity.Epic;
         public List<ForgeStep> Forge = new List<ForgeStep>();
-        public PartRarity AwakenMinRarity = PartRarity.Legendary;
-        public PartRarity SSMinRarity = PartRarity.Mythic;
-        /// <summary>Part Awaken Cores for S (index 0) and SS (index 1).</summary>
-        public List<long> AwakenCores = new List<long>();
-        /// <summary>All-stat percent bonus of the part at awaken level 0/1/2.</summary>
-        public List<double> AwakenStatPercent = new List<double>();
-        public PartRarity SignatureRarity = PartRarity.Mythic;
-        public PartRarity Signature2Rarity = PartRarity.Mythic3;
+        /// <summary>Rarity at which each of a part's five skills becomes active (index = skill index).</summary>
+        public List<PartRarity> SkillUnlockRarities = new List<PartRarity>();
+        /// <summary>Awakening: Mythic or higher, once per part, for AwakenCost Awaken Cores.</summary>
+        public PartRarity AwakenMinRarity = PartRarity.Mythic;
+        public long AwakenCost = 50;
+        /// <summary>One Legendary part in fodder points (the unit of the recipe table in docs/design/parts.md).</summary>
+        public long LegendaryFodder = 81;
         /// <summary>Quick-merge never produces parts above this rarity.</summary>
         public PartRarity QuickMergeMaxTarget = PartRarity.Legendary;
 
@@ -135,28 +151,38 @@ namespace RogueStars.Rules.Content
         {
             var p = PartsConfig;
 
-            // ---- rarity ladder -------------------------------------------------------------------
-            // name, stat mult, base cap, cap raises, rune slots, dismantle ore, recipe (same n @r, fodder n @r)
+            // ---- rarity ladder (docs/design/parts.md) ---------------------------------------------
+            // Below Mythic every step takes any surplus of the step's rarity (3 → 1, any def and kind), so every drop ends
+            // up as Legendary fodder. Mythic and above take Legendary+ fodder in Legendary-equivalents (LE = 81 points)
+            // growing ~1.7× per step; Mythic, S, SS and SS+2 also need copies of the part's own def (Legendary or higher).
+            long le = p.LegendaryFodder;
+            // name, stat mult, base cap, cap raises, rune slots, dismantle ore, recipe
             AddPartRarity(PartRarity.Common, "Common", 1.0, 10, 0, 0, 50, null);
-            AddPartRarity(PartRarity.Uncommon, "Uncommon", 1.25, 15, 0, 0, 100, PartRecipe(2, PartRarity.Common, 0, PartRarity.Common));
-            AddPartRarity(PartRarity.Rare, "Rare", 1.6, 20, 1, 0, 200, PartRecipe(2, PartRarity.Uncommon, 0, PartRarity.Uncommon));
-            AddPartRarity(PartRarity.RarePlus, "Rare+", 1.9, 25, 1, 1, 350, PartRecipe(1, PartRarity.Rare, 1, PartRarity.Rare));
-            AddPartRarity(PartRarity.Epic, "Epic", 2.4, 30, 2, 1, 600, PartRecipe(2, PartRarity.RarePlus, 0, PartRarity.RarePlus));
-            AddPartRarity(PartRarity.Epic1, "Epic+1", 2.8, 35, 2, 1, 900, PartRecipe(0, PartRarity.Epic, 2, PartRarity.Epic));
-            AddPartRarity(PartRarity.Epic2, "Epic+2", 3.2, 40, 2, 1, 1300, PartRecipe(1, PartRarity.Epic, 1, PartRarity.Epic));
-            AddPartRarity(PartRarity.Legendary, "Legendary", 4.0, 50, 3, 2, 2000, PartRecipe(2, PartRarity.Epic2, 0, PartRarity.Epic2));
-            AddPartRarity(PartRarity.Legendary1, "Legendary+1", 4.6, 55, 3, 2, 2800, PartRecipe(0, PartRarity.Legendary, 1, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Legendary2, "Legendary+2", 5.2, 60, 3, 2, 3800, PartRecipe(0, PartRarity.Legendary, 2, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Legendary3, "Legendary+3", 5.9, 65, 4, 2, 5000, PartRecipe(1, PartRarity.Legendary, 1, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic, "Mythic", 7.0, 80, 4, 3, 7000, PartRecipe(2, PartRarity.Legendary, 0, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 7.8, 85, 5, 3, 9000, PartRecipe(0, PartRarity.Mythic, 3, PartRarity.Mythic));
-            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 8.7, 90, 5, 3, 11000, PartRecipe(0, PartRarity.Mythic, 4, PartRarity.Mythic));
-            AddPartRarity(PartRarity.Mythic3, "Mythic+3", 9.8, 100, 6, 3, 14000, PartRecipe(1, PartRarity.Mythic, 5, PartRarity.Mythic));
+            AddPartRarity(PartRarity.Uncommon, "Uncommon", 1.3, 15, 0, 0, 100, PartRecipe(0, PartRarity.Common, 2, PartRarity.Common));
+            AddPartRarity(PartRarity.Rare, "Rare", 1.7, 20, 1, 1, 250, PartRecipe(0, PartRarity.Uncommon, 6, PartRarity.Uncommon));
+            AddPartRarity(PartRarity.Epic, "Epic", 2.4, 30, 1, 1, 600, PartRecipe(0, PartRarity.Rare, 18, PartRarity.Rare));
+            AddPartRarity(PartRarity.Legendary, "Legendary", 3.6, 50, 2, 2, 2000, PartRecipe(0, PartRarity.Epic, 54, PartRarity.Epic));
+            AddPartRarity(PartRarity.Mythic, "Mythic", 5.6, 70, 3, 3, 6000, PartRecipe(1, PartRarity.Legendary, 2 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 6.4, 80, 3, 3, 9000, PartRecipe(0, PartRarity.Legendary, 8 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 7.3, 90, 3, 3, 13000, PartRecipe(0, PartRarity.Legendary, 14 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS, "Mythic S", 8.8, 100, 4, 4, 20000, PartRecipe(2, PartRarity.Legendary, 24 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS1, "Mythic S+1", 9.8, 110, 4, 4, 28000, PartRecipe(0, PartRarity.Legendary, 40 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS2, "Mythic S+2", 11.0, 120, 5, 4, 38000, PartRecipe(0, PartRarity.Legendary, 70 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS, "Mythic SS", 13.0, 130, 5, 5, 55000, PartRecipe(3, PartRarity.Legendary, 120 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS1, "Mythic SS+1", 14.6, 140, 6, 5, 75000, PartRecipe(0, PartRarity.Legendary, 200 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS2, "Mythic SS+2", 16.5, 150, 6, 5, 100000, PartRecipe(1, PartRarity.Legendary, 340 * le, PartRarity.Legendary));
+            // Fodder value = everything that went into a part (Common 1; Legendary 81; then the cumulative recipe cost).
+            for (int r = 0; r < p.Rarities.Count; r++)
+            {
+                var rd = p.Rarities[r];
+                if (rd.Merge == null) { rd.FodderValue = 1; continue; }
+                rd.FodderValue = p.Rarities[r - 1].FodderValue + rd.Merge.SameDefCount * p.Rarities[(int)rd.Merge.SameDefRarity].FodderValue + rd.Merge.FodderPoints;
+            }
 
             // ---- levels, cap raises ----------------------------------------------------------------
             p.CapRaiseLevels = 5;
             p.CapRaisePlates.AddRange(new long[] { 60, 160, 320, 600, 1000, 1600 });
-            int maxLevel = 100 + 6 * p.CapRaiseLevels; // Mythic+3 base cap + all raises
+            int maxLevel = p.Rarities[p.Rarities.Count - 1].BaseLevelCap + 6 * p.CapRaiseLevels; // top base cap + all raises
             p.LevelOreCosts.Add(0); p.LevelGearCoreCosts.Add(0);
             for (int l = 1; l < maxLevel; l++)
             {
@@ -164,17 +190,14 @@ namespace RogueStars.Rules.Content
                 p.LevelGearCoreCosts.Add(l < 10 ? 0 : (long)Math.Round(2 * Math.Pow(l - 9, 1.25)));
             }
 
-            // ---- forge, awakening, signatures ------------------------------------------------------
-            p.MaxRuneSlots = 4;
+            // ---- forge, skills, awakening ----------------------------------------------------------
+            p.MaxRuneSlots = 5;
             p.ForgeMinRarity = PartRarity.Epic;
             p.Forge.Add(new ForgeStep { Diamonds = 300, GearCores = 400, BonusPercent = 10 });
             p.Forge.Add(new ForgeStep { Diamonds = 900, GearCores = 1200, BonusPercent = 15 });
-            p.AwakenMinRarity = PartRarity.Legendary;
-            p.SSMinRarity = PartRarity.Mythic;
-            p.AwakenCores.AddRange(new long[] { 40, 150 });
-            p.AwakenStatPercent.AddRange(new double[] { 0, 15, 35 });
-            p.SignatureRarity = PartRarity.Mythic;
-            p.Signature2Rarity = PartRarity.Mythic3;
+            p.SkillUnlockRarities.AddRange(new[] { PartRarity.Epic, PartRarity.Legendary, PartRarity.Mythic, PartRarity.MythicS, PartRarity.MythicSS });
+            p.AwakenMinRarity = PartRarity.Mythic;
+            p.AwakenCost = 50;
             p.QuickMergeMaxTarget = PartRarity.Legendary;
 
             // ---- runes -----------------------------------------------------------------------------
@@ -193,41 +216,41 @@ namespace RogueStars.Rules.Content
             AddRuneDef("rune_ember", "Ember Rune", StatId.FireDamage, false, 2);
             AddRuneDef("rune_volt", "Volt Rune", StatId.LightningDamage, false, 2);
 
-            // ---- part defs (30) ---------------------------------------------------------------------
-            AddPartDef("head_scanner_visor", "Scanner Visor", PartKind.Head, AttackStyle.Slam, SkillFamily.Crit);
-            AddPartDef("head_ember_crown", "Ember Crown", PartKind.Head, AttackStyle.Slam, SkillFamily.Fire);
-            AddPartDef("head_frost_helm", "Frost Helm", PartKind.Head, AttackStyle.Slam, SkillFamily.Ice);
-            AddPartDef("head_hive_antenna", "Hive Antenna", PartKind.Head, AttackStyle.Slam, SkillFamily.AlienSynergy);
-            AddPartDef("head_duelist_mask", "Duelist Mask", PartKind.Head, AttackStyle.Slam, SkillFamily.Counter);
-            AddPartDef("body_plated_shell", "Plated Shell", PartKind.Body, AttackStyle.Slam, SkillFamily.Counter);
-            AddPartDef("body_reactor_core", "Reactor Core", PartKind.Body, AttackStyle.Slam, SkillFamily.Lightning);
-            AddPartDef("body_toxic_tank", "Toxic Tank", PartKind.Body, AttackStyle.Slam, SkillFamily.Poison);
-            AddPartDef("body_glacier_plate", "Glacier Plate", PartKind.Body, AttackStyle.Slam, SkillFamily.Ice);
-            AddPartDef("body_spiked_mail", "Spiked Mail", PartKind.Body, AttackStyle.Slam, SkillFamily.Bleed);
-            AddPartDef("tail_rocket_booster", "Rocket Booster", PartKind.Tail, AttackStyle.Slam, SkillFamily.Combo);
-            AddPartDef("tail_stinger", "Stinger Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Poison);
-            AddPartDef("tail_coil_spring", "Coil Spring", PartKind.Tail, AttackStyle.Slam, SkillFamily.Lightning);
-            AddPartDef("tail_razor_fin", "Razor Fin", PartKind.Tail, AttackStyle.Slam, SkillFamily.Bleed);
-            AddPartDef("tail_comet_tail", "Comet Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Fire);
-            AddPartDef("legs_hover_treads", "Hover Treads", PartKind.Legs, AttackStyle.Slam, SkillFamily.Combo);
-            AddPartDef("legs_spider_legs", "Spider Legs", PartKind.Legs, AttackStyle.Slam, SkillFamily.Crit);
-            AddPartDef("legs_magma_stompers", "Magma Stompers", PartKind.Legs, AttackStyle.Slam, SkillFamily.Fire);
-            AddPartDef("legs_grav_boots", "Grav Boots", PartKind.Legs, AttackStyle.Slam, SkillFamily.Counter);
-            AddPartDef("legs_cryo_skates", "Cryo Skates", PartKind.Legs, AttackStyle.Slam, SkillFamily.Ice);
-            AddPartDef("arm_slam_hammer", "Slam Hammer", PartKind.Arm, AttackStyle.Slam, SkillFamily.Counter);
-            AddPartDef("arm_mantis_claw", "Mantis Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Bleed);
-            AddPartDef("arm_plasma_blaster", "Plasma Blaster", PartKind.Arm, AttackStyle.Blaster, SkillFamily.Fire);
-            AddPartDef("arm_drill_lance", "Drill Lance", PartKind.Arm, AttackStyle.Drill, SkillFamily.Crit);
-            AddPartDef("arm_tesla_whip", "Tesla Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.Lightning);
-            AddPartDef("arm_rail_cannon", "Rail Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Crit);
-            AddPartDef("arm_venom_claw", "Venom Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Poison);
-            AddPartDef("arm_frost_cannon", "Frost Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Ice);
-            AddPartDef("arm_ripper_drill", "Ripper Drill", PartKind.Arm, AttackStyle.Drill, SkillFamily.Combo);
-            AddPartDef("arm_hive_whip", "Hive Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.AlienSynergy);
+            // ---- part defs (30): id, name, kind, arm style, family, awakened name ---------------------------------------------------------------------
+            AddPartDef("head_scanner_visor", "Scanner Visor", PartKind.Head, AttackStyle.Slam, SkillFamily.Crit, "Omniscope Visor");
+            AddPartDef("head_ember_crown", "Ember Crown", PartKind.Head, AttackStyle.Slam, SkillFamily.Fire, "Sunfire Diadem");
+            AddPartDef("head_frost_helm", "Frost Helm", PartKind.Head, AttackStyle.Slam, SkillFamily.Ice, "Winter King's Helm");
+            AddPartDef("head_hive_antenna", "Hive Antenna", PartKind.Head, AttackStyle.Slam, SkillFamily.AlienSynergy, "Overmind Antenna");
+            AddPartDef("head_duelist_mask", "Duelist Mask", PartKind.Head, AttackStyle.Slam, SkillFamily.Counter, "Grandmaster Mask");
+            AddPartDef("body_plated_shell", "Plated Shell", PartKind.Body, AttackStyle.Slam, SkillFamily.Counter, "Bastion Carapace");
+            AddPartDef("body_reactor_core", "Reactor Core", PartKind.Body, AttackStyle.Slam, SkillFamily.Lightning, "Singularity Core");
+            AddPartDef("body_toxic_tank", "Toxic Tank", PartKind.Body, AttackStyle.Slam, SkillFamily.Poison, "Plague Reactor");
+            AddPartDef("body_glacier_plate", "Glacier Plate", PartKind.Body, AttackStyle.Slam, SkillFamily.Ice, "Permafrost Aegis");
+            AddPartDef("body_spiked_mail", "Spiked Mail", PartKind.Body, AttackStyle.Slam, SkillFamily.Bleed, "Thornstorm Mail");
+            AddPartDef("tail_rocket_booster", "Rocket Booster", PartKind.Tail, AttackStyle.Slam, SkillFamily.Combo, "Hyperdrive Thruster");
+            AddPartDef("tail_stinger", "Stinger Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Poison, "Widowmaker Stinger");
+            AddPartDef("tail_coil_spring", "Coil Spring", PartKind.Tail, AttackStyle.Slam, SkillFamily.Lightning, "Tesla Coilwhip");
+            AddPartDef("tail_razor_fin", "Razor Fin", PartKind.Tail, AttackStyle.Slam, SkillFamily.Bleed, "Crimson Scythe Fin");
+            AddPartDef("tail_comet_tail", "Comet Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Fire, "Meteor Wake");
+            AddPartDef("legs_hover_treads", "Hover Treads", PartKind.Legs, AttackStyle.Slam, SkillFamily.Combo, "Phantom Treads");
+            AddPartDef("legs_spider_legs", "Spider Legs", PartKind.Legs, AttackStyle.Slam, SkillFamily.Crit, "Arachnid Executor");
+            AddPartDef("legs_magma_stompers", "Magma Stompers", PartKind.Legs, AttackStyle.Slam, SkillFamily.Fire, "Volcano Striders");
+            AddPartDef("legs_grav_boots", "Grav Boots", PartKind.Legs, AttackStyle.Slam, SkillFamily.Counter, "Event Horizon Boots");
+            AddPartDef("legs_cryo_skates", "Cryo Skates", PartKind.Legs, AttackStyle.Slam, SkillFamily.Ice, "Glacial Phase Skates");
+            AddPartDef("arm_slam_hammer", "Slam Hammer", PartKind.Arm, AttackStyle.Slam, SkillFamily.Counter, "Worldbreaker Maul");
+            AddPartDef("arm_mantis_claw", "Mantis Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Bleed, "Reaper Mantis");
+            AddPartDef("arm_plasma_blaster", "Plasma Blaster", PartKind.Arm, AttackStyle.Blaster, SkillFamily.Fire, "Nova Lance");
+            AddPartDef("arm_drill_lance", "Drill Lance", PartKind.Arm, AttackStyle.Drill, SkillFamily.Crit, "Starpiercer");
+            AddPartDef("arm_tesla_whip", "Tesla Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.Lightning, "Thunderlord Lash");
+            AddPartDef("arm_rail_cannon", "Rail Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Crit, "Annihilator Rail");
+            AddPartDef("arm_venom_claw", "Venom Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Poison, "Viper Queen's Talon");
+            AddPartDef("arm_frost_cannon", "Frost Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Ice, "Absolute Zero Cannon");
+            AddPartDef("arm_ripper_drill", "Ripper Drill", PartKind.Arm, AttackStyle.Drill, SkillFamily.Combo, "Maelstrom Drill");
+            AddPartDef("arm_hive_whip", "Hive Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.AlienSynergy, "Swarmmother Lash");
         }
 
-        private static PartMergeRecipe PartRecipe(int same, PartRarity sameR, int fodder, PartRarity fodderR) =>
-            new PartMergeRecipe { SameDefCount = same, SameDefRarity = sameR, FodderCount = fodder, FodderRarity = fodderR };
+        private static PartMergeRecipe PartRecipe(int same, PartRarity sameMinRarity, long fodderPoints, PartRarity fodderMinRarity) =>
+            new PartMergeRecipe { SameDefCount = same, SameDefRarity = sameMinRarity, FodderPoints = fodderPoints, FodderMinRarity = fodderMinRarity };
 
         private void AddPartRarity(PartRarity r, string name, double mult, int cap, int raises, int slots, long ore, PartMergeRecipe merge)
         {
@@ -238,7 +261,7 @@ namespace RogueStars.Rules.Content
         private void AddRuneDef(string id, string name, StatId stat, bool percent, double value) =>
             PartsConfig.Runes[id] = new RuneDef { Id = id, Name = name, Stat = stat, IsPercent = percent, BaseValue = value };
 
-        private void AddPartDef(string id, string name, PartKind kind, AttackStyle style, SkillFamily family)
+        private void AddPartDef(string id, string name, PartKind kind, AttackStyle style, SkillFamily family, string awakenedName)
         {
             var d = new PartDef { Id = id, Name = name, Kind = kind, Style = style, Family = family };
             switch (kind)
@@ -274,14 +297,12 @@ namespace RogueStars.Rules.Content
                     break;
             }
 
-            d.SignatureSkillId = id + "_sig";
-            d.Signature2SkillId = id + "_sig2";
-            d.AwakenSSkillId = id + "_s";
-            d.AwakenSSSkillId = id + "_ss";
-            AddSkill(ProgFamilySkill(d.SignatureSkillId, name + " Signature", family, Rarity.Legendary, SkillSource.Part, 1.0, null));
-            AddSkill(ProgFamilySkill(d.Signature2SkillId, name + " Signature II", family, Rarity.Mythic, SkillSource.Part, 1.8, d.SignatureSkillId));
-            AddSkill(ProgFamilySkill(d.AwakenSSkillId, name + " [S]", family, Rarity.Legendary, SkillSource.Part, 1.3, null));
-            AddSkill(ProgFamilySkill(d.AwakenSSSkillId, name + " [SS]", family, Rarity.Mythic, SkillSource.Part, 2.4, d.AwakenSSkillId));
+            // Awakened version: ×1.4 stats plus the family's signature stat (PartAwakenedSignatureStat).
+            d.AwakenedName = awakenedName;
+            foreach (var m in d.BaseStats) d.AwakenedBaseStats.Add(new StatMod(m.Stat, Math.Round(m.Flat * 1.4, 2), Math.Round(m.Percent * 1.4, 2)));
+            foreach (var m in d.StatsPerLevel) d.AwakenedStatsPerLevel.Add(new StatMod(m.Stat, Math.Round(m.Flat * 1.4, 2), Math.Round(m.Percent * 1.4, 2)));
+            d.AwakenedBaseStats.Add(PartAwakenedSignatureStat(family));
+            BuildPartSkills(d);
             PartsConfig.Defs[id] = d;
         }
 

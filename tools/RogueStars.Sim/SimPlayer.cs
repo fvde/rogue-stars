@@ -51,7 +51,14 @@ public sealed partial class SimPlayer
         Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.GearCores, Currencies.AdvancementPlates, Currencies.Fuel,
         Currencies.HeroXp, Currencies.Diamonds, Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens,
         Currencies.Stamina, Currencies.GuildMarks, Currencies.MountCores, ProgressionCurrencies.PartAwakenCores, Currencies.ArenaTickets,
+        "data", "arena_medals",
     };
+
+    /// <summary>Currencies whose income is also split by source (runs by mode, city, quests, arena, invasions, shop, other).</summary>
+    public static readonly string[] SourceTracked = { Currencies.Biomass, Currencies.Ore, ProgressionCurrencies.PartAwakenCores, "data", "arena_medals" };
+    public static readonly string[] Sources = { "run_main", "run_burrow", "run_dark", "city", "quests", "arena", "invasion", "shop", "other" };
+    /// <summary>Cumulative income per SourceTracked currency (row) and Sources entry (column).</summary>
+    public readonly double[,] EarnedBySource = new double[5, 9];
     public readonly double[] Earned = new double[Tracked.Length];
     public readonly double[] SpentRes = new double[Tracked.Length];
     private readonly long[] _before = new long[Tracked.Length];
@@ -72,6 +79,7 @@ public sealed partial class SimPlayer
     public CommandResult Exec(GameCommand cmd)
     {
         for (int i = 0; i < Tracked.Length; i++) _before[i] = S.Wallet.Get(Tracked[i]);
+        int source = SourceOf(cmd);
         var r = E.Execute(ref S, cmd, Now);
         Commands++;
         if (!r.Ok) { FailedCommands++; return r; }
@@ -79,11 +87,36 @@ public sealed partial class SimPlayer
         {
             long d = S.Wallet.Get(Tracked[i]) - _before[i];
             if (d > 0) Earned[i] += d; else if (d < 0) SpentRes[i] -= d;
+            if (d > 0)
+            {
+                int si = Array.IndexOf(SourceTracked, Tracked[i]);
+                if (si >= 0) EarnedBySource[si, source] += d;
+            }
         }
         return r;
     }
 
     private bool Ok(GameCommand cmd) => Exec(cmd).Ok;
+
+    /// <summary>Income source of a command (index into <see cref="Sources"/>).</summary>
+    private int SourceOf(GameCommand cmd)
+    {
+        static int Mode(RunMode m) => m == RunMode.Burrow ? 1 : m == RunMode.DarkSide ? 2 : 0;
+        switch (cmd)
+        {
+            case RunStart rs: return Mode(rs.Mode);
+            case RunDoubleRewards: return S.Run.LastSummary != null ? Mode(S.Run.LastSummary.Mode) : 0;
+            case RunAutoStep or RunBurrowDescend or RunBurrowCashOut or RunRevive or RunAbandon:
+                return S.Run.Active != null ? Mode(S.Run.Active.Mode) : 0;
+            case CityCollect: return 3;
+            case LoginClaim or NewPlayerClaim or QuestClaimAll or QuestClaimChest or SeasonPassClaimAll or MailClaimAll or FundClaim
+                or FeatureCelebrate or TutorialAdvance: return 4;
+            case ArenaFightResult or RogueStars.Rules.Systems.ArenaWeekEnd: return 5;
+            case LiveOpsApplyOutcome or InvasionRecordDamage: return 6;
+            case ShopBuyItem or GuildShopBuy or ShopClaimDaily or ShopClaimFree or PurchaseComplete or AdWatched: return 7;
+            default: return 8;
+        }
+    }
 
     private long Bal(string c) => S.Wallet.Get(c);
 

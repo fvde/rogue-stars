@@ -185,8 +185,9 @@ public class LoadoutTests
         Assert.Equal(new[] { AttackStyle.Whip, AttackStyle.Drill }, l.ArmStyles);
         Assert.Contains("hero_chef_a1", l.MetaSkillIds);
         Assert.Contains("mount_scout_saucer_w1", l.MetaSkillIds);
-        Assert.Contains("arm_tesla_whip_sig", l.MetaSkillIds);    // Mythic signature
-        Assert.DoesNotContain("arm_drill_lance_sig", l.MetaSkillIds);
+        Assert.Contains("arm_tesla_whip_sk3", l.MetaSkillIds);    // Mythic: skills 1-3
+        Assert.DoesNotContain("arm_tesla_whip_sk4", l.MetaSkillIds);
+        Assert.DoesNotContain("arm_drill_lance_sk1", l.MetaSkillIds); // Common: none
         Assert.True(l.WormStats.Value(StatId.Atk) > bare.WormStats.Value(StatId.Atk));
         Assert.True(l.WormStats.Value(StatId.Def) > bare.WormStats.Value(StatId.Def));
         Assert.True(l.MountStats.Value(StatId.Atk) > 0);

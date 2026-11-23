@@ -13,7 +13,7 @@ public static class Report
         ("power", "Power"), ("main_level", "Main level"), ("overcharged_cleared", "OC cleared"), ("burrow_floors", "Burrow floors"),
         ("darkside_cleared", "Dark Side"), ("worm_level", "Worm lv"), ("talent_tier", "Talent tier"), ("part_rarity_avg", "Part rarity avg"),
         ("part_level_avg", "Part lv avg"), ("rune_slots", "Rune slots"), ("rune_rarity_avg", "Rune rarity"), ("forge_unlocks", "Forge"),
-        ("parts_awakened_s", "S parts"), ("hero_stars_best", "Hero ★ best"), ("hero_stars_avg", "Hero ★ avg"), ("heroes_owned", "Heroes"),
+        ("parts_awakened", "Awakened parts"), ("hero_stars_best", "Hero ★ best"), ("hero_stars_avg", "Hero ★ avg"), ("heroes_owned", "Heroes"),
         ("mount_stars_best", "Mount ★"), ("mount_awaken_best", "Mount awaken"), ("blueprints_owned", "Blueprints"), ("blueprint_stars_avg", "BP ★ avg"),
         ("buildings", "Buildings"), ("building_level_avg", "Bld lv avg"), ("prod_h_biomass", "Biomass/h"), ("prod_h_ore", "Ore/h"),
         ("prod_h_diamonds", "Diamonds/h"), ("aliens_owned", "Aliens"), ("alien_stars_avg", "Alien ★ avg"), ("squad_size", "Squad"),
@@ -80,7 +80,7 @@ public static class Report
         sb.AppendLine(HeadlineTable(a.Medians, "hero_stars_best", "Best hero stars"));
         sb.AppendLine(HeadlineTable(a.Medians, "target_hero_stars", "Star Knight (whale target) stars"));
         sb.AppendLine(HeadlineTable(a.Medians, "mount_stars_best", "Best mount stars"));
-        sb.AppendLine(HeadlineTable(a.Medians, "part_rarity_avg", "Avg equipped part rarity (0 Common … 7 Legendary … 11 Mythic … 14 Mythic+3)"));
+        sb.AppendLine(HeadlineTable(a.Medians, "part_rarity_avg", "Avg equipped part rarity (0 Common … 4 Legendary … 5 Mythic … 8 Mythic S … 11 Mythic SS … 13 SS+2)"));
         sb.AppendLine(HeadlineTable(a.Medians, "building_level_avg", "Avg building level"));
         sb.AppendLine(HeadlineTable(a.Medians, "alien_stars_avg", "Avg alien stars"));
         sb.AppendLine(HeadlineTable(a.Medians, "gacha_mythics", "Mythic pulls (all types)"));

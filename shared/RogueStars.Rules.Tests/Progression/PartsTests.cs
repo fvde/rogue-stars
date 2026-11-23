@@ -14,31 +14,48 @@ public class PartsTests
 
     private static PartItem Add(GameState s, string def, PartRarity r) => PartsSystem.AddPart(s, C, def, (int)r);
 
-    /// <summary>Materials for a merge to step t on the given target, per content recipe.</summary>
+    /// <summary>Materials for a merge to step t on the given target, per content recipe (fodder: other defs at the minimum rarity).</summary>
     private static List<string> MaterialsFor(GameState s, PartItem target, PartRarity t)
     {
         var recipe = C.PartsConfig.Rarities[(int)t].Merge!;
         var mats = new List<string>();
         var otherDef = target.DefId == Head ? Head2 : Arm2;
         for (int i = 0; i < recipe.SameDefCount; i++) mats.Add(Add(s, target.DefId, recipe.SameDefRarity).Uid);
-        for (int i = 0; i < recipe.FodderCount; i++) mats.Add(Add(s, otherDef, recipe.FodderRarity).Uid);
+        long unit = C.PartsConfig.Rarities[(int)recipe.FodderMinRarity].FodderValue;
+        for (long pts = 0; pts < recipe.FodderPoints; pts += unit) mats.Add(Add(s, otherDef, recipe.FodderMinRarity).Uid);
         return mats;
     }
 
     [Fact]
-    public void Ladder_Has15Steps_InSpecOrder()
+    public void Ladder_Has14Steps_InSpecOrder()
     {
         var names = C.PartsConfig.Rarities.Select(r => r.Name).ToArray();
-        Assert.Equal(new[] { "Common", "Uncommon", "Rare", "Rare+", "Epic", "Epic+1", "Epic+2", "Legendary", "Legendary+1", "Legendary+2", "Legendary+3", "Mythic", "Mythic+1", "Mythic+2", "Mythic+3" }, names);
-        for (int i = 1; i < 15; i++) Assert.NotNull(C.PartsConfig.Rarities[i].Merge);
+        Assert.Equal(new[] { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Mythic+1", "Mythic+2", "Mythic S", "Mythic S+1", "Mythic S+2", "Mythic SS", "Mythic SS+1", "Mythic SS+2" }, names);
+        for (int i = 1; i < 14; i++) Assert.NotNull(C.PartsConfig.Rarities[i].Merge);
+        Assert.Equal(81, C.PartsConfig.Rarities[(int)PartRarity.Legendary].FodderValue);
     }
 
     [Fact]
-    public void Merge_EveryStepOfTheLadder_CommonToMythic3()
+    public void Recipes_GrowExponentiallyAboveMythic_AndSAndSSNeedOwnCopies()
+    {
+        var r = C.PartsConfig.Rarities;
+        for (int i = (int)PartRarity.Mythic2; i <= (int)PartRarity.MythicSS2; i++)
+            Assert.True(r[i].Merge!.FodderPoints >= r[i - 1].Merge!.FodderPoints * 1.5, r[i].Name + " should cost markedly more than " + r[i - 1].Name);
+        Assert.True(r[(int)PartRarity.MythicS].Merge!.SameDefCount >= 2);
+        Assert.True(r[(int)PartRarity.MythicSS].Merge!.SameDefCount >= 3);
+        // Mythic+ steps are fed by Legendary (or higher) surplus of any def and kind.
+        for (int i = (int)PartRarity.Mythic; i < r.Count; i++) Assert.Equal(PartRarity.Legendary, r[i].Merge!.FodderMinRarity);
+        // Below Mythic any surplus of the step's rarity merges up (no copies needed): surplus is never dead.
+        for (int i = 1; i <= (int)PartRarity.Legendary; i++) Assert.Equal(0, r[i].Merge!.SameDefCount);
+    }
+
+    [Fact]
+    public void Merge_EveryStepOfTheLadder_CommonToMythicSS2()
     {
         var e = Engine(); var s = Player(e);
         var target = Add(s, Arm, PartRarity.Common);
-        for (int t = 1; t < 15; t++)
+        int top = C.PartsConfig.Rarities.Count - 1;
+        for (int t = 1; t <= top; t++)
         {
             var mats = MaterialsFor(s, target, (PartRarity)t);
             var r = Ok(e, ref s, new PartMerge { TargetUid = target.Uid, MaterialUids = mats });
@@ -48,7 +65,36 @@ public class PartsTests
             foreach (var m in mats) Assert.False(s.Parts.Items.ContainsKey(m));
         }
         Assert.Contains("max rarity", Fail(e, ref s, new PartMerge { TargetUid = target.Uid, MaterialUids = new List<string>() }));
-        Assert.Equal(14, s.Counter("part_rarity_max"));
+        Assert.Equal(top, s.Counter("part_rarity_max"));
+    }
+
+    [Fact]
+    public void Merge_FodderPoints_LowerPartsSubstituteForHigher_NoSuperfluousMaterial()
+    {
+        var e = Engine(); var s = Player(e);
+        // Mythic -> Mythic+1 needs 8 Legendary-equivalents: one spare Mythic (4 LE) + four Legendaries of any def/kind.
+        var t = Add(s, Arm, PartRarity.Mythic);
+        var mythic = Add(s, Head, PartRarity.Mythic);
+        var legs = Enumerable.Range(0, 5).Select(i => Add(s, i % 2 == 0 ? "legs_grav_boots" : Head2, PartRarity.Legendary)).ToList();
+        var epic = Add(s, Arm2, PartRarity.Epic);
+        Assert.Contains("rarity too low", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, epic.Uid } }));
+        Assert.Contains("not enough fodder", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid } }));
+        Assert.Contains("superfluous", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, legs[3].Uid, legs[4].Uid } }));
+        Ok(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, legs[3].Uid } });
+        Assert.Equal((int)PartRarity.Mythic1, s.Parts.Items[t.Uid].Rarity);
+    }
+
+    [Fact]
+    public void Merge_SameDefCopies_RequiredForMythicAndS()
+    {
+        var e = Engine(); var s = Player(e);
+        var t = Add(s, Arm, PartRarity.Legendary);
+        var others = Enumerable.Range(0, 3).Select(_ => Add(s, Arm2, PartRarity.Legendary).Uid).ToList();
+        Assert.Contains("copies", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = others }));
+        // A higher copy of the same def also counts as the copy.
+        var copy = Add(s, Arm, PartRarity.Mythic);
+        Ok(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { copy.Uid, others[0], others[1] } });
+        Assert.Equal((int)PartRarity.Mythic, s.Parts.Items[t.Uid].Rarity);
     }
 
     [Fact]
@@ -56,23 +102,15 @@ public class PartsTests
     {
         var e = Engine(); var s = Player(e);
         var t = Add(s, Arm, PartRarity.Common);
-        var wrongRarity = Add(s, Arm, PartRarity.Uncommon);
-        var other = Add(s, Arm2, PartRarity.Common);   // Common->Uncommon needs same def
-        var ok = Add(s, Arm, PartRarity.Common);
-        Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid } }); // too few
-        Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid, wrongRarity.Uid } });
-        Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid, other.Uid } });
+        var ok = Add(s, Arm2, PartRarity.Common);
+        Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid } }); // too few points
         Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid, ok.Uid } });
-        var ok2 = Add(s, Arm, PartRarity.Common);
-        Ok(e, ref s, new PartEquip { Uid = ok2.Uid, Slot = PartSlot.LeftArm });
+        var ok2 = Add(s, Head, PartRarity.Common);
+        Ok(e, ref s, new PartEquip { Uid = ok2.Uid, Slot = PartSlot.Head });
         Assert.Contains("equipped", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid, ok2.Uid } }));
-        // A head can never be fodder for an arm.
-        var t2 = Add(s, Arm, PartRarity.Rare);
-        var same = Add(s, Arm, PartRarity.Rare);
-        var head = Add(s, Head, PartRarity.Rare);
-        Fail(e, ref s, new PartMerge { TargetUid = t2.Uid, MaterialUids = new List<string> { same.Uid, head.Uid } });
-        var armFodder = Add(s, Arm2, PartRarity.Rare);
-        Ok(e, ref s, new PartMerge { TargetUid = t2.Uid, MaterialUids = new List<string> { same.Uid, armFodder.Uid } });
+        // Any def and any kind is fodder below Mythic.
+        var head = Add(s, Head2, PartRarity.Common);
+        Ok(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { ok.Uid, head.Uid } });
     }
 
     [Fact]
@@ -81,8 +119,8 @@ public class PartsTests
         var e = Engine(); var s = Player(e);
         SetBalance(s, Currencies.Ore, 1_000_000);
         var t = Add(s, Arm, PartRarity.Common);
-        var m1 = Add(s, Arm, PartRarity.Common);
-        var m2 = Add(s, Arm, PartRarity.Common);
+        var m1 = Add(s, Arm2, PartRarity.Common);
+        var m2 = Add(s, Head, PartRarity.Common);
         Ok(e, ref s, new PartLevelUp { Uid = t.Uid, Levels = 5 });
         Ok(e, ref s, new PartLevelUp { Uid = m1.Uid, Levels = 4 });
         long oreBefore = s.Wallet.Get(Currencies.Ore);
@@ -93,10 +131,10 @@ public class PartsTests
     }
 
     [Fact]
-    public void QuickMerge_NineCommonsBecomeOneRare_AndRespectsCap()
+    public void QuickMerge_NineCommonsOfAnyDefBecomeOneRare_AndRespectsCap()
     {
         var e = Engine(); var s = Player(e);
-        for (int i = 0; i < 9; i++) Add(s, Head, PartRarity.Common);
+        for (int i = 0; i < 9; i++) Add(s, i % 3 == 0 ? Head : i % 3 == 1 ? Arm : "tail_stinger", PartRarity.Common);
         var r = Ok(e, ref s, new PartQuickMerge());
         Assert.Equal(4, (int)r.Payload);
         Assert.Single(s.Parts.Items);
@@ -104,7 +142,7 @@ public class PartsTests
 
         // Never above QuickMergeMaxTarget.
         var e2 = Engine(); var s2 = Player(e2);
-        for (int i = 0; i < 3; i++) Add(s2, Head, PartRarity.Epic2);
+        for (int i = 0; i < 3; i++) Add(s2, Head, PartRarity.Epic);
         Ok(e2, ref s2, new PartQuickMerge());
         Assert.Equal((int)PartRarity.Legendary, s2.Parts.Items.Values.Max(p => p.Rarity));
         for (int i = 0; i < 3; i++) Add(s2, Head, PartRarity.Legendary);
@@ -138,7 +176,7 @@ public class PartsTests
     {
         var e = Engine(); var s = Player(e);
         SetBalance(s, Currencies.Ore, 1_000_000); SetBalance(s, Currencies.GearCores, 1000); SetBalance(s, Currencies.AdvancementPlates, 100);
-        var p = Add(s, Head, PartRarity.RarePlus);
+        var p = Add(s, Head, PartRarity.Rare);
         var rune = PartsSystem.AddRune(s, C, "rune_vigor", 0);
         Ok(e, ref s, new PartLevelUp { Uid = p.Uid, Levels = 10 });
         Ok(e, ref s, new PartRaiseCap { Uid = p.Uid });
@@ -147,7 +185,7 @@ public class PartsTests
         Assert.Contains("unequip", Fail(e, ref s, new PartDismantle { Uids = new List<string> { p.Uid } }));
         Ok(e, ref s, new PartUnequip { Slot = PartSlot.Head });
         Ok(e, ref s, new PartDismantle { Uids = new List<string> { p.Uid } });
-        Assert.Equal(1_000_000 + C.PartsConfig.Rarities[(int)PartRarity.RarePlus].DismantleOre, s.Wallet.Get(Currencies.Ore));
+        Assert.Equal(1_000_000 + C.PartsConfig.Rarities[(int)PartRarity.Rare].DismantleOre, s.Wallet.Get(Currencies.Ore));
         Assert.Equal(100, s.Wallet.Get(Currencies.AdvancementPlates));
         Assert.Equal(1000, s.Wallet.Get(Currencies.GearCores));
         Assert.Equal("", s.Parts.Runes[rune.Uid].SocketedIn);
@@ -210,7 +248,7 @@ public class PartsTests
     {
         var e = Engine(); var s = Player(e);
         SetBalance(s, Currencies.Diamonds, 10_000); SetBalance(s, Currencies.GearCores, 10_000); SetBalance(s, Currencies.Ore, 1_000_000);
-        var low = Add(s, Head, PartRarity.RarePlus);
+        var low = Add(s, Head, PartRarity.Rare);
         Assert.Contains("rarity", Fail(e, ref s, new PartForgeUnlock { Uid = low.Uid }));
         var p = Add(s, Head, PartRarity.Epic);
         Ok(e, ref s, new PartLevelUp { Uid = p.Uid, Levels = 10 });
@@ -227,38 +265,88 @@ public class PartsTests
         Ok(e, ref s, new PartForgeUnlock { Uid = p.Uid });
         Assert.Equal(3, PartsSystem.RuneSlotCount(C, s.Parts.Items[p.Uid]));
         Fail(e, ref s, new PartForgeUnlock { Uid = p.Uid });
-        // Mythic (3 slots) + 2 forges is capped at 4 slots.
-        var m = Add(s, Head2, PartRarity.Mythic); m.ForgedSlots = 2;
-        Assert.Equal(4, PartsSystem.RuneSlotCount(C, m));
+        // Mythic S (4 slots) + 2 forges is capped at MaxRuneSlots (5).
+        var m = Add(s, Head2, PartRarity.MythicS); m.ForgedSlots = 2;
+        Assert.Equal(5, PartsSystem.RuneSlotCount(C, m));
     }
 
     [Fact]
-    public void Awakening_SAtLegendary_SSAtMythic_AddsSignatureSkillsAndStats()
+    public void Skills_UnlockAtEpicLegendaryMythicSAndSS()
+    {
+        var p = new PartItem { Uid = "x", DefId = Arm };
+        var def = C.PartsConfig.Defs[Arm];
+        int[] expected = { 0, 0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5 };
+        for (int r = 0; r < expected.Length; r++)
+        {
+            p.Rarity = r;
+            var skills = PartsSystem.PartSkills(C, p);
+            Assert.Equal(expected[r], skills.Count);
+            Assert.Equal(def.SkillIds.Take(expected[r]), skills);
+        }
+    }
+
+    [Fact]
+    public void Awakening_MythicPlusOnce_50Cores_RedesignsStatsAndSkills_KeepsEverythingElse()
     {
         var e = Engine(); var s = Player(e);
-        SetBalance(s, ProgressionCurrencies.PartAwakenCores, 1000);
-        var epic = Add(s, Arm, PartRarity.Epic2);
-        Assert.Contains("rarity", Fail(e, ref s, new PartAwaken { Uid = epic.Uid }));
-        var p = Add(s, Arm, PartRarity.Legendary);
-        double atk0 = PartsSystem.PartStats(s, C, p).Value(StatId.Atk);
+        SetBalance(s, ProgressionCurrencies.PartAwakenCores, 120);
+        SetBalance(s, Currencies.Ore, 1_000_000); SetBalance(s, Currencies.GearCores, 100_000);
+        var leg = Add(s, Arm, PartRarity.Legendary);
+        Assert.Contains("rarity", Fail(e, ref s, new PartAwaken { Uid = leg.Uid }));
+        var p = Add(s, Arm, PartRarity.Mythic);
+        Ok(e, ref s, new PartLevelUp { Uid = p.Uid, Levels = 20 });
+        var rune = PartsSystem.AddRune(s, C, "rune_fury", 2);
+        Ok(e, ref s, new RuneSocket { RuneUid = rune.Uid, PartUid = p.Uid, SlotIndex = 0 });
+        double atk0 = PartsSystem.PartStats(s, C, s.Parts.Items[p.Uid]).Value(StatId.Atk);
+        var def = C.PartsConfig.Defs[Arm];
+        Assert.Equal(def.SkillIds.Take(3), PartsSystem.PartSkills(C, s.Parts.Items[p.Uid]));
+
         Ok(e, ref s, new PartAwaken { Uid = p.Uid });
         p = s.Parts.Items[p.Uid];
         Assert.Equal(1, p.Awaken);
-        Assert.Equal(atk0 * 1.15, PartsSystem.PartStats(s, C, p).Value(StatId.Atk), 6);
-        Assert.Equal(new[] { Arm + "_s" }, PartsSystem.PartSkills(C, p));
-        Assert.Contains("rarity", Fail(e, ref s, new PartAwaken { Uid = p.Uid })); // SS needs Mythic
-        p.Rarity = (int)PartRarity.Mythic;
-        Ok(e, ref s, new PartAwaken { Uid = p.Uid });
-        p = s.Parts.Items[p.Uid];
-        Assert.Equal(new[] { Arm + "_sig", Arm + "_ss" }, PartsSystem.PartSkills(C, p));
-        Assert.Contains("fully", Fail(e, ref s, new PartAwaken { Uid = p.Uid }));
-        Assert.Equal(1000 - C.PartsConfig.AwakenCores[0] - C.PartsConfig.AwakenCores[1], s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
-        var sk = C.Skill(Arm + "_ss")!;
-        Assert.Equal(SkillSource.Part, sk.Source);
-        Assert.False(sk.Draftable);
-        p.Rarity = (int)PartRarity.Mythic3;
-        Assert.Contains(Arm + "_sig2", PartsSystem.PartSkills(C, p));
+        Assert.Equal(70, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
+        Assert.Equal(def.AwakenedName, PartsSystem.DisplayName(C, p));
+        Assert.True(PartsSystem.PartStats(s, C, p).Value(StatId.Atk) > atk0 * 1.3, "awakened stats are markedly higher");
+        // Same unlock pattern with the redesigned skills: a Mythic has three; S and SS add the 4th and 5th.
+        Assert.Equal(def.AwakenedSkillIds.Take(3), PartsSystem.PartSkills(C, p));
+        Assert.Equal(21, p.Level); Assert.Equal(rune.Uid, p.Runes[0]); Assert.Equal((int)PartRarity.Mythic, p.Rarity);
+        Assert.Contains("already awakened", Fail(e, ref s, new PartAwaken { Uid = p.Uid }));
+        p.Rarity = (int)PartRarity.MythicSS;
+        Assert.Equal(def.AwakenedSkillIds, PartsSystem.PartSkills(C, p));
         Assert.Contains("awakened", Fail(e, ref s, new PartDismantle { Uids = new List<string> { p.Uid } }));
+        var other = Add(s, Arm2, PartRarity.Mythic);
+        SetBalance(s, ProgressionCurrencies.PartAwakenCores, 49);
+        Assert.Contains("not enough", Fail(e, ref s, new PartAwaken { Uid = other.Uid }));
+    }
+
+    [Fact]
+    public void Skills_FiveNormalAndFiveAwakenedPerDef_VariedAndNonDraftable()
+    {
+        foreach (var d in C.PartsConfig.Defs.Values)
+        {
+            Assert.Equal(5, d.SkillIds.Count);
+            Assert.Equal(5, d.AwakenedSkillIds.Count);
+            Assert.False(string.IsNullOrEmpty(d.AwakenedName));
+            Assert.NotEqual(d.Name, d.AwakenedName);
+            foreach (var id in d.SkillIds.Concat(d.AwakenedSkillIds))
+            {
+                var sk = C.Skill(id)!;
+                Assert.Equal(SkillSource.Part, sk.Source);
+                Assert.False(sk.Draftable);
+                Assert.False(string.IsNullOrEmpty(sk.Description));
+                Assert.True(sk.Triggers.Count + sk.Stats.Count > 0);
+            }
+            // Awakened skills are redesigns, not bigger numbers: different trigger sets.
+            for (int i = 0; i < 5; i++)
+            {
+                var a = C.Skill(d.SkillIds[i])!.Triggers.Select(t => t.When + ":" + t.Effect).OrderBy(x => x);
+                var b = C.Skill(d.AwakenedSkillIds[i])!.Triggers.Select(t => t.When + ":" + t.Effect).OrderBy(x => x);
+                Assert.False(a.SequenceEqual(b), d.Id + " awakened skill " + (i + 1) + " only rescales the original");
+            }
+        }
+        // Across all parts the skills use many different triggers (not stat sticks).
+        var triggers = C.PartsConfig.Defs.Values.SelectMany(d => d.SkillIds.Concat(d.AwakenedSkillIds)).SelectMany(id => C.Skill(id)!.Triggers).Select(t => t.When).Distinct().Count();
+        Assert.True(triggers >= 12, "part skills use " + triggers + " trigger kinds");
     }
 
     [Fact]
@@ -269,7 +357,7 @@ public class PartsTests
         foreach (PartKind k in Enum.GetValues(typeof(PartKind))) Assert.True(defs.Count(d => d.Kind == k) >= 4);
         Assert.True(defs.Where(d => d.Kind == PartKind.Arm).Select(d => d.Style).Distinct().Count() >= 5);
         Assert.True(C.PartsConfig.Runes.Count >= 12);
-        foreach (var d in defs) foreach (var id in new[] { d.SignatureSkillId, d.Signature2SkillId, d.AwakenSSkillId, d.AwakenSSSkillId }) Assert.NotNull(C.Skill(id));
+        foreach (var d in defs) foreach (var id in d.SkillIds.Concat(d.AwakenedSkillIds)) Assert.NotNull(C.Skill(id));
     }
 
     [Fact]

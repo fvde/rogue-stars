@@ -53,7 +53,7 @@ public sealed partial class SimPlayer
 
     private PartDef PDef(PartItem p) => C.PartsConfig.Defs[p.DefId];
 
-    private static int PartScore(PartItem p) => p.Rarity * 1000 + p.Awaken * 400 + p.ForgedSlots * 100 + p.Level;
+    private static int PartScore(PartItem p) => p.Rarity * 1000 + p.Awaken * 600 + p.ForgedSlots * 100 + p.Level;
 
     private static readonly PartSlot[] Slots = { PartSlot.Head, PartSlot.Body, PartSlot.Tail, PartSlot.Legs, PartSlot.LeftArm, PartSlot.RightArm };
 
@@ -114,32 +114,38 @@ public sealed partial class SimPlayer
         }
     }
 
-    /// <summary>Merges above the quick-merge ceiling (Legendary+1 … Mythic+3) for equipped parts, recipe from content.</summary>
+    /// <summary>
+    /// Merges above the quick-merge ceiling (Mythic … Mythic SS+2) for equipped parts, best part first (the bot pushes one
+    /// item up the exponential road): same-def copies (lowest rarity first), then Legendary+ fodder of any def, cheapest
+    /// first. Copies of equipped defs are kept as copies, never burnt as fodder.
+    /// </summary>
     private void HighMerges()
     {
         var cfg = C.PartsConfig;
-        foreach (var uid in S.Parts.Equipped.Values.OrderBy(x => x, StringComparer.Ordinal).ToList())
+        var order = S.Parts.Equipped.Values.Select(u => S.Parts.Items[u]).OrderByDescending(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Select(p => p.Uid).ToList();
+        var equippedDefs = new HashSet<string>(S.Parts.Equipped.Values.Select(u => S.Parts.Items[u].DefId));
+        foreach (var uid in order)
         {
-            for (int guard = 0; guard < 6; guard++)
+            for (int guard = 0; guard < 14; guard++)
             {
                 if (!S.Parts.Items.TryGetValue(uid, out var target) || target.Rarity + 1 >= cfg.Rarities.Count) break;
                 if (target.Rarity + 1 <= (int)cfg.QuickMergeMaxTarget) break;
                 var recipe = cfg.Rarities[target.Rarity + 1].Merge;
                 if (recipe == null) break;
-                var kind = PDef(target).Kind;
-                var pool = S.Parts.Items.Values.Where(p => p.Uid != uid && p.Awaken == 0 && p.ForgedSlots == 0 && !PartsSystem.IsEquipped(S, p.Uid))
-                    .OrderBy(p => p.Level).ThenBy(p => p.Uid, StringComparer.Ordinal).ToList();
-                var mats = new List<string>();
-                foreach (var p in pool)
-                    if (mats.Count < recipe.SameDefCount && p.DefId == target.DefId && p.Rarity == (int)recipe.SameDefRarity) mats.Add(p.Uid);
-                int same = mats.Count, fodder = 0;
-                foreach (var p in pool)
-                {
-                    if (fodder >= recipe.FodderCount) break;
-                    if (mats.Contains(p.Uid) || p.Rarity != (int)recipe.FodderRarity || PDef(p).Kind != kind) continue;
-                    mats.Add(p.Uid); fodder++;
-                }
-                if (same < recipe.SameDefCount || fodder < recipe.FodderCount) break;
+                var pool = S.Parts.Items.Values.Where(p => p.Uid != uid && PartsSystem.IsMergeMaterial(S, p)).ToList();
+                var mats = pool.Where(p => p.DefId == target.DefId && p.Rarity >= (int)recipe.SameDefRarity)
+                    .OrderBy(p => p.Rarity).ThenBy(p => p.Level).ThenBy(p => p.Uid, StringComparer.Ordinal).Take(recipe.SameDefCount).Select(p => p.Uid).ToList();
+                if (mats.Count < recipe.SameDefCount) break;
+                var fodder = pool.Where(p => !mats.Contains(p.Uid) && p.Rarity >= (int)recipe.FodderMinRarity && !equippedDefs.Contains(p.DefId))
+                    .OrderBy(p => PartsSystem.FodderValue(C, p)).ThenBy(p => p.Level).ThenBy(p => p.Uid, StringComparer.Ordinal).ToList();
+                var chosen = new List<PartItem>(); long pts = 0;
+                foreach (var p in fodder) { if (pts >= recipe.FodderPoints) break; chosen.Add(p); pts += PartsSystem.FodderValue(C, p); }
+                if (pts < recipe.FodderPoints) break;
+                // Drop the cheapest materials that are not needed (the rules reject superfluous fodder).
+                for (int i = 0; i < chosen.Count;)
+                    if (pts - PartsSystem.FodderValue(C, chosen[i]) >= recipe.FodderPoints) { pts -= PartsSystem.FodderValue(C, chosen[i]); chosen.RemoveAt(i); }
+                    else i++;
+                mats.AddRange(chosen.Select(p => p.Uid));
                 if (!Ok(new PartMerge { TargetUid = uid, MaterialUids = mats })) break;
             }
         }
@@ -190,19 +196,22 @@ public sealed partial class SimPlayer
                 var step = cfg.Forge[p.ForgedSlots];
                 if (Spendable(step.Diamonds) && Bal(Currencies.GearCores) >= step.GearCores * 2) Exec(new PartForgeUnlock { Uid = uid });
             }
-            if (p.Awaken < cfg.AwakenCores.Count && p.Awaken < 2 && p.Rarity >= (int)(p.Awaken == 0 ? cfg.AwakenMinRarity : cfg.SSMinRarity)
-                && Bal(ProgressionCurrencies.PartAwakenCores) >= cfg.AwakenCores[p.Awaken])
-                Exec(new PartAwaken { Uid = uid });
+        }
+        // Awakening: once per part, the best equipped Mythic+ part first.
+        if (Bal(ProgressionCurrencies.PartAwakenCores) >= cfg.AwakenCost)
+        {
+            var best = S.Parts.Equipped.Values.Select(u => S.Parts.Items[u]).Where(p => p.Awaken == 0 && p.Rarity >= (int)cfg.AwakenMinRarity)
+                .OrderByDescending(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).FirstOrDefault();
+            if (best != null) Exec(new PartAwaken { Uid = best.Uid });
         }
     }
 
-    /// <summary>Inventory hygiene: dismantle the lowest unequipped parts that no merge can use any more.</summary>
+    /// <summary>Inventory hygiene: everything below Legendary merges up (quick merge); only stragglers of a huge inventory go.</summary>
     private void DismantleSurplus()
     {
-        if (S.Parts.Items.Count <= 90) return;
-        var cfg = C.PartsConfig;
-        var junk = S.Parts.Items.Values.Where(p => !PartsSystem.IsEquipped(S, p.Uid) && p.Awaken == 0 && p.Rarity <= (int)PartRarity.RarePlus)
-            .OrderBy(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Take(S.Parts.Items.Count - 70).Select(p => p.Uid).ToList();
+        if (S.Parts.Items.Count <= 400) return;
+        var junk = S.Parts.Items.Values.Where(p => !PartsSystem.IsEquipped(S, p.Uid) && p.Awaken == 0 && p.Rarity < (int)PartRarity.Epic)
+            .OrderBy(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Take(S.Parts.Items.Count - 380).Select(p => p.Uid).ToList();
         if (junk.Count > 0) Exec(new PartDismantle { Uids = junk });
     }
 

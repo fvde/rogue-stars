@@ -58,6 +58,8 @@ public sealed class DayRecord
     public double[] Earned = new double[SimPlayer.Tracked.Length];
     public double[] Spent = new double[SimPlayer.Tracked.Length];
     public double Minutes, RunMinutes;
+    /// <summary>Highest rarity index of any owned part, awakened parts owned, laboratory levels done / total.</summary>
+    public int MaxPartRarity, AwakenedParts, LabDone, LabTotal;
     public int Runs;
     public long SpentCents;
 }
@@ -74,6 +76,10 @@ public static class Metrics
             Day = day, Power = p.Power, MainLevel = (int)s.Counter(Requirements.MainLevelCounter),
             Minutes = p.MinutesPlayed, RunMinutes = p.MinutesInRuns, Runs = p.RunsPlayed, SpentCents = p.SpentCents,
         };
+        d.MaxPartRarity = s.Parts.Items.Count == 0 ? -1 : s.Parts.Items.Values.Max(x => x.Rarity);
+        d.AwakenedParts = s.Parts.Items.Values.Count(x => x.Awaken > 0);
+        d.LabDone = LabDone(s);
+        d.LabTotal = LabTotal(p.C);
         for (int i = 0; i < SystemEvents.Systems.Length; i++) d.SystemTotals[i] = SystemEvents.Total(s, SystemEvents.Systems[i].counters);
         for (int i = 0; i < SimPlayer.Tracked.Length; i++)
         {
@@ -83,6 +89,9 @@ public static class Metrics
         }
         return d;
     }
+
+    public static int LabDone(GameState s) => s.Lab.Entries.Values.Sum(e => e.Level);
+    public static int LabTotal(ContentDb c) => c.LabResearch.Values.Sum(d => d.Levels.Count);
 
     /// <summary>Checkpoint snapshot: every per-system metric of the report (ordered name → value).</summary>
     public static List<(string name, double value)> Snapshot(SimPlayer p)
@@ -116,9 +125,15 @@ public static class Metrics
         A("runes_socketed", socketed.Count);
         A("rune_rarity_avg", socketed.Count == 0 ? 0 : socketed.Average(r => r.Rarity));
         A("forge_unlocks", eq.Sum(x => x.ForgedSlots));
-        A("parts_awakened_s", s.Parts.Items.Values.Count(x => x.Awaken == 1));
-        A("parts_awakened_ss", s.Parts.Items.Values.Count(x => x.Awaken >= 2));
+        A("parts_awakened", s.Parts.Items.Values.Count(x => x.Awaken > 0));
         A("parts_owned", s.Parts.Items.Count);
+        A("part_rarity_best", s.Parts.Items.Count == 0 ? -1 : s.Parts.Items.Values.Max(x => x.Rarity));
+        int legendary = c.PartsConfig.Rarities.FindIndex(r => r.Name == "Legendary");
+        A("parts_spare_legendary_plus", s.Parts.Items.Values.Count(x => x.Rarity >= legendary && !PartsSystem.IsEquipped(s, x.Uid)));
+        A("parts_spare_below_legendary", s.Parts.Items.Values.Count(x => x.Rarity < legendary && !PartsSystem.IsEquipped(s, x.Uid)));
+        A("parts_obtained", s.Counter("parts_obtained"));
+        A("parts_dismantled", s.Counter("parts_dismantled"));
+        A("part_merges", s.Counter("part_merges"));
 
         // Heroes, mounts
         var heroes = s.Heroes.Owned.Values.ToList();
@@ -159,6 +174,10 @@ public static class Metrics
         A("breeds", s.Counter("breeds_collected"));
         A("lab_research", s.Lab.Entries.Values.Sum(e => e.Level));
         A("lab_research_max", c.LabResearch.Values.Sum(d => d.Levels.Count));
+        A("lab_pct", 100.0 * LabDone(s) / Math.Max(1, LabTotal(c)));
+        for (int i = 0; i < SimPlayer.SourceTracked.Length; i++)
+            for (int j = 0; j < SimPlayer.Sources.Length; j++)
+                A("src_" + SimPlayer.SourceTracked[i] + "_" + SimPlayer.Sources[j], p.EarnedBySource[i, j]);
 
         // Modes, social
         A("arena_league", s.Arena.League);

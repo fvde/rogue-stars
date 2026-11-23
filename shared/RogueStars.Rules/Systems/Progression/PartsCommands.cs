@@ -28,6 +28,6 @@ namespace RogueStars.Rules.Systems
     [Serializable] public sealed class RuneLock : GameCommand { public string RuneUid; public bool Locked = true; }
     /// <summary>Forge: paid rune slot unlock that also adds % to the part's base stats.</summary>
     [Serializable] public sealed class PartForgeUnlock : GameCommand { public string Uid; }
-    /// <summary>Awaken a Legendary+ part to S, or a Mythic+ S part to SS.</summary>
+    /// <summary>Awaken a Mythic+ part (once) for PartsConfig.AwakenCost Awaken Cores.</summary>
     [Serializable] public sealed class PartAwaken : GameCommand { public string Uid; }
 }
