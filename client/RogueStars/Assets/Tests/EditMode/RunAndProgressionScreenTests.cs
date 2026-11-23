@@ -57,20 +57,20 @@ namespace RogueStars.Client.Tests
             return n;
         }
 
-        /// <summary>Straight board: start, the given tiles, boss gate (the token starts on the start tile).</summary>
+        /// <summary>Straight board: start and the given tiles, the last one the open end (the token starts on the start tile).</summary>
         private static void LineBoard(ActiveRun run, params string[] tiles)
         {
             run.Tiles.Clear();
             var all = new List<string> { "start" };
             all.AddRange(tiles);
-            all.Add("boss_gate");
             for (int i = 0; i < all.Count; i++)
             {
                 var t = new RunTile { Id = i, TileId = all[i], X = i };
                 if (i + 1 < all.Count) t.Next.Add(i + 1);
                 run.Tiles.Add(t);
             }
-            run.BossGateTile = all.Count - 1;
+            run.BossGateTile = -1;
+            run.BoardEnd = all.Count - 1;
             run.Position = 0;
             run.Trail.Clear();
             run.Trail.Add(0);
@@ -267,12 +267,27 @@ namespace RogueStars.Client.Tests
                 for (int seed = 1; seed <= 5; seed++)
                 {
                     var board = RunBoard.Generate(content, level, Rng.FromSeed(seed * 977 + level.Index));
-                    var size = new Vector2(RunScreen.BoardWidth, RunScreen.BoardHeight(board.Tiles));
-                    var p = RunScreen.BossMarkerCenter(board.Tiles, board.GateTile, size);
+                    // the arena opens ahead of the worm (its own lane, one column on): drawn are the walked path and the arena
+                    int at = board.MainPath[Mathf.Min(board.MainPath.Count - 2, 8 + seed * 3)];
+                    var here = board.Tiles[at];
+                    var arena = RunBoard.Add(board.Tiles, "boss_gate", here.X + 1, -1);
+                    var drawn = new List<RunTile>();
+                    foreach (var id in board.MainPath) { drawn.Add(board.Tiles[id]); if (id == at) break; }
+                    drawn.Add(arena);
+                    var run = new ActiveRun { Tiles = board.Tiles, BossGateTile = arena.Id, Position = at };
+                    foreach (var t in drawn) run.Trail.Add(t.Id);
+                    run.Trail.Remove(arena.Id);
+                    int x0 = RunScreen.WindowStart(run, at);
+                    var visible = board.Tiles.FindAll(t => RunScreen.InWindow(run, t, x0));
+                    Assert.That(visible, Does.Contain(arena));
+                    var size = new Vector2(RunScreen.BoardWidth, RunScreen.BoardHeight(run, x0));
+                    var p = RunScreen.BossMarkerCenter(visible, arena.Id, size, x0);
                     var marker = new Rect(p - RunScreen.BossMarkerSize / 2, RunScreen.BossMarkerSize);
                     Assert.That(marker.xMin >= 0 && marker.yMin >= 0 && marker.xMax <= size.x && marker.yMax <= size.y, Is.True, level.Id + " marker on the board");
-                    foreach (var t in board.Tiles)
-                        Assert.That(RunScreen.TileRect(t, t.Id == board.GateTile).Overlaps(marker), Is.False, level.Id + " seed " + seed + ": marker overlaps tile " + t.Id);
+                    foreach (var t in visible)
+                        Assert.That(RunScreen.TileRect(t, t.Id == arena.Id, x0).Overlaps(marker), Is.False, level.Id + " seed " + seed + ": marker overlaps tile " + t.Id);
+                    foreach (var t in visible)
+                        if (t.Id != arena.Id) Assert.That(RunScreen.TileRect(t, false, x0).Overlaps(RunScreen.TileRect(arena, true, x0)), Is.False, "arena on top of a path tile");
                 }
             }
         }

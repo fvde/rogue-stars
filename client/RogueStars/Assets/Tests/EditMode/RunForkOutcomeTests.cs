@@ -49,9 +49,10 @@ namespace RogueStars.Client.Tests
             string[] ids = { "start", "empty", "empty", "empty", "empty", "empty", "empty", "empty", "shop", "empty", "boss_gate" };
             for (int i = 0; i < ids.Length; i++) run.Tiles.Add(new RunTile { Id = i, TileId = ids[i], X = i, Y = i >= 7 && i <= 8 ? 1 : 0 });
             void Link(int a, int b) => run.Tiles[a].Next.Add(b);
-            Link(0, 1); Link(1, 2); Link(2, 3); Link(2, 7); Link(3, 4); Link(4, 5); Link(5, 6); Link(6, 9); Link(7, 8); Link(8, 9); Link(9, 10); Link(10, 1);
+            Link(0, 1); Link(1, 2); Link(2, 3); Link(2, 7); Link(3, 4); Link(4, 5); Link(5, 6); Link(6, 9); Link(7, 8); Link(8, 9); Link(9, 10);
             run.Tiles[7].X = 3; run.Tiles[8].X = 4;
-            run.BossGateTile = 10;
+            run.BossGateTile = -1; // the path ends at 10 (drawn as an arena tile; the arena itself is not open)
+            run.BoardEnd = 10;
             run.Trail.Clear(); run.Trail.AddRange(new[] { 0, 1, 2 });
             run.Position = 2;
             run.Phase = RunPhase.ChooseBranch;

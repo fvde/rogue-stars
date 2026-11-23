@@ -136,7 +136,8 @@ namespace RogueStars.Client.Tests
                 run.Tiles.Add(t);
             }
             run.Tiles[2].Next.Add(5); // a fork after tile 2
-            run.BossGateTile = ids.Length - 1;
+            run.BossGateTile = -1;    // the arena is not open yet: the whole window is drawn
+            run.BoardEnd = ids.Length - 1;
             run.Trail.Clear(); run.Trail.AddRange(new[] { 0, 1, 2 });
             run.Position = 2;
 

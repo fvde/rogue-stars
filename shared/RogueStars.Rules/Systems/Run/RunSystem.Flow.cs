@@ -104,7 +104,7 @@ namespace RogueStars.Rules.Systems
             {
                 // the arena opens right ahead of the worm: the path ends there
                 var here = run.Tiles[run.Position];
-                var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, here.Y);
+                var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, -1); // its own lane: never on top of a path tile
                 here.Next.Clear();
                 here.Next.Add(arena.Id);
                 run.BossGateTile = arena.Id;
