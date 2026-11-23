@@ -48,6 +48,7 @@ namespace RogueStars.Rules.Systems
                     s.Onboarding.Unlocked[f.Id] = ctx.NowMs;
                     ctx.Emit("feature_unlocked", f.Id);
                     ctx.GrantAll(f.UnlockGrants);
+                    RewardGate.Release(ctx, f.Id); // the stash kept for this feature's use (shown by the unlock moment)
                 }
                 if (limited) usedToday = true;
             }

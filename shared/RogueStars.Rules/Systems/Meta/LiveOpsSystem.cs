@@ -203,7 +203,8 @@ namespace RogueStars.Rules.Systems
             long now = ctx.NowMs;
 
             long day = MetaTime.DayIndex(ctx.Content, now);
-            if (lo.AttemptDay != day)
+            // Daily attempts only once invasions have a use (the unlock releases the first day's stashed attempts).
+            if (lo.AttemptDay != day && RewardGate.CurrencyHasUse(s, ctx.Content, Currencies.InvasionAttempts, now))
             {
                 lo.AttemptDay = day;
                 long have = s.Wallet.Get(Currencies.InvasionAttempts);

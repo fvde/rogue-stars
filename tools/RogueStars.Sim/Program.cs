@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using RogueStars.Sim;
 
 // Usage: dotnet run --project tools/RogueStars.Sim -c Release -- [--days 730] [--seeds 3] [--profiles Active:F2P,Active:Whale]
+//        --inventory [--seeds 3]: median wallet of a new F2P player at the end of day 1 / 3 / 7 per time profile
 //        --unlocks [--days 30] [--seeds 3]: onboarding unlock day/level per feature (Casual, Active ~1 h/day, Hardcore binge)
 //        [--out docs/balance] [--label after] [--quiet] [--variant no_lab_stats,old_biomass]
 var opts = Args.Parse(args);
@@ -24,6 +25,13 @@ if (opts.Has("age-jump"))
         var r = AccountAgeJump.Run(jc, "bench", jd, AccountAgeJump.Profile(name), opts.Int("seed", 1), jnow);
         Console.WriteLine($"day {r.Day} {r.Profile}: main level {r.MainLevel}, worm level {r.WormLevel}, {r.Commands} commands, {r.ElapsedMs} ms");
     }
+    return;
+}
+if (opts.Has("inventory"))
+{
+    // What a new F2P player owns at the end of day 1 / 3 / 7 (wallet medians per time profile).
+    string iv = opts.Str("variant", "");
+    Console.WriteLine(Inventory.Markdown(new[] { 1, 3, 7 }, opts.Int("seeds", 3), string.IsNullOrEmpty(iv) ? null : () => Variants.Create(iv)));
     return;
 }
 if (opts.Has("unlocks"))

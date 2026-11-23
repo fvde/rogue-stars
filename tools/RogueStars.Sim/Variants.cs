@@ -59,6 +59,28 @@ public static class Variants
             foreach (var r in f.Requires.Items) if (r.Kind == RequirementKind.MainLevel) r.Target = long.Parse(v.Substring(at + 2));
             return;
         }
+        if (v.StartsWith("stash_"))
+        {
+            // Reward stash cap experiment: stash_<currency or item kind>_<cap> (-1 = no cap), e.g. stash_biomass_10000.
+            int at = v.LastIndexOf('_');
+            string id = v.Substring(6, at - 6);
+            var use = c.CurrencyUse(id) ?? c.ItemUse(id) ?? throw new ArgumentException("unknown reward in " + v);
+            use.StashCap = long.Parse(v.Substring(at + 1));
+            return;
+        }
+        if (v.StartsWith("open_"))
+        {
+            // open_<currency or item kind>: that reward always has a use (isolates one entry of the reward gate).
+            string id = v.Substring(5);
+            (c.CurrencyUse(id) ?? c.ItemUse(id) ?? throw new ArgumentException("unknown reward in " + v)).UsedWhen.Items.Clear();
+            return;
+        }
+        if (v == "no_reward_gate")
+        {
+            // Before "rewards follow use": every reward is usable at once (the old starting wallet is not restored).
+            foreach (var u in c.RewardUses) u.UsedWhen.Items.Clear();
+            return;
+        }
         if (v.StartsWith("alpha_"))
         {
             // Endless campaign reward exponent α (generated portals and Dark Side levels are built lazily, after this).

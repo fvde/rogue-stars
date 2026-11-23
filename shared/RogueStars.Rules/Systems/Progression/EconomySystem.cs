@@ -79,6 +79,9 @@ namespace RogueStars.Rules.Systems
                 }
                 rs.CapBonus = cap;
                 rs.TickSpeedPercent = speed;
+                // No regeneration while the currency has no use (arena tickets before the Arena...): no backlog either; the
+                // unlock releases the stashed starting amount (RewardGate).
+                if (!RewardGate.CurrencyHasUse(s, c, rule.Currency, nowMs)) { rs.LastTickMs = nowMs; continue; }
                 s.Wallet.SettleRegen(rule, nowMs);
             }
             RollDay(s, c, nowMs);
@@ -100,7 +103,7 @@ namespace RogueStars.Rules.Systems
             // Sorted for determinism of any side effects (none today, but keep the rule).
             var keys = new List<string>(ctx.Content.EconomyConfig.StartingWallet.Keys);
             keys.Sort(StringComparer.Ordinal);
-            foreach (var k in keys) ctx.State.Wallet.Add(k, ctx.Content.EconomyConfig.StartingWallet[k]);
+            foreach (var k in keys) ctx.Grant(Reward.Cur(k, ctx.Content.EconomyConfig.StartingWallet[k])); // through the reward gate
             Settle(ctx.Engine, ctx.State, ctx.Content, ctx.NowMs);
         }
 

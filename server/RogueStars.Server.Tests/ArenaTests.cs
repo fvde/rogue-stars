@@ -94,7 +94,9 @@ public class ArenaTests : IDisposable
     {
         _app.ConfigureEngine = e => e.RegisterNewPlayer(ctx =>
         {
-            if (ctx.State.PlayerId == "dev_blocked") ctx.State.Wallet.Balances[Currencies.ArenaTickets] = 0;
+            if (ctx.State.PlayerId != "dev_blocked") return;
+            ctx.State.Wallet.Balances[Currencies.ArenaTickets] = 0;
+            ctx.State.Stash.Currencies.Remove(Currencies.ArenaTickets); // the starting tickets wait there until the Arena unlocks
         });
         var other = await _app.PlayerAsync("other");
         await other.PostAsync("/v1/arena/snapshot");
@@ -117,7 +119,8 @@ public class ArenaTests : IDisposable
         var (status, body) = await p.PostAsync("/v1/arena/fight");
         Assert.Equal(409, status);
         Assert.Equal("feature locked", body.GetProperty("error").GetString());
-        Assert.Equal(RogueStars.Rules.Content.ContentDb.Default.Arena.StartTickets, await p.BalanceAsync(Currencies.ArenaTickets));
+        // Rewards follow use: the starting tickets wait in the reward stash until the Arena unlocks.
+        Assert.Equal(0, await p.BalanceAsync(Currencies.ArenaTickets));
     }
 
     [Fact]

@@ -104,7 +104,9 @@ public class ArenaTests
     public void FightFlow_TicketsRegen_ServerResult_WeekEnd()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
-        Assert.Equal(5, Bal(s, Currencies.ArenaTickets));
+        // Rewards follow use: the starting tickets wait in the stash until the Arena unlocks (no regen before).
+        Assert.Equal(0, Bal(s, Currencies.ArenaTickets));
+        Assert.Equal(5, RewardGate.Stashed(s, Currencies.ArenaTickets));
         Assert.Equal("feature locked", Fail(e, ref s, new ArenaStartFight { OpponentId = "p2" }, t));
         s.Counters[Requirements.MainLevelCounter] = 16;
         Unlock(s, Features.Arena);
@@ -221,6 +223,7 @@ public class GuildTests
         Assert.Equal("item locked", Fail(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t));
         s.Counters[Requirements.MainLevelCounter] = 16;
         Unlock(s, Features.Arena);
+        s.Counters["part_rarity_max"] = (int)PartRarity.Mythic; // Awaken Cores have a use once a Mythic part is owned
         var item = e.Content.ShopItem("arena_awaken_core")!;
         Assert.Equal(ContentDb.ArenaShopSection, item.Section);
         for (int i = 0; i < item.Limit; i++) Ok(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t);

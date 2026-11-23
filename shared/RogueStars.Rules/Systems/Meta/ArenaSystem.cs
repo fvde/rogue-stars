@@ -19,7 +19,7 @@ namespace RogueStars.Rules.Systems
                 ctx.State.Arena.Points = ctx.Content.Arena.StartPoints;
                 ctx.State.Arena.BestPoints = ctx.State.Arena.Points;
                 ctx.State.Arena.Week = GameClock.WeekIndex(ctx.Content, ctx.NowMs);
-                ctx.State.Wallet.Add(Currencies.ArenaTickets, ctx.Content.Arena.StartTickets);
+                ctx.Grant(Reward.Cur(Currencies.ArenaTickets, ctx.Content.Arena.StartTickets)); // stashed until the Arena unlocks
             });
             // Ticket regeneration is settled by EconomySystem with every other RegenRule (single settler).
             e.Register<ArenaStartFight>(HandleStartFight);

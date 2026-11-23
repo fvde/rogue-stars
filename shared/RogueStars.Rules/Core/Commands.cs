@@ -31,6 +31,8 @@ namespace RogueStars.Rules.Core
         public ContentDb Content;
         public GameEngine Engine;
         public long NowMs;
+        /// <summary>The command being executed (null for settles and new-player initialisation).</summary>
+        public GameCommand Command;
         public List<GameEvent> Events = new List<GameEvent>();
 
         public Rng Rng => State.Rng;
@@ -42,7 +44,8 @@ namespace RogueStars.Rules.Core
             Events.Add(e);
         }
 
-        public void Grant(Reward reward) => Engine.Rewards.Grant(this, reward);
+        /// <summary>Grants a reward; false when it went to the reward stash instead (no use yet, see RewardGate).</summary>
+        public bool Grant(Reward reward) => Engine.Rewards.Grant(this, reward);
         public void GrantAll(IEnumerable<Reward> rewards) => Engine.Rewards.GrantAll(this, rewards);
     }
 

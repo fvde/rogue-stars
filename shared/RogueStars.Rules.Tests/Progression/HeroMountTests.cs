@@ -201,6 +201,7 @@ public class LoadoutTests
         var e = Engine(); var s = Player(e);
         var p = PartsSystem.AddPart(s, C, "head_frost_helm", (int)PartRarity.Legendary);
         Ok(e, ref s, new PartEquip { Uid = p.Uid, Slot = PartSlot.Head });
+        s.Wallet.Add(Currencies.PartTokens, 1); // not in the starting wallet any more (they come with the Part Signal)
         Ok(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Tokens });
         var clone = TestHelpers.Clone(s);
         Assert.Equal(p.Uid, clone.Parts.Equipped[PartSlot.Head]);

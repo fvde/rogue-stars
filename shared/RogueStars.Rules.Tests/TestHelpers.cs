@@ -36,6 +36,7 @@ public static class TestHelpers
     {
         var s = engine.NewPlayer("p1", T0, seed);
         s.Flags.Add(RogueStars.Rules.Systems.Features.DevUnlockAllFlag);
+        engine.Settle(s, T0); // releases the reward stash (arena tickets, burrow keys...) now that everything has a use
         return s;
     }
 

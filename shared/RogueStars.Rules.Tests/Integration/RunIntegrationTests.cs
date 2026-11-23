@@ -65,6 +65,7 @@ public class RunIntegrationTests
         {
             var e = Engine();
             var s = e.NewPlayer("p", T0, seed);
+            s.Flags.Add(Features.DevUnlockAllFlag); // every item kind has a use (not about the reward gate)
             var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = T0 };
             ctx.Grant(new Reward(RewardKinds.Part, RewardWildcard.Any, 3, (int)Rarity.Epic));
             ctx.Grant(new Reward(RewardKinds.Rune, RewardWildcard.Any, 2, 1));
@@ -110,6 +111,7 @@ public class RunIntegrationTests
         var s = e.NewPlayer("p", T0, 5);
         s.Flags.Add(Features.DevUnlockAllFlag);
         s.Wallet.Add(Currencies.Data, 1_000_000);
+        s.Wallet.Add(Currencies.Ore, 1_000); s.Wallet.Add(Currencies.Biomass, 1_000); // the starting wallet no longer has them
         var def = e.Content.LabResearch["res_burning_soul"];
         long nominal = LaboratorySystem.NextNominalMs(s, e.Content);
         Assert.True(e.Execute(ref s, new LabResearch { ResearchId = def.Id }, T0).Ok);
@@ -135,7 +137,8 @@ public class RunIntegrationTests
     }
 
     /// <summary>
-    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays Ember Wastes, spends what the runs pay
+    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays Ember Wastes (the first run without parts:
+    /// they arrive with the Parts unlock), spends what the runs pay
     /// on worm and part levels between runs, and clears level 3 within a bounded number of runs (stamina regen
     /// between sessions), while level 1 is won right away.
     /// </summary>
@@ -161,6 +164,7 @@ public class RunIntegrationTests
             if (sum.Won) wins++;
             if (runs == 1) firstWon = sum.Won;
             now += Min;
+            EquipStarterParts(e, ref s, now); // the starter parts arrive with the Parts unlock (level 1), not at creation
             SpendOnUpgrades(e, ref s, now);
             foreach (var kv in s.Wallet.Balances) Assert.True(kv.Value >= 0, kv.Key);
         }
