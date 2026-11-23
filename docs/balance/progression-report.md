@@ -626,7 +626,8 @@ power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mo
 endless campaign's milestone chests, which tip seed 1 over 5★ just before day 60, parts below Mythic S on average,
 lab incomplete and < 5% of its research hours), no awakening for anyone in 60 days (whale < 50 cores), no below-Legendary
 part pile (≤ 12 spare), 5–16 mythics per pull type in 60 days, run length (27–35 rolls to the boss, 8–12 drafts, ≤ 3
-account-loot opportunities per run, see "Run length") and determinism by seed. (Redesign: bands unchanged, the
+account-loot opportunities per run, see "Run length"), run depth (20–40 skills, 10–20 shop buys, 2–5 mythic picks per run
+that reaches the boss, 4–8 minutes per run, see "Run depth") and determinism by seed. (Redesign: bands unchanged, the
 part/lab/core checks are new.) Move a band only after re-running the
 simulator and updating this report.
 
