@@ -238,9 +238,9 @@ namespace RogueStars.Client.UiKit
         }
 
         /// <summary>An expanding ring (landing shockwave) in <paramref name="color"/> around <paramref name="pos"/>.</summary>
-        public static void Ring(RectTransform parent, Vector2 pos, Vector2 size, Color color, float delay = 0)
+        public static RectTransform Ring(RectTransform parent, Vector2 pos, Vector2 size, Color color, float delay = 0)
         {
-            if (Skip || parent == null) return;
+            if (Skip || parent == null) return null;
             var rt = Ui.Rect(parent, "LandRing");
             rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
             rt.pivot = new Vector2(0.5f, 0.5f);
@@ -258,6 +258,7 @@ namespace RogueStars.Client.UiKit
                 rt.localScale = Vector3.one * (1 + 0.8f * (1 - (1 - s) * (1 - s)));
                 g.alpha = 1 - s;
             }, () => { if (rt != null) UnityEngine.Object.Destroy(rt.gameObject); });
+            return rt;
         }
     }
 
@@ -323,7 +324,6 @@ namespace RogueStars.Client.UiKit
                 RunFx.DicePose(t, i, out float angle, out float height, out Vector2 scale);
                 var holder = (RectTransform)Dice[i].parent;
                 Dice[i].localRotation = Quaternion.Euler(0, 0, angle);
-                Dice[i].anchoredPosition = new Vector2(0, height);
                 Dice[i].offsetMin = new Vector2(0, height); Dice[i].offsetMax = new Vector2(0, height);
                 Dice[i].localScale = new Vector3(scale.x, scale.y, 1);
                 holder.localScale = Vector3.one;

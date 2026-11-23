@@ -447,7 +447,7 @@ namespace RogueStars.Client.Screens
         // ---- motion: dice, landing, popups, HUD -------------------------------------------------
 
         /// <summary>The worm token stands a little above its tile's centre (the tile label stays readable).</summary>
-        private static readonly Vector2 TokenLift = new Vector2(0, 26);
+        private static readonly Vector2 TokenLift = new Vector2(0, 30);
         private static readonly Vector2 ShadowOffset = new Vector2(0, -8);
 
         /// <summary>Tumbling dice over the board (two when the level rolls two), landing on the rolled values; the footer dice follow.</summary>
@@ -494,8 +494,10 @@ namespace RogueStars.Client.Screens
                 if (!RunFx.Skip)
                 {
                     UiTweens.Play(rt.gameObject, "land", 0.45f, k => { if (rt != null) rt.localScale = Vector3.one * RunFx.LandPopScale(k); });
-                    RunFx.Ring(_board, center, new Vector2(TileW + 10, TileH + 10), Color.Lerp(accent, Color.white, 0.3f));
-                    RunFx.Ring(_board, center, new Vector2(TileW - 20, TileH - 20), accent, 0.12f);
+                    // rings and glow go under the token (the worm stays on top of its tile)
+                    int under = _tokenShadow != null ? _tokenShadow.GetSiblingIndex() : _board.childCount;
+                    RunFx.Ring(_board, center, new Vector2(TileW + 10, TileH + 10), Color.Lerp(accent, Color.white, 0.3f))?.SetSiblingIndex(under);
+                    RunFx.Ring(_board, center, new Vector2(TileW - 20, TileH - 20), accent, 0.12f)?.SetSiblingIndex(under);
                     var glow = Ui.RoundPanel(_board, new Color(accent.r, accent.g, accent.b, 0.55f), 26, "LandGlow");
                     glow.raycastTarget = false;
                     PlaceAt(glow.rectTransform, center, new Vector2(TileW + 34, TileH + 34));
@@ -713,6 +715,7 @@ namespace RogueStars.Client.Screens
             public RectTransform Root;
             public Image Fill, Border;
             public Text Label;
+            public string LandedLabel;
             public Color Accent;
             public Color LandedFill, LandedBorder, LandedText;
             public GameObject Mark;
@@ -721,7 +724,7 @@ namespace RogueStars.Client.Screens
             {
                 if (Fill != null) Fill.color = LandedFill;
                 if (Border != null) Border.color = LandedBorder;
-                if (Label != null) Label.color = LandedText;
+                if (Label != null) { Label.color = LandedText; if (LandedLabel != null) { Label.text = LandedLabel; Label.font = Ui.FontFor(LandedLabel); } }
                 if (Mark != null) Mark.SetActive(true);
             }
         }
@@ -821,7 +824,9 @@ namespace RogueStars.Client.Screens
                 if (look.Fork && !look.Visited && !look.Landed) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=20>fork</size>";
                 if (look.Option) label = (run.BranchOptions.IndexOf(t.Id) == 0 ? "A · " : "B · ") + label;
                 if (look.Gate) label = "BOSS\n<size=18>arena</size>";
-                if (look.Cleared && look.Landed && !string.IsNullOrEmpty(label) && !look.Gate) label += " ✓";
+                bool check = look.Cleared && look.Landed && !string.IsNullOrEmpty(label) && !look.Gate;
+                string landedLabel = check ? label + " ✓" : label;
+                if (check && !landsNow) label = landedLabel; // the tile landed on now gets its check mark at the landing
                 Text lab = null;
                 if (!string.IsNullOrEmpty(label))
                 {
@@ -845,7 +850,7 @@ namespace RogueStars.Client.Screens
                 if (landsNow)
                 {
                     TileColors(look, true, out var lf, out var lb, out var lt);
-                    landing = new TileVisual { Root = img.rectTransform, Fill = img, Border = outline, Label = lab, Accent = look.Gate ? Theme.Bad : look.Empty ? Theme.TextFaint : look.Accent, LandedFill = lf, LandedBorder = lb, LandedText = lt, Mark = mark };
+                    landing = new TileVisual { Root = img.rectTransform, Fill = img, Border = outline, Label = lab, LandedLabel = landedLabel, Accent = look.Gate ? Theme.Bad : look.Empty ? Theme.TextFaint : look.Accent, LandedFill = lf, LandedBorder = lb, LandedText = lt, Mark = mark };
                 }
                 if (t.BonusPct > 0 && !look.Landed)
                 {
@@ -911,7 +916,7 @@ namespace RogueStars.Client.Screens
                 PlaceAt(_tokenShadow, P(start) + ShadowOffset, new Vector2(96, 34));
 
                 var tokenRt = Ui.Rect(board, "Token");
-                PlaceAt(tokenRt, P(start) + TokenLift, new Vector2(104, 104));
+                PlaceAt(tokenRt, P(start) + TokenLift, new Vector2(92, 92));
                 _token = tokenRt;
                 var glow = Ui.Panel(tokenRt, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.45f), "Glow");
                 glow.sprite = UiShapes.Circle;
@@ -935,7 +940,7 @@ namespace RogueStars.Client.Screens
                 worm.raycastTarget = false;
                 var wrt = worm.rectTransform;
                 wrt.anchorMin = wrt.anchorMax = new Vector2(0.5f, 0.5f);
-                wrt.sizeDelta = new Vector2(70, 36);
+                wrt.sizeDelta = new Vector2(62, 32);
                 wrt.anchoredPosition = new Vector2(0, 4);
                 UiShapes.Outline(wrt, Theme.WormLight, 18, 4);
                 var eye = Ui.Dot(wrt, Theme.OnAccent, 9, "Eye");
