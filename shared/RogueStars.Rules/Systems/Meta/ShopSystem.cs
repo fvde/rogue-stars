@@ -85,8 +85,8 @@ namespace RogueStars.Rules.Systems
 
         public static bool HasMonthlyPass(GameState s, ContentDb content, long nowMs) => DailyGrantActive(s, content, content.Shop.MonthlyPassProductId, nowMs);
 
-        /// <summary>No Ads entitlement: every ad placement becomes instant (caps still apply).</summary>
-        public static bool HasNoAds(GameState s, ContentDb content) => s.Flags.Contains(content.Shop.NoAdsFlag);
+        /// <summary>No Ads entitlement (or the global ads-disabled mode): every ad placement becomes instant (caps still apply).</summary>
+        public static bool HasNoAds(GameState s, ContentDb content) => content.Shop.AdsDisabled || s.Flags.Contains(content.Shop.NoAdsFlag);
 
         /// <summary>
         /// Stamina cap bonus from Meta sources (monthly pass); registered as an EconomySystem regen bonus provider.

@@ -36,6 +36,124 @@ namespace RogueStars.Client.Tests
             Assert.That(PlatformServices.CreateStore(cfg), Is.TypeOf<FakeStoreGateway>());
             Assert.That(PlatformServices.CreateAds(cfg), Is.TypeOf<FakeAdGateway>());
             Assert.That(PlatformConfig.LoadDefault().HasMaxAdUnit, Is.False, "committed config keeps placeholders");
+            Assert.That(PlatformConfig.LoadDefault().IsAdsDisabled, Is.True, "no AppLovin for now: ads disabled by default");
+        }
+
+        // ---- initial product set ---------------------------------------------------------------------------------------
+
+        [Test]
+        public void InitialProductSet_MatchesTheInitialPlayConsoleCsv_AndIsTheCommittedDefault()
+        {
+            string csv = System.IO.Path.Combine(UnityEngine.Application.dataPath, "..", "..", "..", "docs", "play-console-products-initial.csv");
+            var rows = System.IO.File.ReadAllLines(csv).Skip(1).Where(l => l.Trim().Length > 0).ToList();
+            var fromCsv = rows.Select(l => l.Split(',')).ToDictionary(c => c[c.Length - 2], c => c[0]);
+            Assert.That(fromCsv.Keys, Is.EquivalentTo(StoreCatalog.InitialProductIds));
+            var initial = StoreCatalog.Products(ContentDb.Default, StoreCatalog.SetInitial);
+            Assert.That(initial.Select(p => p.ProductId), Is.EquivalentTo(StoreCatalog.InitialProductIds));
+            foreach (var p in initial) Assert.That(fromCsv[p.ProductId], Is.EqualTo(p.StoreProductId));
+            Assert.That(StoreCatalog.Products(ContentDb.Default).Count, Is.GreaterThan(initial.Count));
+            Assert.That(PlatformConfig.LoadDefault().ProductSet, Is.EqualTo(StoreCatalog.SetInitial));
+        }
+
+        [Test]
+        public void InitialProductSet_OtherProductsAreNotSold()
+        {
+            using (var o = new Offline())
+            {
+                o.Session.ProductSet = StoreCatalog.SetInitial;
+                var errors = new List<string>();
+                o.Session.ErrorRaised += errors.Add;
+                long before = o.Diamonds;
+                CommandResult result = null;
+                o.Session.Purchase("diamonds_330", r => result = r);
+                Assert.That(result.Ok, Is.False);
+                Assert.That(result.Error, Is.EqualTo("product_not_offered"));
+                Assert.That(o.Store.Unfinished, Is.Empty, "the store is never asked");
+                Assert.That(errors.Single(), Does.Contain("not available yet"));
+                o.Session.Purchase("diamonds_60", r => result = r);
+                Assert.That(result.Ok, Is.True, result.Error);
+                Assert.That(o.Diamonds, Is.EqualTo(before + 120));
+            }
+        }
+
+        // ---- purchases disabled (Google Play payments on hold) ---------------------------------------------------------
+
+        [Test]
+        public void Online_PurchasesDisabled_ComingSoon_NoStoreCall_DevReceiptsOfflineStillWork()
+        {
+            var o = new Online(purchasesDisabled: true);
+            Assert.That(o.Session.PurchasesDisabled, Is.True);
+            Assert.That(o.Session.IsOffered("diamonds_60"), Is.False, "real-money products show as coming soon");
+            ServiceResult init = null;
+            o.Session.InitPlatform(r => init = r);
+            Assert.That(init.Error, Is.EqualTo(StoreErrors.Disabled), "the store is never initialized");
+            CommandResult result = null;
+            o.Session.Purchase("diamonds_60", r => result = r);
+            Assert.That(result.Error, Is.EqualTo(StoreErrors.Disabled));
+            Assert.That(o.Store.Unfinished, Is.Empty);
+            Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command") || r.Url.Contains("/v1/iap")), Is.False);
+
+            // A build without a store (StoreMode disabled) behaves the same against a server with payments on.
+            var on = new Online();
+            Assert.That(on.Session.PurchasesDisabled, Is.False);
+            on.Session.Store = new DisabledStoreGateway();
+            Assert.That(on.Session.PurchasesDisabled, Is.True);
+
+            using (var off = new Offline())
+            {
+                off.Session.Store = new FakeStoreGateway();
+                Assert.That(off.Session.PurchasesDisabled, Is.False, "offline dev receipts stay for testing");
+            }
+            Assert.That(PlatformConfig.LoadDefault().StoreMode, Is.EqualTo(PlatformConfig.StoreDisabled), "payments on hold by default");
+            Assert.That(ServerConfig.LoadDefault().ReleaseBaseUrl, Does.StartWith("https://rogue-stars-server-"));
+        }
+
+        // ---- global ads-disabled mode ---------------------------------------------------------------------------------
+
+        [Test]
+        public void Offline_AdsDisabled_EveryPlacementIsInstant_WithoutAnAd()
+        {
+            using (var o = new Offline())
+            {
+                var ads = new FakeAdGateway();
+                o.Session.PlatformAds = ads;
+                o.Service.AdsDisabled = true;
+                long before = o.Diamonds;
+                CommandResult done = null;
+                o.Session.WatchAd("daily_diamonds_ad", r => done = r);
+                Assert.That(done.Ok, Is.True, done.Error);
+                Assert.That(o.Diamonds, Is.EqualTo(before + 10));
+                ServiceResult<string> token = null;
+                o.Session.Ads.Show("revive", r => token = r);
+                Assert.That(token.Ok && token.Value == "", Is.True);
+                Assert.That(ads.Shown, Is.Empty, "no ad SDK involved");
+                Assert.That(o.Session.State.Flags.Contains(o.Session.Content.Shop.NoAdsFlag), Is.False, "not an entitlement");
+            }
+        }
+
+        [Test]
+        public void Online_AdsDisabled_FollowsTheServer_AndUsesTheInstantEndpoint()
+        {
+            var o = new Online(adsDisabled: true);
+            Assert.That(o.Session.NoAds, Is.True, "server session flag mirrored into the client content");
+            Assert.That(ContentDb.Default.Shop.AdsDisabled, Is.False, "shared default content untouched");
+            o.Extra = req => req.Url.EndsWith("/v1/ads/instant")
+                ? FakeTransport.Json(200, "{\"ok\":true,\"events\":[],\"version\":3,\"state\":" + o.Wire + "}")
+                : null;
+            CommandResult done = null;
+            o.Session.WatchAd("daily_diamonds_ad", r => done = r);
+            Assert.That(done.Ok, Is.True, done.Error);
+            var call = o.Http.Requests.Single(r => r.Url.EndsWith("/v1/ads/instant"));
+            Assert.That((string)JObject.Parse(call.Body)["placementId"], Is.EqualTo("daily_diamonds_ad"));
+            Assert.That((string)JObject.Parse(call.Body)["requestId"], Is.Not.Empty);
+            ServiceResult<string> token = null;
+            o.Session.Ads.Show("stamina_refill", r => token = r);
+            Assert.That(token.Value, Is.EqualTo(""));
+            Assert.That(o.Ads.Shown, Is.Empty);
+            Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/ads/credits")), Is.False);
+
+            var on = new Online(adsDisabled: false);
+            Assert.That(on.Session.NoAds, Is.False);
         }
 
         private sealed class Offline : System.IDisposable
@@ -124,7 +242,7 @@ namespace RogueStars.Client.Tests
             public System.Func<HttpRequest, HttpResponse> Extra = _ => null;
             public string Wire => JsonConvert.SerializeObject(ServerState, ClientJson.Wire);
 
-            public Online()
+            public Online(bool adsDisabled = false, bool purchasesDisabled = false)
             {
                 ServerState = new GameEngine().NewPlayer("dev_buyer", TestUtil.T0, 99);
                 Http.Handler = req =>
@@ -133,7 +251,7 @@ namespace RogueStars.Client.Tests
                     if (r != null) return r;
                     if (req.Url.EndsWith("/v1/auth/dev")) return FakeTransport.Json(200, "{\"token\":\"t\",\"playerId\":\"dev_buyer\"}");
                     if (req.Url.EndsWith("/v1/session") || req.Url.EndsWith("/v1/state"))
-                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":1,\"state\":" + Wire + "}");
+                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"adsDisabled\":" + (adsDisabled ? "true" : "false") + ",\"purchasesDisabled\":" + (purchasesDisabled ? "true" : "false") + ",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":1,\"state\":" + Wire + "}");
                     if (req.Url.EndsWith("/v1/command"))
                         return FakeTransport.Json(200, "{\"ok\":true,\"events\":[],\"version\":2,\"state\":" + Wire + "}");
                     return FakeTransport.Json(404, "{\"ok\":false,\"error\":\"not_found\"}");

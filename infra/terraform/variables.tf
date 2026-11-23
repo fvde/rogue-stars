@@ -47,11 +47,11 @@ variable "firebase_project_id" {
 variable "play_package_name" {
   description = "Android package name used for Google Play receipt validation."
   type        = string
-  default     = "com.roguestars.game"
+  default     = "com.oddbyte.roguestars"
 }
 
 variable "secrets_populated" {
-  description = "Set to true once the Secret Manager secrets have a version (AppLovin Event Key, and the Play key if play_credentials_in_secret); until then they are not mounted into Cloud Run."
+  description = "Set to true once the Secret Manager secrets have a version (AppLovin Event Key when ads_mode = applovin, and the Play key if play_credentials_in_secret); until then they are not mounted into Cloud Run."
   type        = bool
   default     = false
 }
@@ -68,10 +68,43 @@ variable "scheduler_time_zone" {
   default     = "Etc/UTC"
 }
 
+variable "iap_mode" {
+  description = "Google Play payments: disabled (default while there is no payments profile: /v1/iap/verify answers 503 purchases_disabled, the client shows real-money products as coming soon) or google (Android Publisher API receipt validation)."
+  type        = string
+  default     = "disabled"
+
+  validation {
+    condition     = contains(["disabled", "google"], var.iap_mode)
+    error_message = "iap_mode must be disabled or google."
+  }
+}
+
+variable "iap_product_set" {
+  description = "Products the server sells: initial (only docs/play-console-products-initial.csv, the first products created in Play Console) or all (docs/play-console-products.csv)."
+  type        = string
+  default     = "initial"
+
+  validation {
+    condition     = contains(["initial", "all"], var.iap_product_set)
+    error_message = "iap_product_set must be initial or all."
+  }
+}
+
 variable "iap_allow_test_purchases" {
   description = "Accept Google Play license-tester purchases (internal testing). Set false for production if testers should not get items."
   type        = bool
   default     = true
+}
+
+variable "ads_mode" {
+  description = "Rewarded ads: disabled (default for now: every player is treated as owning No Ads, no ad network, no Event Key needed) or applovin (AppLovin MAX S2S verification; needs the Event Key secret)."
+  type        = string
+  default     = "disabled"
+
+  validation {
+    condition     = contains(["disabled", "applovin"], var.ads_mode)
+    error_message = "ads_mode must be disabled or applovin."
+  }
 }
 
 variable "ads_verification" {

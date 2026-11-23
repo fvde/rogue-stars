@@ -22,18 +22,37 @@ public enum StoreProductType { Consumable, NonConsumable }
 /// </summary>
 public static class PlayCatalog
 {
+    public const string SetInitial = "initial", SetAll = "all";
+
+    /// <summary>
+    /// The first products created in Play Console for verification (docs/play-console-products-initial.csv): one consumable
+    /// Diamond pack, the Daily Diamonds non-consumable, the monthly pass (30-day consumable) and a starter pack. Must equal
+    /// the client's <c>StoreCatalog.InitialProductIds</c>.
+    /// </summary>
+    public static readonly IReadOnlyList<string> InitialProductIds = new[] { "diamonds_60", "starter_worm", "monthly_pass", "perm_daily_diamonds" };
+
     public static StoreProductType TypeOf(ProductDef p) => p.Limit == 1 ? StoreProductType.NonConsumable : StoreProductType.Consumable;
 
     public static IEnumerable<ProductDef> StoreProducts(ContentDb content) =>
         content.Products.Values.Where(p => p.PriceUsdCents > 0 && !string.IsNullOrEmpty(p.StoreProductId))
             .OrderBy(p => p.Kind).ThenBy(p => p.PriceUsdCents).ThenBy(p => p.Id, StringComparer.Ordinal);
 
-    /// <summary>CSV for docs/play-console-products.csv (regenerate with <c>UPDATE_PLAY_CATALOG=1 dotnet test</c>).</summary>
-    public static string Csv(ContentDb content)
+    /// <summary>Store products sold under <c>Iap:ProductSet</c> ("all", else the initial set).</summary>
+    public static IEnumerable<ProductDef> Offered(ContentDb content, string? productSet) =>
+        StoreProducts(content).Where(p => IsOffered(p.Id, productSet));
+
+    public static bool IsOffered(string productId, string? productSet) =>
+        string.Equals(productSet, SetAll, StringComparison.OrdinalIgnoreCase) || InitialProductIds.Contains(productId);
+
+    /// <summary>
+    /// CSV for docs/play-console-products.csv (all) and docs/play-console-products-initial.csv (initial set); regenerate with
+    /// <c>UPDATE_PLAY_CATALOG=1 dotnet test</c>.
+    /// </summary>
+    public static string Csv(ContentDb content, string productSet = SetAll)
     {
         var sb = new StringBuilder();
         sb.Append("product_id,type,price_usd,title,description,rules_product_id,rules_kind\n");
-        foreach (var p in StoreProducts(content))
+        foreach (var p in Offered(content, productSet))
         {
             string type = TypeOf(p) == StoreProductType.Consumable ? "consumable" : "non_consumable";
             string price = (p.PriceUsdCents / 100m).ToString("0.00", CultureInfo.InvariantCulture);

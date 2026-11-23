@@ -8,6 +8,10 @@ referenced as the local UPM package `com.roguestars.rules` and compile into `Rog
 | Path | Assembly | What |
 |---|---|---|
 | `Assets/Scripts/Services/` | `RogueStars.Client` | `IGameService`, `LocalGameService`, `RemoteGameService`, HTTP transport, settings, store/ad gateways, DTOs |
+| `Assets/Scripts/Services/Auth/` | `RogueStars.Client` | `IAuthProvider`, `FirebaseAuthProvider` (flow), `FirebaseSdkBackend` (Firebase Unity SDK), `GooglePlayGamesSignIn` (Play Games plugin), `AuthFactory` |
+| `Assets/GooglePlayGames/` | `Google.Play.Games` | Google Play Games plugin for Unity v2.3.0 (official `.unitypackage`, without its bundled EDM copy) |
+| `Packages/google/*.tgz` | – | Firebase App/Auth 14.2.0 + External Dependency Manager 1.2.190 from Google's archive, fetched by `scripts/fetch-unity-packages.sh` (git-ignored, SHA-256 pinned) |
+| `Assets/Plugins/Android/RogueStarsConfig.androidlib` | – | manifest additions: Play Billing permission, Firebase Analytics off, `AD_ID` removed while ads are disabled |
 | `Assets/Scripts/App/` | `RogueStars.Client` | `ClientApp` (composition root), `GameSession`, `UiScreen` + `ScreenRouter`, `ToastCenter`, `ResourceBar`, `ScreenCatalog`, `AppBootstrap` |
 | `Assets/Scripts/Ui/` | `RogueStars.Client` | `Ui` toolkit (namespace `RogueStars.Client.UiKit`), `Theme`, `UiTween`, `SafeAreaFitter` |
 | `Assets/Scripts/Screens/` | `RogueStars.Client` | One class per screen |
@@ -37,8 +41,20 @@ AppBootstrap (only object in Main.unity)
   arena fights run against local bots (`ArenaStartFight` + `ArenaFightResult`, power comparison) and invasion attacks
   roll local damage (`InvasionStartAttempt` + `InvasionRecordDamage`). Dev cheats (Settings): starter kit,
   unlock-all flag, reset save. Time-based state is settled every 5 s.
-- **`RemoteGameService`** (online, docs/server.md): `POST /v1/auth/dev {deviceId}` → bearer token; `POST /v1/session`
-  → state + server time offset + allowed commands; `POST /v1/command {type, requestId, args, expectedVersion?}`
+- **Auth** (`Services/Auth/`): online sessions get their bearer token from an `IAuthProvider`. `ServerConfig.AuthMode`
+  `firebase` (release builds: `BuildAndroid` sets it together with `ROGUESTARS_SERVER_URL`) → `FirebaseAuthProvider` on the
+  **Firebase Unity SDK 14.2.0 (Auth module only)**: no user yet → Google Play Games v2 (`PlayGamesPlatform.Instance.Authenticate`
+  → `RequestServerSideAccess(false)` → server auth code → `PlayGamesAuthProvider.GetCredential(code)` →
+  `SignInWithCredentialAsync`); Play Games unavailable/declined → **anonymous** sign-in; an anonymous user is **linked** to Play
+  Games once per app session when Play Games signs in (same uid = same player; if that Play Games account already has a
+  player, the client switches to it); Settings → *Account* shows the account and a *Link Play Games* button (interactive
+  sign-in). The ID token's `exp` is read from the JWT; `RemoteGameService` fetches a new one a minute before expiry (the SDK
+  refreshes it) and force-refreshes once after a 401. Play Games is only touched when the plugin is configured
+  (`PlayGamesSettings` app id + web client id, see docs/setup.md step 3.7). `dev` (committed default, and always in the
+  editor) → dev auth below; the production server refuses it.
+- **`RemoteGameService`** (online, docs/server.md): bearer token from the auth provider, or dev auth
+  `POST /v1/auth/dev {deviceId}`; `POST /v1/session`
+  → state + server time offset + allowed commands + `adsDisabled`; `POST /v1/command {type, requestId, args, expectedVersion?}`
   (args = the command's fields in camelCase, enums as numbers, dictionary keys untouched); every response with
   `state` replaces the local copy; `GET /v1/state` every 30 s. `[ServerOnly]` commands are refused locally with
   `server_only_command`. A `401` re-authenticates once and retries. Arena (`/v1/arena/*`), invasions
@@ -63,14 +79,37 @@ AppBootstrap (only object in Main.unity)
   moved), and command placements (revive, stamina, timer, pulls, double rewards) poll `GET /v1/ads/credits` until the
   verified event id is there and send it as `AdToken`. No Ads → no ad, empty token. With the fake ad gateway online, the
   client plays the callback itself against a dev server in fake ads mode.
-- **Platform config** (`Assets/Resources/PlatformConfig.asset`): `StoreMode` (`unity_iap`/`fake`), `AdsMode` (`max`/`fake`),
-  `MaxRewardedAdUnitId` — committed with placeholders; the MAX SDK key lives in `Assets/MaxSdk/Resources/AppLovinSettings.asset`
+- **Ads disabled (current default)**: the rules content flag `ShopConfig.AdsDisabled` makes `ShopSystem.HasNoAds` true for
+  everyone. Offline it comes from `PlatformConfig.AdsMode = disabled` (`LocalGameService.AdsDisabled`), online from the
+  server's `adsDisabled` session flag (copied into the service's own `ContentDb`, never `ContentDb.Default`). Every placement
+  then completes without an ad: command placements send an empty `AdToken`, direct-reward placements (`daily_diamonds_ad`)
+  run `AdWatched` locally offline and `POST /v1/ads/instant` online (`GameSession.NoAds`). On devices `PlatformServices`
+  creates `NoAdGateway`: the MAX plugin stays in the project but is never initialized and needs no key.
+- **Purchases disabled (current default)**: Google Play payments are on hold. `PlatformConfig.StoreMode = disabled`
+  → `DisabledStoreGateway` online on devices (Unity IAP / Play Billing never initialized; offline keeps the dev-receipt
+  store), and the server's `purchasesDisabled` session flag (`Iap:Mode=disabled`) does the same for any build:
+  `GameSession.PurchasesDisabled` → the shop shows the catalogue, real-money buttons read "Coming soon", `Purchase`
+  refuses with `purchases_disabled`; Diamond-priced items keep working. Editor/offline: dev receipts as before.
+- **Release server**: `ServerConfig.ReleaseBaseUrl` = `https://rogue-stars-server-t72a3eykvq-ew.a.run.app` (production);
+  `BuildAndroid` bakes it in (online, Firebase auth) unless `ROGUESTARS_SERVER_URL` names another server or `local`.
+- **Product set**: `PlatformConfig.ProductSet` `initial` (default) sells only `StoreCatalog.InitialProductIds`
+  (= server `PlayCatalog.InitialProductIds`, `docs/play-console-products-initial.csv`); other products show "Coming soon",
+  `GameSession.Purchase` refuses them (`product_not_offered`) and Unity IAP only registers the offered ones. `all` sells the
+  whole catalogue. Sessions built without a config (tests) use `all`.
+- **Platform config** (`Assets/Resources/PlatformConfig.asset`): `StoreMode` (`disabled`/`unity_iap`/`fake`), `AdsMode`
+  (`disabled`/`max`/`fake`), `MaxRewardedAdUnitId`, `ProductSet` — committed with placeholders/defaults; `ServerConfig.asset`
+  has `BaseUrl`, `OnlineByDefault`, `ReleaseBaseUrl`, `AuthMode`; the MAX SDK key lives in `Assets/MaxSdk/Resources/AppLovinSettings.asset`
   (committed empty). `BuildAndroid` injects real values from environment variables for one build and restores the
-  placeholders (`Editor/BuildSecrets.cs`; see docs/setup.md step 11). Without an ad unit id the build uses fake ads; without
-  an SDK key the AppLovin Quality Service plugin stays off (it would call AppLovin).
+  committed files (`Editor/BuildSecrets.cs`; see docs/setup.md step 11), including the Play Games plugin settings
+  (`ROGUESTARS_PLAY_GAMES_APP_ID` / `ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID`). The MAX SDK key is only read with
+  `ROGUESTARS_ADS=max`; without it the AppLovin Quality Service plugin stays off (it would call AppLovin).
 - **Android dependencies**: custom Gradle templates in `Assets/Plugins/Android` (main, settings, properties with AndroidX).
-  `BuildAndroid` runs EDM's `PlayServicesResolver.ResolveSync`, which writes `com.applovin:applovin-sdk` into
-  `mainTemplate.gradle`; Unity IAP adds `com.android.billingclient:billing` itself. Gradle downloads both (network).
+  External Dependency Manager comes as the UPM package (1.2.190, required by Firebase; the copy the MAX plugin shipped in
+  `Assets/ExternalDependencyManager` was removed). `BuildAndroid` runs `PlayServicesResolver.ResolveSync`, which writes the
+  Maven dependencies of MAX, Firebase App/Auth and Play Games v2 into `mainTemplate.gradle`; Unity IAP adds
+  `com.android.billingclient:billing` itself. Gradle downloads them (network). `google-services.json`
+  (`Assets/`, git-ignored) becomes `Assets/Plugins/Android/FirebaseApp.androidlib` and
+  `Assets/StreamingAssets/google-services-desktop.json` (both generated, git-ignored).
 - **UI toolkit** (`Ui.*`): `Panel, Label, Button, Row, Column, Spacer, Input, Scroll, List, Grid, Bar, TabBar, Modal`,
   all layout-group based with `LayoutElement` sizes. `Theme` has the palette, rarity colours (Common→Mythic), valence
   colours (positive/negative/enemy/elite/boss/special) and per-currency colours. `UiTween` does pop-in/fade
@@ -115,6 +154,9 @@ screen's fixed bottom bar (`UiScreen.FooterHeight`/`ReserveToastStrip`): the Run
 the board and its ROLL/Decision bar, so toasts never cover the board.
 
 ## Running
+- **First:** `scripts/fetch-unity-packages.sh` (once per checkout/worktree; downloads Firebase App/Auth and EDM from
+  Google's archive into `Packages/google/`, cached in `~/Library/Caches/rogue-stars-unity-packages`). Without it Unity cannot
+  resolve the packages. For device builds with Firebase also copy `google-services.json` to `Assets/` (git-ignored).
 - **Offline (default):** open `client/RogueStars` in Unity 6.6, open `Assets/Scenes/Main.unity`, press Play
   (Game view in portrait, e.g. 1080×1920). A new save is playable from the start (starter kit from content); Settings → *Unlock all features* is a dev cheat.
 - **Online:** start the server (`cd server/RogueStars.Server && arch -arm64 ~/.dotnet/dotnet run`, dev auth on :8080),
@@ -132,18 +174,27 @@ arch -arm64 $U -batchmode -nographics -projectPath $P -logFile /tmp/rs-tests.log
 arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P -logFile /tmp/rs-build.log -executeMethod RogueStars.Client.Editor.BuildAndroid.Build
 ```
 `BuildAndroid.Build` applies `ProjectSetup`, creates the scene if missing, injects build-time values
-(`ROGUESTARS_SERVER_URL`, `ROGUESTARS_STORE`, `ROGUESTARS_ADS`, `ROGUESTARS_MAX_SDK_KEY`, `ROGUESTARS_MAX_REWARDED_AD_UNIT`,
-`ROGUESTARS_KEYSTORE`/`_KEYSTORE_PASS`/`_KEY_ALIAS`/`_KEY_PASS`, `ROGUESTARS_AAB=1` for an app bundle), resolves the Android
-dependencies, sets version `0.1.<git commit count>` (versionCode = commit count; `0.1.0`/1 without git) and writes
-`client/RogueStars/Builds/RogueStars.apk` (or `.aab`; package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait).
-It exits with code 1 on failure.
+(`ROGUESTARS_SERVER_URL` (+ Firebase auth), `ROGUESTARS_AUTH`, `ROGUESTARS_STORE`, `ROGUESTARS_ADS`, `ROGUESTARS_PRODUCT_SET`,
+`ROGUESTARS_PLAY_GAMES_APP_ID`/`_WEB_CLIENT_ID`, `ROGUESTARS_MAX_SDK_KEY`/`_MAX_REWARDED_AD_UNIT` (ads `max` only),
+`ROGUESTARS_KEYSTORE`/`_KEYSTORE_PASS`/`_KEY_ALIAS`/`_KEY_PASS`), resolves the Android dependencies, sets version
+`0.1.<git commit count>` (versionCode = commit count; `0.1.0`/1 without git) and writes **both**
+`client/RogueStars/Builds/RogueStars.aab` (Play) and `client/RogueStars/Builds/RogueStars.apk` (sideload) — package
+`com.oddbyte.roguestars`, IL2CPP, ARM64, minSdk 26, portrait; `ROGUESTARS_OUTPUT=apk|aab` builds only one. Signed with the
+upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise debug-signed. Each artefact's manifest is
+checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 73 tests):
+EditMode (`Assets/Tests/EditMode`, 89 tests):
 - `PlatformTests`: store catalogue = server catalogue (types, SKUs, obfuscated account id vector), fakes in the editor,
   purchase → grant → confirm, deferred purchase delivered later, cancelled purchase, rejected/pending receipts never
   confirmed + restore, server-verified ads (credit polling, timeout, direct-reward pending → refresh, No Ads, fake ads
-  playing the dev callback).
+  playing the dev callback), initial product set (= `docs/play-console-products-initial.csv`, others refused without a
+  store call), purchases disabled (coming soon, no store init/call, offline dev receipts kept), ads disabled offline (instant, no ad, no entitlement) and online (server flag, `/v1/ads/instant`).
+- `FirebaseAuthTests` (fake Firebase SDK + fake Play Games + fake server): Play Games auth code → credential sign-in,
+  anonymous fallback (no/declined Play Games, `AllowAnonymous=false`), Firebase unavailable, anonymous → Play Games link
+  keeping the uid, link to an existing Play Games player switches accounts, JWT `exp`; online: the Firebase ID token is the
+  bearer (never dev auth), reused while valid, renewed a minute before expiry, force-refreshed once after a 401, sign-in
+  failure = connection error; dev auth in the editor.
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
@@ -185,6 +236,7 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 (`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
 ## Known gaps / TODO
-- Firebase Auth (Play Games / anonymous sign-in, `google-services.json`) and push notifications are not integrated:
-  the client signs in with `/v1/auth/dev`, which a production server (`Auth:Mode=firebase`) refuses (docs/setup.md step 3).
+- Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
+  client id); until then release builds sign in anonymously. Push notifications are not integrated.
+- Ads are disabled (no AppLovin account yet); switching them on is docs/setup.md step 5.
 - Mediation network adapters are not installed (AppLovin's own demand only); add them with the AppLovin Integration Manager.

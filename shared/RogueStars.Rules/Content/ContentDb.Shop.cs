@@ -129,6 +129,12 @@ namespace RogueStars.Rules.Content
         public bool AllowDevReceipts;
         public string DevReceiptPrefix = "dev:";
         public string NoAdsFlag = "ent_no_ads";
+        /// <summary>
+        /// Global "ads disabled" mode: every player is treated as owning the No Ads entitlement (every placement completes
+        /// instantly, daily caps still apply). Set per deployment by the host (server <c>Ads:Mode=disabled</c>, client
+        /// PlatformConfig / the server's session flag), never by content; default off.
+        /// </summary>
+        public bool AdsDisabled;
         public string BattleSpeedFlag = "battle_speed_3";
         public string MonthlyPassProductId = "monthly_pass";
         public long MonthlyPassStaminaCapBonus = 30;

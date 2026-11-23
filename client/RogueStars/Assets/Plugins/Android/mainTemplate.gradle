@@ -7,6 +7,14 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 // Android Resolver Dependencies Start
     implementation 'com.applovin:applovin-sdk:13.6.4' // Assets/MaxSdk/AppLovin/Editor/Dependencies.xml:4
+    implementation 'com.google.android.gms:play-services-base:18.11.1' // Packages/com.google.firebase.app/Firebase/Editor/AppDependencies.xml:16
+    implementation 'com.google.android.gms:play-services-games-v2:22.1.0' // Assets/GooglePlayGames/com.google.play.games/Editor/GooglePlayGamesPluginDependencies.xml:9
+    implementation 'com.google.android.gms:play-services-nearby:18.5.0' // Assets/GooglePlayGames/com.google.play.games/Editor/GooglePlayGamesPluginDependencies.xml:14
+    implementation 'com.google.firebase:firebase-analytics:24.0.0' // Packages/com.google.firebase.auth/Firebase/Editor/AuthDependencies.xml:14
+    implementation 'com.google.firebase:firebase-app-unity:14.2.0' // Packages/com.google.firebase.app/Firebase/Editor/AppDependencies.xml:21
+    implementation 'com.google.firebase:firebase-auth:25.0.0' // Packages/com.google.firebase.auth/Firebase/Editor/AuthDependencies.xml:12
+    implementation 'com.google.firebase:firebase-auth-unity:14.2.0' // Packages/com.google.firebase.auth/Firebase/Editor/AuthDependencies.xml:19
+    implementation 'com.google.firebase:firebase-common:23.0.0' // Packages/com.google.firebase.app/Firebase/Editor/AppDependencies.xml:12
 // Android Resolver Dependencies End
 **DEPS**}
 

@@ -37,6 +37,7 @@ curl -s -XPOST localhost:8080/internal/jobs/invasion-start -H 'X-Job-Secret: loc
 Dev auth is refused in Production; see docs/server.md for Firebase auth, Firestore, IAP and the scheduled jobs.
 
 **Open, play and build the Unity client**
+- Once per checkout: `scripts/fetch-unity-packages.sh` (Firebase App/Auth + EDM from Google's archive, git-ignored).
 - Open `client/RogueStars` in Unity 6.6, open `Assets/Scenes/Main.unity`, press Play (portrait Game view, e.g. 1080×1920).
   It starts **offline** (local rules engine, save in `persistentDataPath`); Settings has dev cheats.
 - **Online:** start the server, then Settings → server URL `http://localhost:8080` (editor) or `http://10.0.2.2:8080`
@@ -48,7 +49,8 @@ $U -batchmode -nographics -projectPath $P -logFile $PWD/rs-tests.log -runTests -
 $U -batchmode -projectPath $P -logFile $PWD/rs-play.log -runTests -testPlatform PlayMode -testResults $PWD/rs-play.xml   # playthrough + screenshots
 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P -logFile $PWD/rs-build.log -executeMethod RogueStars.Client.Editor.BuildAndroid.Build
 ```
-  The APK lands in `client/RogueStars/Builds/RogueStars.apk` (IL2CPP, ARM64). Prefix with `arch -arm64` on Apple Silicon.
+  The AAB (Play) and APK land in `client/RogueStars/Builds/` (IL2CPP, ARM64, upload-key signed via `ROGUESTARS_KEYSTORE*`,
+  else debug-signed). Prefix with `arch -arm64` on Apple Silicon. Release configuration: docs/setup.md step 11.
 
 **Run the progression simulator**
 ```bash
@@ -65,13 +67,13 @@ Playable prototype (placeholder UI), offline and online.
   mail, arena, guilds, live ops (weekly + surprise invasions, never two of one type at once, max 2 concurrent;
   planetary events). Endless procedural campaign and Dark Side (50 named portals, then generated) tuned with the simulator.
 - **Server:** authoritative command endpoint, idempotency, compare-and-set saves, arena, guilds, invasions (instances
-  = rules live-ops occurrences), jobs, Google Play receipt validation (productsv2, server consume/acknowledge), AppLovin
-  MAX S2S verification, Firestore (emulator-tested), Cloud Run + Cloud Build + Terraform; owner runbook docs/setup.md.
+  = rules live-ops occurrences), jobs, Google Play receipt validation (productsv2, server consume/acknowledge; initial 4-product set), global
+  ads-disabled mode (AppLovin MAX S2S verification ready for later), Firestore (emulator-tested), Cloud Run + Cloud Build + Terraform; owner runbook docs/setup.md.
 - **Client:** every screen, battle playback from the logged HP/shield/rage, offline + online services, playthrough
-  screenshots in [docs/client-screenshots](docs/client-screenshots), Unity IAP (Google Play Billing) and AppLovin MAX
-  gateways (fakes in the editor), Android APK build.
+  screenshots in [docs/client-screenshots](docs/client-screenshots), Firebase Auth (Google Play Games sign-in, anonymous fallback +
+  linking), Unity IAP (Google Play Billing), AppLovin MAX gateway (disabled for now), signed AAB + APK builds.
 - **Tests:** .NET 320 (rules 238, server 63, simulator guard 19) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
   Unity EditMode 55 + PlayMode playthrough 1; APK ≈ 30 MB.
-- **Open:** Firebase auth in the client, ad mediation networks, push notifications, real art;
+- **Open:** console setup for Play Games sign-in (docs/setup.md step 3), AppLovin + mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).

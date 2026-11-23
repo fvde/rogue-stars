@@ -55,8 +55,16 @@ public sealed class JobOptions
 
 public sealed class IapOptions
 {
-    /// <summary>"fake" (tokens starting with "fake-" are valid) or "google" (Android Publisher API).</summary>
-    public string Mode { get; set; } = "google";
+    public const string Disabled = "disabled";
+
+    /// <summary>
+    /// "disabled" (default for now: Google Play payments on hold — /v1/iap/verify answers 503 purchases_disabled, the client
+    /// shows real-money products as "coming soon"), "fake" (tokens starting with "fake-" are valid) or "google" (Android
+    /// Publisher API).
+    /// </summary>
+    public string Mode { get; set; } = Disabled;
+
+    public bool IsDisabled => string.Equals(Mode, Disabled, StringComparison.OrdinalIgnoreCase);
     public string? PackageName { get; set; }
     /// <summary>Service account JSON with Play Console access (from Secret Manager). Empty = use ADC.</summary>
     public string? ServiceAccountJson { get; set; }
@@ -64,12 +72,26 @@ public sealed class IapOptions
     public bool AllowTestPurchases { get; set; } = true;
     /// <summary>Require <c>obfuscatedExternalAccountId</c> on every purchase (the client always sets it; older clients may not).</summary>
     public bool RequireAccountId { get; set; }
+    /// <summary>
+    /// Which products are sold: "initial" (default: only <see cref="Payments.PlayCatalog.InitialProductIds"/>, the first set
+    /// created in Play Console, docs/play-console-products-initial.csv) or "all" (docs/play-console-products.csv).
+    /// </summary>
+    public string ProductSet { get; set; } = Payments.PlayCatalog.SetInitial;
 }
 
 public sealed class AdsOptions
 {
-    /// <summary>"fake" (accept every callback, ad tokens unchecked) or "applovin" (AppLovin MAX S2S verification).</summary>
-    public string Mode { get; set; } = "applovin";
+    public const string Disabled = "disabled", Fake = "fake", AppLovin = "applovin";
+
+    /// <summary>
+    /// "disabled" (default for now: no ad network; every player is treated as owning No Ads through the rules flag
+    /// <c>ShopConfig.AdsDisabled</c>, S2S callbacks are refused), "fake" (dev: accept every callback, ad tokens unchecked)
+    /// or "applovin" (AppLovin MAX S2S verification).
+    /// </summary>
+    public string Mode { get; set; } = Disabled;
+
+    public bool IsDisabled => string.Equals(Mode, Disabled, StringComparison.OrdinalIgnoreCase);
+    public bool IsFake => string.Equals(Mode, Fake, StringComparison.OrdinalIgnoreCase);
     /// <summary>AppLovin Event Key (dashboard: Account → General → Keys).</summary>
     public string? EventKey { get; set; }
     /// <summary>"event_token" = sha1(EVENT_ID + key) (default) or "event_token_all" = sha256(all macros + key); see AppLovinAdVerifier.</summary>

@@ -67,9 +67,10 @@ public sealed class TestApp : WebApplicationFactory<Program>
         {
             s.AddSingleton<TimeProvider>(Time);
             if (!RealBattles) s.AddSingleton<IBattleResolver>(Battles);
-            s.AddSingleton(_ =>
+            s.AddSingleton(sp =>
             {
-                var engine = new GameEngine(ContentDb.Default) { Cloner = StateJson.Clone };
+                var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>().Value;
+                var engine = new GameEngine(ServerContent.Create(options)) { Cloner = StateJson.Clone };
                 TestCommands.Register(engine);
                 if (DevUnlockAll) engine.RegisterNewPlayer(ctx => ctx.State.Flags.Add(Features.DevUnlockAllFlag));
                 ConfigureEngine?.Invoke(engine);

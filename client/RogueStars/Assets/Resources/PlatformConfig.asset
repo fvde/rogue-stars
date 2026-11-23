@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a5b163f573be7433fa5e817b41a1c851, type: 3}
   m_Name: PlatformConfig
   m_EditorClassIdentifier: RogueStars.Client::RogueStars.Client.Services.PlatformConfig
-  StoreMode: unity_iap
-  AdsMode: max
+  StoreMode: disabled
+  AdsMode: disabled
   MaxRewardedAdUnitId: YOUR_MAX_REWARDED_AD_UNIT_ID
   MaxVerboseLogging: 0
+  ProductSet: initial

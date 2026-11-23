@@ -7,6 +7,9 @@ namespace RogueStars.Server.Payments;
 
 public sealed record IapVerifyRequest(string? ProductId, string? PurchaseToken);
 
+/// <summary>POST /v1/ads/instant: a direct-reward placement without an ad (No Ads owners, global ads-disabled mode).</summary>
+public sealed record AdInstantRequest(string? PlacementId, string? RequestId);
+
 /// <summary><c>iap_receipts/{sha256(purchaseToken)}</c>: a token is redeemed exactly once, by exactly one player.</summary>
 public sealed class ReceiptClaim
 {
@@ -35,26 +38,33 @@ public static class PaymentEndpoints
 {
     public static void Map(RouteGroupBuilder v1, WebApplication app)
     {
-        v1.MapGet("/iap/config", (HttpContext http, GameEngine engine) => Results.Ok(new
+        v1.MapGet("/iap/config", (HttpContext http, GameEngine engine, Microsoft.Extensions.Options.IOptions<ServerOptions> options) => Results.Ok(new
         {
             ok = true,
             obfuscatedAccountId = GooglePlayReceiptValidator.ObfuscatedAccountId(http.PlayerId()),
-            products = PlayCatalog.StoreProducts(engine.Content).Select(p => new
+            enabled = !options.Value.Iap.IsDisabled,
+            productSet = options.Value.Iap.ProductSet,
+            products = (options.Value.Iap.IsDisabled ? Enumerable.Empty<RogueStars.Rules.Content.ProductDef>()
+                : PlayCatalog.Offered(engine.Content, options.Value.Iap.ProductSet)).Select(p => new
             {
                 productId = p.Id, storeProductId = p.StoreProductId, type = PlayCatalog.TypeOf(p) == StoreProductType.Consumable ? "consumable" : "non_consumable",
             }),
         }));
 
         v1.MapPost("/iap/verify", async (HttpContext http, IapVerifyRequest req, ServerHooks hooks, IReceiptValidator validator,
-            IDocStore docs, GameEngine engine, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+            IDocStore docs, GameEngine engine, Clock clock, ILoggerFactory lf, Microsoft.Extensions.Options.IOptions<ServerOptions> options,
+            CancellationToken ct) =>
         {
             var log = lf.CreateLogger("Iap");
             string playerId = http.PlayerId();
+            if (options.Value.Iap.IsDisabled) throw new ApiException(StatusCodes.Status503ServiceUnavailable, "purchases_disabled");
             if (!hooks.Has(hooks.Names.PurchaseComplete)) throw new ApiException(StatusCodes.Status501NotImplemented, "purchases_not_available");
             if (string.IsNullOrWhiteSpace(req.ProductId) || string.IsNullOrWhiteSpace(req.PurchaseToken)) throw ApiException.BadRequest("missing_fields");
             if (req.PurchaseToken.Length > 4096) throw ApiException.BadRequest("invalid_token");
             var def = engine.Content.Product(req.ProductId);
             if (def == null || def.PriceUsdCents <= 0 || string.IsNullOrEmpty(def.StoreProductId)) throw ApiException.BadRequest("unknown_product");
+            // Iap:ProductSet=initial: only the products already created in Play Console are sold.
+            if (!PlayCatalog.IsOffered(def.Id, options.Value.Iap.ProductSet)) throw ApiException.BadRequest("product_not_offered");
             var rr = new ReceiptRequest(playerId, def.Id, def.StoreProductId, PlayCatalog.TypeOf(def), req.PurchaseToken);
 
             string key = Ids.Hash(req.PurchaseToken);
@@ -125,11 +135,28 @@ public static class PaymentEndpoints
             return Results.Ok(new { ok = true, credits = list.Select(c => new { eventId = c.EventId, placement = c.Placement, atMs = c.AtMs }) });
         });
 
+        // Direct-reward placements (e.g. daily_diamonds_ad) are normally granted by the S2S callback. Without an ad (No Ads
+        // entitlement, or Ads:Mode=disabled) the client asks for the grant here: the AdWatched hook runs with an empty
+        // token, which the rules only accept when ShopSystem.HasNoAds is true ("ad token required" otherwise); daily caps apply.
+        v1.MapPost("/ads/instant", async (HttpContext http, AdInstantRequest req, ServerHooks hooks, GameEngine engine, CancellationToken ct) =>
+        {
+            if (!hooks.Has(hooks.Names.AdWatched)) throw new ApiException(StatusCodes.Status501NotImplemented, "ads_not_available");
+            if (string.IsNullOrEmpty(req.RequestId) || req.RequestId.Length > 128) throw ApiException.BadRequest("request_id_required");
+            var placement = engine.Content.AdPlacement(req.PlacementId ?? "");
+            if (placement == null) throw ApiException.BadRequest("unknown_placement");
+            if (placement.Rewards.Count == 0) throw ApiException.BadRequest("placement_spent_by_command");
+            var response = await hooks.TryExecuteAsync(http.PlayerId(), hooks.Names.AdWatched,
+                new { PlacementId = placement.Id, AdToken = "" }, "adi-" + req.RequestId, ct);
+            return Results.Json(response, StateJson.Wire);
+        });
+
         // AppLovin calls the S2S callback with GET (5 s timeout, up to two retries); POST is accepted as well.
         app.MapMethods("/v1/ads/ssv", new[] { "GET", "POST" }, async (HttpContext http, IAdVerifier verifier, ServerHooks hooks,
-            AdCreditService credits, GameEngine engine, IDocStore docs, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+            AdCreditService credits, GameEngine engine, IDocStore docs, Clock clock, ILoggerFactory lf,
+            Microsoft.Extensions.Options.IOptions<ServerOptions> options, CancellationToken ct) =>
         {
             var log = lf.CreateLogger("Ads");
+            if (options.Value.Ads.IsDisabled) throw ApiException.NotFound("ads_disabled");
             var verified = verifier.Verify(http.Request.Query);
             switch (verified.Status)
             {

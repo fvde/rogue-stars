@@ -9,6 +9,7 @@
 client/
 docs/*
 !docs/play-console-products.csv
+!docs/play-console-products-initial.csv
 infra/
 tools/
 scripts/

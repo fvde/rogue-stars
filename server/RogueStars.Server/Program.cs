@@ -40,7 +40,8 @@ builder.Services.AddSingleton<Clock>();
 builder.Services.AddHttpClient();
 
 // Rules engine: same handlers as the client; JSON round-trip cloning makes commands atomic.
-builder.Services.AddSingleton(_ => new GameEngine(ContentDb.Default) { Cloner = StateJson.Clone });
+// Ads:Mode=disabled switches the rules into the global ads-disabled mode (ServerContent).
+builder.Services.AddSingleton(_ => new GameEngine(ServerContent.Create(options)) { Cloner = StateJson.Clone });
 
 // Storage
 if (options.Store.Mode == "memory")
@@ -76,10 +77,11 @@ builder.Services.AddSingleton<PlayerAuthFilter>();
 builder.Services.AddSingleton<JobAuthFilter>();
 
 // Payments
-if (options.Iap.Mode == "fake") builder.Services.AddSingleton<IReceiptValidator, FakeReceiptValidator>();
+// Iap:Mode=disabled (payments on hold): /v1/iap/verify answers 503 purchases_disabled before any validator is used.
+if (options.Iap.Mode == "fake" || options.Iap.IsDisabled) builder.Services.AddSingleton<IReceiptValidator, FakeReceiptValidator>();
 else builder.Services.AddSingleton<IReceiptValidator>(sp => new GooglePlayReceiptValidator(
     sp.GetRequiredService<IOptions<ServerOptions>>(), sp.GetRequiredService<ILogger<GooglePlayReceiptValidator>>()));
-if (options.Ads.Mode == "fake") builder.Services.AddSingleton<IAdVerifier, FakeAdVerifier>();
+if (options.Ads.IsFake) builder.Services.AddSingleton<IAdVerifier, FakeAdVerifier>();
 else builder.Services.AddSingleton<IAdVerifier, AppLovinAdVerifier>();
 builder.Services.AddSingleton<AdCreditService>();
 
@@ -99,13 +101,21 @@ var app = builder.Build();
 
 app.UseMiddleware<ApiExceptionMiddleware>();
 
-app.MapGet("/healthz", (IOptions<ServerOptions> o) => Results.Ok(new
+// Cloud Run's front end reserves paths ending in "z" (/healthz is a 404 from outside): /health is the public check,
+// /healthz stays for local use.
+app.MapGet("/health", Health);
+app.MapGet("/healthz", Health);
+
+static IResult Health(IOptions<ServerOptions> o) => Results.Ok(new
 {
     status = "ok",
     version = typeof(Program).Assembly.GetName().Version?.ToString(),
     auth = o.Value.Auth.Mode,
     store = o.Value.Store.Mode,
-}));
+    ads = o.Value.Ads.Mode,
+    iap = o.Value.Iap.Mode,
+    iapProducts = o.Value.Iap.ProductSet,
+});
 
 var v1 = app.MapGroup("/v1").AddEndpointFilter<PlayerAuthFilter>();
 PlayerEndpoints.Map(v1, app, options);
@@ -115,8 +125,8 @@ FeatureEndpoints.MapGuilds(v1);
 FeatureEndpoints.MapInvasions(v1);
 FeatureEndpoints.MapInternal(app);
 
-app.Logger.LogInformation("Rogue Stars server starting (auth={Auth}, store={Store}, env={Env})",
-    options.Auth.Mode, options.Store.Mode, app.Environment.EnvironmentName);
+app.Logger.LogInformation("Rogue Stars server starting (auth={Auth}, store={Store}, ads={Ads}, iap={Iap}, env={Env})",
+    options.Auth.Mode, options.Store.Mode, options.Ads.Mode, options.Iap.Mode, app.Environment.EnvironmentName);
 app.Run();
 
 public partial class Program;

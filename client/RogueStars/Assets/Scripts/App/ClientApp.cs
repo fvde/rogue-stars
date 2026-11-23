@@ -26,6 +26,8 @@ namespace RogueStars.Client.App
         public RectTransform ModalLayer { get; private set; }
         public ResourceBar Bar { get; private set; }
         public ClientSettings Settings { get; private set; }
+        /// <summary>Store / ads / product-set configuration of this build (Resources/PlatformConfig).</summary>
+        public PlatformConfig Platform { get; private set; }
         /// <summary>Directory of the offline save (Application.persistentDataPath by default).</summary>
         public string SaveDirectory;
         /// <summary>Creates the service for the current settings (override in tests).</summary>
@@ -74,6 +76,8 @@ namespace RogueStars.Client.App
             app.Toasts = new ToastCenter(toastLayer);
 
             var platform = PlatformConfig.LoadDefault();
+            app.Platform = platform;
+            app.Session.ProductSet = platform.ProductSet;
             app.Session.Store = PlatformServices.CreateStore(platform);
             app.Session.PlatformAds = PlatformServices.CreateAds(platform);
             if (app.Session.PlatformAds is MaxAdGateway max) max.UserId = () => app.Session.State?.PlayerId;
@@ -87,15 +91,22 @@ namespace RogueStars.Client.App
         public IGameService CreateService()
         {
             if (ServiceFactory != null) return ServiceFactory(Settings);
-            return Settings.Online
-                ? (IGameService)new RemoteGameService(Settings.ToRemoteConfig())
-                : new LocalGameService(SaveDirectory, "local_" + Settings.DeviceId, Settings.DisplayName);
+            // Online: auth provider from the build's AuthMode (Firebase on devices, dev auth in the editor); ads mode = the
+            // server's session flag.
+            if (Settings.Online) return new RemoteGameService(Settings.ToRemoteConfig(), auth: AuthFactory.For(Settings.AuthMode));
+            return new LocalGameService(SaveDirectory, "local_" + Settings.DeviceId, Settings.DisplayName)
+            {
+                AdsDisabled = Platform != null && Platform.IsAdsDisabled,
+            };
         }
 
         /// <summary>(Re)create the service for the current settings, connect and show the hub.</summary>
         public void Start(IGameService service = null)
         {
             service = service ?? CreateService();
+            // Payments on hold on a device: online no store at all; offline the dev-receipt store keeps purchases testable.
+            if (Platform != null && Platform.StoreMode == PlatformConfig.StoreDisabled && !Application.isEditor)
+                Session.Store = service.IsOnline ? (IStoreGateway)new DisabledStoreGateway() : new FakeStoreGateway();
             Session.Use(service);
             ConnectionStatus = "connecting";
             Router.Reset(new HubScreen());

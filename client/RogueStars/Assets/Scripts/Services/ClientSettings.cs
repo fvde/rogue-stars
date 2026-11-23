@@ -16,12 +16,15 @@ namespace RogueStars.Client.Services
         public string ServerUrl;
         public string DeviceId;
         public string DisplayName;
+        /// <summary>From the build's ServerConfig (not a player setting): "dev" or "firebase".</summary>
+        public string AuthMode = AuthModes.Dev;
 
         public static ClientSettings Load()
         {
             var defaults = ServerConfig.LoadDefault();
             var s = new ClientSettings
             {
+                AuthMode = string.IsNullOrEmpty(defaults.AuthMode) ? AuthModes.Dev : defaults.AuthMode,
                 Online = PlayerPrefs.GetInt(KeyOnline, defaults.OnlineByDefault ? 1 : 0) == 1,
                 ServerUrl = PlayerPrefs.GetString(KeyUrl, defaults.BaseUrl),
                 DeviceId = PlayerPrefs.GetString(KeyDevice, ""),
@@ -45,6 +48,6 @@ namespace RogueStars.Client.Services
             PlayerPrefs.Save();
         }
 
-        public RemoteConfig ToRemoteConfig() => new RemoteConfig { BaseUrl = ServerUrl, DeviceId = DeviceId, DisplayName = DisplayName };
+        public RemoteConfig ToRemoteConfig() => new RemoteConfig { BaseUrl = ServerUrl, DeviceId = DeviceId, DisplayName = DisplayName, AuthMode = AuthMode };
     }
 }

@@ -74,7 +74,7 @@ public class GooglePlayTests : IDisposable
     public GooglePlayTests()
     {
         _app.Settings["RogueStars:Iap:Mode"] = "google";
-        _app.Settings["RogueStars:Iap:PackageName"] = "com.roguestars.game";
+        _app.Settings["RogueStars:Iap:PackageName"] = "com.oddbyte.roguestars";
         _app.ConfigureServices = s => s.AddSingleton<IReceiptValidator>(sp => new GooglePlayReceiptValidator(
             sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>(), NullLogger<GooglePlayReceiptValidator>.Instance, _play.Service));
     }
@@ -103,8 +103,8 @@ public class GooglePlayTests : IDisposable
         Assert.Equal(diamonds + 120, await p.BalanceAsync(Currencies.Diamonds));
         Assert.Equal(new[]
         {
-            "GET /androidpublisher/v3/applications/com.roguestars.game/purchases/productsv2/tokens/tok-1",
-            "POST /androidpublisher/v3/applications/com.roguestars.game/purchases/products/rs.diamonds_60/tokens/tok-1:consume",
+            "GET /androidpublisher/v3/applications/com.oddbyte.roguestars/purchases/productsv2/tokens/tok-1",
+            "POST /androidpublisher/v3/applications/com.oddbyte.roguestars/purchases/products/rs.diamonds_60/tokens/tok-1:consume",
         }, _play.Calls);
 
         // Client retry after a lost response: no second lookup, no second grant.
@@ -202,6 +202,39 @@ public class GooglePlayTests : IDisposable
         Assert.Contains(products, x => x.GetProperty("storeProductId").GetString() == "rs.monthly_pass" || x.GetProperty("productId").GetString() == ContentDb.Default.Shop.MonthlyPassProductId);
         Assert.All(products, x => Assert.False(string.IsNullOrEmpty(x.GetProperty("storeProductId").GetString())));
     }
+
+    [Fact]
+    public async Task InitialProductSet_OnlySellsTheFirstPlayConsoleProducts()
+    {
+        _app.Settings["RogueStars:Iap:ProductSet"] = "initial";
+        var p = await _app.PlayerAsync("initial");
+        var body = (await p.GetAsync("/v1/iap/config")).Body;
+        Assert.Equal("initial", body.GetProperty("productSet").GetString());
+        var ids = body.GetProperty("products").EnumerateArray().Select(x => x.GetProperty("productId").GetString()!).OrderBy(x => x).ToList();
+        Assert.Equal(PlayCatalog.InitialProductIds.OrderBy(x => x).ToList(), ids);
+
+        // Not offered: refused before Google is asked.
+        Assert.True((await p.CommandAsync("PurchaseStart", new { productId = "diamonds_330" })).Body.GetProperty("ok").GetBoolean());
+        _play.Purchases["tok-330"] = FakePlayApi.Purchase("rs.diamonds_330", account: Account(p));
+        var refused = await p.PostAsync("/v1/iap/verify", new { productId = "diamonds_330", purchaseToken = "tok-330" });
+        Assert.Equal(400, refused.Status);
+        Assert.Equal("product_not_offered", refused.Body.GetProperty("error").GetString());
+        Assert.Empty(_play.Calls);
+
+        // Offered: the normal flow.
+        Assert.True((await p.CommandAsync("PurchaseStart", new { productId = "diamonds_60" })).Body.GetProperty("ok").GetBoolean());
+        _play.Purchases["tok-60"] = FakePlayApi.Purchase("rs.diamonds_60", account: Account(p));
+        Assert.True((await p.PostAsync("/v1/iap/verify", new { productId = "diamonds_60", purchaseToken = "tok-60" })).Body.GetProperty("ok").GetBoolean());
+    }
+
+    [Fact]
+    public void ProductionDefault_IsTheInitialSet()
+    {
+        Assert.Equal("initial", new ServerOptions().Iap.ProductSet);
+        Assert.False(PlayCatalog.IsOffered("diamonds_330", "initial"));
+        Assert.True(PlayCatalog.IsOffered("diamonds_330", "all"));
+        Assert.All(PlayCatalog.InitialProductIds, id => Assert.True(PlayCatalog.IsOffered(id, "initial")));
+    }
 }
 
 public class PlayCatalogTests
@@ -228,6 +261,23 @@ public class PlayCatalogTests
         if (Environment.GetEnvironmentVariable("UPDATE_PLAY_CATALOG") == "1") File.WriteAllText(path, csv);
         Assert.True(File.Exists(path), "missing " + path + " (run with UPDATE_PLAY_CATALOG=1)");
         Assert.Equal(csv, File.ReadAllText(path).Replace("\r\n", "\n"));
+    }
+
+    /// <summary>docs/play-console-products-initial.csv: the first products to create in Play Console (Iap:ProductSet=initial).</summary>
+    [Fact]
+    public void PlayConsoleInitialCsv_IsUpToDate_AndCoversEveryProductType()
+    {
+        string csv = PlayCatalog.Csv(ContentDb.Default, PlayCatalog.SetInitial);
+        string path = Path.Combine(RepoRoot(), "docs", "play-console-products-initial.csv");
+        if (Environment.GetEnvironmentVariable("UPDATE_PLAY_CATALOG") == "1") File.WriteAllText(path, csv);
+        Assert.True(File.Exists(path), "missing " + path + " (run with UPDATE_PLAY_CATALOG=1)");
+        Assert.Equal(csv, File.ReadAllText(path).Replace("\r\n", "\n"));
+        var products = PlayCatalog.InitialProductIds.Select(id => ContentDb.Default.Product(id)!).ToList();
+        Assert.All(products, p => Assert.True(p.PriceUsdCents > 0 && !string.IsNullOrEmpty(p.StoreProductId), p.Id));
+        Assert.Contains(products, p => p.Kind == ProductKind.DiamondPack && PlayCatalog.TypeOf(p) == StoreProductType.Consumable);
+        Assert.Contains(products, p => p.Kind == ProductKind.MonthlyPass);
+        Assert.Contains(products, p => p.Kind == ProductKind.StarterPack);
+        Assert.Contains(products, p => p.Kind == ProductKind.Permanent && PlayCatalog.TypeOf(p) == StoreProductType.NonConsumable);
     }
 
     internal static string RepoRoot()

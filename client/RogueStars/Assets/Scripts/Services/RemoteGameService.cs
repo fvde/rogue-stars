@@ -15,21 +15,32 @@ namespace RogueStars.Client.Services
         /// <summary>Dev auth device id; the server derives the player id "dev_&lt;deviceId&gt;".</summary>
         public string DeviceId = "editor";
         public string DisplayName = "Worm";
+        /// <summary>"dev" or "firebase" (see <see cref="AuthModes"/>); picks the auth provider in the composition root.</summary>
+        public string AuthMode = AuthModes.Dev;
     }
 
     /// <summary>
     /// Online mode: the server is authoritative (docs/server.md). Every command is POSTed to /v1/command with a
     /// requestId and the returned state replaces the local copy. The local engine is only used for queries.
-    /// Auth: dev mode (POST /v1/auth/dev). TODO(auth): Firebase ID token provider for production.
+    /// Auth: an <see cref="IAuthProvider"/> (production: Firebase ID token, refreshed a minute before it expires and forced
+    /// after a 401) or, without one, dev auth (POST /v1/auth/dev; local server, editor, tests).
     /// </summary>
     public sealed class RemoteGameService : IGameService, IAdRewardService
     {
+        /// <summary>Tokens are renewed this long before their expiry.</summary>
+        public const long TokenRefreshMarginMs = 60_000;
+
         private readonly RemoteConfig _config;
         private readonly IHttpTransport _http;
         private readonly IClock _clock;
+        private readonly IAuthProvider _auth;
         private GameState _state;
         private string _token;
+        private long _tokenExpiresMs;
         private long _serverOffsetMs;
+
+        /// <summary>The auth provider (null = dev auth).</summary>
+        public IAuthProvider Auth => _auth;
 
         public bool IsOnline => true;
         public string ModeName => "online";
@@ -40,6 +51,8 @@ namespace RogueStars.Client.Services
         public long NowMs => _clock.NowMs + _serverOffsetMs;
         public string PlayerId { get; private set; }
         public long Version { get; private set; }
+        /// <summary>The server's session flag: Google Play payments are switched off (Iap:Mode=disabled).</summary>
+        public bool PurchasesDisabled { get; private set; }
         /// <summary>Client-allowed command names reported by /v1/session.</summary>
         public readonly List<string> AllowedCommands = new List<string>();
         public IGuildApi Guilds { get; }
@@ -47,12 +60,15 @@ namespace RogueStars.Client.Services
 
         public event Action StateChanged;
 
-        public RemoteGameService(RemoteConfig config, IHttpTransport transport = null, IClock clock = null, ContentDb content = null)
+        public RemoteGameService(RemoteConfig config, IHttpTransport transport = null, IClock clock = null, ContentDb content = null,
+            IAuthProvider auth = null)
         {
             _config = config ?? new RemoteConfig();
+            _auth = auth;
             _http = transport ?? new UnityHttpTransport();
             _clock = clock ?? SystemClock.Instance;
-            Content = content ?? ContentDb.Default;
+            // Own content instance: the server's session flags (adsDisabled) are applied to it, never to ContentDb.Default.
+            Content = content ?? new ContentDb();
             Engine = new GameEngine(Content) { Cloner = ClientJson.Clone };
             Guilds = new RemoteGuildApi(this);
         }
@@ -70,15 +86,33 @@ namespace RogueStars.Client.Services
                     PlayerId = (string)json["playerId"] ?? PlayerId;
                     AllowedCommands.Clear();
                     if (json["commands"] is JArray cmds) foreach (var c in cmds) AllowedCommands.Add((string)c);
+                    // Global ads-disabled mode of the server (Ads:Mode=disabled): every placement is instant for everyone.
+                    Content.Shop.AdsDisabled = json.Value<bool?>("adsDisabled") ?? false;
+                    // Payments on hold (Iap:Mode=disabled): real-money products are shown as "coming soon".
+                    PurchasesDisabled = json.Value<bool?>("purchasesDisabled") ?? false;
                     ApplyState(json);
                     done?.Invoke(_state != null ? ServiceResult.Success() : ServiceResult.Fail("session_without_state"));
                 });
             });
         }
 
-        private void Authenticate(Action<ServiceResult> done)
+        private bool TokenUsable => _token != null && (_tokenExpiresMs <= 0 || _clock.NowMs < _tokenExpiresMs - TokenRefreshMarginMs);
+
+        private void Authenticate(Action<ServiceResult> done, bool forceRefresh = false)
         {
-            if (_token != null) { done(ServiceResult.Success()); return; }
+            if (!forceRefresh && TokenUsable) { done(ServiceResult.Success()); return; }
+            if (_auth != null)
+            {
+                _auth.GetToken(forceRefresh, r =>
+                {
+                    if (!r.Ok) { done(ServiceResult.Fail(r.Error ?? "auth_failed")); return; }
+                    _token = r.Value.Token;
+                    _tokenExpiresMs = r.Value.ExpiresAtMs;
+                    if (!string.IsNullOrEmpty(r.Value.PlayerId)) PlayerId = r.Value.PlayerId;
+                    done(ServiceResult.Success());
+                });
+                return;
+            }
             Call("POST", "/v1/auth/dev", new JObject { ["deviceId"] = _config.DeviceId }, (json, err) =>
             {
                 if (err != null) { done(ServiceResult.Fail(err)); return; }
@@ -167,6 +201,12 @@ namespace RogueStars.Client.Services
         public void AdCredits(Action<ServiceResult<List<AdCreditInfo>>> done) =>
             Get("/v1/ads/credits", json => ((JArray)json["credits"] ?? new JArray()).ToObject<List<AdCreditInfo>>(ClientJson.WireSerializer), done);
 
+        public void InstantAd(string placementId, Action<CommandResult> done)
+        {
+            var body = new JObject { ["placementId"] = placementId, ["requestId"] = Guid.NewGuid().ToString("N") };
+            Call("POST", "/v1/ads/instant", body, (json, err) => done?.Invoke(MapCommand(json, err)));
+        }
+
         public void SimulateAdCallback(string placementId, string eventId, Action<ServiceResult> done)
         {
             string path = "/v1/ads/ssv?user_id=" + Uri.EscapeDataString(PlayerId ?? "") + "&event_id=" + Uri.EscapeDataString(eventId) +
@@ -228,14 +268,15 @@ namespace RogueStars.Client.Services
         /// <summary>
         /// Sends a request and parses the JSON object body. err is non-null for network errors, HTTP ≥ 400
         /// (the body's "error" code) and 200 bodies with ok:false (rule rejections).
-        /// A 401 drops the token, re-authenticates once and retries.
+        /// A missing or (nearly) expired token is renewed first; a 401 drops the token, re-authenticates once (forcing a
+        /// fresh ID token) and retries.
         /// </summary>
         internal void Call(string method, string path, JObject body, Action<JObject, string> done, bool auth = true, bool retried = false)
         {
             var req = new HttpRequest { Method = method, Url = _config.BaseUrl.TrimEnd('/') + path, Body = body?.ToString(Formatting.None) };
             if (auth)
             {
-                if (_token == null && !retried)
+                if (!TokenUsable && !retried)
                 {
                     Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true); else done(null, a.Error); });
                     return;
@@ -254,7 +295,7 @@ namespace RogueStars.Client.Services
                 if (resp.Status == 401 && auth && !retried)
                 {
                     _token = null;
-                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true); else done(json, a.Error); });
+                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true); else done(json, a.Error); }, forceRefresh: true);
                     return;
                 }
                 if (resp.Status >= 400) { done(json, (json != null ? (string)json["error"] : null) ?? "http_" + resp.Status); return; }

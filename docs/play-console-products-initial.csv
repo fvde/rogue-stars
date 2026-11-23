@@ -1,0 +1,5 @@
+product_id,type,price_usd,title,description,rules_product_id,rules_kind
+rs.diamonds_60,consumable,0.99,60 Diamonds,60 Diamonds (double on first purchase),diamonds_60,DiamondPack
+rs.starter_worm,non_consumable,0.99,Wriggle Starter,Wriggle Starter,starter_worm,StarterPack
+rs.perm_daily_diamonds,non_consumable,9.99,Daily Diamonds Forever,Daily Diamonds Forever,perm_daily_diamonds,Permanent
+rs.monthly_pass,consumable,4.99,Monthly Pass,"30 days of daily Diamonds, battle speed x3 and bonuses",monthly_pass,MonthlyPass

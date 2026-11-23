@@ -5,7 +5,8 @@
         "RogueStars.Client",
         "RogueStars.Rules",
         "UnityEngine.UI",
-        "MaxSdk.Scripts.IntegrationManager.Editor"
+        "MaxSdk.Scripts.IntegrationManager.Editor",
+        "Google.Play.Games"
     ],
     "includePlatforms": [
         "Editor"
