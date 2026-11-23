@@ -66,7 +66,7 @@ All `/v1/*` endpoints except `/v1/auth/dev` and `/v1/ads/ssv` need the bearer to
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/v1/auth/dev` | `{ deviceId }` | `{ token, playerId }` (dev mode only) |
-| POST | `/v1/session` | `{ displayName? }` | `{ ok, playerId, created, serverTimeMs, version, state, commands[] }` — creates the player with `engine.NewPlayer` and a server-chosen seed, else loads; `state` is settled; `commands` lists client-allowed command names |
+| POST | `/v1/session` | `{ displayName? }` | `{ ok, playerId, created, serverTimeMs, version, state, commands[], adsDisabled, purchasesDisabled, devTools }` — creates the player with `engine.NewPlayer` and a server-chosen seed, else loads; `state` is settled; `commands` lists client-allowed command names; `devTools` = this player may use the dev tools (below) |
 | GET | `/v1/state` | – | `{ ok, serverTimeMs, version, state }` (settled, not persisted) |
 | POST | `/v1/command` | `{ type, requestId?, args?, expectedVersion? }` | `{ ok, error, events[], payload, version, replayed, state }` |
 
@@ -233,6 +233,44 @@ rules, so the player's contribution for the Observatory's calendar entry and the
 `Invasions:TopRewards` to the top `TopContributors` (3) with damage > 0. Progress is stored per member, so the job
 is resumable; the invasion is marked resolved only when every member got the outcome.
 
+### Dev tools (owner only)
+Owner tools for normal Play builds against any server, production included (client: Settings → Developer, docs/client.md).
+Code: `DevTools/DevTools.cs`; the bot is `shared/RogueStars.Sim.Core` (the simulator's `SimPlayer`, shared with
+`tools/RogueStars.Sim` and the offline client).
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/v1/dev/reset` | – | `{ ok, day: 1, profile: null, mainLevel, wormLevel, power, createdMs, serverTimeMs, version, state }` — a brand-new player (`engine.NewPlayer`, account created now, starter kit, new seed) |
+| POST | `/v1/dev/jump` | `{ day (1–60), profile (casual/active/hardcore, default active), seed? }` | `{ ok, day, profile, seed, mainLevel, wormLevel, power, commands, elapsedMs, createdMs, serverTimeMs, version, state }`; `400 invalid_day` / `unknown_profile`; `429 dev_tools_busy` (one jump per instance at a time, 30 s queue) |
+
+- **Access control (server-authoritative):** every `/v1/dev/*` call checks the caller's player id (= Firebase uid)
+  against `RogueStars:DevTools:AllowedPlayerIds` (env `RogueStars__DevTools__AllowedPlayerIds__<n>`, Terraform
+  `dev_tools_player_ids`, default empty; an entry may hold several ids separated by commas). Anyone else: `403
+  dev_tools_forbidden` and a warning in the log (`Dev tools refused: <action> by <player>`). `RogueStars:DevTools:AllowAll`
+  opens them to everyone for local/dev servers (`appsettings.Development.json`); **the server refuses to start with it in
+  Production**. `/v1/session` returns `devTools` so the client shows the card only then; the client flag is cosmetic, the
+  check is on the server.
+- **What is replaced:** the caller's `players/{uid}` record only, compare-and-set like a command (retried on concurrent
+  writes). Kept: player id, display name; `version` = old version + 1 (other clients of the player see a newer version and
+  resync; a pinned `expectedVersion` gets `409`); the request log is cleared (old request ids execute again). Cross-player
+  records stay as they are (guild membership, arena group/snapshot, invasion groups, mail outbox, IAP/ad claims); the rules'
+  guild membership is re-applied from `guild_members` (`GuildSetMembership`; refused while Guilds is still locked for the new
+  state, then the rules state has no guild).
+- **Jump = the simulator's bot** (`AccountAgeJump.Run`): a fresh F2P account created at the daily reset (00:00 UTC) `day −
+  1` days before now, played by `SimPlayer` with the chosen time profile through the real rules (runs, city, aliens, lab,
+  parts, gacha, quests, login, arena via `ArenaStartFight`/`ArenaFightResult` against a snapshot ladder, invasions with
+  their outcomes, tutorial steps, unlock celebrations) on the server's own content (ads-disabled flag included). Every past
+  day is played in full, today only the sessions that ended (+30 min margin) before now, then the state is settled at now:
+  unlocks carry their real days (≤ N), timers/research/breeding started in the past and end within days, stamina and
+  regen are settled to now, daily/weekly resets and the live-ops calendar are the real ones; invasion occurrences still
+  running now get no simulated attempts (the server's own instances take over). The profiles are the simulator's
+  (`Casual` 2 × 7.5 min/day, `Active` 4 × 15 min, `Hardcore` 7 × ~26 min); spending is F2P. Deterministic: same day,
+  profile, seed, player id and clock → the same state (the response returns the seed). Typical results at day 60: casual
+  main level ~44, active ~60, hardcore ~72.
+- **Cost:** one CPU, measured on an M2 Pro (single thread, warm JIT): day 60 casual ~0.5 s, active ~1.3–2 s, hardcore
+  ~1.6–2 s (90k commands); expect roughly 2× on a Cloud Run vCPU plus JIT on a cold instance. The client waits up to
+  120 s. Sim CLI benchmark: `dotnet run --project tools/RogueStars.Sim -c Release -- --age-jump --days 60`.
+
 ### Jobs and health
 | Method | Path | Notes |
 |---|---|---|
@@ -240,7 +278,7 @@ is resumable; the invasion is marked resolved only when every member got the out
 | POST | `/internal/jobs/weekly-arena?week=` | see Arena |
 | POST | `/internal/jobs/invasion-start` | materialises active calendar invasion occurrences (`{ created[], active[] }`); every 5 min |
 | POST | `/internal/jobs/invasion-resolve` | see Invasions |
-| GET | `/health` (public) and `/healthz` | `{ status, version, auth, store, ads, iap, iapProducts }`, anonymous. Cloud Run's front end reserves paths ending in `z`, so `/healthz` is a 404 from outside; Terraform probes and smoke tests use `/health` |
+| GET | `/health` (public) and `/healthz` | `{ status, version, auth, store, ads, iap, iapProducts, devTools }` (`devTools` = number of allowed players or `all`, never the ids), anonymous. Cloud Run's front end reserves paths ending in `z`, so `/healthz` is a 404 from outside; Terraform probes and smoke tests use `/health` |
 
 ## Storage
 - `IPlayerStore`: `InMemoryPlayerStore` / `FirestorePlayerStore` — `players/{uid}` = `{ state: json, requests: json,
@@ -294,6 +332,8 @@ Section `RogueStars`, env syntax `RogueStars__<Group>__<Key>`:
 | `RogueStars__Ads__Verification` / `AllowedAdUnitIds__<n>` / `CreditTtlHours` | `event_token` / any / 24 | |
 | `RogueStars__Commands__*` | hook names above, deny/allow lists | |
 | `RogueStars__Arena__*`, `RogueStars__Guilds__*`, `RogueStars__Invasions__*` | tuning (see `ServerOptions.cs`) | |
+| `RogueStars__DevTools__AllowedPlayerIds__<n>` | – (nobody; Terraform `dev_tools_player_ids`) | |
+| `RogueStars__DevTools__AllowAll` | `false` (startup fails if `true` in Production) | `true` |
 | `PORT` | 8080 (Cloud Run) | |
 
 Logs: outside Development, one JSON object per line with `severity`/`message` (Cloud Logging format) plus the

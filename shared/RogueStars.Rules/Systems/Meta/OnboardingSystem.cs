@@ -244,8 +244,28 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Unlock groups in onboarding order (each group's members in order).</summary>
+        /// <summary>
+        /// Unlock groups in onboarding order (each group's members in order). Cached per content (the onboarding settler
+        /// runs on every command) and shared: do not modify the lists.
+        /// </summary>
         public static List<List<FeatureDef>> Groups(ContentDb content)
+        {
+            if (GroupCache.TryGetValue(content, out var cached) && cached.Count == content.FeatureOrder.Count) return cached.Groups;
+            var groups = BuildGroups(content);
+            GroupCache.AddOrUpdate(content, new CachedGroups { Count = content.FeatureOrder.Count, Groups = groups });
+            return groups;
+        }
+
+        private sealed class CachedGroups
+        {
+            public int Count;
+            public List<List<FeatureDef>> Groups;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, CachedGroups> GroupCache =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, CachedGroups>();
+
+        private static List<List<FeatureDef>> BuildGroups(ContentDb content)
         {
             var groups = new List<List<FeatureDef>>();
             var index = new Dictionary<string, List<FeatureDef>>();

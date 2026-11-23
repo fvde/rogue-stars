@@ -129,3 +129,14 @@ variable "play_credentials_in_secret" {
   type        = bool
   default     = false
 }
+
+variable "dev_tools_player_ids" {
+  description = "Player ids (Firebase uids) allowed to use the owner dev tools (reset progress, jump to account day N) on this server. Empty = nobody. See docs/setup.md."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for id in var.dev_tools_player_ids : can(regex("^[A-Za-z0-9_-]{1,128}$", id))])
+    error_message = "dev_tools_player_ids entries must be Firebase uids (letters, digits, _ or -)."
+  }
+}

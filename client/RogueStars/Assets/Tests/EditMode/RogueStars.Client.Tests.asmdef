@@ -4,6 +4,7 @@
     "references": [
         "RogueStars.Client",
         "RogueStars.Rules",
+        "RogueStars.Sim.Core",
         "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

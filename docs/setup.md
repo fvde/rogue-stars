@@ -269,3 +269,26 @@ permission (harmless), so products can be created as soon as the profile exists.
    build the client with `ROGUESTARS_STORE=unity_iap`. `/health` then reports `"iap":"google"`.
 7. IAP end to end: install the internal-testing build as a license tester, buy `60 Diamonds` with a test card; Cloud Run
    logs show `Purchase diamonds_60 order GPA.… : True (test True)`; Play Console → Order management shows it consumed.
+
+## 15. Owner dev tools (reset progress, jump to account day N)
+The Play build has a **Settings → Developer** card for the owner: *Reset progress…* (a brand-new day-1 player) and
+*Jump to day…* (a realistic account on day 1–60 played as a casual, active or hardcore player). It works against the
+production server, but only for the Firebase uids listed in Terraform `dev_tools_player_ids` (default empty = nobody);
+everyone else never sees the card and gets `403` from `/v1/dev/*` (docs/server.md → *Dev tools*). It replaces **your own
+account's** progress (same player id); there is no undo.
+
+1. Find your uid: on the phone, Settings → Account shows "Player id …" (= Firebase uid). Or Firebase console →
+   Authentication → Users (the "User UID" column of your Play Games / anonymous user).
+2. Add it to `infra/terraform/prod.tfvars` (git-ignored):
+   ```hcl
+   dev_tools_player_ids = ["<your-firebase-uid>"]   # several: ["uid1", "uid2"]
+   ```
+3. Apply (same image tag as running, only the env changes):
+   ```bash
+   cd infra/terraform
+   terraform plan  -var-file=prod.tfvars -var image_tag=<current tag> -out=plan.out   # shows RogueStars__DevTools__AllowedPlayerIds__0
+   terraform apply plan.out
+   curl -s https://rogue-stars-server-t72a3eykvq-ew.a.run.app/health   # "devTools":"1" (the count, never the ids)
+   ```
+4. In the app: Settings → *Save & reconnect* (or restart); the Developer card appears. Remove the uid and apply again to
+   revoke. Never set `RogueStars__DevTools__AllowAll` in production: the server refuses to start with it.

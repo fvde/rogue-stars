@@ -3,7 +3,9 @@
 Unity 6.6 (6000.6.10f1) project in `client/RogueStars`, Android (IL2CPP, ARM64, portrait). All UI is uGUI
 built from code at runtime from one bootstrap scene; no art assets (rounded shapes are generated at runtime, one
 font asset). The shared rules (`shared/RogueStars.Rules`) are
-referenced as the local UPM package `com.roguestars.rules` and compile into `RogueStars.Rules.dll`.
+referenced as the local UPM package `com.roguestars.rules` and compile into `RogueStars.Rules.dll`; the simulator's bot
+(`shared/RogueStars.Sim.Core`, local package `com.roguestars.simcore`, assembly `RogueStars.Sim.Core`) runs the offline
+*Jump to day* dev tool.
 
 ## Layout
 | Path | Assembly | What |
@@ -41,8 +43,9 @@ AppBootstrap (only object in Main.unity)
   (PascalCase fields like the server's storage format, collections replaced on load, atomic tmp-file write).
   `[ServerOnly]` commands run locally only here: purchases complete with `PurchaseComplete { ReceiptId = "dev:<token>" }`,
   arena fights run against local bots (`ArenaStartFight` + `ArenaFightResult`, power comparison) and invasion attacks
-  roll local damage (`InvasionStartAttempt` + `InvasionRecordDamage`). Dev cheats (Settings): starter kit,
-  unlock-all flag, reset save. Time-based state is settled every 5 s.
+  roll local damage (`InvasionStartAttempt` + `InvasionRecordDamage`). Dev tools (Settings → Developer, always offline):
+  reset progress, jump to day N (`DevReset`/`DevJump`), unlock-all flag; `DevGrantStarterKit` for tests. Time-based state is
+  settled every 5 s.
 - **Auth** (`Services/Auth/`): online sessions get their bearer token from an `IAuthProvider`. `ServerConfig.AuthMode`
   `firebase` (release builds: `BuildAndroid` sets it together with `ROGUESTARS_SERVER_URL`) → `FirebaseAuthProvider` on the
   **Firebase Unity SDK 14.2.0 (Auth module only)**: no user yet → Google Play Games v2 (`PlayGamesPlatform.Instance.Authenticate`
@@ -56,7 +59,8 @@ AppBootstrap (only object in Main.unity)
   editor) → dev auth below; the production server refuses it.
 - **`RemoteGameService`** (online, docs/server.md): bearer token from the auth provider, or dev auth
   `POST /v1/auth/dev {deviceId}`; `POST /v1/session`
-  → state + server time offset + allowed commands + `adsDisabled`; `POST /v1/command {type, requestId, args, expectedVersion?}`
+  → state + server time offset + allowed commands + `adsDisabled` + `devTools` (`DevToolsAvailable`: the Developer card and
+  `IGameService.DevTools` = `POST /v1/dev/reset|jump`, 120 s timeout); `POST /v1/command {type, requestId, args, expectedVersion?}`
   (args = the command's fields in camelCase, enums as numbers, dictionary keys untouched); every response with
   `state` replaces the local copy; `GET /v1/state` every 30 s. `[ServerOnly]` commands are refused locally with
   `server_only_command`. A `401` re-authenticates once and retries. Arena (`/v1/arena/*`), invasions
@@ -161,7 +165,19 @@ AppBootstrap (only object in Main.unity)
 | Mail | – | inbox, open/read, claim, claim all, delete |
 | Arena | `arena` | league/points/tickets/Arena Medals, opponents + fight result modal, weekly leaderboard, **medal shop** (`ShopBuyItem`, section `arena`: Awaken Core 200 medals 2/week first, part tokens, Data, Gear Cores; bought n/limit this week, reset countdown, "Sold out"); the Diamond shop no longer lists arena/guild items |
 | Guild | `guilds` | online only (offline shows "requires online"): create/search/join, members by weekly invasion damage, chat, guild shop, leave |
-| Settings | – | offline/online, server URL, display name, run auto mode "Auto-pick drafts (farming)" toggle, reset save, dev cheats (unlock all features) |
+| Settings | – | offline/online, server URL, display name, account, run auto mode "Auto-pick drafts (farming)" toggle, **Developer** card (below) |
+
+**Developer card** (Settings, `SettingsScreen.DeveloperCard`): owner dev tools through `IGameService.DevTools`, which is
+non-null offline (always) and online only when the server's session said `devTools: true` (the player's Firebase uid is in
+the server's `dev_tools_player_ids` allowlist, docs/setup.md step 15; the server checks every call, docs/server.md → Dev tools).
+- *Reset progress…* → confirm modal → a brand-new player (day 1, starter kit; same player id and name, version + 1).
+- *Jump to day…* → modal: day 1–60 with −7/−1/+1/+7 steps (clamped, default 7), profile tabs Casual (~15 min/day), Active
+  (~1 h/day, default), Hardcore (~3 h/day) → the simulator's bot plays a fresh account up to that day (offline: on device,
+  synchronously — a 60-day hardcore account takes a few seconds; online: `POST /v1/dev/jump`).
+- Afterwards the app reloads (`App.Start` on the same service: `/v1/session` online, the save offline) and lands on the hub;
+  toast `DevToolsOutcome.Summary`, e.g. "Day 14 · active player · level 33" / "Progress reset · day 1"; failures toast
+  "Dev tools: …" and change nothing.
+- Offline only, in the same card: the save path and *Unlock all features (dev)* (the rules' dev-unlock flag).
 
 **Adding a screen:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and add a `ScreenEntry` (with its feature
 gate) to `ScreenCatalog.All` (`Todo(...)` creates a placeholder). The hub lists it under "More" once unlocked unless
@@ -207,7 +223,7 @@ upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise 
 checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 114 tests):
+EditMode (`Assets/Tests/EditMode`, 120 tests):
 - `HubOnboardingTests`: the day-1 hub of a brand-new account (only PLAY, the Planet tab, the teaser "Parts — clear level 1",
   the stamina and profile chips; nothing greyed out), level 1 cleared for real → unlock moment (name, description,
   +20 Diamonds, one action "EQUIP YOUR PARTS") claims the gift and opens the Worm, back = hub with the Worm tab (NEW) and
@@ -235,6 +251,11 @@ EditMode (`Assets/Tests/EditMode`, 114 tests):
   keeping the uid, link to an existing Play Games player switches accounts, JWT `exp`; online: the Firebase ID token is the
   bearer (never dev auth), reused while valid, renewed a minute before expiry, force-refreshed once after a 401, sign-in
   failure = connection error; dev auth in the editor.
+- `DevToolsCardTests`: the Developer card offline (always, with the unlock-all cheat) and online (only with the server's
+  `devTools` flag, never the offline cheats); offline reset (confirm modal, cancel changes nothing, day-1 player on the hub,
+  saved, toast) and jump (day steps clamped to 1–60, profile tabs, account day and creation time of `AccountAgeJump`, hub,
+  toast "Day 4 · casual player · level n"); online jump/reset against a fake server (request body, 120 s timeout, state
+  applied, session reloaded, toast) and a 403 (error toast, state unchanged).
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,

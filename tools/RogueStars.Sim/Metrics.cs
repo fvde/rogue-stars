@@ -4,17 +4,6 @@ using RogueStars.Rules.Systems;
 
 namespace RogueStars.Sim;
 
-public static class SimContent
-{
-    /// <summary>Default content in offline mode (dev receipts accepted: purchases go through PurchaseComplete).</summary>
-    public static ContentDb Create()
-    {
-        var c = new ContentDb();
-        c.Shop.AllowDevReceipts = true;
-        return c;
-    }
-}
-
 /// <summary>"Meaningful upgrade" events per system, read from the rules' own counters (docs/design/counters.md).</summary>
 public static class SystemEvents
 {

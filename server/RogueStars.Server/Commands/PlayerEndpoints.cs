@@ -61,7 +61,7 @@ public static class PlayerEndpoints
         }
 
         v1.MapPost("/session", async (HttpContext http, SessionRequest? req, PlayerService players, CommandCatalog catalog, Clock clock,
-            GameEngine engine, CancellationToken ct) =>
+            GameEngine engine, DevTools.DevToolsService devTools, CancellationToken ct) =>
         {
             var (record, created) = await players.LoadOrCreateAsync(http.PlayerId(), req?.DisplayName, ct);
             var state = record.State;
@@ -80,6 +80,8 @@ public static class PlayerEndpoints
                 adsDisabled = engine.Content.Shop.AdsDisabled,
                 // Iap:Mode=disabled: real-money products are shown as "coming soon" (Diamond-priced items keep working).
                 purchasesDisabled = options.Iap.IsDisabled,
+                // Owner dev tools (/v1/dev/*) for this player: the client shows Settings → Developer only then.
+                devTools = devTools.IsAllowed(state.PlayerId),
             });
         });
 

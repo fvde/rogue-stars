@@ -25,6 +25,8 @@ if (options.Auth.Mode == "dev" && builder.Environment.IsProduction())
     throw new InvalidOperationException("Dev auth must never run in Production (RogueStars__Auth__Mode=dev).");
 if (options.Jobs.Mode == "secret" && builder.Environment.IsProduction())
     throw new InvalidOperationException("Shared-secret job auth must not run in Production; use oidc.");
+if (options.DevTools.AllowAll && builder.Environment.IsProduction())
+    throw new InvalidOperationException("Dev tools for everyone (RogueStars__DevTools__AllowAll) must never run in Production; list the owner ids in RogueStars__DevTools__AllowedPlayerIds.");
 
 // Logging: structured JSON for Cloud Logging outside Development.
 if (!builder.Environment.IsDevelopment())
@@ -96,6 +98,7 @@ builder.Services.AddSingleton<ArenaService>();
 builder.Services.AddSingleton<IChatFilter, WordListChatFilter>();
 builder.Services.AddSingleton<GuildService>();
 builder.Services.AddSingleton<InvasionService>();
+builder.Services.AddSingleton<RogueStars.Server.DevTools.DevToolsService>();
 
 var app = builder.Build();
 
@@ -115,6 +118,8 @@ static IResult Health(IOptions<ServerOptions> o) => Results.Ok(new
     ads = o.Value.Ads.Mode,
     iap = o.Value.Iap.Mode,
     iapProducts = o.Value.Iap.ProductSet,
+    // How many players may use the dev tools ("all" on dev servers); never the ids themselves.
+    devTools = o.Value.DevTools.AllowAll ? "all" : o.Value.DevTools.Ids().Count().ToString(System.Globalization.CultureInfo.InvariantCulture),
 });
 
 var v1 = app.MapGroup("/v1").AddEndpointFilter<PlayerAuthFilter>();
@@ -123,6 +128,7 @@ PaymentEndpoints.Map(v1, app);
 FeatureEndpoints.MapArena(v1);
 FeatureEndpoints.MapGuilds(v1);
 FeatureEndpoints.MapInvasions(v1);
+RogueStars.Server.DevTools.DevToolsEndpoints.Map(v1);
 FeatureEndpoints.MapInternal(app);
 
 app.Logger.LogInformation("Rogue Stars server starting (auth={Auth}, store={Store}, ads={Ads}, iap={Iap}, env={Env})",

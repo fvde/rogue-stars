@@ -57,6 +57,10 @@ namespace RogueStars.Client.Services
         public readonly List<string> AllowedCommands = new List<string>();
         public IGuildApi Guilds { get; }
         public RemoteConfig Config => _config;
+        /// <summary>The server's session flag: this player may use the dev tools (/v1/dev/*).</summary>
+        public bool DevToolsAvailable { get; private set; }
+        public IDevTools DevTools => DevToolsAvailable ? _devTools : null;
+        private readonly IDevTools _devTools;
 
         public event Action StateChanged;
 
@@ -71,6 +75,7 @@ namespace RogueStars.Client.Services
             Content = content ?? new ContentDb();
             Engine = new GameEngine(Content) { Cloner = ClientJson.Clone };
             Guilds = new RemoteGuildApi(this);
+            _devTools = new RemoteDevTools(this);
         }
 
         // ---- lifecycle --------------------------------------------------------------------------
@@ -90,6 +95,8 @@ namespace RogueStars.Client.Services
                     Content.Shop.AdsDisabled = json.Value<bool?>("adsDisabled") ?? false;
                     // Payments on hold (Iap:Mode=disabled): real-money products are shown as "coming soon".
                     PurchasesDisabled = json.Value<bool?>("purchasesDisabled") ?? false;
+                    // Owner dev tools (server allowlist, docs/server.md): Settings shows the Developer card only then.
+                    DevToolsAvailable = json.Value<bool?>("devTools") ?? false;
                     ApplyState(json);
                     done?.Invoke(_state != null ? ServiceResult.Success() : ServiceResult.Fail("session_without_state"));
                 });
@@ -271,14 +278,18 @@ namespace RogueStars.Client.Services
         /// A missing or (nearly) expired token is renewed first; a 401 drops the token, re-authenticates once (forcing a
         /// fresh ID token) and retries.
         /// </summary>
-        internal void Call(string method, string path, JObject body, Action<JObject, string> done, bool auth = true, bool retried = false)
+        internal void Call(string method, string path, JObject body, Action<JObject, string> done, bool auth = true, bool retried = false,
+            int timeoutSeconds = 0)
         {
-            var req = new HttpRequest { Method = method, Url = _config.BaseUrl.TrimEnd('/') + path, Body = body?.ToString(Formatting.None) };
+            var req = new HttpRequest
+            {
+                Method = method, Url = _config.BaseUrl.TrimEnd('/') + path, Body = body?.ToString(Formatting.None), TimeoutSeconds = timeoutSeconds,
+            };
             if (auth)
             {
                 if (!TokenUsable && !retried)
                 {
-                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true); else done(null, a.Error); });
+                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true, timeoutSeconds); else done(null, a.Error); });
                     return;
                 }
                 req.Headers["Authorization"] = "Bearer " + _token;
@@ -295,7 +306,7 @@ namespace RogueStars.Client.Services
                 if (resp.Status == 401 && auth && !retried)
                 {
                     _token = null;
-                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true); else done(json, a.Error); }, forceRefresh: true);
+                    Authenticate(a => { if (a.Ok) Call(method, path, body, done, true, true, timeoutSeconds); else done(json, a.Error); }, forceRefresh: true);
                     return;
                 }
                 if (resp.Status >= 400) { done(json, (json != null ? (string)json["error"] : null) ?? "http_" + resp.Status); return; }
@@ -303,6 +314,33 @@ namespace RogueStars.Client.Services
                 if (json.Value<bool?>("ok") == false) { done(json, (string)json["error"] ?? "rejected"); return; }
                 done(json, null);
             });
+        }
+
+        // ---- dev tools --------------------------------------------------------------------------
+
+        /// <summary>A 60-day jump simulates a few seconds on the server (plus a cold start): longer than the default timeout.</summary>
+        public const int DevToolsTimeoutSeconds = 120;
+
+        private sealed class RemoteDevTools : IDevTools
+        {
+            private readonly RemoteGameService _s;
+            public RemoteDevTools(RemoteGameService s) { _s = s; }
+
+            public void Reset(Action<ServiceResult<DevToolsOutcome>> done) => Post("/v1/dev/reset", new JObject(), done);
+
+            public void Jump(int day, string profile, Action<ServiceResult<DevToolsOutcome>> done) =>
+                Post("/v1/dev/jump", new JObject { ["day"] = day, ["profile"] = profile }, done);
+
+            private void Post(string path, JObject body, Action<ServiceResult<DevToolsOutcome>> done) =>
+                _s.Call("POST", path, body, (json, err) =>
+                {
+                    if (err != null) { done(ServiceResult<DevToolsOutcome>.Fail(err)); return; }
+                    DevToolsOutcome outcome;
+                    try { outcome = json.ToObject<DevToolsOutcome>(ClientJson.WireSerializer); }
+                    catch (Exception ex) { done(ServiceResult<DevToolsOutcome>.Fail("bad_response: " + ex.Message)); return; }
+                    _s.ApplyState(json);
+                    done(ServiceResult<DevToolsOutcome>.Success(outcome));
+                }, timeoutSeconds: DevToolsTimeoutSeconds);
         }
 
         // ---- guilds -----------------------------------------------------------------------------

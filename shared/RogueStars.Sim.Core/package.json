@@ -1,0 +1,7 @@
+{
+  "name": "com.roguestars.simcore",
+  "version": "0.1.0",
+  "displayName": "Rogue Stars Sim Core",
+  "description": "The simulator's bot player (profiles + SimPlayer) on the shared rules; used by the offline dev tools (jump to account day).",
+  "unity": "6000.0"
+}

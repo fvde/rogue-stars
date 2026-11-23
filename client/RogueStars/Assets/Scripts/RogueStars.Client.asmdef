@@ -3,6 +3,7 @@
     "rootNamespace": "RogueStars.Client",
     "references": [
         "RogueStars.Rules",
+        "RogueStars.Sim.Core",
         "UnityEngine.UI",
         "Unity.Purchasing",
         "MaxSdk.Scripts",

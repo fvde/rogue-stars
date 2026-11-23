@@ -240,6 +240,15 @@ resource "google_cloud_run_v2_service" "server" {
         }
       }
 
+      # Owner dev tools (docs/server.md → Dev tools): only these Firebase uids may call /v1/dev/*.
+      dynamic "env" {
+        for_each = { for i, id in var.dev_tools_player_ids : "RogueStars__DevTools__AllowedPlayerIds__${i}" => id }
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
       dynamic "env" {
         for_each = merge(
           var.secrets_populated && var.ads_mode == "applovin" ? { "RogueStars__Ads__EventKey" = "ads_ssv_key" } : {},

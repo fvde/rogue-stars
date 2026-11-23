@@ -81,6 +81,37 @@ public class ProductionConfigTests : IDisposable
     }
 
     [Fact]
+    public async Task DevTools_OnlyForAllowlistedFirebaseUids()
+    {
+        _app.Settings["RogueStars:DevTools:AllowedPlayerIds:0"] = "owner-uid";
+        var http = _app.CreateClient();
+        Assert.Equal("1", (await http.GetFromJsonAsync<JsonElement>("/health")).GetProperty("devTools").GetString());
+
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(Project, "player-uid"));
+        var session = await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/session", new { displayName = "P" }));
+        Assert.False(session.Body.GetProperty("devTools").GetBoolean());
+        var denied = await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/dev/reset", new { }));
+        Assert.Equal(403, denied.Status);
+        Assert.Equal("dev_tools_forbidden", denied.Body.GetProperty("error").GetString());
+        Assert.Equal(403, (int)(await http.PostAsJsonAsync("/v1/dev/jump", new { day = 3, profile = "casual" })).StatusCode);
+
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(Project, "owner-uid"));
+        session = await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/session", new { displayName = "Owner" }));
+        Assert.True(session.Body.GetProperty("devTools").GetBoolean());
+        var jump = await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/dev/jump", new { day = 3, profile = "casual", seed = 5 }));
+        Assert.Equal(200, jump.Status);
+        Assert.Equal("owner-uid", jump.Body.GetProperty("state").GetProperty("playerId").GetString());
+        Assert.Equal(200, (await PlayerClient.ReadWithStatus(await http.PostAsJsonAsync("/v1/dev/reset", new { }))).Status);
+    }
+
+    [Fact]
+    public void DevToolsForEveryone_AreRefusedAtStartupInProduction()
+    {
+        _app.Settings["RogueStars:DevTools:AllowAll"] = "true";
+        Assert.ThrowsAny<Exception>(() => _app.CreateClient());
+    }
+
+    [Fact]
     public void DevAuth_IsRefusedAtStartupInProduction()
     {
         using var app = new TestApp { Environment = "Production" };

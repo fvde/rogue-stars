@@ -12,3 +12,4 @@ ads_mode                   = "disabled" # no AppLovin for now
 ads_verification           = "event_token"
 ads_allowed_ad_unit_ids    = []
 play_credentials_in_secret = false
+dev_tools_player_ids       = [] # Firebase uids allowed to use the owner dev tools (docs/setup.md)

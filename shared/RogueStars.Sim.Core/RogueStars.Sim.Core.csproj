@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The simulator's bot player (SimPlayer + time/spend profiles), shared by the balance simulator (tools/RogueStars.Sim),
+    the server's dev tools and the Unity client's offline dev tools (account-age jump, docs/server.md). Plays the real
+    rules engine; no I/O. Imported by Unity as a local UPM package like the rules: netstandard2.1, C# 9.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>RogueStars.Sim</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RogueStars.Rules\RogueStars.Rules.csproj" />
+  </ItemGroup>
+</Project>
