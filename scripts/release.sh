@@ -82,6 +82,8 @@ if [[ $SKIP_BUILD == 0 ]]; then
   set -e
   scrub "$PASS"
   unset PASS
+  # The build stamps version and keystore fields into ProjectSettings; keep the committed file.
+  git checkout -- client/RogueStars/ProjectSettings/ProjectSettings.asset
   grep '\[BuildAndroid\]' "$LOG" | tail -3 || true
   [[ $BUILD_RC == 0 && -f $AAB ]] || die "build failed (log: $LOG)"
   grep -q 'signed True' "$LOG" || die "AAB is not release-signed (log: $LOG)"
