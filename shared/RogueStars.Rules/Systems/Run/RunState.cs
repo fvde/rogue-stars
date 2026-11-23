@@ -93,7 +93,7 @@ namespace RogueStars.Rules.Systems
         public double PosX, PosY;
         /// <summary>Path direction at this tile in degrees (0 = forward/up, + = to the right), for drawing the path and the worm.</summary>
         public double Dir;
-        /// <summary>Board segment the tile belongs to (−1: start tile / boss arena).</summary>
+        /// <summary>Board segment the tile belongs to (the start tile: 0, the boss arena: the worm's); −1 = no 2D layout (hand-built boards).</summary>
         public int Segment = -1;
         /// <summary>Extra enemy strength % on this tile (campfire light, boss actions).</summary>
         public double BonusPct;

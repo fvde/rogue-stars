@@ -41,6 +41,7 @@ namespace RogueStars.Rules.Systems
         {
             var b = new Board();
             var start = Add(b.Tiles, "start", 0, 0);
+            start.Segment = 0; // laid out (PosX/PosY 0,0): the board's 2D layout starts here
             b.MainPath.Add(start.Id);
             b.EndTile = start.Id;
             int n = Math.Max(1, content.RunTuning.InitialSegments);
@@ -173,6 +174,8 @@ namespace RogueStars.Rules.Systems
         // ---- 2D layout ------------------------------------------------------------------------------------------------
 
         private const double Deg = Math.PI / 180.0;
+        /// <summary>Degrees of heading toward a band edge allowed per tile unit of room left.</summary>
+        private const double BandSteer = 30;
         /// <summary>Layout positions are rounded to this (display only; keeps saved states tidy and platform-stable).</summary>
         private static double R(double v) => Math.Round(v, 3);
 
@@ -194,15 +197,15 @@ namespace RogueStars.Rules.Systems
             {
                 var piece = pieces[p];
                 bool forkSoon = false;
-                for (int q = p; q < pieces.Count && q <= p + 3; q++) if (pieces[q].ArmA != null) forkSoon = true;
+                for (int q = p; q < pieces.Count && q <= p + 5; q++) if (pieces[q].ArmA != null) forkSoon = true;
                 if (piece.ArmA == null)
                 {
                     double want = Target(kind, k, amp, period, side);
-                    if (forkSoon) want = Clamp(-x * 18, -35, 35);                 // centre before a fork: arms need room
-                    if (x > half && want > -30) want = -40;                         // keep to the band
-                    if (x < -half && want < 30) want = 40;
+                    if (forkSoon) want = Clamp(-x * 25, -35, 35);                 // centre before a fork: arms need room
                     want = Clamp(want, -maxHeading, maxHeading);
                     heading += Clamp(want - heading, -maxTurn, maxTurn);
+                    // keep to the band (portrait screen): the heading toward an edge shrinks with the room left
+                    heading = Clamp(heading, -Math.Max(0, half + x) * BandSteer, Math.Max(0, half - x) * BandSteer);
                     heading = Clamp(heading, -maxHeading, maxHeading);
                     x += Math.Sin(heading * Deg);
                     y += Math.Cos(heading * Deg);
@@ -212,10 +215,11 @@ namespace RogueStars.Rules.Systems
                 }
 
                 // Fork: chord from the fork tile to the join, leaning toward the middle of the band.
-                double chord = Clamp(heading * 0.5 - x * 12, -30, 30);
+                int nA0 = piece.ArmA.Count, nB0 = piece.ArmB.Count;
+                double chord = Clamp(Math.Atan2(-x, (Math.Max(nA0, nB0) + 1) * 0.85) / Deg, -30, 30); // the join lands mid-band
                 int nA = piece.ArmA.Count, nB = piece.ArmB.Count;
                 bool loop = style != null && style.SideLoops;
-                double len = (Math.Min(nA, nB) + 1) * (loop ? 0.9 : 0.8);
+                double len = (Math.Max(nA, nB) + 1) * 0.85; // the longer arm sets the chord: arms stay narrow
                 double cx = Math.Sin(chord * Deg), cy = Math.Cos(chord * Deg);   // along the chord
                 double px = cy, py = -cx;                                         // perpendicular (to the right)
                 if (loop)
@@ -224,13 +228,13 @@ namespace RogueStars.Rules.Systems
                     // out toward the middle of the band
                     bool aStraight = nA <= nB;
                     double outSide = x > 0 ? -1 : 1;
-                    ArmLayout(aStraight ? piece.ArmA : piece.ArmB, x, y, cx, cy, px, py, len, -outSide * Bulge(aStraight ? nA : nB, len, 0.5), chord);
-                    ArmLayout(aStraight ? piece.ArmB : piece.ArmA, x, y, cx, cy, px, py, len, outSide * Bulge(aStraight ? nB : nA, len, 1.6), chord);
+                    ArmLayout(aStraight ? piece.ArmA : piece.ArmB, x, y, cx, cy, px, py, len, -outSide * Bulge(aStraight ? nA : nB, len, 1.5), chord);
+                    ArmLayout(aStraight ? piece.ArmB : piece.ArmA, x, y, cx, cy, px, py, len, outSide * Bulge(aStraight ? nB : nA, len, 2.0), chord);
                 }
                 else
                 {
-                    ArmLayout(piece.ArmA, x, y, cx, cy, px, py, len, -Bulge(nA, len, 1.2), chord);
-                    ArmLayout(piece.ArmB, x, y, cx, cy, px, py, len, Bulge(nB, len, 1.2), chord);
+                    ArmLayout(piece.ArmA, x, y, cx, cy, px, py, len, -Bulge(nA, len, 1.8), chord);
+                    ArmLayout(piece.ArmB, x, y, cx, cy, px, py, len, Bulge(nB, len, 1.8), chord);
                 }
                 x += cx * len;
                 y += cy * len;
@@ -263,7 +267,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>Sideways bulge of an arm of n tiles over a chord of length len so the tiles are ~1 apart (at least min).</summary>
         private static double Bulge(int n, double len, double min)
         {
-            double want = n + 1;
+            double want = (n + 1) * 0.85; // arm tiles may sit a little closer than trunk tiles (min gap stays > 0.75)
             double lo = 0, hi = 8;
             for (int i = 0; i < 30; i++)
             {
@@ -333,6 +337,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>Layout of the boss arena: one step past the worm along its current direction (RunSystem.OpenEncounter).</summary>
         public static void PlaceAhead(RunTile from, RunTile tile, double distance = 1.3)
         {
+            tile.Segment = from.Segment;
             Place(tile, from.PosX + Math.Sin(from.Dir * Deg) * distance, from.PosY + Math.Cos(from.Dir * Deg) * distance, from.Dir);
         }
 

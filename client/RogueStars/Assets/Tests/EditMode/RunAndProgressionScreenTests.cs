@@ -287,6 +287,7 @@ namespace RogueStars.Client.Tests
                     int at = board.MainPath[Mathf.Min(board.MainPath.Count - 2, 8 + seed * 3)];
                     var here = board.Tiles[at];
                     var arena = RunBoard.Add(board.Tiles, "boss_gate", here.X + 1, -1);
+                    RunBoard.PlaceAhead(here, arena); // as RunSystem opens it
                     var drawn = new List<RunTile>();
                     foreach (var id in board.MainPath) { drawn.Add(board.Tiles[id]); if (id == at) break; }
                     drawn.Add(arena);

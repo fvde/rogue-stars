@@ -37,26 +37,24 @@ namespace RogueStars.Client.Screens
     {
         // ---- HUD ----------------------------------------------------------------------------------
 
-        /// <summary>
-        /// Run XP needed for the next run level.
-        /// TODO(run-rules-fixes): swap for the rules' run-level helper once it lands; this mirrors RunSystem.AddXp.
-        /// </summary>
-        public static int XpNeeded(ContentDb c, ActiveRun run) => Math.Max(1, c.RunTuning.XpBase + c.RunTuning.XpPerLevel * (run.Level - 1));
+        /// <summary>Run XP needed for the next run level (the rules' RunSystem.XpNeeded).</summary>
+        public static int XpNeeded(ContentDb c, ActiveRun run) => RunSystem.XpNeeded(c, run.Level);
 
         /// <summary>
-        /// HP, ATK and DEF of the worm in this run: the run-start loadout + run skills + skill levels + run stat perks
-        /// (RunSystem.WormSpec → BattleSimulator.FinalStats, the same numbers the fights use).
-        /// TODO(run-rules-fixes): swap for the rules' in-run stat helper once it lands.
+        /// HP, ATK and DEF of the worm in this run with every run modification (skills at their levels, perks, buffs, curses,
+        /// level modifiers) and the run level / XP: the rules' RunSystem.WormStats and RunSystem.LevelInfo.
         /// </summary>
         public static RunHudStats Hud(ContentDb c, ActiveRun run)
         {
-            var s = new RunHudStats { Hp = Math.Max(0, run.WormHp), MaxHp = run.WormMaxHp, Level = run.Level, Xp = run.Xp, XpNeed = XpNeeded(c, run) };
+            var lv = RunSystem.LevelInfo(c, run);
+            var s = new RunHudStats { Hp = Math.Max(0, run.WormHp), MaxHp = run.WormMaxHp, Level = lv.Level, Xp = lv.Xp, XpNeed = lv.XpNeeded };
             try
             {
-                var stats = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c);
-                s.Atk = stats.Value(StatId.Atk);
-                s.Def = stats.Value(StatId.Def);
-                if (s.MaxHp <= 0) s.MaxHp = stats.Value(StatId.Hp);
+                var w = RunSystem.WormStats(c, run);
+                s.Atk = w.Atk;
+                s.Def = w.Def;
+                s.MaxHp = w.MaxHp;
+                s.Hp = w.Hp;
             }
             catch (Exception) { /* an incomplete test loadout: show what the run state has */ }
             if (run.WormHp < 0) s.Hp = s.MaxHp;
@@ -88,6 +86,8 @@ namespace RogueStars.Client.Screens
             var cat = def?.Category ?? TileCategory.Empty;
             if (battle || cat == TileCategory.Enemy || cat == TileCategory.Elite || cat == TileCategory.Miniboss)
                 list.Add(new LandingPopup(cat == TileCategory.Elite ? "ELITE FIGHT!" : cat == TileCategory.Miniboss ? "MINIBOSS!" : "FIGHT!", Theme.Bad, PopupKind.Fight));
+            // a resolved tile: the rules' tile outcome of this landing (ActiveRun.TileOutcomes)
+            if ((outcome == null || IsSheetSource(outcome.Source)) && run != null && tile != null) outcome = TileOutcome(run, tile) ?? outcome;
             if (outcome != null && !IsSheetSource(outcome.Source))
             {
                 foreach (var l in outcome.Lines) { var p = FromLine(l, c); if (p.HasValue) list.Add(p.Value); }
@@ -109,7 +109,21 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
-        /// <summary>Tile kinds whose landing has no structured outcome in the rules yet (popups come from the tile definition).</summary>
+        /// <summary>The rules' outcome of landing on <paramref name="tile"/> in the latest move (not a pass), or null.</summary>
+        public static RunOutcome TileOutcome(ActiveRun run, RunTile tile)
+        {
+            for (int i = run.TileOutcomes.Count - 1; i >= 0; i--)
+            {
+                var o = run.TileOutcomes[i];
+                if (o.Tile == tile.Id && o.Source != "pass") return o;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Tile kinds that resolve on landing: the rules publish a structured outcome for each (ActiveRun.TileOutcomes), so
+        /// their popups come from outcome data; <see cref="FromTileDef"/> only serves boards without it (hand-built tests).
+        /// </summary>
         public static readonly TileCategory[] FallbackKinds =
         {
             TileCategory.Empty, TileCategory.StatBuff, TileCategory.StatDebuff, TileCategory.Loot, TileCategory.Hazard,
@@ -191,6 +205,9 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Battle: return null; // the battle playback is the feedback
                 case OutcomeKind.SkillRoll: return new LandingPopup("Skill roll!", Theme.Purple, PopupKind.Text);
                 case OutcomeKind.Nothing: return null;
+                case OutcomeKind.Empty: return new LandingPopup("Quiet… nothing here", Theme.TextDim, PopupKind.Text);
+                case OutcomeKind.Avoided: return new LandingPopup("Avoided!", Theme.Good, PopupKind.Text);
+                case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + a.ToString("0"), Theme.Warn, PopupKind.Text);
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
         }
@@ -199,8 +216,18 @@ namespace RogueStars.Client.Screens
         /// The pickup a passed tile pays (shards, coin clusters trigger on pass): a small popup, the tile itself keeps its
         /// look (only landed tiles are marked). Null when passing does nothing (pure).
         /// </summary>
-        public static LandingPopup? Pass(ContentDb c, RunTile tile)
+        public static LandingPopup? Pass(ContentDb c, RunTile tile) => Pass(c, null, tile);
+
+        /// <summary>The pass outcome the rules recorded for this tile in the latest move (pickups, skill coins), else the tile's pickup.</summary>
+        public static LandingPopup? Pass(ContentDb c, ActiveRun run, RunTile tile)
         {
+            if (run != null && tile != null)
+                for (int i = run.TileOutcomes.Count - 1; i >= 0; i--)
+                {
+                    var o = run.TileOutcomes[i];
+                    if (o.Tile != tile.Id || o.Source != "pass") continue;
+                    foreach (var l in o.Lines) { var p = FromLine(l, c); if (p.HasValue) return p; }
+                }
             var def = tile != null && c.BoardTiles.TryGetValue(tile.TileId ?? "", out var d) ? d : null;
             if (def == null || !def.TriggersOnPass) return null;
             if (def.Category == TileCategory.Shard) return new LandingPopup("+1 shard", Theme.Purple, PopupKind.Shard);

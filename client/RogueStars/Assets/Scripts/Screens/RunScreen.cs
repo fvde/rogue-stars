@@ -189,14 +189,28 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y. This is the ONE
-        /// board layout function (tiles, edges, token, camera and tap targets all go through it): when the rules provide
-        /// per-tile 2D layout coordinates, only this changes.
+        /// Board position of a tile (layout point; <see cref="DrawPoint"/> flips it so the path climbs): the rules' per-tile 2D
+        /// layout (<see cref="HasLayout"/>), else snake rows of <see cref="Columns"/> with lanes by Y. This is the ONE board
+        /// layout function (tiles, edges, token, camera and tap targets all go through it).
         /// </summary>
         public static Vector2 TileCenter(RunTile t) => TileCenter(t, 0);
 
+        /// <summary>Pixels per rules layout unit across / along the path (tiles ~1 unit apart; the trunk keeps to ±1.3, arms to ±2.2).</summary>
+        public const float LayoutUnitX = 160, LayoutUnitY = 118;
+
+        /// <summary>True for tiles the rules laid out in 2D (RunTile.Segment ≥ 0); hand-built boards (tests) use the snake.</summary>
+        public static bool HasLayout(RunTile t) => t != null && t.Segment >= 0;
+
         public static Vector2 TileCenter(RunTile t, int x0)
         {
+            if (HasLayout(t))
+            {
+                // the rules' 2D layout (RunTile.PosX / PosY, tile units; +PosY = forward): varied path shapes per segment.
+                // The rise is measured from the same window origin the follow camera uses ((x0 / Columns) * BandH).
+                float lxp = BoardWidth / 2 + (float)t.PosX * LayoutUnitX;
+                float ly = (float)t.PosY * LayoutUnitY + LaneH * 1.5f - (x0 / Columns) * (3 * LaneH + BandGap);
+                return new Vector2(lxp, ly);
+            }
             int lx = t.X - x0;
             int band = lx / Columns;
             int c = lx % Columns;
@@ -211,14 +225,29 @@ namespace RogueStars.Client.Screens
         public static float BoardHeight(ActiveRun run, int x0)
         {
             int maxX = 0;
-            foreach (var t in run.Tiles) if (InWindow(run, t, x0)) maxX = Math.Max(maxX, t.X - x0);
+            float maxY = 0;
+            bool layout = false;
+            foreach (var t in run.Tiles)
+            {
+                if (!InWindow(run, t, x0)) continue;
+                maxX = Math.Max(maxX, t.X - x0);
+                if (HasLayout(t)) { layout = true; maxY = Math.Max(maxY, TileCenter(t, x0).y); }
+            }
+            if (layout) return maxY + LaneH / 2 + 10;
             return (maxX / Columns + 1) * (3 * LaneH + BandGap) + 10;
         }
 
         public static float BoardHeight(List<RunTile> tiles)
         {
             int maxX = 0;
-            foreach (var t in tiles) maxX = Math.Max(maxX, t.X);
+            float maxY = 0;
+            bool layout = false;
+            foreach (var t in tiles)
+            {
+                maxX = Math.Max(maxX, t.X);
+                if (HasLayout(t)) { layout = true; maxY = Math.Max(maxY, TileCenter(t).y); }
+            }
+            if (layout) return maxY + LaneH / 2 + 10;
             int bands = maxX / Columns + 1;
             return bands * (3 * LaneH + BandGap) + 10;
         }
@@ -421,7 +450,7 @@ namespace RogueStars.Client.Screens
                     }, () =>
                     {
                         // a passed pickup (shard, coin cluster) pays as the worm hops over it; the tile keeps its look
-                        if (!last) { var pass = RunPresentation.Pass(Content, toTile); if (pass.HasValue) SpawnPopups(new List<LandingPopup> { pass.Value }, to, false); }
+                        if (!last) { var pass = RunPresentation.Pass(Content, run, toTile); if (pass.HasValue) SpawnPopups(new List<LandingPopup> { pass.Value }, to, false); }
                     });
                 }
             }

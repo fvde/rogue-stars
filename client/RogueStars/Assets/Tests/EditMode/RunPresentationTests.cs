@@ -244,6 +244,30 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void EveryResolvingTileKind_PopsFromTheRulesOutcome()
+        {
+            // Empty, buffs, curses, supply, hazards, shards, pickups, boss tiles: the rules publish a tile outcome per landing
+            foreach (var def in C.BoardTiles.Values)
+            {
+                if (Array.IndexOf(RunPresentation.FallbackKinds, def.Category) < 0 || def.Category == TileCategory.Start) continue;
+                var tiles = new string[14];
+                for (int i = 0; i < tiles.Length; i++) tiles[i] = def.Id;
+                var run = StartRun(tiles);
+                run.MinibossesSpawned = C.RunTuning.MinibossAtMeter.Count;
+                Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True, def.Id);
+                var a = S.Run.Active;
+                var land = a.Tiles[a.Position];
+                var outcome = RunPresentation.TileOutcome(a, land);
+                Assert.That(outcome, Is.Not.Null, def.Id + ": no tile outcome");
+                var expected = new List<string>();
+                foreach (var l in outcome.Lines) { var p = RunPresentation.FromLine(l, C); if (p.HasValue) expected.Add(p.Value.Text); }
+                Assert.That(expected.Count, Is.GreaterThan(0), def.Id + ": outcome without a popup");
+                Assert.That(RunPresentation.Landing(C, a, land, false, null).ConvertAll(p => p.Text), Is.EqualTo(expected), def.Id);
+                Assert.That(_f.Service.ExecuteNow(new RunAbandon()).Ok, Is.True);
+            }
+        }
+
+        [Test]
         public void LandingOnABuff_PopsTheTileAndShowsThePopup()
         {
             var run = StartRun("buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk", "buff_atk");

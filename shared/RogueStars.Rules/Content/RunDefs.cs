@@ -491,7 +491,7 @@ namespace RogueStars.Rules.Content
         /// <summary>Segment layout styles (2D path shape and fork shape), picked per segment by weight.</summary>
         public List<BoardLayoutDef> BoardLayouts = new List<BoardLayoutDef>();
         /// <summary>Layout: half width of the band the trunk keeps to (tile units), max heading off forward (degrees), max turn per tile.</summary>
-        public double LayoutHalfWidth = 3.5, LayoutMaxHeading = 80, LayoutMaxTurn = 30;
+        public double LayoutHalfWidth = 1.3, LayoutMaxHeading = 80, LayoutMaxTurn = 30;
         /// <summary>Steps ahead of the worm in which boss awakening actions transform / summon tiles.</summary>
         public int BossActionReach = 30;
 

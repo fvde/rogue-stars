@@ -84,14 +84,14 @@ public class PlaytestRulesTests(ITestOutputHelper output)
             var tiles = b.Tiles;
             foreach (var t in tiles)
             {
-                if (t.Id > 0) Assert.True(t.Segment >= 0);
+                Assert.True(t.Segment >= 0);
                 foreach (var n in t.Next)
                 {
                     double d = Math.Sqrt(Math.Pow(tiles[n].PosX - t.PosX, 2) + Math.Pow(tiles[n].PosY - t.PosY, 2));
                     maxStep = Math.Max(maxStep, d);
                     Assert.InRange(d, 0.6, 1.8);
                 }
-                if (t.Next.Count == 1 && Incoming(tiles).GetValueOrDefault(t.Next[0]) < 2) maxX = Math.Max(maxX, Math.Abs(t.PosX));
+                maxX = Math.Max(maxX, Math.Abs(t.PosX));
             }
             for (int i = 0; i < tiles.Count; i++)
                 for (int j = i + 1; j < tiles.Count; j++)
@@ -102,6 +102,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
                 }
         }
         output.WriteLine($"{levelId}: min gap {minGap:0.00}, max step {maxStep:0.00}, max |x| {maxX:0.0}");
+        Assert.True(maxX <= 2.4, "the layout fits a portrait screen: max |x| " + maxX);
     }
 
     [Fact]
