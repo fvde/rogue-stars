@@ -1,0 +1,13 @@
+{
+  "name": "base-worm-01",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [201, 202, 203, 204],
+  "models": ["flux"],
+  "styles": {
+    "game": "polished mobile game character art, cute stylized, soft shading with glossy highlights, vibrant colors, clean silhouette, centered, full body visible, plain flat light grey background, no shadow on background"
+  },
+  "subjects": {
+    "base": "a simple cute worm character, smooth round bubblegum-pink segmented body, no arms, no legs, no clothes, no accessories, one big round head with huge expressive friendly eyes and a small smile, two thin antennae with small glowing green tips, body curving in a gentle S shape, three-quarter view facing right, standing upright on its tail"
+  }
+}

@@ -1150,7 +1150,7 @@ namespace RogueStars.Client.Screens
             Modal("Floor " + run.Floor + " cleared", b =>
             {
                 Ui.Label(b, "Dive deeper for better loot, or cash out now.", Theme.FontNormal);
-                Note(b, "Pending: " + Fmt.Rewards(run.PendingLoot, Content));
+                Note(b, "Pending: " + Fmt.Rewards(run.PendingLoot, Content, State, Now));
             },
             new ModalButton("Cash out", () => Run(new RunBurrowCashOut()), Theme.Good),
             new ModalButton("Descend", () => Run(new RunBurrowDescend()), Theme.Bad));
@@ -1158,8 +1158,10 @@ namespace RogueStars.Client.Screens
         private void LootModal(ActiveRun run) =>
             Modal("Pending loot", b =>
             {
-                if (run.PendingLoot.Count == 0) Ui.Label(b, "Nothing yet.", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
-                foreach (var r in run.PendingLoot) Ui.Label(b, "+ " + Fmt.Reward(r, Content), Theme.FontSmall, Theme.Gold);
+                // Rewards follow use (GDD §13.1): loot without a use yet goes to the stash, so it is not listed here.
+                var usable = RewardGate.Usable(State, Content, run.PendingLoot, Now);
+                if (usable.Count == 0) Ui.Label(b, "Nothing yet.", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
+                foreach (var r in usable) Ui.Label(b, "+ " + Fmt.Reward(r, Content), Theme.FontSmall, Theme.Gold);
                 Note(b, "Paid out only when you beat the boss. Each item raises the danger level (+" + Fmt.Pct(run.Danger * Content.RunTuning.DangerPctPerLoot) + " enemy stats now).");
             });
 
@@ -1249,7 +1251,7 @@ namespace RogueStars.Client.Screens
             if (s.Granted.Count == 0) Note(body, s.Won ? "No rewards." : "Better luck next time.");
             var grid = Ui.Grid(body, new Vector2(300, 170), 3, 14);
             foreach (var r in s.Granted) RewardTile(grid, r, s);
-            if (s.BiomassBonus) Ui.Label(body, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", Theme.FontNormal, Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter).name = "SurgeApplied";
+            if (s.BiomassBonus && RewardGate.CurrencyHasUse(State, Content, Currencies.Biomass, Now)) Ui.Label(body, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", Theme.FontNormal, Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter).name = "SurgeApplied";
             if (s.Mode == RunMode.Normal || s.Mode == RunMode.Overcharged) PortalsScreen.SurgeLabel(body, State, Content, Now);
             DoubleRewards(body, s);
 
