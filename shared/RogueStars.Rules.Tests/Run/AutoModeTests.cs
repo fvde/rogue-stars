@@ -1,0 +1,207 @@
+using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
+
+namespace RogueStars.Rules.Tests.Run;
+
+/// <summary>
+/// Auto mode (GDD §3.1): RunAutoStep only performs clear, choice-free steps and stops at every real decision
+/// (RunSystem.RequiresPlayer); Farming resolves decisions with their default but never buys in shops.
+/// </summary>
+public class AutoModeTests
+{
+    private static readonly RunAutoStep Auto = new();
+    private static readonly RunAutoStep Farm = new() { Farming = true };
+
+    /// <summary>Plain auto is refused at a player decision and leaves the state untouched.</summary>
+    private static void AssertStops(GameEngine e, ref GameState s, RunDecision expected)
+    {
+        var run = s.Run.Active!;
+        Assert.Equal(expected, RunSystem.Decision(e.Content, run));
+        Assert.True(RunSystem.RequiresPlayer(e.Content, run));
+        Assert.False(RunSystem.RequiresPlayer(e.Content, run, farming: true));
+        long version = s.Version;
+        var phase = run.Phase;
+        var r = RunTestKit.Exec(e, ref s, Auto);
+        Assert.False(r.Ok);
+        Assert.Contains("needs a player decision", r.Error);
+        Assert.Equal(version, s.Version);
+        Assert.Equal(phase, s.Run.Active!.Phase);
+    }
+
+    /// <summary>A line board of one tile kind; the first roll always lands on (or stops at) such a tile.</summary>
+    private static GameState OnLine(GameEngine e, string tile, long seed = 42)
+    {
+        var s = RunTestKit.StartRun(e, seed: seed);
+        RunTestKit.LineBoard(s.Run.Active!, Enumerable.Repeat(tile, 30).ToArray());
+        Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok); // roll: a clear step
+        return s;
+    }
+
+    [Fact]
+    public void Auto_ContinuesThroughClearTiles_AndBattles_UntilADecision()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        var clear = new[] { "loot", "buff_atk", "enemy_1", "hazard_spikes", "coin_pickup", "debuff_def", "shard", "enemy_2", "loot_rich", "hazard_toll" };
+        RunTestKit.LineBoard(run, Enumerable.Range(0, 60).Select(i => clear[i % clear.Length]).ToArray());
+        int steps = 0;
+        while (s.Run.Active != null && !RunSystem.RequiresPlayer(e.Content, s.Run.Active))
+        {
+            Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);
+            Assert.True(++steps < 200);
+        }
+        // only battles' level-ups (drafts) can stop auto on this board; otherwise it reaches the boss and ends
+        if (s.Run.Active != null) AssertStops(e, ref s, RunDecision.Draft);
+        Assert.True(s.Counter("run_rolls") > 0);
+        Assert.True(s.Counter("run_battles_won") > 0);
+    }
+
+    [Fact]
+    public void Auto_StopsAtShop_PlayerBuysSkill_ThenAutoContinues()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, new[] { "shop" }.Concat(Enumerable.Repeat("empty", 20)).ToArray());
+        run.ExtraDicePermanent = 5;
+        run.Coins = 1000;
+        Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);          // passes into the shop: forced stop
+        Assert.Equal(RunPhase.Shop, s.Run.Active!.Phase);
+        AssertStops(e, ref s, RunDecision.Shop);
+        Assert.Equal(1000, s.Run.Active!.Coins);
+        int skill = s.Run.Active.Shop.FindIndex(o => o.Kind == ShopOfferKind.Skill);
+        Assert.True(skill >= 0);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopBuy { Index = skill }).Ok);
+        AssertStops(e, ref s, RunDecision.Shop);                  // still shopping after a purchase
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopLeave()).Ok);
+        Assert.False(RunSystem.RequiresPlayer(e.Content, s.Run.Active!));
+        Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);          // auto resumes
+        Assert.Equal(2, s.Counter("run_rolls"));
+    }
+
+    [Fact]
+    public void Farming_LeavesShopsUntouched_UnlessFarmShops()
+    {
+        GameState AtShop(GameEngine e)
+        {
+            var s = RunTestKit.StartRun(e);
+            var run = s.Run.Active!;
+            RunTestKit.LineBoard(run, new[] { "shop" }.Concat(Enumerable.Repeat("empty", 20)).ToArray());
+            run.ExtraDicePermanent = 5;
+            run.Coins = 1000;
+            Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);
+            s.Run.Active!.WormHp = 1;                              // low HP: the bot heuristic would heal
+            return s;
+        }
+        var e = RunTestKit.Engine();
+        var a = AtShop(e);
+        Assert.True(RunTestKit.Exec(e, ref a, Farm).Ok);
+        Assert.Equal(RunPhase.AwaitRoll, a.Run.Active!.Phase);
+        Assert.Equal(1000, a.Run.Active.Coins);
+        Assert.Equal(1, a.Run.Active.WormHp);
+        Assert.DoesNotContain(a.Run.Active.Shop, o => o.Sold);
+
+        var b = AtShop(e);
+        Assert.True(RunTestKit.Exec(e, ref b, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
+        Assert.True(b.Run.Active!.Coins < 1000);
+        Assert.True(b.Run.Active.WormHp > 1);
+
+        var c = AtShop(e);                                         // FarmShops alone is not farming
+        Assert.False(RunTestKit.Exec(e, ref c, new RunAutoStep { FarmShops = true }).Ok);
+    }
+
+    [Fact]
+    public void Auto_StopsAtDraft_FarmingPicksBest()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        run.Phase = RunPhase.Draft;
+        run.PendingDrafts = 1;
+        run.DraftOffer.AddRange(new[] { "gen_guard", "crit_keen", "gen_swift" });
+        AssertStops(e, ref s, RunDecision.Draft);
+        string best = RunDraft.BestPick(e.Content, s.Run.Active!);
+        Assert.True(RunTestKit.Exec(e, ref s, Farm).Ok);
+        Assert.Contains(best, s.Run.Active!.Skills);
+        Assert.NotEqual(RunPhase.Draft, s.Run.Active.Phase);
+    }
+
+    [Theory]
+    [InlineData("event", RunDecision.Event)]
+    [InlineData("treasure", RunDecision.Treasure)]
+    [InlineData("campfire", RunDecision.Campfire)]
+    public void Auto_StopsAtEventsWithOptions_FarmingTakesDefault(string tile, RunDecision decision)
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = OnLine(e, tile);
+        Assert.Equal(RunPhase.Event, s.Run.Active!.Phase);
+        AssertStops(e, ref s, decision);
+        long resolved = s.Counter("run_events_resolved");
+        Assert.True(RunTestKit.Exec(e, ref s, Farm).Ok);
+        Assert.Equal(resolved + 1, s.Counter("run_events_resolved"));
+    }
+
+    [Fact]
+    public void Auto_StopsAtBranch_FarmingTakesFirstLeg()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 20).ToArray());
+        run.Tiles.Add(new RunTile { Id = run.Tiles.Count, TileId = "empty", Y = 1 });
+        int side = run.Tiles.Count - 1;
+        run.Tiles[side].Next.Add(3);
+        run.Tiles[1].Next.Add(side);
+        run.ExtraDicePermanent = 2;
+        Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);
+        Assert.Equal(RunPhase.ChooseBranch, s.Run.Active!.Phase);
+        AssertStops(e, ref s, RunDecision.Branch);
+        Assert.True(RunTestKit.Exec(e, ref s, Farm).Ok);
+        Assert.Contains(2, s.Run.Active!.Trail);
+    }
+
+    [Fact]
+    public void Auto_StopsAtRevive_GivesUpOnlyWithoutARevive()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Weak());
+        var s = OnLine(e, "enemy_1");
+        Assert.Equal(RunPhase.Defeated, s.Run.Active!.Phase);
+        AssertStops(e, ref s, RunDecision.Revive);
+
+        var farmed = s;
+        Assert.True(RunTestKit.Exec(e, ref farmed, Farm).Ok);      // farming: give up (no hidden spending)
+        Assert.Null(farmed.Run.Active);
+        Assert.False(farmed.Run.LastSummary.Won);
+
+        var used = OnLine(e, "enemy_1");
+        used.Run.Active!.ReviveUsed = true;                        // only "give up" left: a clear step
+        Assert.Equal(RunDecision.GiveUp, RunSystem.Decision(e.Content, used.Run.Active));
+        Assert.False(RunSystem.RequiresPlayer(e.Content, used.Run.Active));
+        Assert.True(RunTestKit.Exec(e, ref used, Auto).Ok);
+        Assert.Null(used.Run.Active);
+    }
+
+    [Fact]
+    public void Auto_StopsAtBurrowChoice_FarmingCashesOut()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e, "the_burrow_1", mode: RunMode.Burrow);
+        for (int i = 0; i < 400 && s.Run.Active != null && s.Run.Active.Phase != RunPhase.BurrowChoice; i++)
+            Assert.True(RunTestKit.Exec(e, ref s, Farm).Ok);
+        Assert.Equal(RunPhase.BurrowChoice, s.Run.Active!.Phase);
+        AssertStops(e, ref s, RunDecision.BurrowChoice);
+        Assert.True(RunTestKit.Exec(e, ref s, Farm).Ok);
+        Assert.Null(s.Run.Active);
+        Assert.True(s.Run.LastSummary.Won);
+    }
+
+    [Fact]
+    public void FinishedRun_HasNoDecision()
+    {
+        var e = RunTestKit.Engine();
+        Assert.Equal(RunDecision.None, RunSystem.Decision(e.Content, null!));
+        Assert.False(RunSystem.RequiresPlayer(e.Content, null!));
+    }
+}

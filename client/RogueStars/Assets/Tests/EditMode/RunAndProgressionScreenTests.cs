@@ -35,7 +35,7 @@ namespace RogueStars.Client.Tests
             int steps = 0;
             while (_f.Service.State.Run.Active != null && steps < max)
             {
-                var r = _f.Service.ExecuteNow(new RunAutoStep());
+                var r = _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
                 Assert.That(r.Ok, Is.True, r.Error);
                 steps++;
                 CloseBattles();
@@ -55,6 +55,125 @@ namespace RogueStars.Client.Tests
                 n++;
             }
             return n;
+        }
+
+        /// <summary>Straight board: start, the given tiles, boss gate (the token starts on the start tile).</summary>
+        private static void LineBoard(ActiveRun run, params string[] tiles)
+        {
+            run.Tiles.Clear();
+            var all = new List<string> { "start" };
+            all.AddRange(tiles);
+            all.Add("boss_gate");
+            for (int i = 0; i < all.Count; i++)
+            {
+                var t = new RunTile { Id = i, TileId = all[i], X = i };
+                if (i + 1 < all.Count) t.Next.Add(i + 1);
+                run.Tiles.Add(t);
+            }
+            run.BossGateTile = all.Count - 1;
+            run.Position = 0;
+            run.Trail.Clear();
+            run.Trail.Add(0);
+        }
+
+        private Button ModalButton(System.Func<Button, bool> match)
+        {
+            foreach (var b in _f.App.ModalLayer.GetComponentsInChildren<Button>(true)) if (match(b)) return b;
+            return null;
+        }
+
+        private bool AutoOverlayShown => ModalButton(b => b.name == "Button:") != null;
+
+        /// <summary>A run whose first roll passes into a shop (forced stop) with 1000 coins to spend.</summary>
+        private RunScreen RunIntoShop()
+        {
+            StartFirstRun();
+            var active = _f.Service.State.Run.Active;
+            var tiles = new List<string> { "shop" };
+            for (int i = 0; i < 24; i++) tiles.Add("empty");
+            LineBoard(active, tiles.ToArray());
+            active.ExtraDicePermanent = 5;
+            active.Coins = 1000;
+            _f.App.Router.Push(new RunScreen());
+            var screen = (RunScreen)_f.App.Router.Current;
+            screen.StartAuto();
+            Assert.That(screen.AutoPaused, Is.False);
+            screen.Frame(1f);                                     // auto: roll → token passes into the shop
+            CloseBattles();
+            Assert.That(_f.Service.State.Run.Active.Phase, Is.EqualTo(RunPhase.Shop));
+            return screen;
+        }
+
+        [Test]
+        public void AutoMode_StopsAtShopWithBuyableSkills_AndResumesAfterLeaving()
+        {
+            var screen = RunIntoShop();
+            var active = _f.Service.State.Run.Active;
+            long version = _f.Service.State.Version;
+            for (int i = 0; i < 5; i++) screen.Frame(1f);         // paused: auto sends nothing
+            Assert.That(_f.Service.State.Version, Is.EqualTo(version), "auto must not resolve the shop");
+            Assert.That(screen.Auto, Is.True);
+            Assert.That(screen.AutoPaused, Is.True);
+            Assert.That(AutoOverlayShown, Is.False, "tap-to-stop overlay removed so the shop is usable");
+            Assert.That(ModalButton(b => b.name == "Button:Leave"), Is.Not.Null, "shop modal open");
+
+            // buy a skill from the shop modal
+            int offer = active.Shop.FindIndex(o => o.Kind == ShopOfferKind.Skill && o.Price <= active.Coins);
+            Assert.That(offer, Is.GreaterThanOrEqualTo(0), "a buyable skill");
+            string skill = active.Shop[offer].SkillId;
+            string skillName = _f.Service.Content.Skill(skill).Name;
+            var buy = ModalButton(b =>
+            {
+                if (b.name != "Button:" + active.Shop[offer].Price + " coins") return false;
+                foreach (var t in b.transform.parent.GetComponentsInChildren<Text>(true)) if (t.text == skillName) return true;
+                return false;
+            });
+            Assert.That(buy, Is.Not.Null);
+            Assert.That(buy.interactable, Is.True);
+            buy.onClick.Invoke();
+            Assert.That(_f.Service.State.Run.Active.Skills, Does.Contain(skill));
+            screen.Frame(1f);
+            Assert.That(screen.AutoPaused, Is.True, "still shopping after a purchase");
+            Assert.That(_f.Service.State.Run.Active.Phase, Is.EqualTo(RunPhase.Shop));
+
+            // leave → auto resumes by itself (auto is still on)
+            ModalButton(b => b.name == "Button:Leave").onClick.Invoke();
+            Assert.That(_f.Service.State.Run.Active.Phase, Is.EqualTo(RunPhase.AwaitRoll));
+            Assert.That(screen.AutoPaused, Is.False);
+            long rolls = _f.Service.State.Counter("run_rolls");
+            screen.Frame(1f);
+            Assert.That(_f.Service.State.Counter("run_rolls"), Is.EqualTo(rolls + 1), "auto rolled again");
+            Assert.That(screen.Auto, Is.True);
+        }
+
+        [Test]
+        public void AutoMode_FarmingToggle_LeavesShopWithoutBuying()
+        {
+            bool before = _f.App.Settings.AutoPickDrafts;
+            try
+            {
+                StartFirstRun();
+                _f.App.Router.Push(new RunScreen());
+                var toggle = (RunScreen)_f.App.Router.Current;
+                Button farm = null;
+                foreach (var b in toggle.Root.GetComponentsInChildren<Button>(true)) if (b.name == "AutoPickToggle") farm = b;
+                if (farm == null) foreach (var b in _f.App.Root.GetComponentsInChildren<Button>(true)) if (b.name == "AutoPickToggle") farm = b;
+                Assert.That(farm, Is.Not.Null, "auto-pick toggle on the run screen");
+                _f.App.Settings.SetAutoPickDrafts(false);
+                farm.onClick.Invoke();
+                Assert.That(_f.App.Settings.AutoPickDrafts, Is.True, "toggle turns farming on");
+                _f.Service.ExecuteNow(new RunAbandon());
+                _f.App.Router.Pop();
+
+                var screen = RunIntoShop();
+                Assert.That(screen.Farming, Is.True);
+                Assert.That(screen.AutoPaused, Is.False);
+                screen.Frame(1f);                                 // farming: leave the shop untouched
+                var active = _f.Service.State.Run.Active;
+                Assert.That(active == null || active.Phase != RunPhase.Shop, Is.True);
+                if (active != null) Assert.That(active.Coins, Is.EqualTo(1000), "nothing bought");
+            }
+            finally { _f.App.Settings.SetAutoPickDrafts(before); }
         }
 
         [Test]
@@ -97,7 +216,7 @@ namespace RogueStars.Client.Tests
                 phases.Add(active.Phase);
                 if (active.Phase != RunPhase.AwaitRoll && _f.App.Router.Current is RunScreen)
                     Assert.That(_f.App.ModalLayer.childCount, Is.GreaterThan(0), "decision modal for " + active.Phase);
-                _f.Service.ExecuteNow(new RunAutoStep());
+                _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
                 CloseBattles();
             }
             Assert.That(phases, Does.Contain(RunPhase.AwaitRoll));
@@ -220,7 +339,7 @@ namespace RogueStars.Client.Tests
             BattleResult battle = null;
             for (int i = 0; i < 3000 && battle == null && _f.Service.State.Run.Active != null; i++)
             {
-                _f.Service.ExecuteNow(new RunAutoStep());
+                _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
                 battle = _f.Service.State.Run.Active?.LastBattle ?? _f.Service.State.Run.LastSummary?.LastBattle;
             }
             Assert.That(battle, Is.Not.Null, "a battle happened");

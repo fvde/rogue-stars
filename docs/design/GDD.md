@@ -32,8 +32,17 @@ Aliens, Laboratory → stronger runs, harder portals.
 - Tiles are generated per level from weighted pools plus fixed special positions. Consumed tiles are
   replaced from the pool; some special tiles appear at most once.
 - Tile valence colours: positive, negative, enemy, elite, boss, special.
-- **Auto mode:** holding Roll enables auto-roll; popups auto-resolve with the default choice after a short
-  delay; any tap interrupts. Auto mode is meant for easy re-runs.
+- **Auto mode:** holding Roll enables auto-roll; any tap interrupts. Auto only automates the **clear, choice-free**
+  steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss tiles) and battles
+  (fast playback). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
+  treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out — auto **pauses**, shows the
+  decision and hands control back; after the player decides it resumes by itself while auto is still on. Giving up
+  when no revive is left is not a choice and is automatic.
+- **Auto-pick drafts (farming)**, a player setting, off by default: for easy re-runs auto also takes the default
+  choice (best draft pick, the event's default option, first branch, give up when defeated, cash out in the Burrow).
+  It never buys in shops: farming leaves shops untouched. Rules: `RunSystem.Decision` / `RequiresPlayer`;
+  `RunAutoStep` refuses a player decision unless `Farming` is set (`FarmShops` adds the simulator's heal-below-50%
+  shop heuristic, not offered to players).
 
 ### 3.2 Tile types (prototype set)
 | Tile | Effect |

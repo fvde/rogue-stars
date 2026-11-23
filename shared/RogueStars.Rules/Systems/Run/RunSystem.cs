@@ -27,7 +27,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunShopLeave>((c, ctx) => { var r = Need(ctx); ShopLeave(ctx, r); return Ok(ctx); });
             e.Register<RunRevive>((c, ctx) => { var r = Need(ctx); Revive(ctx, r, c.Method, c.AdToken); return Ok(ctx); });
             e.Register<RunAbandon>((c, ctx) => { var r = Need(ctx); Finish(ctx, r, false); return Ok(ctx); });
-            e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r); return Ok(ctx); });
+            e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r, c); return Ok(ctx); });
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
             e.Register<RunDoubleRewards>(HandleDoubleRewards);
             e.Register<RunBurrowCashOut>((c, ctx) => { var r = Need(ctx); Require(r.Phase == RunPhase.BurrowChoice, "not at a burrow cash-out"); Finish(ctx, r, true); return Ok(ctx); });
@@ -362,9 +362,64 @@ namespace RogueStars.Rules.Systems
             Continue(ctx, run);
         }
 
-        /// <summary>Default action for the current decision (auto mode). Defeat → give up (no hidden spending).</summary>
-        private static void AutoStep(CommandContext ctx, ActiveRun run)
+        /// <summary>The decision the run waits for (finer than <see cref="RunPhase"/>: events by tile kind, revive vs give up).</summary>
+        public static RunDecision Decision(ContentDb content, ActiveRun run)
         {
+            if (run == null) return RunDecision.None;
+            switch (run.Phase)
+            {
+                case RunPhase.AwaitRoll: return RunDecision.Roll;
+                case RunPhase.ChooseBranch: return RunDecision.Branch;
+                case RunPhase.Draft: return RunDecision.Draft;
+                case RunPhase.Shop: return RunDecision.Shop;
+                case RunPhase.Defeated: return run.ReviveUsed ? RunDecision.GiveUp : RunDecision.Revive;
+                case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
+                case RunPhase.Event:
+                {
+                    var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
+                    var def = tile != null ? TileDefOf(content, tile) : null;
+                    if (def != null && def.Category == TileCategory.Treasure) return RunDecision.Treasure;
+                    if (def != null && def.Category == TileCategory.Campfire) return RunDecision.Campfire;
+                    return RunDecision.Event;
+                }
+                default: return RunDecision.None;
+            }
+        }
+
+        /// <summary>
+        /// True if the current decision needs the player: auto mode (RunAutoStep without Farming) stops here and the
+        /// client shows the decision UI. Clear steps (roll, give up without a revive left, an event with a single
+        /// option) are auto-resolvable. With <paramref name="farming"/> every decision is auto-resolvable (shops are
+        /// left untouched, or use the heal heuristic with RunAutoStep.FarmShops).
+        /// </summary>
+        public static bool RequiresPlayer(ContentDb content, ActiveRun run, bool farming = false)
+        {
+            switch (Decision(content, run))
+            {
+                case RunDecision.None:
+                case RunDecision.Roll:
+                case RunDecision.GiveUp:
+                    return false;
+                case RunDecision.Event:
+                case RunDecision.Treasure:
+                case RunDecision.Campfire:
+                    return !farming && content.RunEvents.TryGetValue(run.EventId ?? "", out var ev) && ev.Options.Count > 1;
+                default:
+                    return !farming;
+            }
+        }
+
+        /// <summary>
+        /// Auto mode: the next clear step, or — with Farming — the default action of the current decision. Refused at
+        /// a player decision without Farming. Farming defaults: first branch, the event's default option (first
+        /// affordable one otherwise), best draft pick, shop left (FarmShops: heal below 50% HP), defeat → give up
+        /// (no hidden spending), Burrow → cash out.
+        /// </summary>
+        private static void AutoStep(CommandContext ctx, ActiveRun run, RunAutoStep cmd)
+        {
+            var decision = Decision(ctx.Content, run);
+            Require(decision != RunDecision.None, "nothing to do");
+            Require(!RequiresPlayer(ctx.Content, run, cmd.Farming), "needs a player decision (" + decision + ")");
             switch (run.Phase)
             {
                 case RunPhase.AwaitRoll: Roll(ctx, run); break;
@@ -382,15 +437,15 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Shop:
                 {
                     int heal = -1;
-                    for (int i = 0; i < run.Shop.Count; i++)
-                        if (run.Shop[i].Kind == ShopOfferKind.Heal && !run.Shop[i].Sold && run.Coins >= run.Shop[i].Price) heal = i;
+                    if (cmd.FarmShops)
+                        for (int i = 0; i < run.Shop.Count; i++)
+                            if (run.Shop[i].Kind == ShopOfferKind.Heal && !run.Shop[i].Sold && run.Coins >= run.Shop[i].Price) heal = i;
                     if (heal >= 0 && run.WormHp < run.WormMaxHp * 0.5) ShopBuy(ctx, run, heal);
                     else ShopLeave(ctx, run);
                     break;
                 }
                 case RunPhase.Defeated: Finish(ctx, run, false); break;
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
-                default: Require(false, "nothing to do"); break;
             }
         }
     }

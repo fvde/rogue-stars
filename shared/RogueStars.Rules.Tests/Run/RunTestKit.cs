@@ -52,7 +52,7 @@ public static class RunTestKit
         for (int i = 0; i < maxSteps; i++)
         {
             if (s.Run.Active == null) return i;
-            var r = Exec(e, ref s, new RunAutoStep());
+            var r = Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true });
             Assert.True(r.Ok, r.Error + " in phase " + s.Run.Active?.Phase);
         }
         Assert.Fail("run did not finish within " + maxSteps + " steps");

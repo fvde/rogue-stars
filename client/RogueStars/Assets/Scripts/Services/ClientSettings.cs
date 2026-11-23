@@ -11,11 +11,18 @@ namespace RogueStars.Client.Services
         private const string KeyUrl = "rs.serverUrl";
         private const string KeyDevice = "rs.deviceId";
         private const string KeyName = "rs.displayName";
+        private const string KeyAutoPick = "rs.autoPickDrafts";
 
         public bool Online;
         public string ServerUrl;
         public string DeviceId;
         public string DisplayName;
+        /// <summary>
+        /// Run auto mode "Auto-pick drafts (farming)": off by default. On, auto mode also resolves drafts, events, chests,
+        /// campfires, branches, revive (give up) and Burrow (cash out) with their defaults and leaves shops without buying
+        /// (RunAutoStep.Farming). Off, auto stops at every decision.
+        /// </summary>
+        public bool AutoPickDrafts;
         /// <summary>From the build's ServerConfig (not a player setting): "dev" or "firebase".</summary>
         public string AuthMode = AuthModes.Dev;
 
@@ -29,6 +36,7 @@ namespace RogueStars.Client.Services
                 ServerUrl = PlayerPrefs.GetString(KeyUrl, defaults.BaseUrl),
                 DeviceId = PlayerPrefs.GetString(KeyDevice, ""),
                 DisplayName = PlayerPrefs.GetString(KeyName, "Worm"),
+                AutoPickDrafts = PlayerPrefs.GetInt(KeyAutoPick, 0) == 1,
             };
             if (string.IsNullOrEmpty(s.DeviceId))
             {
@@ -45,6 +53,15 @@ namespace RogueStars.Client.Services
             PlayerPrefs.SetString(KeyUrl, ServerUrl ?? "");
             PlayerPrefs.SetString(KeyDevice, DeviceId ?? "");
             PlayerPrefs.SetString(KeyName, DisplayName ?? "Worm");
+            PlayerPrefs.SetInt(KeyAutoPick, AutoPickDrafts ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Set and persist only the auto-pick (farming) toggle.</summary>
+        public void SetAutoPickDrafts(bool on)
+        {
+            AutoPickDrafts = on;
+            PlayerPrefs.SetInt(KeyAutoPick, on ? 1 : 0);
             PlayerPrefs.Save();
         }
 

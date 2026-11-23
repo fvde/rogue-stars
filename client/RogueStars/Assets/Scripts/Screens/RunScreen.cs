@@ -14,7 +14,12 @@ namespace RogueStars.Client.Screens
     /// <summary>
     /// The run: snake-layout board (tiles coloured by valence with letter icons), token movement and dice
     /// animations, HUD (HP, XP, coins, danger, awakening meter, boss), decision modals (branch, event, draft,
-    /// shop, revive, burrow), battle playback, and auto mode (hold Roll; any tap interrupts).
+    /// shop, revive, burrow), battle playback, and auto mode.
+    /// Auto mode (hold Roll or the Auto button): sends RunAutoStep for the clear steps (roll, move, tiles, battles with
+    /// fast playback); a tap anywhere stops it. At a real decision (RunSystem.RequiresPlayer: shop, draft, event,
+    /// chest, campfire, branch, revive, Burrow) auto pauses: the tap-to-stop overlay goes away, the decision UI opens
+    /// and the player decides; auto then resumes by itself while it is still on. "Auto-pick: On" (farming,
+    /// ClientSettings.AutoPickDrafts, off by default) takes the default choices instead and leaves shops without buying.
     /// </summary>
     public sealed class RunScreen : UiScreen
     {
@@ -32,6 +37,7 @@ namespace RogueStars.Client.Screens
         private bool _auto;
         private float _autoTimer;
         private string _decisionKey;
+        private string _pausedKey;
         private UiModal _decision;
         private GameObject _autoOverlay;
         private UiSequence _anim;
@@ -44,6 +50,10 @@ namespace RogueStars.Client.Screens
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
         public bool Auto => _auto;
+        /// <summary>Auto-pick drafts / farming (player setting, off by default).</summary>
+        public bool Farming => App.Settings != null && App.Settings.AutoPickDrafts;
+        /// <summary>Auto mode is on but waits for the player's decision.</summary>
+        public bool AutoPaused => _auto && State.Run.Active != null && RunSystem.RequiresPlayer(Content, State.Run.Active, Farming);
         public bool Animating => _anim != null && _anim.Busy;
 
         // ---- layout ------------------------------------------------------------------------------
@@ -279,7 +289,8 @@ namespace RogueStars.Client.Screens
             var bar = Footer ?? body;
             var row = Ui.Row(bar, RollRowH, 12);
             bool canRoll = run.Phase == RunPhase.AwaitRoll;
-            var roll = Ui.Button(row, _auto ? "AUTO…" : "ROLL\n<size=22>hold for auto</size>", null, canRoll ? Theme.Accent : Theme.Locked, -1, RollRowH, canRoll || _auto, Theme.FontLarge);
+            string rollText = !_auto ? "ROLL\n<size=22>hold for auto</size>" : AutoPaused ? "AUTO PAUSED\n<size=22>your choice</size>" : "AUTO…";
+            var roll = Ui.Button(row, rollText, null, canRoll ? Theme.Accent : Theme.Locked, -1, RollRowH, canRoll || _auto, Theme.FontLarge);
             roll.name = "RollButton";
             var hold = roll.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () => { if (_auto) StopAuto(); else if (!Animating) Run(new RunRoll()); };
@@ -287,6 +298,7 @@ namespace RogueStars.Client.Screens
             Ui.Button(row, _auto ? "Stop auto" : "Auto", () => { if (_auto) StopAuto(); else StartAuto(); }, _auto ? Theme.Warn : Theme.Button, 220, RollRowH);
             var row2 = Ui.Row(bar, ActionRowH, 12);
             Ui.Button(row2, "Decision", () => { _decisionKey = null; ShowDecision(run); }, Theme.Button, -1, ActionRowH, run.Phase != RunPhase.AwaitRoll);
+            Ui.Button(row2, "Auto-pick: " + (Farming ? "On" : "Off"), ToggleFarming, Farming ? Theme.Accent : Theme.Button, 260, ActionRowH, true, 24).name = "AutoPickToggle";
             Ui.Button(row2, "Abandon", () => Modal("Abandon the run?", b => Note(b, "All pending loot (" + run.PendingLoot.Count + " items) is lost."),
                 new ModalButton("Keep going", null), new ModalButton("Abandon", () => Run(new RunAbandon()), Theme.Bad)), Theme.Bad, 260, ActionRowH);
         }
@@ -319,14 +331,35 @@ namespace RogueStars.Client.Screens
                 return;
             }
             if (!_auto) return;
+            var run = State.Run.Active;
+            if (run != null && RunSystem.RequiresPlayer(Content, run, Farming))
+            {
+                // paused at a player decision: no tap-to-stop overlay (the decision UI must be usable); resumes after
+                RemoveAutoOverlay();
+                _autoTimer = 0;
+                string key = run.RunId + "|" + run.Phase + "|" + run.Rolls + "|" + run.EventId + "|" + run.BattleCount;
+                if (key != _pausedKey)
+                {
+                    _pausedKey = key;
+                    Session.Info("Auto paused — your choice");
+                }
+                return;
+            }
             EnsureAutoOverlay();
             if (Animating || Session.InFlight > 0 || App.Router.Current != this) { _autoTimer = 0; return; }
             _autoTimer += dt;
             if (_autoTimer < 0.6f) return;
             _autoTimer = 0;
-            if (State.Run.Active == null) { StopAuto(); return; }
+            if (run == null) { StopAuto(); return; }
             CloseDecision();
-            Run(new RunAutoStep(), r => { if (!r.Ok) StopAuto(); });
+            Run(new RunAutoStep { Farming = Farming }, r => { if (!r.Ok) StopAuto(); });
+        }
+
+        /// <summary>Toggle "Auto-pick drafts (farming)" (persisted per device).</summary>
+        public void ToggleFarming()
+        {
+            App.Settings?.SetAutoPickDrafts(!Farming);
+            Rebuild();
         }
 
         public void StartAuto()
@@ -342,9 +375,15 @@ namespace RogueStars.Client.Screens
         {
             if (!_auto) return;
             _auto = false;
+            _pausedKey = null;
+            RemoveAutoOverlay();
+            if (Root != null) Rebuild();
+        }
+
+        private void RemoveAutoOverlay()
+        {
             if (_autoOverlay != null) Ui.DestroyGo(_autoOverlay);
             _autoOverlay = null;
-            if (Root != null) Rebuild();
         }
 
         private void EnsureAutoOverlay()
@@ -430,7 +469,7 @@ namespace RogueStars.Client.Screens
                 if (ev != null)
                     foreach (var o in ev.Options)
                         if (!string.IsNullOrEmpty(o.RiskText)) Ui.Label(b, "• " + o.Text + ": " + o.RiskText, Theme.FontSmall, Theme.Warn);
-            }, buttons.Count > 0 ? buttons.ToArray() : new[] { new ModalButton("Continue", () => Run(new RunAutoStep())) });
+            }, buttons.Count > 0 ? buttons.ToArray() : new[] { new ModalButton("Continue", () => Run(new RunAutoStep { Farming = true })) });
         }
 
         private UiModal DraftModal(ActiveRun run)

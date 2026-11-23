@@ -123,7 +123,7 @@ AppBootstrap (only object in Main.unity)
 |---|---|---|
 | Hub (Planet) | – | the frontier main portal and its neighbours (`ContentDb.MainPortal`) + next level (`RunSystem.NextMainLevel`) + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
 | Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, milestone chest / portal bonus, entry cost), stamina refill modal (daily free / ad / Diamonds), **daily Biomass surge** counter (`RunSystem.BiomassBonusRunsLeft`). The campaign is endless and never iterated: Main/Overcharged show a page of 5 portals (`PortalsScreen.MainWindow`: 2 cleared, the frontier portal holding `NextMainLevel`, 2 upcoming; Prev pages back through cleared portals, Next never past frontier + 2, *Jump to level n*), each with its global level range and **CHEST** (every 10th level) / **BONUS** (every 50th, `CampaignDef.MilestoneEveryLevels`/`PortalBonusEveryLevels`) markers, ✓ once claimed; the endless Dark Side (`ContentDb.DarkSideLevel`) is paged 25 at a time around the next level (`dark_side_level_max` + 1), one page ahead at most, each level showing its Data |
-| Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker ("BOSS n%", placed in a free cell next to the gate, never on a tile), worm token animated along the trail, dice roll animation; fixed bottom bar (dice + last landing, ROLL/Auto, Decision/Abandon) with a reserved toast strip above it; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
+| Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker ("BOSS n%", placed in a free cell next to the gate, never on a tile), worm token animated along the trail, dice roll animation; fixed bottom bar (dice + last landing, ROLL/Auto, Decision/Auto-pick/Abandon) with a reserved toast strip above it; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop for the clear steps (roll, tiles, battles with fast playback), any tap stops it; at a player decision (`RunSystem.RequiresPlayer`) it pauses ("AUTO PAUSED — your choice", tap-to-stop overlay removed), the decision modal stays open, and auto resumes by itself after the decision while still on; "Auto-pick: On/Off" (bottom bar and Settings, `ClientSettings.AutoPickDrafts`, off by default) = farming: default choices, shops left without buying |
 | Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars (values straight from the log entries: `TargetHp/TargetShield/TargetRage`, `ActorShield/ActorRage`, fighters' `StartShield/StartRage`), status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
 | Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), "Biomass surge ×4 applied" + surge runs left, **double rewards** (rewarded ad, instant with No Ads → `RunDoubleRewards`, daily cap shown), Again / Portals |
 | Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
@@ -140,7 +140,7 @@ AppBootstrap (only object in Main.unity)
 | Mail | – | inbox, open/read, claim, claim all, delete |
 | Arena | `arena` | league/points/tickets/Arena Medals, opponents + fight result modal, weekly leaderboard, **medal shop** (`ShopBuyItem`, section `arena`: Awaken Core 200 medals 2/week first, part tokens, Data, Gear Cores; bought n/limit this week, reset countdown, "Sold out"); the Diamond shop no longer lists arena/guild items |
 | Guild | `guilds` | online only (offline shows "requires online"): create/search/join, members by weekly invasion damage, chat, guild shop, leave |
-| Settings | – | offline/online, server URL, display name, reset save, dev cheats (unlock all features) |
+| Settings | – | offline/online, server URL, display name, run auto mode "Auto-pick drafts (farming)" toggle, reset save, dev cheats (unlock all features) |
 
 **Adding a screen:** write a `UiScreen` subclass in `Assets/Scripts/Screens/` and add a `ScreenEntry` to
 `ScreenCatalog.All` (`Todo(...)` creates a placeholder). The hub, navigation gating and the smoke tests pick it up
@@ -184,7 +184,7 @@ upload key when `ROGUESTARS_KEYSTORE` is set (docs/setup.md step 12), otherwise 
 checked for `com.android.vending.BILLING`. It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 95 tests):
+EditMode (`Assets/Tests/EditMode`, 97 tests):
 - `PortalsEndlessTests`: portal/Dark Side windows and milestone markers (pure), fresh save, frontier past level 500 (first
   generated portal), level 1234 (window 1211–1260, paging back, jump to frontier, chest/bonus markers, chest in the modal),
   Dark Side past level 1000 (paging, one page ahead), hub frontier portals.
@@ -216,6 +216,9 @@ EditMode (`Assets/Tests/EditMode`, 95 tests):
   awakening, lab tree layout without overlaps (all branches, all 38 nodes, edges downwards), research from the node modal
   at `NextDataCost`/`NextDurationMs` with a busy slot, skill toggles + ANY/ALL prerequisites, Research Annex status and
   City banner, arena shop weekly core limit, resource bar chips/details, Biomass surge + Dark Side paging.
+- `RunAndProgressionScreenTests` (auto mode): auto pauses at a shop with buyable skills (no command sent, tap-to-stop
+  overlay removed, shop modal usable), the player buys a skill and leaves through the modal, auto resumes by itself;
+  the run screen's "Auto-pick" toggle turns farming on and farming leaves the shop without buying.
 - `RunSeedSweepTests`: 100 fresh saves (seeds 1–100, with and without starter parts) play level 1 like the playthrough
   (manual roll, then `RunAutoStep`) to completion within a 200-decision budget, every auto decision accepted
   (failure names seed, last decision and run state); same seed + clock replay the same run.
@@ -225,7 +228,9 @@ it only (no wall clock), so a seeded service on a `ManualClock` plays out identi
 
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
 - `PlaythroughTests.FreshSave_Playthrough_WithScreenshots` boots `Main.unity`, plays a fresh offline save (equip
-  starter parts → first run with a manual roll, then auto mode to the boss → result → hub/worm/parts → city build →
+  starter parts → first run with a manual roll, then auto mode to the boss, making every decision auto pauses at
+  through the decision modal (shop: buy a skill then leave, draft: first card, event: default option, branch: path A,
+  defeat: give up) → result → hub/worm/parts → city build →
   dev unlock → 10× Signal with reveal → stamina refill → parts ladder, part detail with skills, Mythic merge picker,
   awakening preview → lab tree with a running research + a capstone node → arena medal shop → Dark Side → every catalog screen) and renders the canvas through a
   1080×1920 RenderTexture camera into `client/RogueStars/Screenshots/` (gitignored). A curated, downscaled set lives

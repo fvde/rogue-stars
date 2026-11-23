@@ -272,16 +272,72 @@ namespace RogueStars.Client.PlayTests
                     if (!b.AutoClose) { b.PlayAll(); b.Continue(); }
                 }
                 var active = _svc.State.Run.Active;
-                if (active != null && cur is RunScreen && _app.ModalLayer.childCount > 1)
+                // auto pauses at every real decision (shop, draft, event, chest, campfire, branch, revive): decide here
+                if (active != null && cur is RunScreen paused && paused.AutoPaused && !paused.Animating && _app.ModalLayer.childCount > 0)
                 {
                     if (active.Phase == RunPhase.Draft && !draftShot) { draftShot = true; yield return Shot("07_draft"); }
                     else if (active.Phase == RunPhase.Event && !eventShot) { eventShot = true; yield return Shot("08_event"); }
                     else if ((active.Phase == RunPhase.Shop || active.Phase == RunPhase.ChooseBranch || active.Phase == RunPhase.Defeated) && !otherShot) { otherShot = true; yield return Shot("09_" + active.Phase.ToString().ToLowerInvariant()); }
+                    Decide(active);
+                    Assert.That(paused.Auto, Is.True, "auto stays on across a decision");
                 }
                 if (cur is RunScreen rs && !rs.Auto && _svc.State.Run.Active != null) rs.StartAuto();
                 guard.Tick();
                 yield return null;
             }
+        }
+
+        /// <summary>
+        /// The player's decision at an auto pause, made through the decision modal's buttons: shop → buy the first
+        /// affordable skill (once per shop visit), then leave; draft → first card; event / chest / campfire → the default
+        /// option (first affordable otherwise); branch → path A; defeat → give up (the loop retries the level).
+        /// </summary>
+        private void Decide(ActiveRun a)
+        {
+            Button pick = null;
+            switch (a.Phase)
+            {
+                case RunPhase.Shop:
+                {
+                    int skill = a.Shop.FindIndex(o => o.Kind == ShopOfferKind.Skill && !o.Sold && o.Price <= a.Coins);
+                    bool bought = a.Shop.Exists(o => o.Sold);
+                    if (skill >= 0 && !bought)
+                    {
+                        string name = _svc.Content.Skill(a.Shop[skill].SkillId)?.Name;
+                        pick = ModalButton(b => b.name == "Button:" + a.Shop[skill].Price + " coins" && b.interactable && RowHasText(b, name));
+                    }
+                    if (pick == null) pick = ModalButton(b => b.name == "Button:Leave");
+                    break;
+                }
+                case RunPhase.Draft: pick = ModalButton(b => b.name == "Button:Pick"); break;
+                case RunPhase.ChooseBranch: pick = ModalButton(b => b.name.StartsWith("Button:Path A")); break;
+                case RunPhase.Defeated: pick = ModalButton(b => b.name == "Button:Give up"); break;
+                case RunPhase.BurrowChoice: pick = ModalButton(b => b.name == "Button:Cash out"); break;
+                case RunPhase.Event:
+                {
+                    var ev = _svc.Content.RunEvents[a.EventId];
+                    int opt = ev.DefaultOption;
+                    bool Affordable(EventOption o) => a.Coins >= o.CoinCost && a.Shards >= o.ShardCost;
+                    if (!Affordable(ev.Options[opt])) opt = ev.Options.FindIndex(Affordable);
+                    string text = ev.Options[opt].Text;
+                    pick = ModalButton(b => b.name.StartsWith("Button:" + text));
+                    break;
+                }
+            }
+            if (pick != null) pick.onClick.Invoke(); // not found yet (modal still opening): try again next frame
+        }
+
+        private Button ModalButton(Predicate<Button> match)
+        {
+            foreach (var b in _app.ModalLayer.GetComponentsInChildren<Button>(true)) if (match(b)) return b;
+            return null;
+        }
+
+        private static bool RowHasText(Button b, string text)
+        {
+            if (text == null) return false;
+            foreach (var t in b.transform.parent.GetComponentsInChildren<Text>(true)) if (t.text == text) return true;
+            return false;
         }
 
         /// <summary>Upper bound of commands for one run of the first level on auto (a run takes well under 100).</summary>
@@ -329,7 +385,7 @@ namespace RogueStars.Client.PlayTests
                 "phase=" + a.Phase + " rolls=" + a.Rolls + "/" + a.MaxRolls + " pos=" + a.Position + " hp=" + a.WormHp + "/" + a.WormMaxHp +
                 " battles=" + a.BattleCount + " event=" + a.EventId + " draft=[" + string.Join(",", a.DraftOffer) + "] coins=" + a.Coins + " awakening=" + a.Awakening;
             string screen = cur == null ? "none" : cur.GetType().Name;
-            if (cur is RunScreen rs) screen += " auto=" + rs.Auto + " animating=" + rs.Animating;
+            if (cur is RunScreen rs) screen += " auto=" + rs.Auto + " paused=" + rs.AutoPaused + " animating=" + rs.Animating;
             if (cur is BattlePlaybackScreen bp) screen += " finished=" + bp.Finished + " autoClose=" + bp.AutoClose;
             return "version=" + _svc.State.Version + " lastResult=" + (last == null ? "none" : last.Ok ? "ok" : "fail:" + last.Error) +
                    " inFlight=" + _app.Session.InFlight + " modals=" + _app.ModalLayer.childCount + " screen=" + screen + " run: " + run;

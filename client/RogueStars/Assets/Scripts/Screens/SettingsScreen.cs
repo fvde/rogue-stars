@@ -12,6 +12,8 @@ namespace RogueStars.Client.Screens
         public override string Title => "Settings";
         public override bool AutoRebuild => false; // keep text inputs intact
 
+        public static string AutoPickLabel(bool on) => "Auto-pick drafts (farming): " + (on ? "On" : "Off");
+
         protected override void Build(RectTransform body)
         {
             var s = App.Settings;
@@ -36,6 +38,12 @@ namespace RogueStars.Client.Screens
                 s.Save();
                 App.Start();
             }, Theme.Accent);
+
+            var runCard = Card(body);
+            Section(runCard, "Run auto mode");
+            Note(runCard, "Holding Roll automates rolls, tiles and battles and stops at every choice (shop, draft, event, chest, campfire, path, revive). Auto-pick also takes the default choices for easy re-runs; shops are left without buying.");
+            Ui.Button(runCard, AutoPickLabel(s.AutoPickDrafts), () => { s.SetAutoPickDrafts(!s.AutoPickDrafts); Rebuild(); },
+                s.AutoPickDrafts ? Theme.Accent : Theme.Button).name = "AutoPickDrafts";
 
             var local = Session.Service as LocalGameService;
             var dev = Card(body, Theme.PanelAlt);

@@ -52,7 +52,7 @@ public class LargeStateTests(ITestOutputHelper output)
         Assert.NotNull(p.S.Run.Active);
         for (int i = 0; i < 400 && p.S.Run.Active != null; i++)
         {
-            var r = p.Exec(new RunAutoStep());
+            var r = p.Exec(new RunAutoStep { Farming = true, FarmShops = true });
             if (!r.Ok) { p.Exec(new RunAbandon()); break; }
             var rec = new RequestRecord
             {

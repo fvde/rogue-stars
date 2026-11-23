@@ -74,7 +74,7 @@ namespace RogueStars.Client.Tests
                 if (decisions >= MaxDecisions)
                     Assert.Fail("seed " + seed + " attempt " + attempt + ": run did not finish within " + MaxDecisions + " decisions; last=" + last + " state: " + before);
                 long version = s.State.Version;
-                var r = s.ExecuteNow(new RunAutoStep());
+                var r = s.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
                 Assert.That(r.Ok, Is.True, "seed " + seed + " attempt " + attempt + ": RunAutoStep refused (" + r.Error + ") after " + last + " in state: " + before);
                 Assert.That(s.State.Version, Is.GreaterThan(version), "seed " + seed + ": RunAutoStep did not change the state: " + before);
                 last = "RunAutoStep@" + before;

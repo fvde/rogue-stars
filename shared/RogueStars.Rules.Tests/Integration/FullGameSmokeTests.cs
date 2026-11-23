@@ -94,7 +94,7 @@ public class FullGameSmokeTests
         // A complete auto-played run (RunAutoStep) with real worm stats; completion pays out and sets portal progress.
         long biomassBefore = p.S.Wallet.Get(Currencies.Biomass);
         p.Do(new RunStart { LevelId = "ember_wastes_1" });
-        for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep());
+        for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
         Assert.Null(p.S.Run.Active);
         Assert.True(p.S.Run.LastSummary.Won);
         Assert.Equal(1, p.S.Counter("runs_completed"));
@@ -198,7 +198,7 @@ public class FullGameSmokeTests
         p.Do(new CityBuild { BlueprintId = "bp_grain_farm", X = 4, Y = 5 }); // timer left running
         p.Do(new LabResearch { ResearchId = "res_burning_soul" });          // research timer running
         p.Do(new RunStart { LevelId = "ember_wastes_1" });                   // a run in progress (board, RNG, loadout)
-        for (int i = 0; i < 5 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep());
+        for (int i = 0; i < 5 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
 
         // Every top-level part of the state is populated.
         var s = p.S;
@@ -223,8 +223,8 @@ public class FullGameSmokeTests
         for (int i = 0; i < 20; i++)
         {
             if (a.Run.Active == null) break;
-            Assert.True(p.E.Execute(ref a, new RunAutoStep(), p.Now + Min).Ok);
-            Assert.True(p.E.Execute(ref b, new RunAutoStep(), p.Now + Min).Ok);
+            Assert.True(p.E.Execute(ref a, new RunAutoStep { Farming = true, FarmShops = true }, p.Now + Min).Ok);
+            Assert.True(p.E.Execute(ref b, new RunAutoStep { Farming = true, FarmShops = true }, p.Now + Min).Ok);
         }
         Assert.Equal(JsonSerializer.Serialize(a, TestHelpers.Json), JsonSerializer.Serialize(b, TestHelpers.Json));
     }

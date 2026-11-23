@@ -18,7 +18,7 @@ public class RunIntegrationTests
         Assert.True(r.Ok, r.Error);
         for (int i = 0; i < 1500 && s.Run.Active != null; i++)
         {
-            var step = e.Execute(ref s, new RunAutoStep(), now);
+            var step = e.Execute(ref s, new RunAutoStep { Farming = true, FarmShops = true }, now);
             Assert.True(step.Ok, step.Error);
         }
         Assert.Null(s.Run.Active);

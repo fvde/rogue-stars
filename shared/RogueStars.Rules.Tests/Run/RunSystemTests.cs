@@ -266,7 +266,7 @@ public class RunSystemTests
             for (int i = 0; i < 1000 && s.Run.Active != null; i++)
             {
                 Assert.Equal(before, s.Wallet.Get(Currencies.Biomass)); // nothing paid out while running
-                Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep()).Ok);
+                Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
             }
             Assert.Null(s.Run.Active);
             Assert.True(s.Run.LastSummary.Won);
@@ -364,7 +364,7 @@ public class RunSystemTests
         Assert.Equal(1, s.Wallet.Get(Currencies.BurrowKeys));
         // play floor 1, descend once, then cash out
         for (int i = 0; i < 400 && s.Run.Active != null && s.Run.Active.Phase != RunPhase.BurrowChoice; i++)
-            Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep()).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
         Assert.Equal(RunPhase.BurrowChoice, s.Run.Active!.Phase);
         Assert.NotEmpty(s.Run.Active.PendingLoot);
         Assert.True(RunTestKit.Exec(e, ref s, new RunBurrowDescend()).Ok);
@@ -372,7 +372,7 @@ public class RunSystemTests
         Assert.Equal("the_burrow_2", s.Run.Active.LevelId);
         long gear = s.Wallet.Get(Currencies.GearCores);
         for (int i = 0; i < 400 && s.Run.Active != null && s.Run.Active.Phase != RunPhase.BurrowChoice; i++)
-            Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep()).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
         Assert.True(RunTestKit.Exec(e, ref s, new RunBurrowCashOut()).Ok);
         Assert.True(s.Run.LastSummary.Won);
         Assert.True(s.Wallet.Get(Currencies.GearCores) > gear);

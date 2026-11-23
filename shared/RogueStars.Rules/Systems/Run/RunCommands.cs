@@ -42,8 +42,23 @@ namespace RogueStars.Rules.Systems
     /// <summary>Give up: the run fails and all pending loot is lost.</summary>
     [Serializable] public sealed class RunAbandon : GameCommand { }
 
-    /// <summary>Perform the default action for the current decision (auto mode / tests).</summary>
-    [Serializable] public sealed class RunAutoStep : GameCommand { }
+    /// <summary>
+    /// Auto mode: perform the next clear, choice-free step (roll and move; tiles, pickups and battles resolve on the
+    /// way). Refused ("needs a player decision") at a real decision (RunSystem.RequiresPlayer: branch, event /
+    /// treasure / campfire, draft, shop, revive, Burrow choice) unless <see cref="Farming"/> is set.
+    /// </summary>
+    [Serializable]
+    public sealed class RunAutoStep : GameCommand
+    {
+        /// <summary>
+        /// Farming (player opt-in "auto-pick drafts", simulator, tests): also resolve decisions with their default —
+        /// first branch, the event's default option, the best draft pick, give up when defeated, cash out in the Burrow.
+        /// Shops are left without buying anything unless <see cref="FarmShops"/> is set too.
+        /// </summary>
+        public bool Farming;
+        /// <summary>With <see cref="Farming"/>: shops buy the heal offer below 50% HP (bot heuristic), else leave.</summary>
+        public bool FarmShops;
+    }
 
     /// <summary>Burrow: after a floor is cleared, dive to the next floor (loot stays pending).</summary>
     [Serializable] public sealed class RunBurrowDescend : GameCommand { }

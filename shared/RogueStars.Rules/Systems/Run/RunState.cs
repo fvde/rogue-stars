@@ -19,8 +19,14 @@ namespace RogueStars.Rules.Systems
 {
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
-    /// <summary>What the run is waiting for. The client shows the matching UI; RunAutoStep performs the default.</summary>
+    /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
     public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed }
+
+    /// <summary>
+    /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
+    /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
+    /// </summary>
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice }
 
     public enum ReviveMethod { Ad, Diamonds }
 
