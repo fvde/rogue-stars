@@ -22,6 +22,7 @@ namespace RogueStars.Client.Services
         private readonly string _playerId;
         private readonly string _displayName;
         private readonly Random _random;
+        private readonly bool _seeded;
         private GameState _state;
 
         public bool IsOnline => false;
@@ -37,6 +38,8 @@ namespace RogueStars.Client.Services
         public event Action StateChanged;
 
         /// <param name="saveDirectory">Usually Application.persistentDataPath.</param>
+        /// <param name="randomSeed">Fixes every random choice of this service (new-player RNG seed, local arena/invasion
+        /// rolls); with an injected <paramref name="clock"/> a fresh save then plays out identically on every run (tests).</param>
         public LocalGameService(string saveDirectory, string playerId = "local_player", string displayName = "Worm", IClock clock = null, int? randomSeed = null)
         {
             _savePath = Path.Combine(saveDirectory, SaveFileName);
@@ -44,6 +47,7 @@ namespace RogueStars.Client.Services
             _playerId = playerId;
             _displayName = displayName;
             _random = randomSeed.HasValue ? new Random(randomSeed.Value) : new Random();
+            _seeded = randomSeed.HasValue;
             Content = new ContentDb();
             Content.Shop.AllowDevReceipts = true; // offline purchases complete with "dev:" receipts
             Engine = new GameEngine(Content) { Cloner = ClientJson.Clone };
@@ -58,7 +62,7 @@ namespace RogueStars.Client.Services
                 _state = File.Exists(_savePath) ? Load(_savePath) : null;
                 if (_state == null)
                 {
-                    long seed = DateTime.UtcNow.Ticks ^ ((long)_random.Next() << 20);
+                    long seed = NewPlayerSeed();
                     _state = Engine.NewPlayer(_playerId, NowMs, seed);
                     _state.DisplayName = _displayName;
                     Save();
@@ -71,6 +75,16 @@ namespace RogueStars.Client.Services
             {
                 done?.Invoke(ServiceResult.Fail("load_failed: " + ex.Message));
             }
+        }
+
+        /// <summary>
+        /// Rules RNG seed of a new player: derived only from the service seed when one was given (deterministic),
+        /// otherwise mixed with the wall clock.
+        /// </summary>
+        private long NewPlayerSeed()
+        {
+            long seed = ((long)_random.Next() << 31) ^ _random.Next();
+            return _seeded ? seed : seed ^ DateTime.UtcNow.Ticks;
         }
 
         public void Refresh(Action<ServiceResult> done)

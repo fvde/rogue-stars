@@ -56,6 +56,8 @@ namespace RogueStars.Client.Screens
         public override string Title => "Battle";
         public override bool AutoRebuild => false;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
+        /// <summary>Opened by auto mode: pops itself shortly after the fight; otherwise it waits for Continue.</summary>
+        public bool AutoClose => _autoClose;
         public int Speed => _speed;
         public float StepSeconds => 0.55f / _speed / Mathf.Max(0.01f, TimeScale);
         /// <summary>Extra playback multiplier for scripted playthroughs/tests (1 in the game).</summary>
@@ -324,6 +326,9 @@ namespace RogueStars.Client.Screens
             if (_autoClose && Application.isPlaying)
                 UiSequence.On(Root.gameObject).Wait(0.8f, Close);
         }
+
+        /// <summary>The end panel's Continue button: back to the run.</summary>
+        public void Continue() => Close();
 
         private void Close()
         {
