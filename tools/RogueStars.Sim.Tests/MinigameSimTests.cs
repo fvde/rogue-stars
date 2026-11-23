@@ -23,7 +23,8 @@ public class MinigameSimTests
         var runs = p.RunLog.Where(r => r.Mode != RunMode.Burrow).ToList();
         Assert.True(runs.Count >= 10, "runs played: " + runs.Count);
         double perRun = runs.Average(r => r.Minigames);
-        Assert.InRange(perRun, 0.8, 2.0);
+        Assert.True(perRun >= 0.8 && perRun <= 2.0, "mini-games per run " + perRun);
+        Console.WriteLine("mini-games per run " + perRun);
         Assert.All(runs, r => Assert.InRange(r.Minigames, 0, 2));
         // the median player is Silver: most games end Silver, the rest one tier off
         int total = p.MinigameTiers.Sum();

@@ -45,5 +45,7 @@ namespace RogueStars.Rules.Systems
     public sealed partial class ActiveRun
     {
         public MinigameRunState Minigame = new MinigameRunState();
+        /// <summary>Pool picks of tiles with a per-run limit (TileDef.MaxPerRun), by tile id.</summary>
+        public Dictionary<string, int> TilesPlaced = new Dictionary<string, int>();
     }
 }

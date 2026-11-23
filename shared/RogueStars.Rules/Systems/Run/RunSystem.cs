@@ -188,7 +188,7 @@ namespace RogueStars.Rules.Systems
             var portal = c.Portal(level.PortalId);
             run.LevelId = level.Id;
             run.Threat = level.Threat + (run.Mode == RunMode.Overcharged ? portal.OverchargedThreatBonus : 0);
-            var board = RunBoard.Generate(c, level, run.Rng);
+            var board = RunBoard.Generate(c, level, run.Rng, run);
             run.Tiles = board.Tiles;
             run.BossGateTile = board.GateTile;
             run.Position = 0;
@@ -209,7 +209,6 @@ namespace RogueStars.Rules.Systems
             run.BossFought = false;
             run.BossRounds = 0;
             run.Phase = RunPhase.AwaitRoll;
-            PlaceMinigameTiles(c, run);
         }
 
         private static void Roll(CommandContext ctx, ActiveRun run)

@@ -55,37 +55,40 @@ public class MinigameTests
     }
 
     [Fact]
-    public void Boards_Have_TilesPerBoard_GameTiles_OnTheMainPath()
+    public void GameTiles_ComeFromTheTilePools_AtMostMaxPerRun()
     {
         var e = RunTestKit.Engine();
-        for (long seed = 1; seed <= 20; seed++)
+        var c = e.Content;
+        Assert.All(c.TilePools.Values, pool => Assert.Contains(pool, w => w.Id == ContentDb.MinigameTileId));
+        Assert.Equal(c.MinigameTuning.MaxPerRun, c.BoardTiles[ContentDb.MinigameTileId].MaxPerRun);
+        int total = 0, none = 0;
+        for (long seed = 1; seed <= 40; seed++)
         {
             var s = RunTestKit.StartRun(e, seed: seed);
             var run = s.Run.Active!;
-            var games = run.Tiles.Where(t => t.TileId == ContentDb.MinigameTileId).ToList();
-            Assert.Equal(e.Content.MinigameTuning.TilesPerBoard, games.Count);
-            Assert.All(games, t => Assert.Equal(0, t.Y));
-            Assert.All(games, t => Assert.True(t.Fixed));
-            Assert.True(RunBoard.Reachable(run.Tiles, 0).IsSupersetOf(games.Select(t => t.Id)));
-            // the fixed specials are kept
-            Assert.Contains(run.Tiles, t => t.TileId == "shop");
-            Assert.Contains(run.Tiles, t => t.TileId == "campfire");
+            int n = run.Tiles.Count(t => t.TileId == ContentDb.MinigameTileId);
+            Assert.InRange(n, 0, c.MinigameTuning.MaxPerRun);
+            Assert.Equal(n, run.TilesPlaced.TryGetValue(ContentDb.MinigameTileId, out var placed) ? placed : 0);
+            total += n;
+            if (n == 0) none++;
         }
+        Assert.True(total / 40.0 >= 1.0 && total / 40.0 <= 2.0, "GAME tiles per run: " + total / 40.0 + ", none: " + none); // ≈ 1–2 per run
+        Assert.True(none <= 8, "boards without a GAME tile: " + none);
+        // runless generation (previews) never places limited tiles
+        var board = RunBoard.Generate(c, c.MainLevel(1), Rng.FromSeed(3));
+        Assert.DoesNotContain(board.Tiles, t => t.TileId == ContentDb.MinigameTileId);
     }
 
     [Fact]
-    public void Placement_DoesNotChangeTheRunRandomStream()
+    public void Refills_NeverExceedTheRunLimit()
     {
-        var plain = new ContentDb();
-        plain.MinigameTuning.TilesPerBoard = 0;
-        var e1 = RunTestKit.Engine(content: plain);
-        var e2 = RunTestKit.Engine();
-        var a = RunTestKit.StartRun(e1, seed: 7).Run.Active!;
-        var b = RunTestKit.StartRun(e2, seed: 7).Run.Active!;
-        Assert.Equal(a.Rng.S0, b.Rng.S0);
-        Assert.Equal(a.Tiles.Count, b.Tiles.Count);
-        int diff = a.Tiles.Zip(b.Tiles).Count(p => p.First.TileId != p.Second.TileId);
-        Assert.Equal(2, diff);
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        for (long seed = 1; seed <= 10; seed++)
+        {
+            var s = RunTestKit.StartRun(e, seed: seed);
+            RunTestKit.AutoToEnd(e, ref s);
+            Assert.True(s.Counter("run_minigames_played") <= e.Content.MinigameTuning.MaxPerRun);
+        }
     }
 
     [Fact]
@@ -146,7 +149,7 @@ public class MinigameTests
         Assert.Equal("Gold", o.Choice);
         Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Coins && l.Amount == e.Content.MinigameTuning.For(MinigameTier.Gold).Coins);
         // the tile is used up
-        Assert.Equal("empty", run.Tiles[run.Position].TileId);
+        Assert.NotEqual(ContentDb.MinigameTileId, run.Tiles[run.Position].TileId); // refilled from the pool
     }
 
     [Theory]
@@ -229,6 +232,7 @@ public class MinigameTests
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var s = OnGameTile(e);
         var seen = new List<string>();
+        string last = "";
         for (int i = 0; i < e.Content.Minigames.Count; i++)
         {
             if (s.Run.Active!.Phase != RunPhase.Minigame)
@@ -236,9 +240,13 @@ public class MinigameTests
                 // next GAME tile: put the worm back in front of one
                 while (s.Run.Active!.Phase != RunPhase.AwaitRoll) Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
                 RunTestKit.LineBoard(s.Run.Active!, Enumerable.Repeat(ContentDb.MinigameTileId, 30).ToArray());
-                Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+                foreach (var t in s.Run.Active!.Tiles) t.Fixed = true; // boss actions leave them alone
+                var rr = RunTestKit.Exec(e, ref s, new RunRoll());
+                Assert.True(rr.Ok, rr.Error);
+                last = string.Join(" ", rr.Events);
             }
-            Assert.True(RunTestKit.Exec(e, ref s, new RunMinigameStart()).Ok);
+            var st = RunTestKit.Exec(e, ref s, new RunMinigameStart());
+            Assert.True(st.Ok, "game " + i + ": " + st.Error + " phase " + s.Run.Active?.Phase + " " + last);
             seen.Add(s.Run.Active!.Minigame.GameId);
             Assert.True(RunTestKit.Exec(e, ref s, new RunMinigameFinish { Tier = MinigameTier.Bronze }).Ok);
         }
@@ -280,7 +288,7 @@ public class MinigameTests
             var s = RunTestKit.StartRun(e, seed: seed);
             RunTestKit.AutoToEnd(e, ref s);
             played += (int)s.Counter("run_minigames_played");
-            Assert.True(s.Counter("run_minigames_played") <= e.Content.MinigameTuning.TilesPerBoard);
+            Assert.True(s.Counter("run_minigames_played") <= e.Content.MinigameTuning.MaxPerRun);
         }
         Assert.True(played > 0, "farmed runs land on GAME tiles");
     }

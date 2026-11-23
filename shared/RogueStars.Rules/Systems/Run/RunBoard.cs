@@ -20,7 +20,7 @@ namespace RogueStars.Rules.Systems
             public int GateTile;
         }
 
-        public static Board Generate(ContentDb content, LevelDef level, Rng rng)
+        public static Board Generate(ContentDb content, LevelDef level, Rng rng, ActiveRun run = null)
         {
             var b = new Board();
             var start = Add(b, "start", 0, 0);
@@ -109,12 +109,12 @@ namespace RogueStars.Rules.Systems
             foreach (var t in b.Tiles)
                 if (t.TileId != null && content.BoardTiles.TryGetValue(t.TileId, out var d) && d.Once) usedOnce.Add(t.TileId);
             foreach (var t in b.Tiles)
-                if (t.TileId == null) t.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce);
+                if (t.TileId == null) t.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce, run);
             return b;
         }
 
         /// <summary>Weighted pick from a tile pool; "once" tiles are picked at most once (tracked in usedOnce).</summary>
-        public static string PickPoolTile(ContentDb content, string poolId, Rng rng, HashSet<string> usedOnce)
+        public static string PickPoolTile(ContentDb content, string poolId, Rng rng, HashSet<string> usedOnce, ActiveRun run = null)
         {
             if (poolId == null || !content.TilePools.TryGetValue(poolId, out var pool) || pool.Count == 0) return "empty";
             var weights = new double[pool.Count];
@@ -122,10 +122,12 @@ namespace RogueStars.Rules.Systems
             {
                 bool once = content.BoardTiles.TryGetValue(pool[i].Id, out var d) && d.Once;
                 weights[i] = once && usedOnce != null && usedOnce.Contains(pool[i].Id) ? 0 : pool[i].Weight;
+                if (!RunTileLimits.Allowed(content, run, pool[i].Id)) weights[i] = 0; // per-run limits (TileDef.MaxPerRun)
             }
             int idx = rng.PickWeighted(weights);
             if (idx < 0) return "empty";
             string id = pool[idx].Id;
+            RunTileLimits.Placed(content, run, id);
             if (usedOnce != null && content.BoardTiles.TryGetValue(id, out var def) && def.Once) usedOnce.Add(id);
             return id;
         }

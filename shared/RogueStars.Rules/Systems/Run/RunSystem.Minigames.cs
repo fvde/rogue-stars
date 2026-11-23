@@ -5,7 +5,7 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    // Run mini-games (GDD §3.6): GAME tiles placed on the board, RunMinigameStart / RunMinigameFinish, rewards by tier.
+    // Run mini-games (GDD §3.6): GAME tiles come from the tile pools (MinigameTuning.PoolWeight, at most TileDef.MaxPerRun per run), RunMinigameStart / RunMinigameFinish, rewards by tier.
     // The client plays the game and decides the tier; the rules pay ContentDb.MinigameTuning.Rewards for it, once.
     public static partial class RunSystem
     {
@@ -13,49 +13,6 @@ namespace RogueStars.Rules.Systems
         {
             e.Register<RunMinigameStart>((c, ctx) => { var r = Need(ctx); MinigameStart(ctx, r); return Ok(ctx); });
             e.Register<RunMinigameFinish>((c, ctx) => { var r = Need(ctx); MinigameFinish(ctx, r, c.Tier); return Ok(ctx); });
-        }
-
-        /// <summary>
-        /// Turns MinigameTuning.TilesPerBoard free main-path tiles into GAME tiles (at TileFractions of the path). Uses a
-        /// fork of the run RNG, so the rest of the run's random stream is untouched.
-        /// </summary>
-        private static void PlaceMinigameTiles(ContentDb c, ActiveRun run)
-        {
-            var t = c.MinigameTuning;
-            if (!c.BoardTiles.ContainsKey(ContentDb.MinigameTileId) || c.Minigames.Count == 0) return;
-            int count = run.Mode == RunMode.Burrow ? t.TilesPerBurrowFloor : t.TilesPerBoard;
-            if (count <= 0 || t.TileFractions.Count == 0) return;
-            var rng = run.Rng.Fork("minigames:" + run.Floor + ":" + run.LevelId);
-            var cands = new List<RunTile>();
-            foreach (var tile in run.Tiles)
-            {
-                if (tile.Y != 0 || tile.Fixed || tile.Id == 0 || tile.Id == run.BossGateTile) continue;
-                var def = TileDefOf(c, tile);
-                if (def.Category == TileCategory.Shop || def.Category == TileCategory.BossTile || def.Category == TileCategory.Miniboss) continue;
-                cands.Add(tile);
-            }
-            if (cands.Count == 0) return;
-            var placed = new List<int>();
-            for (int i = 0; i < count; i++)
-            {
-                double frac = t.TileFractions[i % t.TileFractions.Count];
-                int idx = (int)Math.Round(frac * (cands.Count - 1)) + rng.Range(-1, 2);
-                idx = Math.Max(0, Math.Min(cands.Count - 1, idx));
-                // nearest candidate that is not a neighbour of a GAME tile already placed
-                for (int d = 0; d < cands.Count; d++)
-                {
-                    int k = idx + ((d & 1) == 0 ? d / 2 : -(d / 2 + 1));
-                    if (k < 0 || k >= cands.Count) continue;
-                    var tile = cands[k];
-                    bool near = false;
-                    foreach (var p in placed) if (Math.Abs(p - tile.Id) <= 2) near = true;
-                    if (near) continue;
-                    tile.TileId = ContentDb.MinigameTileId;
-                    tile.Fixed = true; // boss actions never transform it
-                    placed.Add(tile.Id);
-                    break;
-                }
-            }
         }
 
         /// <summary>Landing on a GAME tile: the run waits for RunMinigameStart (auto mode pauses, farming plays it as FarmingTier).</summary>
@@ -189,5 +146,28 @@ namespace RogueStars.Rules.Systems
 
         public static string TierName(MinigameTier tier) =>
             tier == MinigameTier.Gold ? "Gold" : tier == MinigameTier.Silver ? "Silver" : tier == MinigameTier.Bronze ? "Bronze" : "Miss";
+    }
+}
+
+namespace RogueStars.Rules.Systems
+{
+    /// <summary>
+    /// Per-run tile limits (TileDef.MaxPerRun): RunBoard.PickPoolTile asks <see cref="Allowed"/> and records each pick, so a
+    /// tile kind such as the GAME tile appears at most N times per run however the board is generated or refilled.
+    /// </summary>
+    public static class RunTileLimits
+    {
+        public static bool Allowed(ContentDb c, ActiveRun run, string tileId)
+        {
+            if (!c.BoardTiles.TryGetValue(tileId, out var def) || def.MaxPerRun <= 0) return true;
+            if (run == null) return false; // previews / runless generation: limited tiles are never placed
+            return (run.TilesPlaced.TryGetValue(tileId, out var n) ? n : 0) < def.MaxPerRun;
+        }
+
+        public static void Placed(ContentDb c, ActiveRun run, string tileId)
+        {
+            if (run == null || !c.BoardTiles.TryGetValue(tileId, out var def) || def.MaxPerRun <= 0) return;
+            run.TilesPlaced[tileId] = (run.TilesPlaced.TryGetValue(tileId, out var n) ? n : 0) + 1;
+        }
     }
 }

@@ -158,6 +158,8 @@ namespace RogueStars.Rules.Content
         public bool Once;
         /// <summary>Replaced from the pool after it resolved.</summary>
         public bool Consumable = true;
+        /// <summary>At most this many per run from the tile pools (0 = no limit; RunTileLimits).</summary>
+        public int MaxPerRun;
     }
 
     [Serializable]

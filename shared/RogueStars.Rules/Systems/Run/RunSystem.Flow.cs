@@ -181,7 +181,7 @@ namespace RogueStars.Rules.Systems
             var usedOnce = new HashSet<string>();
             foreach (var t in run.Tiles)
                 if (c.BoardTiles.TryGetValue(t.TileId, out var d) && d.Once) usedOnce.Add(t.TileId);
-            tile.TileId = RunBoard.PickPoolTile(c, Level(c, run).TilePoolId, run.Rng, usedOnce);
+            tile.TileId = RunBoard.PickPoolTile(c, Level(c, run).TilePoolId, run.Rng, usedOnce, run);
         }
 
         // ---- awakening ------------------------------------------------------------------------

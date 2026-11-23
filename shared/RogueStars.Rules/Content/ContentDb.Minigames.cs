@@ -30,9 +30,13 @@ namespace RogueStars.Rules.Content
             var tile = new TileDef
             {
                 Id = MinigameTileId, Name = "Alien Arcade", Text = "Play a short mini-game for run coins or a skill roll.",
-                Category = TileCategory.Minigame, Valence = TileValence.Special, Once = true,
+                Category = TileCategory.Minigame, Valence = TileValence.Special, MaxPerRun = MinigameTuning.MaxPerRun,
+                ForceStop = true, // the worm stops at an arcade it passes (like a shop): every GAME tile on the path is played
             };
             BoardTiles[tile.Id] = tile;
+            // every tile pool can emit it (board generation and refills), capped per run by TileDef.MaxPerRun
+            foreach (var pool in TilePools.Values)
+                if (!pool.Exists(w => w.Id == tile.Id)) pool.Add(new WeightedId(tile.Id, MinigameTuning.PoolWeight));
 
             Game("portal_slip", "Portal Slip", MinigameInput.Tap, "Tap when the portal is fully open — 5 slips, faster each time.");
             Game("comet_catch", "Comet Catch", MinigameInput.Drag, "Drag the worm into the comets' paths. Dodge the fiery ones!");
@@ -104,12 +108,10 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class MinigameTuning
     {
-        /// <summary>GAME tiles per board (Normal, Overcharged, Dark Side). Each resolves once (then it is quiet ground).</summary>
-        public int TilesPerBoard = 2;
-        /// <summary>GAME tiles per Burrow floor (short floors).</summary>
-        public int TilesPerBurrowFloor = 1;
-        /// <summary>Where the GAME tiles sit along the main path (0..1), away from the campfire / shop / miniboss spots.</summary>
-        public List<double> TileFractions = new List<double> { 0.36, 0.88 };
+        /// <summary>Weight of the GAME tile in every tile pool (≈ 1–2 per run with the cap below).</summary>
+        public double PoolWeight = 6;
+        /// <summary>At most this many GAME tiles per run (each resolves once, then it is refilled from the pool).</summary>
+        public int MaxPerRun = 2;
         /// <summary>Chance (%) that a GAME tile pays a skill roll instead of run coins.</summary>
         public double SkillRollChancePct = 50;
         /// <summary>Tier auto mode uses when farming (no player): a Miss = consolation coins only, no skill roll.</summary>
