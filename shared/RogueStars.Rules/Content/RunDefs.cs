@@ -464,9 +464,9 @@ namespace RogueStars.Rules.Content
         /// Board fights (enemies, elites, minibosses, event fights) get +this HP/ATK % per roll of the run so far: the boss's
         /// forces grow with the run while the worm's build grows from ~0 to 20–40 skills and perks.
         /// </summary>
-        public double EnemyPctPerRoll = 0.7;
+        public double EnemyPctPerRoll = 0.8;
         /// <summary>Boss HP/ATK % for the bigger end-of-run build (20–40 skills and perks instead of ~9 drafts).</summary>
-        public double BossBuildPct = 45;
+        public double BossBuildPct = 60;
         /// <summary>Extra HP/ATK % of each later miniboss of the run (per miniboss already beaten).</summary>
         public double MinibossStepPct = 5;
         /// <summary>Skills offered by the mythic choice after a beaten miniboss (Mythic rarity).</summary>

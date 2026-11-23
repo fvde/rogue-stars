@@ -510,6 +510,7 @@ namespace RogueStars.Rules.Content
             {
                 var l = RunStoreLevel("the_burrow_" + f, "Burrow Floor " + f, burrow.Id, f, 4 + (f - 1) * 2, "pool_burrow", "boss_void_maw", "loot_burrow",
                     new[] { "burrow_grub", "tunnel_stalker", "void_spawn" }, new[] { "elite_burrow_horror" });
+                l.FixedTiles.RemoveAll(ft => ft.TileId == "shop" && ft.At > 0.8); // short floors: one shop each
                 l.BoardLength = 18; l.MaxRolls = 6; // short floors: the boss comes at the roll limit l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.AdvancementPlates, f >= 5 ? 1 : 0));
