@@ -4,9 +4,9 @@ Step by step from an empty Google account to a signed build on Play's internal t
 server. Commands assume macOS/Linux, the repository root as working directory, and these shell variables:
 
 ```bash
-export PROJECT_ID=rogue-stars-prod          # globally unique GCP project id
+export PROJECT_ID=rogue-stars-515610        # production GCP + Firebase project (a dev project may follow)
 export REGION=europe-west1
-export PACKAGE=com.roguestars.game          # Android package (client ProjectSetup.PackageName, Terraform play_package_name)
+export PACKAGE=com.oddbyte.roguestars          # Android package (client ProjectSetup.PackageName, Terraform play_package_name)
 ```
 
 Before anything touches the cloud, run the offline checks (config/secret presence, `terraform validate`, all tests):

@@ -47,7 +47,7 @@ variable "firebase_project_id" {
 variable "play_package_name" {
   description = "Android package name used for Google Play receipt validation."
   type        = string
-  default     = "com.roguestars.game"
+  default     = "com.oddbyte.roguestars"
 }
 
 variable "secrets_populated" {

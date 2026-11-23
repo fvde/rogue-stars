@@ -1,8 +1,8 @@
-project_id                 = "rogue-stars-dev"
+project_id                 = "rogue-stars-515610" # production; a dev project gets its own <env>.tfvars
 region                     = "europe-west1"
 firestore_location         = "europe-west1"
 image_tag                  = "0.1.0"
-play_package_name          = "com.roguestars.game"
+play_package_name          = "com.oddbyte.roguestars"
 max_instances              = 5
 secrets_populated          = false
 iap_allow_test_purchases   = true

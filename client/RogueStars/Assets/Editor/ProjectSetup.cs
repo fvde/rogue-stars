@@ -7,7 +7,7 @@ namespace RogueStars.Client.Editor
     /// <summary>Player settings for the Android prototype. Idempotent; run via -executeMethod RogueStars.Client.Editor.ProjectSetup.Apply.</summary>
     public static class ProjectSetup
     {
-        public const string PackageName = "com.roguestars.game";
+        public const string PackageName = "com.oddbyte.roguestars";
 
         [MenuItem("Rogue Stars/Apply Project Settings")]
         public static void Apply()

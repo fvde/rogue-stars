@@ -74,7 +74,7 @@ public class GooglePlayTests : IDisposable
     public GooglePlayTests()
     {
         _app.Settings["RogueStars:Iap:Mode"] = "google";
-        _app.Settings["RogueStars:Iap:PackageName"] = "com.roguestars.game";
+        _app.Settings["RogueStars:Iap:PackageName"] = "com.oddbyte.roguestars";
         _app.ConfigureServices = s => s.AddSingleton<IReceiptValidator>(sp => new GooglePlayReceiptValidator(
             sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>(), NullLogger<GooglePlayReceiptValidator>.Instance, _play.Service));
     }
@@ -103,8 +103,8 @@ public class GooglePlayTests : IDisposable
         Assert.Equal(diamonds + 120, await p.BalanceAsync(Currencies.Diamonds));
         Assert.Equal(new[]
         {
-            "GET /androidpublisher/v3/applications/com.roguestars.game/purchases/productsv2/tokens/tok-1",
-            "POST /androidpublisher/v3/applications/com.roguestars.game/purchases/products/rs.diamonds_60/tokens/tok-1:consume",
+            "GET /androidpublisher/v3/applications/com.oddbyte.roguestars/purchases/productsv2/tokens/tok-1",
+            "POST /androidpublisher/v3/applications/com.oddbyte.roguestars/purchases/products/rs.diamonds_60/tokens/tok-1:consume",
         }, _play.Calls);
 
         // Client retry after a lost response: no second lookup, no second grant.

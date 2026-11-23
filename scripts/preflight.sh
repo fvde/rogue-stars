@@ -49,7 +49,7 @@ elif [[ ! -f "$TFVARS" ]]; then
 else
   get() { sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\"?([^\"]*)\"?.*/\1/p" "$TFVARS" | head -1; }
   pid=$(get project_id); tag=$(get image_tag); pkg=$(get play_package_name); sp=$(get secrets_populated)
-  [[ -n "$pid" && "$pid" != "rogue-stars-dev" ]] && ok "project_id set" || bad "project_id missing or still the example value"
+  [[ -n "$pid" ]] && ok "project_id = $pid" || bad "project_id missing"
   [[ -n "$tag" ]] && ok "image_tag = $tag" || bad "image_tag missing"
   [[ "$pkg" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] && ok "play_package_name = $pkg" || bad "play_package_name invalid"
   [[ "$sp" == "true" ]] && ok "secrets_populated = true" || warn "secrets_populated = false (first apply; set true after adding secret versions)"

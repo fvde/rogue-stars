@@ -135,7 +135,7 @@ arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P
 (`ROGUESTARS_SERVER_URL`, `ROGUESTARS_STORE`, `ROGUESTARS_ADS`, `ROGUESTARS_MAX_SDK_KEY`, `ROGUESTARS_MAX_REWARDED_AD_UNIT`,
 `ROGUESTARS_KEYSTORE`/`_KEYSTORE_PASS`/`_KEY_ALIAS`/`_KEY_PASS`, `ROGUESTARS_AAB=1` for an app bundle), resolves the Android
 dependencies, sets version `0.1.<git commit count>` (versionCode = commit count; `0.1.0`/1 without git) and writes
-`client/RogueStars/Builds/RogueStars.apk` (or `.aab`; package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait).
+`client/RogueStars/Builds/RogueStars.apk` (or `.aab`; package `com.oddbyte.roguestars`, IL2CPP, ARM64, minSdk 26, portrait).
 It exits with code 1 on failure.
 
 ## Tests
