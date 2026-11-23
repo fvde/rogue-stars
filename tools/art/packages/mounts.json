@@ -1,0 +1,15 @@
+{
+  "name": "pkg-mounts",
+  "width": 1024, "height": 1024, "seeds": [1601, 1602],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", small spaceship mount with an open round cockpit seat on top sized for a small worm to ride in, empty seat, side three-quarter view, centered, isolated on a plain white background",
+  "negative": "pilot, person, character, worm, multiple ships, background scenery, space background, planet, text, watermark, blurry, photo",
+  "subjects": {
+    "mount_scout_saucer": "Scout Saucer, a nimble silver flying saucer with a small zap turret",
+    "mount_magma_barge": "Magma Barge, a heavy flying barge made of lava rock with a mortar",
+    "mount_frost_frigate": "Frost Frigate, a sleek icy spaceship with a cryo beam emitter",
+    "mount_toxic_hauler": "Toxic Hauler, a chunky cargo ship with tanks of green sludge and a sprayer",
+    "mount_star_lancer": "Star Lancer, a fast lance-shaped starfighter with a long cannon",
+    "mount_hive_carrier": "Hive Carrier, an organic carrier ship with a hive bay of little drones"
+  }
+}

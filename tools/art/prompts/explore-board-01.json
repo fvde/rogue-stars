@@ -1,0 +1,20 @@
+{
+  "name": "explore-board-01",
+  "width": 768,
+  "height": 1344,
+  "seeds": [801],
+  "negative": "horizon, sky, side view, landscape painting, characters, creatures, text, user interface, watermark, blurry, photo",
+  "subjects": {
+    "ground": "game level background seen from above, a ground surface filling the whole frame, open empty middle area for a board game path, props only near the left and right edges"
+  },
+  "variants": [
+    {"key": "A", "model": "sdxl_ref", "style_refs": ["board-a.png", "board-b.png"], "ref_weight": 0.5, "ref_mode": "linear", "style": "alien seabed with sand, flat stone slabs, coral and sunken ruins, hand-painted cartoon, dark outlines", "note": "SDXL + board refs, full IP-Adapter, seabed"},
+    {"key": "B", "model": "sdxl_ref", "style_refs": ["board-a.png", "board-b.png"], "ref_weight": 0.75, "ref_mode": "composition", "style": "volcanic rock floor with glowing lava cracks and obsidian crystals, 2D cartoon game art, saturated colors", "note": "SDXL + board refs, composition mode, lava"},
+    {"key": "C", "model": "flux", "style": "strict top-down orthographic view, frozen ice floor with snow patches, cracks and small blue crystals at the sides, 2D cartoon mobile game art, clean outlines", "note": "Flux, strict top-down, ice"},
+    {"key": "D", "model": "flux", "style": "isometric diorama, floating island of mossy alien meadow with glowing mushrooms at the edges, vibrant stylized mobile game art", "note": "Flux, isometric diorama island"},
+    {"key": "E", "model": "sdxl", "style": "top-down tabletop game board background, desert sand with scattered rocks and a crashed spaceship part at one edge, flat vector illustration", "note": "SDXL no refs, flat vector desert"},
+    {"key": "F", "model": "sdxl_ref", "style_refs": ["hub-scene.png", "keyart.png"], "ref_weight": 0.8, "ref_mode": "strong style transfer", "style": "high-angle view of a purple alien jungle floor, ferns and dinosaur bones at the edges, glowing portal glow in one corner", "note": "SDXL + scene refs, strong style transfer, jungle"},
+    {"key": "G", "model": "flux", "style": "high-angle three-quarter view of a cosmic space platform floor made of metal plates and glowing circuits, stars visible through gaps at the edges, sci-fi mobile game art", "note": "Flux, sci-fi metal platform"},
+    {"key": "H", "model": "flux", "style": "top-down view of a time-rift floor: half prehistoric mud with fern leaves, half futuristic tiled city floor, split diagonally, floating clock gears at the edges, painterly game art", "note": "Flux, time-rift split floor"}
+  ]
+}

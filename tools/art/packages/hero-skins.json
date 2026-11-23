@@ -1,0 +1,17 @@
+{
+  "name": "pkg-hero-skins",
+  "width": 1024, "height": 1024, "seeds": [1701, 1702],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", a limbless worm hero in costume, no arms, no legs, full body, centered, isolated on a plain white background, no scenery",
+  "negative": "arms, legs, hands, human body, humanoid, multiple characters, background scenery, text, watermark, blurry, photo",
+  "subjects": {
+    "hero_star_knight": "Star Knight Worm, a worm in shining silver knight armor plates with a star crest helmet and a small cape",
+    "hero_chef": "Chef Worm, a worm in a tall chef hat and apron with a ladle tucked in",
+    "hero_void_pirate": "Void Pirate Worm, a worm with a pirate tricorn hat, eyepatch and a starry space cape",
+    "hero_glacier_monk": "Glacier Monk Worm, a calm worm in icy blue monk robes with prayer beads of ice",
+    "hero_sparkplug": "Sparkplug Worm, an energetic worm with goggles, a battery pack and crackling sparks",
+    "hero_alchemist": "Toxic Alchemist Worm, a worm in a lab coat with bubbling flasks on a bandolier",
+    "hero_beast_tamer": "Beast Tamer Worm, a worm with a fur hood, a whistle and tiny alien pets around it",
+    "hero_noodle_ninja": "Shadow Noodle Worm, a worm in a black ninja mask and scarf with star throwers"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "pkg-aliens",
+  "width": 1024, "height": 1024, "seeds": [1001],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple creatures, text, watermark, blurry, photo, human",
+  "subjects": {
+    "alien_blorp": "Blorp, a small round green slime blob alien with one big eye and a goofy grin, common companion",
+    "alien_mossling": "Mossling, a tiny furry alien covered in soft moss with leaf ears, gentle healer",
+    "alien_pebblehorn": "Pebblehorn, a sturdy little rock-skinned alien with a stone horn, stubby and tough",
+    "alien_zib": "Zib, a hyper cyan alien imp with two antennae and a mischievous face, quick fighter",
+    "alien_glimmerfly": "Glimmerfly, a glowing moth-like alien with crackling electric wings",
+    "alien_emberkit": "Emberkit, a fox-like alien kit with a flickering flame tail and ember fur",
+    "alien_frostmite": "Frostmite, a chunky ice mite alien with crystal shell plates and frosty breath",
+    "alien_sporeling": "Sporeling, a walking mushroom alien puffing toxic purple spores",
+    "alien_clackclaw": "Clackclaw, a crab-like alien with oversized clacking pincers and armored shell",
+    "alien_whirrbit": "Whirrbit, a tiny tinkerer alien riding a whirring propeller gadget",
+    "alien_voidmaw": "Voidmaw, a shadowy alien with a starry void mouth and sharp crescent eyes, epic rarity",
+    "alien_thornqueen": "Thornqueen, a regal plant alien with a crown of thorns and vine tendrils, epic rarity",
+    "alien_gravitoad": "Gravitoad, a heavy toad alien floating with a gravity ring around it, epic rarity",
+    "alien_solarch": "Solarch, a majestic sun-bird alien with blazing solar feathers, legendary rarity",
+    "alien_tidecaller": "Tidecaller, a serene jellyfish alien trailing glowing water ribbons, legendary rarity",
+    "alien_nebulisk": "Nebulisk, a mythic cosmic serpent alien whose body is a swirling nebula full of stars"
+  }
+}

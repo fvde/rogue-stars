@@ -1,0 +1,19 @@
+{
+  "name": "pkg-bosses",
+  "width": 1024, "height": 1024, "seeds": [1401],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single huge boss monster, full body, imposing, facing left, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
+  "subjects": {
+    "boss_magma_tyrant": "Magma Tyrant, a towering lava titan with a crown of volcanic spikes and molten fists",
+    "boss_frost_leviathan": "Frost Leviathan, a colossal ice sea serpent with glacier armor and frozen breath",
+    "boss_storm_hive": "Storm Hive Queen, a giant insect queen with a crackling hive abdomen and lightning wings",
+    "boss_void_maw": "Void Maw, an enormous floating maw of darkness ringed with teeth and stars",
+    "boss_gloop_matriarch": "Gloop Matriarch, a gigantic mother slime with smaller slimes bubbling inside",
+    "boss_hollow_cantor": "Hollow Cantor, a tall hollow bell-shaped spirit that sings shockwaves",
+    "boss_prism_tyrant": "Prism Tyrant, a crystalline giant refracting rainbow beams",
+    "boss_rust_queen": "Rust Queen, a rusted mechanical queen made of scrap gears and chains",
+    "boss_chrono_wyrm": "Chrono Wyrm, a dragon made of clock parts and swirling time portals",
+    "boss_elder_magma": "Elder Magma Tyrant, an ancient older variant of the lava titan with cooled black crust and gold cracks"
+  }
+}

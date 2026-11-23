@@ -1,0 +1,21 @@
+{
+  "name": "pkg-skills",
+  "width": 1024, "height": 1024, "seeds": [1201],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game skill icon, one bold central symbol, square composition, plain dark background, no text",
+  "negative": "text, letters, numbers, frame clutter, multiple icons, watermark, blurry, photo",
+  "subjects": {
+    "fire": "fire skill: a blazing fireball bursting from a worm-shaped flame",
+    "ice": "ice skill: a sharp ice crystal shard with frost burst",
+    "lightning": "lightning skill: a crackling lightning bolt forking out of a storm orb",
+    "poison": "poison skill: a dripping green venom droplet with toxic bubbles",
+    "bleed": "bleed skill: three red slash marks with flying droplets",
+    "alien_synergy": "alien synergy skill: two small alien hands linking around a glowing star",
+    "counter": "counter skill: a round shield reflecting an incoming energy bolt",
+    "combo": "combo skill: a chain of three rapid strike arcs",
+    "crit": "critical hit skill: a target reticle with a shining star at its center",
+    "mythic_time": "mythic skill: a cracked hourglass spilling glowing time sand into a portal",
+    "mythic_portal": "mythic skill: a swirling violet portal ring with an eye in the middle",
+    "mythic_nova": "mythic skill: a supernova explosion with a worm silhouette at its core"
+  }
+}

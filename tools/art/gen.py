@@ -113,8 +113,11 @@ def contact_sheet(folder, sheet):
     except ImportError:
         pass
     rows = []
+    vs = sheet.get("variants") or (json.load(open(os.path.expanduser(sheet["variants_from"])))["variants"] if "variants_from" in sheet else [])
+    notes = {v["key"]: v.get("note", "") for v in vs}
     for subject in sheet["subjects"]:
-        cells = "".join(f'<figure><img src="{html.escape(f)}" loading="lazy"><figcaption>{html.escape(f[:-4])}</figcaption></figure>'
+        cells = "".join(f'<figure><img src="{html.escape(f)}" loading="lazy"><figcaption>{html.escape(f[:-4])}<br>'
+                        f'{html.escape(notes.get(f.split("__")[1], ""))}</figcaption></figure>'
                         for f in files if f.startswith(subject + "__"))
         rows.append(f"<h2>{html.escape(subject)}</h2><div class=g>{cells}</div>")
     page = ("<!doctype html><meta charset=utf-8><title>" + html.escape(sheet["name"]) + "</title><style>body{background:#111;color:#ddd;"
@@ -130,20 +133,43 @@ def main():
     ap.add_argument("--out", default=os.path.expanduser("~/AI/out"))
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--seeds", help="comma-separated seeds overriding the sheet's (e.g. a second overnight pass)")
     a = ap.parse_args()
     sheet = json.load(open(a.sheet))
+    if a.seeds:
+        sheet["seeds"] = [int(x) for x in a.seeds.split(",")]
     folder = os.path.join(a.out, sheet["name"])
     os.makedirs(folder, exist_ok=True)
     w, h = sheet.get("width", 768), sheet.get("height", 1344)
     jobs = []
-    for seed in sheet.get("seeds", [1]):
-        for model in sheet.get("models", ["flux"]):
-            for skey, style in sheet["styles"].items():
+    if "variants_from" in sheet:
+        # Content package + separate style direction: variants are assigned round-robin over the subjects (shifted per
+        # seed), so a package always spans every variant without rendering every subject in every style.
+        direction = json.load(open(os.path.expanduser(sheet["variants_from"])))
+        variants = direction["variants"]
+        suffix = sheet.get("suffix", "")
+        for si, seed in enumerate(sheet.get("seeds", [1])):
+            for i, (subj, subject) in enumerate(sheet["subjects"].items()):
+                v = variants[(i + si) % len(variants)]
+                jobs.append((subj, v["key"], v.get("model", "sdxl"), seed, subject + ", " + v["style"] + suffix, v))
+    elif "variants" in sheet:
+        # Exploration mode: each variant is a different recipe (model, refs, weight, mode, style, negative). Every
+        # subject is rendered once per variant per seed, so one batch spans very different looks.
+        for seed in sheet.get("seeds", [1]):
+            for v in sheet["variants"]:
                 for subj, subject in sheet["subjects"].items():
-                    jobs.append((subj, skey, model, seed, subject + ", " + style))
+                    jobs.append((subj, v["key"], v.get("model", "sdxl"), seed, subject + ", " + v["style"], v))
+    else:
+        for seed in sheet.get("seeds", [1]):
+            for model in sheet.get("models", ["flux"]):
+                for skey, style in sheet["styles"].items():
+                    for subj, subject in sheet["subjects"].items():
+                        jobs.append((subj, skey, model, seed, subject + ", " + style, {}))
     done = 0
-    for subj, skey, model, seed, prompt in jobs:
+    for subj, skey, model, seed, prompt, v in jobs:
         dest = os.path.join(folder, f"{subj}__{skey}__{model}__s{seed}.png")
+        neg = v.get("negative", sheet.get("negative", ""))
+        vw, vh = v.get("width", w), v.get("height", h)
         if os.path.exists(dest):
             continue
         if a.limit and done >= a.limit:
@@ -153,12 +179,12 @@ def main():
             done += 1
             continue
         if model == "flux":
-            graph = flux_graph(prompt, w, h, seed)
+            graph = flux_graph(prompt, vw, vh, seed)
         elif model == "sdxl_ref":
-            graph = sdxl_ref_graph(prompt, sheet.get("negative", ""), w, h, seed, sheet["style_refs"], sheet.get("ref_weight", 0.8),
-                                   sheet.get("ref_mode", "style transfer"))
+            graph = sdxl_ref_graph(prompt, neg, vw, vh, seed, v.get("style_refs", sheet.get("style_refs")),
+                                   v.get("ref_weight", sheet.get("ref_weight", 0.8)), v.get("ref_mode", sheet.get("ref_mode", "style transfer")))
         else:
-            graph = sdxl_graph(prompt, sheet.get("negative", ""), w, h, seed)
+            graph = sdxl_graph(prompt, neg, vw, vh, seed)
         t = time.time()
         try:
             png = run_one(graph)

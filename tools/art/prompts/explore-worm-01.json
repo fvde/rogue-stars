@@ -1,0 +1,20 @@
+{
+  "name": "explore-worm-01",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [701],
+  "negative": "background scenery, landscape, ground, plants, sky, arms, legs, hands, clothes, accessories, helmet, multiple characters, text, watermark, blurry, photo",
+  "subjects": {
+    "worm": "a single simple worm character, no arms, no legs, small head with two eyes, two short antennae, full body, isolated on a plain white background"
+  },
+  "variants": [
+    {"key": "A", "model": "sdxl_ref", "style_refs": ["battle.png"], "ref_weight": 0.45, "style": "2D game sprite, thick dark outline, flat cel shading", "note": "SDXL + battle ref, light style transfer"},
+    {"key": "B", "model": "sdxl_ref", "style_refs": ["keyart.png"], "ref_weight": 0.8, "ref_mode": "strong style transfer", "style": "chibi mobile game mascot, glossy painted shading", "note": "SDXL + key-art ref, strong style transfer"},
+    {"key": "C", "model": "flux", "style": "2D cartoon mobile game sprite, bold clean black outline, flat bright colors, cel shading, simple readable silhouette, pink earthworm", "note": "Flux, outlined cartoon sprite"},
+    {"key": "D", "model": "flux", "style": "kawaii vector sticker, thick white border, pastel colors, minimal shapes, cute round blob worm", "note": "Flux, vector sticker"},
+    {"key": "E", "model": "sdxl", "style": "flat vector game icon, geometric shapes, two-tone shading, no outline, teal and coral palette", "note": "SDXL no refs, flat geometric vector"},
+    {"key": "F", "model": "flux", "style": "hand-drawn ink line art with watercolor fill, storybook illustration, soft green worm", "note": "Flux, ink + watercolor storybook"},
+    {"key": "G", "model": "sdxl_ref", "style_refs": ["battle.png", "board-a.png"], "ref_weight": 0.6, "ref_mode": "linear", "style": "2D game character, thick outline, saturated colors, purple alien worm with glowing spots", "note": "SDXL + 2 refs, full IP-Adapter (style + content)"},
+    {"key": "H", "model": "flux", "style": "chunky 3D clay toy figurine, soft studio light, orange worm with big googly eyes, plain white backdrop", "note": "Flux, 3D clay toy"}
+  ]
+}

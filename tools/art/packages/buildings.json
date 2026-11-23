@@ -1,0 +1,24 @@
+{
+  "name": "pkg-buildings",
+  "width": 1024, "height": 1024, "seeds": [1101],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single building, three-quarter high-angle view, centered, isolated on a plain white background, no ground scenery",
+  "negative": "landscape, city skyline, multiple buildings, people, text, watermark, blurry, photo",
+  "subjects": {
+    "bp_biomass_farm": "Biomass Farm, an alien greenhouse dome with glowing pink worm food growing in rows",
+    "bp_grain_farm": "Grain Farm, a round alien silo with golden star-grain stalks on terraces",
+    "bp_ore_mine": "Ore Mine, a small drilling rig over a crater with ore carts and glowing ore chunks",
+    "bp_spore_vats": "Spore Vats, bubbling glass vats of purple spores connected by tubes",
+    "bp_fuel_refinery": "Fuel Refinery, a compact refinery with tanks of glowing green rocket fuel and a flare stack",
+    "bp_gear_works": "Gear Works, a workshop with big turning brass gears and sparking machinery",
+    "bp_training_grounds": "Training Grounds, a small arena with training dummies and a sparring ring",
+    "bp_plate_foundry": "Plate Foundry, a forge pouring molten metal into armor plates",
+    "bp_diamond_mine": "Diamond Mine, a crystal cave entrance glittering with purple diamonds",
+    "bp_token_relay": "Blueprint Relay, a tall antenna tower beaming blueprint holograms, legendary",
+    "bp_signal_beacon": "Alien Signal Beacon, a giant satellite dish calling aliens from space, legendary",
+    "laboratory": "Laboratory, an alien research lab with a bubbling flask on the roof and glowing windows",
+    "housing": "Alien Housing, cozy pod houses for alien workers with round doors",
+    "breeding_pen": "Breeding Pen, a nest-like enclosure with alien eggs under heat lamps",
+    "research_annex": "Research Annex, a domed observatory annex with a telescope"
+  }
+}
