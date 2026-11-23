@@ -29,6 +29,14 @@ namespace RogueStars.Rules.Core
         /// <summary>All effect lines of a run skill at a level in one paragraph.</summary>
         public static string Full(ContentDb content, SkillDef s, int level) => Full(SkillLeveling.At(content, s, level));
 
+        /// <summary>"Spiked Hide Lv 2/3" (Common: 3 levels, Legendary: 2), a Mythic just its name (it never levels).</summary>
+        public static string Title(ContentDb content, SkillDef s, int level)
+        {
+            if (s == null) return "";
+            int max = (content ?? ContentDb.Default).RunTuning.MaxSkillLevelOf(s.Rarity);
+            return max <= 1 ? s.Name : s.Name + " Lv " + Math.Max(1, level) + "/" + max;
+        }
+
         /// <summary>"Spiked Hide" / "Spiked Hide Lv 3".</summary>
         public static string Title(SkillDef s, int level) => s == null ? "" : s.Name + (level > 1 ? " Lv " + level : "");
 

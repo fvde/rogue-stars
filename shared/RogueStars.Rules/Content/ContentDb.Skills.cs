@@ -50,28 +50,33 @@ namespace RogueStars.Rules.Content
         }
     }
 
-    /// <summary>Run skills (~100 draftable, 9 families + generic, 30 Mythic); the Laboratory tree is in ContentDb.Laboratory.cs.</summary>
+    /// <summary>
+    /// Run skills (three tiers: Common, Legendary, Mythic; 9 families + generic, ~30 Mythic); the Laboratory tree is in
+    /// ContentDb.Laboratory.cs.
+    /// </summary>
     public sealed partial class ContentDb
     {
+        /// <summary>
+        /// A run-pool skill (run or laboratory). Its rarity is mapped to one of the three run tiers (RunTuning.RunTier: Common and
+        /// Rare → Common, Epic and Legendary → Legendary, Mythic → Mythic), fixed for the skill: it never upgrades into a tier.
+        /// </summary>
         private RunSkillBuilder RunSkill(string id, string name, SkillFamily family, Rarity rarity, SkillSource source = SkillSource.Run)
         {
-            var s = new SkillDef { Id = id, Name = name, Family = family, Rarity = rarity, Source = source };
+            var s = new SkillDef { Id = id, Name = name, Family = family, Rarity = RunTuning.RunTier(rarity), Source = source };
             AddSkill(s);
             return new RunSkillBuilder(s);
         }
 
-        /// <summary>Creates id, id_2, id_3 as an upgrade chain (each replaces the previous when drafted).</summary>
+        /// <summary>
+        /// A former upgrade chain (e.g. Spark → Arc → Thunderclap), folded into ONE skill (owner decision: no upgrading into a
+        /// better rarity): its first member's name, tier and numbers; its levels (SkillLeveling: +50% of its numbers per level,
+        /// +1 stack / round at Lv3) reproduce the chain's growth. The later members' names / rarities are kept in the call for
+        /// the record only.
+        /// </summary>
         private void RunChain(string id, SkillFamily family, string[] names, Rarity[] rarities, Action<RunSkillBuilder, int> fill)
         {
-            string prev = null;
-            for (int tier = 1; tier <= names.Length; tier++)
-            {
-                string sid = tier == 1 ? id : id + "_" + tier;
-                var b = RunSkill(sid, names[tier - 1], family, rarities[tier - 1]);
-                if (prev != null) b.Upgrades(prev);
-                fill(b, tier);
-                prev = sid;
-            }
+            var b = RunSkill(id, names[0], family, rarities[0]);
+            fill(b, 1);
         }
 
         private static readonly Rarity[] RunChainCRE = { Rarity.Common, Rarity.Rare, Rarity.Epic };

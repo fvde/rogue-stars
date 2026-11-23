@@ -114,8 +114,8 @@ namespace RogueStars.Rules.Systems
         {
             double scale = 1;
             if (c.MinigameTuning.ScaleCoinsWithShop && run != null && c.RunShopTables.TryGetValue("shop_standard", out var std)
-                && std.SkillPrices.TryGetValue(Rarity.Rare, out var basePrice) && basePrice > 0
-                && ShopTable(c, run).SkillPrices.TryGetValue(Rarity.Rare, out var price))
+                && std.SkillPrices.TryGetValue(Rarity.Common, out var basePrice) && basePrice > 0
+                && ShopTable(c, run).SkillPrices.TryGetValue(Rarity.Common, out var price))
                 scale = (double)price / basePrice;
             return (long)Math.Round(reward.Coins * scale);
         }

@@ -58,7 +58,7 @@ public class MinigameTests
         Assert.False(c.MinigameTuning.For(MinigameTier.Miss).Draft);
         // gold coins ≈ a good shop purchase or two
         var shop = c.RunShopTables["shop_standard"];
-        Assert.InRange(c.MinigameTuning.For(MinigameTier.Gold).Coins, shop.SkillPrices[Rarity.Rare], 2 * shop.SkillPrices[Rarity.Epic]);
+        Assert.InRange(c.MinigameTuning.For(MinigameTier.Gold).Coins, shop.SkillPrices[Rarity.Common], shop.SkillPrices[Rarity.Legendary] + shop.SkillPrices[Rarity.Mythic]);
         Assert.True(c.BoardTiles[ContentDb.MinigameTileId].Category == TileCategory.Minigame);
     }
 
@@ -286,7 +286,7 @@ public class MinigameTests
         var run = new ActiveRun { LevelId = c.DarkSideLevel(1).Id };
         var gold = c.MinigameTuning.For(MinigameTier.Gold);
         long dark = RunSystem.MinigameCoins(c, run, gold);
-        double ratio = (double)c.RunShopTables["shop_dark"].SkillPrices[Rarity.Rare] / c.RunShopTables["shop_standard"].SkillPrices[Rarity.Rare];
+        double ratio = (double)c.RunShopTables["shop_dark"].SkillPrices[Rarity.Common] / c.RunShopTables["shop_standard"].SkillPrices[Rarity.Common];
         Assert.True(ratio > 1);
         Assert.Equal((long)Math.Round(gold.Coins * ratio), dark);
     }

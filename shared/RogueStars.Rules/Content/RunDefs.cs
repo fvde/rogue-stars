@@ -495,14 +495,28 @@ namespace RogueStars.Rules.Content
         /// <summary>Steps ahead of the worm in which boss awakening actions transform / summon tiles.</summary>
         public int BossActionReach = 30;
 
-        /// <summary>An owned skill offered again (draft, shop, events) levels up, up to this level.</summary>
-        public int MaxSkillLevel = 5;
+        /// <summary>
+        /// Run skills have exactly three tiers, fixed per skill (owner decision: no upgrading into a better rarity): Common,
+        /// Legendary, Mythic. An owned skill offered again levels up to its tier's cap: Common Lv3 (two upgrades), Legendary
+        /// Lv2 (one), Mythic Lv1 (never; Mythics are standalone, build-defining skills).
+        /// </summary>
+        public int MaxLevelCommon = 3, MaxLevelLegendary = 2, MaxLevelMythic = 1;
+
+        /// <summary>Level cap of a run skill of tier <paramref name="tier"/> (<see cref="RunTier"/>).</summary>
+        public int MaxSkillLevelOf(Rarity tier)
+        {
+            var t = RunTier(tier);
+            return t == Rarity.Mythic ? MaxLevelMythic : t == Rarity.Legendary ? MaxLevelLegendary : MaxLevelCommon;
+        }
+
+        /// <summary>The run tier of a rarity: Common and Rare → Common, Epic and Legendary → Legendary, Mythic → Mythic.</summary>
+        public static Rarity RunTier(Rarity r) => r >= Rarity.Mythic ? Rarity.Mythic : r >= Rarity.Epic ? Rarity.Legendary : Rarity.Common;
         /// <summary>
         /// Skill levels improve the skill's OWN effect (SkillLeveling): each level above 1 adds this % of every numeric value of
         /// the skill (passive stats, trigger values: damage / heal / shield / rage / coins / summon power / conditional bonuses,
         /// buff and growth stats) ...
         /// </summary>
-        public double SkillLevelEffectPct = 25;
+        public double SkillLevelEffectPct = 50;
         /// <summary>... raises trigger chances below 100% by the same % (never above this cap, never below the base) ...</summary>
         public double SkillLevelChanceCap = 90;
         /// <summary>... and adds +1 status stack / +1 round of duration (statuses, timed buffs) every this many levels.</summary>

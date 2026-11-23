@@ -220,16 +220,17 @@ public class DraftTests
     {
         var c = ContentDb.Default;
         var empty = Run();
-        Assert.False(RunDraft.IsEligible(c, empty, c.Skill("fire_ember_2")));       // chain needs base
+        Assert.Null(c.Skill("fire_ember_2"));                                         // no upgrade chains: one skill, levels
         Assert.False(RunDraft.IsEligible(c, empty, c.Skill("fire_flare")));         // family gate 2
         Assert.True(RunDraft.IsEligible(c, empty, c.Skill("fire_ember")));
         Assert.False(RunDraft.IsEligible(c, empty, c.Skill("lab_second_wind")));    // lab skill not toggled on
         Assert.False(RunDraft.IsEligible(c, empty, c.Skill("enemy_rend")));         // not draftable
 
         var two = Run("fire_ember", "fire_kindle");
-        Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_ember_2")));
         Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_flare")));
-        Assert.False(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));           // owned
+        Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));            // owned Common: offered as a level-up
+        two.SkillLevels["fire_ember"] = 3;
+        Assert.False(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));           // Lv 3/3
 
         var four = Run("fire_ember", "fire_kindle", "fire_flare", "ice_shard");
         Assert.False(RunDraft.IsEligible(c, four, c.Skill("fire_phoenix")));        // requires fire_inferno + family 4
@@ -267,7 +268,7 @@ public class DraftTests
     }
 
     [Fact]
-    public void DraftPick_ReplacesUpgradedSkill_AndTracksPity()
+    public void DraftPick_LevelsUpAnOwnedSkill_AndTracksPity()
     {
         var e = RunTestKit.Engine();
         var s = RunTestKit.StartRun(e);
@@ -275,13 +276,12 @@ public class DraftTests
         run.Skills.Add("fire_ember");
         run.Phase = RunPhase.Draft;
         run.PendingDrafts = 1;
-        run.DraftOffer.AddRange(new[] { "fire_ember_2", "gen_guard", "crit_keen" });
+        run.DraftOffer.AddRange(new[] { "fire_ember", "gen_guard", "crit_keen" });
         Assert.False(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "fire_inferno" }).Ok);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "fire_ember_2" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "fire_ember" }).Ok);
         run = s.Run.Active!;
-        Assert.Contains("fire_ember_2", run.Skills);
-        Assert.DoesNotContain("fire_ember", run.Skills);
-        Assert.Contains("fire_ember", run.ReplacedSkills);
+        Assert.Single(run.Skills, "fire_ember");
+        Assert.Equal(2, RunDraft.Level(run, "fire_ember"));
         Assert.Equal(1, run.DraftsWithoutLegendary);
         Assert.Equal(1, s.Counter("run_skills_drafted"));
     }
@@ -312,8 +312,8 @@ public class ContentTests
         Assert.True(run.Count >= 70, "run skills: " + run.Count);
         foreach (SkillFamily f in Enum.GetValues(typeof(SkillFamily)))
             if (f != SkillFamily.None) Assert.True(run.Count(s => s.Family == f) >= 5, f.ToString());
-        foreach (Rarity r in Enum.GetValues(typeof(Rarity))) Assert.Contains(run, s => s.Rarity == r);
-        Assert.Contains(run, s => s.UpgradesFrom != null);
+        foreach (Rarity r in new[] { Rarity.Common, Rarity.Legendary, Rarity.Mythic }) Assert.Contains(run, s => s.Rarity == r); // the three run tiers
+        Assert.DoesNotContain(run, s => s.UpgradesFrom != null);
         Assert.Contains(run, s => s.Requires.Count > 0);
         Assert.Contains(run, s => s.RequiresFamilyCount > 0);
         foreach (var s in c.Skills.Values)

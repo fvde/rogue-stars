@@ -252,6 +252,7 @@ namespace RogueStars.Client.Tests
                 if (Array.IndexOf(RunPresentation.FallbackKinds, def.Category) < 0 || def.Category == TileCategory.Start) continue;
                 var tiles = new string[14];
                 for (int i = 0; i < tiles.Length; i++) tiles[i] = def.Id;
+                S.Wallet.Add(Currencies.Stamina, 20);
                 var run = StartRun(tiles);
                 run.MinibossesSpawned = C.RunTuning.MinibossAtMeter.Count;
                 Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True, def.Id);

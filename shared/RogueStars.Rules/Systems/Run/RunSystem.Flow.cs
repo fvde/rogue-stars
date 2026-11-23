@@ -687,7 +687,7 @@ namespace RogueStars.Rules.Systems
             if (run.Skills.Contains(skillId))
             {
                 int lv = RunDraft.Level(run, skillId);
-                if (lv >= c.RunTuning.MaxSkillLevel) return false;
+                if (lv >= c.RunTuning.MaxSkillLevelOf(s.Rarity)) return false;
                 run.SkillLevels[skillId] = lv + 1;
                 run.Gains.Add(new RunGain(source, skillId, lv + 1));
                 ApplyRunStartLevelDelta(ctx, run, s, lv, lv + 1);

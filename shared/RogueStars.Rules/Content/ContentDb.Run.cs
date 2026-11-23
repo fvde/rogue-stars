@@ -103,10 +103,9 @@ namespace RogueStars.Rules.Content
         private void RunBuildRunTuning()
         {
             var t = RunTuning;
-            t.DraftRarityWeights[Rarity.Common] = 55;
-            t.DraftRarityWeights[Rarity.Rare] = 28;
-            t.DraftRarityWeights[Rarity.Epic] = 12;
-            t.DraftRarityWeights[Rarity.Legendary] = 4;
+            // three run tiers (the old Common + Rare and Epic + Legendary odds folded together)
+            t.DraftRarityWeights[Rarity.Common] = 83;
+            t.DraftRarityWeights[Rarity.Legendary] = 16;
             t.DraftRarityWeights[Rarity.Mythic] = 1;
             t.SegmentThemes.Add(new SegmentTheme { Name = "Hunting Grounds", Enemy = 1.45, Reward = 0.9 });
             t.SegmentThemes.Add(new SegmentTheme { Name = "Old Ruins", Event = 1.7, Reward = 1.3, Enemy = 0.85 });
@@ -374,10 +373,10 @@ namespace RogueStars.Rules.Content
         private void RunBuildEvents()
         {
             RunEvent("unstable_reactor", "Unstable Reactor", "A humming reactor offers raw power, but the boss feeds on the surge.", 1, 3,
-                RunOpt("Absorb the surge", "Gain a Rare+ skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Rare), RunFx(RunEffectKind.BossStatPct, 15))),
+                RunOpt("Absorb the surge", "Gain a skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Common), RunFx(RunEffectKind.BossStatPct, 15))),
                 RunOpt("Walk away", "Nothing happens.", RunNothing));
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
-                RunOpt("Trade vitality", "-10% max HP for an Epic+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Epic))),
+                RunOpt("Trade vitality", "-10% max HP for a Legendary+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Legendary))),
                 RunOpt("Decline", "Nothing happens.", RunNothing));
             var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (account loot, paid on clear).",
                 RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
@@ -394,7 +393,7 @@ namespace RogueStars.Rules.Content
             var merchant = RunOpt("Buy a tonic (40 coins)", "Heal 30% HP.", RunOut(1, "Refreshing.", RunFx(RunEffectKind.HealPct, 30)));
             merchant.CoinCost = 40;
             RunEvent("alien_medic", "Alien Medic", "A friendly alien medic offers a tonic.", 1, 3, merchant, RunOpt("No thanks", "Nothing happens.", RunNothing));
-            var altar = RunOpt("Offer 2 portal shards", "Gain an Epic+ skill.", RunOut(1, "The altar glows.", RunSkillFx(Rarity.Epic)));
+            var altar = RunOpt("Offer 2 portal shards", "Gain a Legendary+ skill.", RunOut(1, "The altar glows.", RunSkillFx(Rarity.Legendary)));
             altar.ShardCost = 2;
             RunEvent("shard_altar", "Shard Altar", "An altar hums with portal energy.", 2, 3, altar,
                 RunOpt("Pray", "Calm the boss: awakening -15.", RunOut(1, "A calm settles.", RunFx(RunEffectKind.Meter, -15))),
@@ -454,10 +453,9 @@ namespace RogueStars.Rules.Content
         private void RunBuildShopsAndLoot()
         {
             var std = new ShopTableDef { Id = "shop_standard" };
-            std.RarityWeights[Rarity.Common] = 40; std.RarityWeights[Rarity.Rare] = 35; std.RarityWeights[Rarity.Epic] = 18;
-            std.RarityWeights[Rarity.Legendary] = 6; std.RarityWeights[Rarity.Mythic] = 1;
-            std.SkillPrices[Rarity.Common] = 25; std.SkillPrices[Rarity.Rare] = 45; std.SkillPrices[Rarity.Epic] = 80;
-            std.SkillPrices[Rarity.Legendary] = 140; std.SkillPrices[Rarity.Mythic] = 220;
+            // three run tiers: Legendary = 2× Common, Mythic = 3× Common (the old odds folded: C+R, E+L, M)
+            std.RarityWeights[Rarity.Common] = 75; std.RarityWeights[Rarity.Legendary] = 24; std.RarityWeights[Rarity.Mythic] = 1;
+            std.SkillPrices[Rarity.Common] = 40; std.SkillPrices[Rarity.Legendary] = 80; std.SkillPrices[Rarity.Mythic] = 120;
             std.SkillOffers = 4; std.StatOfferCount = 2;
             std.StatOffers.Add(new StatMod(StatId.Atk, 0, 8));
             std.StatOffers.Add(new StatMod(StatId.Hp, 0, 10));
@@ -470,8 +468,8 @@ namespace RogueStars.Rules.Content
 
             var dark = new ShopTableDef { Id = "shop_dark", HealPct = 25, HealPrice = 45, StatPrice = 60, RerollBase = 20, RerollStep = 15, SkillOffers = std.SkillOffers, StatOfferCount = std.StatOfferCount };
             foreach (var kv in std.RarityWeights) dark.RarityWeights[kv.Key] = kv.Value;
-            dark.RarityWeights[Rarity.Legendary] = 10; dark.RarityWeights[Rarity.Mythic] = 3;
-            foreach (var kv in std.SkillPrices) dark.SkillPrices[kv.Key] = kv.Value * 3 / 2;
+            dark.RarityWeights[Rarity.Legendary] = 28; dark.RarityWeights[Rarity.Mythic] = 3;
+            dark.SkillPrices[Rarity.Common] = 60; dark.SkillPrices[Rarity.Legendary] = 120; dark.SkillPrices[Rarity.Mythic] = 180; // ×1.5
             dark.StatOffers.AddRange(std.StatOffers);
             RunShopTables[dark.Id] = dark;
 

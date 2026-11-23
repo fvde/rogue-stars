@@ -111,16 +111,16 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var c = ContentDb.Default;
         Assert.True(c.RunTuning.BoardLayouts.Select(l => l.Kind).Distinct().Count() >= 5);
         var level = c.RunLevel("ember_wastes_5")!;
-        // the shapes differ: lateral spread and heading changes per segment vary across seeds
+        // the shapes differ: how much the path turns varies across seeds (straights, curves, zig-zags, hooks, diamonds)
         var spreads = new HashSet<int>();
         for (ulong seed = 1; seed <= 30; seed++)
         {
             var b = RunBoard.Generate(c, level, new Rng(seed));
             var seg = b.Tiles.Where(t => t.Segment == 0).ToList();
-            spreads.Add((int)Math.Round((seg.Max(t => t.PosX) - seg.Min(t => t.PosX)) * 2));
+            spreads.Add((int)Math.Round(seg.Average(t => Math.Abs(t.Dir)) / 5)); // how much the path turns
             Assert.True(seg.Max(t => t.PosY) > seg.Min(t => t.PosY) + 8, "the path climbs");
         }
-        Assert.True(spreads.Count >= 5, "layout spreads: " + string.Join(",", spreads));
+        Assert.True(spreads.Count >= 4, "layout spreads: " + string.Join(",", spreads));
     }
 
     [Fact]
@@ -241,9 +241,10 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var lv3 = SkillLeveling.At(c, hide, 3);
         Assert.Empty(lv3.Stats);                                                      // no +ATK / +HP package added
         Assert.Equal(25, hide.Triggers[0].Value);
-        Assert.Equal(37.5, lv3.Triggers[0].Value, 6);                                 // +25% per level above 1
+        Assert.Equal(50, lv3.Triggers[0].Value, 6);                                   // +50% per level above 1
         Assert.Equal("Spiked Hide Lv 3", SkillText.Title(hide, 3));
-        Assert.Contains(SkillText.Effects(c, hide, 3), l => l.Contains("37.5% ATK damage"));
+        Assert.Equal("Spiked Hide Lv 3/3", SkillText.Title(c, hide, 3));
+        Assert.Contains(SkillText.Effects(c, hide, 3), l => l.Contains("50% ATK damage"));
         Assert.Contains(SkillText.Effects(c, hide, 1), l => l.Contains("25% ATK damage"));
 
         // in a run: the worm's ATK / HP do not move when Spiked Hide levels up, the fighter uses the leveled skill
@@ -264,7 +265,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(before.Atk, after.Atk, 6);
         Assert.Equal(before.MaxHp, after.MaxHp, 6);
         var spec = RunSystem.WormSpec(c, run);
-        Assert.Equal(37.5, spec.Skill(c, "counter_spiked").Triggers[0].Value, 6);
+        Assert.Equal(50, spec.Skill(c, "counter_spiked").Triggers[0].Value, 6);
     }
 
     [Fact]
@@ -274,24 +275,24 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         // trigger-only status skill: chance and stacks grow
         var ember = c.Skill("fire_ember")!;                                           // On hit: 32% chance Burn ×1
         var e3 = SkillLeveling.At(c, ember, 3);
-        Assert.Equal(48, e3.Triggers[0].Chance, 6);
+        Assert.Equal(64, e3.Triggers[0].Chance, 6);                                   // the old chain's top tier had 56% ×2
         Assert.Equal(2, e3.Triggers[0].Stacks);
         // damage + chance, the chance capped
         var shard = c.Skill("ice_shard")!;                                            // On attack: 35% chance 35% ATK; 10% Freeze
-        var s5 = SkillLeveling.At(c, shard, 5);
-        Assert.Equal(70, s5.Triggers[0].Value, 6);
-        Assert.Equal(70, s5.Triggers[0].Chance, 6);
-        Assert.Equal(20, s5.Triggers[1].Chance, 6);
+        var s3 = SkillLeveling.At(c, shard, 3);
+        Assert.Equal(70, s3.Triggers[0].Value, 6);
+        Assert.Equal(70, s3.Triggers[0].Chance, 6);
+        Assert.Equal(20, s3.Triggers[1].Chance, 6);
         var hot = new SkillDef { Id = "x", Name = "X" };
         hot.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Chance = 80 });
-        Assert.Equal(c.RunTuning.SkillLevelChanceCap, SkillLeveling.At(c, hot, 5).Triggers[0].Chance, 6);
+        Assert.Equal(c.RunTuning.SkillLevelChanceCap, SkillLeveling.At(c, hot, 3).Triggers[0].Chance, 6);
         // timed buff: value and duration grow
         var rally = c.Skill("alien_rally")!;                                          // allies +12% ATK for 3 rounds
         var r3 = SkillLeveling.At(c, rally, 3);
-        Assert.Equal(18, r3.Triggers[0].Stat.Percent, 6);
+        Assert.Equal(24, r3.Triggers[0].Stat.Percent, 6);
         Assert.Equal(4, r3.Triggers[0].Duration);
         // passive stat skill: its own package grows
-        Assert.Equal(20 * 2, SkillLeveling.At(c, c.Skill("fire_kindle")!, 5).Stats[0].Percent, 6);
+        Assert.Equal(20 * 2, SkillLeveling.At(c, c.Skill("fire_kindle")!, 3).Stats[0].Percent, 6);
         // the content def is never mutated
         Assert.Equal(25, c.Skill("counter_spiked")!.Triggers[0].Value);
         // skills whose numbers do not scale (the run clock) are never offered as level-ups
@@ -316,7 +317,39 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         run = s.Run.Active!;
         run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_hoarder"); run.PendingDrafts = 1;
         Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_hoarder" }).Ok);
-        Assert.Equal(25, s.Run.Active!.ExtraLootPct, 6);                             // Lv 2: 20 × 1.25
+        Assert.Equal(30, s.Run.Active!.ExtraLootPct, 6);                             // Legendary Lv 2/2: 20 × 1.5
+    }
+
+    [Fact]
+    public void RunSkills_HaveThreeFixedTiers_WithLevelCaps_AndTierPrices()
+    {
+        var c = ContentDb.Default;
+        var pool = c.Skills.Values.Where(s => s.Draftable && (s.Source == SkillSource.Run || s.Source == SkillSource.Laboratory)).ToList();
+        Assert.True(pool.Count > 60);
+        Assert.All(pool, s => Assert.True(s.Rarity is Rarity.Common or Rarity.Legendary or Rarity.Mythic, s.Id + ": " + s.Rarity));
+        Assert.All(pool, s => Assert.Null(s.UpgradesFrom));                           // no upgrade chains
+        foreach (var r in new[] { Rarity.Common, Rarity.Legendary, Rarity.Mythic }) Assert.Contains(pool, s => s.Rarity == r);
+        Assert.Equal(3, c.RunTuning.MaxSkillLevelOf(Rarity.Common));
+        Assert.Equal(2, c.RunTuning.MaxSkillLevelOf(Rarity.Legendary));
+        Assert.Equal(1, c.RunTuning.MaxSkillLevelOf(Rarity.Mythic));
+        // lab research levels raise the numbers, never the tier
+        Assert.Equal(c.Skill("lab_second_wind")!.Rarity, c.Skill("lab_second_wind_5")!.Rarity);
+        foreach (var t in c.RunShopTables.Values)
+        {
+            Assert.Equal(2 * t.SkillPrices[Rarity.Common], t.SkillPrices[Rarity.Legendary]);
+            Assert.Equal(3 * t.SkillPrices[Rarity.Common], t.SkillPrices[Rarity.Mythic]);
+            Assert.Equal(3, t.SkillPrices.Count);
+        }
+        Assert.Equal(new[] { Rarity.Common, Rarity.Legendary, Rarity.Mythic }, c.RunTuning.DraftRarityWeights.Keys.OrderBy(k => k));
+        foreach (var m in c.MinigameTuning.Rewards.Where(r => r.Draft))
+            Assert.Equal(new[] { Rarity.Common, Rarity.Legendary, Rarity.Mythic }, m.DraftRarityWeights.Keys.OrderBy(k => k));
+        // Mythics never level: an owned Mythic is never offered again (draft, shop or miniboss choice)
+        var run = new ActiveRun();
+        var mythic = pool.First(s => s.Rarity == Rarity.Mythic && s.RequiresFamilyCount == 0 && s.Requires.Count == 0 && s.Source == SkillSource.Run);
+        run.Skills.Add(mythic.Id);
+        Assert.False(RunDraft.IsEligible(c, run, mythic));
+        Assert.False(RunDraft.IsMythicEligible(c, run, mythic));
+        Assert.Equal(mythic.Name, SkillText.Title(c, mythic, 1));
     }
 
     // ---- 5. XP: one level-up per battle --------------------------------------------------------------------------
@@ -440,11 +473,11 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         run.RunStats.Add(new StatMod(StatId.Atk, 0, 8));                             // shop perk
         run.RunStats.Add(new StatMod(StatId.Hp, 0, -10));                            // curse
         run.Skills.Add("gen_guard");                                                 // +12% DEF
-        run.SkillLevels["gen_guard"] = 3;                                            // Lv 3: +18% DEF
+        run.SkillLevels["gen_guard"] = 3;                                            // Lv 3: +24% DEF
         var w = RunSystem.WormStats(c, run);
         Assert.Equal(108, w.Atk, 6);
         Assert.Equal(900, w.MaxHp, 6);
-        Assert.Equal(20 * 1.18, w.Def, 6);
+        Assert.Equal(20 * 1.24, w.Def, 6);
         Assert.Equal(w.Atk, w.Stats.Value(StatId.Atk), 6);
         run.WormHp = 450;
         Assert.Equal(450, RunSystem.WormStats(c, run).Hp, 6);
