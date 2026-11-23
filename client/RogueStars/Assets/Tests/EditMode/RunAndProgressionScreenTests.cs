@@ -76,6 +76,12 @@ namespace RogueStars.Client.Tests
             run.Trail.Add(0);
         }
 
+        private static bool FindBranchPick(Transform root)
+        {
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == "BranchPick:A") return true;
+            return false;
+        }
+
         private Button ModalButton(System.Func<Button, bool> match)
         {
             foreach (var b in _f.App.ModalLayer.GetComponentsInChildren<Button>(true)) if (match(b)) return b;
@@ -136,11 +142,16 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.AutoPaused, Is.True, "still shopping after a purchase");
             Assert.That(_f.Service.State.Run.Active.Phase, Is.EqualTo(RunPhase.Shop));
 
-            // leave → auto resumes by itself (auto is still on)
+            // leave → the shop's result (what was bought), which auto passes after a moment; then auto resumes by itself
             ModalButton(b => b.name == "Button:Leave").onClick.Invoke();
             Assert.That(_f.Service.State.Run.Active.Phase, Is.EqualTo(RunPhase.AwaitRoll));
             Assert.That(screen.AutoPaused, Is.False);
+            if (!screen.OutcomeOpen) screen.Rebuild();
+            Assert.That(screen.OutcomeOpen, Is.True, "shop result");
+            Assert.That(_f.Service.State.Run.Active.LastOutcome.Lines.Exists(l => l.Kind == OutcomeKind.SkillGained && l.Id == skill), Is.True);
             long rolls = _f.Service.State.Counter("run_rolls");
+            screen.Frame(RunScreen.AutoOutcomeSeconds + 0.1f);
+            Assert.That(screen.OutcomeOpen, Is.False, "auto passes the result");
             screen.Frame(1f);
             Assert.That(_f.Service.State.Counter("run_rolls"), Is.EqualTo(rolls + 1), "auto rolled again");
             Assert.That(screen.Auto, Is.True);
@@ -214,7 +225,9 @@ namespace RogueStars.Client.Tests
             {
                 var active = _f.Service.State.Run.Active;
                 phases.Add(active.Phase);
-                if (active.Phase != RunPhase.AwaitRoll && _f.App.Router.Current is RunScreen)
+                if (active.Phase == RunPhase.ChooseBranch && _f.App.Router.Current is RunScreen rs)
+                    Assert.That(rs.Root.GetComponentsInChildren<Button>(true).Length > 0 && FindBranchPick(rs.Root), Is.True, "A / B on the board at a fork");
+                else if (active.Phase != RunPhase.AwaitRoll && _f.App.Router.Current is RunScreen)
                     Assert.That(_f.App.ModalLayer.childCount, Is.GreaterThan(0), "decision modal for " + active.Phase);
                 _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
                 CloseBattles();

@@ -73,6 +73,7 @@ public static class RunTestKit
         {
             var t = new RunTile { Id = i, TileId = all[i], X = i };
             if (i + 1 < all.Count) t.Next.Add(i + 1);
+            else if (all.Count > 2) t.Next.Add(1); // the circuit: past the gate the next lap starts
             run.Tiles.Add(t);
         }
         run.BossGateTile = all.Count - 1;

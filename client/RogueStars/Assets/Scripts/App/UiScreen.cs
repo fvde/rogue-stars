@@ -109,6 +109,13 @@ namespace RogueStars.Client.App
         /// <summary>Scroll the body so <paramref name="target"/> is centred once this build is laid out (instead of keeping the old position).</summary>
         protected void ScrollToAfterBuild(RectTransform target) => _scrollTarget = target;
 
+        /// <summary>Scroll the body now so <paramref name="target"/> is centred (follow a moving object, e.g. the run's worm).</summary>
+        protected void CenterOn(RectTransform target)
+        {
+            if (_scroll == null || target == null) return;
+            _scroll.verticalNormalizedPosition = CenteredPosition(target);
+        }
+
         /// <summary>Rebuild the body from the current state (keeps the scroll position).</summary>
         public void Rebuild()
         {

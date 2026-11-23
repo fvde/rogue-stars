@@ -85,11 +85,13 @@ namespace RogueStars.Client.App
                 case "run_revived": return "Revived!";
                 case "run_rewards_doubled": return "Run rewards doubled!";
                 case "run_burrow_descend": return "Burrow floor " + A(0);
+                case "run_lap": return "Lap " + (int.TryParse(A(0), out var lap) ? lap + 1 : 2) + " — around the board again";
+                case "run_cache_empty": return "Already looted — nothing left here";
                 case "boss_awaken": return "The boss stirs…";
                 case "lab_collected": return (c != null && c.LabResearch.TryGetValue(A(0), out var lr) ? lr.Name : "Research") + " level " + A(1) + " researched";
                 // high-frequency run plumbing is shown on the board instead
                 case "run_roll": case "run_land": case "run_battle": case "run_draft": case "run_event": case "run_shop":
-                case "run_started": case "run_draft_pick": case "run_shop_buy": case "run_event_outcome": case "run_boss_fight":
+                case "run_started": case "run_draft_pick": case "run_shop_buy": case "run_event_outcome": case "run_boss_fight": case "run_outcome":
                 case "lab_research": case "run_defeated":
                     return null;
                 // Unknown events: the humanized type only (args are ids).

@@ -122,13 +122,17 @@ currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
 
 | Main level | threat t | enemy × M(t) | S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level | Data / Dark clear | item drops (lowest tier) | chest at n + 10: 💎 / tokens each | portal bonus at n: 💎 / tokens each |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 100 | 51.2 | 144 | 10 | 3 252 | 1 069 | 24 | 1.8 | 21 | 98 | Common | 60 / 1 | 240 / 4 |
-| 250 | 65.3 | 480 | 25 | 8 130 | 2 673 | 60 | 4.5 | 71 | 338 | Common | 75 / 1 | 300 / 4 |
-| 500 | 80.3 | 1 669 | 50 | 16.3k | 5 346 | 119 | 8.9 | 154 | 2 478 | Common | 100 / 2 | 400 / 8 |
-| 1000 | 110.3 | 19k | 275 | 89.2k | 29.3k | 653 | 49 | 321 | 13.8k | Epic | 150 / 3 | 600 / 12 |
-| 2000 | 170.3 | 2.12M | 7 468 | 2.43M | 798k | 17.8k | 1 335 | 654 | 376k | Legendary | 250 / 5 | 1 000 / 20 |
+| 100 | 51.2 | 144 | 10 | 3 453 | 1 129 | 36 | 2.7 | 21 | 98 | Common | 60 / 1 | 240 / 4 |
+| 250 | 65.3 | 480 | 25 | 8 633 | 2 822 | 89 | 6.7 | 71 | 338 | Common | 75 / 1 | 300 / 4 |
+| 500 | 80.3 | 1 669 | 50 | 17.3k | 5 644 | 179 | 13.4 | 154 | 2 478 | Common | 100 / 2 | 400 / 8 |
+| 1000 | 110.3 | 19k | 275 | 94.8k | 31.0k | 980 | 73 | 321 | 13.8k | Epic | 150 / 3 | 600 / 12 |
+| 2000 | 170.3 | 2.12M | 7 468 | 2.58M | 843k | 26.7k | 2 002 | 654 | 376k | Legendary | 250 / 5 | 1 000 / 20 |
 
-(Per run = completion + the 2 completion loot rolls, expected value, averaged over the portal's 10 levels, before the
+(Since the ~30-roll runs (GDD §3.3) ordinary tiles pay no account loot; the scattered tile loot of the old short runs
+(~0.3–0.8 items per run) moved into a third completion loot roll, and at most 3 risky opportunities per run add more for
+players who take the risk. Runs take ~2.5 minutes instead of ~1, so an active player plays fewer runs per day and the
+daily income stays near the old model — see docs/balance/progression-report.md, "Run length".)
+(Per run = completion + the 3 completion loot rolls, expected value, averaged over the portal's 10 levels, before the
 surge/ads; Dark Side level = the one sitting at that main level. Regenerate with
 `dotnet run --project tools/RogueStars.Sim -c Release -- --reward-table`.) From level 100 to 2000 the threat grows
 ×14 700 and per-run currencies ×750. Milestones add ≈ 2% to a year's Diamonds and pull tokens for an active player

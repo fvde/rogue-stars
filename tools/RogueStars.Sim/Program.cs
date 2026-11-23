@@ -26,6 +26,26 @@ if (opts.Has("age-jump"))
     }
     return;
 }
+if (opts.Has("run-length"))
+{
+    // Run length per level band (awakening clock sizing): bots play --days with every run recorded.
+    int rd = opts.Int("days", 60), rs = opts.Int("seeds", 2);
+    string rv = opts.Str("variant", "");
+    string rp = opts.Str("profiles", "Active:F2P,Hardcore:Whale");
+    var rprof = new List<(TimeProfile t, SpendProfile s)>();
+    foreach (var p in rp.Split(',', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var parts = p.Split(':');
+        rprof.Add((TimeProfile.ByName(parts[0]), SpendProfile.ByName(parts[1])));
+    }
+    var rjobs = rprof.SelectMany(p => Enumerable.Range(1, rs).Select(seed => (p.t, p.s, seed: (long)seed))).ToList();
+    var rres = new ConcurrentBag<SimResult>();
+    Parallel.ForEach(rjobs, j => rres.Add(Simulation.Run(j.t, j.s, j.seed, rd, string.IsNullOrEmpty(rv) ? null : () => Variants.Create(rv), null, true)));
+    Console.WriteLine($"{rd} days, profiles {rp}, {rs} seeds; main level reached: "
+        + string.Join(", ", rres.OrderBy(r => r.Profile).ThenBy(r => r.Seed).Select(r => r.Profile + " #" + r.Seed + " " + r.Daily[^1].MainLevel)));
+    Console.WriteLine(RunLength.Markdown(rres));
+    return;
+}
 if (opts.Has("unlocks"))
 {
     // Onboarding schedule check: unlock day/level per feature for a ~1 h/day player (Active) and a binge player (Hardcore).

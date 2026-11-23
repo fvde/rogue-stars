@@ -278,7 +278,7 @@ namespace RogueStars.Rules.Content
                 v => { var s = CityTrig(TriggerKind.OnRoll, EffectKind.ExtraDice, 1); s.Triggers[0].Chance = v; return s; }, 8, 11, 14, 17, 20);
             var stasis = CityDef("bp_stasis_beacon", "Stasis Beacon", Rarity.Legendary, BuildingCategory.Boon, 2, 2, StatId.BossDamage,
                 "Slows the boss awakening meter.");
-            CityRunSkillTiers(stasis, "Stasis Field", "Boss awakening meter starts {0} points lower.", Rarity.Legendary,
+            CityRunSkillTiers(stasis, "Stasis Field", "The boss awakening meter fills {0}% slower.", Rarity.Legendary,
                 v => CityTrig(TriggerKind.OnRunStart, EffectKind.SlowAwakening, v), 5, 8, 11, 14, 18);
 
             // Extremely rare Epic+ start-skill buildings: 1–3 skills at run start.

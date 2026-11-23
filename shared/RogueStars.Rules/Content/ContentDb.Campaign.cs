@@ -250,10 +250,11 @@ namespace RogueStars.Rules.Content
                 if (Math.Abs(hpPct) > 0.01 || Math.Abs(atkPct) > 0.01)
                     l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(hpPct, 2), EnemyAtkPct = Math.Round(atkPct, 2) };
                 l.StaminaCost = Math.Min(c.StaminaMax, c.StaminaBase + index);
-                l.BoardLength = 24 + i + Math.Min(index, c.BoardGrowthPortals) * 2;
-                l.MaxRolls = 16 + i / 2;
+                // A lap of the circuit board; two dice walk ~twice as far per roll, so their lap is longer. The boss's awakening
+                // meter ends the run (~30 rolls), MaxRolls is only the hard limit.
                 l.Dice = i >= 6 ? 2 : 1;
-                if (l.Dice == 2) l.MaxRolls = 12 + i / 2;
+                l.BoardLength = (24 + i + Math.Min(index, c.BoardGrowthPortals) * 2) * (l.Dice == 2 ? 3 : 2) / 2;
+                l.MaxRolls = c.MaxRolls;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((120 + 30 * i) * scale)));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
                 if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
@@ -299,15 +300,15 @@ namespace RogueStars.Rules.Content
             var l = RunNewLevel(DarkSideLevelPrefix + i, "Dark Side " + i, DarkSidePortalId, i, whole, "pool_dark", "boss_void_maw", "loot_dark",
                 new[] { "void_spawn", "null_shade", "tunnel_stalker" }, new[] { "elite_void_reaver", "elite_rift_echo" });
             l.Number = i;
-            l.StaminaCost = 12; l.ShopTableId = "shop_dark"; l.Dice = 2; l.MaxRolls = 14; l.BoardLength = 34;
+            l.StaminaCost = 12; l.ShopTableId = "shop_dark"; l.Dice = 2; l.MaxRolls = Campaign.MaxRolls; l.BoardLength = 51;
             l.RewardMultiplier = 2.5;
             double extreme = 40 + 5 * Math.Min(i, 10);
             // Threat fraction as extra enemy HP/ATK %, on top of the extreme modifier.
             double frac = (ThreatFractionMultiplier(threat) - 1) * 100;
             l.Modifiers = new LevelModifiers
             {
-                EnemyAtkPct = Math.Round(extreme + frac, 2), EnemyHpPct = Math.Round(extreme + frac, 2), HealPct = -50, AwakeningPct = 50, DangerPct = 50,
-                Text = "Enemies +" + extreme + "% ATK/HP, healing -50%, awakening and danger +50%.",
+                EnemyAtkPct = Math.Round(extreme + frac, 2), EnemyHpPct = Math.Round(extreme + frac, 2), HealPct = -50, DangerPct = 50,
+                Text = "Enemies +" + extreme + "% ATK/HP, healing -50%, danger +50%.",
             };
             l.CompletionRewards.Add(Reward.Cur(Currencies.Data, DarkSideData(i)));
             l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 8));

@@ -6,9 +6,10 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Board generation (GDD §3.1): a directed tile graph with a main spine, branch legs that rejoin, an optional
-    /// loop leg back to an earlier tile, fixed specials at main-path fractions, dedicated boss tiles, weighted pool
-    /// fill and a boss gate at the end. Deterministic for a given Rng.
+    /// Board generation (GDD §3.1): a circuit. A directed tile graph with a main spine, branch legs that rejoin, an optional
+    /// loop leg back to an earlier tile, fixed specials at main-path fractions, dedicated boss tiles, weighted pool fill and
+    /// the boss gate at the end of the spine, which leads back to the first tile (a lap): the worm never runs out of board,
+    /// the boss comes when its awakening meter is full (RunSystem). Deterministic for a given Rng.
     /// </summary>
     public static class RunBoard
     {
@@ -59,6 +60,8 @@ namespace RogueStars.Rules.Systems
             var gate = Add(b, "boss_gate", col + 1, 0);
             cur.Next.Add(gate.Id);
             b.GateTile = gate.Id;
+            // The circuit: past the gate the next lap starts at the first tile after the landing site.
+            gate.Next.Add(b.MainPath.Count > 1 ? b.MainPath[1] : start.Id);
 
             // Optional loop: a leg from a late main tile back to an earlier one (the token can circle).
             if (rng.Chance(level.LoopChance) && b.MainPath.Count >= 12)
