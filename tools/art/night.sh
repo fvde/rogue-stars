@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Overnight art queue: every content package in tools/art/packages once (pass 1), then again with shifted seeds so each
-# subject also gets a different style variant (pass 2, fills the rest of the night), with sprite cutouts after each
-# package. Needs tools/art/prompts/direction.json (the style variants) and a running ComfyUI.
+# subject also gets a different style variant (pass 2, fills the rest of the night). After each package the images are
+# exported as game-ready transparent sprites to ~/AI/assets/<category>/<id>/ (export_assets.py). Needs tools/art/prompts/direction.json (the style variants) and a running ComfyUI.
 #
 #   tools/art/night.sh            # run in the background; resumable (existing images are skipped)
 set -uo pipefail
@@ -19,7 +19,7 @@ for pass in 1 2; do
       python3 tools/art/gen.py "$sheet" --seeds "$seeds"
     fi
     name=$(python3 -c "import json;print(json.load(open('$sheet'))['name'])")
-    [[ $p == skills ]] || $PY tools/art/cutout.py "$HOME/AI/out/$name" >/dev/null 2>&1 || true
+    $PY tools/art/export_assets.py "$HOME/AI/out/$name" >/dev/null 2>&1 || echo "export failed: $name"
     echo "== pass $pass $p done $(date +%H:%M)"
   done
 done

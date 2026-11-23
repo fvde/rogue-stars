@@ -1,8 +1,12 @@
 {
   "name": "pkg-skills",
-  "width": 1024, "height": 1024, "seeds": [1201],
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    1201
+  ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
-  "suffix": ", game skill icon, one bold central symbol, square composition, plain dark background, no text",
+  "suffix": ", game skill icon, one bold central symbol, square composition, isolated on a plain pure white background, no frame",
   "negative": "text, letters, numbers, frame clutter, multiple icons, watermark, blurry, photo",
   "subjects": {
     "fire": "fire skill: a blazing fireball bursting from a worm-shaped flame",
