@@ -11,5 +11,6 @@
   <Folder Name="/shared/">
     <Project Path="shared/RogueStars.Rules.Tests/RogueStars.Rules.Tests.csproj" />
     <Project Path="shared/RogueStars.Rules/RogueStars.Rules.csproj" />
+    <Project Path="shared/RogueStars.Sim.Core/RogueStars.Sim.Core.csproj" />
   </Folder>
 </Solution>

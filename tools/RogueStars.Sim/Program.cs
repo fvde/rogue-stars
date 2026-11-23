@@ -12,6 +12,20 @@ if (opts.Has("reward-table"))
     Console.WriteLine(Endless.RewardTable(rc, 100, 250, 500, 1000, 2000));
     return;
 }
+if (opts.Has("age-jump"))
+{
+    // Dev tools' "jump to account day N" (docs/server.md): wall time per profile on one thread (server content, ads disabled).
+    int jd = opts.Int("days", AccountAgeJump.MaxDays);
+    var jc = new RogueStars.Rules.Content.ContentDb();
+    jc.Shop.AdsDisabled = true;
+    long jnow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    foreach (var name in AccountAgeJump.ProfileNames)
+    {
+        var r = AccountAgeJump.Run(jc, "bench", jd, AccountAgeJump.Profile(name), opts.Int("seed", 1), jnow);
+        Console.WriteLine($"day {r.Day} {r.Profile}: main level {r.MainLevel}, worm level {r.WormLevel}, {r.Commands} commands, {r.ElapsedMs} ms");
+    }
+    return;
+}
 if (opts.Has("unlocks"))
 {
     // Onboarding schedule check: unlock day/level per feature for a ~1 h/day player (Active) and a binge player (Hardcore).

@@ -15,10 +15,29 @@ namespace RogueStars.Rules.Systems
         /// <summary>All skill ids in ordinal order (deterministic iteration over content).</summary>
         public static List<string> SortedSkillIds(ContentDb content)
         {
-            var ids = new List<string>(content.Skills.Keys);
-            ids.Sort(StringComparer.Ordinal);
+            var sorted = Sorted(content);
+            var ids = new List<string>(sorted.Length);
+            foreach (var s in sorted) ids.Add(s.Id);
             return ids;
         }
+
+        /// <summary>
+        /// Skills in ordinal id order, cached per content (drafts and shops run on every run step; sorting a thousand ids
+        /// each time dominated bot simulations). Rebuilt when skills are added (tests add skills to their content).
+        /// </summary>
+        private static SkillDef[] Sorted(ContentDb content)
+        {
+            if (SortedCache.TryGetValue(content, out var cached) && cached.Length == content.Skills.Count) return cached;
+            var ids = new List<string>(content.Skills.Keys);
+            ids.Sort(StringComparer.Ordinal);
+            var defs = new SkillDef[ids.Count];
+            for (int i = 0; i < ids.Count; i++) defs[i] = content.Skills[ids[i]];
+            SortedCache.AddOrUpdate(content, defs);
+            return defs;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, SkillDef[]> SortedCache =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, SkillDef[]>();
 
         public static int FamilyCount(ContentDb content, ActiveRun run, SkillFamily family)
         {
@@ -44,11 +63,8 @@ namespace RogueStars.Rules.Systems
         public static List<SkillDef> Eligible(ContentDb content, ActiveRun run)
         {
             var list = new List<SkillDef>();
-            foreach (var id in SortedSkillIds(content))
-            {
-                var s = content.Skills[id];
+            foreach (var s in Sorted(content))
                 if (IsEligible(content, run, s)) list.Add(s);
-            }
             return list;
         }
 
