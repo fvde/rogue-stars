@@ -32,9 +32,9 @@ The server issues these itself. Their classes belong to the rules workstreams; t
 | `PurchaseComplete` | `PurchaseComplete` (Meta/Shop) | `/v1/iap/verify` | `ProductId, ReceiptId (= store order id)` (+ `OrderId, PurchaseToken, Store, Test`, ignored) | grants the product; needs the client's `PurchaseStart` (pending record) first, else `200 {ok:false, error:"no pending purchase"}` and the receipt can be retried | `501` |
 | `AdWatched` | `AdWatched` (Meta/Shop) | `/v1/ads/ssv` | `PlacementId (= custom_data), AdToken (= event_id)` | consumes the placement's daily ad cap and grants its direct rewards (placements whose effect belongs to another system are consumed by that system's command) | `501` |
 | `InvasionAttack` | `InvasionRecordDamage` (Meta/LiveOps) | `/v1/invasions/{id}/attack` | `OccurrenceId (= the instance's rules occurrence id), Damage, InvasionId (= TypeId), StartMs, EndMs` | starts the attempt atomically (feature gate, one `invasion_attempts`), records damage/score, guild contribution; a failure rejects the attack (`409`) | attacks are free |
-| `InvasionOutcome` | `LiveOpsApplyOutcome` (Meta/LiveOps) | invasion-resolve job | `InvasionId (= TypeId), OccurrenceId, Repelled, ContributionRank` | lasting win/lose modifiers of the content invasion + rank rewards | invasion stays pending |
+| `InvasionOutcome` | `LiveOpsApplyOutcome` (Meta/LiveOps) | invasion-resolve job | `InvasionId (= TypeId), OccurrenceId, Repelled, ContributionRank` | lasting win/lose modifiers of the content invasion + rank rewards (+ a chance of an Awaken Core for top contributors of a repelled high-tier invader, rolled by the rules) | invasion stays pending |
 | `ArenaStart` | `ArenaStartFight` (Meta/Arena) | `/v1/arena/fight`, before resolving | `OpponentId` | feature gate + one arena ticket; a failure rejects the fight (`409`) | fights are free |
-| `ArenaFight` | `ArenaFightResult` (Meta/Arena) | `/v1/arena/fight`, after resolving | `Won, OpponentPoints` | rules-side arena points, `arena_fights`/`arena_wins` | no rules bookkeeping |
+| `ArenaFight` | `ArenaFightResult` (Meta/Arena) | `/v1/arena/fight`, after resolving | `Won, OpponentPoints` | rules-side arena points, Arena Medals, `arena_fights`/`arena_wins` | no rules bookkeeping |
 | `MailDeliver` | `MailPush` (Meta/Mail) | arena weekly rewards, invasion top rewards | `Title, Body, Rewards (Reward[])` | puts the mail in the inbox (claimed by the player) | queued in `mail_outbox`, delivered by `daily-reset` |
 | `GuildMembership` | `GuildSetMembership` (Meta/Guild) | guild create/join/leave/kick/promote | `GuildId (null when left), Role` | membership for guild shop and contribution | skipped |
 
@@ -109,9 +109,11 @@ current AppLovin MAX S2S documentation before launch**. Configure the MAX callba
   source of truth for weekly points (Elo-style from `StartPoints`, reset lazily per reset-week): the server mirrors the
   `points`/`delta` of the hook's payload (`ArenaFightOutcome`) into the group member. Group members start at the
   rules' `StartPoints`; defenders' points do not change.
-- `weekly-arena` job (`?week=` optional, default previous week): ranks every group, mails rank rewards
-  (`Arena:RankRewards`, scaled ×(1+0.5·league)), promotes the top `PromoteTop` (15) / demotes the bottom
-  `DemoteBottom` (15). Resumable and idempotent.
+- `weekly-arena` job (`?week=` optional, default previous week): ranks every group, mails rank rewards — the rules'
+  league ladder (`ArenaSystem.RankRewards`: Diamonds, Arena Tickets and **Arena Medals**, the PvP currency for the arena
+  shop's Awaken Cores) unless `Arena:RankRewards` overrides it (then scaled ×(1+0.5·league)) — promotes the top
+  `PromoteTop` (15) / demotes the bottom `DemoteBottom` (15). Resumable and idempotent. Per-fight medals are paid by the
+  `ArenaFight` hook (`ArenaFightResult`).
 
 ### Guilds
 | Method | Path | Body | Response |

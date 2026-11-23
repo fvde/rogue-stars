@@ -31,6 +31,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RuneLock>(HandleRuneLock);
             e.Register<PartForgeUnlock>(HandleForge);
             e.Register<PartAwaken>(HandleAwaken);
+            e.Register<PartReplicate>(HandleReplicate);
             e.Rewards.Register(RewardKinds.Part, GrantPart);
             e.Rewards.Register(RewardKinds.Rune, GrantRune);
             e.RegisterLoadoutContributor(Contribute);
@@ -510,6 +511,44 @@ namespace RogueStars.Rules.Systems
             EnsureRuneSlots(ctx.Content, p);
             s.Count("part_forges");
             return CommandResult.Success(RuneSlotCount(ctx.Content, p));
+        }
+
+        /// <summary>Validate a replication (UI preview); throws RuleException.</summary>
+        public static void ValidateReplicate(GameState s, ContentDb c, string targetUid, IList<string> materialUids)
+        {
+            var cfg = c.PartsConfig; var target = RequirePart(s, targetUid);
+            GameEngine.Require(target.Rarity >= (int)cfg.ReplicateMinTargetRarity, "replicate copies of Mythic+ parts only");
+            GameEngine.Require(materialUids != null && materialUids.Count > 0, "no materials");
+            var seen = new HashSet<string>();
+            long points = 0, smallest = long.MaxValue;
+            foreach (var uid in materialUids)
+            {
+                GameEngine.Require(uid != targetUid && seen.Add(uid), "duplicate material");
+                var m = RequirePart(s, uid);
+                GameEngine.Require(IsMergeMaterial(s, m), "equipped, awakened or forged parts cannot be materials");
+                GameEngine.Require(m.Rarity >= (int)PartRarity.Legendary, "material rarity too low");
+                long v = FodderValue(c, m);
+                points += v; smallest = Math.Min(smallest, v);
+            }
+            GameEngine.Require(points >= cfg.ReplicateFodderPoints, "not enough fodder (" + points + "/" + cfg.ReplicateFodderPoints + ")");
+            GameEngine.Require(points - smallest < cfg.ReplicateFodderPoints, "superfluous material");
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, cfg.ReplicateOre), "not enough ore");
+        }
+
+        private static CommandResult HandleReplicate(PartReplicate cmd, CommandContext ctx)
+        {
+            var s = ctx.State; var cfg = ctx.Content.PartsConfig;
+            ValidateReplicate(s, ctx.Content, cmd.TargetUid, cmd.MaterialUids);
+            ProgressionUtil.Spend(s, Currencies.Ore, cfg.ReplicateOre);
+            foreach (var uid in cmd.MaterialUids)
+            {
+                RefundAndStrip(s, s.Parts.Items[uid]);
+                s.Parts.Items.Remove(uid);
+            }
+            var copy = AddPart(s, ctx.Content, s.Parts.Items[cmd.TargetUid].DefId, (int)PartRarity.Legendary);
+            s.Count("part_replications");
+            ctx.Emit("part_replicated", copy.Uid, copy.DefId);
+            return CommandResult.Success(copy.Uid);
         }
 
         private static CommandResult HandleAwaken(PartAwaken cmd, CommandContext ctx)

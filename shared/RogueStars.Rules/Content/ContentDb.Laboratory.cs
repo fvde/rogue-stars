@@ -34,7 +34,7 @@ namespace RogueStars.Rules.Content
                 b.Desc("Rage attacks cause heavy bleed.").Status(TriggerKind.OnRageAttack, 100, StatusId.Bleed, 1 + lv));
             LabStat("lab_crit_damage", "Fracture Analysis", Off, 3, StatId.CritDamage, false, 2, Any("res_chain_strikes", "lab_crit_chance", "lab_rage_gain"), false);
             LabStat("lab_combo", "Reflex Loop", Off, 3, StatId.ComboChance, false, 1, Any("res_chain_strikes", "lab_crit_chance", "lab_rage_gain"), false);
-            LabStat("lab_atk_2", "Hyper Servos", Off, 4, StatId.Atk, true, 2, Any("res_bloodletting", "lab_crit_damage", "lab_combo"), false);
+            LabStat("lab_atk_2", "Hyper Servos", Off, 4, StatId.Atk, true, 1, Any("res_bloodletting", "lab_crit_damage", "lab_combo"), false);
             LabStat("lab_boss_damage", "Titan Studies", Off, 5, StatId.BossDamage, false, 2,
                 new[] { new LabPrereq("lab_atk_2", 3), new LabPrereq("lab_elemental_mastery", 2) }, true);
 
@@ -51,8 +51,8 @@ namespace RogueStars.Rules.Content
             LabStat("lab_dodge", "Blink Glands", Def, 3, StatId.Dodge, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_counter", "Spring Joints", Def, 3, StatId.CounterChance, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_shield_power", "Barrier Theory", Def, 3, StatId.ShieldPower, false, 2, Any("res_retaliation", "lab_def_1"), false);
-            LabStat("lab_hp_2", "Regenerative Mesh", Def, 4, StatId.Hp, true, 2, Any("res_bulwark", "lab_dodge", "lab_counter", "lab_shield_power"), false);
-            LabStat("lab_def_2", "Neutron Shell", Def, 4, StatId.Def, true, 2, Any("res_bulwark", "lab_dodge", "lab_counter", "lab_shield_power"), false);
+            LabStat("lab_hp_2", "Regenerative Mesh", Def, 4, StatId.Hp, true, 1, Any("res_bulwark", "lab_dodge", "lab_counter", "lab_shield_power"), false);
+            LabStat("lab_def_2", "Neutron Shell", Def, 4, StatId.Def, true, 1, Any("res_bulwark", "lab_dodge", "lab_counter", "lab_shield_power"), false);
             LabStat("lab_damage_reduction", "Impact Dampers", Def, 5, StatId.DamageReduction, false, 1,
                 new[] { new LabPrereq("lab_hp_2", 3), new LabPrereq("lab_alien_power_2", 2) }, true);
 
@@ -87,8 +87,8 @@ namespace RogueStars.Rules.Content
             LabStat("lab_loot_luck", "Salvage Algorithms", Cmd, 2, StatId.LootLuck, false, 2, Any("res_pack_tactics", "lab_alien_power_1"), false);
             RunLab("res_lucky_dice", "Lucky Dice", false, SkillFamily.None, Rarity.Legendary, Cmd, 3, Any("res_treasure_sense", "lab_loot_luck"), false, (b, lv) =>
                 b.Desc("Rolls may grant an extra die next roll.").Board(TriggerKind.OnRoll, EffectKind.ExtraDice, 1, null, 10 + 10 * lv));
-            LabStat("lab_mount_power", "Hangar Tuning", Cmd, 3, StatId.MountPower, true, 2, Any("res_treasure_sense", "lab_loot_luck"), false);
-            LabStat("lab_alien_power_2", "Symbiont Bond", Cmd, 4, StatId.AlienPower, true, 2, Any("res_lucky_dice", "lab_mount_power"), false);
+            LabStat("lab_mount_power", "Hangar Tuning", Cmd, 3, StatId.MountPower, true, 1, Any("res_treasure_sense", "lab_loot_luck"), false);
+            LabStat("lab_alien_power_2", "Symbiont Bond", Cmd, 4, StatId.AlienPower, true, 1, Any("res_lucky_dice", "lab_mount_power"), false);
             RunLab("res_drone_bay", "Drone Bay", false, SkillFamily.AlienSynergy, Rarity.Legendary, Cmd, 4, Any("res_lucky_dice", "lab_mount_power"), false, (b, lv) =>
                 b.Desc("Battle start: launch a combat drone.").On(TriggerKind.OnBattleStart, EffectKind.Summon, 20 + 8 * lv, TargetKind.Self, 100, 0, "drone"));
         }

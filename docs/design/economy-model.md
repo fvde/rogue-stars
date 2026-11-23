@@ -41,14 +41,29 @@ after the main hero is maxed.
 ## Other long-haul curves (content)
 - Worm: 500 levels, Biomass cost `80·L^1.5·1.01^L` (>1 billion Biomass to max), +3% HP/ATK/DEF every 25 levels;
   60 talent tiers.
-- Parts: Mythic needs 2 Legendary copies of the same part on top of the Legendary+3 chain; Mythic+1/+2/+3 need
-  3 / 4 / 1 same + 5 further Mythic parts of the same kind (balance pass: was 1 / 2 / 1+1). Level cap 10 (Common) →
-  100 (Mythic+3) + up to 6 plate raises (60…1 600 plates); Gear Cores from part level 10 (2·(L−9)^1.25 per level);
-  S/SS awakening costs Part Awaken Cores (40 / 150) from Burrow floor 10 and the Dark Side.
+- Parts (`docs/design/parts.md`): 14-step ladder to Mythic SS+2. Below Mythic three parts of a rarity merge into one
+  (any def/kind); Mythic+ steps take Legendary+ fodder (fodder points, Legendary = 81 = 1 LE): 2 / 8 / 14 / 24 / 40 /
+  70 / 120 / 200 / 340 LE from Mythic to SS+2, own-def copies (Legendary+) 1 / 2 / 3 / 1 for Mythic / S / SS / SS+2 and
+  Ore 1.5k ×1.5 per step. Level cap 10 (Common) → 115 (SS+2) + up to 6 plate raises (60…1 600 plates); Gear Cores from
+  part level 10. Five part skills (Epic / Legendary / Mythic / Mythic S / Mythic SS). Awakening: Mythic+, once,
+  50 Awaken Cores.
+- Awaken Cores (extremely rare): arena shop (200 Arena Medals, 2 per week), repelled high-tier invasions (top 10
+  contributors, 4–25%), Burrow floors 9/10 (1% / 1.5%); no routine source. Measured: ~0.6 per week Casual,
+  ~1.2 Active, ~2 Hardcore; first awakening ~day 160–300 (Hardcore/Active), ~day 520–580 (Casual).
+- Arena Medals: 4 per win, 2 per loss, 20–120 per weekly rank (×1–2.5 by league); arena shop: Awaken Core, part
+  tokens, Data, Gear Cores.
+- Laboratory: research costs Data; the k-th research level takes h = 1.5 h × 1.0355^k nominal and costs 14 × h^0.75
+  Data (19 … 2 464; ≈ 28.7k h and ≈ 95k Data for the whole tree). Data: Dark Side clears 24 × 1.025^(i−1) × 2.5 (level i of 150; 60 … 2 400),
+  daily chests 20/day, weekly chest 100, Laboratory unlock 60, arena shop 300 per 50 medals.
+- Biomass: portal runs are the main source — completion (120 + 30·i) × portal scale, loot 45–90 × scale, and the
+  **daily Biomass surge**: the first 3 won portal runs (Normal/Overcharged) of each reset-day pay their Biomass ×4
+  (`RunTuning.DailyBiomassBonusRuns/Mult`), so short sessions also get most of their Biomass from runs. City farms
+  (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
+  Sinks: worm levels, talents, buildings (no laboratory).
 - Mounts: 5★ costs 350 shards (35 duplicates), awakening 1–5 another 1 040 shards + 2 500 Mount Cores. Mount copies
   are ~25% of Blueprint Signal outcomes (1/1/2/5/10 copies by tier, first copy unlocks the mount) and a mount banner
   ("Lancer Shipyard", 15 copies) rotates with the blueprint banners; Mount Cores come from Burrow floors 6+, the Dark
-  Side and the guild shop.
+  Side (1–4 per clear) and the guild shop.
 
 The full meta-progression (every system, 9 player profiles, 2 years) is simulated by `tools/RogueStars.Sim`; see
 `docs/balance/progression-report.md` for the curves, walls and the balance pass that set the numbers above.
@@ -56,6 +71,10 @@ The full meta-progression (every system, 9 player profiles, 2 years) is simulate
 ## Levers
 - Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).
 - Hero pacing: `HeroConfig.StarShardCosts`, hero-shard share/amounts in the Alien pool, featured hero amount.
+- Part pacing: `PartMergeRecipe.FodderPoints/SameDefCount/Ore` per rarity; part power: `PartRarityDef.StatMultiplier`,
+  `PartsConfig.SkillPowerScale` (0.25; awakened 0.3).
+- Awaken Cores: arena shop price/limit, invasion chances, Burrow rare-drop chances.
+- Laboratory: `LabTuningDef.BaseHours/Growth/DataBase/DataExponent`, `CampaignDef.DarkSideDataBase/Growth`, chest Data.
 
 ## Early run balance (integration with the Run workstream)
 Runs use the real Progression loadout (the Run fallback worm stats are only a safety net and no longer trigger).

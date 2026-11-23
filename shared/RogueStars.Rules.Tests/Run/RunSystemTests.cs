@@ -425,6 +425,32 @@ public class AwakenCoreSourceTests
     }
 }
 
+public class BiomassSurgeTests
+{
+    [Fact]
+    public void FirstWonPortalRunsOfTheDay_PayTripleBiomass()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = TestHelpers.NewPlayer(e, 11);
+        s.Wallet.Add(Currencies.Stamina, 1000);
+        var t = e.Content.RunTuning;
+        long completion = e.Content.RunLevel("ember_wastes_1")!.CompletionRewards.First(r => r.Id == Currencies.Biomass).Amount;
+        var flags = new List<bool>();
+        for (int i = 0; i < t.DailyBiomassBonusRuns + 1; i++)
+        {
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            RunTestKit.AutoToEnd(e, ref s);
+            Assert.True(s.Run.LastSummary.Won);
+            flags.Add(s.Run.LastSummary.BiomassBonus);
+            long paid = s.Run.LastSummary.Granted.Where(r => r.Id == Currencies.Biomass).Sum(r => r.Amount);
+            Assert.True(paid >= completion * (s.Run.LastSummary.BiomassBonus ? t.DailyBiomassBonusMult : 1));
+        }
+        Assert.Equal(Enumerable.Repeat(true, t.DailyBiomassBonusRuns).Append(false), flags);
+        Assert.Equal(0, RunSystem.BiomassBonusRunsLeft(s, e.Content, TestHelpers.T0));
+        Assert.Equal(t.DailyBiomassBonusRuns, RunSystem.BiomassBonusRunsLeft(s, e.Content, TestHelpers.T0 + GameClock.Day));
+    }
+}
+
 public class DarkSideTests
 {
     [Fact]

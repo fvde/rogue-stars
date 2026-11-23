@@ -8,7 +8,8 @@ Raw medians per checkpoint: `docs/balance/data/<time>_<spend>.csv` (after the ba
 
 ```
 DOTNET_CLI_TELEMETRY_OPTOUT=1 arch -arm64 ~/.dotnet/dotnet run --project tools/RogueStars.Sim -c Release -- \
-    [--days 730] [--seeds 3] [--profiles Active:F2P,Hardcore:Whale] [--label before] [--out docs/balance] [--quiet]
+    [--days 730] [--seeds 3] [--profiles Active:F2P,Hardcore:Whale] [--label before] [--out docs/balance] [--quiet] \
+    [--variant no_lab_stats,no_part_skills,old_biomass,part_skills_x0.5]   # content experiments (tools/RogueStars.Sim/Variants.cs)
 <venv>/bin/python tools/RogueStars.Sim/charts.py docs/balance [before_label] [after_label]   # matplotlib, local venv
 ```
 All 9 profiles × 3 seeds × 730 days take ~9 minutes on 10 cores (one simulation per core, deterministic by seed).
@@ -47,6 +48,10 @@ the solution tests.
   dominate arena leagues in the sim.
 
 ## Headline numbers (after the balance pass and the plateau fix, median of 3 seeds)
+
+> Numbers in this section and in "Generated tables" are from before the parts/lab/cores redesign (they equal the
+> `*_pre_redesign` data). Current content: see "Parts/lab/cores redesign" below and `data/analysis_redesign.md`; the
+> charts in `charts/` are regenerated from the redesign run.
 
 | Profile | main level d7 / d30 / d90 / d365 / d730 | Power d7 / d30 / d90 / d365 / d730 | spent by d730 |
 |---|---|---|---|
@@ -179,7 +184,172 @@ PartLevels limit moved 9 → 20 days with this note; the content-side fix is rec
 
 ![Plateau fix](charts/plateau_fix.png)
 
+## Parts/lab/cores redesign
+
+Content change (2026-11, product-owner approved): 14-step part ladder to Mythic SS+2 with fodder points and five skills
+per part (`docs/design/parts.md`), one-time awakening for 50 Awaken Cores, cores only from the arena shop (new PvP
+currency Arena Medals), high-tier invasions and deep Burrow floors, a 38-node laboratory tree mixing stat and skill
+nodes, paid in Data (Dark Side, now 150 procedural levels), the Research Annex (second slot), Biomass mainly from portal
+runs (daily surge: first 3 won portal runs ×4) and Ore for Mythic+ merges. Simulated with the same bot (9 profiles ×
+3 seeds × 730 days); *before* = content just before the redesign (`data/*_pre_redesign.csv`, `data/redesign_pre_redesign.md`),
+*after* = `data/*_redesign.csv`, `data/redesign_redesign.md`, `data/analysis_redesign.md`. Bot additions: merges focus
+on the best equipped part, copies still needed by equipped parts are kept, everything else is fodder; it awakens the best
+Mythic+ part, buys cores in the arena shop, staffs the Annex, farms the Dark Side for Data while research waits for it
+(≤ 15% / 35% / 40% of a day's run stamina for Casual / Active / Hardcore).
+
+### Campaign and power, before → after (median)
+
+| Profile | main level d180 / d365 / d730 | power d365 / d730 |
+|---|---|---|
+| Casual F2P | 51 / 72 / 149 → 56 / 85 / 198 | 23.5k / 51.7k → 31.7k / 61.2k |
+| Casual Dolphin | 65 / 99 / 178 → 74 / 114 / 202 | 41.5k / 74k → 44.7k / 72.3k |
+| Casual Whale | 77 / 108 / 166 → 87 / 122 / 183 | 55k / 95.7k → 56.8k / 92.4k |
+| Active F2P | 86 / 196 / 335 → 124 / 232 / 416 | 64.3k / 106.4k → 66.8k / 114.6k |
+| Active Dolphin | 130 / 240 / 371 → 157 / 264 / 459 | 76.4k / 108.4k → 75.6k / 114.8k |
+| Active Whale | 148 / 326 / 403 → 203 / 372 / 494 | 98.2k / 112.7k → 100.7k / 131.7k |
+| Hardcore F2P | 131 / 258 / 369 → 172 / 311 / 500 | 86.8k / 117.5k → 90.6k / 141.1k |
+| Hardcore Dolphin | 164 / 281 / 400 → 191 / 332 / 500 | 90.7k / 118.3k → 94.2k / 138.4k |
+| Hardcore Whale | 194 / 334 / 410 → 240 / 423 / 500 | 102.8k / 122.2k → 112.9k / 148.2k |
+
+Power at day 365 is within −1…+35% (≈ +3% for Active profiles), but the campaign moves 10–27% faster in year one:
+part and lab skills (status chains, AoE, last stands) win more battles than the stat-based power score shows. In year two
+the long-haul systems keep adding power (whales no longer flatten: power d365→d730 +31% vs +15% before), and **every
+Hardcore profile reaches the end of the 500-level campaign around day 650–730** (Active Whale 494). See recommendations.
+
+![Redesign before/after](charts/redesign_before_after.png)
+
+### Parts: one item up the exponential road (first day the best owned part reaches a rarity, median)
+
+| Profile | Mythic | Mythic S | Mythic SS | Mythic SS+2 | before: Mythic / Mythic+3 (old top) |
+|---|---|---|---|---|---|
+| Casual F2P | 5 | 250 | – | – | 5 / 300 |
+| Casual Dolphin | 2 | 140 | 693 | – | 2 / 170 |
+| Casual Whale | 1 | 65 | 330 | – | 1 / 67 |
+| Active F2P | 2 | 95 | 502 | – | 2 / 103 |
+| Active Dolphin | 2 | 76 | 396 | – | 2 / 104 |
+| Active Whale | 2 | 49 | 267 | – | 2 / 55 |
+| Hardcore F2P | 2 | 66 | 337 | – | 1 / 88 |
+| Hardcore Dolphin | 1 | 54 | 281 | – | 1 / 58 |
+| Hardcore Whale | 1 | 43 | 217 | 603 | 1 / 61 |
+
+(– = not within 730 days.) Mythic S costs ~51 Legendary-equivalents, Mythic SS ~284, Mythic SS+2 ~825: each skill
+rung takes 3–5× the time of the previous one. Only the Hardcore Whale reaches SS+2 (day 603); every F2P profile needs
+years (Active F2P is at SS on day 502). Before, the old top (Mythic+3) was reached in 2–10 months by everyone.
+
+**Surplus:** quick merge turns everything below Legendary into Legendary fodder (3 → 1, any def/kind), so spare
+parts below Legendary stay at 2–5 (before 38–50) and **nothing is dismantled any more** (before 2 300–26 100 parts per
+account were dismantled). Spare Legendary+ parts at day 730: 40–169, mostly own-def copies kept for the coming S/SS
+steps (before 128–975, a growing pile). Parts merged by day 730: Active F2P 4 495 (before 581), Hardcore Whale 13 100
+(before 1 088).
+
+### Awaken Cores and awakening
+
+| Profile | cores / week d90–365 | d365–730 (arena shop / invasions / Burrow) | first awakening (day) |
+|---|---|---|---|
+| Casual F2P | 0.61 | 0.59 (0.56 / 0.02 / 0.02) | 582 |
+| Casual Dolphin | 0.66 | 0.69 (0.52 / 0.06 / 0.12) | 519 |
+| Casual Whale | 0.69 | 0.59 (0.44 / 0.08 / 0.08) | 551 |
+| Active F2P | 1.15 | 1.17 (0.82 / 0.04 / 0.31) | 295 |
+| Active Dolphin | 1.22 | 1.11 (0.82 / 0.04 / 0.25) | 295 |
+| Active Whale | 1.20 | 1.11 (0.81 / 0.02 / 0.29) | 261 |
+| Hardcore F2P | 2.04 | 1.98 (1.52 / 0.08 / 0.38) | 174 |
+| Hardcore Dolphin | 2.11 | 2.15 (1.63 / 0.08 / 0.44) | 162 |
+| Hardcore Whale | 2.06 | 1.94 (1.52 / 0.06 / 0.36) | 162 |
+
+Before: ~15.6 cores per week from Burrow floor 10 alone for every Active/Hardcore profile (first S awakening on day
+20–30). After: an active F2P player gets ~1.2 per week (target 1–2) and awakens a first part after ~10 months; money
+does not buy cores (the arena shop limit and medal income are the same for whales). Casual players (2 arena fights a
+day) get ~0.6 per week. Cores pile up between awakenings by design (the analysis flags "hoarding" while players save
+for 50).
+
+### Laboratory
+
+Size (content, `LabTuningDef`; test `Tree_CannotBeFinishedInYearOne_EvenWithPerfectPlayAndTheAnnex`): 38 nodes, 187
+research levels beyond the 3 default ones, the k-th research takes 1.5 h × 1.0355^k (1.5 h … 986 h), **28 727 nominal
+hours** and **94 786 Data** in total.
+
+| Perfect play (all 3 ads at the start of every timer = ×0.614, daily free speed-up 0.5 h) | nominal hours per year | tree |
+|---|---|---|
+| one slot, no Laboratory building boon | 14 561 | 1.97 years |
+| one slot, strongest Laboratory boon (+26.9%: level 32, 10★) | 18 486 | 1.55 years |
+| plus Research Annex from day 1 (second slot, ×2 timer) | 27 540 | 1.04 years |
+
+So no player can finish the tree in year one with timers and ads alone, even with a second slot from day 1 and a maxed
+Laboratory building (≈ 96% at best). Diamonds can finish timers (0.2 Diamonds per minute); a whale that rushes every lab
+timer would need ~5 000 Diamonds per day — the simulated whales rush when they can afford it and reach 91% of levels /
+55% of research hours at day 365.
+
+| Profile | levels % / hours % at d30 | d90 | d180 | d365 | d730 |
+|---|---|---|---|---|---|
+| Casual F2P | 19 / 0.3 | 35 / 1.2 | 48 / 3.0 | 61 / 7.4 | 78 / 23 |
+| Active F2P | 21 / 0.4 | 39 / 1.6 | 54 / 4.7 | 72 / 15.6 | 95 / 73 |
+| Active Whale | 25 / 0.6 | 45 / 2.5 | 66 / 10.6 | 91 / 53 | 100 / 100 |
+| Hardcore F2P | 23 / 0.5 | 42 / 1.9 | 60 / 6.9 | 81 / 27 | 100 / 100 |
+| Hardcore Whale | 26 / 0.6 | 47 / 2.8 | 67 / 11.4 | 91 / 55 | 100 / 100 |
+
+(Other profiles in `data/redesign_redesign.md`.) Before, the 60-level lab was done by day 130–180 (Active) and every
+profile but Casual F2P had it at 100% by day 365. Now nobody finishes in year one; Active/Hardcore players finish in
+year two, Active F2P is at 95% of levels / 73% of hours at day 730, casual players are at 23% of hours. The tree is
+levels-front-loaded (cheap early researches) and hours-back-loaded (the last 20 levels hold half the hours).
+
+**Data by source (per day, median):**
+
+| Profile | d0–90 Dark Side / chests | d90–365 | d365–730 |
+|---|---|---|---|
+| Casual F2P | 0 / 34 | 4 / 34 | 17 / 34 |
+| Active F2P | 9 / 34 | 40 / 34 | 154 / 35 |
+| Active Whale | 29 / 34 | 181 / 35 | 287 / 34 |
+| Hardcore F2P | 17 / 34 | 86 / 35 | 323 / 34 |
+| Hardcore Whale | 34 / 34 | 235 / 35 | 211 / 34 |
+
+The chests carry the lab until the Dark Side opens (main level 40); from day ~90 the Dark Side is the main Data source
+for Active and Hardcore players (54–90% of Data). Casual players rarely farm the Dark Side (short sessions go to the
+campaign) and research mostly on the daily trickle.
+
+### Biomass by source (per day, median)
+
+| Profile | window | runs (portal + Burrow) | city | quests/claims | runs' share |
+|---|---|---|---|---|---|
+| Casual F2P | d90–365 | 3.4k (before 0.5k) | 8.2k (before 15.6k) | 9.1k | 16% (before 2%) |
+| Active F2P | d90–365 | 40.5k (before 8.0k) | 19.1k (before 38.2k) | 9.3k | 59% (before 15%) |
+| Active F2P | d365–730 | 69.0k (before 11.0k) | 31.3k (before 62.1k) | 9.7k | 63% (before 14%) |
+| Hardcore F2P | d365–730 | 107.6k (before 21.5k) | 55.7k (before 110.1k) | 9.7k | 62% (before 15%) |
+| Active Whale | d365–730 | 74.7k (before 10.8k) | 37.2k (before 76.9k) | 9.7k | 61% (before 11%) |
+
+Portal runs are now the main Biomass source for every Active and Hardcore profile (≈ 50–68% of all Biomass); the city
+stays a meaningful second source (≈ 25–35%). 15-minute players still live on the city and the daily chests (the first three won
+runs of a day are only 1–2 runs for them). Sinks are unchanged except the laboratory (no Biomass/Ore any more); Biomass
+and Ore are still spent fully every day.
+
+### Smoothness (year one and beyond)
+
+Wall flags (stretches without any upgrade beyond 7 / 14 / 21 / 35 days per window, all systems, 9 profiles) 202 → 139,
+early caps 18 → 6 (only Breeding, which stops once genes are good, and one HeroLevels), flat-power flags 5 → 2. The
+longest campaign gap in year one is 20 days (Casual F2P, days 181–365; before 18); no system gets a new year-one wall.
+Parts now upgrade every few days in every window (max gap 0–2 days, before up to 23); part levels have one long gap in
+year two for Active/Hardcore profiles (44–62 days at the level cap of the current rarity while saving for the next
+merge). Laboratory gaps are 3–20 days until the tree is done. New hoarding flags: Data after the tree is finished
+(whales, Hardcore, day 600+), Awaken Cores while saving for 50.
+
+### Tuning decisions made during the pass
+
+- Part stat multipliers top out at ×11 (SS+2; Mythic SS ×9.8 ≈ the old Mythic+3) and part-skill amounts are scaled ×0.25
+  (awakened ×0.3): with the first numbers (×16.5 top, full skills) Hardcore Whales finished the campaign by day 365.
+- Laboratory stat nodes give +1% per level for HP/ATK/DEF/alien/mount power and +1…2 points for chance stats; research
+  costs Data only (decided: no Biomass/Ore), 14·h^0.75 Data so early research is Data-gated and late research timer-gated.
+- Mythic+ merges cost Ore (1.5k ×1.5 per step) — the lab no longer sinks Ore; steeper Ore (×2) stalled merges and piled
+  up Legendaries.
+- Below Mythic any def/kind merges (no copies), so surplus is never dead; the Replicator (10 LE + 5k Ore → a Legendary
+  copy for a Mythic+ part) is the safety valve for S/SS copies (rarely needed by the bot once spare copies count as fodder).
+- Biomass: run completion (120 + 30·level) × portal scale and loot 45–90 × scale (1.5× before), the daily surge (first 3
+  won portal runs ×4) and city farms 0.5×.
+
 ## Remaining recommendations
+
+0. **(Redesign) Campaign end for Hardcore profiles:** after the parts/lab redesign the campaign is 10–27% faster in
+   year one and every Hardcore profile reaches main level 500 around day 650–730 (Active Whale 494). Extend the campaign
+   (more portals) or steepen `CampaignDef.LateSlopes` after level ~300 before launch; alternatively lower
+   `PartsConfig.SkillPowerScale` further. Also add a late Data sink (e.g. lab prestige) for players who finish the tree.
 
 1. **Late-game ceilings for spenders** (largest gap): whales cap heroes, parts, mount stars and aliens in 12–18 months
    and their power flattens (whale/F2P ratio 1.03 at day 730). Add ceiling content on a schedule (new heroes, mounts,
@@ -204,8 +374,10 @@ PartLevels limit moved 9 → 20 days with this note; the content-side fix is rec
 
 `ProgressionGuardTests` (Active F2P and Active Whale, seed 1, 60 days): main level bands at day 7/30/60 (F2P 18–32 /
 32–55 / 40–75, whale 20–40 / 40–75 / 50–100), no wall longer than 7–28 days per system in the first 60 days (part levels 20, see the plateau fix), whale/F2P
-power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mount ≤ 4★, parts below Mythic+2 on average,
-lab incomplete), 5–16 mythics per pull type in 60 days, and determinism by seed. Move a band only after re-running the
+power ratio 1.15–2.6 at days 30 and 60, F2P not maxed early (hero ≤ 6★, mount ≤ 4★, parts below Mythic S on average,
+lab incomplete and < 5% of its research hours), no awakening for anyone in 60 days (whale < 50 cores), no below-Legendary
+part pile (≤ 12 spare), 5–16 mythics per pull type in 60 days, and determinism by seed. (Redesign: bands unchanged, the
+part/lab/core checks are new.) Move a band only after re-running the
 simulator and updating this report.
 
 ## Generated tables (after the balance pass and the plateau fix)

@@ -144,6 +144,7 @@ public static class Metrics
         A("parts_obtained", s.Counter("parts_obtained"));
         A("parts_dismantled", s.Counter("parts_dismantled"));
         A("part_merges", s.Counter("part_merges"));
+        A("part_replications", s.Counter("part_replications"));
 
         // Heroes, mounts
         var heroes = s.Heroes.Owned.Values.ToList();

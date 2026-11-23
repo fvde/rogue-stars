@@ -62,7 +62,7 @@ namespace RogueStars.Rules.Content
         public PartRarity SameDefRarity;
         public long FodderPoints;
         public PartRarity FodderMinRarity;
-        /// <summary>Ore paid for the merge (Mythic and above; grows ~×1.8 per step).</summary>
+        /// <summary>Ore paid for the merge (Mythic and above; ×1.5 per step).</summary>
         public long Ore;
     }
 
@@ -130,11 +130,18 @@ namespace RogueStars.Rules.Content
         public PartRarity AwakenMinRarity = PartRarity.Mythic;
         public long AwakenCost = 50;
         /// <summary>Scale on the numbers of part skills (normal / awakened): the balance knob for part-skill power.</summary>
-        public double SkillPowerScale = 0.5, AwakenedSkillPowerScale = 0.7;
+        public double SkillPowerScale = 0.25, AwakenedSkillPowerScale = 0.3;
         /// <summary>One Legendary part in fodder points (the unit of the recipe table in docs/design/parts.md).</summary>
         public long LegendaryFodder = 81;
         /// <summary>Quick-merge never produces parts above this rarity.</summary>
         public PartRarity QuickMergeMaxTarget = PartRarity.Legendary;
+        /// <summary>
+        /// Replicator: turns Legendary+ surplus (any def, ReplicateFodderPoints) + Ore into a Legendary copy of the def of a
+        /// Mythic+ part the player is building, so copies for Mythic S / SS never strand the surplus.
+        /// </summary>
+        public long ReplicateFodderPoints = 10 * 81;
+        public long ReplicateOre = 5000;
+        public PartRarity ReplicateMinTargetRarity = PartRarity.Mythic;
 
         public Dictionary<string, RuneDef> Runes = new Dictionary<string, RuneDef>();
         /// <summary>Indexed by (int)Rarity (Common..Mythic).</summary>
@@ -167,17 +174,17 @@ namespace RogueStars.Rules.Content
             AddPartRarity(PartRarity.Epic, "Epic", 2.4, 30, 1, 1, 600, PartRecipe(0, PartRarity.Rare, 18, PartRarity.Rare));
             AddPartRarity(PartRarity.Legendary, "Legendary", 3.6, 50, 2, 2, 2000, PartRecipe(0, PartRarity.Epic, 54, PartRarity.Epic));
             AddPartRarity(PartRarity.Mythic, "Mythic", 5.6, 70, 3, 3, 6000, PartRecipe(1, PartRarity.Legendary, 2 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 6.4, 80, 3, 3, 9000, PartRecipe(0, PartRarity.Legendary, 8 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 7.3, 90, 3, 3, 13000, PartRecipe(0, PartRarity.Legendary, 14 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS, "Mythic S", 8.8, 100, 4, 4, 20000, PartRecipe(2, PartRarity.Legendary, 24 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS1, "Mythic S+1", 9.8, 110, 4, 4, 28000, PartRecipe(0, PartRarity.Legendary, 40 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS2, "Mythic S+2", 11.0, 120, 5, 4, 38000, PartRecipe(0, PartRarity.Legendary, 70 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS, "Mythic SS", 13.0, 130, 5, 5, 55000, PartRecipe(3, PartRarity.Legendary, 120 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS1, "Mythic SS+1", 14.6, 140, 6, 5, 75000, PartRecipe(0, PartRarity.Legendary, 200 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS2, "Mythic SS+2", 16.5, 150, 6, 5, 100000, PartRecipe(1, PartRarity.Legendary, 340 * le, PartRarity.Legendary));
-            // Ore per merge from Mythic on: 4k, ×1.8 per step (Mythic SS+2 ≈ 440k).
+            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 6.2, 75, 3, 3, 9000, PartRecipe(0, PartRarity.Legendary, 8 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 6.8, 80, 3, 3, 13000, PartRecipe(0, PartRarity.Legendary, 14 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS, "Mythic S", 7.8, 90, 4, 4, 20000, PartRecipe(2, PartRarity.Legendary, 24 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS1, "Mythic S+1", 8.4, 95, 4, 4, 28000, PartRecipe(0, PartRarity.Legendary, 40 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicS2, "Mythic S+2", 9.0, 100, 5, 4, 38000, PartRecipe(0, PartRarity.Legendary, 70 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS, "Mythic SS", 9.8, 105, 5, 5, 55000, PartRecipe(3, PartRarity.Legendary, 120 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS1, "Mythic SS+1", 10.4, 110, 6, 5, 75000, PartRecipe(0, PartRarity.Legendary, 200 * le, PartRarity.Legendary));
+            AddPartRarity(PartRarity.MythicSS2, "Mythic SS+2", 11.0, 115, 6, 5, 100000, PartRecipe(1, PartRarity.Legendary, 340 * le, PartRarity.Legendary));
+            // Ore per merge from Mythic on: 1.5k, ×1.5 per step (Mythic SS+2 ≈ 38k).
             for (int r = (int)PartRarity.Mythic; r < p.Rarities.Count; r++)
-                p.Rarities[r].Merge.Ore = (long)(Math.Round(4000 * Math.Pow(1.8, r - (int)PartRarity.Mythic) / 1000.0) * 1000);
+                p.Rarities[r].Merge.Ore = (long)Math.Round(1500 * Math.Pow(1.5, r - (int)PartRarity.Mythic) / 100.0) * 100;
             // Fodder value = everything that went into a part (Common 1; Legendary 81; then the cumulative recipe cost).
             for (int r = 0; r < p.Rarities.Count; r++)
             {

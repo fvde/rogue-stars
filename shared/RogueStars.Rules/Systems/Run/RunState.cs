@@ -36,6 +36,9 @@ namespace RogueStars.Rules.Systems
         /// <summary>Progress per level id (normal mode; Overcharged tracked via OverchargedCleared).</summary>
         public Dictionary<string, LevelProgress> Levels = new Dictionary<string, LevelProgress>();
         public long RunsStarted;
+        /// <summary>Daily Biomass surge: reset-day of the counter and won portal runs that used the bonus that day.</summary>
+        public long BiomassBonusDay = -1;
+        public int BiomassBonusRuns;
     }
 
     [Serializable]
@@ -169,6 +172,8 @@ namespace RogueStars.Rules.Systems
         public List<Reward> Granted = new List<Reward>();
         /// <summary>Granted run rewards that the "double run rewards" ad pays again (everything but feat Diamonds).</summary>
         public List<Reward> Doublable = new List<Reward>();
+        /// <summary>True if this run used one of the day's Biomass surge runs (RunTuning.DailyBiomassBonusRuns).</summary>
+        public bool BiomassBonus;
         /// <summary>True once RunDoubleRewards was used for this run.</summary>
         public bool Doubled;
         public List<int> NewFeats = new List<int>();

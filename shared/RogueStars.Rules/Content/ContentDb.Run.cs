@@ -439,7 +439,7 @@ namespace RogueStars.Rules.Content
                 var t = new LootTableDef { Id = "loot_p" + p };
                 long s = (long)Math.Round(Campaign.RewardScale(p - 1));
                 // Biomass comes mainly from portal runs (completion + loot); the city farms are the secondary source.
-                t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 60 * s, 120 * s));
+                t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 45 * s, 90 * s));
                 t.Entries.Add(new LootEntry(20, RewardKinds.Currency, Currencies.Ore, 20 * s, 40 * s));
                 t.Entries.Add(new LootEntry(14, RewardKinds.Currency, Currencies.Grain, 20 * s, 40 * s));
                 t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.Fuel, 10 * s, 20 * s));
@@ -464,7 +464,7 @@ namespace RogueStars.Rules.Content
             var darkLoot = new LootTableDef { Id = "loot_dark" };
             darkLoot.Entries.AddRange(RunLootTables["loot_p3"].Entries);
             darkLoot.Entries.Add(new LootEntry(5, RewardKinds.Currency, Currencies.Diamonds, 10, 30));
-            darkLoot.Entries.Add(new LootEntry(3, RewardKinds.Part, "*", 1, 1, 4));
+            darkLoot.Entries.Add(new LootEntry(3, RewardKinds.Part, "*", 1, 1, 3)); // Legendary: the Mythic+ fodder
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Blueprint, "*", 1, 1, 2));
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Alien, "*", 1, 1, 2));
             RunLootTables[darkLoot.Id] = darkLoot;
@@ -562,7 +562,7 @@ namespace RogueStars.Rules.Content
                 l.MaxRolls = 16 + i / 2;
                 l.Dice = i >= 6 ? 2 : 1;
                 if (l.Dice == 2) l.MaxRolls = 12 + i / 2;
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((160 + 40 * i) * scale)));
+                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((120 + 30 * i) * scale)));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
                 if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
                 portal.LevelIds.Add(l.Id);

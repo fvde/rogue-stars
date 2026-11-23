@@ -107,6 +107,29 @@ public class PartsTests
     }
 
     [Fact]
+    public void Replicate_TurnsLegendarySurplusIntoACopyForTheMythicPart()
+    {
+        var e = Engine(); var s = Player(e);
+        SetBalance(s, Currencies.Ore, 100_000);
+        var cfg = C.PartsConfig;
+        var leg = Add(s, Arm, PartRarity.Legendary);
+        int need = (int)(cfg.ReplicateFodderPoints / cfg.LegendaryFodder);
+        var fodder = Enumerable.Range(0, need).Select(i => Add(s, i % 2 == 0 ? Head : "tail_stinger", PartRarity.Legendary).Uid).ToList();
+        Assert.Contains("Mythic+", Fail(e, ref s, new PartReplicate { TargetUid = leg.Uid, MaterialUids = fodder }));
+        var t = Add(s, Arm, PartRarity.Mythic);
+        Assert.Contains("not enough fodder", Fail(e, ref s, new PartReplicate { TargetUid = t.Uid, MaterialUids = fodder.Skip(1).ToList() }));
+        var epic = Add(s, Head2, PartRarity.Epic);
+        Assert.Contains("rarity too low", Fail(e, ref s, new PartReplicate { TargetUid = t.Uid, MaterialUids = fodder.Append(epic.Uid).ToList() }));
+        var r = Ok(e, ref s, new PartReplicate { TargetUid = t.Uid, MaterialUids = fodder });
+        var copy = s.Parts.Items[(string)r.Payload];
+        Assert.Equal(Arm, copy.DefId);
+        Assert.Equal((int)PartRarity.Legendary, copy.Rarity);
+        Assert.Equal(100_000 - cfg.ReplicateOre, s.Wallet.Get(Currencies.Ore));
+        foreach (var f in fodder) Assert.False(s.Parts.Items.ContainsKey(f));
+        Assert.Equal(1, s.Counter("part_replications"));
+    }
+
+    [Fact]
     public void Merge_RejectsWrongMaterials()
     {
         var e = Engine(); var s = Player(e);

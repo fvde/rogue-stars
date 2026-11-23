@@ -363,6 +363,12 @@ namespace RogueStars.Rules.Content
         /// <summary>Fallback worm stats if no progression contributor provided HP (prototype safety net).</summary>
         public List<StatMod> FallbackWormStats = new List<StatMod>();
         public int LabSlots = 1;
+        /// <summary>
+        /// Daily Biomass surge: the first N won portal runs (Normal / Overcharged) of each reset-day pay their Biomass ×Mult,
+        /// so Biomass comes mainly from runs even for short sessions (docs/design/economy-model.md).
+        /// </summary>
+        public int DailyBiomassBonusRuns = 3;
+        public double DailyBiomassBonusMult = 4;
     }
 
     /// <summary>
@@ -401,7 +407,7 @@ namespace RogueStars.Rules.Content
         public double DarkSideSpacing = 3;
         public int DarkSideThreatOffset = 5;
         /// <summary>Data per Dark Side clear (before the level's ×2.5 reward multiplier): DataBase × DataGrowth^(i − 1).</summary>
-        public double DarkSideDataBase = 12, DarkSideDataGrowth = 1.025;
+        public double DarkSideDataBase = 24, DarkSideDataGrowth = 1.025;
         /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
         public int SidePortalOrder = 1000;
         /// <summary>Main board length: 24 + level index + 2 per portal, the portal part capped here.</summary>
@@ -490,23 +496,24 @@ namespace RogueStars.Rules.Content
 
     /// <summary>
     /// Laboratory pacing. The k-th research level a player starts (k = levels researched or running, beyond the default
-    /// ones) takes <c>BaseHours × Growth^k</c> nominal hours and costs <c>ceil(DataPerHour × hours)</c> Data, whatever the
-    /// node: every research makes the next one longer. Durations are shortened by the Laboratory building boon
+    /// ones) takes <c>BaseHours × Growth^k</c> nominal hours and costs <c>ceil(DataBase × hours^DataExponent)</c> Data,
+    /// whatever the node: every research makes the next one longer and dearer. Durations are shortened by the Laboratory building boon
     /// (CitySystem.ResearchSpeedPct) and lengthened ×AnnexDurationMult in the Research Annex slot.
-    /// Sizing (docs/design/GDD.md §5, docs/balance/progression-report.md): ~29k nominal hours in total.
+    /// Sizing (docs/design/GDD.md §5, docs/balance/progression-report.md): ~28.7k nominal hours and ~93k Data in total.
     /// </summary>
     [Serializable]
     public sealed class LabTuningDef
     {
         public double BaseHours = 1.5;
         public double Growth = 1.0355;
-        public double DataPerHour = 12;
+        /// <summary>Data cost of the k-th research: DataBase × Hours(k)^DataExponent (early research relatively dearer).</summary>
+        public double DataBase = 14, DataExponent = 0.75;
         /// <summary>Main slot + at most this many Research Annex slots.</summary>
         public int MaxSlots = 2;
         /// <summary>Research started in the Annex slot (main slot busy) takes this many times longer.</summary>
         public double AnnexDurationMult = 2;
 
         public double Hours(int k) => BaseHours * Math.Pow(Growth, Math.Max(0, k));
-        public long DataCost(int k) => (long)Math.Ceiling(DataPerHour * Hours(k) - 1e-9);
+        public long DataCost(int k) => (long)Math.Ceiling(DataBase * Math.Pow(Hours(k), DataExponent) - 1e-9);
     }
 }

@@ -71,7 +71,10 @@ after a set number of rolls or when the token reaches the boss gate.
 - Portals open one by one on the planet; each Portal = a biome with N levels (main). Each level has 3 feats
   (clear, HP left ≥ x%, beat boss within N rounds).
 - **Overcharged** levels: harder variant of each portal, 2× stamina, better rewards.
-- **Dark Side of the Planet:** late mode, levels with extreme modifiers, own rewards and leaderboard.
+- **Dark Side of the Planet:** late mode (opens at main level 40), 150 procedural levels along the campaign curve (dark
+  level i ≈ main level 40 + 3·(i−1)) with extreme modifiers (+45…90% enemy HP/ATK, −50% healing, faster awakening and
+  danger), own rewards and leaderboard. The long-term source of **Data** for the Laboratory (Data per clear grows with
+  the level).
 - **Burrow** (limited daily attempts): multi-floor dive with cash-out between floors; worthy rewards.
 - **Invasion fights** (limited attempts): see §9.
 - **Arena**: async PvP, see §10.
@@ -110,8 +113,22 @@ StatusChance, StatusResist, BossDamage, ElementDamage(per element), AlienPower, 
 - Rarities: Common, Rare, Epic, Legendary, Mythic.
 - Level-up in a run → draft "choose 1 of 3" (rerolls from meta). A hidden legendary pity guarantees a
   Legendary after N level-ups without one. Skills can have upgrade chains, prerequisites and family gating.
-- **Laboratory:** research unlocks skills into the run pool and upgrades them. Researched skills can be
-  toggled on/off for the draft pool.
+- **Laboratory:** one branching tree of 38 nodes in four branches (offense, defense, elements, command). **Skill
+  nodes** unlock skills into the run draft pool and upgrade them (toggle on/off for the draft pool); **stat nodes**
+  give permanent loadout bonuses of +1% to +10% per node (HP, ATK, DEF, crit chance/damage, combo, counter, dodge,
+  damage reduction, shield power, rage gain, element damage, status chance, boss damage, alien power, mount power, loot
+  luck). Both kinds are mixed in every branch, so the player chooses between raw stats and new skills; a node of row
+  n+1 needs any node of row n at level 2, capstones need two nodes (all). Five levels per node.
+  - **Cost:** research costs **Data** (no Biomass/Ore). Every research makes the next one longer: the k-th research
+    level takes h = 1.5 h × 1.0355^k nominal and costs 14·h^0.75 Data (`LabTuningDef`). The whole tree (187 levels
+    beyond the three default ones) is ≈ 28.7k nominal hours and ≈ 95k Data.
+  - **Size:** with one slot, all three ad speed-ups per timer (×0.85³) and the daily free speed-up (30 min), the tree
+    takes ≈ 2 years (1.97); even with the strongest Laboratory building boon (+27%) and a Research Annex from day 1 a
+    year of perfect timing clears at most ≈ 27.5k of the 28.7k hours (checked by `Tree_CannotBeFinishedInYearOne_…`).
+  - **Research Annex** (Mythic blueprint): a second, concurrent research slot while two alien workers of 3★ or more
+    staff it; research in the Annex takes twice as long.
+  - **Data:** Dark Side clears (main source, grows with the Dark Side level), daily/weekly point chests (trickle so the
+    lab works before the Dark Side), the Laboratory unlock grant and the arena shop.
 
 ## 6. Worm progression (built for years)
 ### 6.1 Worm level
@@ -121,14 +138,22 @@ draft rerolls, run coins, speed).
 ### 6.2 Body slots and Parts
 Six slots: **Head, Body, Tail, Legs, Left Arm, Right Arm** (arms interchangeable; arm parts are weapons and
 define Basic/Combo/Counter/Rage attack styles).
-- **Rarity ladder (merge):** Common → Uncommon → Rare → Rare+ → Epic → Epic+1 → Epic+2 → Legendary →
-  Legendary+1 → Legendary+2 → Legendary+3 → Mythic → Mythic+1 → Mythic+2 → Mythic+3. Merging consumes copies
-  or fodder per rule; level, runes and infusion carry over.
-- **Level** via Ore + Gear Cores; level cap raised by rarity and Advancement Plates.
-- **Rune slots** (0→4) unlocked by rarity and by the **Forge** (paid slot unlocks with a % stat bonus to the
+- **Rarity ladder (merge):** Common → Uncommon → Rare → Epic → Legendary → Mythic → Mythic+1 → Mythic+2 →
+  **Mythic S** → S+1 → S+2 → **Mythic SS** → SS+1 → SS+2 (`docs/design/parts.md` has the full recipe table). Below
+  Mythic any three parts of a rarity merge into one (any def, any kind), so surplus always becomes Legendary fodder;
+  above Mythic a merge needs Legendary+ fodder worth 2…340 Legendary-equivalents (fodder points; ~×1.7 per step), Ore
+  (1.5k, ×1.5 per step) and, for Mythic, S, SS and SS+2, copies of the part's own def (the **Replicator** turns 10
+  Legendary-equivalents of surplus + Ore into such a copy). Level, runes and Forge carry over.
+- **Part skills:** every part has five skills that unlock at **Epic, Legendary, Mythic, Mythic S and Mythic SS** (family
+  core, kind technique, family hook, kind signature, family apex).
+- **Level** via Ore + Gear Cores; level cap raised by rarity (10 … 115) and Advancement Plates (up to +30).
+- **Rune slots** (0→5) unlocked by rarity and by the **Forge** (paid slot unlocks with a % stat bonus to the
   part's base stats). Runes have types, rarities and merge 3→1 upward.
-- **SS awakening:** Legendary+ parts can awaken into S-tier, then SS-tier versions with an extra signature
-  effect. Endgame reward sink.
+- **Awakening:** a Mythic-or-higher part can be awakened **once** for **50 Awaken Cores**: it becomes a redesigned
+  version of itself (new name, ×1.4 stats + its family stat, all five skills replaced by awakened redesigns with the
+  same unlock pattern). Level, runes, Forge and rarity are kept. **Awaken Cores** are an extremely rare endgame resource:
+  the arena shop (Arena Medals, weekly limit), top contributors of repelled high-tier invasions (chance) and a rare drop
+  on the deepest Burrow floors — about 1–2 per week for an active player.
 - Dismantle/level-down refund 100% of level materials.
 
 ## 7. Heroes, Mounts, Aliens
@@ -164,6 +189,8 @@ define Basic/Combo/Counter/Rage attack styles).
 - **Boon buildings** give run effects: stamina max/regen, start run with X, skip X negative events per run,
   increased loot/XP in run, extra dice, 1–3 skills at run start (extremely rare Epic+ buildings), awakening
   meter slowdown, squad slot unlocks.
+- **Staffed buildings:** some utility boons need workers (e.g. the Mythic **Research Annex**: a second laboratory slot
+  while two aliens of 3★+ work there).
 - **Collection bonus:** owned blueprints give small permanent stats by stars (long-haul pull value).
 - Construction and upgrade timers: speed up with Diamonds (linear published rate) or ads (each ad −15% of
   the remaining time, max 3 ads per timer).
@@ -179,7 +206,9 @@ define Basic/Combo/Counter/Rage attack styles).
 
 ## 10. Arena (async PvP)
 Fight snapshots of other players' worms (loadout, parts, hero, mount, squad). Weekly season, leagues in
-groups of 150, promotion/demotion, weekly rewards by rank. Attempts via Arena tickets (regenerate).
+groups of 150, promotion/demotion, weekly rewards by rank. Attempts via Arena tickets (regenerate). Every fight and the
+weekly rank pay **Arena Medals** (PvP currency) for the **arena shop**: Awaken Cores (200 medals, 2 per week), part
+tokens, Data, Gear Cores.
 
 ## 11. Guilds
 Create/join, roles (leader, officer, member), guild level from activity, guild chat only, weekly guild
@@ -200,9 +229,12 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 ## 13. Currencies
 | Currency | Use |
 |---|---|
-| Biomass | Worm level, building upgrades |
+| Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
 | Grain | Alien levels, breeding, upkeep |
-| Ore | Parts level, buildings |
+| Ore | Parts level, Mythic+ merges, buildings |
+| Data | Laboratory research (Dark Side clears, daily/weekly chests, arena shop) |
+| Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
+| Arena Medals | Arena shop (arena fights and weekly rank) |
 | Gear Cores, Advancement Plates | Part level / cap |
 | Fuel | Mount levels |
 | Hero XP | Hero levels |

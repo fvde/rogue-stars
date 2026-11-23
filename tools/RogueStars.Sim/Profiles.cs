@@ -13,15 +13,17 @@ public sealed class TimeProfile
     public double AdWillingness = 1;
     /// <summary>Arena fights per day the player bothers with (tickets permitting).</summary>
     public int ArenaFightsPerDay;
+    /// <summary>Share of a day's run stamina spent farming the Dark Side for laboratory Data (short sessions favour the campaign).</summary>
+    public double DarkFarmShare = 0.4;
     public double MinutesPerDay => SessionHours.Length * MinutesPerSession;
 
     public static readonly TimeProfile Casual = new()
     {
-        Name = "Casual", SessionHours = new[] { 8.25, 20.5 }, MinutesPerSession = 7.5, AdWillingness = 0.5, ArenaFightsPerDay = 2,
+        Name = "Casual", SessionHours = new[] { 8.25, 20.5 }, MinutesPerSession = 7.5, AdWillingness = 0.5, ArenaFightsPerDay = 2, DarkFarmShare = 0.15,
     };
     public static readonly TimeProfile Active = new()
     {
-        Name = "Active", SessionHours = new[] { 7.5, 12.5, 18.0, 22.0 }, MinutesPerSession = 15, AdWillingness = 1, ArenaFightsPerDay = 5,
+        Name = "Active", SessionHours = new[] { 7.5, 12.5, 18.0, 22.0 }, MinutesPerSession = 15, AdWillingness = 1, ArenaFightsPerDay = 5, DarkFarmShare = 0.35,
     };
     public static readonly TimeProfile Hardcore = new()
     {

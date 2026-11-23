@@ -64,13 +64,26 @@ public class ProgressionGuardTests
     [Fact]
     public void F2p_LongHaulSystems_AreNotMaxedEarly()
     {
-        // Built for years: two months in, a free player is far from 10★ heroes, maxed mounts or Mythic+3 parts.
+        // Built for years: two months in, a free player is far from 10★ heroes, maxed mounts or Mythic S parts.
         Assert.InRange(At(F2p.Value, 60, "hero_stars_best"), 2, 6);
         Assert.InRange(At(F2p.Value, 60, "mount_stars_best"), 1, 4);
-        Assert.True(At(F2p.Value, 60, "part_rarity_avg") < 12.5, "parts near Mythic+2 after two months");
+        Assert.True(At(F2p.Value, 60, "part_rarity_avg") < 8, "parts average Mythic S after two months");
         Assert.True(At(F2p.Value, 60, "lab_research") < At(F2p.Value, 60, "lab_research_max"), "laboratory maxed in two months");
+        Assert.True(At(F2p.Value, 60, "lab_hours_pct") < 5, "laboratory research hours: the tree is a multi-year road");
         // Mythic pity about weekly per pull type for an active free player (3 pull types).
         Assert.InRange(At(F2p.Value, 60, "gacha_mythics") / 3.0, 5, 16);
+    }
+
+    [Fact]
+    public void AwakeningAndCores_AreEndgame()
+    {
+        // Awaken Cores are extremely rare (~1–2 per week from the arena shop, invasions, deep Burrow): nobody can awaken
+        // (50 cores) in the first two months, not even a whale.
+        Assert.Equal(0, At(F2p.Value, 60, "parts_awakened"));
+        Assert.Equal(0, At(Whale.Value, 60, "parts_awakened"));
+        Assert.True(At(Whale.Value, 60, "bal_part_awaken_cores") < 50);
+        // No part hoarding: below-Legendary surplus merges up instead of piling up.
+        Assert.True(At(F2p.Value, 60, "parts_spare_below_legendary") <= 12);
     }
 
     [Fact]

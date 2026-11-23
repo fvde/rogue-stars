@@ -434,6 +434,26 @@ namespace RogueStars.Rules.Systems
             }
         }
 
+        /// <summary>
+        /// Daily Biomass surge (RunTuning.DailyBiomassBonusRuns / Mult): the first N won Normal/Overcharged runs of the
+        /// reset-day pay their Biomass ×Mult. Returns the Biomass multiplier for this (won) run.
+        /// </summary>
+        private static double BiomassSurge(CommandContext ctx, ActiveRun run, RunSummary summary)
+        {
+            var t = ctx.Content.RunTuning; var rs = ctx.State.Run;
+            if (t.DailyBiomassBonusRuns <= 0 || (run.Mode != RunMode.Normal && run.Mode != RunMode.Overcharged)) return 1;
+            long day = GameClock.DayIndex(ctx.Content, ctx.NowMs);
+            if (rs.BiomassBonusDay != day) { rs.BiomassBonusDay = day; rs.BiomassBonusRuns = 0; }
+            if (rs.BiomassBonusRuns >= t.DailyBiomassBonusRuns) return 1;
+            rs.BiomassBonusRuns++;
+            summary.BiomassBonus = true;
+            return t.DailyBiomassBonusMult;
+        }
+
+        /// <summary>Daily Biomass surge runs left today.</summary>
+        public static int BiomassBonusRunsLeft(GameState s, ContentDb c, long nowMs) =>
+            s.Run.BiomassBonusDay == GameClock.DayIndex(c, nowMs) ? Math.Max(0, c.RunTuning.DailyBiomassBonusRuns - s.Run.BiomassBonusRuns) : c.RunTuning.DailyBiomassBonusRuns;
+
         /// <summary>Rolls the level's rare drops once (when the level / Burrow floor is beaten) into PendingRare.</summary>
         private static void RollRareDrops(LevelDef level, ActiveRun run)
         {
@@ -793,16 +813,18 @@ namespace RogueStars.Rules.Systems
             {
                 double modeMult = level.RewardMultiplier * (run.Mode == RunMode.Overcharged ? portal.OverchargedRewardMultiplier : 1);
                 double lootMult = 1 + run.ExtraLootPct / 100.0;
+                double biomassMult = BiomassSurge(ctx, run, summary);
                 var rewards = new List<Reward>();
                 int doublable;
-                foreach (var r in run.PendingLoot) rewards.Add(Scaled(r, modeMult * lootMult));
+                foreach (var r in run.PendingLoot) rewards.Add(Scaled(r, modeMult * lootMult * (r.Id == Currencies.Biomass ? biomassMult : 1)));
                 if (run.Mode != RunMode.Burrow)
                 {
                     RollRareDrops(level, run);
-                    foreach (var r in level.CompletionRewards) rewards.Add(Scaled(r, modeMult));
+                    foreach (var r in level.CompletionRewards) rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1)));
                     var before = run.PendingLoot.Count;
                     for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
-                    for (int i = before; i < run.PendingLoot.Count; i++) rewards.Add(Scaled(run.PendingLoot[i], modeMult));
+                    for (int i = before; i < run.PendingLoot.Count; i++)
+                        rewards.Add(Scaled(run.PendingLoot[i], modeMult * (run.PendingLoot[i].Id == Currencies.Biomass ? biomassMult : 1)));
                 }
 
                 doublable = rewards.Count; // feat Diamonds below are not doubled by the ad

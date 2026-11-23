@@ -125,3 +125,7 @@ Meta content now reads the keys the owning workstreams actually write:
 - (after Run merge) Meta quests read Run's real keys: `battles_won` → `run_battles_won`, `bosses_defeated` →
   `run_bosses_killed`. Run now also writes `main_level_max` (max-style, first normal clears) and `stamina_spent`.
 - `run_rewards_doubled` — won runs whose rewards were doubled by the result-screen ad (RunDoubleRewards) — Run
+- `data_spent` — Data spent on laboratory research — Run
+- `invasion_rare_rewards` — rare rewards (Awaken Cores) won from repelled high-tier invasions — Meta
+- (parts redesign) `part_awakens` now counts the one-time awakening of Mythic+ parts (no S/SS awakening levels any more).
+- `part_replications` — Legendary copies made with the Replicator (PartReplicate) — Progression/Parts

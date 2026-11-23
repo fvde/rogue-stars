@@ -38,7 +38,7 @@ public sealed partial class SimPlayer
         {
             var (b, cost) = cands[i];
             // The cheapest upgrade may use the whole balance (the city is saved for); the rest only a share.
-            if (!cost.All(c => c.Amount <= Bal(c.Currency) * (i == 0 ? 1.0 : CityShare))) continue;
+            if (!cost.All(c => c.Amount <= (Bal(c.Currency) - (c.Currency == Currencies.Ore ? _oreReserve : 0)) * (i == 0 ? 1.0 : CityShare))) continue;
             Exec(new CityUpgrade { BlueprintId = b.Id });
         }
         foreach (var b in CitySystem.SortedBlueprints(S))

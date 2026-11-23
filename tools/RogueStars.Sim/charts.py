@@ -2,7 +2,7 @@
 
 Usage (Apple Silicon, local venv outside the repo):
     arch -arm64 /usr/bin/python3 -m venv /tmp/rs-venv && /tmp/rs-venv/bin/pip install matplotlib
-    /tmp/rs-venv/bin/python tools/RogueStars.Sim/charts.py docs/balance [label_before] [label_after]
+    /tmp/rs-venv/bin/python tools/RogueStars.Sim/charts.py docs/balance [label_before] [label_after] [compare.png]
 """
 import csv
 import os
@@ -111,6 +111,7 @@ def main():
     root = sys.argv[1] if len(sys.argv) > 1 else "docs/balance"
     before = sys.argv[2] if len(sys.argv) > 2 else None
     after = sys.argv[3] if len(sys.argv) > 3 else ""
+    compare_name = sys.argv[4] if len(sys.argv) > 4 else "before_after.png"
     data = os.path.join(root, "data")
     charts = os.path.join(root, "charts")
     os.makedirs(charts, exist_ok=True)
@@ -122,12 +123,12 @@ def main():
     cp = read_checkpoints(data, after)
     checkpoint_chart(cp, "hero_stars_best", "Best hero stars", "stars", os.path.join(charts, "hero_stars.png"))
     checkpoint_chart(cp, "mount_stars_best", "Best mount stars (+ awakening below)", "stars", os.path.join(charts, "mount_stars.png"))
-    checkpoint_chart(cp, "part_rarity_avg", "Average equipped part rarity (7 = Legendary, 11 = Mythic)", "rarity step", os.path.join(charts, "part_rarity.png"))
+    checkpoint_chart(cp, "part_rarity_avg", "Average equipped part rarity (4 = Legendary, 5 = Mythic, 8 = Mythic S, 11 = Mythic SS)", "rarity step", os.path.join(charts, "part_rarity.png"))
     checkpoint_chart(cp, "building_level_avg", "Average building level", "level", os.path.join(charts, "building_level.png"))
     checkpoint_chart(cp, "worm_level", "Worm level", "level", os.path.join(charts, "worm_level.png"))
     checkpoint_chart(cp, "alien_stars_avg", "Average alien stars", "stars", os.path.join(charts, "alien_stars.png"))
     if before:
-        before_after(data, before, after, os.path.join(charts, "before_after.png"))
+        before_after(data, before, after, os.path.join(charts, compare_name))
 
 
 if __name__ == "__main__":

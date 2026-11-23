@@ -127,10 +127,21 @@ public sealed partial class SimPlayer
         var cfg = C.PartsConfig;
         _oreReserve = 0;
         var order = S.Parts.Equipped.Values.Select(u => S.Parts.Items[u]).OrderByDescending(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Select(p => p.Uid).ToList();
-        var equippedDefs = new HashSet<string>(S.Parts.Equipped.Values.Select(u => S.Parts.Items[u].DefId));
+        // Copies still needed by the equipped parts (sum of own-def copies on their remaining steps) stay reserved; extra
+        // copies of an equipped def are ordinary fodder.
+        var copiesNeeded = new Dictionary<string, int>();
+        foreach (var u in S.Parts.Equipped.Values)
+        {
+            var e = S.Parts.Items[u]; int n = 0;
+            for (int r = e.Rarity + 1; r < cfg.Rarities.Count; r++) n += cfg.Rarities[r].Merge?.SameDefCount ?? 0;
+            copiesNeeded[e.DefId] = copiesNeeded.GetValueOrDefault(e.DefId) + n;
+        }
+        HashSet<string> Reserved() => new(copiesNeeded.SelectMany(kv => S.Parts.Items.Values
+            .Where(p => p.DefId == kv.Key && p.Rarity >= (int)PartRarity.Legendary && PartsSystem.IsMergeMaterial(S, p))
+            .OrderBy(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Take(kv.Value).Select(p => p.Uid)));
         foreach (var uid in order)
         {
-            for (int guard = 0; guard < 14; guard++)
+            for (int guard = 0; guard < 24; guard++)
             {
                 if (!S.Parts.Items.TryGetValue(uid, out var target) || target.Rarity + 1 >= cfg.Rarities.Count) break;
                 if (target.Rarity + 1 <= (int)cfg.QuickMergeMaxTarget) break;
@@ -139,8 +150,25 @@ public sealed partial class SimPlayer
                 var pool = S.Parts.Items.Values.Where(p => p.Uid != uid && PartsSystem.IsMergeMaterial(S, p)).ToList();
                 var mats = pool.Where(p => p.DefId == target.DefId && p.Rarity >= (int)recipe.SameDefRarity)
                     .OrderBy(p => p.Rarity).ThenBy(p => p.Level).ThenBy(p => p.Uid, StringComparer.Ordinal).Take(recipe.SameDefCount).Select(p => p.Uid).ToList();
-                if (mats.Count < recipe.SameDefCount) break;
-                var fodder = pool.Where(p => !mats.Contains(p.Uid) && p.Rarity >= (int)recipe.FodderMinRarity && !equippedDefs.Contains(p.DefId))
+                if (mats.Count < recipe.SameDefCount)
+                {
+                    // Copies short: replicate one from Legendary+ surplus when there is fodder beyond this merge's own need.
+                    if (target.Rarity < (int)cfg.ReplicateMinTargetRarity) break;
+                    var reservedNow = Reserved();
+                    var spare = pool.Where(p => p.Rarity >= (int)PartRarity.Legendary && !reservedNow.Contains(p.Uid))
+                        .OrderBy(p => PartsSystem.FodderValue(C, p)).ThenBy(p => p.Uid, StringComparer.Ordinal).ToList();
+                    if (spare.Sum(p => PartsSystem.FodderValue(C, p)) < cfg.ReplicateFodderPoints + recipe.FodderPoints) break;
+                    if (Bal(Currencies.Ore) < cfg.ReplicateOre) { _oreReserve = Math.Max(_oreReserve, cfg.ReplicateOre); break; }
+                    var pick = new List<PartItem>(); long pp = 0;
+                    foreach (var p in spare) { if (pp >= cfg.ReplicateFodderPoints) break; pick.Add(p); pp += PartsSystem.FodderValue(C, p); }
+                    for (int i = 0; i < pick.Count;)
+                        if (pp - PartsSystem.FodderValue(C, pick[i]) >= cfg.ReplicateFodderPoints) { pp -= PartsSystem.FodderValue(C, pick[i]); pick.RemoveAt(i); }
+                        else i++;
+                    if (!Ok(new PartReplicate { TargetUid = uid, MaterialUids = pick.Select(p => p.Uid).ToList() })) break;
+                    continue;
+                }
+                var reserved = Reserved();
+                var fodder = pool.Where(p => !mats.Contains(p.Uid) && p.Rarity >= (int)recipe.FodderMinRarity && !reserved.Contains(p.Uid))
                     .OrderBy(p => PartsSystem.FodderValue(C, p)).ThenBy(p => p.Level).ThenBy(p => p.Uid, StringComparer.Ordinal).ToList();
                 var chosen = new List<PartItem>(); long pts = 0;
                 foreach (var p in fodder) { if (pts >= recipe.FodderPoints) break; chosen.Add(p); pts += PartsSystem.FodderValue(C, p); }

@@ -15,6 +15,24 @@ public static class Variants
 
     private static void Apply(ContentDb c, string v)
     {
+        if (v.StartsWith("part_skills_x"))
+        {
+            double k = double.Parse(v.Substring("part_skills_x".Length), System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var d in c.PartsConfig.Defs.Values)
+                foreach (var id in d.SkillIds.Concat(d.AwakenedSkillIds))
+                {
+                    var s = c.Skills[id];
+                    foreach (var m in s.Stats) { m.Flat *= k; m.Percent *= k; }
+                    foreach (var t in s.Triggers)
+                    {
+                        if (t.Effect == EffectKind.Summon) continue;
+                        t.Value *= k;
+                        if (t.Stat != null) { t.Stat.Flat *= k; t.Stat.Percent *= k; }
+                        if (t.Effect == EffectKind.ApplyStatus) t.Chance *= k;
+                    }
+                }
+            return;
+        }
         switch (v)
         {
             case "no_lab_stats":
@@ -25,9 +43,9 @@ public static class Variants
                 break;
             case "old_biomass":
                 foreach (var l in c.RunLevels.Values)
-                    foreach (var r in l.CompletionRewards) if (r.Id == Currencies.Biomass) r.Amount /= 4;
+                    foreach (var r in l.CompletionRewards) if (r.Id == Currencies.Biomass) r.Amount /= 2;
                 foreach (var t in c.RunLootTables.Values)
-                    foreach (var e in t.Entries) if (e.Id == Currencies.Biomass) { e.Min /= 4; e.Max /= 4; }
+                    foreach (var e in t.Entries) if (e.Id == Currencies.Biomass) { e.Min /= 2; e.Max /= 2; }
                 c.Blueprints["bp_biomass_farm"].BaseRatePerHour = 60; c.Blueprints["bp_spore_vats"].BaseRatePerHour = 150;
                 break;
             default: throw new ArgumentException("unknown variant " + v);
