@@ -10,6 +10,14 @@ namespace RogueStars.Rules.Tests.Run;
 /// </summary>
 public class MinigameTests
 {
+    /// <summary>Content with GAME tiles from level 1 on (the default keeps the first, tutorial level plain).</summary>
+    private static ContentDb FromLevel1()
+    {
+        var c = new ContentDb();
+        c.MinigameTuning.MinMainLevel = 1;
+        return c;
+    }
+
     /// <summary>A run whose first roll lands on a GAME tile (line board of GAME tiles).</summary>
     private static GameState OnGameTile(GameEngine e, long seed = 42)
     {
@@ -57,7 +65,7 @@ public class MinigameTests
     [Fact]
     public void GameTiles_ComeFromTheTilePools_AtMostMaxPerRun()
     {
-        var e = RunTestKit.Engine();
+        var e = RunTestKit.Engine(content: FromLevel1());
         var c = e.Content;
         Assert.All(c.TilePools.Values, pool => Assert.Contains(pool, w => w.Id == ContentDb.MinigameTileId));
         Assert.Equal(c.MinigameTuning.MaxPerRun, c.BoardTiles[ContentDb.MinigameTileId].MaxPerRun);
@@ -74,6 +82,9 @@ public class MinigameTests
         }
         Assert.True(total / 40.0 >= 1.0 && total / 40.0 <= 2.0, "GAME tiles per run: " + total / 40.0 + ", none: " + none); // ≈ 1–2 per run
         Assert.True(none <= 8, "boards without a GAME tile: " + none);
+        // the first (tutorial) level stays plain
+        for (long seed = 1; seed <= 10; seed++)
+            Assert.DoesNotContain(RunTestKit.StartRun(RunTestKit.Engine(), seed: seed).Run.Active!.Tiles, t => t.TileId == ContentDb.MinigameTileId);
         // runless generation (previews) never places limited tiles
         var board = RunBoard.Generate(c, c.MainLevel(1), Rng.FromSeed(3));
         Assert.DoesNotContain(board.Tiles, t => t.TileId == ContentDb.MinigameTileId);
@@ -82,7 +93,7 @@ public class MinigameTests
     [Fact]
     public void Refills_NeverExceedTheRunLimit()
     {
-        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var e = RunTestKit.Engine(RunTestKit.Strong(), FromLevel1());
         for (long seed = 1; seed <= 10; seed++)
         {
             var s = RunTestKit.StartRun(e, seed: seed);
@@ -281,7 +292,7 @@ public class MinigameTests
     [Fact]
     public void FarmedRuns_PlayEveryGameTileTheyLandOn_AndFinish()
     {
-        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var e = RunTestKit.Engine(RunTestKit.Strong(), FromLevel1());
         int played = 0;
         for (long seed = 1; seed <= 10; seed++)
         {

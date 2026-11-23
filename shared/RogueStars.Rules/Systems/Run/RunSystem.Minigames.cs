@@ -161,6 +161,11 @@ namespace RogueStars.Rules.Systems
         {
             if (!c.BoardTiles.TryGetValue(tileId, out var def) || def.MaxPerRun <= 0) return true;
             if (run == null) return false; // previews / runless generation: limited tiles are never placed
+            if (tileId == ContentDb.MinigameTileId)
+            {
+                var level = c.RunLevel(run.LevelId);
+                if (level != null && level.PortalId != ContentDb.DarkSidePortalId && level.Number > 0 && level.Number < c.MinigameTuning.MinMainLevel && run.Mode == RunMode.Normal) return false;
+            }
             return (run.TilesPlaced.TryGetValue(tileId, out var n) ? n : 0) < def.MaxPerRun;
         }
 

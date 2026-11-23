@@ -94,7 +94,7 @@ namespace RogueStars.Client.App
                 // high-frequency run plumbing is shown on the board instead
                 case "run_roll": case "run_land": case "run_battle": case "run_draft": case "run_event": case "run_shop":
                 case "run_started": case "run_draft_pick": case "run_shop_buy": case "run_event_outcome": case "run_boss_fight": case "run_outcome":
-                case "lab_research": case "run_defeated":
+                case "lab_research": case "run_defeated": case "run_minigame": case "run_minigame_start": case "run_minigame_finish":
                     return null;
                 // Unknown events: the humanized type only (args are ids).
                 default: return Fmt.Humanize(e.Type);

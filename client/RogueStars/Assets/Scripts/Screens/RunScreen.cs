@@ -783,6 +783,7 @@ namespace RogueStars.Client.Screens
                 case RunPhase.Shop: _decision = ShopModal(run); break;
                 case RunPhase.Defeated: _decision = ReviveModal(run); break;
                 case RunPhase.BurrowChoice: _decision = BurrowModal(run); break;
+                case RunPhase.Minigame: _decision = Minigames.MinigameHost.Open(App.ModalLayer, Session); break;
             }
         }
 
@@ -883,7 +884,7 @@ namespace RogueStars.Client.Screens
         public bool OutcomeOpen => _outcome != null && _outcome.IsOpen;
 
         private static string SourceCaption(string source) =>
-            source == "treasure" ? "CHEST" : source == "campfire" ? "CAMPFIRE" : source == "shop" ? "SHOP" : "EVENT";
+            source == "treasure" ? "CHEST" : source == "campfire" ? "CAMPFIRE" : source == "shop" ? "SHOP" : source == "minigame" ? "MINI-GAME" : "EVENT";
 
         /// <summary>One result line as text, e.g. "+30 coins", "−5% max HP", "New skill: Ember Kindle" (pure; tested).</summary>
         public static string OutcomeLineText(OutcomeLine l, ContentDb content)
@@ -908,6 +909,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.BossStat: return "Boss " + sign + Fmt.Pct(a) + " stronger";
                 case OutcomeKind.Danger: return "Danger " + sign + a.ToString("0");
                 case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
+                case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + a.ToString("0") + " (" + l.Id + " odds)";
                 default: return "Nothing happened.";
             }
         }
@@ -932,6 +934,7 @@ namespace RogueStars.Client.Screens
                     return new KeyValuePair<string, Color>("L", c);
                 }
                 case OutcomeKind.Battle: return new KeyValuePair<string, Color>("VS", l.Good ? Theme.Good : Theme.Bad);
+                case OutcomeKind.SkillRoll: return new KeyValuePair<string, Color>("S", Theme.Purple);
                 case OutcomeKind.Nothing: return new KeyValuePair<string, Color>("-", Theme.TextFaint);
                 default: return new KeyValuePair<string, Color>("!", Theme.Bad); // boss awakening, boss strength, danger
             }
@@ -944,7 +947,7 @@ namespace RogueStars.Client.Screens
             {
                 Ui.Caption(box, SourceCaption(o.Source) + " RESULT", Theme.Premium);
                 Ui.Display(box, o.Title ?? "Result", 50, Theme.Text);
-                if (!string.IsNullOrEmpty(o.Choice) && o.Source != "shop") Ui.Label(box, "You chose: " + o.Choice, Theme.FontNormal, Theme.Hex(0xD7DBFA));
+                if (!string.IsNullOrEmpty(o.Choice) && o.Source != "shop") Ui.Label(box, (o.Source == "minigame" ? "Medal: " : "You chose: ") + o.Choice, Theme.FontNormal, Theme.Hex(0xD7DBFA));
 
                 RectTransform meter = null, marker = null;
                 Text stamp = null;
