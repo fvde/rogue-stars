@@ -60,16 +60,24 @@ public sealed class IapOptions
     public string? PackageName { get; set; }
     /// <summary>Service account JSON with Play Console access (from Secret Manager). Empty = use ADC.</summary>
     public string? ServiceAccountJson { get; set; }
+    /// <summary>Accept license-tester purchases (<c>testPurchaseContext</c> set). Needed for internal testing; turn off for production if desired.</summary>
+    public bool AllowTestPurchases { get; set; } = true;
+    /// <summary>Require <c>obfuscatedExternalAccountId</c> on every purchase (the client always sets it; older clients may not).</summary>
+    public bool RequireAccountId { get; set; }
 }
 
 public sealed class AdsOptions
 {
-    /// <summary>"fake" (accept every callback) or "applovin" (hash check with the S2S event key).</summary>
+    /// <summary>"fake" (accept every callback, ad tokens unchecked) or "applovin" (AppLovin MAX S2S verification).</summary>
     public string Mode { get; set; } = "applovin";
+    /// <summary>AppLovin Event Key (dashboard: Account → General → Keys).</summary>
     public string? EventKey { get; set; }
-    /// <summary>Query parameter carrying the hash, and the hash algorithm ("sha256" or "sha1").</summary>
-    public string HashParameter { get; set; } = "event_token";
-    public string HashAlgorithm { get; set; } = "sha256";
+    /// <summary>"event_token" = sha1(EVENT_ID + key) (default) or "event_token_all" = sha256(all macros + key); see AppLovinAdVerifier.</summary>
+    public string Verification { get; set; } = "event_token";
+    /// <summary>If non-empty, callbacks must carry one of these MAX ad unit ids ({AD_UNIT_ID}).</summary>
+    public List<string> AllowedAdUnitIds { get; set; } = new();
+    /// <summary>How long a verified ad view can be spent by a command (revive, stamina, …).</summary>
+    public int CreditTtlHours { get; set; } = 24;
 }
 
 /// <summary>

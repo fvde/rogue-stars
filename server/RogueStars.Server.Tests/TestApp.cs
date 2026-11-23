@@ -48,6 +48,8 @@ public sealed class TestApp : WebApplicationFactory<Program>
     /// <summary>Use the production resolver (rules BattleSimulator) instead of the scripted <see cref="Battles"/>.</summary>
     public bool RealBattles { get; set; }
     public Action<GameEngine>? ConfigureEngine { get; set; }
+    /// <summary>Extra service overrides (e.g. a receipt validator with a mocked Google HTTP handler).</summary>
+    public Action<IServiceCollection>? ConfigureServices { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -65,6 +67,7 @@ public sealed class TestApp : WebApplicationFactory<Program>
                 ConfigureEngine?.Invoke(engine);
                 return engine;
             });
+            ConfigureServices?.Invoke(s);
         });
     }
 

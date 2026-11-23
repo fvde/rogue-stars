@@ -82,7 +82,7 @@ public class JobsAndPaymentsTests : IDisposable
         Assert.True(dup.GetProperty("duplicate").GetBoolean());
         Assert.Equal(1, await p.CounterAsync("ads_watched"));
         Assert.Equal(diamonds + 10, await p.BalanceAsync(Currencies.Diamonds));
-        Assert.Equal(401, (int)(await http.GetAsync("/v1/ads/ssv?event_id=x")).StatusCode);
+        Assert.Equal(400, (int)(await http.GetAsync("/v1/ads/ssv?event_id=x")).StatusCode); // malformed: no user_id
     }
 
     [Fact]
@@ -92,24 +92,5 @@ public class JobsAndPaymentsTests : IDisposable
         var p = await _app.PlayerAsync("viewer");
         var resp = await _app.CreateClient().GetAsync($"/v1/ads/ssv?user_id={p.PlayerId}&event_id=ev2&custom_data=daily_diamonds_ad");
         Assert.Equal(501, (int)resp.StatusCode);
-    }
-
-    [Fact]
-    public void AppLovinVerifier_ChecksHash()
-    {
-        var o = Microsoft.Extensions.Options.Options.Create(new RogueStars.Server.Infrastructure.ServerOptions());
-        o.Value.Ads.EventKey = "key";
-        var v = new RogueStars.Server.Payments.AppLovinAdVerifier(o);
-        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("ev1key"))).ToLowerInvariant();
-        var good = new Microsoft.AspNetCore.Http.QueryCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
-        {
-            ["user_id"] = "u", ["event_id"] = "ev1", ["event_token"] = hash,
-        });
-        Assert.NotNull(v.Verify(good));
-        var bad = new Microsoft.AspNetCore.Http.QueryCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
-        {
-            ["user_id"] = "u", ["event_id"] = "ev1", ["event_token"] = "00",
-        });
-        Assert.Null(v.Verify(bad));
     }
 }

@@ -1,196 +1,184 @@
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using Google.Apis.Auth.OAuth2;
-using Microsoft.Extensions.Options;
+using RogueStars.Rules.Core;
 using RogueStars.Server.Commands;
 using RogueStars.Server.Infrastructure;
 using RogueStars.Server.Storage;
 
 namespace RogueStars.Server.Payments;
 
-public sealed record ReceiptResult(bool Valid, string? OrderId, string? Error, bool Test = false);
-
-/// <summary>Validates a store purchase token for a product.</summary>
-public interface IReceiptValidator
-{
-    Task<ReceiptResult> ValidateAsync(string productId, string purchaseToken, CancellationToken ct);
-}
-
-/// <summary>Dev/test: tokens starting with "fake-" are valid; the order id is derived from the token.</summary>
-public sealed class FakeReceiptValidator : IReceiptValidator
-{
-    public Task<ReceiptResult> ValidateAsync(string productId, string purchaseToken, CancellationToken ct) =>
-        Task.FromResult(purchaseToken.StartsWith("fake-", StringComparison.Ordinal)
-            ? new ReceiptResult(true, "FAKE." + purchaseToken[5..], null, Test: true)
-            : new ReceiptResult(false, null, "invalid_receipt"));
-}
-
-/// <summary>
-/// Google Play: <c>GET androidpublisher/v3/applications/{package}/purchases/products/{productId}/tokens/{token}</c>
-/// (purchaseState 0 = purchased). Credentials: the Play service account JSON (Secret Manager) or ADC.
-/// Consumption/acknowledgement is done by the client Billing Library after the server confirms.
-/// </summary>
-public sealed class GooglePlayReceiptValidator(HttpClient http, IOptions<ServerOptions> options, ILogger<GooglePlayReceiptValidator> log)
-    : IReceiptValidator
-{
-    private const string Scope = "https://www.googleapis.com/auth/androidpublisher";
-    private ICredential? _credential;
-
-    public async Task<ReceiptResult> ValidateAsync(string productId, string purchaseToken, CancellationToken ct)
-    {
-        var o = options.Value.Iap;
-        if (string.IsNullOrEmpty(o.PackageName)) throw new InvalidOperationException("RogueStars:Iap:PackageName is required");
-        _credential ??= await CreateCredentialAsync(o, ct);
-        string token = await _credential.GetAccessTokenForRequestAsync(Scope, ct);
-        string url = $"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{Uri.EscapeDataString(o.PackageName)}" +
-                     $"/purchases/products/{Uri.EscapeDataString(productId)}/tokens/{Uri.EscapeDataString(purchaseToken)}";
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var resp = await http.SendAsync(req, ct);
-        if (!resp.IsSuccessStatusCode)
-        {
-            log.LogWarning("Play purchase lookup failed: {Status}", (int)resp.StatusCode);
-            return new ReceiptResult(false, null, resp.StatusCode == System.Net.HttpStatusCode.NotFound ? "invalid_receipt" : "store_unavailable");
-        }
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
-        var root = doc.RootElement;
-        int state = root.TryGetProperty("purchaseState", out var ps) ? ps.GetInt32() : -1;
-        string? orderId = root.TryGetProperty("orderId", out var oid) ? oid.GetString() : null;
-        bool test = root.TryGetProperty("purchaseType", out var pt) && pt.GetInt32() == 0;
-        return state == 0 && orderId != null
-            ? new ReceiptResult(true, orderId, null, test)
-            : new ReceiptResult(false, orderId, state == 2 ? "purchase_pending" : "purchase_not_completed");
-    }
-
-    private static async Task<ICredential> CreateCredentialAsync(IapOptions o, CancellationToken ct)
-    {
-        GoogleCredential cred = string.IsNullOrWhiteSpace(o.ServiceAccountJson)
-            ? await GoogleCredential.GetApplicationDefaultAsync(ct)
-            : CredentialFactory.FromJson<ServiceAccountCredential>(o.ServiceAccountJson).ToGoogleCredential();
-        return cred.CreateScoped(Scope);
-    }
-}
-
-public sealed record AdEvent(string PlayerId, string EventId, string? Placement, string? AdUnitId);
-
-/// <summary>Verifies a rewarded-ad server-to-server callback. Returns null when the signature is invalid.</summary>
-public interface IAdVerifier
-{
-    AdEvent? Verify(IQueryCollection query);
-}
-
-/// <summary>Dev/test: accepts any callback with user_id and event_id.</summary>
-public sealed class FakeAdVerifier : IAdVerifier
-{
-    public AdEvent? Verify(IQueryCollection q) => AppLovinAdVerifier.Parse(q);
-}
-
-/// <summary>
-/// AppLovin MAX S2S rewarded callback. The callback URL template configured in the MAX dashboard must pass
-/// <c>user_id={USER_ID}&amp;event_id={EVENT_ID}&amp;custom_data={CUSTOM_DATA}&amp;ad_unit_id={AD_UNIT_ID}&amp;event_token={EVENT_TOKEN}</c>.
-/// Verification: hex(hash(event_id + event key)) must equal the token parameter. Confirm parameter name and hash
-/// algorithm against the current AppLovin documentation before launch (both are configurable).
-/// </summary>
-public sealed class AppLovinAdVerifier(IOptions<ServerOptions> options) : IAdVerifier
-{
-    public AdEvent? Verify(IQueryCollection q)
-    {
-        var o = options.Value.Ads;
-        var ev = Parse(q);
-        string? given = q[o.HashParameter];
-        if (ev == null || string.IsNullOrEmpty(o.EventKey) || string.IsNullOrEmpty(given)) return null;
-        var data = Encoding.UTF8.GetBytes(ev.EventId + o.EventKey);
-        byte[] hash = o.HashAlgorithm.Equals("sha1", StringComparison.OrdinalIgnoreCase) ? SHA1.HashData(data) : SHA256.HashData(data);
-        var expected = Encoding.ASCII.GetBytes(Convert.ToHexString(hash).ToLowerInvariant());
-        return CryptographicOperations.FixedTimeEquals(expected, Encoding.ASCII.GetBytes(given.ToLowerInvariant())) ? ev : null;
-    }
-
-    public static AdEvent? Parse(IQueryCollection q)
-    {
-        string? user = q["user_id"], ev = q["event_id"];
-        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(ev)) return null;
-        return new AdEvent(user, ev, q["custom_data"], q["ad_unit_id"]);
-    }
-}
-
 public sealed record IapVerifyRequest(string? ProductId, string? PurchaseToken);
 
+/// <summary><c>iap_receipts/{sha256(purchaseToken)}</c>: a token is redeemed exactly once, by exactly one player.</summary>
 public sealed class ReceiptClaim
 {
     public string PlayerId { get; set; } = "";
     public string ProductId { get; set; } = "";
-    public string OrderId { get; set; } = "";
+    public string? OrderId { get; set; }
     public long AtMs { get; set; }
     public bool Completed { get; set; }
+    /// <summary>Consumed/acknowledged at Google after the grant.</summary>
+    public bool Finalized { get; set; }
+    public bool Test { get; set; }
 }
 
+/// <summary><c>ad_events/{sha256(eventId)}</c>: one claim per AppLovin event id (replays and retries).</summary>
 public sealed class AdEventClaim
 {
     public string PlayerId { get; set; } = "";
+    public string? Placement { get; set; }
     public long AtMs { get; set; }
+    /// <summary>Processing finished (granted, credited or rejected by the rules); repeats are duplicates.</summary>
+    public bool Done { get; set; }
+    public string? Outcome { get; set; }
 }
 
 public static class PaymentEndpoints
 {
     public static void Map(RouteGroupBuilder v1, WebApplication app)
     {
-        v1.MapPost("/iap/verify", async (HttpContext http, IapVerifyRequest req, ServerHooks hooks, IReceiptValidator validator,
-            IDocStore docs, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+        v1.MapGet("/iap/config", (HttpContext http, GameEngine engine) => Results.Ok(new
         {
+            ok = true,
+            obfuscatedAccountId = GooglePlayReceiptValidator.ObfuscatedAccountId(http.PlayerId()),
+            products = PlayCatalog.StoreProducts(engine.Content).Select(p => new
+            {
+                productId = p.Id, storeProductId = p.StoreProductId, type = PlayCatalog.TypeOf(p) == StoreProductType.Consumable ? "consumable" : "non_consumable",
+            }),
+        }));
+
+        v1.MapPost("/iap/verify", async (HttpContext http, IapVerifyRequest req, ServerHooks hooks, IReceiptValidator validator,
+            IDocStore docs, GameEngine engine, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+        {
+            var log = lf.CreateLogger("Iap");
             string playerId = http.PlayerId();
             if (!hooks.Has(hooks.Names.PurchaseComplete)) throw new ApiException(StatusCodes.Status501NotImplemented, "purchases_not_available");
             if (string.IsNullOrWhiteSpace(req.ProductId) || string.IsNullOrWhiteSpace(req.PurchaseToken)) throw ApiException.BadRequest("missing_fields");
+            if (req.PurchaseToken.Length > 4096) throw ApiException.BadRequest("invalid_token");
+            var def = engine.Content.Product(req.ProductId);
+            if (def == null || def.PriceUsdCents <= 0 || string.IsNullOrEmpty(def.StoreProductId)) throw ApiException.BadRequest("unknown_product");
+            var rr = new ReceiptRequest(playerId, def.Id, def.StoreProductId, PlayCatalog.TypeOf(def), req.PurchaseToken);
 
-            var result = await validator.ValidateAsync(req.ProductId, req.PurchaseToken, ct);
-            if (!result.Valid) throw new ApiException(StatusCodes.Status402PaymentRequired, result.Error ?? "invalid_receipt");
-
-            // A purchase token can be redeemed exactly once, by exactly one player.
             string key = Ids.Hash(req.PurchaseToken);
-            var claim = new ReceiptClaim { PlayerId = playerId, ProductId = req.ProductId, OrderId = result.OrderId!, AtMs = clock.NowMs };
-            if (!await docs.TryPutAsync(Collections.IapReceipts, key, claim, 0, ct))
+            var existing = await docs.GetAsync<ReceiptClaim>(Collections.IapReceipts, key, ct);
+            if (existing != null)
             {
-                var existing = await docs.GetAsync<ReceiptClaim>(Collections.IapReceipts, key, ct);
-                if (existing?.Value.PlayerId != playerId) throw ApiException.Conflict("receipt_already_used");
-                if (existing.Value.Completed)
-                    return Results.Json(new { ok = true, alreadyCompleted = true, orderId = existing.Value.OrderId }, StateJson.Wire);
+                if (existing.Value.PlayerId != playerId) throw ApiException.Conflict("receipt_already_used");
+                if (existing.Value.Completed) return await AlreadyCompleted(existing.Value);
             }
 
+            var result = await validator.ValidateAsync(rr, ct);
+            if (!result.Valid)
+            {
+                log.LogInformation("Receipt for {ProductId} by {PlayerId} rejected: {Error}", def.Id, playerId, result.Error);
+                throw new ApiException(result.Error == "store_unavailable" ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status402PaymentRequired,
+                    result.Error ?? "invalid_receipt");
+            }
+            // Consumed/acknowledged at Google but never granted by us: not redeemable here.
+            if (result.AlreadyFinalized && existing == null) throw new ApiException(StatusCodes.Status402PaymentRequired, "already_consumed");
+
+            var claim = new ReceiptClaim { PlayerId = playerId, ProductId = def.Id, OrderId = result.OrderId, AtMs = clock.NowMs, Test = result.Test };
+            if (existing == null && !await docs.TryPutAsync(Collections.IapReceipts, key, claim, 0, ct))
+            {
+                var raced = await docs.GetAsync<ReceiptClaim>(Collections.IapReceipts, key, ct);
+                if (raced?.Value.PlayerId != playerId) throw ApiException.Conflict("receipt_already_used");
+                if (raced.Value.Completed) return await AlreadyCompleted(raced.Value);
+            }
+
+            // Promo purchases have no order id; the token hash is the stable receipt id then.
+            string receiptId = result.OrderId ?? "gp:" + key[..40];
             var response = await hooks.TryExecuteAsync(playerId, hooks.Names.PurchaseComplete, new
             {
-                ProductId = req.ProductId, ReceiptId = result.OrderId, OrderId = result.OrderId, PurchaseToken = req.PurchaseToken, Store = "google_play", Test = result.Test,
-            }, "iap-" + result.OrderId, ct);
+                ProductId = def.Id, ReceiptId = receiptId, OrderId = result.OrderId, PurchaseToken = req.PurchaseToken, Store = "google_play", Test = result.Test,
+            }, "iap-" + key[..40], ct);
             if (response is { Ok: true })
             {
+                bool finalized = await validator.FinalizeAsync(rr, ct);
                 await docs.MutateAsync<ReceiptClaim>(Collections.IapReceipts, key, c =>
                 {
-                    if (c == null || c.Completed) return null;
+                    if (c == null || (c.Completed && c.Finalized == finalized)) return null;
                     c.Completed = true;
+                    c.Finalized |= finalized;
                     return c;
                 }, ct);
             }
-            lf.CreateLogger("Iap").LogInformation("Purchase {ProductId} order {OrderId} for {PlayerId}: {Ok}", req.ProductId, result.OrderId, playerId, response?.Ok);
+            log.LogInformation("Purchase {ProductId} order {OrderId} for {PlayerId}: {Ok} {Error} (test {Test})",
+                def.Id, result.OrderId, playerId, response?.Ok, response?.Error, result.Test);
             return Results.Json(response, StateJson.Wire);
+
+            async Task<IResult> AlreadyCompleted(ReceiptClaim c)
+            {
+                if (!c.Finalized && await validator.FinalizeAsync(rr, ct))
+                {
+                    await docs.MutateAsync<ReceiptClaim>(Collections.IapReceipts, key, x =>
+                    {
+                        if (x == null || x.Finalized) return null;
+                        x.Finalized = true;
+                        return x;
+                    }, ct);
+                }
+                return Results.Json(new { ok = true, alreadyCompleted = true, orderId = c.OrderId }, StateJson.Wire);
+            }
         });
 
-        // AppLovin calls the S2S callback with GET; POST is accepted as well.
-        app.MapMethods("/v1/ads/ssv", new[] { "GET", "POST" }, async (HttpContext http, IAdVerifier verifier, ServerHooks hooks,
-            IDocStore docs, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+        v1.MapGet("/ads/credits", async (HttpContext http, AdCreditService credits, CancellationToken ct) =>
         {
-            var ev = verifier.Verify(http.Request.Query) ?? throw new ApiException(StatusCodes.Status401Unauthorized, "invalid_signature");
-            if (!hooks.Has(hooks.Names.AdWatched)) throw new ApiException(StatusCodes.Status501NotImplemented, "ads_not_available");
-            string key = Ids.Hash(ev.EventId);
-            if (await docs.GetAsync<AdEventClaim>(Collections.AdEvents, key, ct) != null)
-                return Results.Ok(new { ok = true, duplicate = true });
-            var response = await hooks.TryExecuteAsync(ev.PlayerId, hooks.Names.AdWatched, new
+            var list = await credits.UnspentAsync(http.PlayerId(), ct);
+            return Results.Ok(new { ok = true, credits = list.Select(c => new { eventId = c.EventId, placement = c.Placement, atMs = c.AtMs }) });
+        });
+
+        // AppLovin calls the S2S callback with GET (5 s timeout, up to two retries); POST is accepted as well.
+        app.MapMethods("/v1/ads/ssv", new[] { "GET", "POST" }, async (HttpContext http, IAdVerifier verifier, ServerHooks hooks,
+            AdCreditService credits, GameEngine engine, IDocStore docs, Clock clock, ILoggerFactory lf, CancellationToken ct) =>
+        {
+            var log = lf.CreateLogger("Ads");
+            var verified = verifier.Verify(http.Request.Query);
+            switch (verified.Status)
             {
-                PlacementId = ev.Placement, AdToken = ev.EventId, Placement = ev.Placement, EventId = ev.EventId, AdUnitId = ev.AdUnitId,
-            }, "ad-" + key[..32], ct);
-            if (response is { Ok: true })
-                await docs.TryPutAsync(Collections.AdEvents, key, new AdEventClaim { PlayerId = ev.PlayerId, AtMs = clock.NowMs }, 0, ct);
-            lf.CreateLogger("Ads").LogInformation("Ad reward {EventId} for {PlayerId} ({Placement}): {Ok}", ev.EventId, ev.PlayerId, ev.Placement, response?.Ok);
-            return Results.Ok(new { ok = response?.Ok ?? false, error = response?.Error });
+                case AdVerifyStatus.Malformed: throw ApiException.BadRequest("malformed_callback");
+                case AdVerifyStatus.InvalidSignature: throw new ApiException(StatusCodes.Status401Unauthorized, "invalid_signature");
+                case AdVerifyStatus.AdUnitNotAllowed: throw ApiException.Forbidden("ad_unit_not_allowed");
+            }
+            var ev = verified.Event!;
+            if (!hooks.Has(hooks.Names.AdWatched)) throw new ApiException(StatusCodes.Status501NotImplemented, "ads_not_available");
+
+            // Claim the event id first (first writer wins); unfinished claims of the same player are re-processed,
+            // which is safe because the grant and the credit are idempotent per event id.
+            string key = Ids.Hash(ev.EventId);
+            var claim = new AdEventClaim { PlayerId = ev.PlayerId, Placement = ev.Placement, AtMs = clock.NowMs };
+            if (!await docs.TryPutAsync(Collections.AdEvents, key, claim, 0, ct))
+            {
+                var existing = await docs.GetAsync<AdEventClaim>(Collections.AdEvents, key, ct);
+                if (existing == null || existing.Value.PlayerId != ev.PlayerId) throw ApiException.Conflict("event_already_used");
+                if (existing.Value.Done) return Results.Ok(new { ok = true, duplicate = true });
+            }
+
+            var placement = engine.Content.AdPlacement(ev.Placement);
+            string outcome;
+            CommandResponse? response = null;
+            if (placement == null) outcome = "unknown_placement";
+            else if (placement.Rewards.Count > 0)
+            {
+                response = await hooks.TryExecuteAsync(ev.PlayerId, hooks.Names.AdWatched, new
+                {
+                    PlacementId = placement.Id, AdToken = ev.EventId, Placement = placement.Id, EventId = ev.EventId, AdUnitId = ev.AdUnitId,
+                }, "ad-" + key[..32], ct);
+                outcome = response is { Ok: true } ? "granted" : "rejected:" + response?.Error;
+            }
+            else
+            {
+                await credits.AddAsync(ev.PlayerId, ev.EventId, placement.Id, ct);
+                outcome = "credited";
+            }
+
+            await docs.MutateAsync<AdEventClaim>(Collections.AdEvents, key, c =>
+            {
+                if (c == null || c.Done) return null;
+                c.Done = true;
+                c.Outcome = outcome;
+                return c;
+            }, ct);
+            log.LogInformation("Ad event {EventId} for {PlayerId} ({Placement}): {Outcome}", ev.EventId, ev.PlayerId, ev.Placement, outcome);
+            bool ok = outcome is "granted" or "credited";
+            return Results.Ok(new { ok, outcome, error = ok ? null : response?.Error ?? outcome });
         });
     }
 }

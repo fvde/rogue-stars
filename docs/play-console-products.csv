@@ -1,0 +1,24 @@
+product_id,type,price_usd,title,description,rules_product_id,rules_kind
+rs.diamonds_60,consumable,0.99,60 Diamonds,60 Diamonds (double on first purchase),diamonds_60,DiamondPack
+rs.diamonds_330,consumable,4.99,330 Diamonds,330 Diamonds (double on first purchase),diamonds_330,DiamondPack
+rs.diamonds_700,consumable,9.99,700 Diamonds,700 Diamonds (double on first purchase),diamonds_700,DiamondPack
+rs.diamonds_1450,consumable,19.99,1450 Diamonds,1450 Diamonds (double on first purchase),diamonds_1450,DiamondPack
+rs.diamonds_3800,consumable,49.99,3800 Diamonds,3800 Diamonds (double on first purchase),diamonds_3800,DiamondPack
+rs.diamonds_8000,consumable,99.99,8000 Diamonds,8000 Diamonds (double on first purchase),diamonds_8000,DiamondPack
+rs.starter_worm,non_consumable,0.99,Wriggle Starter,Wriggle Starter,starter_worm,StarterPack
+rs.starter_explorer,non_consumable,4.99,Explorer Starter,Explorer Starter,starter_explorer,StarterPack
+rs.rolling_main_1,consumable,1.99,Rolling Offer 2,Rolling Offer 2,rolling_main_1,RollingOffer
+rs.rolling_main_3,consumable,4.99,Rolling Offer 4,Rolling Offer 4,rolling_main_3,RollingOffer
+rs.rolling_main_5,consumable,9.99,Rolling Offer 6,Rolling Offer 6,rolling_main_5,RollingOffer
+rs.flash_midweek_ore,consumable,1.99,Midweek Ore Flash,Midweek Ore Flash,flash_midweek_ore,FlashOffer
+rs.flash_weekend_fuel,consumable,2.99,Weekend Fuel Flash,Weekend Fuel Flash,flash_weekend_fuel,FlashOffer
+rs.gift_diamond_week,consumable,4.99,Diamond Gift Week,Instant rewards plus daily gifts for 7 days,gift_diamond_week,GiftPack
+rs.gift_token_week,consumable,9.99,Token Gift Week,Instant rewards plus daily gifts for 7 days,gift_token_week,GiftPack
+rs.perm_no_ads,non_consumable,4.99,No Ads,No Ads,perm_no_ads,Permanent
+rs.perm_daily_diamonds,non_consumable,9.99,Daily Diamonds Forever,Daily Diamonds Forever,perm_daily_diamonds,Permanent
+rs.monthly_pass,consumable,4.99,Monthly Pass,"30 days of daily Diamonds, battle speed x3 and bonuses",monthly_pass,MonthlyPass
+rs.season_pass_premium,consumable,9.99,Season Pass Premium,Premium rewards of the current season,season_pass_premium,SeasonPass
+rs.fund_hero,non_consumable,9.99,Hero Fund,Diamond rewards for reaching milestones,fund_hero,Fund
+rs.fund_mount,non_consumable,9.99,Mount Fund,Diamond rewards for reaching milestones,fund_mount,Fund
+rs.fund_worm,non_consumable,9.99,Worm Fund,Diamond rewards for reaching milestones,fund_worm,Fund
+rs.fund_city,non_consumable,19.99,City Fund,Diamond rewards for reaching milestones,fund_city,Fund
