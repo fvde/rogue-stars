@@ -90,6 +90,7 @@ namespace RogueStars.Client.UiKit
             return t;
         }
 
+        /// <summary>Skill/item rarity: Common grey, Rare blue, Epic purple, Legendary orange, Mythic red (run skills are coloured by this, not by family).</summary>
         public static Color RarityColor(Rarity r)
         {
             switch (r)
@@ -97,8 +98,8 @@ namespace RogueStars.Client.UiKit
                 case Rarity.Common: return Hex(0xB8AEA6);
                 case Rarity.Rare: return Hex(0x4FA3FF);
                 case Rarity.Epic: return Hex(0xB58CFF);
-                case Rarity.Legendary: return Hex(0xFFB347);
-                case Rarity.Mythic: return Hex(0xFF3D7F);
+                case Rarity.Legendary: return Hex(0xFF9A2E);
+                case Rarity.Mythic: return Hex(0xFF4545);
                 default: return Color.gray;
             }
         }

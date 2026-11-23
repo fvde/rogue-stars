@@ -147,7 +147,8 @@ namespace RogueStars.Client.Tests
             var ahead = RunScreen.LookOf(run, run.Tiles[3], C);
             var gate = RunScreen.LookOf(run, run.Tiles[ids.Length - 1], C);
             Assert.That(start.Label, Is.EqualTo("START"));
-            Assert.That(start.Visited && shop.Visited, Is.True, "walked tiles are dimmed");
+            Assert.That(start.Visited && shop.Visited, Is.True, "walked tiles");
+            Assert.That(shop.Landed, Is.False, "passed, never landed on: keeps its look");
             Assert.That(shop.Label, Is.EqualTo("SHOP"));
             Assert.That(shop.Accent, Is.EqualTo(Theme.Blue));
             Assert.That(cur.Current && !cur.Visited && cur.Fork, Is.True);
