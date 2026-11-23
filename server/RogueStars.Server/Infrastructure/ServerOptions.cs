@@ -105,17 +105,11 @@ public sealed class ArenaOptions
     public int OpponentWindow { get; set; } = 5;
     public int PromoteTop { get; set; } = 15;
     public int DemoteBottom { get; set; } = 15;
-    /// <summary>Rank-reward ladder; amounts scale by (1 + 0.5 * league). Defaults applied when empty.</summary>
+    /// <summary>
+    /// Optional override of the weekly rank-reward ladder (amounts scale by (1 + 0.5 * league)). Empty (default): the rules'
+    /// league ladder from content (Diamonds, Arena Tickets, Arena Medals).
+    /// </summary>
     public List<RankReward> RankRewards { get; set; } = new();
-
-    internal static List<RankReward> DefaultRankRewards() => new()
-    {
-        new RankReward { MaxRank = 1, Rewards = { RewardSpec.Cur(Currencies.Diamonds, 500) } },
-        new RankReward { MaxRank = 3, Rewards = { RewardSpec.Cur(Currencies.Diamonds, 300) } },
-        new RankReward { MaxRank = 10, Rewards = { RewardSpec.Cur(Currencies.Diamonds, 150) } },
-        new RankReward { MaxRank = 50, Rewards = { RewardSpec.Cur(Currencies.Diamonds, 80) } },
-        new RankReward { MaxRank = 150, Rewards = { RewardSpec.Cur(Currencies.Diamonds, 30) } },
-    };
 }
 
 public sealed class RankReward

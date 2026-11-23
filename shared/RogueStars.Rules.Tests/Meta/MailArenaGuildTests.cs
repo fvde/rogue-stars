@@ -113,14 +113,18 @@ public class ArenaTests
         Ok(e, ref s, new ArenaFightResult { Won = true, OpponentPoints = 1000 }, t);
         Assert.Equal(1020, s.Arena.Points);
         Assert.Equal(1, s.Counter("arena_wins"));
+        Assert.Equal(e.Content.Arena.MedalsPerWin, Bal(s, Currencies.ArenaMedals));
+        Ok(e, ref s, new ArenaFightResult { Won = false, OpponentPoints = 1000 }, t);
+        Assert.Equal(e.Content.Arena.MedalsPerWin + e.Content.Arena.MedalsPerLoss, Bal(s, Currencies.ArenaMedals));
         e.Settle(s, t + 4 * H);
         Assert.Equal(2, Bal(s, Currencies.ArenaTickets)); // 1 per 2 h
 
-        long dia = Bal(s, Currencies.Diamonds);
+        long dia = Bal(s, Currencies.Diamonds), medals = Bal(s, Currencies.ArenaMedals);
         var r = Ok(e, ref s, new ArenaWeekEnd { Rank = 1, GroupSize = 150 }, t);
         Assert.Equal(LeagueOutcome.Promote, r.Payload);
         Assert.Equal(1, s.Arena.League);
         Assert.Equal(dia + 200, Bal(s, Currencies.Diamonds));
+        Assert.Equal(medals + 120, Bal(s, Currencies.ArenaMedals)); // weekly rank medals (league 0, rank 1)
         Assert.Equal(e.Content.Arena.StartPoints, s.Arena.Points);
         Fail(e, ref s, new ArenaWeekEnd { Rank = 151, GroupSize = 151 }, t);
         Ok(e, ref s, new ArenaWeekEnd { Rank = 150, GroupSize = 150 }, t);
@@ -205,6 +209,24 @@ public class GuildTests
         Assert.Equal(500, Bal(s, Currencies.GuildMarks));
         Ok(e, ref s, new GuildShopBuy { ItemId = "guild_ore" }, Monday);
         Fail(e, ref s, new GuildShopBuy { ItemId = "daily_fuel" }, Monday);
+    }
+
+    [Fact]
+    public void ArenaShop_AwakenCores_ForMedals_WeeklyLimit_NeedsArena()
+    {
+        var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
+        s.Wallet.Add(Currencies.ArenaMedals, 10_000);
+        Assert.Equal("item locked", Fail(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t));
+        s.Counters[Requirements.MainLevelCounter] = 16;
+        var item = e.Content.ShopItem("arena_awaken_core")!;
+        Assert.Equal(ContentDb.ArenaShopSection, item.Section);
+        for (int i = 0; i < item.Limit; i++) Ok(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t);
+        Assert.Equal("item limit reached", Fail(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, t));
+        Assert.Equal(item.Limit, Bal(s, ProgressionCurrencies.PartAwakenCores));
+        Assert.Equal(10_000 - item.Limit * item.Price[0].Amount, Bal(s, Currencies.ArenaMedals));
+        Ok(e, ref s, new ShopBuyItem { ItemId = "arena_awaken_core" }, Monday); // new week
+        // Cores are expensive: a whole week of an active player's medals buys about one.
+        Assert.True(item.Price[0].Amount >= 30 * e.Content.Arena.MedalsPerWin);
     }
 
     [Fact]

@@ -149,6 +149,9 @@ namespace RogueStars.Rules.Content
         public readonly ShopConfig Shop = new ShopConfig();
 
         public ProductDef Product(string id) => id != null && Products.TryGetValue(id, out var p) ? p : null;
+        /// <summary>Section of the PvP (Arena Medal) shop items.</summary>
+        public const string ArenaShopSection = "arena";
+
         public ShopItemDef ShopItem(string id) => id != null && ShopItems.TryGetValue(id, out var p) ? p : null;
         public AdPlacementDef AdPlacement(string id) => id != null && AdPlacements.TryGetValue(id, out var p) ? p : null;
         public FundDef Fund(string id) => id != null && Funds.TryGetValue(id, out var p) ? p : null;
@@ -262,6 +265,17 @@ namespace RogueStars.Rules.Content
             Item("tokens_part_10", "Part Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1350), Reward.Cur(Currencies.PartTokens, 10), 5, LimitPeriod.Weekly);
             Item("tokens_blueprint_10", "Blueprint Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.BlueprintTokens, 10), 5, LimitPeriod.Weekly);
             Item("tokens_alien_10", "Alien Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.AlienTokens, 10), 5, LimitPeriod.Weekly);
+            // Arena shop (Arena Medals, ShopBuyItem; needs the Arena). Awaken Cores are the endgame purchase (weekly limit);
+            // the rest keeps medals useful once the limit is reached.
+            void ArenaItem(string id, string name, long medals, Reward contents, int limit)
+            {
+                Item(id, name, ArenaShopSection, new Cost(Currencies.ArenaMedals, medals), contents, limit, LimitPeriod.Weekly);
+                ShopItems[id].Requires = RequirementSet.All(ReqFeature(Features.Arena));
+            }
+            ArenaItem("arena_awaken_core", "Awaken Core", 200, Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 2);
+            ArenaItem("arena_part_tokens", "Part Tokens ×2", 60, Reward.Cur(Currencies.PartTokens, 2), 3);
+            ArenaItem("arena_data", "Data ×300", 50, Reward.Cur(Currencies.Data, 300), 3);
+            ArenaItem("arena_gear_cores", "Gear Cores ×150", 40, Reward.Cur(Currencies.GearCores, 150), 5);
             // Guild shop (guild_marks; bought through GuildShopBuy).
             Item("guild_ore", "Ore ×5000", "guild", new Cost(Currencies.GuildMarks, 100), Reward.Cur(Currencies.Ore, 5000), 5, LimitPeriod.Weekly);
             Item("guild_gear_cores", "Gear Cores ×100", "guild", new Cost(Currencies.GuildMarks, 150), Reward.Cur(Currencies.GearCores, 100), 5, LimitPeriod.Weekly);

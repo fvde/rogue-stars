@@ -51,11 +51,11 @@ public sealed partial class SimPlayer
         Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.GearCores, Currencies.AdvancementPlates, Currencies.Fuel,
         Currencies.HeroXp, Currencies.Diamonds, Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens,
         Currencies.Stamina, Currencies.GuildMarks, Currencies.MountCores, ProgressionCurrencies.PartAwakenCores, Currencies.ArenaTickets,
-        "data", "arena_medals",
+        Currencies.Data, Currencies.ArenaMedals,
     };
 
     /// <summary>Currencies whose income is also split by source (runs by mode, city, quests, arena, invasions, shop, other).</summary>
-    public static readonly string[] SourceTracked = { Currencies.Biomass, Currencies.Ore, ProgressionCurrencies.PartAwakenCores, "data", "arena_medals" };
+    public static readonly string[] SourceTracked = { Currencies.Biomass, Currencies.Ore, ProgressionCurrencies.PartAwakenCores, Currencies.Data, Currencies.ArenaMedals };
     public static readonly string[] Sources = { "run_main", "run_burrow", "run_dark", "city", "quests", "arena", "invasion", "shop", "other" };
     /// <summary>Cumulative income per SourceTracked currency (row) and Sources entry (column).</summary>
     public readonly double[,] EarnedBySource = new double[5, 9];
@@ -275,6 +275,15 @@ public sealed partial class SimPlayer
             for (int i = 0; i < fund.Steps.Count; i++)
                 if (!S.Shop.FundClaims.Contains(fid + ":" + i) && ShopSystem.FundProgress(S, C, fund) >= fund.Steps[i].Target)
                     Exec(new FundClaim { FundId = fid, Step = i });
+        }
+        // Arena shop: Awaken Cores first (weekly limit); spare medals above two weeks of cores go to the other items.
+        if (Unlocked(Features.Arena))
+        {
+            var core = C.ShopItem("arena_awaken_core");
+            if (core != null) while (S.Wallet.CanAfford(core.Price) && Ok(new ShopBuyItem { ItemId = core.Id })) { }
+            long reserve = core == null ? 0 : 2 * core.Limit * core.Price[0].Amount;
+            foreach (var item in C.ShopItems.Values.Where(i => i.Section == ContentDb.ArenaShopSection && i.Id != "arena_awaken_core").OrderBy(i => i.Id, StringComparer.Ordinal))
+                while (Bal(Currencies.ArenaMedals) - item.Price[0].Amount >= reserve && Ok(new ShopBuyItem { ItemId = item.Id })) { }
         }
         if (Unlocked(Features.Guilds) && !GuildSystem.InGuild(S)) Exec(new GuildSetMembership { GuildId = GuildId, Role = "member" });
         if (GuildSystem.InGuild(S))

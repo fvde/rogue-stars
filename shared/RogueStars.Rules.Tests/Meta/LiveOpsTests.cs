@@ -60,6 +60,30 @@ public class LiveOpsTests
     }
 
     [Fact]
+    public void InvasionOutcome_HighTierRepelled_TopContributorsMayWinAwakenCores()
+    {
+        var c = ContentDb.Default;
+        Assert.Equal(2, c.Invasions.Values.Count(i => i.HighTier));
+        Assert.All(c.Invasions.Values.Where(i => !i.HighTier), i => Assert.Empty(i.RepelledRareRewards));
+        Assert.All(c.Invasions.Values.Where(i => i.HighTier).SelectMany(i => i.RepelledRareRewards), r => Assert.InRange(r.ChancePct, 0.1, 30));
+
+        // Certain chance in a test content: champion wins a core only when repelled; rank 20 never.
+        var content = new ContentDb();
+        content.Invasions["void_choir"].RepelledRareRewards[0].ChancePct = 100;
+        var e = new GameEngine(content) { Cloner = TestHelpers.Clone };
+        var s = e.NewPlayer("p1", TestHelpers.T0, 42); long t = TestHelpers.T0;
+        Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "void_choir", OccurrenceId = "o1", Repelled = false, ContributionRank = 1 }, t);
+        Assert.Equal(0, Bal(s, ProgressionCurrencies.PartAwakenCores));
+        Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "void_choir", OccurrenceId = "o2", Repelled = true, ContributionRank = 1 }, t);
+        Assert.Equal(1, Bal(s, ProgressionCurrencies.PartAwakenCores));
+        Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "void_choir", OccurrenceId = "o3", Repelled = true, ContributionRank = 20 }, t);
+        Assert.Equal(1, Bal(s, ProgressionCurrencies.PartAwakenCores));
+        // Low-tier invaders never pay cores.
+        Ok(e, ref s, new LiveOpsApplyOutcome { InvasionId = "gloop_tide", OccurrenceId = "o4", Repelled = true, ContributionRank = 1 }, t);
+        Assert.Equal(1, Bal(s, ProgressionCurrencies.PartAwakenCores));
+    }
+
+    [Fact]
     public void InvasionOutcome_Overrun_AppliesCut_ParticipantRewardsOnly()
     {
         var e = Engine(); var s = Player(e);

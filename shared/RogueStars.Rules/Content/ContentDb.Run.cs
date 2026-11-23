@@ -466,7 +466,6 @@ namespace RogueStars.Rules.Content
             darkLoot.Entries.Add(new LootEntry(3, RewardKinds.Part, "*", 1, 1, 4));
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Blueprint, "*", 1, 1, 2));
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Alien, "*", 1, 1, 2));
-            darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Currency, ProgressionCurrencies.PartAwakenCores, 1, 1));
             RunLootTables[darkLoot.Id] = darkLoot;
         }
 
@@ -507,10 +506,11 @@ namespace RogueStars.Rules.Content
                 l.BoardLength = 18; l.MaxRolls = 12; l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.AdvancementPlates, f >= 5 ? 1 : 0));
-                // Deep floors feed the endgame sinks: Mount Cores (mount awakening) and Part Awaken Cores (S/SS parts).
+                // Deep floors feed the endgame sinks: Mount Cores (mount awakening); the two deepest floors have a small
+                // chance of an Awaken Core (rare drop, paid unscaled on cash-out).
                 l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, f >= 6 ? 1 : 0));
-                l.CompletionRewards.Add(Reward.Cur(ProgressionCurrencies.PartAwakenCores, f >= 10 ? 1 : 0));
                 l.CompletionRewards.RemoveAll(r => r.Amount <= 0);
+                if (f >= 9) l.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), f == 9 ? 1.0 : 1.5));
                 burrow.LevelIds.Add(l.Id);
             }
             Portals[burrow.Id] = burrow;
@@ -532,7 +532,6 @@ namespace RogueStars.Rules.Content
                 };
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 20 + 2 * i));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, 1 + i / 4));
-                l.CompletionRewards.Add(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1));
                 dark.LevelIds.Add(l.Id);
             }
             Portals[dark.Id] = dark;

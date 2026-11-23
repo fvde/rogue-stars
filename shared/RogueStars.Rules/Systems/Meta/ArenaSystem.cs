@@ -129,6 +129,8 @@ namespace RogueStars.Rules.Systems
             a.BestPoints = Math.Max(a.BestPoints, a.Points);
             if (won) { a.WeekWins++; ctx.State.Count("arena_wins"); } else a.WeekLosses++;
             ctx.State.Count("arena_fights");
+            long medals = won ? ctx.Content.Arena.MedalsPerWin : ctx.Content.Arena.MedalsPerLoss;
+            if (medals > 0) ctx.Grant(Reward.Cur(Currencies.ArenaMedals, medals));
             ctx.Emit("arena_result", won ? "win" : "loss", delta.ToString());
             return delta;
         }

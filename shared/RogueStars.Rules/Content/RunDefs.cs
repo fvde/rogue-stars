@@ -234,6 +234,11 @@ namespace RogueStars.Rules.Content
         public List<Reward> CompletionRewards = new List<Reward>();
         /// <summary>Extra loot-table rolls on completion.</summary>
         public int CompletionLootRolls = 2;
+        /// <summary>
+        /// Rare drops rolled once when the level (Burrow: floor) is beaten (run RNG); pending like loot, paid unscaled on a
+        /// won run (no run-reward modifiers, not doubled by the double-rewards ad). E.g. Awaken Cores on deep Burrow floors.
+        /// </summary>
+        public List<RareDrop> RareDrops = new List<RareDrop>();
         public long StaminaCost = 5;
         public double RewardMultiplier = 1;
         public LevelModifiers Modifiers = new LevelModifiers();
@@ -417,6 +422,15 @@ namespace RogueStars.Rules.Content
         /// <summary>mult(t) = Growth^t · (1 + Linear·t). t=0 → 1; t=30 ≈ 22; t=100 ≈ 8000 (years of content).</summary>
         public double Growth = 1.075;
         public double Linear = 0.05;
+    }
+
+    [Serializable]
+    public sealed class RareDrop
+    {
+        public Reward Reward;
+        public double ChancePct;
+        public RareDrop() { }
+        public RareDrop(Reward reward, double chancePct) { Reward = reward; ChancePct = chancePct; }
     }
 
     [Serializable]

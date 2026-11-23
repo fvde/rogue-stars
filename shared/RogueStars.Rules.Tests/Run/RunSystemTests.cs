@@ -387,6 +387,44 @@ public class RunSystemTests
     }
 }
 
+public class AwakenCoreSourceTests
+{
+    [Fact]
+    public void Content_CoresOnlyAsRareDropsOnDeepBurrowFloors_NeverRoutineRewards()
+    {
+        var c = ContentDb.Default;
+        string core = ProgressionCurrencies.PartAwakenCores;
+        foreach (var l in c.RunLevels.Values)
+        {
+            Assert.DoesNotContain(l.CompletionRewards, r => r.Id == core);
+            if (l.PortalId != "the_burrow") Assert.Empty(l.RareDrops);
+        }
+        foreach (var t in c.RunLootTables.Values) Assert.DoesNotContain(t.Entries, x => x.Id == core);
+        var burrow = c.Portal("the_burrow")!;
+        for (int i = 0; i < burrow.LevelIds.Count; i++)
+        {
+            var drops = c.RunLevel(burrow.LevelIds[i])!.RareDrops;
+            if (i < burrow.LevelIds.Count - 2) Assert.Empty(drops);
+            else Assert.All(drops, d => Assert.InRange(d.ChancePct, 0.1, 5));
+        }
+    }
+
+    [Fact]
+    public void RareDrop_PaidUnscaled_OnlyOnCompletion_NotDoubled()
+    {
+        var content = new ContentDb();
+        content.RunLevel("ember_wastes_1")!.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 100));
+        var e = RunTestKit.Engine(RunTestKit.Strong(), content);
+        var s = TestHelpers.NewPlayer(e, 11);
+        s.Modifiers.Add(new Modifier { Id = "m", Target = "run_reward:*", Multiplier = 2 });
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        RunTestKit.AutoToEnd(e, ref s);
+        Assert.True(s.Run.LastSummary.Won);
+        Assert.Equal(1, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
+        Assert.DoesNotContain(s.Run.LastSummary.Doublable, r => r.Id == ProgressionCurrencies.PartAwakenCores);
+    }
+}
+
 public class LaboratoryTests
 {
     [Fact]

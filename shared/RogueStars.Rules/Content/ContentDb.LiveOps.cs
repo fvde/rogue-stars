@@ -92,6 +92,16 @@ namespace RogueStars.Rules.Content
         public List<Reward> Rewards = new List<Reward>();
     }
 
+    /// <summary>A reward that a contribution rank wins only with a chance (rolled with the player's RNG stream).</summary>
+    [Serializable]
+    public sealed class RankChanceRewardDef
+    {
+        /// <summary>Applies to contribution ranks 1..MaxRank (first matching entry wins).</summary>
+        public int MaxRank;
+        public double ChancePct;
+        public Reward Reward;
+    }
+
     [Serializable]
     public sealed class InvasionDef
     {
@@ -110,6 +120,10 @@ namespace RogueStars.Rules.Content
         public List<ContributionTierDef> Tiers = new List<ContributionTierDef>();
         /// <summary>Extra for every participant when the group repels the invader.</summary>
         public List<Reward> RepelledRewards = new List<Reward>();
+        /// <summary>High-stakes invader: its repelled outcome can pay rare rewards (Awaken Cores) to top contributors.</summary>
+        public bool HighTier;
+        /// <summary>Rare rewards for top contributors of a repelled occurrence (chance per rank band).</summary>
+        public List<RankChanceRewardDef> RepelledRareRewards = new List<RankChanceRewardDef>();
     }
 
     [Serializable]
@@ -202,12 +216,25 @@ namespace RogueStars.Rules.Content
             Inv("rust_swarm", "Rust Swarm", "boss_rust_queen", "Metal-eating mites swarm the mines.",
                 new[] { new ModifierDef("production:ore", 1.5, 7 * D, "Scrap harvest: Ore ×1.5"), new ModifierDef("run_reward:ore", 1.5, 7 * D, "Scrap loot: run Ore ×1.5") },
                 new[] { new ModifierDef("production:ore", 1.0 / 1.5, 4 * D, "Rusted drills: Ore ÷1.5") });
+            // High-stakes invaders (Void Choir, Prism Horde): top contributors of a repelled occurrence may win an Awaken Core.
+            void HighTier(string id)
+            {
+                var d = Invasions[id];
+                d.HighTier = true;
+                RankChanceRewardDef C(int rank, double pct) => new RankChanceRewardDef { MaxRank = rank, ChancePct = pct, Reward = Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1) };
+                d.RepelledRareRewards.Add(C(1, 25));
+                d.RepelledRareRewards.Add(C(3, 12));
+                d.RepelledRareRewards.Add(C(10, 4));
+            }
             Inv("void_choir", "Void Choir", "boss_hollow_cantor", "A humming choir from the void lulls the planet to sleep.",
                 new[] { new ModifierDef("production:diamonds", 2.0, 7 * D, "Resonant crystals: Diamonds ×2") },
                 new[] { new ModifierDef("stamina_regen", 1.0 / 1.5, 2 * D, "Drowsy worm: stamina regen ÷1.5") });
             Inv("prism_horde", "Prism Horde", "boss_prism_tyrant", "Crystal beasts march out of the canyon.",
                 new[] { new ModifierDef("run_reward:*", 1.5, 3 * D, "Shattered prisms: all run rewards ×1.5") },
                 new[] { new ModifierDef("production:grain", 0.25, 2 * D, "Trampled fields: Grain ÷4") });
+
+            HighTier("void_choir");
+            HighTier("prism_horde");
 
             void Ev(string id, string name, string desc, string side, params ModifierDef[] mods)
             {

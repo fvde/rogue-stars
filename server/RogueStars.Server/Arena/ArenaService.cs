@@ -297,16 +297,15 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
                     int rank = i + 1;
                     var member = ranked[i];
                     playersCount++;
-                    var tier = RankRewards().FirstOrDefault(r => rank <= r.MaxRank);
-                    if (tier != null)
+                    var rewards = WeeklyRewards(league, rank);
+                    if (rewards.Count > 0)
                     {
-                        double scale = 1 + 0.5 * league;
                         var mail = new MailArgs
                         {
                             Title = "Arena week " + week,
                             Body = $"You finished rank {rank} in league {league}.",
                             Source = "arena_weekly",
-                            Rewards = tier.Rewards.Select(r => r.ToReward(scale)).ToList(),
+                            Rewards = rewards,
                         };
                         try
                         {
@@ -353,6 +352,17 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
         return new WeeklyReport(week, groups, playersCount, mailed, promoted, demoted);
     }
 
-    private List<RankReward> RankRewards() =>
-        O.RankRewards.Count > 0 ? O.RankRewards.OrderBy(r => r.MaxRank).ToList() : ArenaOptions.DefaultRankRewards();
+    /// <summary>
+    /// Weekly rank rewards: the rules' league ladder (<c>ArenaSystem.RankRewards</c>: Diamonds, tickets, Arena Medals) unless
+    /// the deployment configures its own ladder (amounts × (1 + 0.5 × league)).
+    /// </summary>
+    private List<Reward> WeeklyRewards(int league, int rank)
+    {
+        if (O.RankRewards.Count == 0)
+            return (ArenaSystem.RankRewards(engine.Content, league, rank) ?? new List<Reward>())
+                .Select(r => new Reward(r.Kind, r.Id, r.Amount, r.Rarity)).ToList();
+        var tier = O.RankRewards.OrderBy(r => r.MaxRank).FirstOrDefault(r => rank <= r.MaxRank);
+        double scale = 1 + 0.5 * league;
+        return tier == null ? new List<Reward>() : tier.Rewards.Select(r => r.ToReward(scale)).ToList();
+    }
 }

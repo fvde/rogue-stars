@@ -402,6 +402,7 @@ namespace RogueStars.Rules.Systems
                 var level = Level(c, run);
                 foreach (var r in level.CompletionRewards) run.PendingLoot.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
                 for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
+                RollRareDrops(level, run);
                 ctx.State.Count("burrow_floors_cleared");
                 var p = GetProgress(ctx.State, run.LevelId);
                 p.Cleared = true;
@@ -431,6 +432,14 @@ namespace RogueStars.Rules.Systems
                 ctx.Emit("run_level_up", run.Level.ToString());
                 RunTriggers(ctx, run, TriggerKind.OnLevelUp, null);
             }
+        }
+
+        /// <summary>Rolls the level's rare drops once (when the level / Burrow floor is beaten) into PendingRare.</summary>
+        private static void RollRareDrops(LevelDef level, ActiveRun run)
+        {
+            foreach (var d in level.RareDrops)
+                if (d.Reward != null && run.Rng.NextDouble() * 100 < d.ChancePct)
+                    run.PendingRare.Add(new Reward(d.Reward.Kind, d.Reward.Id, d.Reward.Amount, d.Reward.Rarity));
         }
 
         private static void RollLoot(ContentDb c, ActiveRun run, bool raisesDanger)
@@ -789,6 +798,7 @@ namespace RogueStars.Rules.Systems
                 foreach (var r in run.PendingLoot) rewards.Add(Scaled(r, modeMult * lootMult));
                 if (run.Mode != RunMode.Burrow)
                 {
+                    RollRareDrops(level, run);
                     foreach (var r in level.CompletionRewards) rewards.Add(Scaled(r, modeMult));
                     var before = run.PendingLoot.Count;
                     for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
@@ -821,6 +831,12 @@ namespace RogueStars.Rules.Systems
                     }
                 }
                 for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, i < doublable);
+                foreach (var r in run.PendingRare)
+                {
+                    ctx.Grant(r);
+                    summary.Granted.Add(r);
+                    ctx.Emit("run_rare_drop", r.Kind, r.Id, r.Amount.ToString());
+                }
                 s.Count("runs_completed");
                 s.Count("runs_completed_" + run.Mode.ToString().ToLowerInvariant());
                 ctx.Emit("run_completed", run.RunId, run.LevelId);

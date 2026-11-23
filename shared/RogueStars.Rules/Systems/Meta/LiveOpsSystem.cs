@@ -319,6 +319,17 @@ namespace RogueStars.Rules.Systems
             {
                 ctx.GrantAll(tier.Rewards);
                 if (repelled) ctx.GrantAll(def.RepelledRewards);
+                if (repelled)
+                    foreach (var rr in def.RepelledRareRewards)
+                    {
+                        if (contributionRank > rr.MaxRank) continue;
+                        if (ctx.Rng.NextDouble() * 100 < rr.ChancePct)
+                        {
+                            ctx.Grant(rr.Reward);
+                            ctx.State.Count("invasion_rare_rewards");
+                        }
+                        break;
+                    }
             }
             if (repelled) ctx.State.Count("invasions_repelled");
             if (contributionRank == 1) ctx.State.Count("invasion_top_contributor");

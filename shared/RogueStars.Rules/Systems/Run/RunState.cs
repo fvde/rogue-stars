@@ -127,6 +127,8 @@ namespace RogueStars.Rules.Systems
 
         // loot
         public List<Reward> PendingLoot = new List<Reward>();
+        /// <summary>Rare drops won so far (LevelDef.RareDrops): paid unscaled and not doubled on a won run, lost otherwise.</summary>
+        public List<Reward> PendingRare = new List<Reward>();
         public int Danger;
         public double ExtraLootPct;
         public int SkipNegativeEvents;

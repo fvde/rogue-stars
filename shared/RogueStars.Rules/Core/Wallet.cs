@@ -23,6 +23,10 @@ namespace RogueStars.Rules.Core
         public const string InvasionAttempts = "invasion_attempts";
         public const string GuildMarks = "guild_marks";
         public const string MountCores = "mount_cores";
+        /// <summary>PvP currency: arena fights and weekly league rank; spent in the arena shop (Awaken Cores, weekly limit).</summary>
+        public const string ArenaMedals = "arena_medals";
+        /// <summary>Laboratory research currency: mostly Dark Side runs (grows with the Dark Side level), a trickle from quests.</summary>
+        public const string Data = "data";
 
         public static string HeroShards(string heroId) => "shards_hero_" + heroId;
         public static string AlienShards(string alienTypeId) => "shards_alien_" + alienTypeId;

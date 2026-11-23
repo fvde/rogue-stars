@@ -38,6 +38,8 @@ namespace RogueStars.Rules.Content
         public long MinPoints = 0;
         public long StartTickets = 5;
         public long TicketsPerFight = 1;
+        /// <summary>Arena Medals per fight (PvP currency for the arena shop).</summary>
+        public long MedalsPerWin = 4, MedalsPerLoss = 2;
         public List<ArenaLeagueDef> Leagues = new List<ArenaLeagueDef>();
     }
 
@@ -53,18 +55,24 @@ namespace RogueStars.Rules.Content
             for (int i = 0; i < names.Length; i++)
             {
                 long scale = i + 1;
+                double medalScale = 1 + 0.25 * i;
                 var l = new ArenaLeagueDef { Id = names[i].ToLowerInvariant(), Name = names[i] + " League", PromotePercent = 20, DemotePercent = i == 0 ? 0 : 20 };
-                RankRewardDef R(int maxRank, long dia, long marks) => new RankRewardDef
+                RankRewardDef R(int maxRank, long dia, long tickets, long medals) => new RankRewardDef
                 {
                     MaxRank = maxRank,
-                    Rewards = { Reward.Cur(Currencies.Diamonds, dia * scale), Reward.Cur(Currencies.ArenaTickets, marks) },
+                    Rewards =
+                    {
+                        Reward.Cur(Currencies.Diamonds, dia * scale), Reward.Cur(Currencies.ArenaTickets, tickets),
+                        Reward.Cur(Currencies.ArenaMedals, (long)Math.Round(medals * medalScale)),
+                    },
                 };
-                l.RankRewards.Add(R(1, 200, 5));
-                l.RankRewards.Add(R(3, 150, 4));
-                l.RankRewards.Add(R(10, 100, 3));
-                l.RankRewards.Add(R(30, 60, 2));
-                l.RankRewards.Add(R(75, 40, 1));
-                l.RankRewards.Add(R(150, 20, 0));
+                l.RankRewards.Add(R(1, 200, 5, 120));
+                l.RankRewards.Add(R(3, 150, 4, 100));
+                l.RankRewards.Add(R(10, 100, 3, 80));
+                l.RankRewards.Add(R(30, 60, 2, 60));
+                l.RankRewards.Add(R(75, 40, 1, 40));
+                l.RankRewards.Add(R(150, 20, 0, 20));
+                foreach (var rr in l.RankRewards) rr.Rewards.RemoveAll(x => x.Amount <= 0);
                 Arena.Leagues.Add(l);
             }
         }

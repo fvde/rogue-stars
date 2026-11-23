@@ -146,14 +146,18 @@ public class ArenaTests : IDisposable
         // Real MailPush: the rank reward sits in the inbox until claimed.
         var mails = await a.MailsAsync("Arena week 2026-W47");
         Assert.Single(mails);
-        var reward = mails[0].GetProperty("rewards")[0];
-        Assert.Equal(Currencies.Diamonds, reward.GetProperty("id").GetString());
-        Assert.Equal(500, reward.GetProperty("amount").GetInt64());
+        // The rules' league ladder (league 0, rank 1): Diamonds, Arena Tickets and Arena Medals (PvP shop currency).
+        var expected = RogueStars.Rules.Systems.ArenaSystem.RankRewards(RogueStars.Rules.Content.ContentDb.Default, 0, 1)!;
+        var rewards = mails[0].GetProperty("rewards").EnumerateArray().ToDictionary(r => r.GetProperty("id").GetString()!, r => r.GetProperty("amount").GetInt64());
+        long dia = expected.Single(r => r.Id == Currencies.Diamonds).Amount, medals = expected.Single(r => r.Id == Currencies.ArenaMedals).Amount;
+        Assert.Equal(dia, rewards[Currencies.Diamonds]);
+        Assert.Equal(medals, rewards[Currencies.ArenaMedals]);
         Assert.Single(await c.MailsAsync("Arena week 2026-W47"));
-        long diamonds = await a.BalanceAsync(Currencies.Diamonds);
+        long diamonds = await a.BalanceAsync(Currencies.Diamonds), medalsBefore = await a.BalanceAsync(Currencies.ArenaMedals);
         var (_, claim) = await a.CommandAsync("MailClaim", new { mailId = mails[0].GetProperty("id").GetString() });
         Assert.True(claim.GetProperty("ok").GetBoolean());
-        Assert.Equal(diamonds + 500, await a.BalanceAsync(Currencies.Diamonds));
+        Assert.Equal(diamonds + dia, await a.BalanceAsync(Currencies.Diamonds));
+        Assert.Equal(medalsBefore + medals, await a.BalanceAsync(Currencies.ArenaMedals));
 
         var docs = _app.Service<IDocStore>();
         Assert.Equal(1, (await docs.GetAsync<ArenaPlayer>(Collections.ArenaPlayers, "dev_a"))!.Value.League);
