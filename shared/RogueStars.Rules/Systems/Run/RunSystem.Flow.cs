@@ -8,10 +8,12 @@ namespace RogueStars.Rules.Systems
     // Movement, tiles, battles, events, shops, awakening, completion.
     public static partial class RunSystem
     {
-        private static string PrevLevelId(PortalDef portal, LevelDef level)
+        /// <summary>Previous level of the same portal (endless portals included), or null for its first level.</summary>
+        private static string PrevLevelId(ContentDb c, PortalDef portal, LevelDef level)
         {
-            int idx = portal.LevelIds.IndexOf(level.Id);
-            return idx > 0 ? portal.LevelIds[idx - 1] : null;
+            if (level.Index <= 1) return null;
+            if (portal.Kind == PortalKind.Main) return c.MainLevelId(level.Number - 1);
+            return c.PortalLevel(portal, level.Index - 1)?.Id;
         }
 
         private static LevelDef Level(ContentDb c, ActiveRun run) => c.RunLevel(run.LevelId);
@@ -404,10 +406,10 @@ namespace RogueStars.Rules.Systems
                 for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
                 RollRareDrops(level, run);
                 ctx.State.Count("burrow_floors_cleared");
-                var p = GetProgress(ctx.State, run.LevelId);
+                var p = GetProgress(c, ctx.State, run.LevelId);
                 p.Cleared = true;
                 var portal = c.Portal(run.PortalId);
-                var first = GetProgress(ctx.State, portal.LevelIds[0]);
+                var first = GetProgress(c, ctx.State, portal.LevelIds[0]);
                 first.BestFloor = Math.Max(first.BestFloor, run.Floor);
                 int idx = portal.LevelIds.IndexOf(run.LevelId);
                 if (idx + 1 < portal.LevelIds.Count) { run.Phase = RunPhase.BurrowChoice; return; }
@@ -465,7 +467,8 @@ namespace RogueStars.Rules.Systems
         private static void RollLoot(ContentDb c, ActiveRun run, bool raisesDanger)
         {
             var level = Level(c, run);
-            if (level.LootTableId == null || !c.RunLootTables.TryGetValue(level.LootTableId, out var table) || table.Entries.Count == 0) return;
+            var table = c.RunLootTable(level.LootTableId);
+            if (table == null || table.Entries.Count == 0) return;
             var weights = new double[table.Entries.Count];
             for (int i = 0; i < weights.Length; i++) weights[i] = table.Entries[i].Weight;
             int idx = run.Rng.PickWeighted(weights);
@@ -795,9 +798,10 @@ namespace RogueStars.Rules.Systems
 
         // ---- completion -----------------------------------------------------------------------
 
-        private static LevelProgress GetProgress(GameState s, string levelId)
+        /// <summary>Mutable progress record of a level (an archived level is re-opened from its archive flags).</summary>
+        private static LevelProgress GetProgress(ContentDb c, GameState s, string levelId)
         {
-            if (!s.Run.Levels.TryGetValue(levelId, out var p)) { p = new LevelProgress(); s.Run.Levels[levelId] = p; }
+            if (!s.Run.Levels.TryGetValue(levelId, out var p)) { p = Archived(s, c, levelId) ?? new LevelProgress(); s.Run.Levels[levelId] = p; }
             while (p.Feats.Count < 3) p.Feats.Add(false);
             return p;
         }
@@ -830,13 +834,21 @@ namespace RogueStars.Rules.Systems
                 doublable = rewards.Count; // feat Diamonds below are not doubled by the ad
                 if (run.Mode != RunMode.Burrow)
                 {
-                    var p = GetProgress(s, run.LevelId);
+                    var p = GetProgress(c, s, run.LevelId);
                     bool firstClear = run.Mode == RunMode.Overcharged ? !p.OverchargedCleared : !p.Cleared;
                     if (run.Mode == RunMode.Overcharged) p.OverchargedCleared = true; else p.Cleared = true;
                     p.Clears++;
                     if (firstClear) s.Count("levels_cleared");
                     // Global main level number (portal 1 = 1..10, ...): Meta's feature gates read main_level_max.
                     if (run.Mode == RunMode.Normal) ProgressionUtil.CountMax(s, Requirements.MainLevelCounter, MainLevelNumber(c, run.LevelId));
+                    if (run.Mode == RunMode.DarkSide) ProgressionUtil.CountMax(s, DarkSideMaxCounter, level.Number);
+                    // Endless campaign milestones (chest every 10 levels, portal bonus every 50): first Normal clear only.
+                    if (firstClear && run.Mode == RunMode.Normal && level.FirstClearRewards.Count > 0)
+                    {
+                        foreach (var r in level.FirstClearRewards) rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+                        s.Count("milestone_chests");
+                        ctx.Emit("run_milestone", run.LevelId, level.Number.ToString());
+                    }
                     bool[] feats =
                     {
                         true,
@@ -859,6 +871,7 @@ namespace RogueStars.Rules.Systems
                     summary.Granted.Add(r);
                     ctx.Emit("run_rare_drop", r.Kind, r.Id, r.Amount.ToString());
                 }
+                CompactProgress(s, c);
                 s.Count("runs_completed");
                 s.Count("runs_completed_" + run.Mode.ToString().ToLowerInvariant());
                 ctx.Emit("run_completed", run.RunId, run.LevelId);

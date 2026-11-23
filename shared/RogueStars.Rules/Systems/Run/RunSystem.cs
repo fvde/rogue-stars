@@ -70,44 +70,44 @@ namespace RogueStars.Rules.Systems
                     return portal.Kind == PortalKind.Burrow && level.Index == 1 && Features.IsUnlocked(state, content, Features.Burrow);
                 case RunMode.DarkSide:
                     if (portal.Kind != PortalKind.DarkSide || !Features.IsUnlocked(state, content, Features.DarkSide)) return false;
-                    return level.Index == 1 || Progress(state, PrevLevelId(portal, level)).Cleared;
+                    return level.Index == 1 || Progress(state, content, PrevLevelId(content, portal, level)).Cleared;
                 case RunMode.Overcharged:
                     if (portal.Kind != PortalKind.Main || !Features.IsUnlocked(state, content, Features.Overcharged)) return false;
-                    if (!Progress(state, level.Id).Cleared) return false;
-                    return level.Index == 1 || Progress(state, PrevLevelId(portal, level)).OverchargedCleared;
+                    if (!Progress(state, content, level.Id).Cleared) return false;
+                    return level.Index == 1 || Progress(state, content, PrevLevelId(content, portal, level)).OverchargedCleared;
                 default:
                     if (portal.Kind != PortalKind.Main) return false;
-                    if (level.Index > 1) return Progress(state, PrevLevelId(portal, level)).Cleared;
-                    if (portal.Order == 0) return true;
-                    foreach (var p in content.Portals.Values)
-                        if (p.Kind == PortalKind.Main && p.Order == portal.Order - 1 && p.LevelIds.Count > 0)
-                            return Progress(state, p.LevelIds[p.LevelIds.Count - 1]).Cleared;
-                    return false;
+                    // The previous level in the endless sequence (the last level of the previous portal for a level 1).
+                    return level.Number <= 1 || Progress(state, content, content.MainLevelId(level.Number - 1)).Cleared;
             }
         }
 
         /// <summary>
-        /// Global number of a main-portal level (portals by Order, 1-based: portal 1 = 1..10, portal 2 = 11..20);
+        /// Global number of a main-portal level (portals by Order, 1-based: portal 1 = 1..10, portal 2 = 11..20, endless);
         /// 0 for other portals. Run keeps the highest cleared one in the counter main_level_max (feature gates).
         /// </summary>
         public static int MainLevelNumber(ContentDb content, string levelId)
         {
-            var mains = new List<PortalDef>();
-            foreach (var p in content.Portals.Values) if (p.Kind == PortalKind.Main) mains.Add(p);
-            mains.Sort((a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Id, b.Id));
-            int n = 0;
-            foreach (var p in mains)
-                foreach (var id in p.LevelIds)
-                {
-                    n++;
-                    if (id == levelId) return n;
-                }
-            return 0;
+            var level = content.RunLevel(levelId);
+            if (level == null || level.PortalId == ContentDb.DarkSidePortalId) return 0;
+            return level.Number;
         }
 
-        /// <summary>Level progress (feats, clears); returns an empty record if never played.</summary>
-        public static LevelProgress Progress(GameState state, string levelId) =>
-            levelId != null && state.Run.Levels.TryGetValue(levelId, out var p) ? p : new LevelProgress();
+        /// <summary>The next main level to clear (main_level_max + 1): the campaign never ends.</summary>
+        public static LevelDef NextMainLevel(GameState state, ContentDb content) =>
+            content.MainLevel((int)state.Counter(Requirements.MainLevelCounter) + 1);
+
+        /// <summary>Level progress (feats, clears); returns an empty record if never played. Uses ContentDb.Default for archived levels.</summary>
+        public static LevelProgress Progress(GameState state, string levelId) => Progress(state, ContentDb.Default, levelId);
+
+        /// <summary>Level progress (feats, clears), also for levels folded into the compact archives; an empty record if never played.</summary>
+        public static LevelProgress Progress(GameState state, ContentDb content, string levelId)
+        {
+            if (levelId == null) return new LevelProgress();
+            if (state.Run.Levels.TryGetValue(levelId, out var p)) return p;
+            var archived = Archived(state, content, levelId);
+            return archived ?? new LevelProgress();
+        }
 
         /// <summary>Worm combat spec for the current run (loadout + run skills + run stats).</summary>
         public static CombatantSpec WormSpec(ContentDb content, ActiveRun run)

@@ -62,11 +62,13 @@ public sealed class DayRecord
     public int MaxPartRarity, AwakenedParts, LabDone, LabTotal;
     public int Runs;
     public long SpentCents;
+    /// <summary>Runs per next upgrade of each <see cref="Endless.Sinks"/> entry (NaN = maxed/locked).</summary>
+    public double[] RunsPerUpgrade = Array.Empty<double>();
 }
 
 public static class Metrics
 {
-    public static readonly int[] Checkpoints = { 1, 3, 7, 14, 30, 60, 90, 180, 365, 730 };
+    public static readonly int[] Checkpoints = { 1, 3, 7, 14, 30, 60, 90, 180, 365, 730, 1095 };
 
     public static DayRecord Day(SimPlayer p, int day)
     {
@@ -80,6 +82,7 @@ public static class Metrics
         d.AwakenedParts = s.Parts.Items.Values.Count(x => x.Awaken > 0);
         d.LabDone = LabDone(s);
         d.LabTotal = LabTotal(p.C);
+        d.RunsPerUpgrade = Endless.RunsPerUpgrade(p);
         for (int i = 0; i < SystemEvents.Systems.Length; i++) d.SystemTotals[i] = SystemEvents.Total(s, SystemEvents.Systems[i].counters);
         for (int i = 0; i < SimPlayer.Tracked.Length; i++)
         {
@@ -115,11 +118,13 @@ public static class Metrics
         int main = (int)s.Counter(Requirements.MainLevelCounter);
         A("main_level", main);
         A("portal", main == 0 ? 0 : (main - 1) / 10 + 1);
-        A("overcharged_cleared", s.Run.Levels.Values.Count(l => l.OverchargedCleared));
-        var burrow = c.Portals.Values.FirstOrDefault(x => x.Kind == PortalKind.Burrow);
+        A("overcharged_cleared", Enumerable.Range(1, main).Count(n => RunSystem.Progress(s, c, c.MainLevelId(n)).OverchargedCleared));
         A("burrow_floors", s.Counter("burrow_floors_cleared"));
-        var dark = c.Portals.Values.FirstOrDefault(x => x.Kind == PortalKind.DarkSide);
-        A("darkside_cleared", dark == null ? 0 : dark.LevelIds.Count(id => RunSystem.Progress(s, id).Cleared));
+        int darkMax = (int)s.Counter(RunSystem.DarkSideMaxCounter);
+        A("darkside_cleared", Enumerable.Range(1, darkMax).Count(i => RunSystem.Progress(s, c, c.DarkSideLevel(i).Id).Cleared));
+        A("milestone_chests", s.Counter("milestone_chests"));
+        A("run_levels_records", s.Run.Levels.Count);
+        A("archive_bytes", s.Run.MainArchive.Flags.Length + s.Run.DarkArchive.Flags.Length);
         A("worm_level", s.Worm.Level);
         A("talent_tier", s.Worm.TalentTiersDone);
 

@@ -44,8 +44,26 @@ namespace RogueStars.Rules.Content
             return Math.Pow(ThreatMultiplier(whole + 1) / ThreatMultiplier(whole), frac);
         }
 
-        public LevelDef RunLevel(string id) => id != null && RunLevels.TryGetValue(id, out var l) ? l : null;
-        public PortalDef Portal(string id) => id != null && Portals.TryGetValue(id, out var p) ? p : null;
+        /// <summary>Any run level by id: materialized (RunLevels) or generated on demand (endless main portals, Dark Side).</summary>
+        public LevelDef RunLevel(string id)
+        {
+            if (id == null) return null;
+            return RunLevels.TryGetValue(id, out var l) ? l : GeneratedLevel(id);
+        }
+
+        /// <summary>Any portal by id: materialized (Portals) or a generated endless main portal.</summary>
+        public PortalDef Portal(string id)
+        {
+            if (id == null) return null;
+            return Portals.TryGetValue(id, out var p) ? p : GeneratedPortal(id);
+        }
+
+        /// <summary>Run loot table by id (materialized or generated with its endless portal).</summary>
+        public LootTableDef RunLootTable(string id)
+        {
+            if (id == null) return null;
+            return RunLootTables.TryGetValue(id, out var t) ? t : GeneratedLootTable(id);
+        }
 
         partial void BuildRun()
         {
@@ -202,18 +220,20 @@ namespace RogueStars.Rules.Content
             RunBoss("boss_frost_leviathan", "Frost Leviathan", "boss_frost_leviathan", new[] { "bt_frozen_heart", "bt_thaw_beacon", "bt_leviathan_tribute" }, "frost_mite");
             RunBoss("boss_storm_hive", "Storm Hive Queen", "boss_storm_hive", new[] { "bt_hive_node", "bt_grounding_rod", "bt_hive_tribute" }, "spark_drone");
             RunBoss("boss_void_maw", "Void Maw", "boss_void_maw", new[] { "bt_void_rift", "bt_seal_stone", "bt_void_tribute" }, "void_spawn");
+            CampaignBuildBossVariants();
         }
 
-        private void RunBoss(string id, string name, string enemyId, string[] tiles, string escort)
+        private BossDef RunBoss(string id, string name, string enemyId, string[] tiles, string escort, string hazard = "hazard_spikes")
         {
             var b = new BossDef { Id = id, Name = name, EnemyId = enemyId };
             b.BossTileIds.AddRange(tiles);
             b.Escorts.Add(escort);
             b.Actions.Add(new BossAwakenAction { AtMeter = 25, Kind = BossActionKind.BuffEnemyTiles, Value = 10, Text = name + " stirs: enemies grow stronger." });
-            b.Actions.Add(new BossAwakenAction { AtMeter = 50, Kind = BossActionKind.TransformTiles, Count = 3, Param = "hazard_spikes", Text = name + " scorches the path." });
+            b.Actions.Add(new BossAwakenAction { AtMeter = 50, Kind = BossActionKind.TransformTiles, Count = 3, Param = hazard, Text = name + " scorches the path." });
             b.Actions.Add(new BossAwakenAction { AtMeter = 75, Kind = BossActionKind.Summon, Count = 2, Param = "elite", Value = 15, Text = name + " summons its guard." });
             b.Actions.Add(new BossAwakenAction { AtMeter = 100, Kind = BossActionKind.BuffBoss, Value = b.FullyAwakeStatPct, Text = name + " is fully awake!" });
             RunBosses[id] = b;
+            return b;
         }
 
         // ---- tiles ----------------------------------------------------------------------------
@@ -436,24 +456,7 @@ namespace RogueStars.Rules.Content
             // Item drops use Id="*" = "random def of the given Rarity" (see skill-conventions.md).
             for (int p = 1; p <= Campaign.Portals; p++)
             {
-                var t = new LootTableDef { Id = "loot_p" + p };
-                long s = (long)Math.Round(Campaign.RewardScale(p - 1));
-                // Biomass comes mainly from portal runs (completion + loot); the city farms are the secondary source.
-                t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 45 * s, 90 * s));
-                t.Entries.Add(new LootEntry(20, RewardKinds.Currency, Currencies.Ore, 20 * s, 40 * s));
-                t.Entries.Add(new LootEntry(14, RewardKinds.Currency, Currencies.Grain, 20 * s, 40 * s));
-                t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.Fuel, 10 * s, 20 * s));
-                t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.HeroXp, 15 * s, 30 * s));
-                t.Entries.Add(new LootEntry(6, RewardKinds.Currency, Currencies.GearCores, 1 * s, 2 * s));
-                t.Entries.Add(new LootEntry(5, RewardKinds.Part, "*", 1, 1, 0));
-                t.Entries.Add(new LootEntry(2, RewardKinds.Part, "*", 1, 1, 1));
-                t.Entries.Add(new LootEntry(3, RewardKinds.Rune, "*", 1, 1, 0));
-                t.Entries.Add(new LootEntry(2, RewardKinds.Currency, Currencies.PartTokens, 1, 1));
-                t.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.Diamonds, 5, 15));
-                t.Entries.Add(new LootEntry(0.6, RewardKinds.Currency, Currencies.BlueprintTokens, 1, 1));
-                t.Entries.Add(new LootEntry(0.6, RewardKinds.Currency, Currencies.AlienTokens, 1, 1));
-                t.Entries.Add(new LootEntry(0.25, RewardKinds.Blueprint, "*", 1, 1, 0));
-                t.Entries.Add(new LootEntry(0.25, RewardKinds.Alien, "*", 1, 1, 0));
+                var t = CampaignPortalLoot(p - 1);
                 RunLootTables[t.Id] = t;
             }
             var burrow = new LootTableDef { Id = "loot_burrow" };
@@ -474,35 +477,21 @@ namespace RogueStars.Rules.Content
 
         private void RunBuildPortals()
         {
-            // Main campaign: biome templates cycle through the four enemy families; names are unique per portal.
-            string[] names =
-            {
-                "Ember Wastes", "Glacier Rift", "Static Jungle", "Spore Hollows", "Rust Canyons", "Crystal Reef", "Gloom Marsh", "Sunscar Mesa",
-                "Hive Spires", "Tidal Caverns", "Void Orchard", "Prism Barrens", "Thunder Steppes", "Bone Dunes", "Magnet Peaks", "Mirror Lakes",
-                "Ash Cathedral", "Gravity Wells", "Neon Thicket", "Frost Forge", "Moonlit Mire", "Comet Scar", "Rift Gardens", "Iron Tundra",
-                "Echo Chasm", "Star Nursery", "Nova Crater", "Eclipse Ridge", "Quantum Bog", "Abyssal Spire", "Molten Choir", "Shiver Coast",
-                "Volt Labyrinth", "Hollow Moon", "Cinder Halo", "Rime Citadel", "Storm Cradle", "Null Expanse", "Solar Throne", "World Core",
-                "Ember Deep", "Glass Tundra", "Spark Delta", "Umbral Gate", "Lava Garden", "Hail Basin", "Lightning Loom", "Starless Sea",
-                "Crown of Cinders", "Heart of Frost",
-            };
+            // Main campaign: biome templates cycle through the four enemy families; the first Campaign.Portals portals are
+            // materialized here, every later one is generated on demand by the same code (ContentDb.Campaign.cs).
             for (int i = 0; i < Campaign.Portals; i++)
             {
-                string name = i < names.Length ? names[i] : names[i % names.Length] + " " + (i / names.Length + 1);
-                string id = name.ToLowerInvariant().Replace(' ', '_');
-                switch (i % 4)
-                {
-                    case 0: RunMainPortal(i, id, name, "pool_ember", "boss_magma_tyrant", "loot_p" + (i + 1), new[] { "ember_imp", "magma_slug", "cinder_hound", "ash_wraith" }, new[] { "elite_lava_brute" }); break;
-                    case 1: RunMainPortal(i, id, name, "pool_glacier", "boss_frost_leviathan", "loot_p" + (i + 1), new[] { "frost_mite", "ice_crawler", "glacier_golem", "snow_lurker" }, new[] { "elite_frost_knight" }); break;
-                    case 2: RunMainPortal(i, id, name, "pool_static", "boss_storm_hive", "loot_p" + (i + 1), new[] { "volt_beetle", "static_eel", "spark_drone", "thunder_moth" }, new[] { "elite_storm_caller" }); break;
-                    default: RunMainPortal(i, id, name, "pool_void", "boss_void_maw", "loot_p" + (i + 1), new[] { "void_spawn", "null_shade", "tunnel_stalker", "burrow_grub" }, new[] { "elite_void_reaver", "elite_rift_echo" }); break;
-                }
+                var levels = new List<LevelDef>();
+                var portal = CampaignBuildMainPortal(i, levels);
+                Portals[portal.Id] = portal;
+                foreach (var l in levels) RunLevels[l.Id] = l;
             }
 
             // Burrow: multi-floor dive (floors = levels), entry costs a Burrow Key, cash out between floors.
             var burrow = new PortalDef { Id = "the_burrow", Name = "The Burrow", Kind = PortalKind.Burrow, Order = Campaign.SidePortalOrder, EntryCurrency = Currencies.BurrowKeys, EntryCost = 1 };
             for (int f = 1; f <= 10; f++)
             {
-                var l = RunNewLevel("the_burrow_" + f, "Burrow Floor " + f, burrow.Id, f, 4 + (f - 1) * 2, "pool_burrow", "boss_void_maw", "loot_burrow",
+                var l = RunStoreLevel("the_burrow_" + f, "Burrow Floor " + f, burrow.Id, f, 4 + (f - 1) * 2, "pool_burrow", "boss_void_maw", "loot_burrow",
                     new[] { "burrow_grub", "tunnel_stalker", "void_spawn" }, new[] { "elite_burrow_horror" });
                 l.BoardLength = 18; l.MaxRolls = 12; l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
@@ -518,56 +507,21 @@ namespace RogueStars.Rules.Content
 
             // Dark Side: procedural levels along the campaign curve, extreme modifiers, own rewards. The long-term Data source
             // for the Laboratory (Data grows with the level).
-            var dark = new PortalDef { Id = "dark_side", Name = "Dark Side of the Planet", Kind = PortalKind.DarkSide, Order = Campaign.SidePortalOrder + 1 };
+            var dark = new PortalDef { Id = DarkSidePortalId, Name = "Dark Side of the Planet", Kind = PortalKind.DarkSide, Order = Campaign.SidePortalOrder + 1, Endless = true };
             for (int i = 1; i <= Campaign.DarkSideLevels; i++)
             {
-                double main = Campaign.DarkSideFromLevel + Campaign.DarkSideSpacing * (i - 1);
-                double threat = Campaign.ThreatAt((int)Math.Round(main)) - Campaign.DarkSideThreatOffset;
-                int whole = (int)Math.Floor(threat + 1e-9);
-                var l = RunNewLevel("dark_side_" + i, "Dark Side " + i, dark.Id, i, whole, "pool_dark", "boss_void_maw", "loot_dark",
-                    new[] { "void_spawn", "null_shade", "tunnel_stalker" }, new[] { "elite_void_reaver", "elite_rift_echo" });
-                l.StaminaCost = 12; l.ShopTableId = "shop_dark"; l.Dice = 2; l.MaxRolls = 14; l.BoardLength = 34;
-                l.RewardMultiplier = 2.5;
-                double extreme = 40 + 5 * Math.Min(i, 10);
-                // Threat fraction as extra enemy HP/ATK %, on top of the extreme modifier.
-                double frac = (ThreatFractionMultiplier(threat) - 1) * 100;
-                l.Modifiers = new LevelModifiers
-                {
-                    EnemyAtkPct = Math.Round(extreme + frac, 2), EnemyHpPct = Math.Round(extreme + frac, 2), HealPct = -50, AwakeningPct = 50, DangerPct = 50,
-                    Text = "Enemies +" + extreme + "% ATK/HP, healing -50%, awakening and danger +50%.",
-                };
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Data, (long)Math.Round(Campaign.DarkSideDataBase * Math.Pow(Campaign.DarkSideDataGrowth, i - 1))));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 8));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, 1 + Math.Min(i, 12) / 4));
+                var l = CampaignBuildDarkSideLevel(i);
+                RunLevels[l.Id] = l;
                 dark.LevelIds.Add(l.Id);
             }
             Portals[dark.Id] = dark;
         }
 
-        private void RunMainPortal(int index, string id, string name, string pool, string bossId, string loot, string[] enemies, string[] elites)
+        private LevelDef RunStoreLevel(string id, string name, string portalId, int index, int threat, string pool, string bossId, string loot, string[] enemies, string[] elites)
         {
-            var portal = new PortalDef { Id = id, Name = name, Kind = PortalKind.Main, Order = index };
-            double scale = Campaign.RewardScale(index);
-            for (int i = 1; i <= Campaign.LevelsPerPortal; i++)
-            {
-                int n = index * Campaign.LevelsPerPortal + i;
-                double threat = Campaign.ThreatAt(n);
-                int whole = (int)Math.Floor(threat + 1e-9);
-                var l = RunNewLevel(id + "_" + i, name + " " + i, id, i, whole, pool, bossId, loot, enemies, elites);
-                double family = Campaign.FamilyStrengthPct[index % Campaign.FamilyStrengthPct.Count];
-                double pct = (ThreatFractionMultiplier(threat) * (1 + family / 100.0) - 1) * 100;
-                if (Math.Abs(pct) > 0.01) l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(pct, 2), EnemyAtkPct = Math.Round(pct, 2) };
-                l.StaminaCost = Math.Min(Campaign.StaminaMax, Campaign.StaminaBase + index);
-                l.BoardLength = 24 + i + Math.Min(index, Campaign.BoardGrowthPortals) * 2;
-                l.MaxRolls = 16 + i / 2;
-                l.Dice = i >= 6 ? 2 : 1;
-                if (l.Dice == 2) l.MaxRolls = 12 + i / 2;
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((120 + 30 * i) * scale)));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
-                if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
-                portal.LevelIds.Add(l.Id);
-            }
-            Portals[id] = portal;
+            var l = RunNewLevel(id, name, portalId, index, threat, pool, bossId, loot, enemies, elites);
+            RunLevels[id] = l;
+            return l;
         }
 
         private LevelDef RunNewLevel(string id, string name, string portalId, int index, int threat, string pool, string bossId, string loot, string[] enemies, string[] elites)
@@ -583,7 +537,6 @@ namespace RogueStars.Rules.Content
             l.FixedTiles.Add(new FixedTile(0.45, "shop"));
             l.FixedTiles.Add(new FixedTile(0.62, "miniboss"));
             l.FixedTiles.Add(new FixedTile(0.8, "shop"));
-            RunLevels[id] = l;
             return l;
         }
     }

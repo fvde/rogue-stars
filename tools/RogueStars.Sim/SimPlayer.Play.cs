@@ -10,13 +10,13 @@ public sealed partial class SimPlayer
 
     private static string Key(string levelId, RunMode mode) => mode + ":" + levelId;
 
-    /// <summary>Global main levels in campaign order.</summary>
-    private List<LevelDef> _mainLevels;
-    public List<LevelDef> MainLevels => _mainLevels ??= C.Portals.Values.Where(p => p.Kind == PortalKind.Main)
-        .OrderBy(p => p.Order).ThenBy(p => p.Id, StringComparer.Ordinal)
-        .SelectMany(p => p.LevelIds.Select(C.RunLevel)).ToList();
+    /// <summary>Global main level n (1-based) of the endless campaign.</summary>
+    private LevelDef MainLevel(int n) => C.MainLevel(n);
 
     private int MainMax => (int)S.Counter(Requirements.MainLevelCounter);
+
+    /// <summary>First main level not yet Overcharged-cleared (cached scan start; Overcharged clears go in order).</summary>
+    private int _ocFrontier = 1;
 
     /// <summary>Frontier attempts: after a loss, retry once power grew a little, or the next day (two tries per day at most).</summary>
     private bool ShouldTry(string key)
@@ -54,54 +54,49 @@ public sealed partial class SimPlayer
         // DarkFarmShare of the day's run stamina (a player splits stamina between frontier pushes and lab Data).
         if (LabDataShort && Unlocked(Features.DarkSide) && _darkStaminaToday + 12 <= Time.DarkFarmShare * (_staminaToday + 12))
         {
-            var dark = C.Portals.Values.FirstOrDefault(p => p.Kind == PortalKind.DarkSide);
+            // Best cleared Dark Side level (the endless sequence is cleared in order; look back a few levels from the best).
             string bestDark = null;
-            if (dark != null)
-                foreach (var id in dark.LevelIds)
-                {
-                    if (!RunSystem.Progress(S, id).Cleared) break;
-                    if (WinEstimate(Key(id, RunMode.DarkSide)) >= 0.7 && !failedThisSession.Contains(Key(id, RunMode.DarkSide))) bestDark = id;
-                }
+            int darkMax = (int)S.Counter(RunSystem.DarkSideMaxCounter);
+            for (int i = Math.Max(1, darkMax - 12); i <= darkMax; i++)
+            {
+                string id = C.DarkSideLevel(i).Id;
+                if (!RunSystem.Progress(S, C, id).Cleared) break;
+                if (WinEstimate(Key(id, RunMode.DarkSide)) >= 0.7 && !failedThisSession.Contains(Key(id, RunMode.DarkSide))) bestDark = id;
+            }
             if (bestDark != null) return (bestDark, RunMode.DarkSide);
         }
         int max = MainMax;
-        if (max < MainLevels.Count)
         {
-            var next = MainLevels[max];
+            var next = MainLevel(max + 1); // the campaign never ends
             string k = Key(next.Id, RunMode.Normal);
             if (!failedThisSession.Contains(k) && ShouldTry(k) && RunSystem.IsLevelUnlocked(S, C, next.Id, RunMode.Normal)) return (next.Id, RunMode.Normal);
         }
         if (Unlocked(Features.DarkSide))
         {
-            var dark = C.Portals.Values.FirstOrDefault(p => p.Kind == PortalKind.DarkSide);
-            if (dark != null)
-                foreach (var id in dark.LevelIds)
-                {
-                    if (RunSystem.Progress(S, id).Cleared) continue;
-                    string k = Key(id, RunMode.DarkSide);
-                    if (!failedThisSession.Contains(k) && ShouldTry(k) && RunSystem.IsLevelUnlocked(S, C, id, RunMode.DarkSide)) return (id, RunMode.DarkSide);
-                    break;
-                }
+            string id = C.DarkSideLevel((int)S.Counter(RunSystem.DarkSideMaxCounter) + 1).Id; // Dark Side frontier (endless)
+            string k = Key(id, RunMode.DarkSide);
+            if (!failedThisSession.Contains(k) && ShouldTry(k) && RunSystem.IsLevelUnlocked(S, C, id, RunMode.DarkSide)) return (id, RunMode.DarkSide);
         }
         bool oc = Unlocked(Features.Overcharged);
         if (oc)
-            foreach (var l in MainLevels)
+            for (int n = Math.Max(1, _ocFrontier); n <= max; n++)
             {
-                if (!RunSystem.Progress(S, l.Id).Cleared) break;
-                if (RunSystem.Progress(S, l.Id).OverchargedCleared) continue;
+                var l = MainLevel(n);
+                if (!RunSystem.Progress(S, C, l.Id).Cleared) break;
+                if (RunSystem.Progress(S, C, l.Id).OverchargedCleared) { _ocFrontier = n + 1; continue; }
                 string k = Key(l.Id, RunMode.Overcharged);
                 if (!failedThisSession.Contains(k) && ShouldTry(k) && RunSystem.IsLevelUnlocked(S, C, l.Id, RunMode.Overcharged)) return (l.Id, RunMode.Overcharged);
                 break;
             }
         // Farm: the best expected value per stamina among cleared levels (recent win-rate weighted).
-        (string, RunMode) best = (MainLevels[0].Id, RunMode.Normal);
+        (string, RunMode) best = (MainLevel(1).Id, RunMode.Normal);
         double bestV = -1;
         for (int i = Math.Max(0, max - 12); i < max; i++)
         {
-            var l = MainLevels[i];
+            var l = MainLevel(i + 1);
             double v = FarmValue(l, RunMode.Normal);
             if (WinEstimate(Key(l.Id, RunMode.Normal)) >= 0.7 && v > bestV) { bestV = v; best = (l.Id, RunMode.Normal); }
-            if (oc && RunSystem.Progress(S, l.Id).OverchargedCleared)
+            if (oc && RunSystem.Progress(S, C, l.Id).OverchargedCleared)
             {
                 double vo = FarmValue(l, RunMode.Overcharged);
                 if (WinEstimate(Key(l.Id, RunMode.Overcharged)) >= 0.7 && vo > bestV) { bestV = vo; best = (l.Id, RunMode.Overcharged); }
@@ -302,7 +297,7 @@ public sealed partial class SimPlayer
                 if (!Ok(new InvasionStartAttempt { OccurrenceId = ev.OccurrenceId })) break;
                 var def = C.Invasion(ev.RefId);
                 int frontier = Math.Max(0, MainMax - 1);
-                double scale = C.ThreatMultiplier(MainLevels[Math.Min(frontier, MainLevels.Count - 1)].Threat) * 2.5;
+                double scale = C.ThreatMultiplier(MainLevel(frontier + 1).Threat) * 2.5;
                 var boss = BattleSimulator.BuildEnemy(C, def.BossId, scale);
                 boss.StartHp = 1e15;
                 var res = BattleSimulator.PlayerVsBoss(C, E.BuildLoadout(S, Now), boss, Rng.FromSeed(Seed * 131 + S.Counter("invasion_battles")));

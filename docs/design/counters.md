@@ -129,3 +129,6 @@ Meta content now reads the keys the owning workstreams actually write:
 - `invasion_rare_rewards` — rare rewards (Awaken Cores) won from repelled high-tier invasions — Meta
 - (parts redesign) `part_awakens` now counts the one-time awakening of Mythic+ parts (no S/SS awakening levels any more).
 - `part_replications` — Legendary copies made with the Replicator (PartReplicate) — Progression/Parts
+- (endless campaign) `main_level_max` keeps growing past level 500 (the campaign never ends).
+- `dark_side_level_max` — highest Dark Side level cleared, kept as a **max** (drives the Dark Side progress archive) — Run
+- `milestone_chests` — one-time milestone chests / portal-completion bonuses collected (first Normal clear of every 10th main level) — Run

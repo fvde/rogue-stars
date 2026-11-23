@@ -33,6 +33,12 @@ public static class Variants
                 }
             return;
         }
+        if (v.StartsWith("alpha_"))
+        {
+            // Endless campaign reward exponent α (generated portals and Dark Side levels are built lazily, after this).
+            c.Campaign.EndlessRewardExponent = double.Parse(v.Substring("alpha_".Length), System.Globalization.CultureInfo.InvariantCulture);
+            return;
+        }
         switch (v)
         {
             case "no_lab_stats":
@@ -41,7 +47,7 @@ public static class Variants
             case "no_part_skills":
                 foreach (var d in c.PartsConfig.Defs.Values) { d.SkillIds.Clear(); d.AwakenedSkillIds.Clear(); }
                 break;
-            case "old_biomass":
+            case "old_biomass": // materialized portals only (levels 1–500)
                 foreach (var l in c.RunLevels.Values)
                     foreach (var r in l.CompletionRewards) if (r.Id == Currencies.Biomass) r.Amount /= 2;
                 foreach (var t in c.RunLootTables.Values)

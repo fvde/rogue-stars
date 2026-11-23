@@ -239,6 +239,13 @@ namespace RogueStars.Rules.Content
         /// won run (no run-reward modifiers, not doubled by the double-rewards ad). E.g. Awaken Cores on deep Burrow floors.
         /// </summary>
         public List<RareDrop> RareDrops = new List<RareDrop>();
+        /// <summary>
+        /// Main campaign: one-time rewards of the first Normal clear (milestone chest every 10 levels, portal-completion bonus
+        /// every 50; <see cref="CampaignDef"/>). Paid unscaled, never doubled, never again on later clears.
+        /// </summary>
+        public List<Reward> FirstClearRewards = new List<Reward>();
+        /// <summary>Main levels: global level number (portal 1 = 1..10, ...). Dark Side: its level number. 0 elsewhere.</summary>
+        public int Number;
         public long StaminaCost = 5;
         public double RewardMultiplier = 1;
         public LevelModifiers Modifiers = new LevelModifiers();
@@ -262,6 +269,11 @@ namespace RogueStars.Rules.Content
         public double OverchargedStaminaMultiplier = 2;
         /// <summary>Burrow: entry cost per attempt (in EntryCurrency).</summary>
         public long EntryCost;
+        /// <summary>
+        /// Endless portal (Dark Side): LevelIds holds only the materialized first levels; level i beyond them is generated on
+        /// demand (ContentDb.PortalLevel). Main portals are endless as a sequence (ContentDb.MainPortal), each has its 10 levels.
+        /// </summary>
+        public bool Endless;
     }
 
     public enum RunEffectKind
@@ -372,19 +384,22 @@ namespace RogueStars.Rules.Content
     }
 
     /// <summary>
-    /// Main campaign layout (content): main portals of <see cref="LevelsPerPortal"/> levels, generated from biome
-    /// templates. Main level n (1-based, global) sits at threat position <see cref="ThreatAt"/>(n) on the threat curve;
-    /// the integer part is LevelDef.Threat, the fraction becomes a small enemy HP/ATK bonus, so late levels can climb
-    /// more gently than one curve step per level. Sized with tools/RogueStars.Sim (docs/balance/progression-report.md).
+    /// Main campaign layout (content): an endless sequence of main portals of <see cref="LevelsPerPortal"/> levels, generated
+    /// from biome templates (ContentDb.Campaign.cs). The first <see cref="Portals"/> are materialized at start-up (named
+    /// portals, listed in ContentDb.Portals); every later portal is generated on demand from its index and cached.
+    /// Main level n (1-based, global) sits at threat position <see cref="ThreatAt"/>(n) on the threat curve; the integer part
+    /// is LevelDef.Threat, the fraction becomes a small enemy HP/ATK bonus, so late levels can climb more gently than one
+    /// curve step per level. Sized with tools/RogueStars.Sim (docs/balance/progression-report.md, "Endless campaign").
     /// </summary>
     [Serializable]
     public sealed class CampaignDef
     {
+        /// <summary>Main portals materialized at start-up (ContentDb.Portals / RunLevels); later portals are generated on demand.</summary>
         public int Portals = 50;
         public int LevelsPerPortal = 10;
         /// <summary>Levels 1..LinearUntil advance one threat step per level (the original 3 portals).</summary>
         public int LinearUntil = 30;
-        /// <summary>Threat steps per level after LinearUntil, for each later portal band (last entry repeats).</summary>
+        /// <summary>Threat steps per level after LinearUntil, for each later portal band (last entry repeats forever).</summary>
         public List<double> LateSlopes = new List<double> { 0.4, 0.3, 0.12, 0.12, 0.1, 0.08, 0.07, 0.06 };
         /// <summary>Portals per entry of LateSlopes.</summary>
         public int SlopeBandPortals = 3;
@@ -399,37 +414,93 @@ namespace RogueStars.Rules.Content
         /// <summary>Main level that opens the Dark Side (feature gate, ContentDb.Onboarding); its levels start just below it.</summary>
         public int DarkSideFromLevel = 40;
         /// <summary>
-        /// Dark Side: procedural levels along the campaign curve. Dark level i sits at main level
+        /// Dark Side: endless procedural levels along the campaign curve. Dark level i sits at main level
         /// DarkSideFromLevel + DarkSideSpacing × (i − 1) (minus DarkSideThreatOffset threat steps; its extreme modifiers
-        /// make up the difference), so it keeps pace with the 500-level campaign for years.
+        /// make up the difference). The first DarkSideLevels are materialized (PortalDef.LevelIds), later ones are generated.
         /// </summary>
         public int DarkSideLevels = 150;
         public double DarkSideSpacing = 3;
         public int DarkSideThreatOffset = 5;
-        /// <summary>Data per Dark Side clear (before the level's ×2.5 reward multiplier): DataBase × DataGrowth^(i − 1).</summary>
+        /// <summary>Data per Dark Side clear (before the level's ×2.5 reward multiplier): DataBase × DataGrowth^(i − 1) up to the anchor.</summary>
         public double DarkSideDataBase = 24, DarkSideDataGrowth = 1.025;
         /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
         public int SidePortalOrder = 1000;
         /// <summary>Main board length: 24 + level index + 2 per portal, the portal part capped here.</summary>
         public int BoardGrowthPortals = 6;
 
-        /// <summary>Reward scale of portal index i (0-based): (i+1) × RewardGrowth^max(0, i−2).</summary>
+        /// <summary>Reward scale of portal index i (0-based) up to the endless anchor: (i+1) × RewardGrowth^max(0, i−2).</summary>
         public double RewardGrowth = 1.0;
+
+        // ---- endless campaign (docs/design/economy-model.md, "Endless campaign rewards") ----------------------------------
+        /// <summary>
+        /// Portal index from which rewards follow the endless formula: portal i ≥ EndlessFromPortal pays
+        /// RewardScale(EndlessFromPortal − 1) × (M(i) / M(EndlessFromPortal − 1))^EndlessRewardExponent, where M is the enemy
+        /// threat multiplier at the portal's first level. Same anchor for the item-rarity shift.
+        /// </summary>
+        public int EndlessFromPortal = 50;
+        /// <summary>α: per-run currencies grow as threat^α (α &lt; 1, sublinear to threat and upgrade costs).</summary>
+        public double EndlessRewardExponent = 0.5;
+        /// <summary>Dark Side level from which Data follows threat^α (anchor = this level's legacy Data).</summary>
+        public int DarkSideEndlessFrom = 150;
+        /// <summary>Run item drops (parts, runes, blueprints, aliens) of portal i ≥ EndlessFromPortal gain
+        /// 1 + (i − EndlessFromPortal) / RarityShiftPortals rarity tiers, never above <see cref="MaxDropRarity"/>.</summary>
+        public int RarityShiftPortals = 25;
+        public int MaxDropRarity = 3; // Legendary: Mythic only from pulls and merges
+        /// <summary>A generated portal's boss changes its variant (title, boss tiles, escort, board hazard) every N portals.</summary>
+        public int BossVariantEveryPortals = 5;
+        public int BossVariants = 6;
+
+        /// <summary>One-time milestone chest on the first clear of every MilestoneEveryLevels-th main level.</summary>
+        public int MilestoneEveryLevels = 10;
+        /// <summary>Chest Diamonds: MilestoneDiamonds × (1 + n / MilestoneGrowthLevels), rounded to 5.</summary>
+        public long MilestoneDiamonds = 50;
+        public int MilestoneGrowthLevels = 500;
+        /// <summary>Chest tokens of each pull type (Part, Blueprint, Alien): MilestoneTokens + n / MilestoneGrowthLevels.</summary>
+        public long MilestoneTokens = 1;
+        /// <summary>Every PortalBonusEveryLevels-th level pays the portal-completion bonus instead: the chest × PortalBonusMult.</summary>
+        public int PortalBonusEveryLevels = 50;
+        public long PortalBonusMult = 4;
+        /// <summary>
+        /// State size: main / Dark Side progress more than this many levels behind the player's best clear is folded into the
+        /// compact archives (RunState.MainArchive / DarkArchive) once the per-level records exceed twice the window.
+        /// </summary>
+        public int ProgressWindowLevels = 100;
 
         public double ThreatAt(int n)
         {
             if (n <= LinearUntil) return n - 1;
             double t = LinearUntil - 1;
             int per = Math.Max(1, LevelsPerPortal * SlopeBandPortals);
-            for (int k = LinearUntil + 1; k <= n; k++)
+            int rest = n - LinearUntil;
+            for (int band = 0; rest > 0; band++)
             {
-                int band = (k - LinearUntil - 1) / per;
-                t += LateSlopes[Math.Min(band, LateSlopes.Count - 1)];
+                int take = band < LateSlopes.Count - 1 ? Math.Min(rest, per) : rest;
+                t += take * LateSlopes[Math.Min(band, LateSlopes.Count - 1)];
+                rest -= take;
             }
             return t;
         }
 
         public double RewardScale(int portalIndex) => (portalIndex + 1) * Math.Pow(RewardGrowth, Math.Max(0, portalIndex - 2));
+
+        /// <summary>Main level number at which Dark Side level i sits.</summary>
+        public int DarkSideMainLevel(int i) => (int)Math.Round(DarkSideFromLevel + DarkSideSpacing * (i - 1));
+
+        /// <summary>One-time rewards of main level n's first clear (milestone chest / portal-completion bonus); empty otherwise.</summary>
+        public List<Reward> MilestoneRewards(int n)
+        {
+            var list = new List<Reward>();
+            if (n <= 0 || MilestoneEveryLevels <= 0 || n % MilestoneEveryLevels != 0) return list;
+            long mult = PortalBonusEveryLevels > 0 && n % PortalBonusEveryLevels == 0 ? PortalBonusMult : 1;
+            double grow = 1 + (double)n / Math.Max(1, MilestoneGrowthLevels);
+            long diamonds = (long)Math.Round(MilestoneDiamonds * grow / 5.0) * 5 * mult;
+            long tokens = (MilestoneTokens + n / Math.Max(1, MilestoneGrowthLevels)) * mult;
+            list.Add(Reward.Cur(Currencies.Diamonds, diamonds));
+            list.Add(Reward.Cur(Currencies.PartTokens, tokens));
+            list.Add(Reward.Cur(Currencies.BlueprintTokens, tokens));
+            list.Add(Reward.Cur(Currencies.AlienTokens, tokens));
+            return list;
+        }
     }
 
     [Serializable]

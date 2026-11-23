@@ -35,6 +35,12 @@ namespace RogueStars.Rules.Systems
         public RunSummary LastSummary;
         /// <summary>Progress per level id (normal mode; Overcharged tracked via OverchargedCleared).</summary>
         public Dictionary<string, LevelProgress> Levels = new Dictionary<string, LevelProgress>();
+        /// <summary>
+        /// Endless campaign: progress of main / Dark Side levels far behind the frontier, folded out of <see cref="Levels"/>
+        /// (RunSystem.CompactProgress) so the state stays small however far a player gets. Read through RunSystem.Progress.
+        /// </summary>
+        public ProgressArchive MainArchive = new ProgressArchive();
+        public ProgressArchive DarkArchive = new ProgressArchive();
         public long RunsStarted;
         /// <summary>Daily Biomass surge: reset-day of the counter and won portal runs that used the bonus that day.</summary>
         public long BiomassBonusDay = -1;
@@ -51,6 +57,18 @@ namespace RogueStars.Rules.Systems
         public List<bool> Feats = new List<bool> { false, false, false };
         /// <summary>Burrow: deepest floor cleared.</summary>
         public int BestFloor;
+    }
+
+    /// <summary>
+    /// Compact progress of levels 1 … Full + Flags.Length of one endless sequence (main campaign or Dark Side): levels 1 … Full
+    /// are fully done (cleared, Overcharged cleared, all 3 feats); level Full + k is encoded in Flags[k − 1] as one base-32 digit
+    /// of bits 1 cleared, 2 Overcharged cleared, 4/8/16 feats 1–3. One byte per archived level at most, nothing once complete.
+    /// </summary>
+    [Serializable]
+    public sealed class ProgressArchive
+    {
+        public int Full;
+        public string Flags = "";
     }
 
     [Serializable]

@@ -202,7 +202,7 @@ public class ContentTests
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.DarkSide);
         Assert.True(c.Enemies.Values.Count(e => !e.Boss) >= 18);
         Assert.True(c.Enemies.Values.Count(e => e.Elite) >= 5);
-        Assert.Equal(4, c.RunBosses.Count);
+        Assert.Equal(4 + 4 * c.Campaign.BossVariants, c.RunBosses.Count); // 4 family bosses + variants of the endless portals
         Assert.True(c.RandomRunEvents.Count >= 12);
         Assert.NotNull(c.Regen(Currencies.Stamina));
         Assert.NotNull(c.Regen(Currencies.BurrowKeys));
