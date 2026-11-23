@@ -238,16 +238,16 @@ namespace RogueStars.Rules.Content
             var syn = NewPartSkill(d, 2, false, fw + " Hunter", Rarity.Mythic, f, "");
             switch (f)
             {
-                case SkillFamily.Crit: syn.Triggers.Add(Cond("vs_low_hp", 22)); syn.Stats.Add(new StatMod(StatId.CritDamage, 15)); syn.Description = "+22% damage vs enemies under 40% HP, +15 crit damage."; break;
-                case SkillFamily.Combo: syn.Triggers.Add(Cond("combo", 28)); syn.Stats.Add(new StatMod(StatId.ComboChance, 4)); syn.Description = "Combos deal +28%; +4 combo chance."; break;
-                case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.ParryChance, 5)); syn.Description = "Counters deal +32%; +5 parry."; break;
+                case SkillFamily.Crit: syn.Triggers.Add(Cond("vs_low_hp", 22)); syn.Stats.Add(new StatMod(StatId.CritDamage, 15)); syn.Description = "+{22}% damage vs enemies under 40% HP, +{15} crit damage."; break;
+                case SkillFamily.Combo: syn.Triggers.Add(Cond("combo", 28)); syn.Stats.Add(new StatMod(StatId.ComboChance, 4)); syn.Description = "Combos deal +{28}%; +{4} combo chance."; break;
+                case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.ParryChance, 5)); syn.Description = "Counters deal +{32}%; +{5} parry."; break;
                 case SkillFamily.AlienSynergy:
                     syn.Stats.Add(new StatMod(StatId.AlienPower, 0, 18));
                     syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.GainRage, Target = TargetKind.AllAllies, Value = 8 });
-                    syn.Description = "Aliens +18% power; the squad gains rage every round."; break;
+                    syn.Description = "Aliens +{18}% power; the squad gains {8} rage every round."; break;
                 default:
                     syn.Triggers.Add(Cond("vs_status:" + status, 22)); syn.Stats.Add(new StatMod(StatId.StatusChance, 8));
-                    syn.Description = "+22% damage vs enemies with " + status + "; +8 status chance."; break;
+                    syn.Description = "+{22}% damage vs enemies with " + status + "; +{8} status chance."; break;
             }
 
             // 4 (Mythic S) signature: a kind-shaped, battle-defining effect.
@@ -261,19 +261,19 @@ namespace RogueStars.Rules.Content
                 case PartKind.Body:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 25 });
                     sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnLowHp, 100, 2.0, TargetKind.AllEnemies));
-                    sig.Description = "Below 30% HP: a 25% shield, then " + FamilyEffectText(f) + " on every enemy."; break;
+                    sig.Description = "Below 30% HP: a {25}% shield, then " + FamilyEffectText(f) + " on every enemy."; break;
                 case PartKind.Tail:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 30, CooldownRounds = 1 });
                     sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnRoundStart, 100, 1.2, TargetKind.AllEnemies, 1));
-                    sig.Description = "Every other round: a 30% ATK sweep that " + FamilyEffectText(f) + "."; break;
+                    sig.Description = "Every other round: a {30}% ATK sweep that " + FamilyEffectText(f) + "."; break;
                 case PartKind.Legs:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnDodge, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 55 });
                     sig.Stats.Add(new StatMod(StatId.Dodge, 4));
-                    sig.Description = "Dodges strike back for 55% ATK true damage; +4 dodge."; break;
+                    sig.Description = "Dodges strike back for {55}% ATK true damage; +{4} dodge."; break;
                 default:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 70 });
                     sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnRageAttack, 100, 1.4, TargetKind.AllEnemies));
-                    sig.Description = "Rage attacks hit every enemy for 70% ATK and " + FamilyEffectText(f) + "."; break;
+                    sig.Description = "Rage attacks hit every enemy for {70}% ATK and " + FamilyEffectText(f) + "."; break;
             }
 
             // 5 (Mythic SS) ultimate: the family's capstone.
@@ -283,36 +283,53 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Fire:
                     ult.Triggers.Add(St(TriggerKind.OnKill, 100, StatusId.Burn, 4, TargetKind.AllEnemies, 3));
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnKill, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 6 });
-                    ult.Stats.Add(new StatMod(StatId.FireDamage, 0, 25)); ult.Description = "Kills spread 4 Burn to all enemies and heal 6%; +25% fire damage."; break;
+                    ult.Stats.Add(new StatMod(StatId.FireDamage, 0, 25)); ult.Description = "Kills spread 4 Burn to all enemies and heal {6}%; +{25}% fire damage."; break;
                 case SkillFamily.Ice:
                     ult.Triggers.Add(St(TriggerKind.OnBattleStart, 100, StatusId.Freeze, 1, TargetKind.AllEnemies, 1));
-                    ult.Triggers.Add(Cond("vs_status:Freeze", 30)); ult.Description = "Battle start: freeze every enemy; +30% damage vs frozen."; break;
+                    ult.Triggers.Add(Cond("vs_status:Freeze", 30)); ult.Description = "Battle start: freeze every enemy; +{30}% damage vs frozen."; break;
                 case SkillFamily.Lightning:
                     ult.Triggers.Add(St(TriggerKind.OnRoundStart, 25, StatusId.Stun, 1, TargetKind.RandomEnemy, 1));
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 25 });
-                    ult.Description = "Every round: 25% ATK lightning on all enemies, 25% chance to stun one."; break;
+                    ult.Description = "Every round: {25}% ATK lightning on all enemies, 25% chance to stun one."; break;
                 case SkillFamily.Poison:
                     ult.Triggers.Add(St(TriggerKind.OnRoundEnd, 100, StatusId.Poison, 2, TargetKind.AllEnemies, 4));
-                    ult.Stats.Add(new StatMod(StatId.Regen, 2)); ult.Description = "Every round end: 2 Poison on all enemies; regenerate 2% per turn."; break;
+                    ult.Stats.Add(new StatMod(StatId.Regen, 2)); ult.Description = "Every round end: 2 Poison on all enemies; regenerate {2}% per turn."; break;
                 case SkillFamily.Bleed:
                     ult.Triggers.Add(St(TriggerKind.OnCrit, 100, StatusId.Bleed, 2, TargetKind.AllEnemies, 3));
-                    ult.Stats.Add(new StatMod(StatId.LifeSteal, 8)); ult.Description = "Crits make every enemy bleed; +8% lifesteal."; break;
+                    ult.Stats.Add(new StatMod(StatId.LifeSteal, 8)); ult.Description = "Crits make every enemy bleed; +{8}% lifesteal."; break;
                 case SkillFamily.Crit:
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCrit, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 45 });
-                    ult.Stats.Add(new StatMod(StatId.CritDamage, 30)); ult.Description = "Crits add a 45% ATK true-damage strike; +30 crit damage."; break;
+                    ult.Stats.Add(new StatMod(StatId.CritDamage, 30)); ult.Description = "Crits add a {45}% ATK true-damage strike; +{30} crit damage."; break;
                 case SkillFamily.Combo:
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Effect = EffectKind.GainRage, Target = TargetKind.Self, Value = 12 });
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Atk, 0, 3) });
-                    ult.Description = "Each combo: +12 rage and +3% ATK for the battle."; break;
+                    ult.Description = "Each combo: +{12} rage and +{3}% ATK for the battle."; break;
                 case SkillFamily.Counter:
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnParry, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 110 });
-                    ult.Stats.Add(new StatMod(StatId.ParryChance, 10)); ult.Description = "Parries reflect 110% ATK true damage; +10 parry."; break;
+                    ult.Stats.Add(new StatMod(StatId.ParryChance, 10)); ult.Description = "Parries reflect {110}% ATK true damage; +{10} parry."; break;
                 default:
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Summon, Target = TargetKind.Self, Value = 55, Param = "drone" });
-                    ult.Stats.Add(new StatMod(StatId.AlienPower, 0, 25)); ult.Description = "Battle start: summon a combat drone (55%); aliens +25% power."; break;
+                    ult.Stats.Add(new StatMod(StatId.AlienPower, 0, 25)); ult.Description = "Battle start: summon a combat drone (55%); aliens +{25}% power."; break;
             }
 
             BuildAwakenedPartSkills(d, twin);
+            foreach (var id in d.SkillIds) ScalePartSkill(Skills[id], PartsConfig.SkillPowerScale);
+            foreach (var id in d.AwakenedSkillIds) ScalePartSkill(Skills[id], PartsConfig.AwakenedSkillPowerScale);
+        }
+
+        /// <summary>Scales a part skill's amounts (stats, damage/heal/shield/rage values, buffs, conditional bonuses); chances and stacks stay.</summary>
+        private static void ScalePartSkill(SkillDef s, double k)
+        {
+            // Descriptions mark scaled amounts as {n}.
+            s.Description = System.Text.RegularExpressions.Regex.Replace(s.Description ?? "", @"\{(\d+(?:\.\d+)?)\}",
+                m => R(double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * k).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var m in s.Stats) { m.Flat = R(m.Flat * k); m.Percent = R(m.Percent * k); }
+            foreach (var t in s.Triggers)
+            {
+                if (t.Effect == EffectKind.Summon) continue;
+                t.Value = R(t.Value * k);
+                if (t.Stat != null) { t.Stat.Flat = R(t.Stat.Flat * k); t.Stat.Percent = R(t.Stat.Percent * k); }
+            }
         }
 
         private void BuildAwakenedPartSkills(PartDef d, SkillFamily twin)
@@ -344,13 +361,13 @@ namespace RogueStars.Rules.Content
                 syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnStatusApplied, Param = chainStatus.ToString(), Effect = EffectKind.GainRage, Target = TargetKind.Self, Value = 4 });
                 syn.Triggers.Add(Cond("vs_status:" + chainStatus, 25));
                 syn.Stats.Add(new StatMod(StatId.StatusChance, 12));
-                syn.Description = "Whenever you apply " + chainStatus + ": 60% chance of an 18% ATK strike and +4 rage; +25% damage vs " + chainStatus + "; +12 status chance.";
+                syn.Description = "Whenever you apply " + chainStatus + ": 60% chance of an {18}% ATK strike and +{4} rage; +{25}% damage vs " + chainStatus + "; +{12} status chance.";
             }
             else
             {
                 syn.Triggers.Add(Cond("skill", 30));
                 syn.Stats.Add(new StatMod(StatId.RageGain, 15));
-                syn.Description = "Skill damage +30%; +15 rage gain.";
+                syn.Description = "Skill damage +{30}%; +{15} rage gain.";
             }
 
             // 4A signature: a new battle opener — summons, overheal shields or evasive counters by kind.
@@ -361,12 +378,12 @@ namespace RogueStars.Rules.Content
                 case PartKind.Body:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnTurnStart, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 4, Param = "overheal_shield" });
                     sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnDamaged, 40, 1.5, TargetKind.Enemy, 1));
-                    sig.Description = "Heal 4% every turn; overheal becomes a shield. Taking damage may " + FamilyEffectText(f) + "."; break;
+                    sig.Description = "Heal {4}% every turn; overheal becomes a shield. Taking damage may " + FamilyEffectText(f) + "."; break;
                 case PartKind.Legs:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnDodge, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 5 });
                     sig.Triggers.AddRange(PartPayload(twin, TriggerKind.OnDodge, 100, 1.5, TargetKind.AllEnemies));
                     sig.Stats.Add(new StatMod(StatId.Dodge, 6));
-                    sig.Description = "Dodges grant a 5% shield and " + FamilyEffectText(twin) + " on all enemies; +6 dodge."; break;
+                    sig.Description = "Dodges grant a {5}% shield and " + FamilyEffectText(twin) + " on all enemies; +{6} dodge."; break;
                 case PartKind.Tail:
                     sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Speed, 4), Duration = 0 });
                     sig.Triggers.AddRange(PartPayload(twin, TriggerKind.OnRoundStart, 100, 1.2, TargetKind.AllEnemies, 1));
@@ -379,7 +396,7 @@ namespace RogueStars.Rules.Content
 
             // 5A ultimate: a last stand that turns a losing battle (once, below 30% HP) plus a permanent skill-damage hook.
             var ult = NewPartSkill(d, 4, true, fw + " Ascension", Rarity.Mythic, f,
-                "Below 30% HP (once): heal 30%, 150% ATK true damage to all enemies, " + FamilyEffectText(f) + " on all; skill damage +25%.");
+                "Below 30% HP (once): heal {30}%, {150}% ATK true damage to all enemies, " + FamilyEffectText(f) + " on all; skill damage +{25}%.");
             ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 30 });
             ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.TrueDamage, Target = TargetKind.AllEnemies, Value = 150 });
             ult.Triggers.AddRange(PartPayload(f, TriggerKind.OnLowHp, 100, 3.0, TargetKind.AllEnemies));

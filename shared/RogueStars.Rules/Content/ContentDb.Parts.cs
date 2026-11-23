@@ -62,6 +62,8 @@ namespace RogueStars.Rules.Content
         public PartRarity SameDefRarity;
         public long FodderPoints;
         public PartRarity FodderMinRarity;
+        /// <summary>Ore paid for the merge (Mythic and above; grows ~×1.8 per step).</summary>
+        public long Ore;
     }
 
     [Serializable]
@@ -127,6 +129,8 @@ namespace RogueStars.Rules.Content
         /// <summary>Awakening: Mythic or higher, once per part, for AwakenCost Awaken Cores.</summary>
         public PartRarity AwakenMinRarity = PartRarity.Mythic;
         public long AwakenCost = 50;
+        /// <summary>Scale on the numbers of part skills (normal / awakened): the balance knob for part-skill power.</summary>
+        public double SkillPowerScale = 0.5, AwakenedSkillPowerScale = 0.7;
         /// <summary>One Legendary part in fodder points (the unit of the recipe table in docs/design/parts.md).</summary>
         public long LegendaryFodder = 81;
         /// <summary>Quick-merge never produces parts above this rarity.</summary>
@@ -171,6 +175,9 @@ namespace RogueStars.Rules.Content
             AddPartRarity(PartRarity.MythicSS, "Mythic SS", 13.0, 130, 5, 5, 55000, PartRecipe(3, PartRarity.Legendary, 120 * le, PartRarity.Legendary));
             AddPartRarity(PartRarity.MythicSS1, "Mythic SS+1", 14.6, 140, 6, 5, 75000, PartRecipe(0, PartRarity.Legendary, 200 * le, PartRarity.Legendary));
             AddPartRarity(PartRarity.MythicSS2, "Mythic SS+2", 16.5, 150, 6, 5, 100000, PartRecipe(1, PartRarity.Legendary, 340 * le, PartRarity.Legendary));
+            // Ore per merge from Mythic on: 4k, ×1.8 per step (Mythic SS+2 ≈ 440k).
+            for (int r = (int)PartRarity.Mythic; r < p.Rarities.Count; r++)
+                p.Rarities[r].Merge.Ore = (long)(Math.Round(4000 * Math.Pow(1.8, r - (int)PartRarity.Mythic) / 1000.0) * 1000);
             // Fodder value = everything that went into a part (Common 1; Legendary 81; then the cumulative recipe cost).
             for (int r = 0; r < p.Rarities.Count; r++)
             {

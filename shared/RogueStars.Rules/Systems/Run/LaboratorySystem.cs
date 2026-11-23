@@ -6,11 +6,12 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Laboratory (GDD §5): research lines unlock skills into the run draft pool and upgrade them
-    /// (Biomass/Ore + timer). Researched skills can be toggled on/off; toggled-on skills are contributed to
-    /// CombatLoadout.DraftPoolSkillIds. Research runs on a City <see cref="TimerSystem"/> timer (kind "lab_research",
-    /// duration shortened by CitySystem.ResearchSpeedPct), so TimerSpeedUp (Diamonds / ad / daily free) works on it;
-    /// the player collects with LabCollect once the timer is due.
+    /// Laboratory (GDD §5): one tree of skill nodes (draft-pool skills, toggleable) and stat nodes (loadout bonuses).
+    /// Research costs Data and time; the k-th research level started takes LabTuning.Hours(k) (exponential in k), shortened
+    /// by CitySystem.ResearchSpeedPct. One slot, plus one Research Annex slot while that building is staffed
+    /// (CitySystem.ResearchSlots); research started while the main slot is busy runs in the Annex (×AnnexDurationMult).
+    /// Research runs on a City <see cref="TimerSystem"/> timer (kind "lab_research"), so TimerSpeedUp (Diamonds / ad /
+    /// daily free) works on it; the player collects with LabCollect once the timer is due.
     /// </summary>
     public static class LaboratorySystem
     {
@@ -30,24 +31,108 @@ namespace RogueStars.Rules.Systems
             {
                 foreach (var sid in ActiveSkillIds(state, content))
                     if (!loadout.DraftPoolSkillIds.Contains(sid)) loadout.DraftPoolSkillIds.Add(sid);
+                foreach (var m in StatBonuses(state, content)) loadout.WormStats.Add(m);
             });
         }
 
-        /// <summary>Skill ids currently toggled on for the draft pool (current level's skill of each enabled line).</summary>
+        /// <summary>Skill ids currently toggled on for the draft pool (current level's skill of each enabled skill node).</summary>
         public static List<string> ActiveSkillIds(GameState state, ContentDb content)
         {
             var list = new List<string>();
             foreach (var id in SortedIds(content))
             {
-                if (!state.Lab.Entries.TryGetValue(id, out var e) || e.Level <= 0 || !e.Enabled) continue;
                 var def = content.LabResearch[id];
+                if (def.Kind != LabNodeKind.Skill || !state.Lab.Entries.TryGetValue(id, out var e) || e.Level <= 0 || !e.Enabled) continue;
                 list.Add(def.Levels[Math.Min(e.Level, def.Levels.Count) - 1].SkillId);
+            }
+            return list;
+        }
+
+        /// <summary>Stat bonuses of all researched stat nodes (contributed to the worm's stats; AlienPower/MountPower reach the squad/mount).</summary>
+        public static List<StatMod> StatBonuses(GameState state, ContentDb content)
+        {
+            var list = new List<StatMod>();
+            foreach (var id in SortedIds(content))
+            {
+                var def = content.LabResearch[id];
+                if (def.Kind != LabNodeKind.Stat || !state.Lab.Entries.TryGetValue(id, out var e) || e.Level <= 0) continue;
+                list.AddRange(def.Levels[Math.Min(e.Level, def.Levels.Count) - 1].Stats);
             }
             return list;
         }
 
         public static LabEntry Entry(GameState state, string researchId) =>
             state.Lab.Entries.TryGetValue(researchId, out var e) ? e : new LabEntry();
+
+        /// <summary>
+        /// Research index k: levels researched or running beyond the default ones. The next research is the k-th and
+        /// takes LabTuning.Hours(k) / costs LabTuning.DataCost(k), whatever the node.
+        /// </summary>
+        public static int ResearchIndex(GameState state, ContentDb content)
+        {
+            int k = 0;
+            foreach (var kv in state.Lab.Entries)
+            {
+                k += kv.Value.Level + (kv.Value.ResearchingLevel > 0 ? 1 : 0);
+                var def = content.LabNode(kv.Key);
+                if (def != null && def.DefaultResearched) k--;
+            }
+            return Math.Max(0, k);
+        }
+
+        /// <summary>Data cost of the next research.</summary>
+        public static long NextDataCost(GameState state, ContentDb content) => content.LabTuning.DataCost(ResearchIndex(state, content));
+
+        /// <summary>Running research count.</summary>
+        public static int Running(GameState state)
+        {
+            int n = 0;
+            foreach (var e in state.Lab.Entries.Values) if (e.ResearchingLevel > 0) n++;
+            return n;
+        }
+
+        /// <summary>Research slots: 1 (RunTuning.LabSlots) + staffed Research Annex buildings, capped by LabTuning.MaxSlots.</summary>
+        public static int Slots(GameState state, ContentDb content) =>
+            Math.Min(Math.Max(1, content.LabTuning.MaxSlots), Math.Max(1, content.RunTuning.LabSlots) + CitySystem.ResearchSlots(state, content));
+
+        /// <summary>True if the next research would run in the Annex slot (every main slot busy).</summary>
+        public static bool NextInAnnex(GameState state, ContentDb content)
+        {
+            int main = 0;
+            foreach (var e in state.Lab.Entries.Values) if (e.ResearchingLevel > 0 && !e.InAnnex) main++;
+            return main >= Math.Max(1, content.RunTuning.LabSlots);
+        }
+
+        /// <summary>Nominal duration of the next research (before the building boon), Annex multiplier included.</summary>
+        public static long NextNominalMs(GameState state, ContentDb content)
+        {
+            double h = content.LabTuning.Hours(ResearchIndex(state, content));
+            if (NextInAnnex(state, content)) h *= content.LabTuning.AnnexDurationMult;
+            return (long)Math.Round(h * 3_600_000);
+        }
+
+        /// <summary>Duration of the next research after building boons (what LabResearch starts).</summary>
+        public static long NextDurationMs(GameState state, ContentDb content) => DurationMs(state, content, NextNominalMs(state, content));
+
+        /// <summary>True if level 1 of the node may be started (prerequisites: any / all of def.Requires).</summary>
+        public static bool PrerequisitesMet(GameState state, ContentDb content, LabResearchDef def)
+        {
+            if (def.Requires.Count == 0) return true;
+            int met = 0;
+            foreach (var r in def.Requires) if (Entry(state, r.ResearchId).Level >= r.Level) met++;
+            return def.RequireAll ? met == def.Requires.Count : met > 0;
+        }
+
+        /// <summary>Why a node cannot be researched now (null = it can, Data and slots permitting).</summary>
+        public static string BlockReason(GameState state, ContentDb content, LabResearchDef def)
+        {
+            var entry = Entry(state, def.Id);
+            if (entry.ResearchingLevel > 0) return "already researching";
+            if (entry.Level >= def.Levels.Count) return "research maxed";
+            if (entry.Level == 0 && !PrerequisitesMet(state, content, def)) return "prerequisites missing";
+            if (Running(state) >= Slots(state, content)) return "laboratory busy";
+            return null;
+        }
 
         /// <summary>Time the running research completes (the timer's end; speed-ups move it), or 0 when idle.</summary>
         public static long ReadyAtMs(GameState state, string researchId)
@@ -84,21 +169,22 @@ namespace RogueStars.Rules.Systems
             GameEngine.Require(Features.IsUnlocked(s, c, Features.Laboratory), "laboratory locked");
             LabResearchDef def = null;
             GameEngine.Require(cmd.ResearchId != null && c.LabResearch.TryGetValue(cmd.ResearchId, out def), "unknown research");
+            string block = BlockReason(s, c, def);
+            GameEngine.Require(block == null, block);
+            long data = NextDataCost(s, c);
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Data, data), "not enough data");
+            bool annex = NextInAnnex(s, c);
+            long duration = NextDurationMs(s, c);
+            s.Wallet.TrySpend(Currencies.Data, data);
             var entry = Entry(s, cmd.ResearchId);
-            GameEngine.Require(entry.ResearchingLevel == 0, "already researching");
-            GameEngine.Require(entry.Level < def.Levels.Count, "research maxed");
-            int running = 0;
-            foreach (var e in s.Lab.Entries.Values) if (e.ResearchingLevel > 0) running++;
-            GameEngine.Require(running < Math.Max(1, c.RunTuning.LabSlots), "laboratory busy");
-            var level = def.Levels[entry.Level];
-            GameEngine.Require(s.Wallet.CanAfford(level.Costs), "cannot afford research");
-            s.Wallet.TrySpend(level.Costs);
             entry.ResearchingLevel = entry.Level + 1;
-            var timer = TimerSystem.Start(ctx, TimerKind, cmd.ResearchId, DurationMs(s, c, level.DurationMs));
+            entry.InAnnex = annex;
+            var timer = TimerSystem.Start(ctx, TimerKind, cmd.ResearchId, duration);
             entry.TimerId = timer.Id;
             entry.ReadyAtMs = timer.EndsMs;
             s.Lab.Entries[cmd.ResearchId] = entry;
             s.Count("lab_research_started");
+            s.Count("data_spent", data);
             ctx.Emit("lab_research", cmd.ResearchId, entry.ResearchingLevel.ToString(), entry.ReadyAtMs.ToString());
             return CommandResult.Success();
         }
@@ -115,6 +201,7 @@ namespace RogueStars.Rules.Systems
             entry.Level = entry.ResearchingLevel;
             entry.ResearchingLevel = 0;
             entry.ReadyAtMs = 0;
+            entry.InAnnex = false;
             if (first) entry.Enabled = true;
             s.Count("lab_research_completed");
             ctx.Emit("lab_collected", cmd.ResearchId, entry.Level.ToString());
@@ -126,6 +213,8 @@ namespace RogueStars.Rules.Systems
             var s = ctx.State;
             LabEntry entry = null;
             GameEngine.Require(cmd.ResearchId != null && s.Lab.Entries.TryGetValue(cmd.ResearchId, out entry) && entry.Level > 0, "not researched");
+            var def = ctx.Content.LabNode(cmd.ResearchId);
+            GameEngine.Require(def != null && def.Kind == LabNodeKind.Skill, "only skill research can be toggled");
             entry.Enabled = cmd.Enabled;
             return CommandResult.Success();
         }

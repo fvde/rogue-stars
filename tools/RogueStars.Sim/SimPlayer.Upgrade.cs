@@ -81,7 +81,7 @@ public sealed partial class SimPlayer
                 long ore = cfg.LevelOreCosts[p.Level];
                 if (ore < pickCost && cfg.LevelGearCoreCosts[p.Level] <= Bal(Currencies.GearCores)) { pick = p; pickCost = ore; }
             }
-            if (pick == null || pickCost > Bal(Currencies.Ore) - LabReserve(Currencies.Ore)) break;
+            if (pick == null || pickCost > Bal(Currencies.Ore) - LabReserve(Currencies.Ore) - _oreReserve) break;
             if (!Ok(new PartLevelUp { Uid = pick.Uid, Levels = 1 })) break;
         }
         Runes();
@@ -119,9 +119,13 @@ public sealed partial class SimPlayer
     /// item up the exponential road): same-def copies (lowest rarity first), then Legendary+ fodder of any def, cheapest
     /// first. Copies of equipped defs are kept as copies, never burnt as fodder.
     /// </summary>
+    /// <summary>Ore kept back for a high merge whose materials are ready (part levels wait for it).</summary>
+    private long _oreReserve;
+
     private void HighMerges()
     {
         var cfg = C.PartsConfig;
+        _oreReserve = 0;
         var order = S.Parts.Equipped.Values.Select(u => S.Parts.Items[u]).OrderByDescending(p => p.Rarity).ThenBy(p => p.Uid, StringComparer.Ordinal).Select(p => p.Uid).ToList();
         var equippedDefs = new HashSet<string>(S.Parts.Equipped.Values.Select(u => S.Parts.Items[u].DefId));
         foreach (var uid in order)
@@ -146,6 +150,7 @@ public sealed partial class SimPlayer
                     if (pts - PartsSystem.FodderValue(C, chosen[i]) >= recipe.FodderPoints) { pts -= PartsSystem.FodderValue(C, chosen[i]); chosen.RemoveAt(i); }
                     else i++;
                 mats.AddRange(chosen.Select(p => p.Uid));
+                if (Bal(Currencies.Ore) < recipe.Ore) { _oreReserve = Math.Max(_oreReserve, recipe.Ore); break; }
                 if (!Ok(new PartMerge { TargetUid = uid, MaterialUids = mats })) break;
             }
         }

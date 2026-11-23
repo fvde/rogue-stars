@@ -29,6 +29,11 @@ public sealed partial class SimPlayer
 
     private readonly Dictionary<string, int> _failDay = new();
 
+    /// <summary>Share of a day's run stamina the bot may spend farming the Dark Side for laboratory Data.</summary>
+    private const double DarkFarmShare = 0.4;
+    private int _staminaDay = -1;
+    private long _staminaToday, _darkStaminaToday;
+
     private double WinEstimate(string key) => _winEma.TryGetValue(key, out var p) ? p : 0.85;
 
     private double FarmValue(LevelDef l, RunMode mode)
@@ -73,6 +78,20 @@ public sealed partial class SimPlayer
                 if (!failedThisSession.Contains(k) && ShouldTry(k) && RunSystem.IsLevelUnlocked(S, C, l.Id, RunMode.Overcharged)) return (l.Id, RunMode.Overcharged);
                 break;
             }
+        // Data for the laboratory: farm the best cleared Dark Side level while research waits for Data, with at most
+        // DarkFarmShare of the day's run stamina.
+        if (LabDataShort && Unlocked(Features.DarkSide) && _darkStaminaToday <= DarkFarmShare * Math.Max(12, _staminaToday))
+        {
+            var dark = C.Portals.Values.FirstOrDefault(p => p.Kind == PortalKind.DarkSide);
+            string bestDark = null;
+            if (dark != null)
+                foreach (var id in dark.LevelIds)
+                {
+                    if (!RunSystem.Progress(S, id).Cleared) break;
+                    if (WinEstimate(Key(id, RunMode.DarkSide)) >= 0.7 && !failedThisSession.Contains(Key(id, RunMode.DarkSide))) bestDark = id;
+                }
+            if (bestDark != null) return (bestDark, RunMode.DarkSide);
+        }
         // Farm: the best expected value per stamina among cleared levels (recent win-rate weighted).
         (string, RunMode) best = (MainLevels[0].Id, RunMode.Normal);
         double bestV = -1;
@@ -125,6 +144,9 @@ public sealed partial class SimPlayer
             }
             var sum = PlayRun(levelId, mode, out double minutes);
             if (sum == null) { failed.Add(Key(levelId, mode)); continue; }
+            if (_staminaDay != DayIndex) { _staminaDay = DayIndex; _staminaToday = 0; _darkStaminaToday = 0; }
+            _staminaToday += cost;
+            if (mode == RunMode.DarkSide) _darkStaminaToday += cost;
             UseTime(minutes);
             MinutesInRuns += minutes;
             RunsPlayed++;

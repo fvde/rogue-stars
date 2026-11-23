@@ -392,6 +392,16 @@ namespace RogueStars.Rules.Content
 
         /// <summary>Main level that opens the Dark Side (feature gate, ContentDb.Onboarding); its levels start just below it.</summary>
         public int DarkSideFromLevel = 40;
+        /// <summary>
+        /// Dark Side: procedural levels along the campaign curve. Dark level i sits at main level
+        /// DarkSideFromLevel + DarkSideSpacing × (i − 1) (minus DarkSideThreatOffset threat steps; its extreme modifiers
+        /// make up the difference), so it keeps pace with the 500-level campaign for years.
+        /// </summary>
+        public int DarkSideLevels = 150;
+        public double DarkSideSpacing = 3;
+        public int DarkSideThreatOffset = 5;
+        /// <summary>Data per Dark Side clear (before the level's ×2.5 reward multiplier): DataBase × DataGrowth^(i − 1).</summary>
+        public double DarkSideDataBase = 12, DarkSideDataGrowth = 1.025;
         /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
         public int SidePortalOrder = 1000;
         /// <summary>Main board length: 24 + level index + 2 per portal, the portal part capped here.</summary>
@@ -433,21 +443,70 @@ namespace RogueStars.Rules.Content
         public RareDrop(Reward reward, double chancePct) { Reward = reward; ChancePct = chancePct; }
     }
 
+    public enum LabNodeKind { Skill, Stat }
+
+    /// <summary>One level of a laboratory node: a draft-pool skill (skill nodes) or a stat bonus (stat nodes, total at that level).</summary>
     [Serializable]
     public sealed class LabLevelDef
     {
         public string SkillId;
-        public List<Cost> Costs = new List<Cost>();
-        public long DurationMs;
+        /// <summary>Stat nodes: the node's whole bonus at this level (replaces the previous level's).</summary>
+        public List<StatMod> Stats = new List<StatMod>();
     }
 
-    /// <summary>Laboratory research line: level N unlocks/upgrades the draft-pool skill Levels[N-1].SkillId.</summary>
+    /// <summary>Prerequisite of a laboratory node: another node at a minimum level.</summary>
+    [Serializable]
+    public sealed class LabPrereq
+    {
+        public string ResearchId;
+        public int Level = 1;
+        public LabPrereq() { }
+        public LabPrereq(string researchId, int level) { ResearchId = researchId; Level = level; }
+    }
+
+    /// <summary>
+    /// Laboratory node (one tree, four branches; docs/design/GDD.md §5). Skill nodes: level N unlocks/upgrades the draft-pool
+    /// skill Levels[N-1].SkillId. Stat nodes: level N gives Levels[N-1].Stats to the loadout. Level 1 needs the prerequisites
+    /// (any or all of <see cref="Requires"/>); higher levels need the previous level. Time and Data cost do not depend on the
+    /// node but on how many levels the player has researched so far (<see cref="LabTuningDef"/>).
+    /// </summary>
     [Serializable]
     public sealed class LabResearchDef
     {
         public string Id;
         public string Name;
+        public string Description;
+        public LabNodeKind Kind;
+        /// <summary>UI grouping: "offense", "defense", "elements", "command".</summary>
+        public string Branch;
+        /// <summary>Depth in the branch (1 = root row).</summary>
+        public int Tier = 1;
         public List<LabLevelDef> Levels = new List<LabLevelDef>();
         public bool DefaultResearched;
+        public List<LabPrereq> Requires = new List<LabPrereq>();
+        /// <summary>True: every prerequisite is needed; false: any one of them.</summary>
+        public bool RequireAll;
+    }
+
+    /// <summary>
+    /// Laboratory pacing. The k-th research level a player starts (k = levels researched or running, beyond the default
+    /// ones) takes <c>BaseHours × Growth^k</c> nominal hours and costs <c>ceil(DataPerHour × hours)</c> Data, whatever the
+    /// node: every research makes the next one longer. Durations are shortened by the Laboratory building boon
+    /// (CitySystem.ResearchSpeedPct) and lengthened ×AnnexDurationMult in the Research Annex slot.
+    /// Sizing (docs/design/GDD.md §5, docs/balance/progression-report.md): ~29k nominal hours in total.
+    /// </summary>
+    [Serializable]
+    public sealed class LabTuningDef
+    {
+        public double BaseHours = 1.5;
+        public double Growth = 1.0355;
+        public double DataPerHour = 12;
+        /// <summary>Main slot + at most this many Research Annex slots.</summary>
+        public int MaxSlots = 2;
+        /// <summary>Research started in the Annex slot (main slot busy) takes this many times longer.</summary>
+        public double AnnexDurationMult = 2;
+
+        public double Hours(int k) => BaseHours * Math.Pow(Growth, Math.Max(0, k));
+        public long DataCost(int k) => (long)Math.Ceiling(DataPerHour * Hours(k) - 1e-9);
     }
 }

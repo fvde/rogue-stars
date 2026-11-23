@@ -177,6 +177,7 @@ namespace RogueStars.Rules.Content
             void G(string featureId, Reward r) => FeatureDefs[featureId].UnlockGrants.Add(r);
             G(Features.GrainFarm, new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1));
             G(Features.Laboratory, new Reward(RewardKinds.Blueprint, "bp_laboratory", 1));
+            G(Features.Laboratory, Reward.Cur(Currencies.Data, 60)); // the first researches (later: daily chests, Dark Side)
             G(Features.Aliens, new Reward(RewardKinds.Alien, "alien_blorp", 1));
             G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, "bp_housing_pod", 1));
             G(Features.OreMine, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));

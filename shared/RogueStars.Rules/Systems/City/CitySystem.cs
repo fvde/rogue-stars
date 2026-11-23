@@ -169,14 +169,28 @@ namespace RogueStars.Rules.Systems
             return v;
         }
 
-        /// <summary>Level-scaled boon value of a kind for one building (0 when inactive).</summary>
-        public static double LevelBoonValue(ContentDb content, BlueprintDef def, OwnedBlueprint b, BoonKind kind)
+        /// <summary>Level-scaled boon value of a kind for one building (0 when inactive). Ignores worker requirements.</summary>
+        public static double LevelBoonValue(ContentDb content, BlueprintDef def, OwnedBlueprint b, BoonKind kind) => LevelBoonValue(null, content, def, b, kind);
+
+        /// <summary>True if the building has the workers a boon needs (BuildingBoon.RequiredWorkers of RequiredWorkerStars★+).</summary>
+        public static bool BoonStaffed(GameState state, BlueprintDef def, OwnedBlueprint b, BuildingBoon boon)
+        {
+            if (boon.RequiredWorkers <= 0) return true;
+            if (state == null) return false;
+            int n = 0;
+            foreach (var a in Workers(state, b.Id)) if (a.Stars >= boon.RequiredWorkerStars) n++;
+            return n >= boon.RequiredWorkers;
+        }
+
+        /// <summary>Level-scaled boon value of a kind for one building (0 when inactive or, with a state, unstaffed).</summary>
+        public static double LevelBoonValue(GameState state, ContentDb content, BlueprintDef def, OwnedBlueprint b, BoonKind kind)
         {
             if (!IsActive(b)) return 0;
             double v = 0;
             foreach (var boon in def.Boons)
             {
                 if (boon.Kind != kind || b.Level < boon.MinLevel) continue;
+                if (boon.RequiredWorkers > 0 && !BoonStaffed(state, def, b, boon)) continue;
                 double x = boon.Base + boon.PerLevel * (b.Level - boon.MinLevel);
                 if (boon.StarScaled) x *= 1 + content.CityTuning.BoonPerStarPct * (b.Stars - 1) / 100.0;
                 v += x;
@@ -202,7 +216,7 @@ namespace RogueStars.Rules.Systems
                 if (!IsActive(b)) continue;
                 var def = content.Blueprint(b.Id);
                 if (def == null) continue;
-                v += LevelBoonValue(content, def, b, kind);
+                v += LevelBoonValue(state, content, def, b, kind);
                 if (!IsLocalMilestone(kind)) v += MilestoneValue(def, b.Stars, kind);
             }
             return v;
@@ -213,6 +227,9 @@ namespace RogueStars.Rules.Systems
 
         public static int DraftRerolls(GameState state, ContentDb content) =>
             (int)Math.Floor(BoonTotal(state, content, BoonKind.DraftRerolls) + 1e-9);
+
+        /// <summary>Extra laboratory research slots from staffed buildings (Research Annex).</summary>
+        public static int ResearchSlots(GameState state, ContentDb content) => (int)Math.Floor(BoonTotal(state, content, BoonKind.ResearchSlots) + 1e-9);
 
         /// <summary>Laboratory research speed-up percent from buildings (for the Run workstream).</summary>
         public static double ResearchSpeedPct(GameState state, ContentDb content) => BoonTotal(state, content, BoonKind.ResearchSpeedPct);
@@ -272,7 +289,8 @@ namespace RogueStars.Rules.Systems
 
         public static int WorkerSlots(ContentDb content, BlueprintDef def, OwnedBlueprint b)
         {
-            if (def == null || def.Category != BuildingCategory.Production) return 0;
+            if (def == null) return 0;
+            if (def.Category != BuildingCategory.Production) return def.WorkerSlots;
             return content.CityTuning.Rarity[(int)def.Rarity].WorkerSlots + (int)MilestoneValue(def, b.Stars, BoonKind.WorkerSlots);
         }
 

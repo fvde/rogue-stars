@@ -43,6 +43,8 @@ public class PartsTests
             Assert.True(r[i].Merge!.FodderPoints >= r[i - 1].Merge!.FodderPoints * 1.5, r[i].Name + " should cost markedly more than " + r[i - 1].Name);
         Assert.True(r[(int)PartRarity.MythicS].Merge!.SameDefCount >= 2);
         Assert.True(r[(int)PartRarity.MythicSS].Merge!.SameDefCount >= 3);
+        // Mythic+ merges also cost Ore, growing per step.
+        for (int i = (int)PartRarity.Mythic1; i < r.Count; i++) Assert.True(r[i].Merge!.Ore > r[i - 1].Merge!.Ore);
         // Mythic+ steps are fed by Legendary (or higher) surplus of any def and kind.
         for (int i = (int)PartRarity.Mythic; i < r.Count; i++) Assert.Equal(PartRarity.Legendary, r[i].Merge!.FodderMinRarity);
         // Below Mythic any surplus of the step's rarity merges up (no copies needed): surplus is never dead.
@@ -53,6 +55,7 @@ public class PartsTests
     public void Merge_EveryStepOfTheLadder_CommonToMythicSS2()
     {
         var e = Engine(); var s = Player(e);
+        SetBalance(s, Currencies.Ore, 100_000_000);
         var target = Add(s, Arm, PartRarity.Common);
         int top = C.PartsConfig.Rarities.Count - 1;
         for (int t = 1; t <= top; t++)
@@ -72,6 +75,7 @@ public class PartsTests
     public void Merge_FodderPoints_LowerPartsSubstituteForHigher_NoSuperfluousMaterial()
     {
         var e = Engine(); var s = Player(e);
+        SetBalance(s, Currencies.Ore, 1_000_000);
         // Mythic -> Mythic+1 needs 8 Legendary-equivalents: one spare Mythic (4 LE) + four Legendaries of any def/kind.
         var t = Add(s, Arm, PartRarity.Mythic);
         var mythic = Add(s, Head, PartRarity.Mythic);
@@ -80,14 +84,19 @@ public class PartsTests
         Assert.Contains("rarity too low", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, epic.Uid } }));
         Assert.Contains("not enough fodder", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid } }));
         Assert.Contains("superfluous", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, legs[3].Uid, legs[4].Uid } }));
+        SetBalance(s, Currencies.Ore, 10);
+        Assert.Contains("ore", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, legs[3].Uid } }));
+        SetBalance(s, Currencies.Ore, 1_000_000);
         Ok(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = new List<string> { mythic.Uid, legs[0].Uid, legs[1].Uid, legs[2].Uid, legs[3].Uid } });
         Assert.Equal((int)PartRarity.Mythic1, s.Parts.Items[t.Uid].Rarity);
+        Assert.Equal(1_000_000 - C.PartsConfig.Rarities[(int)PartRarity.Mythic1].Merge!.Ore, s.Wallet.Get(Currencies.Ore));
     }
 
     [Fact]
     public void Merge_SameDefCopies_RequiredForMythicAndS()
     {
         var e = Engine(); var s = Player(e);
+        SetBalance(s, Currencies.Ore, 1_000_000);
         var t = Add(s, Arm, PartRarity.Legendary);
         var others = Enumerable.Range(0, 3).Select(_ => Add(s, Arm2, PartRarity.Legendary).Uid).ToList();
         Assert.Contains("copies", Fail(e, ref s, new PartMerge { TargetUid = t.Uid, MaterialUids = others }));
@@ -334,6 +343,7 @@ public class PartsTests
                 Assert.Equal(SkillSource.Part, sk.Source);
                 Assert.False(sk.Draftable);
                 Assert.False(string.IsNullOrEmpty(sk.Description));
+                Assert.DoesNotContain("{", sk.Description); // scaled amounts are substituted
                 Assert.True(sk.Triggers.Count + sk.Stats.Count > 0);
             }
             // Awakened skills are redesigns, not bigger numbers: different trigger sets.

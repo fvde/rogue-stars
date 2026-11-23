@@ -69,13 +69,14 @@ public static class Redesign
         }
         sb.AppendLine();
 
-        sb.AppendLine("## Laboratory completion (% of all node levels, median)");
+        sb.AppendLine("## Laboratory completion (median): % of node levels / % of the tree's nominal research hours");
         sb.AppendLine();
         var labDays = new[] { 30, 90, 180, 365, 730 }.Where(d => d <= days).ToList();
-        sb.AppendLine("| Profile | " + string.Join(" | ", labDays.Select(d => "d" + d)) + " |");
-        sb.AppendLine("|---|" + string.Concat(labDays.Select(_ => "---|")));
+        sb.AppendLine("| Profile | " + string.Join(" | ", labDays.Select(d => "d" + d)) + " | research slots d" + labDays.Last() + " |");
+        sb.AppendLine("|---|" + string.Concat(labDays.Select(_ => "---|")) + "---|");
         foreach (var g in groups)
-            sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", labDays.Select(d => Output.F(Cum(g.Key, d, "lab_pct")))) + " |");
+            sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", labDays.Select(d => Output.F(Cum(g.Key, d, "lab_pct")) + " / " + Output.F(Cum(g.Key, d, "lab_hours_pct")))) + " | "
+                          + Output.F(Cum(g.Key, labDays.Last(), "lab_slots")) + " |");
         sb.AppendLine();
 
         foreach (var cur in new[] { "data", RogueStars.Rules.Core.Currencies.Biomass })

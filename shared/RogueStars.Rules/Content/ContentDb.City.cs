@@ -23,6 +23,7 @@ namespace RogueStars.Rules.Content
         ProductionPct,       // + % production (milestone: this building; boon: every building)
         StoragePct,          // + % storage cap of this building (milestones)
         WorkerSlots,         // + worker slots of this building (milestones)
+        ResearchSlots,       // + laboratory research slots (Research Annex; needs its workers, see BuildingBoon.RequiredWorkers)
     }
 
     [Serializable]
@@ -46,6 +47,9 @@ namespace RogueStars.Rules.Content
         public bool StarScaled;
         /// <summary>For RunSkill: the highest tier with MinLevel ≤ level is active.</summary>
         public List<SkillTier> SkillTiers = new List<SkillTier>();
+        /// <summary>Boon only active while at least this many aliens of RequiredWorkerStars★ or more work in the building.</summary>
+        public int RequiredWorkers;
+        public int RequiredWorkerStars;
     }
 
     /// <summary>Effect unlocked when the blueprint reaches Stars.</summary>
@@ -80,6 +84,8 @@ namespace RogueStars.Rules.Content
         public double CostMult = 1;
         public List<BuildingBoon> Boons = new List<BuildingBoon>();
         public List<StarMilestone> Milestones = new List<StarMilestone>();
+        /// <summary>Worker slots of a non-production building (production buildings use the rarity tuning).</summary>
+        public int WorkerSlots;
         /// <summary>Collection bonus: + CollectionPctPerStar % of CollectionStat per star while owned.</summary>
         public StatId CollectionStat = StatId.Hp;
         public double CollectionPctPerStar;
@@ -185,10 +191,11 @@ namespace RogueStars.Rules.Content
             CityAreaAdd("area_northwest", "Starfall Plateau", 8, 0, 0, "city_buildings_built", 18, CityCost(Currencies.Biomass, 300000), CityCost(Currencies.Ore, 220000), CityCost(Currencies.Diamonds, 400));
 
             // ---- production ----
-            CityProduction("bp_biomass_farm", "Biomass Farm", Rarity.Common, 1, 1, Currencies.Biomass, 60, StatId.Hp);
+            // Biomass farms are the secondary Biomass source (portal runs are the main one).
+            CityProduction("bp_biomass_farm", "Biomass Farm", Rarity.Common, 1, 1, Currencies.Biomass, 30, StatId.Hp);
             CityProduction("bp_grain_farm", "Grain Farm", Rarity.Common, 1, 1, Currencies.Grain, 40, StatId.Hp);
             CityProduction("bp_ore_mine", "Ore Mine", Rarity.Common, 1, 1, Currencies.Ore, 40, StatId.Def);
-            CityProduction("bp_spore_vats", "Spore Vats", Rarity.Rare, 2, 1, Currencies.Biomass, 150, StatId.Regen);
+            CityProduction("bp_spore_vats", "Spore Vats", Rarity.Rare, 2, 1, Currencies.Biomass, 75, StatId.Regen);
             CityProduction("bp_fuel_refinery", "Fuel Refinery", Rarity.Rare, 2, 1, Currencies.Fuel, 15, StatId.MountPower);
             CityProduction("bp_gear_works", "Gear Works", Rarity.Rare, 2, 1, Currencies.GearCores, 2, StatId.Atk);
             CityProduction("bp_training_grounds", "Training Grounds", Rarity.Rare, 2, 1, Currencies.HeroXp, 30, StatId.CritDamage);
@@ -224,7 +231,12 @@ namespace RogueStars.Rules.Content
             geneLab.Boons.Add(new BuildingBoon { Kind = BoonKind.BreedingSpeedPct, Base = 5, PerLevel = 1 });
             var lab = CityDef("bp_laboratory", "Laboratory", Rarity.Common, BuildingCategory.Utility, 1, 1, StatId.XpGain,
                 "Speeds up Laboratory research.");
-            lab.Boons.Add(new BuildingBoon { Kind = BoonKind.ResearchSpeedPct, Base = 5, PerLevel = 1.5, StarScaled = true });
+            // Modest research speed (≤ ~27% at level 32 and 10★): the laboratory's year-one bound counts on it (GDD §5).
+            lab.Boons.Add(new BuildingBoon { Kind = BoonKind.ResearchSpeedPct, Base = 2, PerLevel = 0.5, StarScaled = true });
+            var annex = CityDef("bp_research_annex", "Research Annex", Rarity.Mythic, BuildingCategory.Utility, 2, 2, StatId.CritDamage,
+                "A second Laboratory research slot (research there takes twice as long) while two aliens of 3★ or more work here.");
+            annex.WorkerSlots = 2;
+            annex.Boons.Add(new BuildingBoon { Kind = BoonKind.ResearchSlots, Base = 1, RequiredWorkers = 2, RequiredWorkerStars = 3 });
             var crane = CityDef("bp_construction_yard", "Construction Yard", Rarity.Rare, BuildingCategory.Utility, 2, 1, StatId.Def,
                 "Faster construction and upgrades.");
             crane.Boons.Add(new BuildingBoon { Kind = BoonKind.BuildSpeedPct, Base = 5, PerLevel = 1, StarScaled = true });

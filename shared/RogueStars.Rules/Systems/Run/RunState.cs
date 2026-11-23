@@ -199,5 +199,7 @@ namespace RogueStars.Rules.Systems
         public long ReadyAtMs;
         /// <summary>City TimerSystem timer of the running research (kind "lab_research").</summary>
         public string TimerId;
+        /// <summary>True while the running research uses the Research Annex slot (longer timer).</summary>
+        public bool InAnnex;
     }
 }

@@ -109,14 +109,15 @@ public class RunIntegrationTests
         var e = Engine();
         var s = e.NewPlayer("p", T0, 5);
         s.Flags.Add(Features.DevUnlockAllFlag);
-        s.Wallet.Add(Currencies.Biomass, 1_000_000); s.Wallet.Add(Currencies.Ore, 1_000_000);
+        s.Wallet.Add(Currencies.Data, 1_000_000);
         var def = e.Content.LabResearch["res_burning_soul"];
+        long nominal = LaboratorySystem.NextNominalMs(s, e.Content);
         Assert.True(e.Execute(ref s, new LabResearch { ResearchId = def.Id }, T0).Ok);
         var t1 = TimerSystem.Find(s, LaboratorySystem.TimerKind, def.Id)!;
-        Assert.Equal(def.Levels[0].DurationMs, t1.DurationMs);
+        Assert.Equal(nominal, t1.DurationMs);
         Assert.True(e.Execute(ref s, new TimerSpeedUp { TimerId = t1.Id, Method = SpeedUpMethod.Free }, T0).Ok);
         long ready = LaboratorySystem.ReadyAtMs(s, def.Id);
-        Assert.True(ready < t1.StartMs + def.Levels[0].DurationMs);
+        Assert.True(ready < t1.StartMs + nominal);
         Assert.True(e.Execute(ref s, new LabCollect { ResearchId = def.Id }, ready).Ok);
 
         // Laboratory building boon shortens the next research.
@@ -126,9 +127,11 @@ public class RunIntegrationTests
         e.Settle(s, ready + 10 * Min);
         double pct = CitySystem.ResearchSpeedPct(s, e.Content);
         Assert.True(pct > 0);
+        long nominal2 = LaboratorySystem.NextNominalMs(s, e.Content);
+        Assert.True(nominal2 > nominal, "every research makes the next one longer");
         Assert.True(e.Execute(ref s, new LabResearch { ResearchId = def.Id }, ready + 10 * Min).Ok);
         var t2 = TimerSystem.Find(s, LaboratorySystem.TimerKind, def.Id)!;
-        Assert.Equal((long)Math.Ceiling(def.Levels[1].DurationMs / (1 + pct / 100.0)), t2.DurationMs);
+        Assert.Equal((long)Math.Ceiling(nominal2 / (1 + pct / 100.0)), t2.DurationMs);
     }
 
     /// <summary>

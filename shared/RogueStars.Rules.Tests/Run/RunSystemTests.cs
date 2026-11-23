@@ -425,6 +425,34 @@ public class AwakenCoreSourceTests
     }
 }
 
+public class DarkSideTests
+{
+    [Fact]
+    public void DarkSide_IsProceduralAlongTheCampaign_DataGrowsWithLevel()
+    {
+        var c = ContentDb.Default;
+        var dark = c.Portal("dark_side")!;
+        Assert.Equal(c.Campaign.DarkSideLevels, dark.LevelIds.Count);
+        Assert.True(dark.LevelIds.Count >= 100);
+        long prevData = 0; int prevThreat = int.MinValue;
+        foreach (var id in dark.LevelIds)
+        {
+            var l = c.RunLevel(id)!;
+            long data = l.CompletionRewards.Single(r => r.Id == Currencies.Data).Amount;
+            Assert.True(data >= prevData);
+            Assert.True(l.Threat >= prevThreat);
+            prevData = data; prevThreat = l.Threat;
+        }
+        // The last Dark Side level sits near the end of the 500-level campaign and pays many times the first one's Data.
+        var last = c.RunLevel(dark.LevelIds[^1])!;
+        Assert.True(last.CompletionRewards.Single(r => r.Id == Currencies.Data).Amount >= 10 * c.RunLevel(dark.LevelIds[0])!.CompletionRewards.Single(r => r.Id == Currencies.Data).Amount);
+        Assert.True(last.Threat > c.Campaign.ThreatAt(350));
+        // Main portals pay no Data; the quest track pays a trickle.
+        Assert.All(c.RunLevels.Values.Where(l => l.PortalId != "dark_side"), l => Assert.DoesNotContain(l.CompletionRewards, r => r.Id == Currencies.Data));
+        Assert.Contains(c.PointChests, ch => ch.Rewards.Any(r => r.Id == Currencies.Data));
+    }
+}
+
 public class LaboratoryTests
 {
     [Fact]
@@ -439,19 +467,22 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void Research_CostsTime_Collect_Toggle_Upgrade()
+    public void Research_CostsDataAndTime_Collect_Toggle_Upgrade()
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e);
-        s.Wallet.Balances.Remove(Currencies.Biomass); s.Wallet.Balances.Remove(Currencies.Ore); // starting wallet
+        var tuning = e.Content.LabTuning;
+        s.Wallet.Balances.Remove(Currencies.Data);
         Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }).Ok); // cannot afford
-        s.Wallet.Add(Currencies.Biomass, 5000);
-        s.Wallet.Add(Currencies.Ore, 5000);
+        s.Wallet.Add(Currencies.Data, 5000);
+        Assert.Equal(0, LaboratorySystem.ResearchIndex(s, e.Content));
         Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }).Ok);
-        Assert.Equal(4800, s.Wallet.Get(Currencies.Biomass));
-        Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_overload" }).Ok);   // one slot
+        Assert.Equal(5000 - tuning.DataCost(0), s.Wallet.Get(Currencies.Data));
+        Assert.Equal(1, LaboratorySystem.ResearchIndex(s, e.Content));
+        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_frost_nova" }).Error); // one slot
         Assert.False(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }).Ok); // not ready
         long ready = LaboratorySystem.ReadyAtMs(s, "res_burning_soul");
+        Assert.Equal(TestHelpers.T0 + (long)Math.Round(tuning.Hours(0) * 3_600_000), ready);
         Assert.True(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }, ready).Ok);
         Assert.Contains("lab_burning_soul", e.BuildLoadout(s, ready).DraftPoolSkillIds);
 
@@ -460,9 +491,12 @@ public class LaboratoryTests
         Assert.False(RunTestKit.Exec(e, ref s, new LabToggle { ResearchId = "res_overload", Enabled = true }, ready).Ok);
         Assert.True(RunTestKit.Exec(e, ref s, new LabToggle { ResearchId = "res_burning_soul", Enabled = true }, ready).Ok);
 
-        // upgrade to level 2, finished with a City timer speed-up (Diamonds)
+        // upgrade to level 2, finished with a City timer speed-up (Diamonds); the 2nd research is longer and pricier
         s.Wallet.Add(Currencies.Diamonds, 100_000);
+        long data = s.Wallet.Get(Currencies.Data);
         Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, ready).Ok);
+        Assert.Equal(data - tuning.DataCost(1), s.Wallet.Get(Currencies.Data));
+        Assert.True(tuning.Hours(1) > tuning.Hours(0));
         var timer = TimerSystem.Find(s, LaboratorySystem.TimerKind, "res_burning_soul")!;
         Assert.True(RunTestKit.Exec(e, ref s, new TimerSpeedUp { TimerId = timer.Id, Method = SpeedUpMethod.Diamonds }, ready).Ok);
         Assert.True(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }, ready).Ok);
@@ -470,8 +504,127 @@ public class LaboratoryTests
         var pool = e.BuildLoadout(s, ready).DraftPoolSkillIds;
         Assert.Contains("lab_burning_soul_2", pool);
         Assert.DoesNotContain("lab_burning_soul", pool);
-        Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, ready).Ok); // level 3 is far pricier
         Assert.Equal(2, s.Counter("lab_research_completed"));
+    }
+
+    [Fact]
+    public void Tree_PrerequisitesAnyAndAll_StatNodesFeedTheLoadout()
+    {
+        var e = TestHelpers.Engine();
+        var s = TestHelpers.NewPlayer(e);
+        s.Wallet.Add(Currencies.Data, 10_000_000);
+        long t = TestHelpers.T0;
+        void Research(string id, int levels)
+        {
+            for (int i = 0; i < levels; i++)
+            {
+                Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = id }, t).Ok, id);
+                t = LaboratorySystem.ReadyAtMs(s, id);
+                Assert.True(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = id }, t).Ok);
+            }
+        }
+        // Row 2 needs any row-1 node of the branch at level 2.
+        Assert.Contains("prerequisites", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_def_1" }, t).Error);
+        Research("lab_hp_1", 1);
+        Assert.Contains("prerequisites", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_def_1" }, t).Error);
+        double hpBefore = e.BuildLoadout(s, t).WormStats.Percent.TryGetValue(StatId.Hp, out var hb) ? hb : 0;
+        Research("lab_hp_1", 1);
+        Assert.Equal(hpBefore + 1, e.BuildLoadout(s, t).WormStats.Percent[StatId.Hp], 6); // +1% per level
+        Research("lab_def_1", 1);
+        // Stat nodes cannot be toggled.
+        Assert.Contains("only skill", RunTestKit.Exec(e, ref s, new LabToggle { ResearchId = "lab_hp_1", Enabled = false }, t).Error);
+        // Capstones need all prerequisites.
+        var cap = e.Content.LabResearch["lab_damage_reduction"];
+        Assert.True(cap.RequireAll);
+        Assert.False(LaboratorySystem.PrerequisitesMet(s, e.Content, cap));
+        Assert.Equal(e.Content.LabTuning.DataCost(LaboratorySystem.ResearchIndex(s, e.Content)), LaboratorySystem.NextDataCost(s, e.Content));
+    }
+
+    [Fact]
+    public void ResearchAnnex_SecondSlotWhileStaffed_RunsTwiceAsLong()
+    {
+        var e = RunTestKit.Engine();
+        var s = TestHelpers.NewPlayer(e);
+        s.Wallet.Add(Currencies.Data, 1_000_000);
+        long t = TestHelpers.T0;
+        Assert.Equal(1, LaboratorySystem.Slots(s, e.Content));
+        var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = t };
+        ctx.Grant(new Reward(RewardKinds.Blueprint, "bp_research_annex", 1));
+        foreach (var a in new[] { "alien_blorp", "alien_mossling" }) ctx.Grant(new Reward(RewardKinds.Alien, a, 1));
+        s.Wallet.Add(Currencies.Biomass, 10_000_000); s.Wallet.Add(Currencies.Ore, 10_000_000);
+        Assert.True(RunTestKit.Exec(e, ref s, new CityBuild { BlueprintId = "bp_research_annex", X = 4, Y = 4 }, t).Ok);
+        t += 30 * 24 * 3_600_000L;
+        e.Settle(s, t);
+        Assert.True(CitySystem.IsActive(CitySystem.Owned(s, "bp_research_annex")));
+        Assert.Equal(1, LaboratorySystem.Slots(s, e.Content)); // not staffed yet
+        foreach (var a in new[] { "alien_blorp", "alien_mossling" })
+        {
+            Assert.True(RunTestKit.Exec(e, ref s, new AlienAssign { AlienTypeId = a, BlueprintId = "bp_research_annex" }, t).Ok);
+            AlienSystem.Owned(s, a).Stars = 2;
+        }
+        Assert.Equal(1, LaboratorySystem.Slots(s, e.Content)); // workers below 3★
+        foreach (var a in new[] { "alien_blorp", "alien_mossling" }) AlienSystem.Owned(s, a).Stars = 3;
+        Assert.Equal(2, LaboratorySystem.Slots(s, e.Content));
+
+        Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_hp_1" }, t).Ok);
+        Assert.True(LaboratorySystem.NextInAnnex(s, e.Content));
+        int k = LaboratorySystem.ResearchIndex(s, e.Content);
+        long expected = LaboratorySystem.DurationMs(s, e.Content, (long)Math.Round(e.Content.LabTuning.Hours(k) * e.Content.LabTuning.AnnexDurationMult * 3_600_000));
+        Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_atk_1" }, t).Ok);
+        Assert.True(LaboratorySystem.Entry(s, "lab_atk_1").InAnnex);
+        Assert.Equal(t + expected, LaboratorySystem.ReadyAtMs(s, "lab_atk_1"));
+        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_alien_power_1" }, t).Error);
+    }
+
+    /// <summary>
+    /// The laboratory's size (docs/design/GDD.md §5): even perfect play with one slot (all 3 ad speed-ups at the start of
+    /// every timer = ×0.85³, the daily free speed-up every day, the strongest Laboratory building boon) cannot finish the
+    /// tree in 365 days; with the Research Annex from day 1 it still cannot.
+    /// </summary>
+    [Fact]
+    public void Tree_CannotBeFinishedInYearOne_EvenWithPerfectPlayAndTheAnnex()
+    {
+        var c = ContentDb.Default;
+        int levels = c.LabResearch.Values.Sum(d => d.Levels.Count - (d.DefaultResearched ? 1 : 0));
+        double total = 0;
+        for (int k = 0; k < levels; k++) total += c.LabTuning.Hours(k);
+        Assert.InRange(total, 25_000, 32_000); // ≈ 2 years of perfect play with one slot and no building boon
+
+        var lab = c.Blueprints["bp_laboratory"];
+        var boon = lab.Boons.Single(b => b.Kind == BoonKind.ResearchSpeedPct);
+        int maxLevel = c.CityTuning.MaxLevelBase + c.CityTuning.MaxLevelPerStar * 10;
+        double maxBoon = (boon.Base + boon.PerLevel * (maxLevel - boon.MinLevel)) * (1 + c.CityTuning.BoonPerStarPct * 9 / 100.0);
+        double ads = Math.Pow(1 - c.TimerTuning.AdReductionPct / 100.0, c.TimerTuning.MaxAdsPerTimer);
+        double freeHoursPerDay = c.TimerTuning.FreeSpeedUpsPerDay * c.TimerTuning.FreeSpeedUpMs / 3_600_000.0;
+        // Nominal research hours one slot clears in a year at best.
+        double oneSlot = 365 * (24 + freeHoursPerDay) * (1 + maxBoon / 100.0) / ads;
+        double withAnnex = oneSlot + 365 * 24 * (1 + maxBoon / 100.0) / ads / c.LabTuning.AnnexDurationMult;
+        Assert.True(total > oneSlot, $"tree {total:0} h vs one slot {oneSlot:0} h");
+        Assert.True(total > withAnnex, $"tree {total:0} h vs two slots {withAnnex:0} h");
+        // Without the building boon one slot needs about two years.
+        double plain = 365 * (24 + freeHoursPerDay) / ads;
+        Assert.InRange(total / plain, 1.8, 2.3);
+    }
+
+    [Fact]
+    public void Tree_Has38NodesInFourBranches_MixingStatsAndSkills()
+    {
+        var c = ContentDb.Default;
+        Assert.Equal(38, c.LabResearch.Count);
+        foreach (var branch in new[] { "offense", "defense", "elements", "command" })
+        {
+            var nodes = c.LabResearch.Values.Where(d => d.Branch == branch).ToList();
+            Assert.Contains(nodes, d => d.Kind == LabNodeKind.Stat);
+            Assert.Contains(nodes, d => d.Kind == LabNodeKind.Skill);
+        }
+        foreach (var d in c.LabResearch.Values)
+        {
+            foreach (var r in d.Requires) Assert.NotNull(c.LabNode(r.ResearchId));
+            if (d.Kind == LabNodeKind.Stat)
+                foreach (var lv in d.Levels) Assert.All(lv.Stats, m => Assert.InRange(m.Flat + m.Percent, 1, 10));
+            else foreach (var lv in d.Levels) Assert.NotNull(c.Skill(lv.SkillId));
+            if (d.Tier > 1) Assert.NotEmpty(d.Requires);
+        }
     }
 
     [Fact]

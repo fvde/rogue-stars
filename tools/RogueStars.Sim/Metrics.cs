@@ -93,6 +93,16 @@ public static class Metrics
     public static int LabDone(GameState s) => s.Lab.Entries.Values.Sum(e => e.Level);
     public static int LabTotal(ContentDb c) => c.LabResearch.Values.Sum(d => d.Levels.Count);
 
+    /// <summary>Share of the tree's nominal research hours completed (the k-th research takes LabTuning.Hours(k)).</summary>
+    public static double LabHoursPct(GameState s, ContentDb c)
+    {
+        int defaults = c.LabResearch.Values.Count(d => d.DefaultResearched);
+        int done = Math.Max(0, LabDone(s) - defaults), total = LabTotal(c) - defaults;
+        double h = 0, all = 0;
+        for (int k = 0; k < total; k++) { all += c.LabTuning.Hours(k); if (k < done) h += c.LabTuning.Hours(k); }
+        return all <= 0 ? 0 : 100.0 * h / all;
+    }
+
     /// <summary>Checkpoint snapshot: every per-system metric of the report (ordered name → value).</summary>
     public static List<(string name, double value)> Snapshot(SimPlayer p)
     {
@@ -175,6 +185,8 @@ public static class Metrics
         A("lab_research", s.Lab.Entries.Values.Sum(e => e.Level));
         A("lab_research_max", c.LabResearch.Values.Sum(d => d.Levels.Count));
         A("lab_pct", 100.0 * LabDone(s) / Math.Max(1, LabTotal(c)));
+        A("lab_hours_pct", LabHoursPct(s, c));
+        A("lab_slots", LaboratorySystem.Slots(s, c));
         for (int i = 0; i < SimPlayer.SourceTracked.Length; i++)
             for (int j = 0; j < SimPlayer.Sources.Length; j++)
                 A("src_" + SimPlayer.SourceTracked[i] + "_" + SimPlayer.Sources[j], p.EarnedBySource[i, j]);

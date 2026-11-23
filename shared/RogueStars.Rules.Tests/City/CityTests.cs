@@ -10,9 +10,26 @@ public class CityTests
     private const long T0 = TestHelpers.T0;
     private const string Farm = "bp_biomass_farm";
 
+    /// <summary>
+    /// Production-math fixture: the Biomass Farm pinned to 60/h (8 h storage) so these tests check the mechanics, not the
+    /// current tuning (the farm's live rate is a balance number, see docs/balance/progression-report.md).
+    /// </summary>
+    private static readonly ContentDb Fixture = MakeFixture();
+
+    private static ContentDb MakeFixture()
+    {
+        var c = new ContentDb();
+        c.Onboarding.StarterKit.Clear();
+        c.Blueprints[Farm].BaseRatePerHour = 60;
+        c.Blueprints[Farm].BaseStorage = 480;
+        return c;
+    }
+
+    private static GameEngine Engine() => new GameEngine(Fixture) { Cloner = TestHelpers.Clone };
+
     private static (GameEngine e, GameState s, long t) FarmReady()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         long t = BuildActive(e, ref s, Farm, 4, 4, T0);
         return (e, s, t);
@@ -25,7 +42,7 @@ public class CityTests
     [Fact]
     public void Content_HasBlueprintsAreasAndValidSkills()
     {
-        var c = TestHelpers.Engine().Content;
+        var c = Engine().Content;
         Assert.True(c.Blueprints.Count >= 24);
         Assert.Equal(9, c.CityAreas.Count);
         foreach (var bp in c.Blueprints.Values)
@@ -43,7 +60,7 @@ public class CityTests
     [Fact]
     public void Areas_UnlockOneByOne_WithRequirementsAndCosts()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Broke(e);
         Assert.Equal(new[] { "area_core" }, s.City.UnlockedAreas);
         Assert.Equal("areas unlock in order", Fail(e, ref s, new CityUnlockArea { AreaId = "area_east" }, T0));
@@ -62,7 +79,7 @@ public class CityTests
     [Fact]
     public void Placement_RequiresUnlockedFreeCellsInsideGrid()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         GrantBlueprint(e, s, Farm);
         GrantBlueprint(e, s, "bp_ore_mine");
@@ -81,7 +98,7 @@ public class CityTests
     [Fact]
     public void Build_SpendsCost_RunsTimer_ThenLevelOne()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Broke(e);
         s.Wallet.Add(Currencies.Ore, 40); s.Wallet.Add(Currencies.Biomass, 60);
         GrantBlueprint(e, s, Farm);
@@ -225,7 +242,7 @@ public class CityTests
     [Fact]
     public void BuildSpeedBoonsShortenTimers()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         long t = BuildActive(e, ref s, "bp_construction_yard", 6, 6, T0); // +5% build speed
         var def = e.Content.Blueprint("bp_diamond_mine");
@@ -276,7 +293,7 @@ public class CityTests
     [Fact]
     public void BlueprintGranter_FirstCopyOwned_DupesBecomeShards()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = TestHelpers.NewPlayer(e);
         GrantBlueprint(e, s, Farm);
         Assert.Equal(1, CitySystem.Owned(s, Farm).Stars);
@@ -292,7 +309,7 @@ public class CityTests
     [Fact]
     public void BlueprintStars_OneToTen_FromShards()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = TestHelpers.NewPlayer(e);
         long total = e.Content.CityTuning.BlueprintStarCosts.Sum();
         Assert.Equal(111, total);
@@ -331,7 +348,7 @@ public class CityTests
     [Fact]
     public void CollectionBonus_OwnedBlueprintsGiveStatsByStars()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = TestHelpers.NewPlayer(e);
         GrantBlueprint(e, s, Farm);               // Common Hp 0.3%/star
         GrantBlueprint(e, s, "bp_diamond_mine");  // Epic CritChance 0.8%/star
@@ -346,7 +363,7 @@ public class CityTests
     [Fact]
     public void BoonBuildings_ReachLoadout_SkillsAndRerolls()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         long t = BuildActive(e, ref s, "bp_star_forge", 4, 4, T0);
         t = BuildActive(e, ref s, "bp_ancient_reliquary", 6, 4, t);
@@ -379,7 +396,7 @@ public class CityTests
     [Fact]
     public void BoonBuildings_InactiveWhileUnderConstructionOrStored()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         GrantBlueprint(e, s, "bp_war_academy");
         Ok(e, ref s, new CityBuild { BlueprintId = "bp_war_academy", X = 4, Y = 4 }, T0);
@@ -393,7 +410,7 @@ public class CityTests
     [Fact]
     public void SquadSlots_ZeroUntilHousing_ThenUpgradesAndRareBlueprints_CappedAtThree()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         Assert.Equal(0, CitySystem.SquadSlots(s, e.Content));
         long t = BuildActive(e, ref s, "bp_housing_pod", 4, 4, T0);
@@ -409,7 +426,7 @@ public class CityTests
     [Fact]
     public void StaminaAndOtherBonusProviders()
     {
-        var e = TestHelpers.Engine();
+        var e = Engine();
         var s = Rich(e);
         long t = BuildActive(e, ref s, "bp_stamina_well", 4, 4, T0);
         t = BuildActive(e, ref s, "bp_regen_spire", 5, 4, t);
@@ -423,7 +440,7 @@ public class CityTests
         bonus = CitySystem.StaminaBonus(s, e.Content, t);
         Assert.Equal(7 + 5, bonus.CapBonus);
         Assert.Equal(5 * 1.06, bonus.TickSpeedPercent, 6);
-        Assert.Equal(5, CitySystem.ResearchSpeedPct(s, e.Content), 6);
+        Assert.Equal(e.Content.Blueprints["bp_laboratory"].Boons[0].Base, CitySystem.ResearchSpeedPct(s, e.Content), 6);
     }
 
     [Fact]

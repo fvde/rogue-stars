@@ -124,14 +124,15 @@ namespace RogueStars.Rules.Content
                 c.Rewards.AddRange(rewards);
                 PointChests.Add(c);
             }
-            Chest(PointTrack.Daily, 20, Reward.Cur(Currencies.Biomass, 500));
+            // Data trickle (Laboratory) so research works before the Dark Side opens.
+            Chest(PointTrack.Daily, 20, Reward.Cur(Currencies.Biomass, 500), Reward.Cur(Currencies.Data, 20));
             Chest(PointTrack.Daily, 40, Dia(10));
-            Chest(PointTrack.Daily, 60, Reward.Cur(Currencies.Stamina, 10));
+            Chest(PointTrack.Daily, 60, Reward.Cur(Currencies.Stamina, 10), Reward.Cur(Currencies.Data, 20));
             Chest(PointTrack.Daily, 80, Reward.Cur(Currencies.PartTokens, 1));
             Chest(PointTrack.Daily, 100, Dia(30));
             Chest(PointTrack.Weekly, 100, Reward.Cur(Currencies.Ore, 3000));
             Chest(PointTrack.Weekly, 200, Dia(50));
-            Chest(PointTrack.Weekly, 300, Reward.Cur(Currencies.BlueprintTokens, 3));
+            Chest(PointTrack.Weekly, 300, Reward.Cur(Currencies.BlueprintTokens, 3), Reward.Cur(Currencies.Data, 150));
             Chest(PointTrack.Weekly, 400, Dia(100));
             Chest(PointTrack.Weekly, 500, Reward.Cur(Currencies.AlienTokens, 5));
 

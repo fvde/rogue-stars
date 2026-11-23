@@ -438,7 +438,8 @@ namespace RogueStars.Rules.Content
             {
                 var t = new LootTableDef { Id = "loot_p" + p };
                 long s = (long)Math.Round(Campaign.RewardScale(p - 1));
-                t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 30 * s, 60 * s));
+                // Biomass comes mainly from portal runs (completion + loot); the city farms are the secondary source.
+                t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 60 * s, 120 * s));
                 t.Entries.Add(new LootEntry(20, RewardKinds.Currency, Currencies.Ore, 20 * s, 40 * s));
                 t.Entries.Add(new LootEntry(14, RewardKinds.Currency, Currencies.Grain, 20 * s, 40 * s));
                 t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.Fuel, 10 * s, 20 * s));
@@ -515,23 +516,29 @@ namespace RogueStars.Rules.Content
             }
             Portals[burrow.Id] = burrow;
 
-            // Dark Side: extreme modifiers, own rewards.
+            // Dark Side: procedural levels along the campaign curve, extreme modifiers, own rewards. The long-term Data source
+            // for the Laboratory (Data grows with the level).
             var dark = new PortalDef { Id = "dark_side", Name = "Dark Side of the Planet", Kind = PortalKind.DarkSide, Order = Campaign.SidePortalOrder + 1 };
-            // Dark Side 1 sits a few threat steps below its gate level (its extreme modifiers make up the difference).
-            int darkBase = (int)Math.Floor(Campaign.ThreatAt(Campaign.DarkSideFromLevel)) - 5;
-            for (int i = 1; i <= 10; i++)
+            for (int i = 1; i <= Campaign.DarkSideLevels; i++)
             {
-                var l = RunNewLevel("dark_side_" + i, "Dark Side " + i, dark.Id, i, darkBase + (i - 1) * 2, "pool_dark", "boss_void_maw", "loot_dark",
+                double main = Campaign.DarkSideFromLevel + Campaign.DarkSideSpacing * (i - 1);
+                double threat = Campaign.ThreatAt((int)Math.Round(main)) - Campaign.DarkSideThreatOffset;
+                int whole = (int)Math.Floor(threat + 1e-9);
+                var l = RunNewLevel("dark_side_" + i, "Dark Side " + i, dark.Id, i, whole, "pool_dark", "boss_void_maw", "loot_dark",
                     new[] { "void_spawn", "null_shade", "tunnel_stalker" }, new[] { "elite_void_reaver", "elite_rift_echo" });
                 l.StaminaCost = 12; l.ShopTableId = "shop_dark"; l.Dice = 2; l.MaxRolls = 14; l.BoardLength = 34;
                 l.RewardMultiplier = 2.5;
+                double extreme = 40 + 5 * Math.Min(i, 10);
+                // Threat fraction as extra enemy HP/ATK %, on top of the extreme modifier.
+                double frac = (ThreatFractionMultiplier(threat) - 1) * 100;
                 l.Modifiers = new LevelModifiers
                 {
-                    EnemyAtkPct = 40 + 5 * i, EnemyHpPct = 40 + 5 * i, HealPct = -50, AwakeningPct = 50, DangerPct = 50,
-                    Text = "Enemies +" + (40 + 5 * i) + "% ATK/HP, healing -50%, awakening and danger +50%.",
+                    EnemyAtkPct = Math.Round(extreme + frac, 2), EnemyHpPct = Math.Round(extreme + frac, 2), HealPct = -50, AwakeningPct = 50, DangerPct = 50,
+                    Text = "Enemies +" + extreme + "% ATK/HP, healing -50%, awakening and danger +50%.",
                 };
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 20 + 2 * i));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, 1 + i / 4));
+                l.CompletionRewards.Add(Reward.Cur(Currencies.Data, (long)Math.Round(Campaign.DarkSideDataBase * Math.Pow(Campaign.DarkSideDataGrowth, i - 1))));
+                l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 8));
+                l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, 1 + Math.Min(i, 12) / 4));
                 dark.LevelIds.Add(l.Id);
             }
             Portals[dark.Id] = dark;
@@ -555,7 +562,7 @@ namespace RogueStars.Rules.Content
                 l.MaxRolls = 16 + i / 2;
                 l.Dice = i >= 6 ? 2 : 1;
                 if (l.Dice == 2) l.MaxRolls = 12 + i / 2;
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((80 + 20 * i) * scale)));
+                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((160 + 40 * i) * scale)));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
                 if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
                 portal.LevelIds.Add(l.Id);

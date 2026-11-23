@@ -315,11 +315,14 @@ namespace RogueStars.Rules.Systems
             }
             GameEngine.Require(points >= recipe.FodderPoints, "not enough fodder (" + points + "/" + recipe.FodderPoints + ")");
             GameEngine.Require(fodder == 0 || points - smallest < recipe.FodderPoints, "superfluous material");
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, recipe.Ore), "not enough ore");
         }
 
         private static void DoMerge(CommandContext ctx, PartItem target, IList<string> materialUids)
         {
             var s = ctx.State;
+            long ore = ctx.Content.PartsConfig.Rarities[target.Rarity + 1].Merge.Ore;
+            if (ore > 0) ProgressionUtil.Spend(s, Currencies.Ore, ore);
             foreach (var uid in materialUids)
             {
                 var m = s.Parts.Items[uid];

@@ -102,6 +102,7 @@ public sealed partial class SimPlayer
             var want = owned.Take(slots).Select(a => a.TypeId).ToList();
             if (want.Count > 0 && !want.SequenceEqual(AlienSystem.ActiveSquad(S, C))) Exec(new AlienSetSquad { AlienTypeIds = want });
         }
+        StaffAnnex();
         // Workers: best work power first into production buildings with free slots.
         foreach (var a in S.Aliens.Owned.Values.Where(a => string.IsNullOrEmpty(a.WorkBuildingId))
                      .OrderByDescending(a => AlienSystem.WorkPower(C, a)).ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList())
@@ -175,31 +176,53 @@ public sealed partial class SimPlayer
 
     // ---- laboratory -----------------------------------------------------------------------------------------
 
-    /// <summary>While the laboratory is idle, the worm/parts keep back what the next research costs.</summary>
-    private long LabReserve(string currency)
-    {
-        if (!Unlocked(Features.Laboratory) || S.Lab.Entries.Values.Any(x => x.ResearchingLevel > 0)) return 0;
-        var next = NextResearch();
-        if (next.d == null) return 0;
-        foreach (var c in next.d.Levels[next.lv].Costs) if (c.Currency == currency) return c.Amount;
-        return 0;
-    }
+    /// <summary>Research costs Data only (no Biomass/Ore reserve needed).</summary>
+    private long LabReserve(string currency) => 0;
 
-    private (LabResearchDef d, int lv) NextResearch() => C.LabResearch.Values
-        .Select(d => (d, lv: LaboratorySystem.Entry(S, d.Id)?.Level ?? 0))
-        .Where(x => x.lv < x.d.Levels.Count)
-        .OrderBy(x => x.d.Levels[x.lv].Costs.Sum(c => c.Amount)).ThenBy(x => x.d.Id, StringComparer.Ordinal).FirstOrDefault();
+    /// <summary>Next node: lowest level first (spread), stat nodes before skill nodes (power), shallow rows first.</summary>
+    private LabResearchDef NextResearch() => C.LabResearch.Values
+        .Where(d => LaboratorySystem.BlockReason(S, C, d) == null)
+        .OrderBy(d => LaboratorySystem.Entry(S, d.Id).Level).ThenBy(d => d.Kind == LabNodeKind.Stat ? 0 : 1).ThenBy(d => d.Tier)
+        .ThenBy(d => d.Id, StringComparer.Ordinal).FirstOrDefault();
+
+    private bool LabDataShort => Unlocked(Features.Laboratory) && LaboratorySystem.Running(S) < LaboratorySystem.Slots(S, C)
+                                 && Bal(Currencies.Data) < LaboratorySystem.NextDataCost(S, C);
 
     private void Lab()
     {
         if (!Unlocked(Features.Laboratory)) return;
         foreach (var kv in S.Lab.Entries.OrderBy(k => k.Key, StringComparer.Ordinal).ToList())
             if (kv.Value.ResearchingLevel > 0 && Now >= LaboratorySystem.ReadyAtMs(S, kv.Key)) Exec(new LabCollect { ResearchId = kv.Key });
-        if (S.Lab.Entries.Values.Any(x => x.ResearchingLevel > 0)) return;
-        var next = NextResearch();
-        if (next.d == null) return;
-        var costs = next.d.Levels[next.lv].Costs;
-        if (S.Wallet.CanAfford(costs)) Exec(new LabResearch { ResearchId = next.d.Id }); // the lab is a priority sink (one slot)
+        for (int guard = 0; guard < 4 && LaboratorySystem.Running(S) < LaboratorySystem.Slots(S, C); guard++)
+        {
+            var next = NextResearch();
+            if (next == null || Bal(Currencies.Data) < LaboratorySystem.NextDataCost(S, C)) return;
+            if (!Ok(new LabResearch { ResearchId = next.Id })) return;
+        }
+    }
+
+    /// <summary>Staffs a Research Annex with two qualifying aliens (non-squad first, weakest workers first).</summary>
+    private void StaffAnnex()
+    {
+        foreach (var b in CitySystem.SortedBlueprints(S))
+        {
+            var def = C.Blueprint(b.Id);
+            if (!CitySystem.IsActive(b) || def == null) continue;
+            foreach (var boon in def.Boons.Where(x => x.RequiredWorkers > 0))
+            {
+                if (CitySystem.BoonStaffed(S, def, b, boon)) continue;
+                foreach (var w in CitySystem.Workers(S, b.Id).Where(a => a.Stars < boon.RequiredWorkerStars).ToList())
+                    Exec(new AlienAssign { AlienTypeId = w.TypeId, BlueprintId = null });
+                var squad = AlienSystem.ActiveSquad(S, C);
+                var picks = S.Aliens.Owned.Values.Where(a => a.Stars >= boon.RequiredWorkerStars && a.WorkBuildingId != b.Id)
+                    .OrderBy(a => squad.Contains(a.TypeId) ? 1 : 0).ThenBy(a => AlienSystem.WorkPower(C, a)).ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList();
+                foreach (var a in picks)
+                {
+                    if (CitySystem.Workers(S, b.Id).Count >= CitySystem.WorkerSlots(C, def, b)) break;
+                    Exec(new AlienAssign { AlienTypeId = a.TypeId, BlueprintId = b.Id });
+                }
+            }
+        }
     }
 
     // ---- gacha ------------------------------------------------------------------------------------------------

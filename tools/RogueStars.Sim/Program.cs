@@ -2,13 +2,14 @@ using System.Collections.Concurrent;
 using RogueStars.Sim;
 
 // Usage: dotnet run --project tools/RogueStars.Sim -c Release -- [--days 730] [--seeds 3] [--profiles Active:F2P,Active:Whale]
-//        [--out docs/balance] [--label after] [--quiet]
+//        [--out docs/balance] [--label after] [--quiet] [--variant no_lab_stats,old_biomass]
 var opts = Args.Parse(args);
 int days = opts.Int("days", 730);
 int seeds = opts.Int("seeds", 3);
 string outDir = opts.Str("out", "docs/balance");
 string label = opts.Str("label", "");
 bool quiet = opts.Has("quiet");
+string variant = opts.Str("variant", "");
 
 var profiles = new List<(TimeProfile t, SpendProfile s)>();
 if (opts.Has("profiles"))
@@ -25,7 +26,7 @@ var results = new ConcurrentBag<SimResult>();
 var sw = System.Diagnostics.Stopwatch.StartNew();
 Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, j =>
 {
-    var r = Simulation.Run(j.t, j.s, j.seed, days, null, quiet ? null : Console.WriteLine);
+    var r = Simulation.Run(j.t, j.s, j.seed, days, string.IsNullOrEmpty(variant) ? null : () => Variants.Create(variant), quiet ? null : Console.WriteLine);
     results.Add(r);
     Console.WriteLine($"done {r.Profile} seed {r.Seed}: {r.WallSeconds:0}s, {r.Commands} commands ({r.FailedCommands} rejected)");
 });

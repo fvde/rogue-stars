@@ -50,11 +50,9 @@ namespace RogueStars.Rules.Content
         }
     }
 
-    /// <summary>Run skills (~76 draftable, 9 families + generic) and Laboratory research lines.</summary>
+    /// <summary>Run skills (~76 draftable, 9 families + generic); the Laboratory tree is in ContentDb.Laboratory.cs.</summary>
     public sealed partial class ContentDb
     {
-        public readonly Dictionary<string, LabResearchDef> LabResearch = new Dictionary<string, LabResearchDef>();
-
         private RunSkillBuilder RunSkill(string id, string name, SkillFamily family, Rarity rarity, SkillSource source = SkillSource.Run)
         {
             var s = new SkillDef { Id = id, Name = name, Family = family, Rarity = rarity, Source = source };
@@ -226,62 +224,6 @@ namespace RogueStars.Rules.Content
                 .Board(TriggerKind.OnRoll, EffectKind.SlowAwakening, 1);
             RunSkill("gen_hoarder", "Hoarder", SkillFamily.None, Rarity.Legendary).Desc("+20% pending loot on completion.")
                 .Board(TriggerKind.OnRunStart, EffectKind.ExtraLoot, 20);
-        }
-
-        private void RunBuildLabSkills()
-        {
-            // Laboratory lines: level 1 unlocks the skill into the draft pool, level 2 swaps in an upgraded version.
-            RunLab("res_second_wind", "Second Wind", true, SkillFamily.None, Rarity.Rare, (b, lv) =>
-                b.Desc("Below 30% HP: heal.").On(TriggerKind.OnLowHp, EffectKind.Heal, 15 + 10 * lv, TargetKind.Self));
-            RunLab("res_eagle_eye", "Eagle Eye", true, SkillFamily.Crit, Rarity.Rare, (b, lv) =>
-                b.Desc("+crit chance and crit damage.").Stat(StatId.CritChance, 4 + 4 * lv).Stat(StatId.CritDamage, 10 * lv));
-            RunLab("res_chain_strikes", "Chain Strikes", true, SkillFamily.Combo, Rarity.Rare, (b, lv) =>
-                b.Desc("+combo chance.").Stat(StatId.ComboChance, 5 + 5 * lv));
-            RunLab("res_burning_soul", "Burning Soul", false, SkillFamily.Fire, Rarity.Epic, (b, lv) =>
-                b.Desc("Battle start: burn all enemies.").Status(TriggerKind.OnBattleStart, 100, StatusId.Burn, 1 + lv, TargetKind.AllEnemies));
-            RunLab("res_frost_nova", "Frost Nova", false, SkillFamily.Ice, Rarity.Epic, (b, lv) =>
-                b.Desc("Rage attacks may freeze all enemies.").Status(TriggerKind.OnRageAttack, 25 + 15 * lv, StatusId.Freeze, 1, TargetKind.AllEnemies));
-            RunLab("res_overload", "Overload", false, SkillFamily.Lightning, Rarity.Epic, (b, lv) =>
-                b.Desc("Crits shock all enemies.").Status(TriggerKind.OnCrit, 50 + 25 * lv, StatusId.Shock, 1, TargetKind.AllEnemies));
-            RunLab("res_toxic_cloud", "Toxic Cloud", false, SkillFamily.Poison, Rarity.Rare, (b, lv) =>
-                b.Desc("Dodging releases poison.").Status(TriggerKind.OnDodge, 100, StatusId.Poison, 2 * lv, TargetKind.AllEnemies).Stat(StatId.Dodge, 3 * lv));
-            RunLab("res_bloodletting", "Bloodletting", false, SkillFamily.Bleed, Rarity.Rare, (b, lv) =>
-                b.Desc("Rage attacks cause heavy bleed.").Status(TriggerKind.OnRageAttack, 100, StatusId.Bleed, 1 + lv));
-            RunLab("res_pack_tactics", "Pack Tactics", false, SkillFamily.AlienSynergy, Rarity.Epic, (b, lv) =>
-                b.Desc("Aliens +AlienPower; allies gain rage at battle start.").Stat(StatId.AlienPower, 15 * lv)
-                 .On(TriggerKind.OnBattleStart, EffectKind.GainRage, 25 * lv, TargetKind.AllAllies));
-            RunLab("res_retaliation", "Retaliation", false, SkillFamily.Counter, Rarity.Rare, (b, lv) =>
-                b.Desc("+counter chance, counters may stun.").Stat(StatId.CounterChance, 6 * lv).Status(TriggerKind.OnCounter, 10 * lv, StatusId.Stun));
-            RunLab("res_treasure_sense", "Treasure Sense", false, SkillFamily.None, Rarity.Epic, (b, lv) =>
-                b.Desc("More pending loot on completion.").Board(TriggerKind.OnRunStart, EffectKind.ExtraLoot, 10 * lv));
-            RunLab("res_lucky_dice", "Lucky Dice", false, SkillFamily.None, Rarity.Legendary, (b, lv) =>
-                b.Desc("Rolls may grant an extra die next roll.").Board(TriggerKind.OnRoll, EffectKind.ExtraDice, 1, null, 10 + 10 * lv));
-        }
-
-        /// <summary>Research levels per laboratory line.</summary>
-        public const int LabLevels = 5;
-
-        private void RunLab(string researchId, string name, bool isDefault, SkillFamily family, Rarity rarity, Action<RunSkillBuilder, int> fill)
-        {
-            var def = new LabResearchDef { Id = researchId, Name = name, DefaultResearched = isDefault };
-            string baseId = "lab_" + researchId.Substring(4);
-            // Five levels per line (long-haul research): costs ×~6 and longer timers per level.
-            string[] numerals = { "", " II", " III", " IV", " V" };
-            long[] biomass = { 200, 900, 5_000, 15_000, 40_000 };
-            long[] ore = { 100, 450, 2_500, 7_500, 20_000 };
-            double[] hours = { 0.5, 4, 12, 24, 48 };
-            for (int lv = 1; lv <= LabLevels; lv++)
-            {
-                string sid = lv == 1 ? baseId : baseId + "_" + lv;
-                var r = (Rarity)Math.Min((int)Rarity.Mythic, (int)rarity + (lv + 1) / 2);
-                var b = RunSkill(sid, name + numerals[lv - 1], family, lv == 1 ? rarity : r, SkillSource.Laboratory);
-                fill(b, lv);
-                var level = new LabLevelDef { SkillId = sid, DurationMs = (long)(hours[lv - 1] * 60 * 60 * 1000L) };
-                level.Costs.Add(new Cost(Currencies.Biomass, biomass[lv - 1]));
-                level.Costs.Add(new Cost(Currencies.Ore, ore[lv - 1]));
-                def.Levels.Add(level);
-            }
-            LabResearch[def.Id] = def;
         }
     }
 }
