@@ -262,9 +262,14 @@ namespace RogueStars.Rules.Content
             var d1 = RunTile("debuff_atk", "Rust Cloud", TileCategory.StatDebuff, TileValence.Negative); d1.Stat = StatId.Atk; d1.Value = -4;
             var d2 = RunTile("debuff_def", "Acid Pool", TileCategory.StatDebuff, TileValence.Negative); d2.Stat = StatId.Def; d2.Value = -6;
             var d3 = RunTile("debuff_hp", "Withering Field", TileCategory.StatDebuff, TileValence.Negative); d3.Stat = StatId.Hp; d3.Value = -4;
-            RunTile("loot", "Cache", TileCategory.Loot, TileValence.Positive);
-            RunTile("loot_rich", "Rich Cache", TileCategory.Loot, TileValence.Positive).Value = 2;
-            RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special).EventId = "treasure_pod";
+            // Ordinary tiles pay in-run resources only (coins, XP, HP, buffs). Account loot comes from the level's completion
+            // rewards and a few risky opportunities per run (guarded Treasure Pods, events; RunTuning.MaxAccountLootOffersPerRun).
+            var sup = RunTile("loot", "Supply Cache", TileCategory.Pickup, TileValence.Positive); sup.Coins = 10; sup.Value = 3;
+            sup.Text = "Run coins and XP.";
+            var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 20; rich.Value = 6;
+            rich.Text = "Lots of run coins and XP.";
+            var pod = RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special); pod.EventId = "treasure_pod";
+            pod.Text = "Guarded account loot.";
             RunTile("event", "Strange Signal", TileCategory.Event, TileValence.Special);
             RunTile("campfire", "Campfire", TileCategory.Campfire, TileValence.Positive).EventId = "campfire";
             var shop = RunTile("shop", "Wandering Shop", TileCategory.Shop, TileValence.Special); shop.ForceStop = true; shop.Consumable = false;
@@ -276,17 +281,17 @@ namespace RogueStars.Rules.Content
             var gate = RunTile("boss_gate", "Boss Gate", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
 
             // Dedicated boss tiles: meter +/- and boss buffs (risk/reward: tributes pay coins but feed the boss).
-            RunBossTile("bt_magma_vent", "Magma Vent", 12, 4, 0);
-            RunBossTile("bt_cooling_pool", "Cooling Pool", -15, 0, 0);
+            RunBossTile("bt_magma_vent", "Magma Vent", 10, 4, 0);
+            RunBossTile("bt_cooling_pool", "Cooling Pool", -10, 0, 0);
             RunBossTile("bt_tyrant_shrine", "Tyrant Shrine", 5, 6, 30);
-            RunBossTile("bt_frozen_heart", "Frozen Heart", 12, 4, 0);
-            RunBossTile("bt_thaw_beacon", "Thaw Beacon", -15, 0, 0);
+            RunBossTile("bt_frozen_heart", "Frozen Heart", 10, 4, 0);
+            RunBossTile("bt_thaw_beacon", "Thaw Beacon", -10, 0, 0);
             RunBossTile("bt_leviathan_tribute", "Leviathan Tribute", 5, 6, 30);
-            RunBossTile("bt_hive_node", "Hive Node", 12, 4, 0);
-            RunBossTile("bt_grounding_rod", "Grounding Rod", -15, 0, 0);
+            RunBossTile("bt_hive_node", "Hive Node", 10, 4, 0);
+            RunBossTile("bt_grounding_rod", "Grounding Rod", -10, 0, 0);
             RunBossTile("bt_hive_tribute", "Hive Tribute", 5, 6, 30);
-            RunBossTile("bt_void_rift", "Void Rift", 15, 5, 0);
-            RunBossTile("bt_seal_stone", "Seal Stone", -12, 0, 0);
+            RunBossTile("bt_void_rift", "Void Rift", 12, 5, 0);
+            RunBossTile("bt_seal_stone", "Seal Stone", -10, 0, 0);
             RunBossTile("bt_void_tribute", "Void Tribute", 6, 8, 40);
 
             TilePools["pool_standard"] = RunStandardPool(1.0, 1.0);
@@ -317,7 +322,7 @@ namespace RogueStars.Rules.Content
                 new WeightedId("buff_crit", 1.5), new WeightedId("buff_speed", 1.5),
                 new WeightedId("debuff_atk", 1.5 * negativeWeight), new WeightedId("debuff_def", 1.5 * negativeWeight),
                 new WeightedId("debuff_hp", 1.5 * negativeWeight),
-                new WeightedId("loot", 7), new WeightedId("loot_rich", 2), new WeightedId("treasure", 2.5),
+                new WeightedId("loot", 7), new WeightedId("loot_rich", 2), new WeightedId("treasure", 2),
                 new WeightedId("event", 8), new WeightedId("campfire", 2),
                 new WeightedId("hazard_spikes", 2.5 * negativeWeight), new WeightedId("hazard_toll", 2 * negativeWeight),
                 new WeightedId("hazard_vortex", 1.5 * negativeWeight),
@@ -364,12 +369,13 @@ namespace RogueStars.Rules.Content
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
                 RunOpt("Trade vitality", "-10% max HP for an Epic+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Epic))),
                 RunOpt("Decline", "Nothing happens.", RunNothing));
-            var echo = RunOpt("Fight the echo", "Battle a strong elite. Win: a part drop paid out on completion.",
+            var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (account loot, paid on clear).",
                 RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
             RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 2.5, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
-            RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 4,
-                RunOpt("Search it", "Likely loot (raises Danger). Might explode.",
-                    RunOut(70, "Loot!", RunFx(RunEffectKind.Loot, 1)), RunOut(30, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 15))),
+            RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 3,
+                RunOpt("Search it", "65%: 1 account loot item (paid on clear, +Danger) and the alarm wakes the boss (+8). 35%: trapped — lose 20% HP and 5% max HP for the run.",
+                    RunOut(65, "Loot! An alarm wails in the distance.", RunFx(RunEffectKind.Loot, 1), RunFx(RunEffectKind.Meter, 8)),
+                    RunOut(35, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 20), RunStatFx(StatId.Hp, -5))),
                 RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("strange_spores", "Strange Spores", "Glowing spores drift by. They smell... edible.", 1, 3,
                 RunOpt("Eat them", "50%: +8% ATK. 50%: lose 10% HP and -5% DEF.",
@@ -390,8 +396,9 @@ namespace RogueStars.Rules.Content
             RunEvent("lost_explorer", "Lost Explorer", "A lost explorer worm asks for help.", 1, 3,
                 RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 30))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
-            RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2.5,
-                RunOpt("Dive in", "2 loot items (raises Danger); awakening +15.", RunOut(1, "You surface with treasure.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.Meter, 15))),
+            RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2,
+                RunOpt("Dive in", "2 account loot items (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
+                    RunOut(1, "You surface with treasure — and the boss stirs.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.AwakenRatePct, 15))),
                 RunOpt("Steer away", "Nothing happens.", RunNothing));
             RunEvent("echoing_shrine", "Echoing Shrine", "Ancient echoes can sharpen a technique.", 1, 2.5,
                 RunOpt("Meditate", "Upgrade a skill; awakening +10.", RunOut(1, "Your technique evolves.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.Meter, 10))),
@@ -404,11 +411,12 @@ namespace RogueStars.Rules.Content
             RunEvents[fuel.Id] = fuel;
             RandomRunEvents.Add(new WeightedId(fuel.Id, 2));
             RunEvent("wild_beast", "Wild Beast", "A wild beast eyes you curiously.", 1, 2.5,
-                RunOpt("Try to tame it", "50%: +5% ATK and a loot item. 50%: it attacks.",
+                RunOpt("Try to tame it", "50%: +5% ATK and 1 account loot item (paid on clear). 50%: it attacks (elite fight).",
                     RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
                 RunOpt("Back off", "Nothing happens.", RunNothing));
-            var bm = RunOpt("Buy a signal beacon (60 coins)", "A blueprint token, paid out on completion.", RunOut(1, "Sold.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1))));
+            var bm = RunOpt("Buy a signal beacon (60 coins)", "A blueprint token (account loot, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
+                RunOut(1, "Sold. You feel a little weaker.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1)), RunStatFx(StatId.Hp, -8)));
             bm.CoinCost = 60;
             RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("cursed_relic", "Cursed Relic", "A relic radiates power and malice.", 1, 2,
@@ -422,8 +430,9 @@ namespace RogueStars.Rules.Content
                 RunOpt("Let it go", "Awakening +10.", RunOut(1, "The scout reports back.", RunFx(RunEffectKind.Meter, 10))));
 
             // Tile-bound events
-            RunEvent("treasure_pod", "Treasure Pod", "A sealed treasure pod. Opening it is loud.", 1, 0,
-                RunOpt("Open", "2 loot items (each raises Danger); nearby enemies grow stronger.", RunOut(1, "Loot spills out.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.StrengthenEnemies, 10))),
+            RunEvent("treasure_pod", "Treasure Pod", "A sealed treasure pod, guarded by an elite. Opening it is loud.", 1, 0,
+                RunOpt("Fight the guardian", "Elite fight. Win: 2 account loot items (paid on clear, each +Danger); nearby enemies grow stronger.",
+                    RunOut(1, "The guardian falls. Loot spills out.", RunFx(RunEffectKind.Battle, 10, "elite"), RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.StrengthenEnemies, 10))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("campfire", "Campfire", "A warm campfire. Its light draws nearby enemies.", 0, 0,
                 RunOpt("Rest", "Heal 35% HP. Nearby enemies grow stronger.", RunOut(1, "You rest.", RunFx(RunEffectKind.HealPct, 35), RunFx(RunEffectKind.StrengthenEnemies, 12))),
@@ -493,7 +502,7 @@ namespace RogueStars.Rules.Content
             {
                 var l = RunStoreLevel("the_burrow_" + f, "Burrow Floor " + f, burrow.Id, f, 4 + (f - 1) * 2, "pool_burrow", "boss_void_maw", "loot_burrow",
                     new[] { "burrow_grub", "tunnel_stalker", "void_spawn" }, new[] { "elite_burrow_horror" });
-                l.BoardLength = 18; l.MaxRolls = 12; l.StaminaCost = 0; l.CompletionLootRolls = 1;
+                l.BoardLength = 18; l.MaxRolls = 6; // short floors: the boss comes at the roll limit l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
                 l.CompletionRewards.Add(Reward.Cur(Currencies.AdvancementPlates, f >= 5 ? 1 : 0));
                 // Deep floors feed the endgame sinks: Mount Cores (mount awakening); the two deepest floors have a small
@@ -533,10 +542,10 @@ namespace RogueStars.Rules.Content
             };
             l.EnemyPool.AddRange(enemies);
             l.ElitePool.AddRange(elites);
+            // One lap of the circuit: a campfire, one shop (a forced stop every lap) and the miniboss lair.
             l.FixedTiles.Add(new FixedTile(0.22, "campfire"));
-            l.FixedTiles.Add(new FixedTile(0.45, "shop"));
-            l.FixedTiles.Add(new FixedTile(0.62, "miniboss"));
-            l.FixedTiles.Add(new FixedTile(0.8, "shop"));
+            l.FixedTiles.Add(new FixedTile(0.5, "shop"));
+            l.FixedTiles.Add(new FixedTile(0.75, "miniboss"));
             return l;
         }
     }

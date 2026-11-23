@@ -38,6 +38,9 @@ namespace RogueStars.Sim
         public readonly Dictionary<string, (int day, long level)> Unlocks = new();
         public double MinutesPlayed, MinutesInRuns;
         public int RunsPlayed, RunsWon;
+        /// <summary>Per-run records (run length, drafts, battles, loot) when <see cref="KeepRunLog"/> is set (simulator --run-length).</summary>
+        public readonly List<RunRecord> RunLog = new List<RunRecord>();
+        public bool KeepRunLog;
 
         /// <summary>Hero the spender targets with banners (whales); F2P/dolphins simply play the best hero they have.</summary>
         public const string TargetHero = "hero_star_knight";
@@ -341,5 +344,16 @@ namespace RogueStars.Sim
                 foreach (var item in C.ShopItems.Values.Where(i => i.Section == GuildSystem.ShopSection).OrderByDescending(i => i.Price[0].Amount))
                     while (S.Wallet.CanAfford(item.Price) && Ok(new GuildShopBuy { ItemId = item.Id })) { }
         }
+    }
+
+    /// <summary>One played run (simulator run-length report).</summary>
+    public sealed class RunRecord
+    {
+        public int Day, Level, Dice, Rolls, Drafts, LevelUps, Battles, TileLoot, LootOffers, XpTotal;
+        public RunMode Mode;
+        public bool Won, BossReached;
+        public long PeakCoins;
+        public double Minutes;
+        public List<Reward> Granted = new List<Reward>();
     }
 }

@@ -15,6 +15,8 @@ public sealed class SimResult
     /// <summary>Feature id → (account day, main level) of its unlock.</summary>
     public Dictionary<string, (int day, long level)> Unlocks = new();
     public double WallSeconds;
+    /// <summary>Every played run (only with keepRunLog).</summary>
+    public List<RunRecord> RunLog = new();
     public string Profile => Time + " " + Spend;
 
     public double At(int day, string metric)
@@ -27,10 +29,10 @@ public sealed class SimResult
 
 public static class Simulation
 {
-    public static SimResult Run(TimeProfile time, SpendProfile spend, long seed, int days, Func<ContentDb> content = null, Action<string> log = null)
+    public static SimResult Run(TimeProfile time, SpendProfile spend, long seed, int days, Func<ContentDb> content = null, Action<string> log = null, bool keepRunLog = false)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var p = new SimPlayer(time, spend, seed, content?.Invoke());
+        var p = new SimPlayer(time, spend, seed, content?.Invoke()) { KeepRunLog = keepRunLog };
         var res = new SimResult { Time = time.Name, Spend = spend.Name, Seed = seed, Days = days };
         for (int d = 0; d < days; d++)
         {
@@ -45,6 +47,7 @@ public static class Simulation
         res.Commands = p.Commands; res.FailedCommands = p.FailedCommands;
         res.Unlocks = new Dictionary<string, (int day, long level)>(p.Unlocks);
         res.WallSeconds = sw.Elapsed.TotalSeconds;
+        res.RunLog = p.RunLog;
         return res;
     }
 }

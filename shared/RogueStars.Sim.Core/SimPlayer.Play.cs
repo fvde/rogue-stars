@@ -173,16 +173,23 @@ namespace RogueStars.Sim
             minutes = 0;
             var r = Exec(new RunStart { LevelId = levelId, Mode = mode });
             if (!r.Ok) return null;
-            int rolls = 0, decisions = 0; double rounds = 0;
+            int rolls = 0, decisions = 0, drafts = 0, battles = 0, levelUps = 0; double rounds = 0;
+            bool bossReached = false;
+            int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
+            long coinsSeen = 0;
             void Tally(CommandResult res)
             {
                 foreach (var ev in res.Events)
                     switch (ev.Type)
                     {
                         case "run_roll": rolls++; break;
-                        case "run_draft": case "run_event": case "run_shop": decisions++; break;
-                        case "run_battle": rounds += double.Parse(ev.Args[2]); break;
+                        case "run_draft": drafts++; decisions++; break;
+                        case "run_event": case "run_shop": decisions++; break;
+                        case "run_battle": battles++; rounds += double.Parse(ev.Args[2]); break;
+                        case "run_level_up": levelUps++; break;
+                        case "run_boss_fight": bossReached = true; break;
                     }
+                if (S.Run.Active != null) { lootSeen = S.Run.Active.PendingLoot.Count; coinsSeen = Math.Max(coinsSeen, S.Run.Active.Coins); }
             }
             Tally(r);
             for (int i = 0; i < 3000 && S.Run.Active != null; i++)
@@ -210,6 +217,15 @@ namespace RogueStars.Sim
             }
             double speed = ShopSystem.HasBattleSpeed3(S, C, Now) ? 3 : 2;
             minutes = (Timing.RunOverheadSec + rolls * Timing.RollSec + decisions * Timing.DecisionSec + rounds * Timing.BattleRoundSec / speed) / 60.0;
+            var level = C.RunLevel(levelId);
+            if (KeepRunLog && S.Run.LastSummary != null)
+                RunLog.Add(new RunRecord
+                {
+                    Day = DayIndex + 1, Level = level?.Number ?? 0, Mode = mode, Dice = dice, Rolls = rolls, Drafts = drafts, LevelUps = levelUps,
+                    Battles = battles, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
+                    LootOffers = S.Run.LastSummary.AccountLootOffers, XpTotal = S.Run.LastSummary.XpTotal,
+                    Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted),
+                });
             return S.Run.LastSummary;
         }
 

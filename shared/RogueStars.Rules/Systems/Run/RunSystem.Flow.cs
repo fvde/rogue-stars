@@ -59,9 +59,9 @@ namespace RogueStars.Rules.Systems
                     var def = TileDefOf(c, nt);
                     if (def.Category == TileCategory.BossGate)
                     {
-                        run.StepsLeft = 0;
-                        StartBoss(ctx, run);
-                        continue;
+                        // The board is a circuit: passing the gate starts the next lap (the boss is woken by its meter).
+                        run.Laps++;
+                        ctx.Emit("run_lap", run.Laps.ToString());
                     }
                     if (run.StepsLeft > 0)
                     {
@@ -72,7 +72,8 @@ namespace RogueStars.Rules.Systems
                     LandTile(ctx, run, nt, def);
                     continue;
                 }
-                if (run.Rolls >= run.MaxRolls && !run.BossFought) { StartBoss(ctx, run); continue; }
+                // The awakening meter is the run's clock: once it is full (or at the roll limit) the boss comes after the move.
+                if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { StartBoss(ctx, run); continue; }
                 return;
             }
         }
@@ -87,7 +88,11 @@ namespace RogueStars.Rules.Systems
         private static void ResolvePickup(CommandContext ctx, ActiveRun run, RunTile tile, TileDef def)
         {
             if (def.Category == TileCategory.Shard) run.Shards++;
-            if (def.Category == TileCategory.Pickup) run.Coins += def.Coins;
+            if (def.Category == TileCategory.Pickup)
+            {
+                run.Coins += def.Coins;
+                if (def.Value > 0) AddXp(ctx, run, (int)def.Value); // supply caches: run XP
+            }
             Consume(ctx.Content, run, tile, def);
         }
 
@@ -178,17 +183,42 @@ namespace RogueStars.Rules.Systems
 
         // ---- awakening ------------------------------------------------------------------------
 
+        /// <summary>The boss's meter is full: it comes as soon as the current move has resolved.</summary>
+        private static bool BossAwake(ContentDb c, ActiveRun run) => Boss(c, run) != null && run.Awakening >= 100 - 1e-9;
+
+        /// <summary>Meter points the next roll adds (the boss's base pace, skills, buildings and level modifiers applied).</summary>
+        public static double AwakeningPerRoll(ContentDb c, ActiveRun run)
+        {
+            var boss = Boss(c, run);
+            return boss == null ? 0 : AwakeningScaled(c, run, boss.AwakenPerRoll);
+        }
+
+        private static double AwakeningScaled(ContentDb c, ActiveRun run, double amount)
+        {
+            var mods = Level(c, run).Modifiers;
+            return amount * Math.Max(0.1, 1 - Math.Min(90, run.AwakeningReductionPct) / 100.0) * (1 + mods.AwakeningPct / 100.0);
+        }
+
+        /// <summary>
+        /// The roll after which the boss is expected (HUD "Roll n/N"): the meter's remaining points at the current pace, at most
+        /// the level's roll limit. Boss tiles, events and skills move it while the run goes on.
+        /// </summary>
+        public static int BossRollEstimate(ContentDb c, ActiveRun run)
+        {
+            if (run.BossFought || Boss(c, run) == null) return Math.Max(run.Rolls, Math.Min(run.MaxRolls, run.Rolls));
+            double per = AwakeningPerRoll(c, run);
+            double left = Math.Max(0, 100 - run.Awakening);
+            int more = per <= 0 ? run.MaxRolls : (int)Math.Ceiling(left / per - 1e-9);
+            return Math.Min(run.MaxRolls, run.Rolls + more);
+        }
+
         /// <summary>Adds (or drains, if negative) boss awakening and fires threshold actions.</summary>
         public static void AddAwakening(CommandContext ctx, ActiveRun run, double amount)
         {
             var c = ctx.Content;
             var boss = Boss(c, run);
             if (boss == null || amount == 0) return;
-            if (amount > 0)
-            {
-                var mods = Level(c, run).Modifiers;
-                amount *= (1 - Math.Min(90, run.AwakeningReductionPct) / 100.0) * (1 + mods.AwakeningPct / 100.0);
-            }
+            if (amount > 0) amount = AwakeningScaled(c, run, amount);
             run.Awakening = CombatMath.Clamp(run.Awakening + amount, 0, 100);
             while (run.ActionsTriggered < boss.Actions.Count && run.Awakening >= boss.Actions[run.ActionsTriggered].AtMeter)
             {
@@ -260,7 +290,7 @@ namespace RogueStars.Rules.Systems
             var level = Level(c, run);
             var mods = level.Modifiers;
             double scale = c.ThreatMultiplier(run.Threat);
-            double common = DangerPct(c, run) + bonusPct;
+            double common = DangerPct(c, run) + bonusPct + t.BoardEnemyPct;
             var list = new List<CombatantSpec>();
             if (enemyId != null)
             {
@@ -424,6 +454,7 @@ namespace RogueStars.Rules.Systems
             var t = ctx.Content.RunTuning;
             if (amount <= 0) return;
             run.Xp += amount;
+            run.XpTotal += amount;
             for (int guard = 0; guard < 100; guard++)
             {
                 int need = t.XpBase + t.XpPerLevel * (run.Level - 1);
@@ -616,10 +647,18 @@ namespace RogueStars.Rules.Systems
 
         // ---- events ---------------------------------------------------------------------------
 
+        /// <summary>The run may still offer an account-loot opportunity (RunTuning.MaxAccountLootOffersPerRun).</summary>
+        public static bool AccountLootOfferLeft(ContentDb c, ActiveRun run) => run.AccountLootOffers < c.RunTuning.MaxAccountLootOffersPerRun;
+
+        private static bool IsAccountLootEvent(ContentDb c, string eventId) =>
+            eventId != null && c.RunEvents.TryGetValue(eventId, out var ev) && ev.GrantsAccountLoot();
+
         private static string PickRandomEvent(ContentDb c, ActiveRun run)
         {
+            bool lootLeft = AccountLootOfferLeft(c, run);
             var w = new double[c.RandomRunEvents.Count];
-            for (int i = 0; i < w.Length; i++) w[i] = c.RandomRunEvents[i].Weight;
+            for (int i = 0; i < w.Length; i++)
+                w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0 : c.RandomRunEvents[i].Weight;
             int idx = run.Rng.PickWeighted(w);
             return idx < 0 ? null : c.RandomRunEvents[idx].Id;
         }
@@ -629,6 +668,12 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             if (eventId == null || !c.RunEvents.TryGetValue(eventId, out var ev)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
             if (ev.Negative && TrySkipNegative(ctx, run)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
+            if (ev.GrantsAccountLoot())
+            {
+                // Account loot is rare: a few risky opportunities per run, later caches are empty.
+                if (!AccountLootOfferLeft(c, run)) { ctx.Emit("run_cache_empty", eventId); Consume(c, run, tile, TileDefOf(c, tile)); return; }
+                run.AccountLootOffers++;
+            }
             run.Phase = RunPhase.Event;
             run.EventId = eventId;
             run.EventTile = tile.Id;
@@ -645,14 +690,23 @@ namespace RogueStars.Rules.Systems
             Require(index >= 0 && index < ev.Options.Count, "invalid option");
             var opt = ev.Options[index];
             Require(CanAffordOption(run, opt), "cannot afford this option");
+            var before = Snap.Of(run);
             run.Coins -= opt.CoinCost;
             run.Shards -= opt.ShardCost;
             var weights = new double[opt.Outcomes.Count];
-            for (int i = 0; i < weights.Length; i++) weights[i] = opt.Outcomes[i].Weight;
+            double total = 0;
+            for (int i = 0; i < weights.Length; i++) { weights[i] = opt.Outcomes[i].Weight; total += weights[i]; }
             int oi = run.Rng.PickWeighted(weights);
             var outcome = oi >= 0 ? opt.Outcomes[oi] : null;
 
             var tile = run.EventTile >= 0 ? run.Tiles[run.EventTile] : null;
+            var tileDef = tile != null ? TileDefOf(c, tile) : null;
+            var result = new RunOutcome
+            {
+                Source = OutcomeSource(c, ev.Id, tileDef),
+                EventId = ev.Id, Title = ev.Name, Choice = opt.Text, Chance = opt.Outcomes.Count > 1,
+                SuccessChancePct = total > 0 && weights.Length > 0 ? 100.0 * weights[0] / total : 100, Success = oi <= 0,
+            };
             int eventTileId = run.EventTile;
             run.Phase = RunPhase.AwaitRoll;
             run.EventId = null;
@@ -669,7 +723,20 @@ namespace RogueStars.Rules.Systems
                     ApplyEffects(ctx, run, outcome.Effects, eventTileId);
                 }
             }
+            result.Text = run.LastEventText;
+            before.Diff(ctx.Content, run, result.Lines);
+            PublishOutcome(ctx, run, result);
             Continue(ctx, run);
+        }
+
+        /// <summary>"treasure" / "campfire" for tile-bound events (by the tile, else by the tile kind that hosts the event), else "event".</summary>
+        private static string OutcomeSource(ContentDb c, string eventId, TileDef tile)
+        {
+            TileCategory? cat = tile != null && (tile.Category == TileCategory.Treasure || tile.Category == TileCategory.Campfire) ? tile.Category : (TileCategory?)null;
+            if (cat == null)
+                foreach (var d in c.BoardTiles.Values)
+                    if (d.EventId == eventId) { cat = d.Category; break; }
+            return cat == TileCategory.Treasure ? "treasure" : cat == TileCategory.Campfire ? "campfire" : "event";
         }
 
         /// <summary>An outcome whose effects are all harmful (skippable by "skip negative events" boons).</summary>
@@ -684,7 +751,7 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.DamagePct: case RunEffectKind.Battle: case RunEffectKind.LoseRandomSkill: case RunEffectKind.StrengthenEnemies: bad = true; break;
                     case RunEffectKind.StatPercent: bad = e.Value < 0; break;
                     case RunEffectKind.Coins: bad = e.Value < 0; break;
-                    case RunEffectKind.Meter: bad = e.Value > 0; break;
+                    case RunEffectKind.Meter: case RunEffectKind.AwakenRatePct: bad = e.Value > 0; break;
                     case RunEffectKind.BossStatPct: case RunEffectKind.Danger: bad = e.Value > 0; break;
                     default: bad = false; break;
                 }
@@ -721,6 +788,7 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.Xp: AddXp(ctx, run, (int)e.Value); break;
                     case RunEffectKind.Shards: run.Shards += (int)e.Value; break;
                     case RunEffectKind.Danger: run.Danger = Math.Max(0, run.Danger + (int)e.Value); break;
+                    case RunEffectKind.AwakenRatePct: run.AwakeningReductionPct -= e.Value; break;
                     case RunEffectKind.StrengthenEnemies:
                     {
                         int origin = originTile >= 0 ? originTile : run.Position;
@@ -768,6 +836,7 @@ namespace RogueStars.Rules.Systems
 
         private static void OpenShop(CommandContext ctx, ActiveRun run)
         {
+            run.ShopOutcome = null;
             FillShop(ctx.Content, run);
             run.Phase = RunPhase.Shop;
             ctx.Emit("run_shop");
@@ -812,7 +881,8 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content; var s = ctx.State;
             var level = Level(c, run);
             var portal = c.Portal(run.PortalId);
-            var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle };
+            var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle,
+                AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, Laps = run.Laps, XpTotal = run.XpTotal };
             if (won)
             {
                 double modeMult = level.RewardMultiplier * (run.Mode == RunMode.Overcharged ? portal.OverchargedRewardMultiplier : 1);

@@ -1,3 +1,4 @@
+using RogueStars.Rules.Systems;
 using RogueStars.Sim;
 
 namespace RogueStars.Sim.Tests;
@@ -10,8 +11,8 @@ namespace RogueStars.Sim.Tests;
 public class ProgressionGuardTests
 {
     private const int Days = 60;
-    private static readonly Lazy<SimResult> F2p = new(() => Simulation.Run(TimeProfile.Active, SpendProfile.F2P, 1, Days));
-    private static readonly Lazy<SimResult> Whale = new(() => Simulation.Run(TimeProfile.Active, SpendProfile.Whale, 1, Days));
+    private static readonly Lazy<SimResult> F2p = new(() => Simulation.Run(TimeProfile.Active, SpendProfile.F2P, 1, Days, null, null, true));
+    private static readonly Lazy<SimResult> Whale = new(() => Simulation.Run(TimeProfile.Active, SpendProfile.Whale, 1, Days, null, null, true));
     private static readonly Lazy<Analysis.Result> Both = new(() => Analysis.Run(new List<SimResult> { F2p.Value, Whale.Value }, Days));
 
     private static double At(SimResult r, int day, string metric)
@@ -87,6 +88,23 @@ public class ProgressionGuardTests
         Assert.True(At(Whale.Value, 60, "bal_part_awaken_cores") < 50);
         // No part hoarding: below-Legendary surplus merges up instead of piling up.
         Assert.True(At(F2p.Value, 60, "parts_spare_below_legendary") <= 12);
+    }
+
+    [Fact]
+    public void Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers()
+    {
+        // GDD §3.3: the awakening meter is the clock. Runs that reach the boss last ~30 rolls (the bot's Stasis Beacon and
+        // drafted Calm Mind may stretch late runs a little), runs give a build (~8–12 drafts) and at most 3 risky
+        // account-loot opportunities (docs/balance/progression-report.md, "Run length").
+        foreach (var r in new[] { F2p.Value, Whale.Value })
+        {
+            var boss = r.RunLog.Where(x => x.BossReached && x.Mode != RunMode.Burrow).ToList();
+            Assert.True(boss.Count > 100, r.Profile + ": runs logged");
+            Assert.InRange(boss.Average(x => x.Rolls), 27, 35);
+            Assert.InRange(boss.Average(x => x.Drafts), 8, 12);
+            Assert.True(r.RunLog.Max(x => x.LootOffers) <= 3, r.Profile + ": more than 3 account-loot opportunities in a run");
+            Assert.InRange(r.RunLog.Where(x => x.Mode != RunMode.Burrow).Average(x => x.LootOffers), 0.5, 2);
+        }
     }
 
     [Fact]

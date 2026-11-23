@@ -197,6 +197,8 @@ namespace RogueStars.Rules.Systems
             run.ChosenNext = -1;
             run.BranchOptions.Clear();
             run.Rolls = 0;
+            run.Laps = 0;
+            run.AccountLootOffers = 0;
             run.MaxRolls = level.MaxRolls;
             run.Dice = Math.Max(1, level.Dice);
             run.BossId = level.BossId;
@@ -269,6 +271,7 @@ namespace RogueStars.Rules.Systems
             Require(!o.Sold, "sold out");
             Require(run.Coins >= o.Price, "not enough run coins");
             if (o.Kind == ShopOfferKind.Skill) Require(RunDraft.IsEligible(ctx.Content, run, ctx.Content.Skill(o.SkillId)), "skill no longer available");
+            var before = Snap.Of(run);
             run.Coins -= o.Price;
             o.Sold = true;
             switch (o.Kind)
@@ -277,6 +280,8 @@ namespace RogueStars.Rules.Systems
                 case ShopOfferKind.Heal: HealWorm(ctx.Content, run, o.Value); break;
                 case ShopOfferKind.Stat: run.RunStats.Add(new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent)); RefreshMaxHp(ctx.Content, run); break;
             }
+            if (run.ShopOutcome == null) run.ShopOutcome = new RunOutcome { Source = "shop", Title = "Wandering Shop", Choice = "Purchases" };
+            before.Diff(ctx.Content, run, run.ShopOutcome.Lines);
             ctx.Emit("run_shop_buy", index.ToString());
         }
 
@@ -296,6 +301,8 @@ namespace RogueStars.Rules.Systems
             Require(run.Phase == RunPhase.Shop, "no shop open");
             run.Shop.Clear();
             run.Phase = RunPhase.AwaitRoll;
+            if (run.ShopOutcome != null && run.ShopOutcome.Lines.Count > 0) PublishOutcome(ctx, run, run.ShopOutcome);
+            run.ShopOutcome = null;
             Continue(ctx, run);
         }
 

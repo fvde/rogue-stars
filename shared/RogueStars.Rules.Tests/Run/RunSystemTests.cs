@@ -112,21 +112,39 @@ public class RunSystemTests
     }
 
     [Fact]
-    public void LootTiles_ArePending_AndRaiseDanger()
+    public void SupplyCaches_PayRunResources_NotAccountLoot()
     {
         var e = RunTestKit.Engine();
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
         RunTestKit.LineBoard(run, Enumerable.Repeat("loot", 30).ToArray());
-        long biomass = s.Wallet.Get(Currencies.Biomass);
+        long coins = run.Coins;
         Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
         run = s.Run.Active!;
-        Assert.Single(run.PendingLoot);
-        Assert.Equal(1, run.Danger);
+        Assert.Empty(run.PendingLoot);                                             // ordinary tiles never pay account loot
+        Assert.Equal(0, run.Danger);
+        Assert.Equal(coins + e.Content.BoardTiles["loot"].Coins, run.Coins);
+        Assert.True(run.XpTotal >= (int)e.Content.BoardTiles["loot"].Value);
+        Assert.True(run.Tiles[run.Position].TileId != null);                       // consumed tile replaced from the pool
+    }
+
+    [Fact]
+    public void AccountLoot_FromRiskyEvents_IsPending_AndRaisesDanger()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        run.Phase = RunPhase.Event; run.EventId = "gravity_well"; run.EventTile = 1;
+        long biomass = s.Wallet.Get(Currencies.Biomass);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok);
+        run = s.Run.Active!;
+        Assert.Equal(2, run.PendingLoot.Count);
+        Assert.Equal(2, run.Danger);
+        Assert.Equal(-15, run.AwakeningReductionPct, 6);                           // lasting cost: the boss awakens 15% faster
         Assert.Equal(biomass, s.Wallet.Get(Currencies.Biomass));                    // nothing granted yet
         run.Danger = 4;
         Assert.Equal(4 * e.Content.RunTuning.DangerPctPerLoot, RunSystem.DangerPct(e.Content, run), 6);
-        Assert.True(run.Tiles[run.Position].TileId != null);                       // consumed tile replaced from the pool
     }
 
     [Fact]
@@ -181,7 +199,7 @@ public class RunSystemTests
         var run = s.Run.Active!;
         Assert.Equal(1, run.ExtraDicePermanent);
         Assert.Equal(50, run.AwakeningReductionPct);
-        Assert.Equal(25, run.ExtraLootPct);
+        Assert.Equal(25 + (run.Skills.Contains("gen_hoarder") ? 20 : 0), run.ExtraLootPct); // the random Epic+ start skill may be Hoarder
         Assert.Equal(40, run.Coins);
         Assert.Contains("fire_kindle", run.Skills);
         Assert.Contains("crit_keen", run.Skills);

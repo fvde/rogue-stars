@@ -122,11 +122,14 @@ namespace RogueStars.Rules.Content
         /// <summary>Dedicated boss tile ids placed on the board.</summary>
         public List<string> BossTileIds = new List<string>();
         public int BossTileCount = 3;
-        /// <summary>Meter points per roll (meter 0..100).</summary>
-        public double AwakenPerRoll = 6;
+        /// <summary>
+        /// Meter points per roll (meter 0..100). The meter is the run's clock: the boss comes when it is full (or at the level's
+        /// roll limit), so 100 / AwakenPerRoll is the base run length in rolls before boss tiles, events and skills shift it.
+        /// </summary>
+        public double AwakenPerRoll = 3.6;
         public List<BossAwakenAction> Actions = new List<BossAwakenAction>();
         /// <summary>Extra boss stat % when the meter is full.</summary>
-        public double FullyAwakeStatPct = 30;
+        public double FullyAwakeStatPct = 15;
         /// <summary>Enemy ids that join the boss fight.</summary>
         public List<string> Escorts = new List<string>();
     }
@@ -222,7 +225,8 @@ namespace RogueStars.Rules.Content
         public double BranchChance = 0.18;
         public double LoopChance = 0.5;
         public int Dice = 1;
-        public int MaxRolls = 18;
+        /// <summary>Hard roll limit (the awakening meter normally brings the boss first, ~30 rolls).</summary>
+        public int MaxRolls = 45;
         public string TilePoolId;
         public List<FixedTile> FixedTiles = new List<FixedTile>();
         public string BossId;
@@ -232,8 +236,11 @@ namespace RogueStars.Rules.Content
         public string LootTableId;
         public string ShopTableId = "shop_standard";
         public List<Reward> CompletionRewards = new List<Reward>();
-        /// <summary>Extra loot-table rolls on completion.</summary>
-        public int CompletionLootRolls = 2;
+        /// <summary>
+        /// Extra loot-table rolls on completion: the main account-loot payout of a run (3: the scattered tile loot of the old
+        /// short runs moved here; ordinary tiles pay in-run resources only).
+        /// </summary>
+        public int CompletionLootRolls = 3;
         /// <summary>
         /// Rare drops rolled once when the level (Burrow: floor) is beaten (run RNG); pending like loot, paid unscaled on a
         /// won run (no run-reward modifiers, not doubled by the double-rewards ad). E.g. Awaken Cores on deep Burrow floors.
@@ -280,6 +287,8 @@ namespace RogueStars.Rules.Content
     {
         Coins, HealPct, DamagePct, StatPercent, GainSkill, GainSpecificSkill, UpgradeSkill, LoseRandomSkill,
         Loot, PendingReward, BossStatPct, Meter, Battle, Xp, Shards, Danger, StrengthenEnemies,
+        /// <summary>The boss awakens Value % faster for the rest of the run (negative: slower).</summary>
+        AwakenRatePct,
     }
 
     /// <summary>One effect of an event outcome. Param meaning depends on Kind (see skill-conventions.md).</summary>
@@ -326,6 +335,16 @@ namespace RogueStars.Rules.Content
         public int DefaultOption;
         /// <summary>Counts as a negative event for "skip negative events" boons.</summary>
         public bool Negative;
+
+        /// <summary>Some option can pay account loot (pending meta rewards): an account-loot opportunity (capped per run).</summary>
+        public bool GrantsAccountLoot()
+        {
+            foreach (var o in Options)
+                foreach (var oc in o.Outcomes)
+                    foreach (var e in oc.Effects)
+                        if (e.Kind == RunEffectKind.Loot || e.Kind == RunEffectKind.PendingReward) return true;
+            return false;
+        }
     }
 
     [Serializable]
@@ -346,7 +365,12 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class RunTuning
     {
-        public int XpBase = 8, XpPerLevel = 6;
+        public int XpBase = 4, XpPerLevel = 1;
+        /// <summary>
+        /// At most this many account-loot opportunities (events / guarded caches whose options pay meta loot) are offered per run
+        /// (per floor in the Burrow); later ones are replaced by other events. Ordinary tiles never pay account loot.
+        /// </summary>
+        public int MaxAccountLootOffersPerRun = 3;
         public int DraftChoices = 3;
         public int DraftRerollsPerRun = 1;
         /// <summary>Hidden pity: after this many draft picks without a Legendary+, an offer contains one.</summary>
@@ -362,6 +386,11 @@ namespace RogueStars.Rules.Content
         public List<double> EnemyLevelBonusPct = new List<double> { 0, 0, 15, 30 };
         public List<int> EnemyLevelCount = new List<int> { 1, 1, 2, 3 };
         public double EliteBonusPct = 20;
+        /// <summary>
+        /// HP/ATK % of every board fight (enemy, elite, miniboss and event fights; not the boss): a ~30-roll run has ~10 fights,
+        /// so each one is a little softer than the threat curve alone (GDD §3.3).
+        /// </summary>
+        public double BoardEnemyPct = -15;
         public double MinibossBonusPct = 50;
         public double CampfireEnemyBonusPct = 12;
         public int CampfireRadius = 4;
@@ -370,7 +399,7 @@ namespace RogueStars.Rules.Content
         /// <summary>Global scale on enemy base HP/ATK (threat 0 balance knob for a fresh worm).</summary>
         public double EnemyHpScale = 0.7, EnemyAtkScale = 0.6;
         /// <summary>Worm heals this % of max HP after every won battle.</summary>
-        public double HealAfterBattlePct = 8;
+        public double HealAfterBattlePct = 15;
         public int MaxStepsGuard = 400;
         /// <summary>Fallback worm stats if no progression contributor provided HP (prototype safety net).</summary>
         public List<StatMod> FallbackWormStats = new List<StatMod>();
@@ -442,8 +471,10 @@ namespace RogueStars.Rules.Content
         public double DarkSideDataBase = 24, DarkSideDataGrowth = 1.025;
         /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
         public int SidePortalOrder = 1000;
-        /// <summary>Main board length: 24 + level index + 2 per portal, the portal part capped here.</summary>
+        /// <summary>Main board lap length: 24 + level index + 2 per portal (the portal part capped here), ×1.5 with two dice.</summary>
         public int BoardGrowthPortals = 6;
+        /// <summary>Hard roll limit of main and Dark Side runs (the awakening meter normally brings the boss at ~30 rolls).</summary>
+        public int MaxRolls = 45;
 
         /// <summary>Reward scale of portal index i (0-based) up to the endless anchor: (i+1) × RewardGrowth^max(0, i−2).</summary>
         public double RewardGrowth = 1.0;
