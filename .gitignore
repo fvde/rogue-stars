@@ -31,3 +31,7 @@ shared/**/*.meta
 firebase-debug.log
 firestore-debug.log
 *-debug.log
+
+# Firebase client config (per environment; injected locally, never committed)
+client/RogueStars/Assets/google-services.json
+client/RogueStars/Assets/google-services.json.meta
