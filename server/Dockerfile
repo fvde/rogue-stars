@@ -9,10 +9,12 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 # Restore first (layer cache): only project files and build props.
 COPY Directory.Build.props ./
 COPY shared/RogueStars.Rules/RogueStars.Rules.csproj shared/RogueStars.Rules/
+COPY shared/RogueStars.Sim.Core/RogueStars.Sim.Core.csproj shared/RogueStars.Sim.Core/
 COPY server/RogueStars.Server/RogueStars.Server.csproj server/RogueStars.Server/
 RUN dotnet restore server/RogueStars.Server/RogueStars.Server.csproj
 
 COPY shared/RogueStars.Rules/ shared/RogueStars.Rules/
+COPY shared/RogueStars.Sim.Core/ shared/RogueStars.Sim.Core/
 COPY server/RogueStars.Server/ server/RogueStars.Server/
 RUN dotnet publish server/RogueStars.Server/RogueStars.Server.csproj -c Release --no-restore -o /app /p:UseAppHost=false
 

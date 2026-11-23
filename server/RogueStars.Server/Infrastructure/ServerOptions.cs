@@ -19,6 +19,30 @@ public sealed class ServerOptions
     public ArenaOptions Arena { get; set; } = new();
     public GuildOptions Guilds { get; set; } = new();
     public InvasionOptions Invasions { get; set; } = new();
+    public DevToolsOptions DevTools { get; set; } = new();
+}
+
+/// <summary>
+/// Owner dev tools (reset progress, jump to account day N) against any server, production included. Only the listed
+/// players may use them; everyone else gets 403 (docs/server.md → Dev tools).
+/// </summary>
+public sealed class DevToolsOptions
+{
+    /// <summary>
+    /// Player ids (= Firebase uids) allowed to use the dev tools. Env: <c>RogueStars__DevTools__AllowedPlayerIds__0</c>, …
+    /// (Terraform <c>dev_tools_player_ids</c>); an entry may also hold several ids separated by commas or whitespace.
+    /// </summary>
+    public List<string> AllowedPlayerIds { get; set; } = new();
+
+    /// <summary>Everyone may use the dev tools (local/dev servers only; startup fails with it in Production).</summary>
+    public bool AllowAll { get; set; }
+
+    /// <summary>The configured ids (entries split at commas/whitespace).</summary>
+    public IEnumerable<string> Ids() =>
+        AllowedPlayerIds.SelectMany(e => (e ?? "").Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+
+    public bool IsAllowed(string? playerId) =>
+        !string.IsNullOrEmpty(playerId) && (AllowAll || Ids().Contains(playerId, StringComparer.Ordinal));
 }
 
 public sealed class AuthOptions
