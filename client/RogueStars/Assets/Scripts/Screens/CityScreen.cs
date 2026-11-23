@@ -16,7 +16,7 @@ namespace RogueStars.Client.Screens
     {
         private enum Mode { Select, Place, Move }
 
-        private const float GridPixels = 1000;
+        private const float GridPixels = 924;
         private Mode _mode;
         private string _selected;   // selected building (blueprint id)
         private string _pending;    // blueprint being placed/moved
@@ -43,7 +43,7 @@ namespace RogueStars.Client.Screens
         private void Toolbar(RectTransform body)
         {
             var row = Ui.Row(body);
-            Ui.Button(row, "Collect all", () => Run(new CityCollect()), Theme.Good);
+            Ui.Button(row, "COLLECT ALL", () => Run(new CityCollect()), Theme.Good, -1, Theme.RowHeight, true, Theme.FontLarge);
             Ui.Button(row, "Priority: " + (State.City.PriorityCurrency == null ? "none" : Fmt.CurrencyName(State.City.PriorityCurrency)), PriorityModal, Theme.Button);
 
             var next = CitySystem.NextArea(State, Content);
@@ -81,7 +81,7 @@ namespace RogueStars.Client.Screens
             float cell = GridPixels / Mathf.Max(w, h);
             var holder = Ui.Rect(body, "GridHolder");
             Ui.Size(holder, -1, cell * h + 8);
-            var grid = Ui.Panel(holder, Theme.Background, "Grid").rectTransform;
+            var grid = Ui.RoundPanel(holder, Theme.Hex(0x0B120E), 24, "Grid").rectTransform;
             grid.anchorMin = grid.anchorMax = new Vector2(0.5f, 1);
             grid.pivot = new Vector2(0.5f, 1);
             grid.sizeDelta = new Vector2(cell * w, cell * h);
@@ -97,12 +97,12 @@ namespace RogueStars.Client.Screens
                     if (!unlocked)
                     {
                         // locked area: plain tile (no button) so it stays readable
-                        var locked = Ui.Panel(grid, Theme.Hex(0x2A2A3C), "Locked");
+                        var locked = Ui.RoundPanel(grid, Theme.Hex(0x13201A), 10, "Locked");
                         locked.raycastTarget = false;
                         Place(locked.rectTransform, x, y, 1, 1, cell, 2);
                         continue;
                     }
-                    var btn = Ui.Button(grid, "", () => OnCell(cx, cy), _mode != Mode.Select ? Theme.Hex(0x34345A) : Theme.PanelAlt, -1, -1, true);
+                    var btn = Ui.Button(grid, "", () => OnCell(cx, cy), _mode != Mode.Select ? Theme.Hex(0x2F4A38) : Theme.Hex(0x1C2C22), -1, -1, true);
                     Place(btn.GetComponent<RectTransform>(), x, y, 1, 1, cell, 2);
                 }
 

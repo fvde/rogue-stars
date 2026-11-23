@@ -6,6 +6,7 @@ using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RogueStars.Client.Screens
 {
@@ -22,7 +23,18 @@ namespace RogueStars.Client.Screens
             var loadout = Session.Engine.BuildLoadout(State, Now);
             var cfg = Content.WormConfig;
             var head = Card(body, Theme.Header);
-            Ui.Label(head, "Level " + State.Worm.Level + "  ·  Power " + Fmt.Num(loadout.Power), Theme.FontLarge, Theme.Warn);
+            var who = Ui.Row(head, 110, 22);
+            var pill = Ui.RoundPanel(who, Theme.Worm, 40, "WormPill");
+            Ui.Size(pill, 190, 80, 0);
+            UiShapes.Outline(pill.rectTransform, Theme.WormLight, 40, 5);
+            var eye = Ui.Dot(pill.transform, Theme.OnAccent, 14, "Eye");
+            eye.rectTransform.anchorMin = eye.rectTransform.anchorMax = new Vector2(0.8f, 0.62f);
+            eye.rectTransform.sizeDelta = new Vector2(14, 14);
+            var names = Ui.Column(who, 0, 0, null, "Names");
+            names.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Size(names, -1, -1, 1);
+            Ui.Display(names, State.DisplayName ?? "Worm", Theme.FontTitle, Theme.Text);
+            Ui.Label(names, "Worm level " + State.Worm.Level + "  ·  Power " + Fmt.Num(loadout.Power), Theme.FontNormal, Theme.TextDim);
             bool levelUnlocked = Session.IsUnlocked(Features.WormLevel);
             long cost = WormSystem.NextLevelCost(State, Content);
             if (!levelUnlocked) Note(head, "Worm levels unlock later (" + Requirements.Describe(Content, Content.Feature(Features.WormLevel)?.Requires ?? new RequirementSet()) + ").");
@@ -37,19 +49,22 @@ namespace RogueStars.Client.Screens
             Section(body, "Body slots");
             if (AutoEquipCommands().Count > 0)
                 Ui.Button(body, "Equip best parts", () => { foreach (var c in AutoEquipCommands()) Run(c); }, Theme.Good).name = "AutoEquip";
-            var grid = Ui.Grid(body, new Vector2(330, 150), 3, 12);
+            var grid = Ui.Grid(body, new Vector2(296, 170), 3, 14);
             foreach (PartSlot slot in Enum.GetValues(typeof(PartSlot)))
             {
                 var sl = slot;
                 State.Parts.Equipped.TryGetValue(sl, out var uid);
                 var part = PartsSystem.Get(State, uid);
-                string label = Fmt.Humanize(sl.ToString()) + "\n<size=22>" + (part == null ? "empty" : PartsScreen.PartName(Content, part) + " Lv " + part.Level) + "</size>";
-                var color = part == null ? Theme.Locked : Color.Lerp(PartsScreen.RarityColor(part.Rarity), Theme.Panel, 0.5f);
-                Ui.Button(grid, label, () => EquipModal(sl), color, -1, 150, true, 30).name = "Slot:" + sl;
+                var rarity = part == null ? Theme.Border : PartsScreen.RarityColor(part.Rarity);
+                string label = Fmt.Humanize(sl.ToString()).ToUpperInvariant() + "\n<size=22>" + (part == null ? "empty" : PartsScreen.PartName(Content, part) + " · Lv " + part.Level) + "</size>";
+                var b = Ui.Button(grid, label, () => EquipModal(sl), part == null ? new Color(0, 0, 0, 0) : Theme.Tint(rarity, 0.25f), -1, 170, true, 28);
+                b.name = "Slot:" + sl;
+                b.GetComponentInChildren<Text>().color = part == null ? Theme.TextFaint : Color.Lerp(rarity, Color.white, 0.55f);
+                UiShapes.Outline((RectTransform)b.transform, rarity, Theme.RadiusButton, part == null ? 3 : 5);
             }
 
             Section(body, "Stats");
-            var stats = Ui.Grid(body, new Vector2(500, 48), 2, 6);
+            var stats = Ui.Grid(body, new Vector2(450, 48), 2, 6);
             foreach (var st in ShownStats)
             {
                 var t = Ui.Label(stats, Fmt.Humanize(st.ToString()) + ": " + StatText(st, loadout.WormStats.Value(st)), Theme.FontSmall);

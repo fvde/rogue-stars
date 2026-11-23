@@ -226,12 +226,14 @@ namespace RogueStars.Client.App
             foreach (var cur in Shown)
             {
                 string id = cur;
-                var chip = Ui.Panel(grid, Theme.PanelAlt, "Chip:" + id);
-                var swatch = Ui.Panel(chip.transform, Theme.CurrencyColor(id), "Swatch");
-                swatch.rectTransform.anchorMin = new Vector2(0, 0); swatch.rectTransform.anchorMax = new Vector2(0, 1);
-                swatch.rectTransform.pivot = new Vector2(0, 0.5f); swatch.rectTransform.sizeDelta = new Vector2(10, 0);
+                var chip = Ui.RoundPanel(grid, Theme.PanelAlt, 23, "Chip:" + id);
+                var swatch = Ui.Dot(chip.transform, Theme.CurrencyColor(id), 26, "Swatch");
+                swatch.rectTransform.anchorMin = swatch.rectTransform.anchorMax = new Vector2(0, 0.5f);
+                swatch.rectTransform.pivot = new Vector2(0, 0.5f); swatch.rectTransform.sizeDelta = new Vector2(26, 26);
+                swatch.rectTransform.anchoredPosition = new Vector2(12, 0);
                 var t = Ui.Label(chip.transform, "", Theme.FontSmall, Theme.Text, TextAnchor.MiddleLeft);
-                Ui.Stretch(t.rectTransform, 18, 0, 6, 0);
+                t.fontStyle = FontStyle.Bold;
+                Ui.Stretch(t.rectTransform, 48, 0, 6, 0);
                 _live.Add(new KeyValuePair<Text, Func<string>>(t, () => ChipText(id)));
             }
             Tick();

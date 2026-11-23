@@ -62,6 +62,9 @@ namespace RogueStars.Client.PlayTests
             var level = FirstLevel();
             ClickNamed("Level:" + level.Id);
             yield return Wait(0.3f);
+            yield return Shot("02c_portal_level_card");
+            ClickNamed("LevelDetails");
+            yield return Wait(0.3f);
             yield return Shot("03_level_modal");
             var start = _svc.ExecuteNow(new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal });
             Assert.That(start.Ok, Is.True, start.Error);

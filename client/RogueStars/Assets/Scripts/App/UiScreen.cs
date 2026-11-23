@@ -20,6 +20,8 @@ namespace RogueStars.Client.App
         private RectTransform _body;
         private ScrollRect _scroll;
         private Text _title;
+        private Text _subtitle;
+        private RectTransform _scrollTarget;
         private bool _builtOnce;
 
         public ClientApp App { get; private set; }
@@ -49,34 +51,60 @@ namespace RogueStars.Client.App
         protected ContentDb Content => App.Session.Content;
         protected long Now => App.Session.NowMs;
 
+        /// <summary>Second header line under the title (progress, context); null = none.</summary>
+        public virtual string Subtitle => null;
+        /// <summary>Caption of the header's back button ("&lt;"; the run screen shows a pause sign).</summary>
+        protected virtual string BackLabel => "<";
+        /// <summary>The header's back button (default: pop this screen).</summary>
+        protected virtual void OnBack() => App.Router.Pop();
+
         internal void Create(ClientApp app, RectTransform parent)
         {
             App = app;
             Root = Ui.Stretch(Ui.Rect(parent, "Screen:" + GetType().Name));
-            var header = Ui.Row(Root, 110, 16, Theme.Header, 16, "Header");
+            var header = Ui.Row(Root, HeaderHeight, 20, null, 0, "Header");
+            var hl = header.GetComponent<HorizontalLayoutGroup>();
+            hl.padding = new RectOffset(24, 24, 12, 8);
+            hl.childForceExpandHeight = false;
             header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1); header.pivot = new Vector2(0.5f, 1);
-            header.sizeDelta = new Vector2(0, 110); header.anchoredPosition = Vector2.zero;
-            if (ShowBack) Ui.Button(header, "< Back", () => app.Router.Pop(), Theme.Button, 200, 84);
-            _title = Ui.Label(header, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
+            header.sizeDelta = new Vector2(0, HeaderHeight); header.anchoredPosition = Vector2.zero;
+            if (ShowBack) Ui.Button(header, BackLabel, OnBack, Theme.Panel, 104, 104, true, Theme.FontTitle).name = "BackButton";
+            var titles = Ui.Column(header, 0, 0, null, "Titles");
+            titles.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+            Ui.Size(titles, -1, -1, 1);
+            _title = Ui.Display(titles, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
+            _subtitle = Ui.Label(titles, "", Theme.FontSmall, Theme.TextDim, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Subtitle");
+            _subtitle.horizontalOverflow = HorizontalWrapMode.Overflow;
             BuildHeaderExtras(header);
             float bottom = 0;
             if (FooterHeight > 0)
             {
-                Footer = Ui.Column(Root, 10, 0, Theme.Background, "Footer");
+                Footer = Ui.Column(Root, FooterSpacing, 0, null, "Footer");
+                UiShapes.Round(Footer.gameObject.AddComponent<Image>(), 52).color = Theme.PanelAlt;
                 Footer.anchorMin = Vector2.zero; Footer.anchorMax = new Vector2(1, 0); Footer.pivot = new Vector2(0.5f, 0);
                 Footer.sizeDelta = new Vector2(0, FooterHeight); Footer.anchoredPosition = Vector2.zero;
                 var lg = Footer.GetComponent<VerticalLayoutGroup>();
                 if (lg != null)
                 {
                     lg.childControlHeight = true; lg.childForceExpandHeight = false; lg.childAlignment = TextAnchor.LowerCenter;
-                    lg.padding = new RectOffset(16, 16, 6, 14);
+                    lg.padding = new RectOffset(24, 24, FooterPadTop, FooterPadBottom);
                 }
                 bottom = FooterHeight + (ReserveToastStrip ? ToastCenter.StripHeight + 8 : 0);
             }
-            BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, 110, 0, bottom);
+            BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, HeaderHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
             Rebuild();
         }
+
+        /// <summary>Footer (fixed bottom bar) layout: spacing between its rows and vertical padding.</summary>
+        public const float FooterSpacing = 12;
+        public const int FooterPadTop = 18, FooterPadBottom = 22;
+
+        /// <summary>Height of the header (back button, title, subtitle).</summary>
+        public const float HeaderHeight = 128;
+
+        /// <summary>Scroll the body so <paramref name="target"/> is centred once this build is laid out (instead of keeping the old position).</summary>
+        protected void ScrollToAfterBuild(RectTransform target) => _scrollTarget = target;
 
         /// <summary>Rebuild the body from the current state (keeps the scroll position).</summary>
         public void Rebuild()
@@ -84,18 +112,42 @@ namespace RogueStars.Client.App
             if (Root == null) return;
             float pos = _scroll != null && _builtOnce ? _scroll.verticalNormalizedPosition : 1; // new screens start at the top
             _builtOnce = true;
+            _scrollTarget = null;
             Ui.Clear(_body);
             if (Footer != null) Ui.Clear(Footer);
             _live.Clear();
-            if (_title != null) _title.text = Title;
+            if (_title != null) { _title.text = Title; _title.font = Ui.FontFor(Title); }
+            if (_subtitle != null)
+            {
+                string sub = App.Session.State == null ? null : Subtitle;
+                _subtitle.text = sub ?? "";
+                _subtitle.gameObject.SetActive(!string.IsNullOrEmpty(sub));
+            }
             if (App.Session.State == null) Ui.Label(_body, "Connecting…", Theme.FontLarge, Theme.TextDim, TextAnchor.MiddleCenter);
             else Build(_body);
             if (_scroll != null)
             {
                 Canvas.ForceUpdateCanvases();
+                if (_scrollTarget != null) pos = CenteredPosition(_scrollTarget);
                 _scroll.verticalNormalizedPosition = pos;
             }
+            _scrollTarget = null;
             Tick();
+        }
+
+        /// <summary>Normalized scroll position that centres <paramref name="target"/> in the viewport.</summary>
+        private float CenteredPosition(RectTransform target)
+        {
+            var content = _scroll.content;
+            var viewport = _scroll.viewport;
+            float contentH = content.rect.height, viewH = viewport.rect.height;
+            if (contentH <= viewH + 1) return 1;
+            var corners = new Vector3[4];
+            target.GetWorldCorners(corners);
+            var mid = content.InverseTransformPoint((corners[0] + corners[2]) / 2);
+            float fromTop = -mid.y; // content pivot is its top edge
+            float top = Mathf.Clamp(fromTop - viewH / 2, 0, contentH - viewH);
+            return 1 - top / (contentH - viewH);
         }
 
         /// <summary>Fill the scrolling body.</summary>
@@ -136,10 +188,10 @@ namespace RogueStars.Client.App
         protected void Run(GameCommand cmd, Action<CommandResult> then = null) => Session.Run(cmd, then);
 
         protected static RectTransform Card(Transform parent, Color? color = null, float spacing = 8) =>
-            Ui.Column(parent, spacing, 18, color ?? Theme.Panel, "Card");
+            Ui.Card(parent, color ?? Theme.Panel, null, Theme.RadiusCard, 24, spacing);
 
         protected static Text Section(Transform parent, string text) =>
-            Ui.Label(parent, text, Theme.FontLarge, Theme.Accent, TextAnchor.MiddleLeft, "Section");
+            Ui.Display(parent, text, Theme.FontLarge, Theme.Gold, TextAnchor.MiddleLeft, "Section");
 
         protected static Text Note(Transform parent, string text) =>
             Ui.Label(parent, text, Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleLeft, "Note");
