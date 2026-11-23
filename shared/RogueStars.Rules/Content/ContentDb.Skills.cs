@@ -50,7 +50,7 @@ namespace RogueStars.Rules.Content
         }
     }
 
-    /// <summary>Run skills (~76 draftable, 9 families + generic); the Laboratory tree is in ContentDb.Laboratory.cs.</summary>
+    /// <summary>Run skills (~100 draftable, 9 families + generic, 30 Mythic); the Laboratory tree is in ContentDb.Laboratory.cs.</summary>
     public sealed partial class ContentDb
     {
         private RunSkillBuilder RunSkill(string id, string name, SkillFamily family, Rarity rarity, SkillSource source = SkillSource.Run)
@@ -80,6 +80,7 @@ namespace RogueStars.Rules.Content
         {
             RunBuildFamilySkills();
             RunBuildGenericSkills();
+            RunBuildMythicSkills();
             RunBuildLabSkills();
         }
 
@@ -224,6 +225,57 @@ namespace RogueStars.Rules.Content
                 .Board(TriggerKind.OnRoll, EffectKind.SlowAwakening, 1);
             RunSkill("gen_hoarder", "Hoarder", SkillFamily.None, Rarity.Legendary).Desc("+20% pending loot on completion.")
                 .Board(TriggerKind.OnRunStart, EffectKind.ExtraLoot, 20);
+        }
+
+        /// <summary>
+        /// Mythic skills for the miniboss choice (GDD §3.3 "Build"): two per family plus three generic ones, no family gate, so
+        /// every beaten miniboss offers 3 of the ~30 Mythics (the 9 gated family capstones above join that choice too).
+        /// </summary>
+        private void RunBuildMythicSkills()
+        {
+            const TriggerKind Hit = TriggerKind.OnHit;
+            RunSkill("mythic_sunheart", "Sunheart Core", SkillFamily.Fire, Rarity.Mythic).Desc("A star burns in your core.")
+                .Stat(StatId.FireDamage, 40).Stat(StatId.Atk, 0, 10).Status(TriggerKind.OnBattleStart, 100, StatusId.Burn, 3, TargetKind.AllEnemies);
+            RunSkill("mythic_cinder_storm", "Cinder Storm", SkillFamily.Fire, Rarity.Mythic).Desc("Ash rains on every foe.")
+                .On(TriggerKind.OnRoundStart, EffectKind.Damage, 30, TargetKind.AllEnemies).Status(Hit, 50, StatusId.Burn, 2);
+            RunSkill("mythic_winter_crown", "Winter Crown", SkillFamily.Ice, Rarity.Mythic).Desc("A crown of ice guards you.")
+                .Stat(StatId.Def, 0, 20).Stat(StatId.DamageReduction, 10).On(TriggerKind.OnBattleStart, EffectKind.Shield, 25, TargetKind.Self);
+            RunSkill("mythic_shatterpoint", "Shatterpoint", SkillFamily.Ice, Rarity.Mythic).Desc("Frozen foes break.")
+                .Cond("vs_status:Freeze", 60).Status(TriggerKind.OnAttack, 25, StatusId.Freeze).Stat(StatId.IceDamage, 30);
+            RunSkill("mythic_overcharge", "Overcharge", SkillFamily.Lightning, Rarity.Mythic).Desc("Lightning in your veins.")
+                .Stat(StatId.Speed, 20).Stat(StatId.LightningDamage, 40).Status(Hit, 60, StatusId.Shock, 2);
+            RunSkill("mythic_ball_lightning", "Ball Lightning", SkillFamily.Lightning, Rarity.Mythic).Desc("A living storm orbits you.")
+                .On(TriggerKind.OnRoundStart, EffectKind.Damage, 60, TargetKind.RandomEnemy).Status(TriggerKind.OnRoundStart, 100, StatusId.Shock, 2, TargetKind.RandomEnemy);
+            RunSkill("mythic_blightbloom", "Blightbloom", SkillFamily.Poison, Rarity.Mythic).Desc("Your venom blossoms.")
+                .Stat(StatId.PoisonDamage, 50).Stat(StatId.StatusChance, 15).Status(Hit, 60, StatusId.Poison, 3);
+            RunSkill("mythic_toxic_aura", "Toxic Aura", SkillFamily.Poison, Rarity.Mythic).Desc("The air around you is poison.")
+                .Status(TriggerKind.OnRoundEnd, 100, StatusId.Poison, 2, TargetKind.AllEnemies).Cond("vs_status:Poison", 25);
+            RunSkill("mythic_thousand_cuts", "Thousand Cuts", SkillFamily.Bleed, Rarity.Mythic).Desc("Every strike opens a wound.")
+                .Stat(StatId.BleedDamage, 40).Status(Hit, 60, StatusId.Bleed, 2);
+            RunSkill("mythic_bloodlust", "Bloodlust", SkillFamily.Bleed, Rarity.Mythic).Desc("Blood makes you whole.")
+                .Stat(StatId.LifeSteal, 15).On(TriggerKind.OnKill, EffectKind.Heal, 15, TargetKind.Self);
+            RunSkill("mythic_ark_command", "Ark Command", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Your squad fights as one.")
+                .Stat(StatId.AlienPower, 60).Buff(TriggerKind.OnBattleStart, StatId.Atk, 20, TargetKind.AllAllies, 3);
+            RunSkill("mythic_swarm_call", "Swarm Beacon", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Drones answer your call.")
+                .Stat(StatId.AlienPower, 30).On(TriggerKind.OnBattleStart, EffectKind.Summon, 70, TargetKind.Self, 100, 0, "drone");
+            RunSkill("mythic_thorn_king", "Thorn King", SkillFamily.Counter, Rarity.Mythic).Desc("Touching you hurts.")
+                .Stat(StatId.CounterChance, 20).On(TriggerKind.OnDamaged, EffectKind.Damage, 50, TargetKind.Enemy);
+            RunSkill("mythic_bastion", "Bastion", SkillFamily.Counter, Rarity.Mythic).Desc("Nothing gets through.")
+                .Stat(StatId.ParryChance, 20).Stat(StatId.ParryReduction, 30).On(TriggerKind.OnParry, EffectKind.GainRage, 30, TargetKind.Self);
+            RunSkill("mythic_blade_storm", "Blade Storm", SkillFamily.Combo, Rarity.Mythic).Desc("Faster and faster.")
+                .Stat(StatId.ComboChance, 30).Buff(TriggerKind.OnCombo, StatId.Atk, 5);
+            RunSkill("mythic_cascade", "Cascade", SkillFamily.Combo, Rarity.Mythic).Desc("Strikes spill onto the next foe.")
+                .On(TriggerKind.OnCombo, EffectKind.Damage, 50, TargetKind.RandomEnemy).Stat(StatId.RageGain, 20);
+            RunSkill("mythic_deadeye", "Deadeye", SkillFamily.Crit, Rarity.Mythic).Desc("Every shot finds the gap.")
+                .Stat(StatId.CritChance, 25).Stat(StatId.CritDamage, 50);
+            RunSkill("mythic_reaper", "Reaper", SkillFamily.Crit, Rarity.Mythic).Desc("Finish what you start.")
+                .Cond("vs_low_hp", 60).On(TriggerKind.OnKill, EffectKind.GainRage, 40, TargetKind.Self);
+            RunSkill("mythic_titan_blood", "Titan Blood", SkillFamily.None, Rarity.Mythic).Desc("Giant's blood.")
+                .Stat(StatId.Hp, 0, 25).Stat(StatId.Atk, 0, 15).Stat(StatId.Regen, 3);
+            RunSkill("mythic_warlord", "Warlord", SkillFamily.None, Rarity.Mythic).Desc("Born to topple bosses.")
+                .Stat(StatId.BossDamage, 30).Stat(StatId.Atk, 0, 20);
+            RunSkill("mythic_chrono_shell", "Chrono Shell", SkillFamily.None, Rarity.Mythic).Desc("Time bends around you.")
+                .On(TriggerKind.OnBattleStart, EffectKind.Shield, 30, TargetKind.Self).Stat(StatId.DamageReduction, 10);
         }
     }
 }

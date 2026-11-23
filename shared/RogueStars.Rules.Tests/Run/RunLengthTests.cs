@@ -139,6 +139,7 @@ public class RunLengthTests(ITestOutputHelper output)
         Assert.Equal(e.Content.RunBosses[run.BossId].AwakenPerRoll, per, 6);
         Assert.Equal((int)Math.Ceiling(100 / per), RunSystem.BossRollEstimate(e.Content, run)); // HUD "Roll 0/28"
         run.Awakening = 100 - per / 2;
+        run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count; // the clock's minibosses already came
         Assert.Equal(1, RunSystem.BossRollEstimate(e.Content, run));
         var r = RunTestKit.Exec(e, ref s, new RunRoll());
         Assert.True(r.Ok);

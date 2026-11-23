@@ -256,11 +256,11 @@ public class RunSystemTests
         var run = s.Run.Active!;
         run.Phase = RunPhase.Event;
         run.EventId = "alien_medic";
-        Assert.False(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok); // 25 coins needed
-        s.Run.Active!.Coins = 30;
+        Assert.False(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok); // 40 coins needed
+        s.Run.Active!.Coins = 50;
         s.Run.Active.WormHp = 10;
         Assert.True(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok);
-        Assert.Equal(5, s.Run.Active!.Coins);
+        Assert.Equal(10, s.Run.Active!.Coins);
         Assert.True(s.Run.Active.WormHp > 10);
 
         // Rift echo: battle, then a part drop added to pending loot

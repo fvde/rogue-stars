@@ -55,7 +55,7 @@ public class AutoModeTests
         // only battles' level-ups (drafts) can stop auto on this board; otherwise it reaches the boss and ends
         if (s.Run.Active != null) AssertStops(e, ref s, RunDecision.Draft);
         Assert.True(s.Counter("run_rolls") > 0);
-        Assert.True(s.Counter("run_battles_won") > 0);
+        Assert.True(s.Counter("run_battles_won") > 0 || s.Run.Active != null); // an early level-up (loot XP) may stop it first
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class AutoModeTests
     }
 
     [Fact]
-    public void Farming_LeavesShopsUntouched_UnlessFarmShops()
+    public void Farming_BuysSensibly_HealFirstThenSkillsAndPerks_ThenLeaves()
     {
         GameState AtShop(GameEngine e)
         {
@@ -97,18 +97,31 @@ public class AutoModeTests
         }
         var e = RunTestKit.Engine();
         var a = AtShop(e);
+        var heal = a.Run.Active!.Shop.FindIndex(o => o.Kind == ShopOfferKind.Heal);
+        Assert.Equal(heal, RunSystem.FarmShopPick(e.Content, a.Run.Active));   // low HP: the heal first
         Assert.True(RunTestKit.Exec(e, ref a, Farm).Ok);
-        Assert.Equal(RunPhase.AwaitRoll, a.Run.Active!.Phase);
-        Assert.Equal(1000, a.Run.Active.Coins);
-        Assert.Equal(1, a.Run.Active.WormHp);
-        Assert.DoesNotContain(a.Run.Active.Shop, o => o.Sold);
+        Assert.Equal(RunPhase.Shop, a.Run.Active!.Phase);                       // one purchase per step
+        Assert.True(a.Run.Active.Shop[heal].Sold);
+        Assert.True(a.Run.Active.WormHp > 1);
+        int guard = 0;
+        while (a.Run.Active!.Phase == RunPhase.Shop && guard++ < 20)
+        {
+            int pick = RunSystem.FarmShopPick(e.Content, a.Run.Active);
+            if (pick >= 0) Assert.NotEqual(ShopOfferKind.Heal, a.Run.Active.Shop[pick].Kind);
+            Assert.True(RunTestKit.Exec(e, ref a, Farm).Ok);
+        }
+        Assert.Equal(RunPhase.AwaitRoll, a.Run.Active!.Phase);                  // left once nothing more is worth buying
+        Assert.True(a.Run.Active.ShopBuys >= 5, "rich: bought every skill and perk on offer");
+        Assert.Contains(a.Run.Active.Gains, g => g.Source == "shop" && g.Stat != null);
+        Assert.Contains(a.Run.Active.Gains, g => g.Source == "shop" && g.SkillId != null);
 
-        var b = AtShop(e);
-        Assert.True(RunTestKit.Exec(e, ref b, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
-        Assert.True(b.Run.Active!.Coins < 1000);
-        Assert.True(b.Run.Active.WormHp > 1);
+        var b = AtShop(e);                                                     // broke: leaves without buying
+        b.Run.Active!.Coins = 0;
+        Assert.Equal(-1, RunSystem.FarmShopPick(e.Content, b.Run.Active));
+        Assert.True(RunTestKit.Exec(e, ref b, Farm).Ok);
+        Assert.Equal(RunPhase.AwaitRoll, b.Run.Active!.Phase);
 
-        var c = AtShop(e);                                         // FarmShops alone is not farming
+        var c = AtShop(e);                                                     // FarmShops alone is not farming
         Assert.False(RunTestKit.Exec(e, ref c, new RunAutoStep { FarmShops = true }).Ok);
     }
 

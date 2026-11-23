@@ -176,7 +176,7 @@ namespace RogueStars.Sim
             int rolls = 0, drafts = 0, battles = 0, levelUps = 0;
             bool bossReached = false;
             int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
-            long coinsSeen = 0, coinsNow = S.Run.Active?.Coins ?? 0, coinsEarned = 0, coinsSpent = 0;
+            long coinsSeen = 0, coinsNow = 0, coinsEarned = 0, coinsSpent = 0; // starting coins (boons) count as earned
             int outcomeSeq = S.Run.Active?.OutcomeSeq ?? 0;
             var tally = new RunTimeTally();
             int skillsGained = 0, draftPicks = 0, mythicPicks = 0, shopSkills = 0, shopPerks = 0, shopHeals = 0, skillLevels = 0, minibosses = 0;
@@ -203,7 +203,7 @@ namespace RogueStars.Sim
                         case "run_battle":
                             battles++; tally.Battles++;
                             if (ev.Args.Count > 3) tally.BattleLogEntries += int.Parse(ev.Args[3]);
-                            if (ev.Args[0] == "miniboss" && ev.Args[1] == "Player") minibosses++;
+                            if ((ev.Args[0] == "miniboss" || ev.Args[0] == "ambush") && ev.Args[1] == "Player") minibosses++;
                             break;
                         case "run_level_up": levelUps++; break;
                         case "run_boss_fight": bossReached = true; break;

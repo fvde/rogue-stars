@@ -151,7 +151,15 @@ namespace RogueStars.Rules.Systems
         /// <summary>All run XP earned so far (level-ups included).</summary>
         public int XpTotal;
         public int PendingDrafts;
+        /// <summary>Mythic choices waiting (one per miniboss beaten, RunTuning.MythicChoices skills of Mythic rarity).</summary>
+        public int PendingMythicDrafts;
+        /// <summary>The open draft is a mythic choice (from a miniboss), not a level-up draft.</summary>
+        public bool MythicDraft;
         public List<string> Skills = new List<string>();
+        /// <summary>Level of an owned run skill when above 1 (a skill drafted / bought again levels up, RunTuning.MaxSkillLevel).</summary>
+        public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
+        /// <summary>Every skill, skill level and stat perk gained in this run, in order (result screen, HUD build size).</summary>
+        public List<RunGain> Gains = new List<RunGain>();
         public List<string> ReplacedSkills = new List<string>();
         public List<StatMod> RunStats = new List<StatMod>();
         public long Coins;
@@ -194,13 +202,34 @@ namespace RogueStars.Rules.Systems
         public List<RunEffect> DefeatFollowUp = new List<RunEffect>();
         public int BossRounds;
         public int BattlesWon;
+        /// <summary>Minibosses spawned by the awakening clock so far (RunTuning.MinibossAtMeter) and waiting to attack.</summary>
+        public int MinibossesSpawned;
+        public int PendingAmbushes;
+        public int MinibossesDefeated;
+        public int ShopBuys;
 
         // burrow
         public int Floor = 1;
     }
 
     /// <summary>Kind of one line of a <see cref="RunOutcome"/>.</summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing }
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel }
+
+    /// <summary>
+    /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
+    /// Source: "draft" (level-up draft), "mythic" (miniboss choice), "shop", "event" (events, chests, campfires) or "boon"
+    /// (granted at run start by meta skills).
+    /// </summary>
+    [Serializable]
+    public sealed class RunGain
+    {
+        public string Source;
+        public string SkillId;
+        public int Level = 1;
+        public StatMod Stat;
+        public RunGain() { }
+        public RunGain(string source, string skillId, int level) { Source = source; SkillId = skillId; Level = level; }
+    }
 
     /// <summary>One thing that happened (gained / lost), with its number; Good = in the player's favour.</summary>
     [Serializable]
@@ -262,6 +291,10 @@ namespace RogueStars.Rules.Systems
         public int AccountLootOffers;
         /// <summary>Account-loot items found during the run (before completion rolls; Burrow: floor rewards included).</summary>
         public int AccountLootDrops;
+        /// <summary>The run's build gains (skills, skill levels, stat perks) with their sources (result screen).</summary>
+        public List<RunGain> Gains = new List<RunGain>();
+        public int Minibosses;
+        public int ShopBuys;
         public BattleResult LastBattle;
     }
 

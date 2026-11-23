@@ -244,12 +244,19 @@ namespace RogueStars.Rules.Systems
             Require(run.Phase == RunPhase.Draft, "no draft open");
             Require(skillId != null && run.DraftOffer.Contains(skillId), "skill not offered");
             var s = ctx.Content.Skill(skillId);
-            GrantSkill(ctx, run, skillId, 0);
-            run.DraftsWithoutLegendary = s.Rarity >= Rarity.Legendary ? 0 : run.DraftsWithoutLegendary + 1;
-            run.PendingDrafts = Math.Max(0, run.PendingDrafts - 1);
+            bool mythic = run.MythicDraft;
+            GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : "draft");
+            if (mythic) run.PendingMythicDrafts = Math.Max(0, run.PendingMythicDrafts - 1);
+            else
+            {
+                run.DraftsWithoutLegendary = s.Rarity >= Rarity.Legendary ? 0 : run.DraftsWithoutLegendary + 1;
+                run.PendingDrafts = Math.Max(0, run.PendingDrafts - 1);
+            }
+            run.MythicDraft = false;
             run.DraftOffer.Clear();
             run.Phase = RunPhase.AwaitRoll;
             ctx.State.Count("run_skills_drafted");
+            if (mythic) ctx.State.Count("run_mythic_picks");
             ctx.Emit("run_draft_pick", skillId);
             Continue(ctx, run);
         }
@@ -259,7 +266,7 @@ namespace RogueStars.Rules.Systems
             Require(run.Phase == RunPhase.Draft, "no draft open");
             Require(run.DraftRerolls > 0, "no rerolls left");
             run.DraftRerolls--;
-            var offer = RunDraft.Generate(ctx.Content, run, run.Rng);
+            var offer = run.MythicDraft ? RunDraft.GenerateMythic(ctx.Content, run, run.Rng) : RunDraft.Generate(ctx.Content, run, run.Rng);
             if (offer.Count > 0) { run.DraftOffer.Clear(); run.DraftOffer.AddRange(offer); }
         }
 
@@ -274,15 +281,52 @@ namespace RogueStars.Rules.Systems
             var before = Snap.Of(run);
             run.Coins -= o.Price;
             o.Sold = true;
+            run.ShopBuys++;
             switch (o.Kind)
             {
-                case ShopOfferKind.Skill: GrantSkill(ctx, run, o.SkillId, 0); break;
+                case ShopOfferKind.Skill: GrantSkill(ctx, run, o.SkillId, 0, "shop"); break;
                 case ShopOfferKind.Heal: HealWorm(ctx.Content, run, o.Value); break;
-                case ShopOfferKind.Stat: run.RunStats.Add(new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent)); RefreshMaxHp(ctx.Content, run); break;
+                case ShopOfferKind.Stat:
+                    run.RunStats.Add(new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent));
+                    run.Gains.Add(new RunGain { Source = "shop", Stat = new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent) });
+                    RefreshMaxHp(ctx.Content, run);
+                    break;
             }
+            ctx.State.Count("run_shop_buys");
             if (run.ShopOutcome == null) run.ShopOutcome = new RunOutcome { Source = "shop", Title = "Wandering Shop", Choice = "Purchases" };
             before.Diff(ctx.Content, run, run.ShopOutcome.Lines);
             ctx.Emit("run_shop_buy", index.ToString(), o.Kind.ToString(), o.Kind == ShopOfferKind.Skill ? o.SkillId : o.Kind == ShopOfferKind.Stat ? o.Stat.Stat.ToString() : "heal");
+        }
+
+        /// <summary>
+        /// The offer auto-pick (farming) buys next, or −1 to leave: the heal below half HP, otherwise the affordable skill or
+        /// stat perk the default draft logic wants most (a stat perk counts like a Rare skill; rarer skills, family synergy and
+        /// chain upgrades rank higher, level-ups a little lower). Never rerolls.
+        /// </summary>
+        public static int FarmShopPick(ContentDb content, ActiveRun run)
+        {
+            if (run == null || run.Phase != RunPhase.Shop) return -1;
+            for (int i = 0; i < run.Shop.Count; i++)
+            {
+                var o = run.Shop[i];
+                if (o.Kind == ShopOfferKind.Heal && !o.Sold && run.Coins >= o.Price && run.WormHp < run.WormMaxHp * 0.5) return i;
+            }
+            int best = -1; double bestScore = double.MinValue;
+            for (int i = 0; i < run.Shop.Count; i++)
+            {
+                var o = run.Shop[i];
+                if (o.Sold || o.Kind == ShopOfferKind.Heal || run.Coins < o.Price) continue;
+                double score;
+                if (o.Kind == ShopOfferKind.Skill)
+                {
+                    var s = content.Skill(o.SkillId);
+                    if (!RunDraft.IsEligible(content, run, s)) continue;
+                    score = RunDraft.PickScore(content, run, s);
+                }
+                else score = (int)Rarity.Rare * 10 + 2;
+                if (score > bestScore) { bestScore = score; best = i; }
+            }
+            return best;
         }
 
         private static void ShopReroll(CommandContext ctx, ActiveRun run)
@@ -419,8 +463,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>
         /// Auto mode: the next clear step, or — with Farming — the default action of the current decision. Refused at
         /// a player decision without Farming. Farming defaults: first branch, the event's default option (first
-        /// affordable one otherwise), best draft pick, shop left (FarmShops: heal below 50% HP), defeat → give up
-        /// (no hidden spending), Burrow → cash out.
+        /// affordable one otherwise), best draft / mythic pick, shops buy what <see cref="FarmShopPick"/> wants one offer
+        /// per step and are left when nothing more is worth it, defeat → give up (no hidden spending), Burrow → cash out.
         /// </summary>
         private static void AutoStep(CommandContext ctx, ActiveRun run, RunAutoStep cmd)
         {
@@ -443,11 +487,8 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Draft: DraftPick(ctx, run, RunDraft.BestPick(ctx.Content, run)); break;
                 case RunPhase.Shop:
                 {
-                    int heal = -1;
-                    if (cmd.FarmShops)
-                        for (int i = 0; i < run.Shop.Count; i++)
-                            if (run.Shop[i].Kind == ShopOfferKind.Heal && !run.Shop[i].Sold && run.Coins >= run.Shop[i].Price) heal = i;
-                    if (heal >= 0 && run.WormHp < run.WormMaxHp * 0.5) ShopBuy(ctx, run, heal);
+                    int pick = FarmShopPick(ctx.Content, run);
+                    if (pick >= 0) ShopBuy(ctx, run, pick);
                     else ShopLeave(ctx, run);
                     break;
                 }

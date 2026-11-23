@@ -201,7 +201,7 @@ namespace RogueStars.Rules.Content
 
         private static void RunMakeElite(EnemyDef e)
         {
-            e.Elite = true; e.Xp = 14; e.Coins = 12;
+            e.Elite = true; e.Xp = 14; e.Coins = 25;
             e.Stats.Add(new StatMod(StatId.CritChance, 10));
             e.Stats.Add(new StatMod(StatId.RageGain, 0, 20));
         }
@@ -264,9 +264,9 @@ namespace RogueStars.Rules.Content
             var d3 = RunTile("debuff_hp", "Withering Field", TileCategory.StatDebuff, TileValence.Negative); d3.Stat = StatId.Hp; d3.Value = -4;
             // Ordinary tiles pay in-run resources only (coins, XP, HP, buffs). Account loot comes from the level's completion
             // rewards and a few risky opportunities per run (guarded Treasure Pods, events; RunTuning.MaxAccountLootOffersPerRun).
-            var sup = RunTile("loot", "Supply Cache", TileCategory.Pickup, TileValence.Positive); sup.Coins = 10; sup.Value = 3;
+            var sup = RunTile("loot", "Supply Cache", TileCategory.Pickup, TileValence.Positive); sup.Coins = 25; sup.Value = 3;
             sup.Text = "Run coins and XP.";
-            var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 20; rich.Value = 6;
+            var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 50; rich.Value = 6;
             rich.Text = "Lots of run coins and XP.";
             var pod = RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special); pod.EventId = "treasure_pod";
             pod.Text = "Guarded account loot.";
@@ -274,10 +274,10 @@ namespace RogueStars.Rules.Content
             RunTile("campfire", "Campfire", TileCategory.Campfire, TileValence.Positive).EventId = "campfire";
             var shop = RunTile("shop", "Wandering Shop", TileCategory.Shop, TileValence.Special); shop.ForceStop = true; shop.Consumable = false;
             var h1 = RunTile("hazard_spikes", "Crystal Spikes", TileCategory.Hazard, TileValence.Negative); h1.Value = 10;
-            var h2 = RunTile("hazard_toll", "Toll Drones", TileCategory.Hazard, TileValence.Negative); h2.Coins = 15;
+            var h2 = RunTile("hazard_toll", "Toll Drones", TileCategory.Hazard, TileValence.Negative); h2.Coins = 30;
             var h3 = RunTile("hazard_vortex", "Gravity Vortex", TileCategory.Hazard, TileValence.Negative); h3.PushBack = 2; h3.Value = 4;
             var sh = RunTile("shard", "Portal Shard", TileCategory.Shard, TileValence.Positive); sh.TriggersOnPass = true;
-            var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 6;
+            var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 12;
             var gate = RunTile("boss_gate", "Boss Gate", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
 
             // Dedicated boss tiles: meter +/- and boss buffs (risk/reward: tributes pay coins but feed the boss).
@@ -381,8 +381,8 @@ namespace RogueStars.Rules.Content
                 RunOpt("Eat them", "50%: +8% ATK. 50%: lose 10% HP and -5% DEF.",
                     RunOut(50, "Delicious power.", RunStatFx(StatId.Atk, 8)), RunOut(50, "Bad spores.", RunFx(RunEffectKind.DamagePct, 10), RunStatFx(StatId.Def, -5))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
-            var merchant = RunOpt("Buy a tonic (25 coins)", "Heal 30% HP.", RunOut(1, "Refreshing.", RunFx(RunEffectKind.HealPct, 30)));
-            merchant.CoinCost = 25;
+            var merchant = RunOpt("Buy a tonic (40 coins)", "Heal 30% HP.", RunOut(1, "Refreshing.", RunFx(RunEffectKind.HealPct, 30)));
+            merchant.CoinCost = 40;
             RunEvent("alien_medic", "Alien Medic", "A friendly alien medic offers a tonic.", 1, 3, merchant, RunOpt("No thanks", "Nothing happens.", RunNothing));
             var altar = RunOpt("Offer 2 portal shards", "Gain an Epic+ skill.", RunOut(1, "The altar glows.", RunSkillFx(Rarity.Epic)));
             altar.ShardCost = 2;
@@ -390,11 +390,11 @@ namespace RogueStars.Rules.Content
                 RunOpt("Pray", "Calm the boss: awakening -15.", RunOut(1, "A calm settles.", RunFx(RunEffectKind.Meter, -15))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("meteor_shower", "Meteor Shower", "Meteors streak across the sky!", 0, 2,
-                RunOpt("Take shelter", "Lose 20 coins of time.", RunOut(1, "You wait it out.", RunFx(RunEffectKind.Coins, -20))),
+                RunOpt("Take shelter", "Lose 30 coins of time.", RunOut(1, "You wait it out.", RunFx(RunEffectKind.Coins, -30))),
                 RunOpt("Run through it", "60%: unharmed with a shard. 40%: lose 20% HP.",
                     RunOut(60, "You dodge every rock and grab a shard.", RunFx(RunEffectKind.Shards, 1)), RunOut(40, "Ouch!", RunFx(RunEffectKind.DamagePct, 20))));
             RunEvent("lost_explorer", "Lost Explorer", "A lost explorer worm asks for help.", 1, 3,
-                RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 30))),
+                RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 60))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
             RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2,
                 RunOpt("Dive in", "2 account loot items (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
@@ -403,8 +403,8 @@ namespace RogueStars.Rules.Content
             RunEvent("echoing_shrine", "Echoing Shrine", "Ancient echoes can sharpen a technique.", 1, 2.5,
                 RunOpt("Meditate", "Upgrade a skill; awakening +10.", RunOut(1, "Your technique evolves.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.Meter, 10))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
-            var patch = RunOpt("Patch the leak (25 coins)", "Pay to stay safe.", RunOut(1, "Fixed.", RunFx(RunEffectKind.Coins, 0)));
-            patch.CoinCost = 25;
+            var patch = RunOpt("Patch the leak (40 coins)", "Pay to stay safe.", RunOut(1, "Fixed.", RunFx(RunEffectKind.Coins, 0)));
+            patch.CoinCost = 40;
             var fuel = new EventDef { Id = "fuel_leak", Name = "Fuel Leak", Text = "Your mount is leaking fuel.", DefaultOption = 1, Negative = true };
             fuel.Options.Add(patch);
             fuel.Options.Add(RunOpt("Ignore it", "-10% Speed for the rest of the run.", RunOut(1, "You sputter on.", RunStatFx(StatId.Speed, -10))));
@@ -415,9 +415,9 @@ namespace RogueStars.Rules.Content
                     RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
                 RunOpt("Back off", "Nothing happens.", RunNothing));
-            var bm = RunOpt("Buy a signal beacon (60 coins)", "A blueprint token (account loot, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
+            var bm = RunOpt("Buy a signal beacon (100 coins)", "A blueprint token (account loot, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
                 RunOut(1, "Sold. You feel a little weaker.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1)), RunStatFx(StatId.Hp, -8)));
-            bm.CoinCost = 60;
+            bm.CoinCost = 100;
             RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("cursed_relic", "Cursed Relic", "A relic radiates power and malice.", 1, 2,
                 RunOpt("Claim it", "Gain a Legendary+ skill. -15% max HP and awakening +20.", RunOut(1, "Power at a price.", RunSkillFx(Rarity.Legendary), RunStatFx(StatId.Hp, -15), RunFx(RunEffectKind.Meter, 20))),
@@ -448,13 +448,17 @@ namespace RogueStars.Rules.Content
             std.RarityWeights[Rarity.Legendary] = 6; std.RarityWeights[Rarity.Mythic] = 1;
             std.SkillPrices[Rarity.Common] = 25; std.SkillPrices[Rarity.Rare] = 45; std.SkillPrices[Rarity.Epic] = 80;
             std.SkillPrices[Rarity.Legendary] = 140; std.SkillPrices[Rarity.Mythic] = 220;
+            std.SkillOffers = 4; std.StatOfferCount = 2;
             std.StatOffers.Add(new StatMod(StatId.Atk, 0, 8));
             std.StatOffers.Add(new StatMod(StatId.Hp, 0, 10));
             std.StatOffers.Add(new StatMod(StatId.Def, 0, 10));
-            std.StatOffers.Add(new StatMod(StatId.CritChance, 0, 20));
+            std.StatOffers.Add(new StatMod(StatId.CritChance, 5));
+            std.StatOffers.Add(new StatMod(StatId.Speed, 0, 8));
+            std.StatOffers.Add(new StatMod(StatId.LifeSteal, 4));
+            std.StatOffers.Add(new StatMod(StatId.DamageReduction, 4));
             RunShopTables[std.Id] = std;
 
-            var dark = new ShopTableDef { Id = "shop_dark", HealPct = 25, HealPrice = 45, StatPrice = 60, RerollBase = 20, RerollStep = 15 };
+            var dark = new ShopTableDef { Id = "shop_dark", HealPct = 25, HealPrice = 45, StatPrice = 60, RerollBase = 20, RerollStep = 15, SkillOffers = std.SkillOffers, StatOfferCount = std.StatOfferCount };
             foreach (var kv in std.RarityWeights) dark.RarityWeights[kv.Key] = kv.Value;
             dark.RarityWeights[Rarity.Legendary] = 10; dark.RarityWeights[Rarity.Mythic] = 3;
             foreach (var kv in std.SkillPrices) dark.SkillPrices[kv.Key] = kv.Value * 3 / 2;
@@ -542,10 +546,12 @@ namespace RogueStars.Rules.Content
             };
             l.EnemyPool.AddRange(enemies);
             l.ElitePool.AddRange(elites);
-            // One lap of the circuit: a campfire, one shop (a forced stop every lap) and the miniboss lair.
+            // One lap of the circuit: a campfire, two shops (forced stops every lap) and the miniboss lair (minibosses also come
+            // with the awakening clock, RunTuning.MinibossAtMeter).
             l.FixedTiles.Add(new FixedTile(0.22, "campfire"));
-            l.FixedTiles.Add(new FixedTile(0.5, "shop"));
-            l.FixedTiles.Add(new FixedTile(0.75, "miniboss"));
+            l.FixedTiles.Add(new FixedTile(0.42, "shop"));
+            l.FixedTiles.Add(new FixedTile(0.68, "miniboss"));
+            l.FixedTiles.Add(new FixedTile(0.88, "shop"));
             return l;
         }
     }

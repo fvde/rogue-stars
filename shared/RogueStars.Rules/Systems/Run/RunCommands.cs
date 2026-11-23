@@ -51,12 +51,13 @@ namespace RogueStars.Rules.Systems
     public sealed class RunAutoStep : GameCommand
     {
         /// <summary>
-        /// Farming (player opt-in "auto-pick drafts", simulator, tests): also resolve decisions with their default —
-        /// first branch, the event's default option, the best draft pick, give up when defeated, cash out in the Burrow.
-        /// Shops are left without buying anything unless <see cref="FarmShops"/> is set too.
+        /// Farming (player opt-in "auto-pick", simulator, tests): also resolve decisions with their default — first
+        /// branch, the event's default option, the best draft / mythic pick, shops buy sensibly (RunSystem.FarmShopPick: the
+        /// heal below half HP, then the skills and stat perks the draft logic wants most, one per step), give up when
+        /// defeated, cash out in the Burrow.
         /// </summary>
         public bool Farming;
-        /// <summary>With <see cref="Farming"/>: shops buy the heal offer below 50% HP (bot heuristic), else leave.</summary>
+        /// <summary>Obsolete (farming shops always buy sensibly now); kept so older clients and tools still deserialize.</summary>
         public bool FarmShops;
     }
 

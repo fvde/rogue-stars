@@ -93,7 +93,7 @@ namespace RogueStars.Rules.Content
         public List<StatMod> Stats = new List<StatMod>();
         public List<string> SkillIds = new List<string>();
         public int Xp = 4;
-        public int Coins = 3;
+        public int Coins = 6;
     }
 
     /// <summary>Boss board action at an awakening threshold.</summary>
@@ -359,13 +359,15 @@ namespace RogueStars.Rules.Content
         public List<StatMod> StatOffers = new List<StatMod>();
         public long StatPrice = 40;
         public long RerollBase = 10, RerollStep = 10;
+        /// <summary>Distinct stat perks per shop (from StatOffers).</summary>
+        public int StatOfferCount = 1;
     }
 
     /// <summary>Run-wide tunables (dice, xp, draft, danger, revive...).</summary>
     [Serializable]
     public sealed class RunTuning
     {
-        public int XpBase = 4, XpPerLevel = 1;
+        public int XpBase = 3, XpPerLevel = 1;
         /// <summary>
         /// At most this many account-loot opportunities (events / guarded caches whose options pay meta loot) are offered per run
         /// (per floor in the Burrow); later ones are replaced by other events. Ordinary tiles never pay account loot.
@@ -391,11 +393,11 @@ namespace RogueStars.Rules.Content
         /// so each one is a little softer than the threat curve alone (GDD §3.3).
         /// </summary>
         public double BoardEnemyPct = -15;
-        public double MinibossBonusPct = 50;
+        public double MinibossBonusPct = 0;
         public double CampfireEnemyBonusPct = 12;
         public int CampfireRadius = 4;
-        public long CoinsPerEnemyLevel = 4;
-        public long DraftEmptyCoins = 20;
+        public long CoinsPerEnemyLevel = 10;
+        public long DraftEmptyCoins = 40;
         /// <summary>Global scale on enemy base HP/ATK (threat 0 balance knob for a fresh worm).</summary>
         public double EnemyHpScale = 0.7, EnemyAtkScale = 0.6;
         /// <summary>Worm heals this % of max HP after every won battle.</summary>
@@ -410,6 +412,33 @@ namespace RogueStars.Rules.Content
         /// </summary>
         public int DailyBiomassBonusRuns = 3;
         public double DailyBiomassBonusMult = 4;
+
+        // ---- build depth (GDD §3.3 "Build"): skill levels, minibosses and mythic choices --------------------------------
+        /// <summary>An owned skill offered again (draft, shop, events) levels up, up to this level.</summary>
+        public int MaxSkillLevel = 5;
+        /// <summary>Each level above 1 repeats this share of the skill's passive stat package ...</summary>
+        public double SkillLevelStatShare = 0.5;
+        /// <summary>... and adds this much ATK % and max HP % (so trigger-only skills grow too).</summary>
+        public double SkillLevelAtkPct = 3, SkillLevelHpPct = 3;
+        /// <summary>Weight factor of a level-up offer (an owned skill) against a new skill in drafts and shops.</summary>
+        public double LevelUpOfferWeight = 0.6;
+        /// <summary>Awakening meter points at which a miniboss (a lieutenant of the boss) attacks after the move.</summary>
+        public List<double> MinibossAtMeter = new List<double> { 25, 50, 75 };
+        /// <summary>Run coins for a beaten clock miniboss on top of its enemy coins (it pays no XP: its reward is the mythic choice).</summary>
+        public long MinibossCoins = 30;
+        /// <summary>
+        /// Board fights (enemies, elites, minibosses, event fights) get +this HP/ATK % per roll of the run so far: the boss's
+        /// forces grow with the run while the worm's build grows from ~0 to 20–40 skills and perks.
+        /// </summary>
+        public double EnemyPctPerRoll = 0.7;
+        /// <summary>Boss HP/ATK % for the bigger end-of-run build (20–40 skills and perks instead of ~9 drafts).</summary>
+        public double BossBuildPct = 45;
+        /// <summary>Extra HP/ATK % of each later miniboss of the run (per miniboss already beaten).</summary>
+        public double MinibossStepPct = 5;
+        /// <summary>Skills offered by the mythic choice after a beaten miniboss (Mythic rarity).</summary>
+        public int MythicChoices = 3;
+        /// <summary>Run coins instead of a mythic choice when no mythic skill is left.</summary>
+        public long MythicEmptyCoins = 60;
     }
 
     /// <summary>
