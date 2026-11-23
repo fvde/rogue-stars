@@ -43,7 +43,7 @@ AppBootstrap (only object in Main.unity)
   (PascalCase fields like the server's storage format, collections replaced on load, atomic tmp-file write).
   `[ServerOnly]` commands run locally only here: purchases complete with `PurchaseComplete { ReceiptId = "dev:<token>" }`,
   arena fights run against local bots (`ArenaStartFight` + `ArenaFightResult`, power comparison) and invasion attacks
-  roll local damage (`InvasionStartAttempt` + `InvasionRecordDamage`). Dev tools (Settings → Developer, always offline):
+  roll local damage (`InvasionStartAttempt` + `InvasionRecordDamage`). Dev tools (Settings → Developer, offline in the editor and development builds):
   reset progress, jump to day N (`DevReset`/`DevJump`), unlock-all flag; `DevGrantStarterKit` for tests. Time-based state is
   settled every 5 s.
 - **Auth** (`Services/Auth/`): online sessions get their bearer token from an `IAuthProvider`. `ServerConfig.AuthMode`
@@ -168,7 +168,7 @@ AppBootstrap (only object in Main.unity)
 | Settings | – | offline/online, server URL, display name, account, run auto mode "Auto-pick drafts (farming)" toggle, **Developer** card (below) |
 
 **Developer card** (Settings, `SettingsScreen.DeveloperCard`): owner dev tools through `IGameService.DevTools`, which is
-non-null offline (always) and online only when the server's session said `devTools: true` (the player's Firebase uid is in
+non-null offline only in the editor and development builds (offline mode is open to every player) and online only when the server's session said `devTools: true` (the player's Firebase uid is in
 the server's `dev_tools_player_ids` allowlist, docs/setup.md step 15; the server checks every call, docs/server.md → Dev tools).
 - *Reset progress…* → confirm modal → a brand-new player (day 1, starter kit; same player id and name, version + 1).
 - *Jump to day…* → modal: day 1–60 with −7/−1/+1/+7 steps (clamped, default 7), profile tabs Casual (~15 min/day), Active

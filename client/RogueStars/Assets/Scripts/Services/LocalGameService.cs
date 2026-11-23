@@ -214,8 +214,8 @@ namespace RogueStars.Client.Services
             RaiseChanged();
         }
 
-        /// <summary>Offline dev tools: always available.</summary>
-        public IDevTools DevTools => _devTools ?? (_devTools = new LocalDevTools(this));
+        /// <summary>Offline dev tools only in the editor and development builds: offline mode is reachable by every player.</summary>
+        public IDevTools DevTools => UnityEngine.Application.isEditor || UnityEngine.Debug.isDebugBuild ? _devTools ?? (_devTools = new LocalDevTools(this)) : null;
         private IDevTools _devTools;
 
         /// <summary>

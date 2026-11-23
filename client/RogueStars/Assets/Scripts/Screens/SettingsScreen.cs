@@ -50,7 +50,7 @@ namespace RogueStars.Client.Screens
             Ui.Button(runCard, AutoPickLabel(s.AutoPickDrafts), () => { s.SetAutoPickDrafts(!s.AutoPickDrafts); Rebuild(); },
                 s.AutoPickDrafts ? Theme.Accent : Theme.Button).name = "AutoPickDrafts";
 
-            // Owner dev tools: offline always, online only when the server's allowlist says so (session devTools).
+            // Owner dev tools: offline in the editor/development builds, online only when the server's allowlist says so (session devTools).
             var tools = Session.Service?.DevTools;
             if (tools != null) DeveloperCard(body, tools, Session.Service as LocalGameService);
         }
