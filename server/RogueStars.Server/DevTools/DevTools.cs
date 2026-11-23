@@ -116,7 +116,7 @@ public sealed class DevToolsService(GameEngine engine, IPlayerStore store, Guild
             ok = true,
             day,
             profile,
-            seed,
+            seed = seed ?? 0, // the client reads a number (a reset has no seed)
             mainLevel = state.Counter(Requirements.MainLevelCounter),
             wormLevel = state.Counter(Requirements.WormLevelCounter),
             power = engine.BuildLoadout(state, now).Power,

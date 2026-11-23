@@ -66,7 +66,11 @@ public class DevToolsTests : IDisposable
         using var app = new TestApp(); // appsettings.Development.json: DevTools:AllowAll = true
         var p = await app.PlayerAsync("anyone");
         Assert.True((await p.PostAsync("/v1/session", new { })).Body.GetProperty("devTools").GetBoolean());
-        Assert.Equal(200, (await p.PostAsync("/v1/dev/reset")).Status);
+        var reset = await p.PostAsync("/v1/dev/reset");
+        Assert.Equal(200, reset.Status);
+        // The client deserializes every numeric field as a number (a null seed broke "Reset progress" on device).
+        foreach (var field in new[] { "day", "seed", "mainLevel", "wormLevel", "commands", "elapsedMs", "createdMs" })
+            Assert.Equal(System.Text.Json.JsonValueKind.Number, reset.Body.GetProperty(field).ValueKind);
     }
 
     // ---- reset ---------------------------------------------------------------------------------------------------
