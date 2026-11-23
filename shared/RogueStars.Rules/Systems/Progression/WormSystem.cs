@@ -97,6 +97,7 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleLevelUp(WormLevelUp cmd, CommandContext ctx)
         {
             var s = ctx.State; var w = ctx.Content.WormConfig;
+            Features.Require(s, ctx.Content, Features.WormLevel);
             GameEngine.Require(cmd.Levels >= 1, "levels must be >= 1");
             GameEngine.Require(s.Worm.Level + cmd.Levels <= w.MaxLevel, "max level reached");
             long cost = 0;
@@ -112,6 +113,7 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleTalentUpgrade(WormTalentUpgrade cmd, CommandContext ctx)
         {
             var s = ctx.State; var c = ctx.Content;
+            Features.Require(s, c, Features.WormLevel);
             var tier = CurrentTier(s, c);
             GameEngine.Require(tier != null, "talent road complete");
             GameEngine.Require(s.Worm.Level >= tier.RequiredWormLevel, "worm level too low");
@@ -132,6 +134,7 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleTierUp(WormTalentTierUp cmd, CommandContext ctx)
         {
             var s = ctx.State; var c = ctx.Content;
+            Features.Require(s, c, Features.WormLevel);
             var tier = CurrentTier(s, c);
             GameEngine.Require(tier != null, "talent road complete");
             foreach (var b in tier.Buttons) GameEngine.Require(Rank(s, b.Key) >= b.MaxRank, "all talents of the tier must be maxed");

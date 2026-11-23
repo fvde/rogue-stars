@@ -166,6 +166,8 @@ public class RunIntegrationTests
         }
         Assert.True(firstWon, "a fresh worm should win Ember Wastes 1");
         Assert.True(s.Counter(Requirements.MainLevelCounter) >= 3, $"stuck at {s.Counter(Requirements.MainLevelCounter)} after {runs} runs");
-        Assert.True(s.Worm.Level > 1, "runs paid for worm levels");
+        // Worm Level unlocks on day 3 (onboarding v2): the early upgrades are part levels.
+        Assert.True(s.Worm.Level == 1, "worm levelling is gated until Worm Level unlocks");
+        Assert.True(s.Counter("part_levels") > 0, "runs paid for part levels");
     }
 }
