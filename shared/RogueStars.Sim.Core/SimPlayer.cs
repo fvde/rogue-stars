@@ -350,6 +350,12 @@ namespace RogueStars.Sim
     public sealed class RunRecord
     {
         public int Day, Level, Dice, Rolls, Drafts, LevelUps, Battles, TileLoot, LootOffers, XpTotal, Minigames;
+        /// <summary>Skills gained (new skills, any source), skill level-ups, picks by source, shop purchases by kind, minibosses beaten.</summary>
+        public int SkillsGained, SkillLevels, DraftPicks, MythicPicks, ShopSkills, ShopPerks, ShopHeals, Minibosses;
+        public long CoinsEarned, CoinsSpent;
+        public RunTimeTally Tally = new RunTimeTally();
+        /// <summary>Skills and perks the run added to the build: every new skill or skill level, every stat perk bought.</summary>
+        public int BuildGains => SkillsGained + SkillLevels + ShopPerks;
         public RunMode Mode;
         public bool Won, BossReached;
         public long PeakCoins;

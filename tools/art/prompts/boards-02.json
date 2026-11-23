@@ -1,0 +1,19 @@
+{
+  "name": "boards-02",
+  "width": 768,
+  "height": 1344,
+  "seeds": [601, 602],
+  "models": ["sdxl_ref"],
+  "style_refs": ["board-a.png", "board-b.png"],
+  "ref_weight": 0.5,
+  "ref_mode": "linear",
+  "negative": "horizon, sky, mountains in the distance, perspective vanishing point, landscape painting, side view, path, road, tiles, characters, creatures, text, user interface, watermark, blurry, photo, 3d render",
+  "styles": {
+    "board": "high-angle three-quarter top-down view of a game level ground plane that fills the whole frame, large open flat empty area in the middle for placing a board, props and scenery only along the left and right edges, 2D hand-painted cartoon mobile game background, clean dark outlines, soft cel shading, vibrant saturated colors"
+  },
+  "subjects": {
+    "seabed": "alien seabed floor of sand and flat stone slabs, small coral, shells and pebbles, glowing seaweed and sunken ruins along the edges",
+    "ember": "dark volcanic rock floor with glowing lava cracks, small obsidian crystals and steaming vents along the edges",
+    "glacier": "frozen ice floor with snow patches and cracks, small ice crystals and frozen alien plants along the edges"
+  }
+}

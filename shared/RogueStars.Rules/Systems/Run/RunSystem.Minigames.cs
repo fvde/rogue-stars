@@ -73,6 +73,7 @@ namespace RogueStars.Rules.Systems
                     run.DraftOffer.Clear();
                     run.DraftOffer.AddRange(offer);
                     run.PendingDrafts++; // DraftPick takes one pending draft: this one
+                    m.DraftOpen = true;
                     draft = true;
                 }
                 else run.Coins += c.RunTuning.DraftEmptyCoins;

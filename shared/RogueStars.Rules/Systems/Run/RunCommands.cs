@@ -29,6 +29,12 @@ namespace RogueStars.Rules.Systems
 
     [Serializable] public sealed class RunShopLeave : GameCommand { }
 
+    /// <summary>
+    /// Phase Encounter: face the miniboss that attacks, or walk into the boss arena that opened ahead and fight the boss.
+    /// A clear step (auto mode performs it; RunAutoStep does the same).
+    /// </summary>
+    [Serializable] public sealed class RunEncounter : GameCommand { }
+
     /// <summary>Revive once per run after a lost battle (ad verified by the host, or Diamonds).</summary>
     /// <summary>Revive once per run. Ad: consumes Meta's "revive" ad placement (AdToken; instant with No Ads).</summary>
     [Serializable] public sealed class RunRevive : GameCommand { public ReviveMethod Method; public string AdToken; }
@@ -51,12 +57,13 @@ namespace RogueStars.Rules.Systems
     public sealed class RunAutoStep : GameCommand
     {
         /// <summary>
-        /// Farming (player opt-in "auto-pick drafts", simulator, tests): also resolve decisions with their default —
-        /// first branch, the event's default option, the best draft pick, give up when defeated, cash out in the Burrow.
-        /// Shops are left without buying anything unless <see cref="FarmShops"/> is set too.
+        /// Farming (player opt-in "auto-pick", simulator, tests): also resolve decisions with their default — first
+        /// branch, the event's default option, the best draft / mythic pick, shops buy sensibly (RunSystem.FarmShopPick: the
+        /// heal below half HP, then the skills and stat perks the draft logic wants most, one per step), give up when
+        /// defeated, cash out in the Burrow.
         /// </summary>
         public bool Farming;
-        /// <summary>With <see cref="Farming"/>: shops buy the heal offer below 50% HP (bot heuristic), else leave.</summary>
+        /// <summary>Obsolete (farming shops always buy sensibly now); kept so older clients and tools still deserialize.</summary>
         public bool FarmShops;
     }
 

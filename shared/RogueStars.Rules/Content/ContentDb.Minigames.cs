@@ -54,11 +54,12 @@ namespace RogueStars.Rules.Content
             Game("slot_pod", "Slot Pod", MinigameInput.Tap, "Tap to stop each reel. Match the symbols!");
 
             var t = MinigameTuning;
-            // Coins ≈ shop purchases (shop_standard: Common skill 25, Rare 45, heal 30, stat 40): gold ≈ a good purchase or two.
-            t.Rewards.Add(Tier(MinigameTier.Miss, 5, false, 0, 0, 0, 0, 0));
-            t.Rewards.Add(Tier(MinigameTier.Bronze, 30, true, 55, 28, 12, 4, 1));
-            t.Rewards.Add(Tier(MinigameTier.Silver, 60, true, 30, 38, 22, 8, 2));
-            t.Rewards.Add(Tier(MinigameTier.Gold, 100, true, 8, 30, 36, 20, 6));
+            // Coins vs the run economy (≈ 600–800 run coins per run, shop_standard: Common 25, Rare 45, Epic 80, Legendary 140,
+            // heal 30, stat 40): gold ≈ one or two good purchases (an Epic + a stat, or a Legendary), a Miss a token.
+            t.Rewards.Add(Tier(MinigameTier.Miss, 10, false, 0, 0, 0, 0, 0));
+            t.Rewards.Add(Tier(MinigameTier.Bronze, 50, true, 55, 28, 12, 4, 1));
+            t.Rewards.Add(Tier(MinigameTier.Silver, 100, true, 30, 38, 22, 8, 2));
+            t.Rewards.Add(Tier(MinigameTier.Gold, 160, true, 8, 30, 36, 20, 6));
         }
 
         private void Game(string id, string name, MinigameInput input, string instruction) =>
@@ -109,8 +110,8 @@ namespace RogueStars.Rules.Content
     public sealed class MinigameTuning
     {
         /// <summary>Weight of the GAME tile in every tile pool (≈ 1–2 per run with the cap below).</summary>
-        public double PoolWeight = 6;
-        /// <summary>At most this many GAME tiles per run (each resolves once, then it is refilled from the pool).</summary>
+        public double PoolWeight = 4;
+        /// <summary>At most this many GAME tiles per run (each resolves once, then it is cleared).</summary>
         public int MaxPerRun = 2;
         /// <summary>No GAME tiles on main levels below this (the first, tutorial run stays plain).</summary>
         public int MinMainLevel = 2;

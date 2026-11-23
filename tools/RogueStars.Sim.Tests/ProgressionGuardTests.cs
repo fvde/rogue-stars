@@ -108,6 +108,28 @@ public class ProgressionGuardTests
     }
 
     [Fact]
+    public void Runs_BuildDeep_ShopALot_AndLast4To8Minutes()
+    {
+        // Run depth (docs/balance/progression-report.md, "Run depth"): a run that reaches the boss ends with 20–40 skills and
+        // perks (8–10 level-up drafts + a mythic choice per miniboss + shop buys + events), the shops sell 10–20 perks on
+        // average (in-run coins only), and a run takes 4–8 minutes on average in the wall-clock model (RunClock: auto mode,
+        // the player decides at every pause, battles at ×2). Burrow dives (10 floors in one run) are excluded.
+        foreach (var r in new[] { F2p.Value, Whale.Value })
+        {
+            var runs = r.RunLog.Where(x => x.Mode != RunMode.Burrow).ToList();
+            var boss = runs.Where(x => x.BossReached).ToList();
+            Assert.InRange(boss.Average(x => x.BuildGains), 20, 40);
+            Assert.InRange(boss.Average(x => x.ShopSkills + x.ShopPerks + x.ShopHeals), 10, 20);
+            Assert.InRange(boss.Average(x => x.MythicPicks), 2, 5);
+            // the board itself (mini-games excluded: GAME tiles add their own ~0.5 min, GDD §3.6)
+            // (8.5: mini-game prizes add shop visits / skill-roll drafts on the board too)
+            Assert.InRange(runs.Average(x => x.Minutes - x.Minigames * SimPlayer.MinigameSec / 60.0), 4, 8.5); // the player's battle speed: ×2 free, ×3 with the pass
+            Assert.InRange(runs.Average(x => x.Minutes), 4, 9);
+            Assert.True(boss.Average(x => x.CoinsSpent) <= boss.Average(x => x.CoinsEarned), r.Profile + ": shops spend in-run coins only");
+        }
+    }
+
+    [Fact]
     public void Simulation_IsDeterministicBySeed()
     {
         var a = Simulation.Run(TimeProfile.Casual, SpendProfile.Dolphin, 7, 5);

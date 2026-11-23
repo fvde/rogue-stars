@@ -1,0 +1,21 @@
+{
+  "name": "worlds-01",
+  "width": 768,
+  "height": 1344,
+  "seeds": [401, 402],
+  "models": ["sdxl_ref"],
+  "style_refs": ["board-a.png", "board-b.png", "hub-scene.png", "keyart.png"],
+  "ref_weight": 0.75,
+  "negative": "people, person, character, creature, animal, text, letters, numbers, user interface, buttons, watermark, signature, blurry, deformed, photo, realistic, 3d render, dull colors",
+  "styles": {
+    "cartoon": "hand-painted 2D cartoon mobile game background art, clean dark outlines, soft cel shading, vibrant saturated colors, rich lighting, detailed, vertical composition"
+  },
+  "subjects": {
+    "ember": "volcanic alien wasteland, rivers of glowing lava, black obsidian crystals, cracked red rock, two moons in an orange sky, empty landscape",
+    "glacier": "frozen alien glacier, tall blue ice spires, snow drifts, green and violet aurora in the night sky, empty landscape",
+    "jungle": "prehistoric alien jungle, giant glowing mushrooms, huge ferns, a dinosaur skeleton half buried, a swirling purple time portal between the trees, empty landscape",
+    "ruins": "desert with the wreck of a crashed spaceship, broken clock towers half buried in sand, floating gears, dusk sky, empty landscape",
+    "board": "isometric game board level, a winding path of square stone tiles across an alien coral seabed, some tiles with skull marks and question marks, treasure chests beside the path, seaweed and bubbles, no characters",
+    "colony": "cozy little alien colony on a tiny round planet at dusk, glass domes, a small mushroom farm, a landing pad for a flying saucer, a glowing portal in the sky, no characters"
+  }
+}

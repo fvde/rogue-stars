@@ -22,16 +22,17 @@ namespace RogueStars.Rules.Systems
         private sealed class Snap
         {
             private long _coins;
-            private double _hp, _maxHp, _awakening, _bossPct, _awakenRed;
+            private double _hp, _awakening, _bossPct, _awakenRed;
             private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles;
             private List<string> _skills;
+            private Dictionary<string, int> _levels;
 
             public static Snap Of(ActiveRun r) => new Snap
             {
-                _coins = r.Coins, _hp = r.WormHp, _maxHp = r.WormMaxHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
+                _coins = r.Coins, _hp = r.WormHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
                 _awakenRed = r.AwakeningReductionPct, _xp = r.XpTotal, _level = r.Level, _shards = r.Shards, _danger = r.Danger,
                 _stats = r.RunStats.Count, _loot = r.PendingLoot.Count, _rare = r.PendingRare.Count, _battles = r.BattleCount,
-                _skills = new List<string>(r.Skills),
+                _skills = new List<string>(r.Skills), _levels = new Dictionary<string, int>(r.SkillLevels),
             };
 
             public void Diff(ContentDb c, ActiveRun r, List<OutcomeLine> lines)
@@ -44,6 +45,11 @@ namespace RogueStars.Rules.Systems
                 }
                 foreach (var id in r.Skills) if (!_skills.Contains(id)) Add(OutcomeKind.SkillGained, id, 1, true);
                 foreach (var id in _skills) if (!r.Skills.Contains(id)) Add(OutcomeKind.SkillLost, id, 1, false);
+                foreach (var id in r.Skills)
+                {
+                    int now = RunDraft.Level(r, id), was = _skills.Contains(id) ? (_levels.TryGetValue(id, out var l) && l > 1 ? l : 1) : now;
+                    if (now > was) Add(OutcomeKind.SkillLevel, id, now, true);
+                }
                 for (int i = _loot; i < r.PendingLoot.Count; i++)
                     lines.Add(new OutcomeLine(OutcomeKind.AccountLoot, r.PendingLoot[i].Id, r.PendingLoot[i].Amount, true) { Reward = r.PendingLoot[i] });
                 for (int i = _rare; i < r.PendingRare.Count; i++)

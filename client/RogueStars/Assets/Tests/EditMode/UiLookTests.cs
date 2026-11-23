@@ -136,7 +136,8 @@ namespace RogueStars.Client.Tests
                 run.Tiles.Add(t);
             }
             run.Tiles[2].Next.Add(5); // a fork after tile 2
-            run.BossGateTile = ids.Length - 1;
+            run.BossGateTile = -1;    // the arena is not open yet: the whole window is drawn
+            run.BoardEnd = ids.Length - 1;
             run.Trail.Clear(); run.Trail.AddRange(new[] { 0, 1, 2 });
             run.Position = 2;
 
@@ -171,7 +172,7 @@ namespace RogueStars.Client.Tests
             Assert.That(FindNamed(FindNamed(screen.Root, "Token"), "Worm").GetComponent<UiBob>(), Is.Not.Null, "the worm bobs");
             Assert.That(FindNamed(screen.Root, "BossBanner"), Is.Not.Null);
             Assert.That(screen.Title, Does.Contain(level.Name));
-            Assert.That(screen.Subtitle, Does.StartWith("Lap 1 · Roll 0/"));
+            Assert.That(screen.Subtitle, Does.StartWith("Roll 0/"));
             Assert.That(FindNamed(screen.Root, "RollButton"), Is.Not.Null);
             Assert.That(FindNamed(screen.Root, "AutoButton"), Is.Not.Null);
             Assert.That(FindNamed(screen.Root, "Slots").GetComponentsInChildren<Button>().Length, Is.EqualTo(RunScreen.SkillSlots));

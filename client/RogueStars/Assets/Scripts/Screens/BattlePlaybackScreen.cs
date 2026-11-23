@@ -315,9 +315,20 @@ namespace RogueStars.Client.Screens
 
         // ---- playback ----------------------------------------------------------------------------
 
+        /// <summary>
+        /// Every fight is seen: even a trivially won one (a single blow) stays on screen at least this long before auto
+        /// mode closes it (playtest 0.1.86: "landed on battle tiles that did nothing").
+        /// </summary>
+        public const float MinVisibleSeconds = 1.8f;
+        private float _elapsed;
+
+        /// <summary>Seconds auto mode keeps the finished fight on screen: 0.8 s, longer for very short fights.</summary>
+        public static float AutoCloseHold(float elapsed) => Mathf.Max(0.8f, MinVisibleSeconds - elapsed);
+
         public override void Frame(float dt)
         {
             if (_battle == null || Root == null) return;
+            _elapsed += dt;
             if (Finished) return;
             if (Instant) { PlayAll(); return; }
             _timer += dt;
@@ -630,7 +641,7 @@ namespace RogueStars.Client.Screens
             }
             if (_endPanel != null) _endPanel.gameObject.SetActive(true);
             if (_autoClose && Application.isPlaying)
-                UiSequence.On(Root.gameObject).Wait(Instant ? 0.05f : 0.8f, Close);
+                UiSequence.On(Root.gameObject).Wait(Instant ? 0.05f : AutoCloseHold(_elapsed), Close);
         }
 
         /// <summary>The end panel's Continue button: back to the run.</summary>

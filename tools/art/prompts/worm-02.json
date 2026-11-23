@@ -1,0 +1,16 @@
+{
+  "name": "worm-02",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [301, 302, 303],
+  "models": ["sdxl_ref"],
+  "style_refs": ["battle.png", "keyart.png"],
+  "ref_weight": 0.65,
+  "negative": "arms, legs, hands, feet, humanoid, clothes, armor, helmet, hat, accessories, weapon, holding, gadget, robot, crown, horns, wings, extra limbs, deformed, text, watermark, blurry, photo, 3d render",
+  "styles": {
+    "cartoon": "hand-painted 2D cartoon mobile game art, clean dark outlines, soft cel shading, vibrant colors"
+  },
+  "subjects": {
+    "base": "(simple small worm:1.4), plain limbless earthworm, smooth soft pink segmented body, tiny dot eyes, weak and humble, lying on the ground, side view, full body, centered, plain light background"
+  }
+}

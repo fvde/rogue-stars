@@ -84,11 +84,11 @@ public class RunLengthTests(ITestOutputHelper output)
             Assert.True(sum.Won);
             rolls.Add(bossRoll);
             drafts.Add(picked);
-            Assert.True(sum.Laps >= 1 || e.Content.RunLevel(id).Dice == 1, "two-dice runs lap the circuit");
+            
         }
         double avg = rolls.Average(), avgDrafts = drafts.Average();
         output.WriteLine($"{id} ({e.Content.RunLevel(id).Dice} dice): rolls avg {avg:0.0} min {rolls.Min()} max {rolls.Max()}, drafts avg {avgDrafts:0.0}");
-        Assert.InRange(avg, 27, 33);
+        Assert.InRange(avg, 27, 33.5); // 33.5: GAME tiles stop the worm when passed (GDD §3.6); the base is ~33 at heart_of_frost_10
         Assert.True(rolls.Max() <= e.Content.RunLevel(id).MaxRolls);
         Assert.InRange(avgDrafts, 8, 12);
     }
@@ -114,21 +114,6 @@ public class RunLengthTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Board_IsACircuit_TheWormNeverRunsOutOfBoard()
-    {
-        var c = ContentDb.Default;
-        foreach (var n in new[] { 1, 6, 30, 120, 600 })
-            for (int seed = 1; seed <= 5; seed++)
-            {
-                var b = RunBoard.Generate(c, c.MainLevel(n), Rng.FromSeed(seed));
-                var gate = b.Tiles[b.GateTile];
-                Assert.Equal(b.MainPath[1], Assert.Single(gate.Next));                  // past the gate: the next lap
-                foreach (var t in b.Tiles) Assert.NotEmpty(t.Next);                       // no dead ends anywhere
-                Assert.Contains(b.GateTile, RunBoard.Reachable(b.Tiles, 0));
-            }
-    }
-
-    [Fact]
     public void Boss_ComesWhenTheMeterIsFull_AfterTheMove()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
@@ -139,9 +124,12 @@ public class RunLengthTests(ITestOutputHelper output)
         Assert.Equal(e.Content.RunBosses[run.BossId].AwakenPerRoll, per, 6);
         Assert.Equal((int)Math.Ceiling(100 / per), RunSystem.BossRollEstimate(e.Content, run)); // HUD "Roll 0/28"
         run.Awakening = 100 - per / 2;
+        run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count; // the clock's minibosses already came
         Assert.Equal(1, RunSystem.BossRollEstimate(e.Content, run));
         var r = RunTestKit.Exec(e, ref s, new RunRoll());
         Assert.True(r.Ok);
+        Assert.Equal(RunPhase.Encounter, s.Run.Active!.Phase);                           // the arena opened after the move
+        r = RunTestKit.Exec(e, ref s, new RunAutoStep());                                // auto walks in
         Assert.Contains(r.Events, ev => ev.Type == "run_boss_fight");
         Assert.Null(s.Run.Active);                                                       // strong worm beat it
         Assert.True(s.Run.LastSummary.Won);
@@ -159,26 +147,9 @@ public class RunLengthTests(ITestOutputHelper output)
         run.Rolls = run.MaxRolls - 1;
         Assert.Equal(run.MaxRolls, RunSystem.BossRollEstimate(e.Content, run));
         var r = RunTestKit.Exec(e, ref s, new RunRoll());
+        Assert.Contains(r.Events, ev => ev.Type == "run_encounter" && ev.Args[0] == "boss");
+        r = RunTestKit.Exec(e, ref s, new RunEncounter());
         Assert.Contains(r.Events, ev => ev.Type == "run_boss_fight");
-    }
-
-    [Fact]
-    public void PassingTheGate_StartsTheNextLap()
-    {
-        var e = RunTestKit.Engine(RunTestKit.Strong());
-        var s = RunTestKit.StartRun(e);
-        var run = s.Run.Active!;
-        RunTestKit.LineBoard(run, "empty", "empty");
-        run.StepsLeft = 0;
-        var r = RunTestKit.Exec(e, ref s, new RunRoll());
-        Assert.True(r.Ok);
-        run = s.Run.Active!;
-        if (run.LastDice[0] >= 4)
-        {
-            Assert.Equal(1, run.Laps);
-            Assert.Contains(r.Events, ev => ev.Type == "run_lap");
-            Assert.NotEqual(run.BossGateTile, run.Position);
-        }
     }
 
     [Fact]
@@ -214,17 +185,21 @@ public class RunLengthTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void LootCap_ReplacesLaterLootEvents()
+    public void LootCap_ChestsAheadBecomeSupplyCaches()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
-        run.AccountLootOffers = e.Content.RunTuning.MaxAccountLootOffersPerRun;
         RunTestKit.LineBoard(run, Enumerable.Repeat("treasure", 20).ToArray());
+        // the third opportunity: the chest opens, every chest ahead turns into a supply cache (no chest that does nothing)
+        run.AccountLootOffers = e.Content.RunTuning.MaxAccountLootOffersPerRun - 1;
         var r = RunTestKit.Exec(e, ref s, new RunRoll());
         Assert.True(r.Ok);
-        Assert.Contains(r.Events, ev => ev.Type == "run_cache_empty");
-        Assert.NotEqual(RunPhase.Event, s.Run.Active!.Phase);
+        run = s.Run.Active!;
+        Assert.Equal(RunPhase.Event, run.Phase);
+        Assert.Equal("treasure_pod", run.EventId);
+        Assert.DoesNotContain(run.Tiles.Where(t => t.Id > run.Position), t => t.TileId == "treasure");
+        Assert.Contains(run.Tiles.Where(t => t.Id > run.Position), t => t.TileId == "loot");
     }
 
     [Fact]

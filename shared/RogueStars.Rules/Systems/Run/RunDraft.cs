@@ -47,17 +47,92 @@ namespace RogueStars.Rules.Systems
             return n;
         }
 
-        /// <summary>True if the skill may currently be offered to this run.</summary>
+        /// <summary>Level of a skill in this run: 0 = not owned, 1 = owned, 2+ = levelled up (RunTuning.MaxSkillLevel).</summary>
+        public static int Level(ActiveRun run, string skillId)
+        {
+            if (skillId == null || !run.Skills.Contains(skillId)) return 0;
+            return run.SkillLevels.TryGetValue(skillId, out var l) && l > 1 ? l : 1;
+        }
+
+        /// <summary>True if the owned skill can be offered again as a level-up: below the max level and not the lower tier of an upgrade chain (its next tier is the upgrade).</summary>
+        public static bool CanLevelUp(ContentDb content, ActiveRun run, SkillDef s)
+        {
+            if (s == null || !run.Skills.Contains(s.Id)) return false;
+            return Level(run, s.Id) < content.RunTuning.MaxSkillLevel && !HasUpgrade(content, s.Id);
+        }
+
+        /// <summary>True if another skill upgrades from this one (an upgrade chain's lower tier).</summary>
+        public static bool HasUpgrade(ContentDb content, string skillId)
+        {
+            if (!UpgradedCache.TryGetValue(content, out var set) || set.Version != content.Skills.Count)
+            {
+                set = new UpgradedSet { Version = content.Skills.Count };
+                foreach (var s in Sorted(content)) if (s.UpgradesFrom != null) set.Add(s.UpgradesFrom);
+                UpgradedCache.AddOrUpdate(content, set);
+            }
+            return set.Contains(skillId);
+        }
+
+        private sealed class UpgradedSet : HashSet<string> { public int Version; }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, UpgradedSet> UpgradedCache =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, UpgradedSet>();
+
+        private static bool InPool(ActiveRun run, SkillDef s) =>
+            s != null && s.Draftable && (s.Source == SkillSource.Run || run.Loadout.DraftPoolSkillIds.Contains(s.Id));
+
+        /// <summary>
+        /// True if the skill may currently be offered to this run: a new skill whose chain, prerequisites and family gate are
+        /// met, or an owned skill that can still level up (<see cref="CanLevelUp"/>).
+        /// </summary>
         public static bool IsEligible(ContentDb content, ActiveRun run, SkillDef s)
         {
-            if (s == null || !s.Draftable) return false;
-            bool inPool = s.Source == SkillSource.Run || run.Loadout.DraftPoolSkillIds.Contains(s.Id);
-            if (!inPool) return false;
-            if (run.Skills.Contains(s.Id) || run.ReplacedSkills.Contains(s.Id)) return false;
+            if (!InPool(run, s)) return false;
+            if (run.Skills.Contains(s.Id)) return CanLevelUp(content, run, s);
+            if (run.ReplacedSkills.Contains(s.Id)) return false;
             if (s.UpgradesFrom != null && !run.Skills.Contains(s.UpgradesFrom)) return false;
             foreach (var r in s.Requires) if (!run.Skills.Contains(r)) return false;
             if (s.RequiresFamilyCount > 0 && FamilyCount(content, run, s.Family) < s.RequiresFamilyCount) return false;
             return true;
+        }
+
+        /// <summary>
+        /// Mythic choice pool (after a beaten miniboss): every Mythic skill of the pool the run does not own (family gates and
+        /// prerequisites waived — the miniboss is the gate) plus owned mythics that can still level up.
+        /// </summary>
+        public static bool IsMythicEligible(ContentDb content, ActiveRun run, SkillDef s)
+        {
+            if (!InPool(run, s) || s.Rarity != Rarity.Mythic) return false;
+            if (run.Skills.Contains(s.Id)) return CanLevelUp(content, run, s);
+            if (run.ReplacedSkills.Contains(s.Id)) return false;
+            return s.UpgradesFrom == null || run.Skills.Contains(s.UpgradesFrom);
+        }
+
+        /// <summary>Offer weight of a skill: its rarity weight, lower for a level-up of an owned skill.</summary>
+        public static double OfferWeight(ContentDb content, ActiveRun run, SkillDef s, double rarityWeight) =>
+            run.Skills.Contains(s.Id) ? rarityWeight * content.RunTuning.LevelUpOfferWeight : rarityWeight;
+
+        /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured). Empty if no mythic is left.</summary>
+        public static List<string> GenerateMythic(ContentDb content, ActiveRun run, Rng rng)
+        {
+            var t = content.RunTuning;
+            var pool = new List<SkillDef>();
+            foreach (var s in Sorted(content)) if (IsMythicEligible(content, run, s)) pool.Add(s);
+            var offer = new List<string>();
+            while (offer.Count < t.MythicChoices)
+            {
+                var cands = new List<SkillDef>(); var w = new List<double>();
+                foreach (var s in pool)
+                {
+                    if (offer.Contains(s.Id)) continue;
+                    cands.Add(s);
+                    w.Add(OfferWeight(content, run, s, 1 + t.SynergyWeightPerOwned * FamilyCount(content, run, s.Family)));
+                }
+                var pick = PickWeighted(cands, w, rng);
+                if (pick == null) break;
+                offer.Add(pick.Id);
+            }
+            return offer;
         }
 
         public static List<SkillDef> Eligible(ContentDb content, ActiveRun run)
@@ -88,7 +163,7 @@ namespace RogueStars.Rules.Systems
             if (run.DraftsWithoutLegendary >= t.LegendaryPity)
             {
                 var legends = new List<SkillDef>(); var w = new List<double>();
-                foreach (var s in pool) if (s.Rarity >= Rarity.Legendary) { legends.Add(s); w.Add(RarityWeight(content, s.Rarity)); }
+                foreach (var s in pool) if (s.Rarity >= Rarity.Legendary && !run.Skills.Contains(s.Id)) { legends.Add(s); w.Add(RarityWeight(content, s.Rarity)); }
                 var pick = PickWeighted(legends, w, rng);
                 if (pick != null) offer.Add(pick.Id);
             }
@@ -102,7 +177,7 @@ namespace RogueStars.Rules.Systems
                     int owned = FamilyCount(content, run, s.Family);
                     if (owned <= 0) continue;
                     cands.Add(s);
-                    w.Add(RarityWeight(content, s.Rarity) * (1 + t.SynergyWeightPerOwned * owned));
+                    w.Add(OfferWeight(content, run, s, RarityWeight(content, s.Rarity)) * (1 + t.SynergyWeightPerOwned * owned));
                 }
                 var pick = PickWeighted(cands, w, rng);
                 if (pick != null && offer.Count < t.DraftChoices) offer.Add(pick.Id);
@@ -111,7 +186,7 @@ namespace RogueStars.Rules.Systems
             while (offer.Count < t.DraftChoices)
             {
                 var cands = new List<SkillDef>(); var w = new List<double>();
-                foreach (var s in pool) if (!offer.Contains(s.Id)) { cands.Add(s); w.Add(RarityWeight(content, s.Rarity)); }
+                foreach (var s in pool) if (!offer.Contains(s.Id)) { cands.Add(s); w.Add(OfferWeight(content, run, s, RarityWeight(content, s.Rarity))); }
                 var pick = PickWeighted(cands, w, rng);
                 if (pick == null) break;
                 offer.Add(pick.Id);
@@ -119,18 +194,25 @@ namespace RogueStars.Rules.Systems
             return offer;
         }
 
-        /// <summary>Default auto-mode pick: highest rarity, then synergy with owned families, then upgrades.</summary>
+        /// <summary>Default auto-mode pick: highest rarity, then synergy with owned families, then upgrades (a new skill before a level-up).</summary>
         public static string BestPick(ContentDb content, ActiveRun run)
         {
             string best = null; double bestScore = double.MinValue;
             foreach (var id in run.DraftOffer)
             {
-                var s = content.Skill(id);
-                if (s == null) continue;
-                double score = (int)s.Rarity * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
+                double score = PickScore(content, run, content.Skill(id));
                 if (score > bestScore) { bestScore = score; best = id; }
             }
             return best;
+        }
+
+        /// <summary>How much the default (farming) choice wants a skill: rarity, family synergy, chain upgrades; level-ups a little less.</summary>
+        public static double PickScore(ContentDb content, ActiveRun run, SkillDef s)
+        {
+            if (s == null) return double.MinValue;
+            double score = (int)s.Rarity * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
+            if (run.Skills.Contains(s.Id)) score -= 2 + Level(run, s.Id);
+            return score;
         }
     }
 }

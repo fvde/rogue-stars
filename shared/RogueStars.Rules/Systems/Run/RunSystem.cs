@@ -25,6 +25,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunShopBuy>((c, ctx) => { var r = Need(ctx); ShopBuy(ctx, r, c.Index); return Ok(ctx); });
             e.Register<RunShopReroll>((c, ctx) => { var r = Need(ctx); ShopReroll(ctx, r); return Ok(ctx); });
             e.Register<RunShopLeave>((c, ctx) => { var r = Need(ctx); ShopLeave(ctx, r); return Ok(ctx); });
+            e.Register<RunEncounter>((c, ctx) => { var r = Need(ctx); Encounter(ctx, r); return Ok(ctx); });
             e.Register<RunRevive>((c, ctx) => { var r = Need(ctx); Revive(ctx, r, c.Method, c.AdToken); return Ok(ctx); });
             e.Register<RunAbandon>((c, ctx) => { var r = Need(ctx); Finish(ctx, r, false); return Ok(ctx); });
             e.Register<RunAutoStep>((c, ctx) => { var r = Need(ctx); AutoStep(ctx, r, c); return Ok(ctx); });
@@ -190,7 +191,11 @@ namespace RogueStars.Rules.Systems
             run.Threat = level.Threat + (run.Mode == RunMode.Overcharged ? portal.OverchargedThreatBonus : 0);
             var board = RunBoard.Generate(c, level, run.Rng, run);
             run.Tiles = board.Tiles;
-            run.BossGateTile = board.GateTile;
+            run.BoardEnd = board.EndTile;
+            run.BoardSegments = board.Segments;
+            run.BossGateTile = -1;
+            run.StepPenaltyNext = 0;
+            run.EncounterKind = null;
             run.Position = 0;
             run.Trail.Clear();
             run.Trail.Add(0);
@@ -198,7 +203,6 @@ namespace RogueStars.Rules.Systems
             run.ChosenNext = -1;
             run.BranchOptions.Clear();
             run.Rolls = 0;
-            run.Laps = 0;
             run.AccountLootOffers = 0;
             run.MaxRolls = level.MaxRolls;
             run.Dice = Math.Max(1, level.Dice);
@@ -217,9 +221,11 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             int n = Math.Max(1, run.Dice + run.ExtraDicePermanent + run.ExtraDiceNext);
             run.ExtraDiceNext = 0;
+            EnsureBoardAhead(c, run, 6 * n);
             run.LastDice.Clear();
             int sum = 0;
             for (int i = 0; i < n; i++) { int d = run.Rng.Range(1, 7); run.LastDice.Add(d); sum += d; }
+            if (run.StepPenaltyNext > 0) { sum = Math.Max(1, sum - run.StepPenaltyNext); run.StepPenaltyNext = 0; }
             run.Rolls++;
             ctx.State.Count("run_rolls");
             ctx.Emit("run_roll", sum.ToString(), string.Join("+", run.LastDice));
@@ -245,12 +251,20 @@ namespace RogueStars.Rules.Systems
             Require(run.Phase == RunPhase.Draft, "no draft open");
             Require(skillId != null && run.DraftOffer.Contains(skillId), "skill not offered");
             var s = ctx.Content.Skill(skillId);
-            GrantSkill(ctx, run, skillId, 0);
-            run.DraftsWithoutLegendary = s.Rarity >= Rarity.Legendary ? 0 : run.DraftsWithoutLegendary + 1;
-            run.PendingDrafts = Math.Max(0, run.PendingDrafts - 1);
+            bool mythic = run.MythicDraft;
+            GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : run.Minigame.DraftOpen ? "minigame" : "draft");
+            run.Minigame.DraftOpen = false;
+            if (mythic) run.PendingMythicDrafts = Math.Max(0, run.PendingMythicDrafts - 1);
+            else
+            {
+                run.DraftsWithoutLegendary = s.Rarity >= Rarity.Legendary ? 0 : run.DraftsWithoutLegendary + 1;
+                run.PendingDrafts = Math.Max(0, run.PendingDrafts - 1);
+            }
+            run.MythicDraft = false;
             run.DraftOffer.Clear();
             run.Phase = RunPhase.AwaitRoll;
             ctx.State.Count("run_skills_drafted");
+            if (mythic) ctx.State.Count("run_mythic_picks");
             ctx.Emit("run_draft_pick", skillId);
             Continue(ctx, run);
         }
@@ -260,7 +274,7 @@ namespace RogueStars.Rules.Systems
             Require(run.Phase == RunPhase.Draft, "no draft open");
             Require(run.DraftRerolls > 0, "no rerolls left");
             run.DraftRerolls--;
-            var offer = RunDraft.Generate(ctx.Content, run, run.Rng);
+            var offer = run.MythicDraft ? RunDraft.GenerateMythic(ctx.Content, run, run.Rng) : RunDraft.Generate(ctx.Content, run, run.Rng);
             if (offer.Count > 0) { run.DraftOffer.Clear(); run.DraftOffer.AddRange(offer); }
         }
 
@@ -275,15 +289,52 @@ namespace RogueStars.Rules.Systems
             var before = Snap.Of(run);
             run.Coins -= o.Price;
             o.Sold = true;
+            run.ShopBuys++;
             switch (o.Kind)
             {
-                case ShopOfferKind.Skill: GrantSkill(ctx, run, o.SkillId, 0); break;
+                case ShopOfferKind.Skill: GrantSkill(ctx, run, o.SkillId, 0, "shop"); break;
                 case ShopOfferKind.Heal: HealWorm(ctx.Content, run, o.Value); break;
-                case ShopOfferKind.Stat: run.RunStats.Add(new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent)); RefreshMaxHp(ctx.Content, run); break;
+                case ShopOfferKind.Stat:
+                    run.RunStats.Add(new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent));
+                    run.Gains.Add(new RunGain { Source = "shop", Stat = new StatMod(o.Stat.Stat, o.Stat.Flat, o.Stat.Percent) });
+                    RefreshMaxHp(ctx.Content, run);
+                    break;
             }
+            ctx.State.Count("run_shop_buys");
             if (run.ShopOutcome == null) run.ShopOutcome = new RunOutcome { Source = "shop", Title = "Wandering Shop", Choice = "Purchases" };
             before.Diff(ctx.Content, run, run.ShopOutcome.Lines);
-            ctx.Emit("run_shop_buy", index.ToString());
+            ctx.Emit("run_shop_buy", index.ToString(), o.Kind.ToString(), o.Kind == ShopOfferKind.Skill ? o.SkillId : o.Kind == ShopOfferKind.Stat ? o.Stat.Stat.ToString() : "heal");
+        }
+
+        /// <summary>
+        /// The offer auto-pick (farming) buys next, or −1 to leave: the heal below half HP, otherwise the affordable skill or
+        /// stat perk the default draft logic wants most (a stat perk counts like a Rare skill; rarer skills, family synergy and
+        /// chain upgrades rank higher, level-ups a little lower). Never rerolls.
+        /// </summary>
+        public static int FarmShopPick(ContentDb content, ActiveRun run)
+        {
+            if (run == null || run.Phase != RunPhase.Shop) return -1;
+            for (int i = 0; i < run.Shop.Count; i++)
+            {
+                var o = run.Shop[i];
+                if (o.Kind == ShopOfferKind.Heal && !o.Sold && run.Coins >= o.Price && run.WormHp < run.WormMaxHp * 0.5) return i;
+            }
+            int best = -1; double bestScore = double.MinValue;
+            for (int i = 0; i < run.Shop.Count; i++)
+            {
+                var o = run.Shop[i];
+                if (o.Sold || o.Kind == ShopOfferKind.Heal || run.Coins < o.Price) continue;
+                double score;
+                if (o.Kind == ShopOfferKind.Skill)
+                {
+                    var s = content.Skill(o.SkillId);
+                    if (!RunDraft.IsEligible(content, run, s)) continue;
+                    score = RunDraft.PickScore(content, run, s);
+                }
+                else score = (int)Rarity.Rare * 10 + 2;
+                if (score > bestScore) { bestScore = score; best = i; }
+            }
+            return best;
         }
 
         private static void ShopReroll(CommandContext ctx, ActiveRun run)
@@ -382,6 +433,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Shop: return RunDecision.Shop;
                 case RunPhase.Defeated: return run.ReviveUsed ? RunDecision.GiveUp : RunDecision.Revive;
                 case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
+                case RunPhase.Encounter: return RunDecision.Encounter;
                 case RunPhase.Minigame: return RunDecision.Minigame;
                 case RunPhase.Event:
                 {
@@ -397,8 +449,8 @@ namespace RogueStars.Rules.Systems
 
         /// <summary>
         /// True if the current decision needs the player: auto mode (RunAutoStep without Farming) stops here and the
-        /// client shows the decision UI. Clear steps (roll, give up without a revive left, an event with a single
-        /// option) are auto-resolvable. With <paramref name="farming"/> every decision is auto-resolvable (shops are
+        /// client shows the decision UI. Clear steps (roll, a miniboss / boss encounter, give up without a revive left)
+        /// are auto-resolvable; every event, chest and campfire needs the player (even a single option is shown). With <paramref name="farming"/> every decision is auto-resolvable (shops are
         /// left untouched, or use the heal heuristic with RunAutoStep.FarmShops).
         /// </summary>
         public static bool RequiresPlayer(ContentDb content, ActiveRun run, bool farming = false)
@@ -408,12 +460,9 @@ namespace RogueStars.Rules.Systems
                 case RunDecision.None:
                 case RunDecision.Roll:
                 case RunDecision.GiveUp:
+                case RunDecision.Encounter:
                     return false;
-                case RunDecision.Event:
-                case RunDecision.Treasure:
-                case RunDecision.Campfire:
-                    return !farming && content.RunEvents.TryGetValue(run.EventId ?? "", out var ev) && ev.Options.Count > 1;
-                default:
+                default: // events, chests and campfires too, even with a single option: the player always sees them
                     return !farming;
             }
         }
@@ -421,8 +470,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>
         /// Auto mode: the next clear step, or — with Farming — the default action of the current decision. Refused at
         /// a player decision without Farming. Farming defaults: first branch, the event's default option (first
-        /// affordable one otherwise), best draft pick, shop left (FarmShops: heal below 50% HP), defeat → give up
-        /// (no hidden spending), Burrow → cash out.
+        /// affordable one otherwise), best draft / mythic pick, shops buy what <see cref="FarmShopPick"/> wants one offer
+        /// per step and are left when nothing more is worth it, defeat → give up (no hidden spending), Burrow → cash out.
         /// </summary>
         private static void AutoStep(CommandContext ctx, ActiveRun run, RunAutoStep cmd)
         {
@@ -432,6 +481,7 @@ namespace RogueStars.Rules.Systems
             switch (run.Phase)
             {
                 case RunPhase.AwaitRoll: Roll(ctx, run); break;
+                case RunPhase.Encounter: Encounter(ctx, run); break;
                 case RunPhase.ChooseBranch: ChooseBranch(ctx, run, 0); break;
                 case RunPhase.Event:
                 {
@@ -445,11 +495,8 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Draft: DraftPick(ctx, run, RunDraft.BestPick(ctx.Content, run)); break;
                 case RunPhase.Shop:
                 {
-                    int heal = -1;
-                    if (cmd.FarmShops)
-                        for (int i = 0; i < run.Shop.Count; i++)
-                            if (run.Shop[i].Kind == ShopOfferKind.Heal && !run.Shop[i].Sold && run.Coins >= run.Shop[i].Price) heal = i;
-                    if (heal >= 0 && run.WormHp < run.WormMaxHp * 0.5) ShopBuy(ctx, run, heal);
+                    int pick = FarmShopPick(ctx.Content, run);
+                    if (pick >= 0) ShopBuy(ctx, run, pick);
                     else ShopLeave(ctx, run);
                     break;
                 }

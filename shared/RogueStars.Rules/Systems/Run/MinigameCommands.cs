@@ -40,6 +40,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>Last finished game's tier and reward (result screen).</summary>
         public MinigameTier LastTier;
         public int Finished;
+        /// <summary>The open draft is this mini-game's skill roll (its pick counts as a "minigame" RunGain).</summary>
+        public bool DraftOpen;
     }
 
     public sealed partial class ActiveRun

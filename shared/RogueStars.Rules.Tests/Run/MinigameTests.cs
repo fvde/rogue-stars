@@ -91,7 +91,7 @@ public class MinigameTests
     }
 
     [Fact]
-    public void Refills_NeverExceedTheRunLimit()
+    public void WholeRuns_NeverExceedTheRunLimit()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong(), FromLevel1());
         for (long seed = 1; seed <= 10; seed++)
@@ -160,7 +160,7 @@ public class MinigameTests
         Assert.Equal("Gold", o.Choice);
         Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Coins && l.Amount == e.Content.MinigameTuning.For(MinigameTier.Gold).Coins);
         // the tile is used up
-        Assert.NotEqual(ContentDb.MinigameTileId, run.Tiles[run.Position].TileId); // refilled from the pool
+        Assert.True(run.Tiles[run.Position].Cleared); // used up: cleared like every resolved tile
     }
 
     [Theory]
@@ -198,6 +198,8 @@ public class MinigameTests
         string pick = run.DraftOffer[0];
         Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = pick }).Ok);
         Assert.Contains(pick, s.Run.Active!.Skills);
+        Assert.Equal("minigame", s.Run.Active!.Gains[^1].Source); // the build counts mini-game skill rolls
+        Assert.False(s.Run.Active!.Minigame.DraftOpen);
         Assert.Equal(pending, s.Run.Active!.PendingDrafts); // the level-up drafts are untouched
         Assert.NotEqual(RunPhase.Minigame, s.Run.Active!.Phase);
     }

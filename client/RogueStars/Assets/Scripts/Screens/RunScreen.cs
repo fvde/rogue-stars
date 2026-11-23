@@ -42,6 +42,8 @@ namespace RogueStars.Client.Screens
 
         private string _runId;
         private int _trailSeen;
+        /// <summary>First drawn column of the long board (<see cref="WindowStart"/>).</summary>
+        private int _x0;
         private int _rollsSeen;
         private int _battlesSeen;
         private bool _auto;
@@ -84,7 +86,7 @@ namespace RogueStars.Client.Screens
             {
                 var run = State?.Run.Active;
                 if (run == null) return null;
-                return "Lap " + (run.Laps + 1) + " · " + RollText(Content, run) + " · Boss " + run.Awakening.ToString("0") + "% awake · Threat " + run.Threat
+                return RollText(Content, run) + " · Boss " + run.Awakening.ToString("0") + "% awake · Threat " + run.Threat
                        + (run.Mode != RunMode.Normal ? " · " + run.Mode : "") + (run.Mode == RunMode.Burrow ? " floor " + run.Floor : "");
             }
         }
@@ -145,18 +147,50 @@ namespace RogueStars.Client.Screens
             return path;
         }
 
-        /// <summary>Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y.</summary>
-        public static Vector2 TileCenter(RunTile t)
+        /// <summary>
+        /// The board is a long path (generated ahead in segments): only a window of it is drawn, from a little behind the
+        /// worm (or the start of its current move) to <see cref="WindowColumns"/> columns ahead. The origin is a multiple of two
+        /// snake bands, so tiles keep their place while the window moves.
+        /// </summary>
+        public const int WindowColumns = 14 * Columns;
+
+        public static int WindowStart(ActiveRun run, int fromTile)
         {
-            int band = t.X / Columns;
-            int c = t.X % Columns;
+            if (run == null || run.Tiles.Count == 0) return 0;
+            int x = run.Tiles[Math.Max(0, Math.Min(run.Tiles.Count - 1, fromTile))].X - 2;
+            return Math.Max(0, x / (2 * Columns) * (2 * Columns));
+        }
+
+        /// <summary>True if the tile is drawn: inside the window, and once the boss arena opened only the walked path and the arena.</summary>
+        public static bool InWindow(ActiveRun run, RunTile t, int x0)
+        {
+            if (t.X < x0 || t.X >= x0 + WindowColumns) return false;
+            if (run.BossGateTile >= 0 && t.Id != run.BossGateTile && !run.Trail.Contains(t.Id)) return false;
+            return true;
+        }
+
+        /// <summary>Board position (top-left origin, y down) of a tile: snake rows of <see cref="Columns"/>, lanes by Y.</summary>
+        public static Vector2 TileCenter(RunTile t) => TileCenter(t, 0);
+
+        public static Vector2 TileCenter(RunTile t, int x0)
+        {
+            int lx = t.X - x0;
+            int band = lx / Columns;
+            int c = lx % Columns;
             if (band % 2 == 1) c = Columns - 1 - c;
             float x = Pad + c * Cell + Cell / 2;
             float y = band * (3 * LaneH + BandGap) + (t.Y + 1) * LaneH + LaneH / 2;
             return new Vector2(x, y);
         }
 
-        public static float BoardHeight(ActiveRun run) => BoardHeight(run.Tiles);
+        public static float BoardHeight(ActiveRun run) => BoardHeight(run, WindowStart(run, run.Position));
+
+        public static float BoardHeight(ActiveRun run, int x0)
+        {
+            int maxX = 0;
+            foreach (var t in run.Tiles) if (InWindow(run, t, x0)) maxX = Math.Max(maxX, t.X - x0);
+            return (maxX / Columns + 1) * (3 * LaneH + BandGap) + 10;
+        }
 
         public static float BoardHeight(List<RunTile> tiles)
         {
@@ -170,10 +204,10 @@ namespace RogueStars.Client.Screens
         public static Vector2 DrawPoint(Vector2 layout, float boardHeight) => new Vector2(layout.x, -(boardHeight - layout.y));
 
         /// <summary>Board rect (top-left origin, y down) a tile occupies; the boss gate is drawn larger.</summary>
-        public static Rect TileRect(RunTile t, bool gate)
+        public static Rect TileRect(RunTile t, bool gate, int x0 = 0)
         {
             float w = gate ? TileW + GateGrow : TileW, h = gate ? TileH + GateGrow : TileH;
-            var c = TileCenter(t);
+            var c = TileCenter(t, x0);
             return new Rect(c.x - w / 2, c.y - h / 2, w, h);
         }
 
@@ -181,12 +215,12 @@ namespace RogueStars.Client.Screens
         /// Center of the boss marker: the first free cell around the boss gate (beside it, then the lanes above/below,
         /// then two cells away) that overlaps no tile and stays on the board; falls back to the band gap above the gate.
         /// </summary>
-        public static Vector2 BossMarkerCenter(List<RunTile> tiles, int gateIndex, Vector2 boardSize)
+        public static Vector2 BossMarkerCenter(List<RunTile> tiles, int gateIndex, Vector2 boardSize, int x0 = 0)
         {
-            var gate = tiles[gateIndex];
-            var c = TileCenter(gate);
+            var gate = tiles.Find(t => t.Id == gateIndex);
+            var c = TileCenter(gate, x0);
             var rects = new List<Rect>(tiles.Count);
-            foreach (var t in tiles) rects.Add(TileRect(t, t.Id == gateIndex));
+            foreach (var t in tiles) rects.Add(TileRect(t, t.Id == gateIndex, x0));
             var offsets = new[]
             {
                 new Vector2(-Cell, 0), new Vector2(Cell, 0), new Vector2(0, -LaneH), new Vector2(0, LaneH),
@@ -216,6 +250,8 @@ namespace RogueStars.Client.Screens
             public bool Current;
             /// <summary>The path splits after this tile.</summary>
             public bool Fork;
+            /// <summary>Resolved (fight won, pickup taken, event decided): drawn with a check mark, never as a new tile.</summary>
+            public bool Cleared;
             /// <summary>A branch the player can choose right now.</summary>
             public bool Option;
             public bool Gate;
@@ -233,6 +269,7 @@ namespace RogueStars.Client.Screens
                 Current = t.Id == run.Position,
                 Visited = t.Id != run.Position && run.Trail.Contains(t.Id),
                 Fork = t.Next.Count > 1,
+                Cleared = t.Cleared,
                 Option = run.Phase == RunPhase.ChooseBranch && run.BranchOptions.Contains(t.Id),
                 Gate = cat == TileCategory.BossGate,
                 Empty = cat == TileCategory.Empty,
@@ -305,6 +342,8 @@ namespace RogueStars.Client.Screens
             if (newRun) { _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; _outcomeSeen = run.OutcomeSeq; }
 
             Hud(body, run, level);
+            int moveStart = run.Trail.Count > _trailSeen && _trailSeen > 0 ? run.Trail[Math.Max(0, Math.Min(_trailSeen, run.Trail.Count) - 1)] : run.Position;
+            _x0 = WindowStart(run, moveStart);
             var token = Board(body, run, out var dice, out float boardH, out var focus);
             Controls(run, dice);
             if (focus != null) ScrollToAfterBuild(focus);
@@ -327,8 +366,8 @@ namespace RogueStars.Client.Screens
             {
                 for (int i = 1; i < path.Count; i++)
                 {
-                    var from = DrawPoint(TileCenter(run.Tiles[path[i - 1]]), boardH);
-                    var to = DrawPoint(TileCenter(run.Tiles[path[i]]), boardH);
+                    var from = DrawPoint(TileCenter(run.Tiles[path[i - 1]], _x0), boardH);
+                    var to = DrawPoint(TileCenter(run.Tiles[path[i]], _x0), boardH);
                     _anim.Then(0.16f, t =>
                     {
                         // a little hop per step; the view follows the worm
@@ -363,6 +402,7 @@ namespace RogueStars.Client.Screens
             var lvl = Ui.Bar(chips, need > 0 ? (float)run.Xp / need : 0, Theme.Premium, "Lv " + run.Level + " · XP " + run.Xp + "/" + need, 44);
             Ui.Size(lvl.Fill.parent.GetComponent<Image>(), -1, 44, 1);
             Ui.Chip(chips, RollText(Content, run), Theme.Tint(Theme.Bad, 0.25f), Theme.Hex(0xFFD2C2), 26, 48, null, "RollCounter");
+            Ui.Chip(chips, "Skills " + RunSystem.BuildSize(run), Theme.Tint(Theme.Premium, 0.25f), Theme.Hex(0xD6C2FF), 24, 48, null, "SkillCount");
             Ui.Chip(chips, "Danger " + run.Danger, run.Danger > 0 ? Theme.Tint(Theme.Bad, 0.35f) : Theme.Panel, run.Danger > 0 ? Theme.Hex(0xFFB3B5) : Theme.TextFaint, 24, 48);
             if (run.Shards > 0) Ui.Chip(chips, "Shards " + run.Shards, Theme.Tint(Theme.Premium, 0.3f), Theme.Premium, 24, 48);
             Ui.Button(chips, "Auto-pick: " + (Farming ? "On" : "Off"), ToggleFarming, Farming ? Theme.Premium : Theme.Panel, 250, 52, true, 24).name = "AutoPickToggle";
@@ -381,7 +421,8 @@ namespace RogueStars.Client.Screens
 
         private RectTransform Board(RectTransform body, ActiveRun run, out Text dice, out float h, out RectTransform focus)
         {
-            h = BoardHeight(run);
+            int x0 = _x0;
+            h = BoardHeight(run, x0);
             float boardH = h;
             var holder = Ui.Rect(body, "BoardHolder");
             Ui.Size(holder, -1, h);
@@ -390,18 +431,18 @@ namespace RogueStars.Client.Screens
             board.pivot = new Vector2(0.5f, 1);
             board.sizeDelta = new Vector2(BoardWidth, h);
             board.anchoredPosition = Vector2.zero;
-            Vector2 P(RunTile t) => DrawPoint(TileCenter(t), boardH);
+            Vector2 P(RunTile t) => DrawPoint(TileCenter(t, x0), boardH);
+            var visible = run.Tiles.FindAll(t => InWindow(run, t, x0));
 
-            // edges first (behind tiles): walked edges lit, loop-backs gold, the rest dark
+            // edges first (behind tiles): walked edges lit, the rest dark (the path only goes forward)
             var walked = new HashSet<long>();
             for (int i = 1; i < run.Trail.Count; i++) walked.Add(((long)run.Trail[i - 1] << 32) | (uint)run.Trail[i]);
-            foreach (var t in run.Tiles)
+            foreach (var t in visible)
                 foreach (var n in t.Next)
-                    if (n >= 0 && n < run.Tiles.Count && t.Id != run.BossGateTile) // the gate's lap edge is its "next lap" label
+                    if (n >= 0 && n < run.Tiles.Count && InWindow(run, run.Tiles[n], x0))
                     {
                         bool lit = walked.Contains(((long)t.Id << 32) | (uint)n);
-                        var color = lit ? Theme.Shade(Theme.AccentLight, 0.8f) : n < t.Id ? Theme.Shade(Theme.Gold, 0.55f) : Theme.Border;
-                        Edge(board, P(t), P(run.Tiles[n]), color, lit ? 12 : 10);
+                        Edge(board, P(t), P(run.Tiles[n]), lit ? Theme.Shade(Theme.AccentLight, 0.8f) : Theme.Border, lit ? 12 : 10);
                     }
 
             RectTransform currentTile = null;
@@ -410,7 +451,7 @@ namespace RogueStars.Client.Screens
             if (run.Phase == RunPhase.ChooseBranch)
                 for (int i = 0; i < run.BranchOptions.Count; i++)
                     foreach (var id in BranchPath(run, i, Content)) if (!onPath.ContainsKey(id)) onPath[id] = i;
-            foreach (var t in run.Tiles)
+            foreach (var t in visible)
             {
                 var look = LookOf(run, t, Content);
                 var center = P(t);
@@ -430,7 +471,8 @@ namespace RogueStars.Client.Screens
                 }
                 var size = look.Gate ? new Vector2(TileW + GateGrow, TileH + GateGrow) : new Vector2(TileW, TileH);
                 Color fill, border, text;
-                if (look.Visited) { fill = Theme.Hex(0x201416); border = Theme.Hex(0x4A3330); text = Theme.Hex(0x6E5550); }
+                if (look.Visited || look.Cleared && !look.Current) { fill = Theme.Hex(0x201416); border = Theme.Hex(0x4A3330); text = Theme.Hex(0x6E5550); }
+                else if (look.Cleared) { fill = Theme.Hex(0x1E2A1E); border = Theme.Shade(Theme.Good, 0.7f); text = Theme.Hex(0x9CF0B5); }
                 else if (look.Gate) { fill = Theme.Hex(0x3A1414); border = Theme.Bad; text = Theme.Hex(0xFF9FA2); }
                 else if (look.Empty) { fill = Theme.PanelAlt; border = Theme.Border; text = Theme.TextFaint; }
                 else { fill = Theme.Panel; border = look.Accent; text = Color.Lerp(look.Accent, Color.white, 0.55f); }
@@ -444,7 +486,8 @@ namespace RogueStars.Client.Screens
                 string label = look.Label;
                 if (look.Fork && !look.Visited) label = string.IsNullOrEmpty(label) ? "FORK" : label + "\n<size=20>fork</size>";
                 if (look.Option) label = (run.BranchOptions.IndexOf(t.Id) == 0 ? "A · " : "B · ") + label;
-                if (look.Gate) label += "\n<size=18>next lap</size>";
+                if (look.Gate) label = "BOSS\n<size=18>arena</size>";
+                if (look.Cleared && !string.IsNullOrEmpty(label) && !look.Gate) label += " ✓";
                 if (!string.IsNullOrEmpty(label))
                 {
                     var lab = Ui.Display(img.transform, label, look.Gate ? 32 : label.Length > 6 ? 24 : 30, text, TextAnchor.MiddleCenter);
@@ -469,6 +512,7 @@ namespace RogueStars.Client.Screens
                     var col = BranchColor(i);
                     int landId = BranchLanding(run, i, Content);
                     if (landId < 0) continue;
+                    if (!InWindow(run, run.Tiles[landId], x0) || !InWindow(run, run.Tiles[run.BranchOptions[i]], x0)) continue;
                     var pick = Ui.Button(board, "", () => PickBranch(index), new Color(col.r, col.g, col.b, 0.18f), TileW + 30, TileH + 30, true, 20);
                     pick.name = "BranchPick:" + letter;
                     var prt = (RectTransform)pick.transform;
@@ -490,7 +534,7 @@ namespace RogueStars.Client.Screens
             var gateTile = run.BossGateTile >= 0 && run.BossGateTile < run.Tiles.Count ? run.Tiles[run.BossGateTile] : null;
             if (gateTile != null)
             {
-                var p = DrawPoint(BossMarkerCenter(run.Tiles, run.BossGateTile, new Vector2(BoardWidth, h)), h);
+                var p = DrawPoint(BossMarkerCenter(visible, run.BossGateTile, new Vector2(BoardWidth, h), x0), h);
                 var bossImg = Ui.RoundPanel(board, Theme.Shade(Theme.ValenceColor(Valence.Boss), 0.55f), 25, "Boss");
                 bossImg.raycastTarget = false;
                 PlaceAt(bossImg.rectTransform, p, BossMarkerSize);
@@ -510,6 +554,7 @@ namespace RogueStars.Client.Screens
                 plate.raycastTarget = false;
                 token = plate.rectTransform;
                 PlaceAt(token, P(start), new Vector2(TileW + 8, TileH + 8));
+                token.name = "Token";
                 UiShapes.Outline(token, Theme.Cream, 18, 5);
                 var glow = Ui.RoundPanel(token, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.4f), 30, "Glow");
                 glow.raycastTarget = false;
@@ -595,10 +640,12 @@ namespace RogueStars.Client.Screens
             var row = Ui.Row(bar, RollRowH, 14, null, 0, "RollRow");
             var loot = Ui.Button(row, "Loot\n<size=30>" + run.PendingLoot.Count + "</size>", () => LootModal(run), Theme.Panel, 150, RollRowH, true, 26);
             loot.GetComponentInChildren<Text>().color = Theme.Gold;
-            bool canRoll = run.Phase == RunPhase.AwaitRoll;
+            bool encounter = run.Phase == RunPhase.Encounter;
+            bool canRoll = run.Phase == RunPhase.AwaitRoll || encounter;
             bool deciding = !canRoll && run.Phase != RunPhase.Completed && run.Phase != RunPhase.Failed;
             bool fork = run.Phase == RunPhase.ChooseBranch;
-            string rollText = fork ? "PICK A PATH\n<size=24>tap A or B on the board</size>"
+            string rollText = encounter && !_auto ? (run.EncounterKind == "boss" ? "ENTER ARENA\n<size=24>fight the boss</size>" : "FIGHT!\n<size=24>a miniboss attacks</size>")
+                : fork ? "PICK A PATH\n<size=24>tap A or B on the board</size>"
                 : !_auto
                 ? canRoll ? "ROLL\n<size=24>hold for auto</size>" : "CHOOSE\n<size=24>your decision</size>"
                 : AutoPaused ? "AUTO PAUSED\n<size=24>your choice</size>" : "AUTO…";
@@ -612,6 +659,7 @@ namespace RogueStars.Client.Screens
                 {
                     var r = State.Run.Active;
                     if (r != null && r.Phase == RunPhase.AwaitRoll) Run(new RunRoll());
+                    else if (r != null && r.Phase == RunPhase.Encounter) Run(new RunEncounter());
                     else if (r != null && r.Phase == RunPhase.ChooseBranch) Rebuild(); // re-centres the board on the fork
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
@@ -752,7 +800,8 @@ namespace RogueStars.Client.Screens
             _autoOverlay = null;
         }
 
-        public override void OnShow() { _decisionKey = null; }
+        /// <summary>Back on screen: reopen a decision that OnHide closed (an open one stays as it is, no close / reopen flicker).</summary>
+        public override void OnShow() { if (_decision == null || !_decision.IsOpen) _decisionKey = null; }
 
         // ---- decisions ---------------------------------------------------------------------------
 
@@ -762,8 +811,36 @@ namespace RogueStars.Client.Screens
             _decision = null;
         }
 
+        /// <summary>
+        /// What makes an open decision UI stale. A purchase does not: the shop sheet stays open and updates in place
+        /// (<see cref="RefreshShop"/>), so buying 2–4 perks per visit does not close and reopen it.
+        /// </summary>
         private static string DecisionKey(ActiveRun r) =>
-            r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.ShopRerolls + "|" + r.Shop.FindAll(o => o.Sold).Count + "|" + r.Coins;
+            r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.ShopRerolls + "|" + r.MythicDraft
+            + (r.Phase == RunPhase.Shop ? "" : "|" + r.Coins);
+
+        /// <summary>"Level up: +50% of its stats, +3% ATK and max HP" (exact numbers from RunTuning).</summary>
+        public static string LevelUpText(ContentDb c) =>
+            "Level up: +" + Fmt.Pct(c.RunTuning.SkillLevelStatShare * 100) + " of its stats, +" + Fmt.Pct(c.RunTuning.SkillLevelAtkPct) + " ATK and +" + Fmt.Pct(c.RunTuning.SkillLevelHpPct) + " max HP";
+
+        private readonly List<KeyValuePair<Button, int>> _shopButtons = new List<KeyValuePair<Button, int>>();
+        private Text _shopCoins;
+
+        /// <summary>Updates the open shop after a purchase: sold offers, affordability, coins (no close / reopen).</summary>
+        private void RefreshShop()
+        {
+            var run = State.Run.Active;
+            if (run == null || run.Phase != RunPhase.Shop) return;
+            if (_shopCoins != null) _shopCoins.text = run.Coins + " coins · " + run.ShopBuys + " bought this run";
+            foreach (var kv in _shopButtons)
+            {
+                if (kv.Key == null || kv.Value >= run.Shop.Count) continue;
+                var o = run.Shop[kv.Value];
+                kv.Key.interactable = !o.Sold && run.Coins >= o.Price;
+                var label = kv.Key.GetComponentInChildren<Text>();
+                if (label != null) label.text = o.Sold ? "Sold" : o.Price + " coins";
+            }
+        }
 
         private void ShowDecision(ActiveRun stale)
         {
@@ -819,7 +896,7 @@ namespace RogueStars.Client.Screens
                 Ui.Label(box, ev?.Text ?? run.EventId, Theme.FontNormal, Theme.Hex(0xD7DBFA));
                 if (ev == null)
                 {
-                    Ui.Button(box, "Continue", () => { modal.Close(); Run(new RunAutoStep { Farming = true }); }, Theme.Accent);
+                    Ui.Button(box, "Continue", () => { modal.Close(); Run(new RunChooseEventOption { Index = 0 }); }, Theme.Accent);
                     return;
                 }
                 for (int i = 0; i < ev.Options.Count; i++)
@@ -899,6 +976,7 @@ namespace RogueStars.Client.Screens
                     return sign + Fmt.Pct(a) + " " + (l.Id == "Hp" ? "max HP" : l.Id == "Atk" ? "ATK" : l.Id == "Def" ? "DEF" : l.Id) + " for the run";
                 case OutcomeKind.SkillGained: return "New skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLost: return "Lost skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
+                case OutcomeKind.SkillLevel: return (content.Skill(l.Id)?.Name ?? l.Id) + " → level " + a.ToString("0");
                 case OutcomeKind.Xp: return "+" + a.ToString("0") + " XP";
                 case OutcomeKind.LevelUp: return "Level up! +" + a.ToString("0") + " skill draft" + (a > 1 ? "s" : "");
                 case OutcomeKind.Shards: return sign + a.ToString("0") + " portal shard" + (a == 1 ? "" : "s");
@@ -924,6 +1002,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Stat: return new KeyValuePair<string, Color>("%", l.Good ? Theme.Good : Theme.Bad);
                 case OutcomeKind.SkillGained:
                 case OutcomeKind.SkillLost:
+                case OutcomeKind.SkillLevel:
                     return new KeyValuePair<string, Color>("S", Theme.FamilyColor(content.Skill(l.Id)?.Family ?? SkillFamily.None));
                 case OutcomeKind.Xp: case OutcomeKind.LevelUp: return new KeyValuePair<string, Color>("XP", Theme.Premium);
                 case OutcomeKind.Shards: return new KeyValuePair<string, Color>("SH", Theme.Premium);
@@ -1045,10 +1124,21 @@ namespace RogueStars.Client.Screens
         {
             var owned = new HashSet<SkillFamily>();
             foreach (var id in RunSystem.ActiveSkillIds(run)) owned.Add(Content.Skill(id)?.Family ?? SkillFamily.None);
-            return Ui.Sheet(App.ModalLayer, "Choose a skill", Theme.Hex(0x16122E), Theme.Hex(0x5A4FB0), (box, modal) =>
+            bool mythic = run.MythicDraft;
+            var mythicColor = Theme.RarityColor(Rarity.Mythic);
+            return Ui.Sheet(App.ModalLayer, mythic ? "Mythic choice" : "Choose a skill", mythic ? Theme.Hex(0x2A0E12) : Theme.Hex(0x16122E), mythic ? mythicColor : Theme.Hex(0x5A4FB0), (box, modal) =>
             {
-                Ui.Display(box, "NEW SKILL!", 76, Theme.Gold, TextAnchor.MiddleCenter, "Title");
-                Ui.Label(box, "Choose 1 of " + run.DraftOffer.Count + " · your build: " + BuildSummary(run), Theme.FontSmall, Theme.Hex(0xC9C2F5), TextAnchor.MiddleCenter);
+                if (mythic)
+                {
+                    var banner = Ui.Display(box, "MYTHIC!", 84, mythicColor, TextAnchor.MiddleCenter, "MythicTitle");
+                    UiPulse.On(banner, 0.04f, 1.4f, 0.4f);
+                    Ui.Label(box, "Miniboss defeated — take 1 of " + run.DraftOffer.Count + " Mythic skills · your build: " + BuildSummary(run), Theme.FontSmall, Theme.Hex(0xFFC9C2), TextAnchor.MiddleCenter);
+                }
+                else
+                {
+                    Ui.Display(box, "NEW SKILL!", 76, Theme.Gold, TextAnchor.MiddleCenter, "Title");
+                    Ui.Label(box, "Choose 1 of " + run.DraftOffer.Count + " · your build: " + BuildSummary(run), Theme.FontSmall, Theme.Hex(0xC9C2F5), TextAnchor.MiddleCenter);
+                }
                 foreach (var id in run.DraftOffer)
                 {
                     string sid = id;
@@ -1072,13 +1162,16 @@ namespace RogueStars.Client.Screens
                     cap.fontStyle = FontStyle.Bold;
                     Ui.Size(cap, -1, -1, 0);
                     cap.horizontalOverflow = HorizontalWrapMode.Overflow;
-                    if (s?.UpgradesFrom != null) Ui.Chip(tags, "UPGRADE", Theme.Hex(0xD6C2FF), Theme.Hex(0x1D0B33), 18, 34);
+                    int ownedLevel = RunDraft.Level(run, sid);
+                    if (ownedLevel > 0) Ui.Chip(tags, "LEVEL " + ownedLevel + " → " + (ownedLevel + 1), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
+                    else if (s?.UpgradesFrom != null) Ui.Chip(tags, "UPGRADE", Theme.Hex(0xD6C2FF), Theme.Hex(0x1D0B33), 18, 34);
                     else if (fam != SkillFamily.None && owned.Contains(fam)) Ui.Chip(tags, "SYNERGY", Theme.Gold, Theme.OnAccent, 18, 34);
                     Ui.Chip(tags, rarity.ToString(), Theme.Tint(Theme.RarityColor(rarity), 0.4f), Theme.RarityColor(rarity), 18, 34, Theme.RarityColor(rarity));
                     Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
                     string full = Fmt.SkillFull(s);
                     if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(famColor, Color.white, 0.7f)).name = "SkillText";
-                    if (s?.UpgradesFrom != null) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
+                    if (s?.UpgradesFrom != null && ownedLevel == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
+                    if (ownedLevel > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
                 }
                 var reroll = Ui.Button(box, "Reroll (" + run.DraftRerolls + " left)", () => Run(new RunDraftReroll()), new Color(0, 0, 0, 0), -1, 84, run.DraftRerolls > 0, 30);
                 UiShapes.Outline((RectTransform)reroll.transform, Theme.Hex(0x5A4FB0), Theme.RadiusButton, 4);
@@ -1090,8 +1183,10 @@ namespace RogueStars.Client.Screens
         {
             var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
             long reroll = table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
-            return Modal("Shop · " + run.Coins + " coins", b =>
+            _shopButtons.Clear();
+            return Modal("Shop", b =>
             {
+                _shopCoins = Ui.Label(b, run.Coins + " coins · " + run.ShopBuys + " bought this run", Theme.FontNormal, Theme.Gold, TextAnchor.MiddleCenter, "ShopCoins");
                 for (int i = 0; i < run.Shop.Count; i++)
                 {
                     int index = i;
@@ -1120,8 +1215,11 @@ namespace RogueStars.Client.Screens
                         : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
                         : "Raises the stat for the rest of this run.";
                     if (!string.IsNullOrEmpty(detail)) Ui.Label(words, detail, 24, o.Sold ? Theme.TextFaint : Color.Lerp(color, Color.white, 0.7f)).name = "OfferText";
-                    if (skill && sk?.UpgradesFrom != null) Ui.Label(words, "Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom), 22, Theme.Good);
-                    Ui.Button(row, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }), Theme.Gold, 220, 76, !o.Sold && run.Coins >= o.Price, 28);
+                    int lv = skill ? RunDraft.Level(run, o.SkillId) : 0;
+                    if (lv > 0) Ui.Label(words, "LEVEL " + lv + " → " + (lv + 1) + " · " + LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
+                    else if (skill && sk?.UpgradesFrom != null) Ui.Label(words, "Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom), 22, Theme.Good);
+                    var buy = Ui.Button(row, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), Theme.Gold, 220, 76, !o.Sold && run.Coins >= o.Price, 28);
+                    _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
                 }
             },
             new ModalButton("Reroll (" + reroll + ")", () => Run(new RunShopReroll()), Theme.Button),
@@ -1249,6 +1347,10 @@ namespace RogueStars.Client.Screens
             Ui.Chip(stats, "Rolls " + s.Rolls, Theme.Panel, Theme.TextDim, 24, 48);
             Ui.Chip(stats, "Run level " + s.Level, Theme.Panel, Theme.TextDim, 24, 48);
             if (s.Mode == RunMode.Burrow) Ui.Chip(stats, "Floors " + s.Floors, Theme.Panel, Theme.TextDim, 24, 48);
+            Ui.Chip(stats, "Skills " + s.Gains.Count, Theme.Panel, Theme.TextDim, 24, 48).name = "SkillsChip";
+            if (s.Minibosses > 0) Ui.Chip(stats, "Minibosses " + s.Minibosses, Theme.Panel, Theme.TextDim, 24, 48);
+            if (s.ShopBuys > 0) Ui.Chip(stats, "Shop buys " + s.ShopBuys, Theme.Panel, Theme.TextDim, 24, 48);
+            BuildGained(body, s);
 
             Ui.Caption(body, s.Won ? "Loot secured" : "Pending loot lost", s.Won ? Theme.Hex(0xE8CFA8) : Theme.Bad);
             if (s.Granted.Count == 0) Note(body, s.Won ? "No rewards." : "Better luck next time.");
@@ -1277,6 +1379,29 @@ namespace RogueStars.Client.Screens
             var back = Ui.Button(body, "Back to portals", () => App.Router.Pop(), new Color(0, 0, 0, 0), -1, 80, true, 30);
             back.name = "Button:Portals";
             back.GetComponentInChildren<Text>().color = Theme.Hex(0xC9B08A);
+        }
+
+        /// <summary>One line per build gain of the run: what, its level, and where it came from (draft, MYTHIC, shop, event).</summary>
+        public static string GainText(RunGain g, ContentDb c)
+        {
+            string src = g.Source == "mythic" ? "MYTHIC" : g.Source == "draft" ? "draft" : g.Source == "shop" ? "shop" : g.Source == "boon" ? "boon" : "event";
+            if (g.Stat != null) return (RogueStars.Rules.Core.SkillText.Stat(g.Stat) ?? "+stat") + " · " + src;
+            var s = c.Skill(g.SkillId);
+            return (s?.Name ?? g.SkillId) + (g.Level > 1 ? " Lv " + g.Level : "") + " · " + src;
+        }
+
+        private void BuildGained(RectTransform body, RunSummary s)
+        {
+            if (s.Gains.Count == 0) return;
+            Ui.Caption(body, "Skills gained this run (" + s.Gains.Count + ")", Theme.Hex(0xE8CFA8));
+            var list = Ui.Grid(body, new Vector2(320, 44), 3, 8); // wraps: 20–40 gains per run
+            list.name = "GainedSkills";
+            foreach (var g in s.Gains)
+            {
+                var sk = g.SkillId != null ? Content.Skill(g.SkillId) : null;
+                var col = g.Source == "mythic" ? Theme.RarityColor(Rarity.Mythic) : sk != null ? Theme.FamilyColor(sk.Family) : Theme.Good;
+                Ui.Chip(list, GainText(g, Content), Theme.Tint(col, 0.25f), Color.Lerp(col, Color.white, 0.5f), 20, 40).name = "Gain";
+            }
         }
 
         private void RewardTile(Transform grid, Reward r, RunSummary s)
