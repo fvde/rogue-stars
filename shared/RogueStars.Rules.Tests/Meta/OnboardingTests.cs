@@ -240,7 +240,7 @@ public class OnboardingTests
         // Parts unlock after level 1, so the scripted first run is played by a worm without parts (eased level 1).
         var c = ContentDb.Default;
         var l1 = c.MainLevel(1);
-        Assert.Equal(c.Campaign.FirstLevelEnemyPct, l1.Modifiers.EnemyHpPct);
+        Assert.Equal(c.Campaign.EarlyHpPct(1), l1.Modifiers.EnemyHpPct);
         int wins = 0;
         for (int seed = 1; seed <= 60; seed++)
         {

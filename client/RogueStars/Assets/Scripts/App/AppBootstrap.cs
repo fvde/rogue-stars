@@ -11,6 +11,8 @@ namespace RogueStars.Client.App
         private void Awake()
         {
             Application.targetFrameRate = 60;
+            // The game is played hands-off for long stretches (auto runs, battle playback): never let the screen dim or lock while it is open.
+            Screen.sleepTimeout = SleepTimeout.NeverSleep;
             Screen.orientation = ScreenOrientation.Portrait;
             var canvas = ClientApp.CreateCanvas();
             Current = ClientApp.Build(canvas, ClientSettings.Load());

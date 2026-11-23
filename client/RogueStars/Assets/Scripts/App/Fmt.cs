@@ -149,5 +149,13 @@ namespace RogueStars.Client.App
             var s = snake.Replace('_', ' ');
             return char.ToUpperInvariant(s[0]) + s.Substring(1);
         }
+
+        /// <summary>Exact skill text with numbers (generated from the skill's effects), else its description.</summary>
+        public static string SkillFull(RogueStars.Rules.Core.SkillDef s)
+        {
+            if (s == null) return "";
+            var full = RogueStars.Rules.Core.SkillText.Full(s);
+            return string.IsNullOrEmpty(full) ? s.Description ?? "" : full;
+        }
     }
 }

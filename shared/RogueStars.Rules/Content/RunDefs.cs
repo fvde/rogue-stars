@@ -417,10 +417,16 @@ namespace RogueStars.Rules.Content
         public List<double> LateFamilyStrengthPct = new List<double> { 0, -20, 0, 0 };
         public int LateFamilyFromPortal = 40;
         /// <summary>
-        /// Enemy HP/ATK % of main level 1 (onboarding v2: the first run is played before Parts unlock, by a worm without
-        /// parts; at 0 only about half of first attempts win, at −35 nearly all).
+        /// Gentle ramp for new players: enemy HP % and ATK % of main levels 1, 2, 3, … (on top of the threat curve; levels
+        /// past the list are unchanged). Level 1 is played without parts (onboarding v2) and worm levels unlock on day 3,
+        /// so day-1 levels are carried by the starter parts and part levels alone; levels 1–3 should almost never be lost
+        /// (EarlyLevelBalanceTests).
         /// </summary>
-        public double FirstLevelEnemyPct = -35;
+        public List<double> EarlyLevelEnemyHpPct = new List<double> { -60, -55, -50, -48, -46, -42, -38, -34, -28, -22, -14, -7 };
+        public List<double> EarlyLevelEnemyAtkPct = new List<double> { -40, -40, -35, -35, -32, -30, -27, -24, -18, -12, -8, -4 };
+
+        public double EarlyHpPct(int level) => level >= 1 && level <= EarlyLevelEnemyHpPct.Count ? EarlyLevelEnemyHpPct[level - 1] : 0;
+        public double EarlyAtkPct(int level) => level >= 1 && level <= EarlyLevelEnemyAtkPct.Count ? EarlyLevelEnemyAtkPct[level - 1] : 0;
 
         /// <summary>First Dark Side level (the feature itself unlocks at main level 45 on day 21, ContentDb.Onboarding).</summary>
         public int DarkSideFromLevel = 40;

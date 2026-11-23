@@ -809,7 +809,8 @@ namespace RogueStars.Client.Screens
                     else if (fam != SkillFamily.None && owned.Contains(fam)) Ui.Chip(tags, "SYNERGY", Theme.Gold, Theme.OnAccent, 18, 34);
                     Ui.Chip(tags, rarity.ToString(), Theme.Tint(Theme.RarityColor(rarity), 0.4f), Theme.RarityColor(rarity), 18, 34, Theme.RarityColor(rarity));
                     Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
-                    if (!string.IsNullOrEmpty(s?.Description)) Ui.Label(text, s.Description, 24, Color.Lerp(famColor, Color.white, 0.7f));
+                    string full = Fmt.SkillFull(s);
+                    if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(famColor, Color.white, 0.7f)).name = "SkillText";
                     if (s?.UpgradesFrom != null) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
                 }
                 var reroll = Ui.Button(box, "Reroll (" + run.DraftRerolls + " left)", () => Run(new RunDraftReroll()), new Color(0, 0, 0, 0), -1, 84, run.DraftRerolls > 0, 30);
@@ -832,9 +833,12 @@ namespace RogueStars.Client.Screens
                     var sk = skill ? Content.Skill(o.SkillId) : null;
                     string what = skill ? (sk?.Name ?? o.SkillId)
                         : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
-                        : "+" + (o.Stat != null ? (o.Stat.Percent != 0 ? Fmt.Pct(o.Stat.Percent) : o.Stat.Flat.ToString("0")) + " " + o.Stat.Stat : "stat");
+                        : o.Stat != null ? RogueStars.Rules.Core.SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
                     var color = skill ? Theme.FamilyColor(sk?.Family ?? SkillFamily.None) : Theme.Good;
-                    var row = Ui.Row(b, 104, 14, o.Sold ? Theme.PanelAlt : Theme.Tint(color, 0.16f), 20, "Offer");
+                    var row = Ui.Row(b, -1, 14, o.Sold ? Theme.PanelAlt : Theme.Tint(color, 0.16f), 20, "Offer");
+                    var rl = row.GetComponent<HorizontalLayoutGroup>();
+                    rl.childAlignment = TextAnchor.MiddleLeft; rl.childForceExpandHeight = false;
+                    rl.padding = new RectOffset(20, 20, 16, 16);
                     UiShapes.Outline(row, o.Sold ? Theme.Border : Theme.Shade(color, 0.8f), Theme.RadiusButton, 3);
                     var icon = Ui.RoundPanel(row, o.Sold ? Theme.Locked : color, 18, "Icon");
                     Ui.Size(icon, 64, 64, 0);
@@ -844,6 +848,12 @@ namespace RogueStars.Client.Screens
                     // the offer's name is its own text (the tests look the buy button up by the name next to it)
                     Ui.Label(words, what, Theme.FontNormal, o.Sold ? Theme.TextFaint : Theme.Text).fontStyle = FontStyle.Bold;
                     if (skill && sk != null) Ui.Label(words, (sk.Family != SkillFamily.None ? sk.Family + " · " : "") + sk.Rarity, 22, Theme.RarityColor(sk.Rarity));
+                    // Full text: what the offer actually does (a skill name alone means nothing to a new player).
+                    string detail = skill ? Fmt.SkillFull(sk)
+                        : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
+                        : "Raises the stat for the rest of this run.";
+                    if (!string.IsNullOrEmpty(detail)) Ui.Label(words, detail, 24, o.Sold ? Theme.TextFaint : Color.Lerp(color, Color.white, 0.7f)).name = "OfferText";
+                    if (skill && sk?.UpgradesFrom != null) Ui.Label(words, "Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom), 22, Theme.Good);
                     Ui.Button(row, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }), Theme.Gold, 220, 76, !o.Sold && run.Coins >= o.Price, 28);
                 }
             },

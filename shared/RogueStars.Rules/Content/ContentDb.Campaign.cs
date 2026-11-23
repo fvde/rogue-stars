@@ -245,8 +245,10 @@ namespace RogueStars.Rules.Content
                 var l = RunNewLevel(id + "_" + i, name + " " + i, id, i, whole, FamilyPools[family], bossId, PortalLootPrefix + (index + 1),
                     FamilyEnemies[family], FamilyElites[family]);
                 l.Number = n;
-                double pct = (ThreatFractionMultiplier(threat) * (1 + familyPct / 100.0) * (n == 1 ? 1 + c.FirstLevelEnemyPct / 100.0 : 1) - 1) * 100;
-                if (Math.Abs(pct) > 0.01) l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(pct, 2), EnemyAtkPct = Math.Round(pct, 2) };
+                double basis = ThreatFractionMultiplier(threat) * (1 + familyPct / 100.0);
+                double hpPct = (basis * (1 + c.EarlyHpPct(n) / 100.0) - 1) * 100, atkPct = (basis * (1 + c.EarlyAtkPct(n) / 100.0) - 1) * 100;
+                if (Math.Abs(hpPct) > 0.01 || Math.Abs(atkPct) > 0.01)
+                    l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(hpPct, 2), EnemyAtkPct = Math.Round(atkPct, 2) };
                 l.StaminaCost = Math.Min(c.StaminaMax, c.StaminaBase + index);
                 l.BoardLength = 24 + i + Math.Min(index, c.BoardGrowthPortals) * 2;
                 l.MaxRolls = 16 + i / 2;

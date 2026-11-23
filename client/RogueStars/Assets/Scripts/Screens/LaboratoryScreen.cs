@@ -345,7 +345,7 @@ namespace RogueStars.Client.Screens
             if (def.Kind == LabNodeKind.Skill)
             {
                 var sk = Content.Skill(lv.SkillId);
-                return sk == null ? lv.SkillId : sk.Name + " (" + sk.Rarity + ") — " + sk.Description;
+                return sk == null ? lv.SkillId : sk.Name + " (" + sk.Rarity + ") — " + Fmt.SkillFull(sk);
             }
             var parts = new List<string>();
             foreach (var m in lv.Stats) parts.Add(m.Stat + " " + (m.Percent != 0 ? "+" + Fmt.Pct(m.Percent) : "+" + m.Flat.ToString("0.#")));
