@@ -63,8 +63,8 @@ namespace RogueStars.Client.Screens
 
         // ---- skill colours ------------------------------------------------------------------------
 
-        /// <summary>A run skill's colour: its rarity (Common grey, Rare blue, Epic purple, Legendary orange, Mythic red).</summary>
-        public static Color SkillColor(SkillDef s) => Theme.RarityColor(s?.Rarity ?? Rarity.Common);
+        /// <summary>A run skill's colour: its tier (Common grey, Legendary orange, Mythic red).</summary>
+        public static Color SkillColor(SkillDef s) => Theme.SkillTierColor(s?.Rarity ?? Rarity.Common);
 
         public static Color SkillColor(ContentDb c, string skillId) => SkillColor(skillId != null ? c.Skill(skillId) : null);
 
@@ -193,7 +193,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Stat: return new LandingPopup(sign + Fmt.Pct(a) + " " + StatName(l.Id), good, PopupKind.Stat);
                 case OutcomeKind.SkillGained: return new LandingPopup("New skill: " + (c.Skill(l.Id)?.Name ?? l.Id), SkillColor(c, l.Id), PopupKind.Text);
                 case OutcomeKind.SkillLost: return new LandingPopup("Lost " + (c.Skill(l.Id)?.Name ?? l.Id), Theme.Bad, PopupKind.Hurt);
-                case OutcomeKind.SkillLevel: return new LandingPopup((c.Skill(l.Id)?.Name ?? l.Id) + " Lv " + a.ToString("0"), SkillColor(c, l.Id), PopupKind.Text);
+                case OutcomeKind.SkillLevel: return new LandingPopup(c.Skill(l.Id) != null ? SkillText.Title(c, c.Skill(l.Id), (int)a) : l.Id + " Lv " + a.ToString("0"), SkillColor(c, l.Id), PopupKind.Text);
                 case OutcomeKind.Xp: return new LandingPopup("+" + a.ToString("0") + " XP", Theme.Premium, PopupKind.Xp);
                 case OutcomeKind.LevelUp: return new LandingPopup("LEVEL UP!", Theme.Gold, PopupKind.LevelUp);
                 case OutcomeKind.Shards: return new LandingPopup(sign + a.ToString("0") + " shard" + (a == 1 ? "" : "s"), Theme.Purple, PopupKind.Shard);

@@ -104,6 +104,11 @@ namespace RogueStars.Client.UiKit
             }
         }
 
+        /// <summary>
+        /// Run skill colour: run skills have three tiers (RunTuning.RunTier): Common grey, Legendary orange, Mythic red.
+        /// </summary>
+        public static Color SkillTierColor(Rarity r) => RarityColor(RogueStars.Rules.Content.RunTuning.RunTier(r));
+
         /// <summary>Colours of the 14-step part ladder (Common … Mythic SS+2): Mythic pink, Mythic S red-orange, Mythic SS gold, lighter per +1/+2.</summary>
         private static readonly int[] PartLadder =
         {
