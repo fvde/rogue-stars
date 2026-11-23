@@ -42,6 +42,9 @@
     "com.unity.ugui": "2.0.0",
     "com.unity.nuget.newtonsoft-json": "3.2.1",
     "com.unity.test-framework": "1.5.1",
-    "com.unity.purchasing": "5.5.0"
+    "com.unity.purchasing": "5.5.0",
+    "com.google.external-dependency-manager": "file:google/com.google.external-dependency-manager-1.2.190.tgz",
+    "com.google.firebase.app": "file:google/com.google.firebase.app-14.2.0.tgz",
+    "com.google.firebase.auth": "file:google/com.google.firebase.auth-14.2.0.tgz"
   }
 }

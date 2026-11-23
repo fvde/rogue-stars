@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: RogueStars.Client::RogueStars.Client.Services.ServerConfig
   BaseUrl: http://10.0.2.2:8080
   OnlineByDefault: 0
+  AuthMode: dev

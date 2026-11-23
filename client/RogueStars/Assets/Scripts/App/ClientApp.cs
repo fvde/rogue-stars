@@ -91,7 +91,9 @@ namespace RogueStars.Client.App
         public IGameService CreateService()
         {
             if (ServiceFactory != null) return ServiceFactory(Settings);
-            if (Settings.Online) return new RemoteGameService(Settings.ToRemoteConfig()); // ads mode: the server's session flag
+            // Online: auth provider from the build's AuthMode (Firebase on devices, dev auth in the editor); ads mode = the
+            // server's session flag.
+            if (Settings.Online) return new RemoteGameService(Settings.ToRemoteConfig(), auth: AuthFactory.For(Settings.AuthMode));
             return new LocalGameService(SaveDirectory, "local_" + Settings.DeviceId, Settings.DisplayName)
             {
                 AdsDisabled = Platform != null && Platform.IsAdsDisabled,

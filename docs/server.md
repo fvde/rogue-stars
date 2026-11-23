@@ -50,7 +50,7 @@ Every hook call carries a deterministic request id (e.g. `arena-2026-W47-<player
 ## Auth
 | Mode | Config | Behaviour |
 |---|---|---|
-| `firebase` (default) | `RogueStars:Auth:FirebaseProjectId` | `Authorization: Bearer <Firebase ID token>`. RS256 against Google's securetoken certs (cached by max-age); `iss = https://securetoken.google.com/<project>`, `aud = <project>`, `exp/iat/auth_time` (5 min skew), non-empty `sub`. Player id = Firebase uid. |
+| `firebase` (default) | `RogueStars:Auth:FirebaseProjectId` (Production: `rogue-stars-515610` from `appsettings.Production.json`; Terraform sets the same) | `Authorization: Bearer <Firebase ID token>` (the client signs in with Play Games or anonymously, docs/client.md → Auth). RS256 against Google's securetoken certs (cached by max-age); `iss = https://securetoken.google.com/<project>`, `aud = <project>`, `exp/iat/auth_time` (5 min skew), non-empty `sub`. Player id = Firebase uid. |
 | `dev` | `RogueStars:Auth:DevSecret` | `POST /v1/auth/dev {deviceId}` returns `{token, playerId: "dev_<deviceId>"}`; the token is an HMAC of the player id. **Startup fails if dev mode is configured with `ASPNETCORE_ENVIRONMENT=Production`.** |
 
 Jobs (`/internal/*`): `oidc` (default) requires a Google-signed ID token (`iss` accounts.google.com, `aud =
@@ -80,10 +80,11 @@ POST /v1/command
 ### Payments
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/v1/iap/config` | – | `{ ok, obfuscatedAccountId, products[{productId, storeProductId, type}] }` (type `consumable` / `non_consumable`) |
-| POST | `/v1/iap/verify` | `{ productId (rules id), purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when the token was already redeemed by this player; `400 unknown_product`; `402 <reason>` (invalid_receipt, purchase_pending, purchase_not_completed, product_mismatch, unsupported_quantity, account_mismatch, test_purchase_not_allowed, already_consumed); `409 receipt_already_used` (token claimed by another player); `503 store_unavailable`; `501` if `PurchaseComplete` is not registered |
+| GET | `/v1/iap/config` | – | `{ ok, obfuscatedAccountId, productSet, products[{productId, storeProductId, type}] }` (type `consumable` / `non_consumable`; only the products of `Iap:ProductSet`) |
+| POST | `/v1/iap/verify` | `{ productId (rules id), purchaseToken }` | command response of `PurchaseComplete`; `{ ok, alreadyCompleted, orderId }` when the token was already redeemed by this player; `400 unknown_product`; `400 product_not_offered` (not in `Iap:ProductSet`); `402 <reason>` (invalid_receipt, purchase_pending, purchase_not_completed, product_mismatch, unsupported_quantity, account_mismatch, test_purchase_not_allowed, already_consumed); `409 receipt_already_used` (token claimed by another player); `503 store_unavailable`; `501` if `PurchaseComplete` is not registered |
 | GET | `/v1/ads/credits` | – | `{ ok, credits[{eventId, placement, atMs}] }` — verified, unspent ad views (see below) |
-| GET/POST | `/v1/ads/ssv?user_id=&event_id=&custom_data=&placement=&ad_unit_id=&event_token=` | – | `{ ok, outcome }` (`granted` / `credited` / `unknown_placement` / `rejected:<rule>`); `{ ok, duplicate: true }` for a repeated event; `400 malformed_callback`; `401 invalid_signature`; `403 ad_unit_not_allowed`; `409 event_already_used` (same event id, other user) |
+| POST | `/v1/ads/instant` | `{ placementId, requestId }` | command response of the `AdWatched` hook with an empty token: grants a direct-reward placement without an ad. The rules accept it only for No Ads owners or in the ads-disabled mode (`ad token required` otherwise); daily caps apply; idempotent per `requestId`; `400 unknown_placement` / `placement_spent_by_command` / `request_id_required` |
+| GET/POST | `/v1/ads/ssv?user_id=&event_id=&custom_data=&placement=&ad_unit_id=&event_token=` | – | `{ ok, outcome }` (`granted` / `credited` / `unknown_placement` / `rejected:<rule>`); `{ ok, duplicate: true }` for a repeated event; `400 malformed_callback`; `401 invalid_signature`; `403 ad_unit_not_allowed`; `409 event_already_used` (same event id, other user); `404 ads_disabled` in the ads-disabled mode |
 
 #### Google Play (`Iap:Mode = google`)
 Implemented in `Payments/GooglePlay.cs` with `Google.Apis.AndroidPublisher.v3`, following
@@ -106,8 +107,24 @@ https://developer.android.com/google/play/billing/security#verify:
 
 Credentials: `Iap:ServiceAccountJson` (Secret Manager `rogue-stars-play-publisher-credentials`) or the Cloud Run
 identity (ADC) — either must be invited in Play Console (docs/setup.md). `fake` mode: tokens starting with `fake-` are valid.
-The Play Console catalogue `docs/play-console-products.csv` is generated from the shop content
-(`UPDATE_PLAY_CATALOG=1 dotnet test --filter PlayConsoleCsv`; a test fails when it is stale).
+The Play Console catalogues `docs/play-console-products.csv` (all) and `docs/play-console-products-initial.csv` (the first
+four products: `diamonds_60`, `starter_worm`, `monthly_pass`, `perm_daily_diamonds` — `PlayCatalog.InitialProductIds`, same
+list as the client's `StoreCatalog.InitialProductIds`) are generated from the shop content
+(`UPDATE_PLAY_CATALOG=1 dotnet test --filter PlayConsole`; tests fail when they are stale). `Iap:ProductSet = initial`
+(production default, Terraform `iap_product_set`) sells only the initial products until the rest exist in Play Console.
+
+#### Ads disabled (`Ads:Mode = disabled`, the default for now)
+No ad network yet (no AppLovin account): every player is treated as owning the No Ads entitlement.
+- One rules content flag, `ShopConfig.AdsDisabled` (`shared/RogueStars.Rules/Content/ContentDb.Shop.cs`), makes
+  `ShopSystem.HasNoAds` true for everyone: every placement completes instantly with an empty `AdToken`, daily caps still
+  apply, no entitlement flag is written to player state (switching ads on later restores the normal rules for everybody).
+- `ServerContent.Create` builds a private `ContentDb` with the flag (`ContentDb.Default` is never mutated); `/v1/session`
+  returns `adsDisabled: true` so the client mirrors it.
+- Command placements (revive, stamina, timer, pulls, double rewards): the client sends an empty token; the credit check
+  only applies to non-empty tokens (a made-up token is still `403 ad_not_verified`). Direct-reward placements:
+  `POST /v1/ads/instant`. S2S callbacks answer `404 ads_disabled`; no Event Key is needed (Terraform `ads_mode`).
+- Everything of the applovin mode below (signature, event claims, credits) is unchanged and active again with
+  `Ads:Mode = applovin`.
 
 #### AppLovin MAX S2S rewarded callbacks (`Ads:Mode = applovin`)
 Source: AppLovin, *S2S Rewarded Callback API* — https://support.applovin.com/en/max/advanced-features/s2s-rewarded-callback-api
@@ -145,7 +162,7 @@ Source: AppLovin, *S2S Rewarded Callback API* — https://support.applovin.com/e
   (`ad_credits/{playerId}`, 24 h): a client command carrying an `AdToken` (`RunRevive`, `BuyStamina`, `GachaPull`,
   `TimerSpeedUp`, `RunDoubleRewards`) must use the event id of an unspent credit (`403 ad_not_verified` otherwise,
   `400 request_id_required` without a request id); the credit is spent by that request id and refunded when the rules
-  reject the command. An empty token (No Ads entitlement) skips the check. `Ads:Mode = fake` disables the check (dev).
+  reject the command. An empty token (No Ads entitlement / ads disabled; the rules decide) skips the check. `Ads:Mode = fake` disables the check (dev).
 
 ### Arena
 | Method | Path | Body | Response |
@@ -216,7 +233,7 @@ is resumable; the invasion is marked resolved only when every member got the out
 | POST | `/internal/jobs/weekly-arena?week=` | see Arena |
 | POST | `/internal/jobs/invasion-start` | materialises active calendar invasion occurrences (`{ created[], active[] }`); every 5 min |
 | POST | `/internal/jobs/invasion-resolve` | see Invasions |
-| GET | `/healthz` | `{ status, version, auth, store }`, anonymous |
+| GET | `/healthz` | `{ status, version, auth, store, ads, iapProducts }`, anonymous |
 
 ## Storage
 - `IPlayerStore`: `InMemoryPlayerStore` / `FirestorePlayerStore` — `players/{uid}` = `{ state: json, requests: json,
@@ -263,9 +280,10 @@ Section `RogueStars`, env syntax `RogueStars__<Group>__<Key>`:
 | `RogueStars__Store__FirestoreProjectId` / `FirestoreDatabase` / `CollectionPrefix` | – / `(default)` / "" | |
 | `RogueStars__Jobs__Mode` | `oidc` | `secret` (`local-job-secret`) |
 | `RogueStars__Jobs__Audience` / `ServiceAccountEmail` | – (required for oidc) | |
-| `RogueStars__Iap__Mode` / `PackageName` / `ServiceAccountJson` | `google` | `fake` |
+| `RogueStars__Iap__Mode` / `PackageName` / `ServiceAccountJson` | `google` / `com.oddbyte.roguestars` | `fake` |
+| `RogueStars__Iap__ProductSet` | `initial` (only `PlayCatalog.InitialProductIds`, `docs/play-console-products-initial.csv`) | `all` |
 | `RogueStars__Iap__AllowTestPurchases` / `RequireAccountId` | `true` / `false` (Terraform: variable / `true`) | |
-| `RogueStars__Ads__Mode` / `EventKey` | `applovin` | `fake` |
+| `RogueStars__Ads__Mode` / `EventKey` | `disabled` (`applovin` once AppLovin exists) | `fake` |
 | `RogueStars__Ads__Verification` / `AllowedAdUnitIds__<n>` / `CreditTtlHours` | `event_token` / any / 24 | |
 | `RogueStars__Commands__*` | hook names above, deny/allow lists | |
 | `RogueStars__Arena__*`, `RogueStars__Guilds__*`, `RogueStars__Invasions__*` | tuning (see `ServerOptions.cs`) | |
@@ -301,5 +319,4 @@ scheduler service account.
 - Hook commands above are the real rules commands (server tests exercise them end-to-end).
 - Scale notes: weekly/invasion jobs process groups sequentially (fine for the prototype; fan out per group later);
   chat rate limit and ad/IAP dedup are document based and hold across instances.
-- The Unity client still signs in with dev auth (`/v1/auth/dev`). Production (`Auth:Mode=firebase`) needs the Firebase
-  Auth SDK in the client (Play Games / anonymous sign-in → ID token); not integrated yet (docs/setup.md, step 3).
+- The Unity client signs in with Firebase Auth (Play Games, anonymous fallback); dev auth only against a Development server.

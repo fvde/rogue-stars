@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rogue Stars manifest additions, merged into the app manifest. The advertising-id removal (ads disabled) has to live
+     in the launcher manifest to win the merge: Editor/LauncherManifestPatch.cs. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.oddbyte.roguestars.config">
+
+    <!-- Google Play Billing (Unity IAP's billing library declares it as well). Play Console only lets you create in-app
+         products after an upload whose manifest contains it. -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+
+    <application>
+        <!-- Firebase is used for Auth only: no Analytics collection (firebase-analytics comes with the Firebase App package). -->
+        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
+        <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
+    </application>
+</manifest>
