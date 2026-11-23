@@ -1,0 +1,33 @@
+{
+  "name": "pkg-minigames",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single object, centered, isolated on a plain pure white background, no scenery, no text",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "portal_ring": "minigame sprite: a glowing portal ring",
+    "comet_ice": "minigame sprite: an icy blue comet",
+    "comet_fire": "minigame sprite: a fiery red comet",
+    "saucer": "minigame sprite: a small wobbly flying saucer",
+    "landing_pad": "minigame sprite: a round landing pad with lights",
+    "clock": "minigame sprite: a broken time clock face",
+    "asteroid": "minigame sprite: a rocky asteroid",
+    "friendly_rider": "minigame sprite: a tiny friendly alien riding a rock",
+    "jelly_block": "minigame sprite: a wobbly alien jelly block",
+    "signal_alien": "minigame sprite: a cute alien that blinks a coloured light",
+    "fossil_card": "minigame sprite: a fossil memory card back",
+    "vault_hatch": "minigame sprite: a round vault hatch with colour dials",
+    "slot_symbol_star": "minigame sprite: a slot symbol star",
+    "slot_symbol_alien": "minigame sprite: a slot symbol alien",
+    "slot_symbol_gem": "minigame sprite: a slot symbol gem",
+    "spore": "minigame sprite: a glowing spore ball",
+    "target_alien": "minigame sprite: an alien target on a floating platform",
+    "shield_red": "minigame sprite: a red energy shield",
+    "shield_blue": "minigame sprite: a blue energy shield",
+    "shield_yellow": "minigame sprite: a yellow energy shield"
+  }
+}

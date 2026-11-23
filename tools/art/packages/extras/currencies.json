@@ -1,0 +1,33 @@
+{
+  "name": "pkg-currencies",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "stamina": "stamina: a glowing cyan energy orb",
+    "diamonds": "diamonds: a faceted purple space gem",
+    "biomass": "biomass: a squishy pink-green blob of worm food",
+    "ore": "ore: a chunk of silver-blue alien ore",
+    "grain": "grain: a bundle of golden star-grain",
+    "fuel": "fuel: a canister of glowing green rocket fuel",
+    "hero_xp": "hero XP: a glowing scroll with a star seal",
+    "data": "data: a holographic data cube",
+    "gear_cores": "gear cores: a brass gear with a glowing core",
+    "advancement_plates": "advancement plates: a polished armor plate with an up arrow emblem",
+    "awaken_cores": "awaken cores: a radiant crystal heart pulsing with light",
+    "part_tokens": "part token: a coin stamped with a worm-arm emblem",
+    "alien_tokens": "alien token: a coin stamped with a one-eyed alien",
+    "blueprint_tokens": "blueprint token: a rolled blueprint with a coin seal",
+    "mount_cores": "mount cores: a tiny spaceship engine core",
+    "arena_medals": "arena medal: a medal with crossed blades",
+    "arena_tickets": "arena ticket: a torn space arena ticket",
+    "burrow_keys": "burrow key: an old key shaped like a drill",
+    "guild_marks": "guild mark: a banner emblem token",
+    "run_coins": "run coins: a small stack of alien coins"
+  }
+}

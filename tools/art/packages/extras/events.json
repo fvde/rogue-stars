@@ -1,0 +1,31 @@
+{
+  "name": "pkg-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single object, centered, isolated on a plain pure white background, no scenery, no text",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "abandoned_cache": "event illustration: an abandoned alien supply cache half buried, mysterious",
+    "alien_medic": "event illustration: a friendly alien medic with a glowing tonic",
+    "black_market": "event illustration: a shady alien smuggler under a hood with a cart of goods",
+    "boss_scout": "event illustration: a tiny alien scout with a telescope spying",
+    "campfire": "event illustration: a cozy alien campfire with roasting goo",
+    "cursed_relic": "event illustration: a cursed relic glowing with purple runes",
+    "echoing_shrine": "event illustration: an ancient echoing shrine with floating bells",
+    "gravity_well": "event illustration: a swirling gravity well vortex",
+    "lost_explorer": "event illustration: a lost alien explorer with a map",
+    "meteor_shower": "event illustration: meteors falling from the sky",
+    "rift_echo": "event illustration: a glitching time rift with a ghostly warrior inside",
+    "shard_altar": "event illustration: an altar with floating crystal shards",
+    "smuggler": "event illustration: a smuggler alien with a big backpack",
+    "strange_spores": "event illustration: strange glowing spore mushrooms",
+    "training_grounds": "event illustration: training dummies and weights",
+    "treasure_pod": "event illustration: a glowing alien treasure pod",
+    "unstable_reactor": "event illustration: a sparking unstable reactor",
+    "wild_beast": "event illustration: a wild alien beast snarling"
+  }
+}

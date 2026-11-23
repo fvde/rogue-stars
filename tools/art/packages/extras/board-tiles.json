@@ -1,0 +1,30 @@
+{
+  "name": "pkg-board-tiles",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "fight": "board tile marker: crossed claws",
+    "elite": "board tile marker: skull with horns",
+    "miniboss": "board tile marker: angry monster face with a crown",
+    "boss_gate": "board tile marker: ominous gate with a skull",
+    "shop": "board tile marker: merchant cart",
+    "event": "board tile marker: glowing question mark",
+    "chest": "board tile marker: treasure chest",
+    "rest": "board tile marker: campfire",
+    "buff": "board tile marker: upward glowing arrow",
+    "curse": "board tile marker: purple cursed eye",
+    "trap": "board tile marker: spiked trap",
+    "shard": "board tile marker: glowing crystal shard",
+    "loot": "board tile marker: loot sack",
+    "game": "board tile marker: arcade joystick",
+    "start": "board tile marker: flag",
+    "supply_cache": "board tile marker: supply crate",
+    "treasure_pod": "board tile marker: glowing alien pod"
+  }
+}

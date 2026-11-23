@@ -1,0 +1,22 @@
+{
+  "name": "pkg-status-icons",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "burn": "status effect icon: flame",
+    "freeze": "status effect icon: ice crystal",
+    "poison": "status effect icon: green skull droplet",
+    "bleed": "status effect icon: red blood drop",
+    "stun": "status effect icon: stars circling",
+    "shock": "status effect icon: lightning bolt",
+    "charm": "status effect icon: pink heart",
+    "shield": "status effect icon: round shield",
+    "rage": "status effect icon: angry red fist burst"
+  }
+}

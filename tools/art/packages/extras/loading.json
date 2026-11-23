@@ -1,0 +1,20 @@
+{
+  "name": "pkg-loading",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", vertical mobile game splash art, dramatic composition, no text, no logo",
+  "negative": "text, letters, logo, watermark, blurry, photo",
+  "subjects": {
+    "launch": "loading screen key art: a pink worm hero and alien friends rocketing out of a swirling portal into space",
+    "colony": "loading screen key art: a cozy alien colony at dusk with a portal in the sky",
+    "time_rift": "loading screen key art: a crack in time showing dinosaurs on one side and a future city on the other",
+    "boss_reveal": "loading screen key art: a giant shadowy boss silhouette behind a glowing portal",
+    "space_race": "loading screen key art: flying saucers racing past planets",
+    "burrow": "loading screen key art: a worm tunnel network deep underground with glowing crystals"
+  },
+  "fullframe": true
+}

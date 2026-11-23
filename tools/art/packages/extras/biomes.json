@@ -1,0 +1,26 @@
+{
+  "name": "pkg-biomes",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", vertical mobile game background, no characters, no text, no user interface",
+  "negative": "horizon, sky, side view, characters, text, watermark, blurry, photo",
+  "subjects": {
+    "ember": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: volcanic rock with lava cracks",
+    "glacier": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: ice floor with snow",
+    "static": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: metal plates with electric arcs",
+    "void": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: dark crystal floor with starlight cracks",
+    "seabed": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: alien seabed sand and stone slabs",
+    "jungle": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: prehistoric jungle floor with ferns",
+    "ruins": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: desert sand with clock tower debris",
+    "crystal": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: pink crystal cavern floor",
+    "hub_day": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: home planet meadow with colony domes at the edges",
+    "hub_night": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: home planet at night with glowing domes",
+    "dark_side": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: the dark side of the planet, eerie shadows",
+    "arena": "high-angle top-down game level ground plane filling the frame, open empty middle for a board path, props only at the left and right edges: alien gladiator arena floor"
+  },
+  "fullframe": true
+}

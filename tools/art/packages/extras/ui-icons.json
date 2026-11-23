@@ -1,0 +1,41 @@
+{
+  "name": "pkg-ui-icons",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "planet": "home planet with a ring",
+    "worm": "cute worm head",
+    "city": "alien colony dome",
+    "signals": "satellite dish beaming a signal",
+    "arena": "crossed swords over an arena",
+    "shop": "little alien market stall",
+    "offer": "glowing gift box with a timer",
+    "pass": "season pass ticket with a comet",
+    "mail": "space mail envelope with a stamp",
+    "quests": "clipboard with a checkmark",
+    "logbook": "open captain's logbook",
+    "more": "grid of four small icons",
+    "observatory": "observatory telescope dome",
+    "invasion": "alien mothership attacking",
+    "guild": "guild banner flag",
+    "laboratory": "bubbling science flask",
+    "heroes": "hero worm medal",
+    "mounts": "small spaceship",
+    "aliens": "cute one-eyed alien face",
+    "breeding": "alien egg in a nest",
+    "forge": "anvil with a glowing hammer",
+    "funds": "piggy bank shaped like a worm",
+    "burrow": "hole in the ground with a drill",
+    "dark_side": "dark half-moon planet",
+    "overcharged": "lightning-charged portal",
+    "runes": "glowing rune stone",
+    "settings": "cog wheel",
+    "daily_login": "calendar with a star"
+  }
+}

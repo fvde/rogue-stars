@@ -1,0 +1,27 @@
+{
+  "name": "pkg-shop",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "starter_pack": "shop offer art: a starter crate overflowing with gems and goodies",
+    "diamonds_small": "shop offer art: a small handful of purple diamonds",
+    "diamonds_medium": "shop offer art: a pile of purple diamonds",
+    "diamonds_large": "shop offer art: a big chest of purple diamonds",
+    "diamonds_huge": "shop offer art: a giant treasure vault of purple diamonds",
+    "monthly_pass": "shop offer art: a premium monthly pass card with a gold star",
+    "season_pass": "shop offer art: a season pass ticket with a comet",
+    "no_ads": "shop offer art: a crossed-out TV screen badge",
+    "worm_fund": "shop offer art: a worm piggy bank bursting with coins",
+    "stamina_refill": "shop offer art: an energy drink can with lightning",
+    "gift_box": "shop offer art: a wrapped gift box with a ribbon",
+    "flash_offer": "shop offer art: a glowing lightning-bolt crate",
+    "token_bundle": "shop offer art: a bundle of coins with emblems",
+    "black_hole_sale": "shop offer art: a black hole swirling with gifts"
+  }
+}

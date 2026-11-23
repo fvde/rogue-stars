@@ -19,6 +19,7 @@ ap.add_argument("folder")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", default=os.path.expanduser("~/AI/assets"))
 ap.add_argument("--model", default="isnet-anime")
+ap.add_argument("--fullframe", action="store_true", help="backgrounds/key art: keep the full image (no cutout), long side --size*2")
 a = ap.parse_args()
 
 folder = os.path.expanduser(a.folder)
@@ -31,7 +32,13 @@ for f in sorted(os.listdir(folder)):
     subject, variant, _model, seed = f[:-4].split("__")
     dst_dir = os.path.join(a.out, category, subject)
     dst = os.path.join(dst_dir, f"{variant}_{seed}.png")
-    if not os.path.exists(dst):
+    if not os.path.exists(dst) and a.fullframe:
+        os.makedirs(dst_dir, exist_ok=True)
+        im = Image.open(os.path.join(folder, f)).convert("RGB")
+        im.thumbnail((a.size * 2, a.size * 2), Image.LANCZOS)
+        im.save(dst, optimize=True)
+        print("asset", dst)
+    elif not os.path.exists(dst):
         os.makedirs(dst_dir, exist_ok=True)
         im = remove(Image.open(os.path.join(folder, f)).convert("RGBA"), session=session)
         # Drop faint halo pixels left by the white background.

@@ -23,3 +23,12 @@ for pass in 1 2; do
     echo "== pass $pass $p done $(date +%H:%M)"
   done
 done
+# Pass 3 (queue filler): resources the client still draws as placeholders (icons, tiles, statuses, events, shop art,
+# collectibles, minigame sprites) and full-frame art (loading screens, biome backgrounds; exported without cutout).
+for sheet in tools/art/packages/extras/*.json; do
+  python3 tools/art/gen.py "$sheet"
+  name=$(python3 -c "import json;print(json.load(open('$sheet'))['name'])")
+  full=$(python3 -c "import json;print('--fullframe' if json.load(open('$sheet')).get('fullframe') else '')")
+  $PY tools/art/export_assets.py "$HOME/AI/out/$name" $full >/dev/null 2>&1 || echo "export failed: $name"
+  echo "== extras $name done $(date +%H:%M)"
+done

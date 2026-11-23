@@ -1,0 +1,32 @@
+{
+  "name": "pkg-collectibles",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    2000
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, multiple objects, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "rune_atk": "attack rune stone with a sword glyph",
+    "rune_hp": "health rune stone with a heart glyph",
+    "rune_def": "defense rune stone with a shield glyph",
+    "rune_crit": "crit rune stone with a star glyph",
+    "rune_speed": "speed rune stone with a wing glyph",
+    "rune_elem": "elemental rune stone with a swirl glyph",
+    "dish_part": "part signal satellite dish",
+    "dish_alien": "alien signal satellite dish with an alien antenna",
+    "dish_blueprint": "blueprint signal dish with holograms",
+    "dish_mythic": "mythic golden signal dish glowing",
+    "chest_portal": "portal reward chest",
+    "chest_milestone": "big milestone chest with a star lock",
+    "chest_points": "daily points chest",
+    "league_bronze": "bronze league badge",
+    "league_silver": "silver league badge",
+    "league_gold": "gold league badge",
+    "league_platinum": "platinum league badge",
+    "league_diamond": "diamond league badge",
+    "league_mythic": "mythic league badge with a crown"
+  }
+}
