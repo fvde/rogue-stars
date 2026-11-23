@@ -124,3 +124,10 @@ public static class PlayerContext
     public static string PlayerId(this HttpContext ctx) =>
         ctx.Items.TryGetValue(Key, out var v) && v is string s ? s : throw new ApiException(401, "unauthenticated");
 }
+
+/// <summary>Names shown to other players: the display name, never the internal player id.</summary>
+public static class PlayerNames
+{
+    public const string Fallback = "Unnamed worm";
+    public static string Display(string? displayName) => string.IsNullOrWhiteSpace(displayName) ? Fallback : displayName.Trim();
+}

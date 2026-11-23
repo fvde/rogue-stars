@@ -129,6 +129,94 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void BossMarker_NeverOverlapsATile()
+        {
+            var content = _f.Service.Content;
+            foreach (var level in content.RunLevels.Values)
+            {
+                if (content.Portal(level.PortalId)?.Kind != PortalKind.Main) continue;
+                for (int seed = 1; seed <= 5; seed++)
+                {
+                    var board = RunBoard.Generate(content, level, Rng.FromSeed(seed * 977 + level.Index));
+                    var size = new Vector2(RunScreen.Columns * RunScreen.Cell + 60, RunScreen.BoardHeight(board.Tiles));
+                    var p = RunScreen.BossMarkerCenter(board.Tiles, board.GateTile, size);
+                    var marker = new Rect(p - RunScreen.BossMarkerSize / 2, RunScreen.BossMarkerSize);
+                    Assert.That(marker.xMin >= 0 && marker.yMin >= 0 && marker.xMax <= size.x && marker.yMax <= size.y, Is.True, level.Id + " marker on the board");
+                    foreach (var t in board.Tiles)
+                        Assert.That(RunScreen.TileRect(t, t.Id == board.GateTile).Overlaps(marker), Is.False, level.Id + " seed " + seed + ": marker overlaps tile " + t.Id);
+                }
+            }
+        }
+
+        [Test]
+        public void RunScreen_ToastsUseAReservedStripAboveTheActionBar_AtMostTwo()
+        {
+            StartFirstRun();
+            _f.App.Router.Push(new RunScreen());
+            var run = (RunScreen)_f.App.Router.Current;
+            _f.App.Update(0.01f);
+            for (int i = 0; i < 5; i++) _f.App.Toasts.Info("Toast " + i);
+            Assert.That(_f.App.Toasts.Count, Is.EqualTo(ToastCenter.MaxVisible));
+            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Toast 4"));
+            // The strip starts just above the fixed action bar and the scrolling body (board) ends above the strip.
+            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(run.FooterHeight + 4).Within(0.01f));
+            Assert.That(run.BodyFrame.offsetMin.y, Is.GreaterThanOrEqualTo(run.FooterHeight + ToastCenter.StripHeight));
+            Assert.That(run.Root.Find("Footer").GetComponentsInChildren<Button>(true).Length, Is.GreaterThanOrEqualTo(4), "ROLL/Auto/Decision/Abandon in the bar");
+            // Short-lived.
+            _f.App.Update(ToastCenter.Lifetime + 0.1f);
+            Assert.That(_f.App.Toasts.Count, Is.EqualTo(0));
+            // Other screens: back to the default inset.
+            _f.App.Router.Pop();
+            _f.App.Update(0.01f);
+            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(ToastCenter.DefaultBottomInset).Within(0.01f));
+        }
+
+        [Test]
+        public void EventToasts_ShowDisplayNames_NeverInternalIds()
+        {
+            _f.Service.DevGrantStarterKit();
+            var state = _f.Service.State;
+            string uid = null;
+            foreach (var kv in state.Parts.Items) { uid = kv.Key; break; }
+            Assert.That(uid, Is.Not.Null);
+            var content = _f.Service.Content;
+            var text = EventText.Describe(new GameEvent { Type = "part_equipped", Args = new List<string> { "LeftArm", uid } }, content, state);
+            Assert.That(text, Does.Not.Contain(uid));
+            Assert.That(text, Does.Contain(PartsScreen.PartName(content, state.Parts.Items[uid])));
+            Assert.That(text, Does.Contain("left arm"));
+            foreach (var type in new[] { "part_merged", "part_awakened", "run_rewards_doubled", "run_completed", "mail", "some_new_event" })
+            {
+                var t = EventText.Describe(new GameEvent { Type = type, Args = new List<string> { uid, "2", "x" } }, content, state);
+                if (t != null) Assert.That(t, Does.Not.Contain(uid), type);
+            }
+        }
+
+        [Test]
+        public void RunResult_DoubleRewards_WatchesAnAdAndDoublesOnce()
+        {
+            _f.Service.DevGrantStarterKit();
+            for (int attempt = 0; attempt < 6 && !(_f.Service.State.Run.LastSummary?.Won ?? false); attempt++)
+            {
+                StartFirstRun();
+                AutoToEnd();
+            }
+            var summary = _f.Service.State.Run.LastSummary;
+            Assert.That(summary.Won, Is.True, "a run of the first level is won");
+            _f.App.Router.Reset(new HubScreen());
+            _f.App.Router.Push(new RunResultScreen());
+            Button btn = null;
+            foreach (var b in _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "DoubleRewards") btn = b;
+            Assert.That(btn, Is.Not.Null, "double rewards button");
+            Assert.That(btn.interactable, Is.True);
+            long bio = _f.Service.State.Wallet.Get(Currencies.Biomass);
+            btn.onClick.Invoke();
+            Assert.That(_f.Service.State.Run.LastSummary.Doubled, Is.True);
+            Assert.That(_f.Service.State.Wallet.Get(Currencies.Biomass), Is.GreaterThan(bio));
+            _f.App.Router.Current.Rebuild();
+            foreach (var b in _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true)) Assert.That(b.name, Is.Not.EqualTo("DoubleRewards"));
+        }
+
+        [Test]
         public void BattlePlayback_EndsWithFightersAtTheirFinalHp()
         {
             StartFirstRun();

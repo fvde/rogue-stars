@@ -117,7 +117,7 @@ public sealed class GuildService(IDocStore docs, PlayerService players, ServerHo
     private async Task<string> DisplayNameAsync(string playerId, CancellationToken ct)
     {
         var state = await players.SettledAsync(playerId, ct);
-        return state.DisplayName ?? playerId;
+        return PlayerNames.Display(state.DisplayName);
     }
 
     public async Task<Guild> CreateAsync(string playerId, CreateGuildRequest req, CancellationToken ct)

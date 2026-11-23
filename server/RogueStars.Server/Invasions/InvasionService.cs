@@ -195,7 +195,7 @@ public sealed class InvasionService(GameEngine engine, IDocStore docs, PlayerSer
             var state = await players.SettledAsync(playerId, ct);
             groupId = await GroupAssigner.AssignAsync<InvasionGroup>(docs, Collections.InvasionCursors, invasionId, Collections.InvasionGroups,
                 invasionId, O.GroupSize, id => new InvasionGroup { Id = id, InvasionId = invasionId },
-                g => g.Members.Add(new InvasionMember { PlayerId = playerId, DisplayName = state.DisplayName ?? playerId, JoinedMs = now }),
+                g => g.Members.Add(new InvasionMember { PlayerId = playerId, DisplayName = PlayerNames.Display(state.DisplayName), JoinedMs = now }),
                 playerId, ct);
             await docs.TryPutAsync(Collections.InvasionPlayers, ParticipantId(invasionId, playerId),
                 new InvasionParticipant { InvasionId = invasionId, GroupId = groupId }, 0, ct);

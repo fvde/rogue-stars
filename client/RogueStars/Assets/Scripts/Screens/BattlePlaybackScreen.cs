@@ -100,6 +100,7 @@ namespace RogueStars.Client.Screens
             var card = Ui.Column(parent, 4, 10, Theme.Panel, "Fighter:" + f.Index);
             v.Card = card;
             var head = Ui.Row(card, 110, 10);
+            Ui.Size(head, flexHeight: 0); // cards stretch to the taller side; the sprite row keeps its size
             v.Sprite = Ui.Panel(head, RoleColor(f.Role), "Sprite");
             Ui.Size(v.Sprite, 110, 110, 0);
             var letter = Ui.Label(v.Sprite.transform, RoleLetter(f.Role), 40, Color.white, TextAnchor.MiddleCenter);
@@ -300,12 +301,13 @@ namespace RogueStars.Client.Screens
             var rt = label.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1);
             rt.sizeDelta = new Vector2(400, 60);
-            rt.anchoredPosition = new Vector2(0, -40);
+            // Rise over the sprite row, inside the card (never into the round header above).
+            rt.anchoredPosition = new Vector2(0, -110);
             var outline = label.gameObject.AddComponent<Outline>();
             outline.effectColor = Color.black;
             UiSequence.On(label.gameObject).Then(0.7f, t =>
             {
-                rt.anchoredPosition = new Vector2(0, -40 + 60 * t);
+                rt.anchoredPosition = new Vector2(0, -110 + 60 * t);
                 label.color = new Color(color.r, color.g, color.b, 1 - t * t);
             }, () => Ui.DestroyGo(label.gameObject));
         }

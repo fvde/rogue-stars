@@ -31,11 +31,7 @@ namespace RogueStars.Client.Screens
 
         public static string RarityName(ContentDb c, int r) => c.PartsConfig.RarityDef(r).Name;
 
-        public static string PartName(ContentDb c, PartItem p)
-        {
-            var def = c.PartsConfig.Defs.TryGetValue(p.DefId, out var d) ? d : null;
-            return (def?.Name ?? p.DefId) + (p.Awaken == 1 ? " [S]" : p.Awaken >= 2 ? " [SS]" : "");
-        }
+        public static string PartName(ContentDb c, PartItem p) => Fmt.PartName(c, p);
 
         protected override void Build(RectTransform body)
         {

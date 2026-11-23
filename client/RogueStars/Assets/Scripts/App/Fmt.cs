@@ -111,6 +111,36 @@ namespace RogueStars.Client.App
 
         public static string Stars(int stars) => stars + "★";
 
+        /// <summary>Display name of an owned part by uid ("Ember Jaw [S]"); "part" when unknown — never the uid.</summary>
+        public static string PartName(ContentDb content, GameState state, string uid)
+        {
+            if (state != null && uid != null && state.Parts.Items.TryGetValue(uid, out var p)) return PartName(content, p);
+            return "Part";
+        }
+
+        public static string PartName(ContentDb content, RogueStars.Rules.Systems.PartItem p)
+        {
+            var def = content != null && content.PartsConfig.Defs.TryGetValue(p.DefId, out var d) ? d : null;
+            return (def?.Name ?? "Part") + (p.Awaken == 1 ? " [S]" : p.Awaken >= 2 ? " [SS]" : "");
+        }
+
+        /// <summary>A player's shown name: the display name, never the internal player id.</summary>
+        public static string PlayerName(string displayName) => string.IsNullOrWhiteSpace(displayName) ? "Unnamed worm" : displayName;
+
+        /// <summary>"LeftArm" → "left arm".</summary>
+        public static string SplitWords(string camel)
+        {
+            if (string.IsNullOrEmpty(camel)) return "";
+            var sb = new StringBuilder();
+            for (int i = 0; i < camel.Length; i++)
+            {
+                char ch = camel[i];
+                if (i > 0 && char.IsUpper(ch)) sb.Append(' ');
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+            return sb.ToString();
+        }
+
         public static string Humanize(string snake)
         {
             if (string.IsNullOrEmpty(snake)) return "";

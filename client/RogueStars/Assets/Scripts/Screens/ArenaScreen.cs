@@ -58,7 +58,7 @@ namespace RogueStars.Client.Screens
             {
                 var opp = o;
                 var row = Ui.Row(body, 96, 10, Theme.Panel, 12);
-                Ui.Label(row, opp.DisplayName + "\n<size=22>" + opp.Points + " pts · power " + Fmt.Num(opp.Power) + "</size>", Theme.FontNormal);
+                Ui.Label(row, Fmt.PlayerName(opp.DisplayName) + "\n<size=22>" + opp.Points + " pts · power " + Fmt.Num(opp.Power) + "</size>", Theme.FontNormal);
                 Ui.Button(row, "Fight", () => Fight(opp), Theme.ValenceColor(Valence.Enemy), 200, 80, tickets && !_fighting);
             }
         }
@@ -73,7 +73,7 @@ namespace RogueStars.Client.Screens
                 var o = r.Value;
                 Modal(o.Won ? "Victory!" : "Defeat", b =>
                 {
-                    Ui.Label(b, "vs " + (o.Opponent?.DisplayName ?? opp.DisplayName), Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
+                    Ui.Label(b, "vs " + Fmt.PlayerName(o.Opponent?.DisplayName ?? opp.DisplayName), Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
                     Ui.Label(b, (o.PointsDelta >= 0 ? "+" : "") + o.PointsDelta + " points → " + o.Points, Theme.FontLarge, o.Won ? Theme.Good : Theme.Bad, TextAnchor.MiddleCenter);
                 });
                 Load();
@@ -90,7 +90,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(body, 64, 10, me ? Theme.Header : Theme.Panel, 12);
                 var rank = Ui.Label(row, "#" + e.Rank, Theme.FontSmall, me ? Theme.Warn : Theme.TextDim);
                 Ui.Size(rank, 100, -1, 0);
-                Ui.Label(row, e.DisplayName ?? e.PlayerId, Theme.FontSmall);
+                Ui.Label(row, Fmt.PlayerName(e.DisplayName), Theme.FontSmall);
                 Ui.Label(row, e.Points + " pts", Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
             }
         }

@@ -42,7 +42,7 @@ public sealed class PlayerService(GameEngine engine, IPlayerStore store, Clock c
         var state = await SettledAsync(playerId, ct);
         var loadout = engine.BuildLoadout(state, clock.NowMs);
         loadout.PlayerId = playerId;
-        loadout.DisplayName ??= state.DisplayName ?? playerId;
+        loadout.DisplayName ??= PlayerNames.Display(state.DisplayName);
         return loadout;
     }
 }

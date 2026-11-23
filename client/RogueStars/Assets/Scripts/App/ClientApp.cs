@@ -74,7 +74,7 @@ namespace RogueStars.Client.App
             app.Toasts = new ToastCenter(toastLayer);
 
             app.Session.Changed += app.OnStateChanged;
-            app.Session.EventRaised += e => app.Toasts.Event(e, app.Session.Content);
+            app.Session.EventRaised += e => app.Toasts.Event(e, app.Session.Content, app.Session.State);
             app.Session.ErrorRaised += m => app.Toasts.Error(m);
             app.Session.InfoRaised += m => app.Toasts.Info(m);
             return app;
@@ -142,6 +142,7 @@ namespace RogueStars.Client.App
 
         public void Update(float dt)
         {
+            Toasts.SetBottomInset(Router.Current?.ToastBottomInset ?? ToastCenter.DefaultBottomInset);
             Toasts.Tick(dt);
             Router.Current?.Frame(dt);
             _tick += dt;

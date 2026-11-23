@@ -24,7 +24,7 @@ AppBootstrap (only object in Main.unity)
      ├─ GameSession ── wraps IGameService; Run(cmd), Purchase(productId), WatchAd(placement); events Changed / EventRaised / ErrorRaised / InfoRaised
      │    └─ IGameService = LocalGameService (offline) | RemoteGameService (online)
      ├─ ScreenRouter ── stack of UiScreen; Android back closes the top modal, then pops
-     ├─ ToastCenter ── GameEvents (EventText), errors and info as fading toasts
+     ├─ ToastCenter ── GameEvents (EventText: display names only, never uids/player ids), errors and info: max 2, 1.8 s, in a strip above the screen's bottom bar
      └─ ResourceBar ── main currencies + regen timers (live)
 ```
 - **Same commands for both modes.** Screens only create rules command objects (`new CityUpgrade { BlueprintId = … }`)
@@ -60,9 +60,9 @@ AppBootstrap (only object in Main.unity)
 |---|---|---|
 | Hub (Planet) | – | main portals + PLAY / Continue run, **next goal** card (tutorial), key buildings, live-ops ticker, unlock celebrations (`FeatureCelebrate`), navigation grid from `ScreenCatalog`; locked features show their requirement text/progress |
 | Portals | – (modes: `overcharged`, `burrow`, `dark_side`) | Main / Overcharged / Burrow / Dark Side tabs, level grid with 3 feats (★), level modal (threat, boss, dice/rolls, modifiers, feats, completion rewards, entry cost), stamina refill modal (daily free / ad / Diamonds) |
-| Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker with awakening %, worm token animated along the trail, dice roll animation; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
+| Run | – | snake board (8 columns, 3 lanes per band) of tiles coloured by valence with letter icons (E enemy, EL elite, MB miniboss, $ loot, T treasure, ? event, C campfire, S shop, ! hazard, B boss tile, BOSS gate…), edges, branch highlight, boss marker ("BOSS n%", placed in a free cell next to the gate, never on a tile), worm token animated along the trail, dice roll animation; fixed bottom bar (dice + last landing, ROLL/Auto, Decision/Abandon) with a reserved toast strip above it; HUD: HP, run level/XP, awakening meter, coins, shards, danger, pending loot, skills; decision modals: branch (path preview), event/campfire/treasure (options with visible risk text and costs), draft 1-of-3 (family colours, rarity, reroll), shop (buy, reroll, leave), revive (ad / Diamonds / give up), Burrow (descend / cash out); **auto mode**: hold ROLL (or Auto) → `RunAutoStep` loop with modals shown briefly, any tap stops it |
 | Battle playback | – | animates `LastBattle`: placeholder sprites (W worm, A alien, M mount, E/EL/B enemies), HP / shield / rage bars (values straight from the log entries: `TargetHp/TargetShield/TargetRage`, `ActorShield/ActorRage`, fighters' `StartShield/StartRage`), status badges, floating damage/heal numbers, CRIT/DODGE/PARRY/RESIST/STUNNED/KO popups, round counter, battle log, speed ×1/×2 (×3 needs the monthly pass) |
-| Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), Again / Portals |
+| Run result | – | victory/defeat, rolls, run level, new feats, granted rewards (or lost pending loot), **double rewards** (rewarded ad, instant with No Ads → `RunDoubleRewards`, daily cap shown), Again / Portals |
 | Worm | – | level up (×1/×10, Biomass), power and stats, six body slots with equip modal + "Equip best parts", talent road (ranks, tier completion, perk) |
 | Parts | `parts` | inventory with slot filters, quick merge, detail modal: stats/skills, level up / cap raise / level reset, equip (left/right arm), merge to next rarity (materials picked automatically, validated with `PartsSystem.ValidateMerge`), rune sockets, Forge, S/SS awakening, dismantle; Runes tab: lock, merge 3→1 |
 | Signals | `part_pulls` (+ per type) | Part / Blueprint / Alien Signals, featured mythic banner with countdown vs standard pool, published odds, 1×/10× with tokens or Diamonds, daily ad pull, reveal animation |
@@ -86,7 +86,9 @@ automatically. Extend `Fmt.Reward` / `EventText` for new reward kinds and events
 **Onboarding / tutorial** (`App/Tutorial.cs`): no forced popups. Content tutorial steps are completed automatically
 (`TutorialAdvance`) as soon as the player has done the thing (counters/state), and the hub shows the next goal with a
 Go button; before the first run it asks to equip the starter parts, and when nothing is actionable it points at the
-next feature unlock. Unlocks, goals and rewards appear as toasts (bottom of the screen, never blocking input).
+next feature unlock. Unlocks, goals and rewards appear as toasts (at most two, 1.8 s, never blocking input) in a strip just above the
+screen's fixed bottom bar (`UiScreen.FooterHeight`/`ReserveToastStrip`): the Run screen keeps that strip free between
+the board and its ROLL/Decision bar, so toasts never cover the board.
 
 ## Running
 - **Offline (default):** open `client/RogueStars` in Unity 6.6, open `Assets/Scenes/Main.unity`, press Play
@@ -110,7 +112,7 @@ arch -arm64 $U -batchmode -nographics -quit -buildTarget Android -projectPath $P
 (package `com.roguestars.game`, IL2CPP, ARM64, minSdk 26, portrait). It exits with code 1 on failure.
 
 ## Tests
-EditMode (`Assets/Tests/EditMode`, 38 tests):
+EditMode (`Assets/Tests/EditMode`, 44 tests):
 - `LocalGameServiceTests`: new player, command success/failure atomicity, offline dev-receipt purchase, lossless
   save/load (incl. ulong RNG state), reset, timers settling with a manual clock, local arena.
 - `RemoteGameServiceTests` (fake transport): dev auth + session mapping, command body (type/requestId/camelCase args,
@@ -120,7 +122,8 @@ EditMode (`Assets/Tests/EditMode`, 38 tests):
 - `ScreenSmokeTests`: every catalog screen for a fresh and a populated player, tab clicking, city building details,
   guild offline message, no placeholders left.
 - `RunAndProgressionScreenTests`: a new player plays level 1 end to end through the Run screen (battle playbacks,
-  result screen, tutorial steps), decision modals per phase, board layout never overlaps (all main levels × 5 seeds),
+  result screen, tutorial steps), decision modals per phase, board layout and boss marker never overlap tiles (all main levels × 5 seeds), toast strip/limit, event toasts
+  without internal ids, double rewards,
   battle playback ends at the logged HP, rage/shield bars equal the logged values after every entry, Signals reveal, merge-material finder, worm/hero actions.
 
 PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nographics`):
@@ -135,7 +138,6 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 (`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
 ## Known gaps / TODO
-- Double run rewards ad: no rules command yet (Meta has the `double_run_rewards` placement); the result screen has a TODO.
 - Online rewarded ads that grant rewards directly arrive through the server's SSV callback; ad tokens sent with
   `RunRevive`, `BuyStamina`, `GachaPull` are fake until the AppLovin gateway exists.
 - Firebase auth, Play Billing, AppLovin MAX and push notifications are interfaces/TODOs.

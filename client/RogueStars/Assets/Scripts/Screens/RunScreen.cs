@@ -19,7 +19,11 @@ namespace RogueStars.Client.Screens
     public sealed class RunScreen : UiScreen
     {
         public const int Columns = 8;
-        public const float Cell = 124, LaneH = 76, BandGap = 26, TileSize = 64;
+        public const float Cell = 124, LaneH = 72, BandGap = 16, TileSize = 64;
+        /// <summary>Boss marker ("BOSS 42%") size; placed in a free cell next to the gate (<see cref="BossMarkerCenter"/>).</summary>
+        public static readonly Vector2 BossMarkerSize = new Vector2(112, 50);
+        /// <summary>Fixed bottom bar: last-landing info row, ROLL/Auto, Decision/Abandon.</summary>
+        public const float InfoRowH = 60, RollRowH = 104, ActionRowH = 72;
 
         private string _runId;
         private int _trailSeen;
@@ -35,6 +39,8 @@ namespace RogueStars.Client.Screens
         private bool _summaryBattleShown;
 
         public override string Title => "Run";
+        public override float FooterHeight => InfoRowH + RollRowH + ActionRowH + 2 * 10 + 6 + 14;
+        public override bool ReserveToastStrip => true;
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
         public bool Auto => _auto;
@@ -53,10 +59,12 @@ namespace RogueStars.Client.Screens
             return new Vector2(x, y);
         }
 
-        public static float BoardHeight(ActiveRun run)
+        public static float BoardHeight(ActiveRun run) => BoardHeight(run.Tiles);
+
+        public static float BoardHeight(List<RunTile> tiles)
         {
             int maxX = 0;
-            foreach (var t in run.Tiles) maxX = Math.Max(maxX, t.X);
+            foreach (var t in tiles) maxX = Math.Max(maxX, t.X);
             int bands = maxX / Columns + 1;
             return bands * (3 * LaneH + BandGap) + 10;
         }
@@ -118,9 +126,10 @@ namespace RogueStars.Client.Screens
             Ui.Label(row, "Roll " + run.Rolls + "/" + run.MaxRolls, Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
             Ui.Bar(hud, run.WormMaxHp > 0 ? (float)(run.WormHp / run.WormMaxHp) : 1, Theme.Good, "HP " + Fmt.Num(Math.Max(0, run.WormHp)) + " / " + Fmt.Num(run.WormMaxHp), 40);
             int need = Content.RunTuning.XpBase + Content.RunTuning.XpPerLevel * (run.Level - 1);
-            Ui.Bar(hud, need > 0 ? (float)run.Xp / need : 0, Theme.Accent, "Level " + run.Level + " · XP " + run.Xp + "/" + need, 30);
+            var bars = Ui.Row(hud, 32, 8);
+            Ui.Bar(bars, need > 0 ? (float)run.Xp / need : 0, Theme.Accent, "Level " + run.Level + " · XP " + run.Xp + "/" + need, 32);
             var boss = run.BossId != null && Content.RunBosses.TryGetValue(run.BossId, out var bd) ? bd : null;
-            Ui.Bar(hud, (float)(run.Awakening / 100.0), Theme.ValenceColor(Valence.Boss), (boss?.Name ?? "Boss") + " awakening " + run.Awakening.ToString("0") + "%", 30);
+            Ui.Bar(bars, (float)(run.Awakening / 100.0), Theme.ValenceColor(Valence.Boss), (boss?.Name ?? "Boss") + " " + run.Awakening.ToString("0") + "%", 32);
             var stats = Ui.Row(hud, 64, 8);
             Ui.Label(stats, "Coins " + run.Coins + "\nShards " + run.Shards, Theme.FontSmall, Theme.Warn);
             Ui.Label(stats, "Danger " + run.Danger + "\n<size=20>+" + Fmt.Pct(run.Danger * Content.RunTuning.DangerPctPerLoot) + " enemy stats</size>", Theme.FontSmall, run.Danger > 0 ? Theme.Bad : Theme.TextDim);
@@ -168,11 +177,12 @@ namespace RogueStars.Client.Screens
             var gateTile = run.BossGateTile >= 0 && run.BossGateTile < run.Tiles.Count ? run.Tiles[run.BossGateTile] : null;
             if (gateTile != null)
             {
-                var c = TileCenter(gateTile);
+                var p = BossMarkerCenter(run.Tiles, run.BossGateTile, board.sizeDelta);
                 var bossImg = Ui.Panel(board, Color.Lerp(Theme.ValenceColor(Valence.Boss), Color.black, 0.3f), "Boss");
-                var p = new Vector2(Mathf.Clamp(c.x + (c.x > board.sizeDelta.x / 2 ? -110 : 110), 60, board.sizeDelta.x - 60), c.y - 50);
-                Place(bossImg.rectTransform, p, 96);
-                var bl = Ui.Label(bossImg.transform, "BOSS\n" + run.Awakening.ToString("0") + "%", 22, Color.white, TextAnchor.MiddleCenter);
+                bossImg.raycastTarget = false;
+                Place(bossImg.rectTransform, p, BossMarkerSize);
+                var bl = Ui.Label(bossImg.transform, "BOSS " + run.Awakening.ToString("0") + "%", 22, Color.white, TextAnchor.MiddleCenter);
+                bl.fontStyle = FontStyle.Bold;
                 Ui.Stretch(bl.rectTransform);
             }
 
@@ -195,8 +205,8 @@ namespace RogueStars.Client.Screens
                 Ui.Stretch(tl.rectTransform);
             }
 
-            // dice + last effect text under the board
-            var info = Ui.Row(body, 70, 10, Theme.Panel, 12);
+            // dice + last effect text: first row of the fixed bottom bar
+            var info = Ui.Row(Footer ?? body, InfoRowH, 10, Theme.Panel, 12);
             dice = Ui.Label(info, DiceText(run), Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter);
             Ui.Size(dice, 200, -1, 0);
             var land = cur != null && Content.BoardTiles.TryGetValue(cur.TileId ?? "", out var ld) ? ld : null;
@@ -204,12 +214,50 @@ namespace RogueStars.Client.Screens
             return token;
         }
 
-        private static void Place(RectTransform rt, Vector2 center, float size)
+        private static void Place(RectTransform rt, Vector2 center, float size) => Place(rt, center, new Vector2(size, size));
+
+        private static void Place(RectTransform rt, Vector2 center, Vector2 size)
         {
             rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(size, size);
+            rt.sizeDelta = size;
             rt.anchoredPosition = new Vector2(center.x, -center.y);
+        }
+
+        /// <summary>Board rect (top-left origin, y down) a tile occupies; the boss gate is drawn larger.</summary>
+        public static Rect TileRect(RunTile t, bool gate)
+        {
+            float size = gate ? TileSize + 30 : TileSize;
+            var c = TileCenter(t);
+            return new Rect(c.x - size / 2, c.y - size / 2, size, size);
+        }
+
+        /// <summary>
+        /// Center of the boss marker: the first free cell around the boss gate (beside it, then the lanes above/below,
+        /// then two cells away) that overlaps no tile and stays on the board; falls back to the band gap above the gate.
+        /// </summary>
+        public static Vector2 BossMarkerCenter(List<RunTile> tiles, int gateIndex, Vector2 boardSize)
+        {
+            var gate = tiles[gateIndex];
+            var c = TileCenter(gate);
+            var rects = new List<Rect>(tiles.Count);
+            foreach (var t in tiles) rects.Add(TileRect(t, t.Id == gateIndex));
+            var offsets = new[]
+            {
+                new Vector2(-Cell, 0), new Vector2(Cell, 0), new Vector2(0, -LaneH), new Vector2(0, LaneH),
+                new Vector2(-Cell, -LaneH), new Vector2(Cell, -LaneH), new Vector2(-Cell, LaneH), new Vector2(Cell, LaneH),
+                new Vector2(-2 * Cell, 0), new Vector2(2 * Cell, 0), new Vector2(0, -2 * LaneH), new Vector2(0, 2 * LaneH),
+            };
+            foreach (var o in offsets)
+            {
+                var p = c + o;
+                var r = new Rect(p.x - BossMarkerSize.x / 2, p.y - BossMarkerSize.y / 2, BossMarkerSize.x, BossMarkerSize.y);
+                if (r.xMin < 0 || r.yMin < 0 || r.xMax > boardSize.x || r.yMax > boardSize.y) continue;
+                bool free = true;
+                foreach (var tr in rects) if (tr.Overlaps(r)) { free = false; break; }
+                if (free) return p;
+            }
+            return new Vector2(c.x, Mathf.Max(BossMarkerSize.y / 2, c.y - TileSize / 2 - 30 - BossMarkerSize.y / 2));
         }
 
         private static void Edge(RectTransform board, Vector2 a, Vector2 b, Color color)
@@ -228,18 +276,19 @@ namespace RogueStars.Client.Screens
 
         private void Controls(RectTransform body, ActiveRun run, Text dice)
         {
-            var row = Ui.Row(body, 120, 12);
+            var bar = Footer ?? body;
+            var row = Ui.Row(bar, RollRowH, 12);
             bool canRoll = run.Phase == RunPhase.AwaitRoll;
-            var roll = Ui.Button(row, _auto ? "AUTO…" : "ROLL\n<size=22>hold for auto</size>", null, canRoll ? Theme.Accent : Theme.Locked, -1, 120, canRoll || _auto, Theme.FontLarge);
+            var roll = Ui.Button(row, _auto ? "AUTO…" : "ROLL\n<size=22>hold for auto</size>", null, canRoll ? Theme.Accent : Theme.Locked, -1, RollRowH, canRoll || _auto, Theme.FontLarge);
             roll.name = "RollButton";
             var hold = roll.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () => { if (_auto) StopAuto(); else if (!Animating) Run(new RunRoll()); };
             hold.OnHold = StartAuto;
-            Ui.Button(row, _auto ? "Stop auto" : "Auto", () => { if (_auto) StopAuto(); else StartAuto(); }, _auto ? Theme.Warn : Theme.Button, 220, 120);
-            var row2 = Ui.Row(body, 80, 12);
-            Ui.Button(row2, "Decision", () => { _decisionKey = null; ShowDecision(run); }, Theme.Button, -1, 80, run.Phase != RunPhase.AwaitRoll);
+            Ui.Button(row, _auto ? "Stop auto" : "Auto", () => { if (_auto) StopAuto(); else StartAuto(); }, _auto ? Theme.Warn : Theme.Button, 220, RollRowH);
+            var row2 = Ui.Row(bar, ActionRowH, 12);
+            Ui.Button(row2, "Decision", () => { _decisionKey = null; ShowDecision(run); }, Theme.Button, -1, ActionRowH, run.Phase != RunPhase.AwaitRoll);
             Ui.Button(row2, "Abandon", () => Modal("Abandon the run?", b => Note(b, "All pending loot (" + run.PendingLoot.Count + " items) is lost."),
-                new ModalButton("Keep going", null), new ModalButton("Abandon", () => Run(new RunAbandon()), Theme.Bad)), Theme.Bad, 260, 80);
+                new ModalButton("Keep going", null), new ModalButton("Abandon", () => Run(new RunAbandon()), Theme.Bad)), Theme.Bad, 260, ActionRowH);
         }
 
         private void BuildFinished(RectTransform body)
@@ -479,6 +528,26 @@ namespace RogueStars.Client.Screens
     {
         public override string Title => "Run result";
 
+        /// <summary>Rewarded ad (instant with No Ads): the won run's rewards once more (<see cref="RunDoubleRewards"/>).</summary>
+        private void DoubleRewards(RectTransform body, RunSummary s)
+        {
+            if (!s.Won || s.Doublable.Count == 0) return;
+            if (s.Doubled) { Ui.Label(body, "Rewards doubled!", Theme.FontNormal, Theme.Good, TextAnchor.MiddleCenter); return; }
+            int left = ShopSystem.AdViewsLeft(State, Content, RunSystem.DoubleRewardsAdPlacement, Now);
+            bool noAds = ShopSystem.HasNoAds(State, Content);
+            string label = (noAds ? "Double rewards" : "Watch ad: double rewards") + "\n<size=22>" + (left > 0 ? left + " left today" : "daily limit reached") + "</size>";
+            var b = Ui.Button(body, label, () =>
+            {
+                if (noAds) { Run(new RunDoubleRewards()); return; }
+                Session.Ads.Show(RunSystem.DoubleRewardsAdPlacement, ad =>
+                {
+                    if (ad.Ok) Run(new RunDoubleRewards { AdToken = ad.Value });
+                    else Session.Error(Fmt.Humanize(ad.Error));
+                });
+            }, Theme.Premium, -1, Theme.ButtonHeight + 20, left > 0);
+            b.name = "DoubleRewards";
+        }
+
         protected override void Build(RectTransform body)
         {
             var s = State.Run.LastSummary;
@@ -493,7 +562,7 @@ namespace RogueStars.Client.Screens
             Section(body, s.Won ? "Rewards" : "Pending loot lost");
             if (s.Granted.Count == 0) Note(body, s.Won ? "No rewards." : "Better luck next time.");
             foreach (var r in s.Granted) Ui.Label(body, "+ " + Fmt.Reward(r, Content), Theme.FontNormal, Theme.Good);
-            // TODO(rules): double-rewards ad — no command exists yet (Meta placement "double_run_rewards").
+            DoubleRewards(body, s);
             var row = Ui.Row(body, Theme.ButtonHeight, 12);
             var level = Content.RunLevel(s.LevelId);
             if (level != null)

@@ -118,7 +118,7 @@ public sealed class ArenaService(IDocStore docs, PlayerService players, ServerHo
             O.GroupSize, id => new ArenaGroup { Id = id, Week = week, League = league },
             g => g.Members.Add(new ArenaMember
             {
-                PlayerId = playerId, DisplayName = loadout.DisplayName ?? playerId, Power = loadout.Power, JoinedMs = now,
+                PlayerId = playerId, DisplayName = PlayerNames.Display(loadout.DisplayName), Power = loadout.Power, JoinedMs = now,
                 Points = engine.Content.Arena.StartPoints, // rules weekly points start here (ArenaSystem.EnsureWeek)
             }),
             playerId, ct);

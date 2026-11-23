@@ -129,7 +129,7 @@ namespace RogueStars.Client.Screens
             foreach (var m in _mine.Members)
             {
                 var row = Ui.Row(body, 64, 10, Theme.Panel, 12);
-                Ui.Label(row, m.DisplayName ?? m.PlayerId, Theme.FontSmall);
+                Ui.Label(row, Fmt.PlayerName(m.DisplayName), Theme.FontSmall);
                 Ui.Label(row, Fmt.Num(m.Damage), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
             }
         }
@@ -139,7 +139,7 @@ namespace RogueStars.Client.Screens
             var list = Ui.List(body, 900);
             if (_chat.Count == 0) Note(list, "No messages yet.");
             foreach (var m in _chat)
-                Ui.Label(list, "<color=#8FB3FF>" + (m.DisplayName ?? m.PlayerId) + "</color>: " + m.Text, Theme.FontSmall);
+                Ui.Label(list, "<color=#8FB3FF>" + Fmt.PlayerName(m.DisplayName) + "</color>: " + m.Text, Theme.FontSmall);
             var row = Ui.Row(body);
             var input = Ui.Input(row, "", "Say something (max 300)");
             input.characterLimit = 300;

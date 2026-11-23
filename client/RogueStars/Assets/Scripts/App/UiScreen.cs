@@ -30,6 +30,19 @@ namespace RogueStars.Client.App
         public virtual bool ShowBack => true;
         /// <summary>Rebuild automatically on every state change (false for screens with text input).</summary>
         public virtual bool AutoRebuild => true;
+        /// <summary>Height of a fixed bottom action bar outside the scroll (<see cref="Footer"/>); 0 = none.</summary>
+        public virtual float FooterHeight => 0;
+        /// <summary>
+        /// Keep a toast strip free between the body and the footer: the body never extends under it, so toasts never
+        /// cover the screen's content (the run board).
+        /// </summary>
+        public virtual bool ReserveToastStrip => false;
+        /// <summary>Distance of the toast strip from the bottom of the screen: just above the footer.</summary>
+        public float ToastBottomInset => FooterHeight > 0 ? FooterHeight + 4 : ToastCenter.DefaultBottomInset;
+        /// <summary>The fixed bottom bar (cleared before every <see cref="Build"/>); null without <see cref="FooterHeight"/>.</summary>
+        protected RectTransform Footer { get; private set; }
+        /// <summary>The scroll viewport of the body (tests: layout checks).</summary>
+        public RectTransform BodyFrame { get; private set; }
 
         protected GameSession Session => App.Session;
         protected GameState State => App.Session.State;
@@ -46,8 +59,22 @@ namespace RogueStars.Client.App
             if (ShowBack) Ui.Button(header, "< Back", () => app.Router.Pop(), Theme.Button, 200, 84);
             _title = Ui.Label(header, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
             BuildHeaderExtras(header);
-            var bodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, 110, 0, 0);
-            _body = Ui.Scroll(bodyFrame, out _scroll);
+            float bottom = 0;
+            if (FooterHeight > 0)
+            {
+                Footer = Ui.Column(Root, 10, 0, Theme.Background, "Footer");
+                Footer.anchorMin = Vector2.zero; Footer.anchorMax = new Vector2(1, 0); Footer.pivot = new Vector2(0.5f, 0);
+                Footer.sizeDelta = new Vector2(0, FooterHeight); Footer.anchoredPosition = Vector2.zero;
+                var lg = Footer.GetComponent<VerticalLayoutGroup>();
+                if (lg != null)
+                {
+                    lg.childControlHeight = true; lg.childForceExpandHeight = false; lg.childAlignment = TextAnchor.LowerCenter;
+                    lg.padding = new RectOffset(16, 16, 6, 14);
+                }
+                bottom = FooterHeight + (ReserveToastStrip ? ToastCenter.StripHeight + 8 : 0);
+            }
+            BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, 110, 0, bottom);
+            _body = Ui.Scroll(BodyFrame, out _scroll);
             Rebuild();
         }
 
@@ -58,6 +85,7 @@ namespace RogueStars.Client.App
             float pos = _scroll != null && _builtOnce ? _scroll.verticalNormalizedPosition : 1; // new screens start at the top
             _builtOnce = true;
             Ui.Clear(_body);
+            if (Footer != null) Ui.Clear(Footer);
             _live.Clear();
             if (_title != null) _title.text = Title;
             if (App.Session.State == null) Ui.Label(_body, "Connecting…", Theme.FontLarge, Theme.TextDim, TextAnchor.MiddleCenter);
