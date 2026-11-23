@@ -174,9 +174,9 @@ namespace RogueStars.Client.Screens
 
         public static Vector2 TileCenter(RunTile t, int x0)
         {
-            int x = t.X - x0;
-            int band = x / Columns;
-            int c = x % Columns;
+            int lx = t.X - x0;
+            int band = lx / Columns;
+            int c = lx % Columns;
             if (band % 2 == 1) c = Columns - 1 - c;
             float x = Pad + c * Cell + Cell / 2;
             float y = band * (3 * LaneH + BandGap) + (t.Y + 1) * LaneH + LaneH / 2;
@@ -1158,16 +1158,16 @@ namespace RogueStars.Client.Screens
                     cap.fontStyle = FontStyle.Bold;
                     Ui.Size(cap, -1, -1, 0);
                     cap.horizontalOverflow = HorizontalWrapMode.Overflow;
-                    int owned = RunDraft.Level(run, sid);
-                    if (owned > 0) Ui.Chip(tags, "LEVEL " + owned + " → " + (owned + 1), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
+                    int ownedLevel = RunDraft.Level(run, sid);
+                    if (ownedLevel > 0) Ui.Chip(tags, "LEVEL " + ownedLevel + " → " + (ownedLevel + 1), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
                     else if (s?.UpgradesFrom != null) Ui.Chip(tags, "UPGRADE", Theme.Hex(0xD6C2FF), Theme.Hex(0x1D0B33), 18, 34);
                     else if (fam != SkillFamily.None && owned.Contains(fam)) Ui.Chip(tags, "SYNERGY", Theme.Gold, Theme.OnAccent, 18, 34);
                     Ui.Chip(tags, rarity.ToString(), Theme.Tint(Theme.RarityColor(rarity), 0.4f), Theme.RarityColor(rarity), 18, 34, Theme.RarityColor(rarity));
                     Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
                     string full = Fmt.SkillFull(s);
                     if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(famColor, Color.white, 0.7f)).name = "SkillText";
-                    if (s?.UpgradesFrom != null && owned == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
-                    if (owned > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
+                    if (s?.UpgradesFrom != null && ownedLevel == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
+                    if (ownedLevel > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
                 }
                 var reroll = Ui.Button(box, "Reroll (" + run.DraftRerolls + " left)", () => Run(new RunDraftReroll()), new Color(0, 0, 0, 0), -1, 84, run.DraftRerolls > 0, 30);
                 UiShapes.Outline((RectTransform)reroll.transform, Theme.Hex(0x5A4FB0), Theme.RadiusButton, 4);

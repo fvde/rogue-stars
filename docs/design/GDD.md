@@ -26,9 +26,15 @@ Aliens, Laboratory → stronger runs, harder portals.
 - Each Portal level defines a board: a graph of tiles. Boards branch; some loop. At a branch the player
   picks a leg: the board highlights, for each leg, the path and the tile the worm would **land on** with the steps
   it has left (A / B markers; tap the landing tile or the leg's first tile).
-- **The board is a circuit:** the boss gate sits at the end of the spine and leads back to the first tile, so the worm
-  laps the board and never runs out of board before the boss (lap ≈ 25–45 tiles with one die, ×1.5 with two). The
-  boss does not wait at the gate: it comes when its awakening meter is full (§3.3).
+- **The board is a long path that never repeats** (playtest 0.1.86: the looping circuit felt weird and the same fork came
+  back three times in one run). It is generated ahead of the worm in **segments** (`RunBoard.AppendSegment`): each segment
+  is a spine of the level's `BoardLength` (≈ 25–45 tiles with one die, ×1.5 with two) with forks that rejoin further
+  ahead, the level's fixed specials (campfire, two shops, miniboss lair), the boss's tiles and a pool fill with the
+  segment's own mix (`RunTuning.SegmentThemes`: Hunting Grounds, Old Ruins, Badlands, Quiet Valley; the first segment is
+  plain). Edges only point forward, so no tile and no fork is visited twice; the rules append a segment whenever the open
+  end is closer than the largest roll + 16 steps, so the worm never runs out of board (45 rolls of two dice included).
+  Resolved tiles stay what they were and are drawn cleared. The boss does not wait at a gate: when its awakening meter
+  is full (§3.3) its **arena opens right ahead of the worm** (the path ends there) and the next step walks in and fights.
 - **Dice:** the player rolls dice (count per level, default 1 d6; skills/buildings can add dice or
   modifiers). The sum is the number of steps. Clean random: no forced or pre-chosen rolls.
 - Tiles trigger on landing. Some tiles also trigger on **pass** (e.g. pickups); skills can add pass effects.
@@ -43,11 +49,14 @@ Aliens, Laboratory → stronger runs, harder portals.
   decision and hands control back; after the player decides it resumes by itself while auto is still on. The result screen of an event / chest / campfire / shop (§3.3) is shown for a moment and passed by
   auto. Giving up
   when no revive is left is not a choice and is automatic.
-- **Auto-pick drafts (farming)**, a player setting, off by default: for easy re-runs auto also takes the default
-  choice (best draft pick, the event's default option, first branch, give up when defeated, cash out in the Burrow).
-  It never buys in shops: farming leaves shops untouched. Rules: `RunSystem.Decision` / `RequiresPlayer`;
-  `RunAutoStep` refuses a player decision unless `Farming` is set (`FarmShops` adds the simulator's heal-below-50%
-  shop heuristic, not offered to players).
+- **Auto-pick (farming)**, a player setting, off by default: for easy re-runs auto also takes the default choice (best
+  draft and mythic pick, the event's default option, first branch, give up when defeated, cash out in the Burrow) and
+  **buys sensibly in shops** (`RunSystem.FarmShopPick`: the heal below half HP, then the skills and stat perks the draft
+  logic wants most, one purchase per step, never a reroll; leaves when nothing affordable is worth it). Rules:
+  `RunSystem.Decision` / `RequiresPlayer`; `RunAutoStep` refuses a player decision unless `Farming` is set. Every event,
+  chest and campfire is a player decision, even with a single option; a boon that keeps a negative event away and a
+  looted-out cache both show a result instead of being skipped silently. Encounters (a miniboss attacking, the boss
+  arena opening) are clear steps of their own, so every fight gets its own playback.
 
 ### 3.2 Tile types (prototype set)
 | Tile | Effect |
@@ -59,13 +68,14 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
 | Campfire | Heal or upgrade a skill; strengthens nearby enemy tiles |
-| Shop (force stop) | Buy skills / buffs / heal with run coins; reroll with rising price |
-| Hazard | Costs HP or coins, may push the token |
+| Shop (force stop) | Two per segment. 4 skills (owned ones offered as level-ups), 2 stat perks and a heal for run coins; reroll with rising price |
+| Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
-| Miniboss | Spawns at fixed points |
+| Miniboss | A lair per segment (fight on landing) plus three that attack with the awakening clock (25/50/75%). Each beaten miniboss grants a **MYTHIC choice** |
 
-**Account loot is rare and always risky.** Rewards that outlive the run (currencies, parts, tokens: "account loot") are
+**Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply
+caches, so no chest does nothing.) Rewards that outlive the run (currencies, parts, tokens: "account loot") are
 paid mainly by the level's completion rewards (+ 3 loot-table rolls) and first-clear milestones. During a run they come
 only from **at most 3 opportunities per run** (`RunTuning.MaxAccountLootOffersPerRun`; per floor in the Burrow): guarded
 Treasure Pods and a few events, each with a clear price — a fight (elite / guardian / echo), a heavy loss (HP, max HP)
@@ -82,15 +92,38 @@ part drop that only pays out on completion). No wheels, slots or card games.
 The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 3.6 points) and from
 boss tiles (feed +10/+12, relief −10, tribute +5 with run coins) and some event choices; at thresholds (25/50/75) the boss
 acts on the board (buff enemy tiles, transform tiles, summon) and at 100 it is fully awake (+15%). **The meter is the
-run's clock: when it is full the boss comes, right after the current move** (at the latest after the level's hard roll
-limit, `LevelDef.MaxRolls` 45). Without skills a run lasts **~30 rolls** (27–33 on average for every level band, one or
-two dice; base pace 28 rolls, relief tiles and choices shift it); runs give ~8–12 skill drafts (run XP curve 4 + 1 per
-level) and ~10 fights, so a build takes shape. Skills and city buildings interact with the meter: slowing it (Stasis
+run's clock: when it is full the boss's arena opens right after the current move** and the next step walks in and
+fights (at the latest after the level's hard roll limit, `LevelDef.MaxRolls` 45). Without skills a run lasts **~30
+rolls** (27–33 on average for every level band, one or two dice; base pace 28 rolls, relief tiles and choices shift
+it); runs give ~8–10 level-up drafts (run XP curve 3 + 1 per level) and ~10–13 fights. Skills and city buildings interact with the meter: slowing it (Stasis
 Beacon 5–18%, Calm Mind −1 per roll, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
 with danger), events and boss tiles can speed it up. The HUD shows **"Roll n/N"**: N = the roll after which the boss is
 expected at the current pace (`RunSystem.BossRollEstimate`), and the boss banner shows "x rolls left". Board fights are
 a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and every won fight heals 15%, since a run has
 ~3× the fights of the old short runs. Burrow floors are short (6 rolls, the boss comes at the roll limit).
+
+**Build depth** (playtest: a run should end with ~20–40 skills and perks; progression report "Run depth"):
+- **Minibosses:** three come with the awakening clock (at 25 / 50 / 75%, `RunTuning.MinibossAtMeter`): after that move
+  a lieutenant of the boss attacks (an Encounter step, its own fight). The segment's miniboss lair adds one when the worm
+  lands on it. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
+  three generic, family gates waived for this choice; owned ones level up). Minibosses pay coins, no XP.
+- **Skill levels:** a skill drafted, bought or forged again levels up (up to level 5) instead of dead-ending: each level
+  above 1 repeats 50% of its passive stats and adds +3% ATK and +3% max HP (`RunTuning.SkillLevel*`). Lower tiers of an
+  upgrade chain are not offered again (their next tier is the upgrade). The pool never runs dry: ~100 draftable skills,
+  each up to level 5.
+- **Shops:** two per segment (forced stops), 4 skills (owned ones as level-ups at lower weight), 2 different stat perks
+  (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices unchanged
+  (skills 25 / 45 / 80 / 140 / 220 by rarity, perks 40, heal 30, reroll 10 + 10 per reroll); income ~3× (fight coins 10
+  per tile level + 6 per enemy, elites 25, supply caches 25 / 50, coin clusters 12, minibosses +30): a run earns ~550–800
+  coins and buys 10–20 perks. Shops spend in-run coins only.
+- **Pacing against the bigger build:** board fights get +0.8% HP/ATK per roll of the run so far (the boss's forces grow
+  while the build grows) and the boss +60% (`RunTuning.EnemyPctPerRoll`, `BossBuildPct`), so win rates per level band stay
+  where they were with ~9 drafts.
+- The HUD shows the build size ("Skills n" = every skill, skill level and stat perk gained this run); the result screen
+  lists them with their source (draft, MYTHIC, shop, event).
+- **Run time** (wall-clock model `RunClock` in the simulator: client animation times, battle playback 0.55 s per log
+  entry ÷ speed, decisions, result screens): ~6–9 minutes in auto mode at ×2 battle speed (4–8 on average across all
+  runs played), see the progression report.
 
 **Outcome results:** every event / chest / campfire choice and every shop visit with a purchase produces a structured
 outcome (`ActiveRun.LastOutcome`: source, choice, whether chance was involved, the lucky outcome's chance and whether it

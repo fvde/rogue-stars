@@ -132,3 +132,7 @@ Meta content now reads the keys the owning workstreams actually write:
 - (endless campaign) `main_level_max` keeps growing past level 500 (the campaign never ends).
 - `dark_side_level_max` — highest Dark Side level cleared, kept as a **max** (drives the Dark Side progress archive) — Run
 - `milestone_chests` — one-time milestone chests / portal-completion bonuses collected (first Normal clear of every 10th main level) — Run
+- (run depth) `run_minibosses_killed` — minibosses beaten (lair tiles and the awakening clock's minibosses) — Run
+- (run depth) `run_mythic_picks` — mythic choices taken after a beaten miniboss (also counted in `run_skills_drafted`) — Run
+- (run depth) `run_shop_buys` — run-shop purchases (skills, stat perks, heals; in-run coins) — Run
+- (run depth) `run_elites_killed` also counts the awakening clock's minibosses.
