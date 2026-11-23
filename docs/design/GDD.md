@@ -216,7 +216,7 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 All currencies live in one string-keyed wallet with a generic regen engine (cap, per-tick amount, tick
 length, temporary cap boosts, rewards may exceed cap).
 
-## 14. Monetization (Rogue Legend-style, no A/B, no spend-based pricing)
+## 14. Monetization (mainstream RPG model, no A/B, no spend-based pricing)
 - Diamond packs (fixed price ladder), starter packs, rolling and flash offers (same for everyone),
   periodic gift packs (daily rewards over N days).
 - **Permanent one-time purchases** that everyone should want: *No Ads* (all ad placements become instant),
