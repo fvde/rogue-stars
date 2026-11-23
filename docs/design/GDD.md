@@ -28,13 +28,20 @@ Aliens, Laboratory → stronger runs, harder portals.
   it has left (A / B markers; tap the landing tile or the leg's first tile).
 - **The board is a long path that never repeats** (playtest 0.1.86: the looping circuit felt weird and the same fork came
   back three times in one run). It is generated ahead of the worm in **segments** (`RunBoard.AppendSegment`): each segment
-  is a spine of the level's `BoardLength` (≈ 25–45 tiles with one die, ×1.5 with two) with forks that rejoin further
-  ahead, the level's fixed specials (campfire, two shops, miniboss lair), the boss's tiles and a pool fill with the
+  is a trunk of the level's `BoardLength` (≈ 25–45 tiles with one die, ×1.5 with two) with forks that rejoin further
+  ahead (**both arms 8–11 tiles**, `RunTuning.BranchMinArm/MaxArm`: no short cut-throughs), the level's fixed specials
+  (campfire, two shops, miniboss lair) **on trunk tiles only** (every path passes them: a fork never bypasses a miniboss or
+  a shop), the boss's tiles and a pool fill with the
   segment's own mix (`RunTuning.SegmentThemes`: Hunting Grounds, Old Ruins, Badlands, Quiet Valley; the first segment is
   plain). Edges only point forward, so no tile and no fork is visited twice; the rules append a segment whenever the open
   end is closer than the largest roll + 16 steps, so the worm never runs out of board (45 rolls of two dice included).
   Resolved tiles stay what they were and are drawn cleared. The boss does not wait at a gate: when its awakening meter
   is full (§3.3) its **arena opens right ahead of the worm** (the path ends there) and the next step walks in and fights.
+- **Path shapes:** every segment gets a 2D layout style (`RunTuning.BoardLayouts`): *Long Straight* (gentle drift, forks
+  are side loops: one arm runs on, the other swings out and back), *Zig-Zag* (switchbacks every 4 tiles), *Wide Curve*
+  (slow S-bends), *Hook* (leans out and curls hard before hooking back) and *Diamond Splits* (calm trunk, more forks, each
+  a symmetric diamond). The rules give every tile `RunTile.PosX/PosY` (tile units, +Y forward; trunk within ±1.3, arms
+  within ±2.2, neighbours ~1 apart, no two tiles closer than 0.85) and `Dir` (path heading); display only, no randomness.
 - **Dice:** the player rolls dice (count per level, default 1 d6; skills/buildings can add dice or
   modifiers). The sum is the number of steps. Clean random: no forced or pre-chosen rolls.
 - Tiles trigger on landing. Some tiles also trigger on **pass** (e.g. pickups); skills can add pass effects.
@@ -97,7 +104,8 @@ acts on the board (buff enemy tiles, transform tiles, summon) and at 100 it is f
 run's clock: when it is full the boss's arena opens right after the current move** and the next step walks in and
 fights (at the latest after the level's hard roll limit, `LevelDef.MaxRolls` 45). Without skills a run lasts **~30
 rolls** (27–33 on average for every level band, one or two dice; base pace 28 rolls, relief tiles and choices shift
-it); runs give ~8–10 level-up drafts (run XP curve 3 + 1 per level) and ~10–13 fights. Skills and city buildings interact with the meter: slowing it (Stasis
+it); runs give ~8–10 level-up drafts (run XP curve 3 + 1 per level; **one XP grant — a battle, a pickup, an event — gives
+at most one level-up**, the overflow carries (at most two levels' worth) and pays one level per roll) and ~10–13 fights. Skills and city buildings interact with the meter: slowing it (Stasis
 Beacon 5–18%, Calm Mind −1 per roll, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
 with danger), events and boss tiles can speed it up. The HUD shows **"Roll n/N"**: N = the roll after which the boss is
 expected at the current pace (`RunSystem.BossRollEstimate`), and the boss banner shows "x rolls left". Board fights are
@@ -108,14 +116,20 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 - **Minibosses:** three come with the awakening clock (at 25 / 50 / 75%, `RunTuning.MinibossAtMeter`): after that move
   a lieutenant of the boss attacks (an Encounter step, its own fight). The segment's miniboss lair adds one when the worm
   lands on it. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
-  three generic, family gates waived for this choice; owned ones level up). Minibosses pay coins, no XP.
-- **Skill levels:** a skill drafted, bought or forged again levels up (up to level 5) instead of dead-ending: each level
-  above 1 repeats 50% of its passive stats and adds +3% ATK and +3% max HP (`RunTuning.SkillLevel*`). Lower tiers of an
-  upgrade chain are not offered again (their next tier is the upgrade). The pool never runs dry: ~100 draftable skills,
-  each up to level 5.
+  three generic, family gates waived for this choice; Mythics never level, so owned ones are not offered again). Minibosses
+  pay coins, no XP.
+- **Skill tiers and levels** (owner decision, playtest): run skills have exactly **three fixed tiers — Common, Legendary,
+  Mythic** — and never upgrade into another tier (the old upgrade chains are one skill each). A skill drafted, bought or
+  forged again levels up to its tier's cap: **Common Lv3, Legendary Lv2, Mythic Lv1** (`RunTuning.MaxSkillLevelOf`). A level
+  improves the skill's **own** effect (`SkillLeveling`): +50% of every number per level above 1 (stats, damage / heal /
+  shield / rage / coins, buffs), chances ×the same (capped at 90%), +1 status stack and +1 round of duration at Lv3; whole
+  counts (dice, skipped events) and the run clock (awakening slow) do not scale (such skills never level). No generic
+  ATK / HP per level. `SkillText.Effects(content, skill, level)` / `Title` ("Spiked Hide Lv 2/3") show the leveled numbers.
 - **Shops:** two per segment (forced stops), 4 skills (owned ones as level-ups at lower weight), 2 different stat perks
-  (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices unchanged
-  (skills 25 / 45 / 80 / 140 / 220 by rarity, perks 40, heal 30, reroll 10 + 10 per reroll); income ~3× (fight coins 10
+  (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices: skills
+  **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
+  reroll. A run **starts with the cheapest skill price + 30 coins** (`RunSystem.StartCoins`) and its first shop leads with a
+  Common skill, so the first shop always allows a purchase. No result screen after a shop. Income ~3× (fight coins 10
   per tile level + 6 per enemy, elites 25, supply caches 25 / 50, coin clusters 12, minibosses +30): a run earns ~550–800
   coins and buys 10–20 perks. Shops spend in-run coins only.
 - **Pacing against the bigger build:** board fights get +0.8% HP/ATK per roll of the run so far (the boss's forces grow
@@ -127,7 +141,12 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
   entry ÷ speed, decisions, result screens): ~6–9 minutes in auto mode at ×2 battle speed (4–8 on average across all
   runs played), see the progression report.
 
-**Outcome results:** every event / chest / campfire choice and every shop visit with a purchase produces a structured
+**Every tile shows what it did:** each landing on a tile that resolves at once (empty, buff / curse, supply, hazard,
+shard, pickup, boss tile, fights) and each pickup / skill effect while passing records a structured outcome in
+`ActiveRun.TileOutcomes` (source "tile" / "battle" / "pass", the tile, a sequence number; lines incl. Empty, Avoided,
+StepPenalty), cleared at every roll; the client turns them into landing popups. Decisions report as below.
+
+**Outcome results:** every event / chest / campfire choice (shops: none) produces a structured
 outcome (`ActiveRun.LastOutcome`: source, choice, whether chance was involved, the lucky outcome's chance and whether it
 hit, and one line per gain or loss — coins, HP, stats, skills, XP / level-ups, shards, account loot, boss awakening and
 its pace, boss strength, danger, fights). The client animates the chance roll (a marker sweeping over the % bar) and then
@@ -135,6 +154,11 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 
 ### 3.4 Run rewards and failure
 - Run loot is **pending** until the boss is beaten. Fail → all pending loot is lost (no banking).
+- **Double rewards** (result-screen ad, once per won run): pays every *doublable* reward again — run loot (Burrow floor
+  rewards included), the level's completion rewards and completion loot rolls, as granted (Biomass surge and run-reward
+  modifiers included). Not doubled: first-clear milestone chests / portal bonuses, feat Diamonds, rare drops; rewards
+  stashed for lack of a use are neither shown nor doubled. `RunSummary.Rewards` lists each reward with its source and
+  `Doublable` / `Doubled`; after the ad `Granted` shows the doubled totals and `DoubledGranted` what the ad paid.
 - One revive per run: watch an ad **or** pay Diamonds.
 - Runs cost **Stamina**. Stamina regenerates over time; max and regen are raised by city blueprints and
   talent perks; refills can be bought (Diamonds, ads, daily free).
@@ -221,9 +245,10 @@ StatusChance, StatusResist, BossDamage, ElementDamage(per element), AlienPower, 
 - **Families (build archetypes):** Fire, Ice, Lightning, Poison, Bleed (physical), **Alien Synergy**,
   **Counter**, **Combo**, **Crit**. Loose coupling: Parts, heroes and aliens boost "their" families
   without locking others out. Matching your build should feel great: the draft gives a synergy bonus slot.
-- Rarities: Common, Rare, Epic, Legendary, Mythic.
+- Rarities: Common, Rare, Epic, Legendary, Mythic (parts, aliens, blueprints, hero / city skills). **Run skills use three
+  tiers only: Common, Legendary, Mythic** (§3.3).
 - Level-up in a run → draft "choose 1 of 3" (rerolls from meta). A hidden legendary pity guarantees a
-  Legendary after N level-ups without one. Skills can have upgrade chains, prerequisites and family gating.
+  Legendary after N level-ups without one. Run skills have prerequisites and family gating (no upgrade chains).
 - **Laboratory:** one branching tree of 38 nodes in four branches (offense, defense, elements, command). **Skill
   nodes** unlock skills into the run draft pool and upgrade them (toggle on/off for the draft pool); **stat nodes**
   give permanent loadout bonuses of +1% to +10% per node (HP, ATK, DEF, crit chance/damage, combo, counter, dodge,
