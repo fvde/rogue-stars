@@ -194,8 +194,8 @@ scripts/fetch-unity-packages.sh                         # once per checkout (Fir
 cp /secure/place/google-services.json client/RogueStars/Assets/   # the re-downloaded file from step 3.3
 # Server: defaults to the production URL (ServerConfig.ReleaseBaseUrl); ROGUESTARS_SERVER_URL=<url> for another server,
 # ROGUESTARS_SERVER_URL=local for a dev build (offline by default, dev auth, 10.0.2.2:8080). Online builds use Firebase auth.
-export ROGUESTARS_PLAY_GAMES_APP_ID=<numeric Play Games project id> ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID=<…apps.googleusercontent.com>
-export ROGUESTARS_KEYSTORE=$HOME/secure/rogue-stars-upload.jks ROGUESTARS_KEY_ALIAS=upload
+export ROGUESTARS_PLAY_GAMES_APP_ID=586749426081 ROGUESTARS_PLAY_GAMES_WEB_CLIENT_ID=586749426081-0j1nid07fv9hbvfs0o7k2hudshg02eqc.apps.googleusercontent.com  # production (not secret)
+export ROGUESTARS_KEYSTORE=$HOME/keys/roguestars-upload.jks ROGUESTARS_KEY_ALIAS=upload
 read -s ROGUESTARS_KEYSTORE_PASS && export ROGUESTARS_KEYSTORE_PASS
 # defaults: ROGUESTARS_STORE=disabled (payments on hold; unity_iap at step 14), ROGUESTARS_ADS=disabled,
 #           ROGUESTARS_PRODUCT_SET=initial, ROGUESTARS_OUTPUT=both
