@@ -173,31 +173,65 @@ namespace RogueStars.Sim
             minutes = 0;
             var r = Exec(new RunStart { LevelId = levelId, Mode = mode });
             if (!r.Ok) return null;
-            int rolls = 0, decisions = 0, drafts = 0, battles = 0, levelUps = 0; double rounds = 0;
+            int rolls = 0, drafts = 0, battles = 0, levelUps = 0;
             bool bossReached = false;
             int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
-            long coinsSeen = 0;
+            long coinsSeen = 0, coinsNow = 0, coinsEarned = 0, coinsSpent = 0; // starting coins (boons) count as earned
+            int outcomeSeq = S.Run.Active?.OutcomeSeq ?? 0;
+            var tally = new RunTimeTally();
+            int skillsGained = 0, draftPicks = 0, mythicPicks = 0, shopSkills = 0, shopPerks = 0, shopHeals = 0, skillLevels = 0, minibosses = 0;
+            bool mythicOpen = false;
             void Tally(CommandResult res)
             {
                 foreach (var ev in res.Events)
                     switch (ev.Type)
                     {
-                        case "run_roll": rolls++; break;
-                        case "run_draft": drafts++; decisions++; break;
-                        case "run_event": case "run_shop": decisions++; break;
-                        case "run_battle": battles++; rounds += double.Parse(ev.Args[2]); break;
+                        case "run_roll": rolls++; tally.Rolls++; tally.Steps += int.Parse(ev.Args[0]); break;
+                        case "run_draft": drafts++; tally.Drafts++; mythicOpen = false; break;
+                        case "run_mythic_draft": tally.MythicDrafts++; mythicOpen = true; break;
+                        case "run_draft_pick": if (mythicOpen) mythicPicks++; else draftPicks++; mythicOpen = false; break;
+                        case "run_event": tally.Events++; break;
+                        case "run_shop": tally.ShopVisits++; break;
+                        case "run_shop_buy":
+                            tally.ShopBuys++;
+                            if (ev.Args.Count > 1 && ev.Args[1] == "Skill") shopSkills++;
+                            else if (ev.Args.Count > 1 && ev.Args[1] == "Stat") shopPerks++;
+                            else shopHeals++;
+                            break;
+                        case "run_skill_gained": skillsGained++; break;
+                        case "run_skill_level": skillLevels++; break;
+                        case "run_battle":
+                            battles++; tally.Battles++;
+                            if (ev.Args.Count > 3) tally.BattleLogEntries += int.Parse(ev.Args[3]);
+                            if ((ev.Args[0] == "miniboss" || ev.Args[0] == "ambush") && ev.Args[1] == "Player") minibosses++;
+                            break;
                         case "run_level_up": levelUps++; break;
                         case "run_boss_fight": bossReached = true; break;
+                        case "run_revived": tally.Revives++; break;
                     }
-                if (S.Run.Active != null) { lootSeen = S.Run.Active.PendingLoot.Count; coinsSeen = Math.Max(coinsSeen, S.Run.Active.Coins); }
+                var act = S.Run.Active;
+                if (act != null)
+                {
+                    lootSeen = act.PendingLoot.Count; coinsSeen = Math.Max(coinsSeen, act.Coins);
+                    if (act.Coins > coinsNow) coinsEarned += act.Coins - coinsNow; else coinsSpent += coinsNow - act.Coins;
+                    coinsNow = act.Coins;
+                    if (act.OutcomeSeq != outcomeSeq)
+                    {
+                        outcomeSeq = act.OutcomeSeq;
+                        tally.Outcomes++;
+                        if (act.LastOutcome != null && act.LastOutcome.Chance) tally.ChanceOutcomes++;
+                    }
+                }
             }
             Tally(r);
             for (int i = 0; i < 3000 && S.Run.Active != null; i++)
             {
                 var a = S.Run.Active;
                 CommandResult step;
+                if (a.Phase == RunPhase.ChooseBranch) tally.Branches++;
                 if (a.Phase == RunPhase.BurrowChoice)
                 {
+                    tally.BurrowChoices++;
                     var portal = C.Portal(a.PortalId);
                     bool deeper = portal.LevelIds.IndexOf(a.LevelId) + 1 < portal.LevelIds.Count;
                     bool healthy = a.WormMaxHp > 0 && a.WormHp / a.WormMaxHp >= 0.55;
@@ -215,8 +249,10 @@ namespace RogueStars.Sim
                 if (!step.Ok) { Exec(new RunAbandon()); break; }
                 Tally(step);
             }
-            double speed = ShopSystem.HasBattleSpeed3(S, C, Now) ? 3 : 2;
-            minutes = (Timing.RunOverheadSec + rolls * Timing.RollSec + decisions * Timing.DecisionSec + rounds * Timing.BattleRoundSec / speed) / 60.0;
+            // Session time: the run model in auto mode (the player decides at pauses) at the player's battle speed (×2 free,
+            // ×3 with the monthly pass), see RunClock.
+            int speed = ShopSystem.HasBattleSpeed3(S, C, Now) ? 3 : 2;
+            minutes = RunClock.Minutes(tally, RunPlayStyle.Auto, speed);
             var level = C.RunLevel(levelId);
             if (KeepRunLog && S.Run.LastSummary != null)
                 RunLog.Add(new RunRecord
@@ -224,7 +260,9 @@ namespace RogueStars.Sim
                     Day = DayIndex + 1, Level = level?.Number ?? 0, Mode = mode, Dice = dice, Rolls = rolls, Drafts = drafts, LevelUps = levelUps,
                     Battles = battles, Won = S.Run.LastSummary.Won, BossReached = bossReached, TileLoot = lootSeen, PeakCoins = coinsSeen,
                     LootOffers = S.Run.LastSummary.AccountLootOffers, XpTotal = S.Run.LastSummary.XpTotal,
-                    Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted),
+                    Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted), Tally = tally,
+                    CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,
+                    MythicPicks = mythicPicks, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
                 });
             return S.Run.LastSummary;
         }

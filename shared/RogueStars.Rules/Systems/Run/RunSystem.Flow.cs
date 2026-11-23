@@ -33,10 +33,12 @@ namespace RogueStars.Rules.Systems
             for (int guard = 0; guard < c.RunTuning.MaxStepsGuard; guard++)
             {
                 if (ctx.State.Run.Active != run || run.Phase != RunPhase.AwaitRoll) return;
+                if (run.PendingMythicDrafts > 0) { OpenMythicDraft(ctx, run); continue; }
                 if (run.PendingDrafts > 0) { OpenDraft(ctx, run); continue; }
                 if (run.StepsLeft > 0)
                 {
                     var tile = run.Tiles[run.Position];
+                    if (tile.Next.Count == 0) EnsureBoardAhead(c, run, run.StepsLeft);
                     if (tile.Next.Count == 0) { run.StepsLeft = 0; continue; }
                     int next;
                     if (tile.Next.Count > 1)
@@ -57,12 +59,6 @@ namespace RogueStars.Rules.Systems
                     run.StepsLeft--;
                     var nt = run.Tiles[next];
                     var def = TileDefOf(c, nt);
-                    if (def.Category == TileCategory.BossGate)
-                    {
-                        // The board is a circuit: passing the gate starts the next lap (the boss is woken by its meter).
-                        run.Laps++;
-                        ctx.Emit("run_lap", run.Laps.ToString());
-                    }
                     if (run.StepsLeft > 0)
                     {
                         PassTile(ctx, run, nt, def);
@@ -72,10 +68,80 @@ namespace RogueStars.Rules.Systems
                     LandTile(ctx, run, nt, def);
                     continue;
                 }
-                // The awakening meter is the run's clock: once it is full (or at the roll limit) the boss comes after the move.
-                if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { StartBoss(ctx, run); continue; }
+                // Minibosses come with the clock too (RunTuning.MinibossAtMeter): a lieutenant of the boss attacks after the move.
+                if (run.PendingAmbushes > 0 && !run.BossFought) { OpenEncounter(ctx, run, "ambush"); return; }
+                // The awakening meter is the run's clock: once it is full (or at the roll limit) the boss's arena opens ahead
+                // of the worm after the move; the next step walks in and fights.
+                if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { OpenEncounter(ctx, run, "boss"); return; }
                 return;
             }
+        }
+
+        /// <summary>
+        /// The board grows ahead of the worm: segments are appended until the open end is more than
+        /// <paramref name="steps"/> + RunTuning.BoardLookAhead steps away (nothing behind the worm ever changes).
+        /// </summary>
+        private static void EnsureBoardAhead(ContentDb c, ActiveRun run, int steps)
+        {
+            var level = Level(c, run);
+            int need = steps + c.RunTuning.BoardLookAhead;
+            for (int guard = 0; guard < 20 && RunBoard.StepsToEnd(run.Tiles, run.Position, run.BoardEnd) < need; guard++)
+            {
+                var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments);
+                RunBoard.AppendSegment(c, level, b, run.Rng);
+                run.BoardEnd = b.EndTile;
+                run.BoardSegments = b.Segments;
+                if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
+            }
+        }
+
+        /// <summary>A fight comes after the move (phase Encounter; the next clear step resolves it with its own battle).</summary>
+        private static void OpenEncounter(CommandContext ctx, ActiveRun run, string kind)
+        {
+            run.Phase = RunPhase.Encounter;
+            run.EncounterKind = kind;
+            if (kind == "boss")
+            {
+                // the arena opens right ahead of the worm: the path ends there
+                var here = run.Tiles[run.Position];
+                var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, -1); // its own lane: never on top of a path tile
+                here.Next.Clear();
+                here.Next.Add(arena.Id);
+                run.BossGateTile = arena.Id;
+                run.BoardEnd = arena.Id;
+            }
+            ctx.Emit("run_encounter", kind);
+        }
+
+        /// <summary>Resolves the open encounter: the miniboss attacks, or the worm walks into the arena and fights the boss.</summary>
+        private static void Encounter(CommandContext ctx, ActiveRun run)
+        {
+            Require(run.Phase == RunPhase.Encounter, "no encounter");
+            string kind = run.EncounterKind;
+            run.Phase = RunPhase.AwaitRoll;
+            run.EncounterKind = null;
+            if (kind == "ambush")
+            {
+                run.PendingAmbushes = Math.Max(0, run.PendingAmbushes - 1);
+                StartAmbush(ctx, run);
+            }
+            else
+            {
+                if (run.BossGateTile >= 0 && run.Position != run.BossGateTile)
+                {
+                    run.Position = run.BossGateTile;
+                    run.Trail.Add(run.BossGateTile);
+                }
+                StartBoss(ctx, run);
+            }
+            Continue(ctx, run);
+        }
+
+        /// <summary>Once the run's account-loot opportunities are used up, chests ahead become supply caches (no chest that does nothing).</summary>
+        private static void RetireTreasures(ContentDb c, ActiveRun run)
+        {
+            foreach (var t in run.Tiles)
+                if (!t.Cleared && t.TileId == "treasure" && !run.Trail.Contains(t.Id)) t.TileId = "loot";
         }
 
         private static void PassTile(CommandContext ctx, ActiveRun run, RunTile tile, TileDef def)
@@ -146,13 +212,7 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.Hazard:
                     if (def.Value > 0) DamageWorm(run, def.Value);
                     if (def.Coins > 0) run.Coins = Math.Max(0, run.Coins - def.Coins);
-                    if (def.PushBack > 0)
-                    {
-                        int back = Math.Min(def.PushBack, run.Trail.Count - 1);
-                        for (int i = 0; i < back; i++) run.Trail.RemoveAt(run.Trail.Count - 1);
-                        run.Position = run.Trail[run.Trail.Count - 1];
-                        run.StepsLeft = 0;
-                    }
+                    if (def.PushBack > 0) run.StepPenaltyNext += def.PushBack; // the path never goes back: the next roll is shorter
                     Consume(c, run, tile, def);
                     break;
                 case TileCategory.Shard:
@@ -168,17 +228,14 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        /// <summary>Consumed tiles are replaced from the pool ("once" tiles become empty).</summary>
+        /// <summary>
+        /// A resolved tile stays what it was and is marked cleared (the path never comes back to it; the client draws it
+        /// cleared, so a beaten fight never turns into a new-looking tile under the worm).
+        /// </summary>
         private static void Consume(ContentDb c, ActiveRun run, RunTile tile, TileDef def)
         {
-            if (!def.Consumable) return;
-            tile.Fixed = false;
+            tile.Cleared = true;
             tile.BonusPct = 0;
-            if (def.Once) { tile.TileId = "empty"; return; }
-            var usedOnce = new HashSet<string>();
-            foreach (var t in run.Tiles)
-                if (c.BoardTiles.TryGetValue(t.TileId, out var d) && d.Once) usedOnce.Add(t.TileId);
-            tile.TileId = RunBoard.PickPoolTile(c, Level(c, run).TilePoolId, run.Rng, usedOnce);
         }
 
         // ---- awakening ------------------------------------------------------------------------
@@ -229,7 +286,29 @@ namespace RogueStars.Rules.Systems
                 ctx.State.Count("run_boss_awakenings");
                 RunTriggers(ctx, run, TriggerKind.OnBossAwaken, null);
             }
+            var at = c.RunTuning.MinibossAtMeter;
+            while (run.Mode != RunMode.Burrow && run.MinibossesSpawned < at.Count && run.Awakening >= at[run.MinibossesSpawned] - 1e-9)
+            {
+                run.MinibossesSpawned++;
+                run.PendingAmbushes++;
+                ctx.Emit("run_miniboss_coming", run.MinibossesSpawned.ToString());
+            }
         }
+
+        /// <summary>A miniboss of the awakening clock attacks (after the move). Win: a mythic choice.</summary>
+        private static void StartAmbush(CommandContext ctx, ActiveRun run)
+        {
+            var c = ctx.Content;
+            var enemies = EnemiesFor(c, run, "ambush", null, 3, 0);
+            RewardsFor(c, enemies, 3, out int xp, out long coins);
+            xp = 0; // the reward is the mythic choice (keeps level-up drafts at ~8–10 per run)
+            coins += c.RunTuning.MinibossCoins;
+            ctx.Emit("run_ambush", enemies.Count > 0 ? enemies[0].Id : "");
+            if (Fight(ctx, run, enemies, "ambush", xp, coins, null)) AfterWin(ctx, run, "ambush", null);
+        }
+
+        /// <summary>True for the two miniboss fights: the lair tile ("miniboss") and the awakening clock's lieutenant ("ambush").</summary>
+        public static bool IsMinibossFight(string kind) => kind == "miniboss" || kind == "ambush";
 
         private static void ApplyBossAction(ContentDb c, ActiveRun run, BossAwakenAction a)
         {
@@ -246,9 +325,10 @@ namespace RogueStars.Rules.Systems
                 case BossActionKind.Summon:
                 {
                     var cands = new List<RunTile>();
-                    foreach (var t in run.Tiles)
+                    foreach (var id in RunBoard.Ahead(run.Tiles, run.Position, c.RunTuning.BossActionReach))
                     {
-                        if (t.Fixed || t.Id == run.Position) continue;
+                        var t = run.Tiles[id];
+                        if (t.Fixed || t.Cleared) continue;
                         var cat = TileDefOf(c, t).Category;
                         if (cat == TileCategory.Start || cat == TileCategory.BossGate || cat == TileCategory.Shop || cat == TileCategory.BossTile) continue;
                         cands.Add(t);
@@ -274,6 +354,7 @@ namespace RogueStars.Rules.Systems
         private static List<StatMod> WormExtraStats(ContentDb c, ActiveRun run)
         {
             var list = new List<StatMod>(run.RunStats);
+            AddSkillLevelStats(c, run, list);
             var level = Level(c, run);
             if (level != null && level.Modifiers.HealPct != 0) list.Add(new StatMod(StatId.HealPower, level.Modifiers.HealPct));
             return list;
@@ -290,7 +371,8 @@ namespace RogueStars.Rules.Systems
             var level = Level(c, run);
             var mods = level.Modifiers;
             double scale = c.ThreatMultiplier(run.Threat);
-            double common = DangerPct(c, run) + bonusPct + t.BoardEnemyPct;
+            // The boss's forces grow while the run (and the worm's build) grows: +EnemyPctPerRoll per roll so far.
+            double common = DangerPct(c, run) + bonusPct + t.BoardEnemyPct + t.EnemyPctPerRoll * run.Rolls;
             var list = new List<CombatantSpec>();
             if (enemyId != null)
             {
@@ -309,8 +391,9 @@ namespace RogueStars.Rules.Systems
                     break;
                 }
                 case "miniboss":
+                case "ambush":
                 {
-                    double b = common + t.MinibossBonusPct;
+                    double b = common + t.MinibossBonusPct + t.MinibossStepPct * run.MinibossesDefeated;
                     list.Add(BattleSimulator.BuildEnemy(c, level.MinibossId, scale, b + mods.EnemyAtkPct, b + mods.EnemyHpPct, mods.EnemyDefPct));
                     break;
                 }
@@ -350,7 +433,7 @@ namespace RogueStars.Rules.Systems
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;
-            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString());
+            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString());
             if (result.PlayerWon())
             {
                 OnBattleWin(ctx, run, kind, xp, coins);
@@ -382,7 +465,13 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             run.BattlesWon++;
             ctx.State.Count("run_battles_won");
-            if (kind == "elite" || kind == "miniboss") ctx.State.Count("run_elites_killed");
+            if (kind == "elite" || IsMinibossFight(kind)) ctx.State.Count("run_elites_killed");
+            if (IsMinibossFight(kind))
+            {
+                run.MinibossesDefeated++;
+                run.PendingMythicDrafts++;
+                ctx.State.Count("run_minibosses_killed");
+            }
             run.Coins += coins;
             HealWorm(c, run, c.RunTuning.HealAfterBattlePct);
             RunTriggers(ctx, run, TriggerKind.OnBattleWon, null);
@@ -412,7 +501,7 @@ namespace RogueStars.Rules.Systems
             var mods = level.Modifiers;
             double scale = c.ThreatMultiplier(run.Threat);
             double common = DangerPct(c, run);
-            double bossPct = common + run.BossStatPct;
+            double bossPct = common + run.BossStatPct + c.RunTuning.BossBuildPct;
             var enemies = new List<CombatantSpec>
             {
                 BattleSimulator.BuildEnemy(c, boss.EnemyId, scale, bossPct + mods.EnemyAtkPct, bossPct + mods.EnemyHpPct, mods.EnemyDefPct),
@@ -429,6 +518,8 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             ctx.State.Count("run_bosses_killed");
             run.PendingDrafts = 0; // the run ends; no more drafts
+            run.PendingMythicDrafts = 0;
+            run.PendingAmbushes = 0;
             if (run.Mode == RunMode.Burrow)
             {
                 var level = Level(c, run);
@@ -474,7 +565,8 @@ namespace RogueStars.Rules.Systems
         private static double BiomassSurge(CommandContext ctx, ActiveRun run, RunSummary summary)
         {
             var t = ctx.Content.RunTuning; var rs = ctx.State.Run;
-            if (t.DailyBiomassBonusRuns <= 0 || (run.Mode != RunMode.Normal && run.Mode != RunMode.Overcharged)) return 1;
+            if (run.Mode != RunMode.Normal && run.Mode != RunMode.Overcharged) return 1;
+            if (!BiomassSurgeActive(ctx.State, ctx.Content, ctx.NowMs)) return 1; // no use for Biomass yet: no surge, no counter
             long day = GameClock.DayIndex(ctx.Content, ctx.NowMs);
             if (rs.BiomassBonusDay != day) { rs.BiomassBonusDay = day; rs.BiomassBonusRuns = 0; }
             if (rs.BiomassBonusRuns >= t.DailyBiomassBonusRuns) return 1;
@@ -483,9 +575,19 @@ namespace RogueStars.Rules.Systems
             return t.DailyBiomassBonusMult;
         }
 
-        /// <summary>Daily Biomass surge runs left today.</summary>
-        public static int BiomassBonusRunsLeft(GameState s, ContentDb c, long nowMs) =>
-            s.Run.BiomassBonusDay == GameClock.DayIndex(c, nowMs) ? Math.Max(0, c.RunTuning.DailyBiomassBonusRuns - s.Run.BiomassBonusRuns) : c.RunTuning.DailyBiomassBonusRuns;
+        /// <summary>
+        /// The daily Biomass surge exists only once Biomass has a use (RewardGate.CurrencyHasUse: City or Worm Level unlocked);
+        /// before that no surge run is consumed and no surge counter or text is shown anywhere.
+        /// </summary>
+        public static bool BiomassSurgeActive(GameState s, ContentDb c, long nowMs) =>
+            c.RunTuning.DailyBiomassBonusRuns > 0 && RewardGate.CurrencyHasUse(s, c, Currencies.Biomass, nowMs);
+
+        /// <summary>Daily Biomass surge runs left today (0 while the surge is not active, <see cref="BiomassSurgeActive"/>).</summary>
+        public static int BiomassBonusRunsLeft(GameState s, ContentDb c, long nowMs)
+        {
+            if (!BiomassSurgeActive(s, c, nowMs)) return 0;
+            return s.Run.BiomassBonusDay == GameClock.DayIndex(c, nowMs) ? Math.Max(0, c.RunTuning.DailyBiomassBonusRuns - s.Run.BiomassBonusRuns) : c.RunTuning.DailyBiomassBonusRuns;
+        }
 
         /// <summary>Rolls the level's rare drops once (when the level / Burrow floor is beaten) into PendingRare.</summary>
         private static void RollRareDrops(LevelDef level, ActiveRun run)
@@ -539,14 +641,32 @@ namespace RogueStars.Rules.Systems
 
         // ---- skills on the board --------------------------------------------------------------
 
-        /// <summary>Adds a skill to the run (replacing its UpgradesFrom) and applies its OnRunStart effects.</summary>
-        private static bool GrantSkill(CommandContext ctx, ActiveRun run, string skillId, int depth)
+        /// <summary>
+        /// Adds a skill to the run (replacing its UpgradesFrom) and applies its OnRunStart effects; an owned skill levels up
+        /// instead (up to RunTuning.MaxSkillLevel, its stats grow: <see cref="AddSkillLevelStats"/>). Source: see RunGain.
+        /// </summary>
+        private static bool GrantSkill(CommandContext ctx, ActiveRun run, string skillId, int depth, string source)
         {
             var c = ctx.Content;
             var s = c.Skill(skillId);
-            if (s == null || run.Skills.Contains(skillId) || depth > 3) return false;
-            if (s.UpgradesFrom != null && run.Skills.Remove(s.UpgradesFrom)) run.ReplacedSkills.Add(s.UpgradesFrom);
+            if (s == null || depth > 3) return false;
+            if (run.Skills.Contains(skillId))
+            {
+                int lv = RunDraft.Level(run, skillId);
+                if (lv >= c.RunTuning.MaxSkillLevel) return false;
+                run.SkillLevels[skillId] = lv + 1;
+                run.Gains.Add(new RunGain(source, skillId, lv + 1));
+                ctx.Emit("run_skill_level", skillId, (lv + 1).ToString());
+                RefreshMaxHp(c, run);
+                return true;
+            }
+            if (s.UpgradesFrom != null && run.Skills.Remove(s.UpgradesFrom))
+            {
+                run.ReplacedSkills.Add(s.UpgradesFrom);
+                run.SkillLevels.Remove(s.UpgradesFrom);
+            }
             run.Skills.Add(skillId);
+            run.Gains.Add(new RunGain(source, skillId, 1));
             ctx.Emit("run_skill_gained", skillId);
             foreach (var t in s.Triggers)
                 if (t.When == TriggerKind.OnRunStart) ApplyRunTrigger(ctx, run, t, null, depth + 1);
@@ -583,11 +703,11 @@ namespace RogueStars.Rules.Systems
                 if (p.StartsWith("random_skill:", StringComparison.Ordinal))
                 {
                     Enum.TryParse(p.Substring(13), out Rarity min);
-                    GrantRandomSkill(ctx, run, min, depth);
+                    GrantRandomSkill(ctx, run, min, depth, "boon");
                     return;
                 }
                 string sid = p.StartsWith("skill:", StringComparison.Ordinal) ? p.Substring(6) : p;
-                if (c.Skill(sid) != null) { GrantSkill(ctx, run, sid, depth); return; }
+                if (c.Skill(sid) != null) { GrantSkill(ctx, run, sid, depth, "boon"); return; }
             }
             switch (t.Effect)
             {
@@ -621,13 +741,54 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        private static void GrantRandomSkill(CommandContext ctx, ActiveRun run, Rarity min, int depth)
+        private static void GrantRandomSkill(CommandContext ctx, ActiveRun run, Rarity min, int depth, string source)
         {
             var pool = RunDraft.Eligible(ctx.Content, run);
+            // a new skill when one is left (owned skills would only level up)
+            var fresh = pool.FindAll(s => !run.Skills.Contains(s.Id));
+            if (fresh.Count > 0) pool = fresh;
             var cands = pool.FindAll(s => s.Rarity >= min);
             if (cands.Count == 0) cands = pool;
             if (cands.Count == 0) { run.Coins += ctx.Content.RunTuning.DraftEmptyCoins; return; }
-            GrantSkill(ctx, run, cands[run.Rng.Range(0, cands.Count)].Id, depth);
+            GrantSkill(ctx, run, cands[run.Rng.Range(0, cands.Count)].Id, depth, source);
+        }
+
+        /// <summary>Stats of skill levels above 1: a share of the skill's passive package plus ATK % / max HP % per level.</summary>
+        private static void AddSkillLevelStats(ContentDb c, ActiveRun run, List<StatMod> list)
+        {
+            if (run.SkillLevels.Count == 0) return;
+            var t = c.RunTuning;
+            foreach (var id in run.Skills)
+            {
+                int extra = RunDraft.Level(run, id) - 1;
+                if (extra <= 0) continue;
+                var s = c.Skill(id);
+                if (s == null) continue;
+                double share = t.SkillLevelStatShare * extra;
+                foreach (var m in s.Stats) list.Add(new StatMod(m.Stat, m.Flat * share, m.Percent * share));
+                if (t.SkillLevelAtkPct != 0) list.Add(new StatMod(StatId.Atk, 0, t.SkillLevelAtkPct * extra));
+                if (t.SkillLevelHpPct != 0) list.Add(new StatMod(StatId.Hp, 0, t.SkillLevelHpPct * extra));
+            }
+        }
+
+        /// <summary>Skills and perks gained this run (every new skill, skill level and stat perk; HUD "Skills n").</summary>
+        public static int BuildSize(ActiveRun run) => run == null ? 0 : run.Gains.Count;
+
+        /// <summary>Mythic choice after a beaten miniboss (RunTuning.MythicChoices Mythic skills; coins if none is left).</summary>
+        private static void OpenMythicDraft(CommandContext ctx, ActiveRun run)
+        {
+            var offer = RunDraft.GenerateMythic(ctx.Content, run, run.Rng);
+            if (offer.Count == 0)
+            {
+                run.PendingMythicDrafts--;
+                run.Coins += ctx.Content.RunTuning.MythicEmptyCoins;
+                return;
+            }
+            run.DraftOffer.Clear();
+            run.DraftOffer.AddRange(offer);
+            run.MythicDraft = true;
+            run.Phase = RunPhase.Draft;
+            ctx.Emit("run_mythic_draft", string.Join(",", offer));
         }
 
         private static void OpenDraft(CommandContext ctx, ActiveRun run)
@@ -641,6 +802,7 @@ namespace RogueStars.Rules.Systems
             }
             run.DraftOffer.Clear();
             run.DraftOffer.AddRange(offer);
+            run.MythicDraft = false;
             run.Phase = RunPhase.Draft;
             ctx.Emit("run_draft", string.Join(",", offer));
         }
@@ -667,12 +829,29 @@ namespace RogueStars.Rules.Systems
         {
             var c = ctx.Content;
             if (eventId == null || !c.RunEvents.TryGetValue(eventId, out var ev)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
-            if (ev.Negative && TrySkipNegative(ctx, run)) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
+            if (ev.Negative && TrySkipNegative(ctx, run))
+            {
+                // shown, not silently skipped: the result screen says the boon kept it away
+                Consume(c, run, tile, TileDefOf(c, tile));
+                var shielded = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Avoided", Text = "Your boon shields you from misfortune." };
+                PublishOutcome(ctx, run, shielded);
+                return;
+            }
             if (ev.GrantsAccountLoot())
             {
-                // Account loot is rare: a few risky opportunities per run, later caches are empty.
-                if (!AccountLootOfferLeft(c, run)) { ctx.Emit("run_cache_empty", eventId); Consume(c, run, tile, TileDefOf(c, tile)); return; }
+                // Account loot is rare: a few risky opportunities per run. Chests ahead become supply caches once they are
+                // used up (RetireTreasures); an account-loot event drawn after that shows that it is empty.
+                if (!AccountLootOfferLeft(c, run))
+                {
+                    ctx.Emit("run_cache_empty", eventId);
+                    Consume(c, run, tile, TileDefOf(c, tile));
+                    var empty = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Empty",
+                        Text = "Already looted — this run's " + c.RunTuning.MaxAccountLootOffersPerRun + " account-loot chances are used up." };
+                    PublishOutcome(ctx, run, empty);
+                    return;
+                }
                 run.AccountLootOffers++;
+                if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
             }
             run.Phase = RunPhase.Event;
             run.EventId = eventId;
@@ -772,11 +951,16 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.HealPct: HealWorm(c, run, e.Value); break;
                     case RunEffectKind.DamagePct: DamageWorm(run, e.Value); break;
                     case RunEffectKind.StatPercent: run.RunStats.Add(new StatMod(e.Stat, 0, e.Value)); RefreshMaxHp(c, run); break;
-                    case RunEffectKind.GainSkill: GrantRandomSkill(ctx, run, e.MinRarity, 0); break;
-                    case RunEffectKind.GainSpecificSkill: GrantSkill(ctx, run, e.Param, 0); break;
+                    case RunEffectKind.GainSkill: GrantRandomSkill(ctx, run, e.MinRarity, 0, "event"); break;
+                    case RunEffectKind.GainSpecificSkill: GrantSkill(ctx, run, e.Param, 0, "event"); break;
                     case RunEffectKind.UpgradeSkill: UpgradeRandomSkill(ctx, run); break;
                     case RunEffectKind.LoseRandomSkill:
-                        if (run.Skills.Count > 0) run.Skills.RemoveAt(run.Rng.Range(0, run.Skills.Count));
+                        if (run.Skills.Count > 0)
+                        {
+                            int k = run.Rng.Range(0, run.Skills.Count);
+                            run.SkillLevels.Remove(run.Skills[k]);
+                            run.Skills.RemoveAt(k);
+                        }
                         RefreshMaxHp(c, run);
                         break;
                     case RunEffectKind.Loot: AddLoot(c, run, Math.Max(1, (int)e.Value)); break;
@@ -813,6 +997,7 @@ namespace RogueStars.Rules.Systems
             }
         }
 
+        /// <summary>Campfire forge / shrine: a chain upgrade of an owned skill, else a level-up of an owned skill, else coins.</summary>
         private static void UpgradeRandomSkill(CommandContext ctx, ActiveRun run)
         {
             var c = ctx.Content;
@@ -822,8 +1007,11 @@ namespace RogueStars.Rules.Systems
                 var s = c.Skills[id];
                 if (s.UpgradesFrom != null && run.Skills.Contains(s.UpgradesFrom) && RunDraft.IsEligible(c, run, s)) upgrades.Add(id);
             }
+            if (upgrades.Count == 0)
+                foreach (var id in run.Skills)
+                    if (RunDraft.CanLevelUp(c, run, c.Skill(id))) upgrades.Add(id);
             if (upgrades.Count == 0) { run.Coins += c.RunTuning.DraftEmptyCoins; return; }
-            GrantSkill(ctx, run, upgrades[run.Rng.Range(0, upgrades.Count)], 0);
+            GrantSkill(ctx, run, upgrades[run.Rng.Range(0, upgrades.Count)], 0, "event");
         }
 
         // ---- shops ----------------------------------------------------------------------------
@@ -850,7 +1038,7 @@ namespace RogueStars.Rules.Systems
             for (int i = 0; i < table.SkillOffers && pool.Count > 0; i++)
             {
                 var w = new double[pool.Count];
-                for (int k = 0; k < pool.Count; k++) w[k] = table.RarityWeights.TryGetValue(pool[k].Rarity, out var x) ? x : 1;
+                for (int k = 0; k < pool.Count; k++) w[k] = RunDraft.OfferWeight(c, run, pool[k], table.RarityWeights.TryGetValue(pool[k].Rarity, out var x) ? x : 1);
                 int idx = run.Rng.PickWeighted(w);
                 if (idx < 0) break;
                 var s = pool[idx];
@@ -858,10 +1046,13 @@ namespace RogueStars.Rules.Systems
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Skill, SkillId = s.Id, Price = table.SkillPrices.TryGetValue(s.Rarity, out var p) ? p : 50 });
             }
             run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
-            if (table.StatOffers.Count > 0)
+            var stats = new List<StatMod>(table.StatOffers);
+            for (int i = 0; i < table.StatOfferCount && stats.Count > 0; i++)
             {
-                var m = table.StatOffers[run.Rng.Range(0, table.StatOffers.Count)];
-                run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Stat, Stat = new StatMod(m.Stat, m.Flat, m.Percent), Value = m.Percent, Price = table.StatPrice });
+                int k = run.Rng.Range(0, stats.Count);
+                var m = stats[k];
+                stats.RemoveAt(k);
+                run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Stat, Stat = new StatMod(m.Stat, m.Flat, m.Percent), Value = m.Percent != 0 ? m.Percent : m.Flat, Price = table.StatPrice });
             }
         }
 
@@ -882,7 +1073,8 @@ namespace RogueStars.Rules.Systems
             var level = Level(c, run);
             var portal = c.Portal(run.PortalId);
             var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle,
-                AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, Laps = run.Laps, XpTotal = run.XpTotal };
+                AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, XpTotal = run.XpTotal,
+                Gains = new List<RunGain>(run.Gains), Minibosses = run.MinibossesDefeated, ShopBuys = run.ShopBuys };
             if (won)
             {
                 double modeMult = level.RewardMultiplier * (run.Mode == RunMode.Overcharged ? portal.OverchargedRewardMultiplier : 1);

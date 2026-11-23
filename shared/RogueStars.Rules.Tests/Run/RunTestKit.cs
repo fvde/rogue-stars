@@ -62,21 +62,20 @@ public static class RunTestKit
     public static CommandContext Ctx(GameEngine e, GameState s) =>
         new() { State = s, Content = e.Content, Engine = e, NowMs = TestHelpers.T0 };
 
-    /// <summary>Replace the board with a straight line of tiles (ids) ending in a boss gate.</summary>
+    /// <summary>Replace the board with a straight line of tiles (ids); its last tile is the open end (the rules extend the path from there).</summary>
     public static void LineBoard(ActiveRun run, params string[] tiles)
     {
         run.Tiles.Clear();
         var all = new List<string> { "start" };
         all.AddRange(tiles);
-        all.Add("boss_gate");
         for (int i = 0; i < all.Count; i++)
         {
             var t = new RunTile { Id = i, TileId = all[i], X = i };
             if (i + 1 < all.Count) t.Next.Add(i + 1);
-            else if (all.Count > 2) t.Next.Add(1); // the circuit: past the gate the next lap starts
             run.Tiles.Add(t);
         }
-        run.BossGateTile = all.Count - 1;
+        run.BoardEnd = all.Count - 1;
+        run.BossGateTile = -1;
         run.Position = 0;
         run.Trail.Clear();
         run.Trail.Add(0);

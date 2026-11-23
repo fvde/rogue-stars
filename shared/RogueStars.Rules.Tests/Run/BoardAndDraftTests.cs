@@ -4,6 +4,10 @@ using RogueStars.Rules.Systems;
 
 namespace RogueStars.Rules.Tests.Run;
 
+/// <summary>
+/// GDD §3.1: the board is a long path that never repeats, generated ahead of the worm in segments (playtest 0.1.86: the
+/// looping board felt weird and the same fork came back three times in one run).
+/// </summary>
 public class BoardTests
 {
     public static IEnumerable<object[]> Levels() =>
@@ -19,35 +23,42 @@ public class BoardTests
         for (long seed = 1; seed <= 30; seed++)
         {
             var b = RunBoard.Generate(c, level, new Rng((ulong)seed));
+            Assert.Equal(c.RunTuning.InitialSegments, b.Segments);
             var reach = RunBoard.Reachable(b.Tiles, 0);
             Assert.Equal(b.Tiles.Count, reach.Count);                              // connected from the start
-            Assert.Contains(b.GateTile, reach);                                     // boss gate reachable
-            Assert.Single(b.Tiles, t => t.TileId == "boss_gate");
             Assert.All(b.Tiles, t => Assert.True(c.BoardTiles.ContainsKey(t.TileId), t.TileId));
-            Assert.All(b.Tiles.Where(t => t.Id != b.GateTile), t => Assert.NotEmpty(t.Next));
-            // every tile can still reach the gate (no dead ends / trapped loops)
-            Assert.All(b.Tiles, t => Assert.Contains(b.GateTile, RunBoard.Reachable(b.Tiles, t.Id)));
-            foreach (var f in level.FixedTiles.Select(f => f.TileId).Distinct())
-                Assert.Contains(b.Tiles, t => t.TileId == f);
-            Assert.Equal(boss.BossTileCount, b.Tiles.Count(t => boss.BossTileIds.Contains(t.TileId)));
-            Assert.True(b.Tiles.Count(t => t.TileId == "miniboss") <= 1);         // "once" tiles
-            Assert.True(b.MainPath.Count >= level.BoardLength);
+            Assert.All(b.Tiles, t => Assert.All(t.Next, n => Assert.True(n > t.Id, "edges only point forward: no tile is reachable twice")));
+            Assert.All(b.Tiles.Where(t => t.Id != b.EndTile), t => Assert.NotEmpty(t.Next));
+            Assert.Empty(b.Tiles[b.EndTile].Next);                                  // the open end: the next segment starts here
+            Assert.All(b.Tiles, t => Assert.Contains(b.EndTile, RunBoard.Reachable(b.Tiles, t.Id))); // no dead ends
+            Assert.DoesNotContain(b.Tiles, t => t.TileId == "boss_gate");           // the arena opens when the boss wakes
+            foreach (var f in level.FixedTiles.GroupBy(f => f.TileId))
+                Assert.True(b.Tiles.Count(t => t.TileId == f.Key) >= b.Segments * f.Count(), f.Key);
+            Assert.Equal(boss.BossTileCount * b.Segments, b.Tiles.Count(t => boss.BossTileIds.Contains(t.TileId)));
+            Assert.True(b.Tiles.Count(t => t.TileId == "miniboss") <= b.Segments); // "once" tiles: once per segment
+            Assert.True(b.MainPath.Count >= level.BoardLength * b.Segments);
         }
     }
 
     [Fact]
-    public void Generation_HasBranchesAndLoops_AcrossSeeds()
+    public void Generation_HasForks_AndSegmentsVaryTheirMix()
     {
-        var level = ContentDb.Default.RunLevel("ember_wastes_5")!;
-        int branches = 0, loops = 0;
+        var c = ContentDb.Default;
+        var level = c.RunLevel("ember_wastes_5")!;
+        int forks = 0;
+        var enemyShare = new List<double>();
         for (ulong seed = 1; seed <= 40; seed++)
         {
-            var b = RunBoard.Generate(ContentDb.Default, level, new Rng(seed));
-            branches += b.Tiles.Count(t => t.Next.Count > 1);
-            loops += b.Tiles.Count(t => t.Next.Any(n => n < t.Id && b.Tiles[n].Y == 0 && t.Y == -1));
+            var rng = new Rng(seed);
+            var b = RunBoard.Generate(c, level, rng);
+            forks += b.Tiles.Count(t => t.Next.Count > 1);
+            int from = b.Tiles.Count;
+            RunBoard.AppendSegment(c, level, b, rng);
+            var part = b.Tiles.Skip(from).ToList();
+            enemyShare.Add(part.Count(t => c.BoardTiles[t.TileId].Category is TileCategory.Enemy or TileCategory.Elite) / (double)part.Count);
         }
-        Assert.True(branches > 20);
-        Assert.True(loops > 5);
+        Assert.True(forks > 20);
+        Assert.True(enemyShare.Max() - enemyShare.Min() > 0.2, "segment themes change the tile mix");
     }
 
     [Fact]
@@ -58,7 +69,128 @@ public class BoardTests
         var b = RunBoard.Generate(ContentDb.Default, level, new Rng(7));
         Assert.Equal(a.Tiles.Select(t => t.TileId + string.Join(",", t.Next)), b.Tiles.Select(t => t.TileId + string.Join(",", t.Next)));
     }
+
+    /// <summary>Whole runs (one and two dice, a stalled meter up to the 45-roll limit): no tile and no fork twice, board always ahead.</summary>
+    [Theory]
+    [InlineData("ember_wastes_1", false)]
+    [InlineData("ember_wastes_8", false)]
+    [InlineData("dark_side_4", false)]
+    [InlineData("ember_wastes_8", true)]
+    public void Run_NeverVisitsATileOrForkTwice_AndNeverRunsOutOfBoard(string levelId, bool stalledMeter)
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        for (int seed = 1; seed <= 12; seed++)
+        {
+            var s = TestHelpers.NewPlayer(e, seed);
+            s.Flags.Add(Features.DevUnlockAllFlag);
+            var level = c.RunLevel(levelId)!;
+            bool dark = level.PortalId == ContentDb.DarkSidePortalId;
+            if (level.Number > 1)
+            {
+                if (dark) s.Run.Levels[c.DarkSideLevel(level.Number - 1).Id] = new LevelProgress { Cleared = true };
+                else { s.Run.Levels[c.MainLevelId(level.Number - 1)] = new LevelProgress { Cleared = true }; s.Counters[Requirements.MainLevelCounter] = level.Number - 1; }
+            }
+            s.Wallet.Add(Currencies.Stamina, 100);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = levelId, Mode = dark ? RunMode.DarkSide : RunMode.Normal }).Ok);
+            if (stalledMeter) s.Run.Active!.AwakeningReductionPct = 90;
+            var forks = new List<int>();
+            int maxRolls = s.Run.Active!.MaxRolls;
+            for (int i = 0; i < 4000 && s.Run.Active != null; i++)
+            {
+                var a = s.Run.Active;
+                if (a.Phase == RunPhase.ChooseBranch) forks.Add(a.Position);
+                Assert.Equal(a.Trail.Count, a.Trail.Distinct().Count());              // no tile twice
+                var r = RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true });
+                Assert.True(r.Ok, r.Error);
+                var after = s.Run.Active;
+                if (after != null && after.BossGateTile < 0 && after.Phase == RunPhase.AwaitRoll)
+                    Assert.True(RunBoard.StepsToEnd(after.Tiles, after.Position, after.BoardEnd) > 0, "board ahead");
+                if (r.Events.Any(ev => ev.Type == "run_roll") && after != null && after.LastDice.Count > 0 && after.Phase != RunPhase.Encounter)
+                    Assert.True(after.Trail.Count > 1);
+            }
+            Assert.Null(s.Run.Active);
+            Assert.Equal(forks.Count, forks.Distinct().Count());                      // no fork twice
+            if (stalledMeter) Assert.Equal(maxRolls, s.Run.LastSummary.Rolls);         // walked to the 45-roll limit
+        }
+    }
+
+    [Fact]
+    public void BoardGrowsAhead_FarEnoughFor45RollsOfTwoDice()
+    {
+        var c = ContentDb.Default;
+        var level = c.RunLevel("ember_wastes_8")!;
+        var rng = new Rng(3);
+        var board = RunBoard.Generate(c, level, rng);
+        var run = new ActiveRun { Tiles = board.Tiles, BoardEnd = board.EndTile, BoardSegments = board.Segments, LevelId = level.Id, Rng = rng };
+        var e = new GameEngine(c);
+        // walk 45 rolls of double sixes along the spine: the board keeps extending ahead
+        int walked = 0;
+        for (int roll = 0; roll < 45; roll++)
+        {
+            Assert.True(RunBoard.StepsToEnd(run.Tiles, run.Position, run.BoardEnd) >= 0);
+            for (int step = 0; step < 12; step++)
+            {
+                if (run.Tiles[run.Position].Next.Count == 0)
+                {
+                    // the rules extend before every roll; emulate that with a roll-sized look-ahead
+                    var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments);
+                    RunBoard.AppendSegment(e.Content, e.Content.RunLevel(run.LevelId)!, b, run.Rng);
+                    run.BoardEnd = b.EndTile; run.BoardSegments = b.Segments;
+                }
+                run.Position = run.Tiles[run.Position].Next[0];
+                walked++;
+            }
+        }
+        Assert.Equal(45 * 12, walked);
+        Assert.True(run.Tiles.Count > 45 * 12);
+        Assert.All(run.Tiles, t => Assert.All(t.Next, n => Assert.True(n > t.Id)));
+    }
+
+    [Fact]
+    public void FullMeter_OpensTheBossArenaAhead_TheNextStepWalksInAndFights()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 20).ToArray());
+        run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count;
+        run.Awakening = 99.9;
+        var r = RunTestKit.Exec(e, ref s, new RunRoll());
+        Assert.True(r.Ok);
+        run = s.Run.Active!;
+        Assert.Equal(RunPhase.Encounter, run.Phase);
+        Assert.Equal(RunDecision.Encounter, RunSystem.Decision(e.Content, run));
+        Assert.False(RunSystem.RequiresPlayer(e.Content, run));                        // a clear step: auto walks in
+        Assert.Contains(r.Events, ev => ev.Type == "run_encounter" && ev.Args[0] == "boss");
+        Assert.Equal("boss_gate", run.Tiles[run.BossGateTile].TileId);
+        Assert.Equal(new List<int> { run.BossGateTile }, run.Tiles[run.Position].Next); // the path ends in the arena
+        Assert.False(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);                     // no rolling past it
+        var f = RunTestKit.Exec(e, ref s, new RunEncounter());
+        Assert.True(f.Ok);
+        Assert.Contains(f.Events, ev => ev.Type == "run_boss_fight");
+        Assert.True(s.Run.LastSummary.Won);
+    }
+
+    [Fact]
+    public void GravityVortex_ShortensTheNextRoll_NeverPushesBack()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("hazard_vortex", 6).Concat(Enumerable.Repeat("empty", 40)).ToArray());
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        Assert.Equal(run.LastDice[0], run.Position);                                   // landed where the die said
+        Assert.Equal(2, run.StepPenaltyNext);
+        int before = run.Position;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        Assert.Equal(Math.Max(1, run.LastDice[0] - 2), run.Position - before);        // the next roll is shorter, never backwards
+        Assert.Equal(run.Trail.Count, run.Trail.Distinct().Count());
+    }
 }
+
 
 public class DraftTests
 {

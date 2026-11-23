@@ -20,13 +20,13 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed }
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -89,6 +89,8 @@ namespace RogueStars.Rules.Systems
         public double BonusPct;
         public bool Fixed;
         public int TimesResolved;
+        /// <summary>Resolved (fight won, pickup taken, event decided): kept on the board as it was, drawn cleared.</summary>
+        public bool Cleared;
     }
 
     [Serializable]
@@ -120,7 +122,15 @@ namespace RogueStars.Rules.Systems
         public List<RunTile> Tiles = new List<RunTile>();
         public int Position;
         public List<int> Trail = new List<int>();
-        public int BossGateTile;
+        /// <summary>The boss arena tile once it opened ahead of the worm (the meter is full), else -1.</summary>
+        public int BossGateTile = -1;
+        /// <summary>The open end of the path and the segments generated so far (RunBoard: the board grows ahead of the worm).</summary>
+        public int BoardEnd;
+        public int BoardSegments;
+        /// <summary>Steps the next roll loses (Gravity Vortex).</summary>
+        public int StepPenaltyNext;
+        /// <summary>Phase Encounter: "ambush" (a miniboss of the awakening clock) or "boss" (the arena opened ahead).</summary>
+        public string EncounterKind;
         public RunPhase Phase = RunPhase.AwaitRoll;
         public int StepsLeft;
         public List<int> BranchOptions = new List<int>();
@@ -128,8 +138,6 @@ namespace RogueStars.Rules.Systems
         public int Rolls;
         /// <summary>Hard roll limit: the boss comes at the latest after this roll (the awakening meter is the usual clock).</summary>
         public int MaxRolls;
-        /// <summary>Laps around the circuit board (passing the boss gate starts the next lap).</summary>
-        public int Laps;
         public int Dice = 1;
         public int ExtraDicePermanent;
         public int ExtraDiceNext;
@@ -151,7 +159,15 @@ namespace RogueStars.Rules.Systems
         /// <summary>All run XP earned so far (level-ups included).</summary>
         public int XpTotal;
         public int PendingDrafts;
+        /// <summary>Mythic choices waiting (one per miniboss beaten, RunTuning.MythicChoices skills of Mythic rarity).</summary>
+        public int PendingMythicDrafts;
+        /// <summary>The open draft is a mythic choice (from a miniboss), not a level-up draft.</summary>
+        public bool MythicDraft;
         public List<string> Skills = new List<string>();
+        /// <summary>Level of an owned run skill when above 1 (a skill drafted / bought again levels up, RunTuning.MaxSkillLevel).</summary>
+        public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
+        /// <summary>Every skill, skill level and stat perk gained in this run, in order (result screen, HUD build size).</summary>
+        public List<RunGain> Gains = new List<RunGain>();
         public List<string> ReplacedSkills = new List<string>();
         public List<StatMod> RunStats = new List<StatMod>();
         public long Coins;
@@ -194,13 +210,34 @@ namespace RogueStars.Rules.Systems
         public List<RunEffect> DefeatFollowUp = new List<RunEffect>();
         public int BossRounds;
         public int BattlesWon;
+        /// <summary>Minibosses spawned by the awakening clock so far (RunTuning.MinibossAtMeter) and waiting to attack.</summary>
+        public int MinibossesSpawned;
+        public int PendingAmbushes;
+        public int MinibossesDefeated;
+        public int ShopBuys;
 
         // burrow
         public int Floor = 1;
     }
 
     /// <summary>Kind of one line of a <see cref="RunOutcome"/>.</summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing }
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel }
+
+    /// <summary>
+    /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
+    /// Source: "draft" (level-up draft), "mythic" (miniboss choice), "shop", "event" (events, chests, campfires) or "boon"
+    /// (granted at run start by meta skills).
+    /// </summary>
+    [Serializable]
+    public sealed class RunGain
+    {
+        public string Source;
+        public string SkillId;
+        public int Level = 1;
+        public StatMod Stat;
+        public RunGain() { }
+        public RunGain(string source, string skillId, int level) { Source = source; SkillId = skillId; Level = level; }
+    }
 
     /// <summary>One thing that happened (gained / lost), with its number; Good = in the player's favour.</summary>
     [Serializable]
@@ -256,12 +293,15 @@ namespace RogueStars.Rules.Systems
         public int Rolls;
         public int Level;
         public int Floors;
-        public int Laps;
         public int XpTotal;
         /// <summary>Account-loot opportunities offered in the run (Burrow: of its last floor).</summary>
         public int AccountLootOffers;
         /// <summary>Account-loot items found during the run (before completion rolls; Burrow: floor rewards included).</summary>
         public int AccountLootDrops;
+        /// <summary>The run's build gains (skills, skill levels, stat perks) with their sources (result screen).</summary>
+        public List<RunGain> Gains = new List<RunGain>();
+        public int Minibosses;
+        public int ShopBuys;
         public BattleResult LastBattle;
     }
 

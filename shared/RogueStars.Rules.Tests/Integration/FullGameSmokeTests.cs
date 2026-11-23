@@ -104,7 +104,7 @@ public class FullGameSmokeTests
         Assert.Equal(1, p.S.Counter("runs_completed"));
         Assert.Equal(1, p.S.Counter(Requirements.MainLevelCounter));
         Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Parts));
-        Assert.Equal(3, p.S.Parts.Items.Count);
+        Assert.True(p.S.Parts.Items.Count >= 3); // the starter parts (+ a part from the completion loot rolls, if one dropped)
         Assert.True(p.S.Wallet.Get(Currencies.Ore) > 0);
         Assert.Equal(0, p.S.Wallet.Get(Currencies.Biomass)); // no use before the City / worm levels: stashed
         Assert.True(RewardGate.Stashed(p.S, Currencies.Biomass) > 0);

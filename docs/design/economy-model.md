@@ -58,7 +58,9 @@ after the main hero is maxed.
   daily chests 20/day, weekly chest 100, Laboratory unlock 60, arena shop 300 per 50 medals.
 - Biomass: portal runs are the main source — completion (120 + 30·i) × portal scale, loot 45–90 × scale, and the
   **daily Biomass surge**: the first 3 won portal runs (Normal/Overcharged) of each reset-day pay their Biomass ×4
-  (`RunTuning.DailyBiomassBonusRuns/Mult`), so short sessions also get most of their Biomass from runs. City farms
+  (`RunTuning.DailyBiomassBonusRuns/Mult`), so short sessions also get most of their Biomass from runs. The surge only
+  exists once Biomass has a use (`RunSystem.BiomassSurgeActive` = `RewardGate.CurrencyHasUse(Biomass)`: City or Worm
+  Level unlocked): before that no surge run is consumed and no surge counter or text is shown. City farms
   (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
   Sinks: worm levels, talents, buildings (no laboratory).
 - Mounts: 5★ costs 350 shards (35 duplicates), awakening 1–5 another 1 040 shards + 2 500 Mount Cores. Mount copies
@@ -153,8 +155,9 @@ after each unlock and checked with the simulator (`--unlocks`, `--inventory`; `-
 `open_<id>` / `no_reward_gate` to experiment): Biomass 5 000 (a few worm levels), Ore 1 000, Grain 2 000, Fuel 4 000, Hero XP
 3 000, Data 100, Gear Cores 200, Advancement Plates 20, tokens 30 per pull type (three 10-pulls on the Signal's first day),
 Runes 5. With caps of 10 tokens the binge bot lost 3–7 main levels in weeks 2–4 (fewer early pulls); at 30 it is within
-noise of uncapped. The day-1 Biomass of a binge player (~38k, all of it surge Biomass) is mostly dropped: the cap is what
-the first worm levels need, and from day 2 the surge pays into a usable wallet again. The 60-day guard bands
+noise of uncapped. The surge no longer multiplies stashed Biomass: before Biomass has a use there is no surge (the
+binge player's day-1 surge Biomass used to be mostly dropped by the cap anyway); it starts paying the day the City or
+worm levels unlock. The 60-day guard bands
 (`ProgressionGuardTests`) hold unchanged.
 
 What a new F2P player owns at the end of day 1 / 3 / 7 (median of 15 seeds, `--inventory`; before = the commit before the
