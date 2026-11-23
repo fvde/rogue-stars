@@ -32,7 +32,13 @@ namespace RogueStars.Client.Tests
             return n;
         }
 
-        private static string ButtonText(Button b) => b.GetComponentInChildren<Text>(true).text;
+        /// <summary>Every text of a button (map nodes: number, stars, data, milestone chip).</summary>
+        private static string ButtonText(Button b)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            foreach (var t in b.GetComponentsInChildren<Text>(true)) if (t.gameObject.activeSelf) parts.Add(t.text);
+            return string.Join(" | ", parts);
+        }
 
         /// <summary>A save that has cleared every main level up to <paramref name="main"/> and Dark Side level <paramref name="dark"/>.</summary>
         private void ClearedThrough(int main, int dark)
@@ -125,8 +131,11 @@ namespace RogueStars.Client.Tests
             FindButton(screen.Root, "MainFrontier").onClick.Invoke();
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1235)), Is.Not.Null);
 
-            // The level modal names the milestone chest of an unclaimed 10th level.
+            // Tapping a node selects it for the bottom card; its details modal names the milestone chest of an unclaimed 10th level.
             FindButton(screen.Root, "Level:" + C.MainLevelId(1240)).onClick.Invoke();
+            Assert.That(((PortalsScreen)screen).SelectedLevel.Id, Is.EqualTo(C.MainLevelId(1240)));
+            Assert.That(FindButton(screen.Root, "StartRun").interactable, Is.False, "locked level cannot be started");
+            FindButton(screen.Root, "LevelDetails").onClick.Invoke();
             bool chest = false;
             foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.text.StartsWith("Milestone chest (first clear)")) chest = true;
             Assert.That(chest, Is.True);

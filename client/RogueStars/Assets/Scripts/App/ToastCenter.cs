@@ -141,8 +141,9 @@ namespace RogueStars.Client.App
             if (string.IsNullOrEmpty(text)) return;
             LastText = text;
             while (_toasts.Count >= MaxVisible) Remove(0, false); // evicted at once: a fading toast would still take a slot
-            var panel = Ui.Panel(_stack, new Color(color.r * 0.35f, color.g * 0.35f, color.b * 0.35f, 0.95f), "Toast");
+            var panel = Ui.RoundPanel(_stack, new Color(color.r * 0.3f, color.g * 0.3f, color.b * 0.3f, 0.96f), 24, "Toast");
             panel.raycastTarget = false;
+            UiShapes.Outline(panel.rectTransform, new Color(color.r, color.g, color.b, 0.7f), 24, 3);
             var col = panel.gameObject.AddComponent<VerticalLayoutGroup>();
             col.padding = new RectOffset(16, 16, 6, 6);
             col.childControlHeight = true; col.childControlWidth = true; col.childForceExpandHeight = true;

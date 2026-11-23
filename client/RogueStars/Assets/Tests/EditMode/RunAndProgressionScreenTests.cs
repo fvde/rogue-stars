@@ -238,7 +238,7 @@ namespace RogueStars.Client.Tests
                         var c = RunScreen.TileCenter(t);
                         Assert.That(seen.ContainsKey(c), Is.False, level.Id + " tiles " + t.Id + " and " + (seen.ContainsKey(c) ? seen[c] : -1) + " overlap");
                         seen[c] = t.Id;
-                        Assert.That(c.x, Is.InRange(0f, RunScreen.Columns * RunScreen.Cell + 60));
+                        Assert.That(c.x, Is.InRange(0f, RunScreen.BoardWidth));
                     }
                 }
             }
@@ -254,7 +254,7 @@ namespace RogueStars.Client.Tests
                 for (int seed = 1; seed <= 5; seed++)
                 {
                     var board = RunBoard.Generate(content, level, Rng.FromSeed(seed * 977 + level.Index));
-                    var size = new Vector2(RunScreen.Columns * RunScreen.Cell + 60, RunScreen.BoardHeight(board.Tiles));
+                    var size = new Vector2(RunScreen.BoardWidth, RunScreen.BoardHeight(board.Tiles));
                     var p = RunScreen.BossMarkerCenter(board.Tiles, board.GateTile, size);
                     var marker = new Rect(p - RunScreen.BossMarkerSize / 2, RunScreen.BossMarkerSize);
                     Assert.That(marker.xMin >= 0 && marker.yMin >= 0 && marker.xMax <= size.x && marker.yMax <= size.y, Is.True, level.Id + " marker on the board");
@@ -277,7 +277,7 @@ namespace RogueStars.Client.Tests
             // The strip starts just above the fixed action bar and the scrolling body (board) ends above the strip.
             Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(run.FooterHeight + 4).Within(0.01f));
             Assert.That(run.BodyFrame.offsetMin.y, Is.GreaterThanOrEqualTo(run.FooterHeight + ToastCenter.StripHeight));
-            Assert.That(run.Root.Find("Footer").GetComponentsInChildren<Button>(true).Length, Is.GreaterThanOrEqualTo(4), "ROLL/Auto/Decision/Abandon in the bar");
+            Assert.That(run.Root.Find("Footer").GetComponentsInChildren<Button>(true).Length, Is.GreaterThanOrEqualTo(4), "skill slots, Loot, ROLL and AUTO in the bar");
             // Short-lived.
             _f.App.Update(ToastCenter.Lifetime + 0.1f);
             Assert.That(_f.App.Toasts.Count, Is.EqualTo(0));

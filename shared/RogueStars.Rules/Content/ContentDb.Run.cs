@@ -360,42 +360,42 @@ namespace RogueStars.Rules.Content
         {
             RunEvent("unstable_reactor", "Unstable Reactor", "A humming reactor offers raw power, but the boss feeds on the surge.", 1, 3,
                 RunOpt("Absorb the surge", "Gain a Rare+ skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Rare), RunFx(RunEffectKind.BossStatPct, 15))),
-                RunOpt("Walk away", "RunNothing happens.", RunNothing));
+                RunOpt("Walk away", "Nothing happens.", RunNothing));
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
                 RunOpt("Trade vitality", "-10% max HP for an Epic+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Epic))),
-                RunOpt("Decline", "RunNothing happens.", RunNothing));
+                RunOpt("Decline", "Nothing happens.", RunNothing));
             var echo = RunOpt("Fight the echo", "Battle a strong elite. Win: a part drop paid out on completion.",
                 RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
-            RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 2.5, echo, RunOpt("Leave it", "RunNothing happens.", RunNothing));
+            RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 2.5, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 4,
                 RunOpt("Search it", "Likely loot (raises Danger). Might explode.",
                     RunOut(70, "Loot!", RunFx(RunEffectKind.Loot, 1)), RunOut(30, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 15))),
-                RunOpt("Leave it", "RunNothing happens.", RunNothing));
+                RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("strange_spores", "Strange Spores", "Glowing spores drift by. They smell... edible.", 1, 3,
                 RunOpt("Eat them", "50%: +8% ATK. 50%: lose 10% HP and -5% DEF.",
                     RunOut(50, "Delicious power.", RunStatFx(StatId.Atk, 8)), RunOut(50, "Bad spores.", RunFx(RunEffectKind.DamagePct, 10), RunStatFx(StatId.Def, -5))),
-                RunOpt("Ignore them", "RunNothing happens.", RunNothing));
+                RunOpt("Ignore them", "Nothing happens.", RunNothing));
             var merchant = RunOpt("Buy a tonic (25 coins)", "Heal 30% HP.", RunOut(1, "Refreshing.", RunFx(RunEffectKind.HealPct, 30)));
             merchant.CoinCost = 25;
-            RunEvent("alien_medic", "Alien Medic", "A friendly alien medic offers a tonic.", 1, 3, merchant, RunOpt("No thanks", "RunNothing happens.", RunNothing));
+            RunEvent("alien_medic", "Alien Medic", "A friendly alien medic offers a tonic.", 1, 3, merchant, RunOpt("No thanks", "Nothing happens.", RunNothing));
             var altar = RunOpt("Offer 2 portal shards", "Gain an Epic+ skill.", RunOut(1, "The altar glows.", RunSkillFx(Rarity.Epic)));
             altar.ShardCost = 2;
             RunEvent("shard_altar", "Shard Altar", "An altar hums with portal energy.", 2, 3, altar,
                 RunOpt("Pray", "Calm the boss: awakening -15.", RunOut(1, "A calm settles.", RunFx(RunEffectKind.Meter, -15))),
-                RunOpt("Leave", "RunNothing happens.", RunNothing));
+                RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("meteor_shower", "Meteor Shower", "Meteors streak across the sky!", 0, 2,
                 RunOpt("Take shelter", "Lose 20 coins of time.", RunOut(1, "You wait it out.", RunFx(RunEffectKind.Coins, -20))),
                 RunOpt("Run through it", "60%: unharmed with a shard. 40%: lose 20% HP.",
                     RunOut(60, "You dodge every rock and grab a shard.", RunFx(RunEffectKind.Shards, 1)), RunOut(40, "Ouch!", RunFx(RunEffectKind.DamagePct, 20))));
             RunEvent("lost_explorer", "Lost Explorer", "A lost explorer worm asks for help.", 1, 3,
                 RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 30))),
-                RunOpt("Ignore them", "RunNothing happens.", RunNothing));
+                RunOpt("Ignore them", "Nothing happens.", RunNothing));
             RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2.5,
                 RunOpt("Dive in", "2 loot items (raises Danger); awakening +15.", RunOut(1, "You surface with treasure.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.Meter, 15))),
-                RunOpt("Steer away", "RunNothing happens.", RunNothing));
+                RunOpt("Steer away", "Nothing happens.", RunNothing));
             RunEvent("echoing_shrine", "Echoing Shrine", "Ancient echoes can sharpen a technique.", 1, 2.5,
                 RunOpt("Meditate", "Upgrade a skill; awakening +10.", RunOut(1, "Your technique evolves.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.Meter, 10))),
-                RunOpt("Leave", "RunNothing happens.", RunNothing));
+                RunOpt("Leave", "Nothing happens.", RunNothing));
             var patch = RunOpt("Patch the leak (25 coins)", "Pay to stay safe.", RunOut(1, "Fixed.", RunFx(RunEffectKind.Coins, 0)));
             patch.CoinCost = 25;
             var fuel = new EventDef { Id = "fuel_leak", Name = "Fuel Leak", Text = "Your mount is leaking fuel.", DefaultOption = 1, Negative = true };
@@ -407,13 +407,13 @@ namespace RogueStars.Rules.Content
                 RunOpt("Try to tame it", "50%: +5% ATK and a loot item. 50%: it attacks.",
                     RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
-                RunOpt("Back off", "RunNothing happens.", RunNothing));
+                RunOpt("Back off", "Nothing happens.", RunNothing));
             var bm = RunOpt("Buy a signal beacon (60 coins)", "A blueprint token, paid out on completion.", RunOut(1, "Sold.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1))));
             bm.CoinCost = 60;
-            RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "RunNothing happens.", RunNothing));
+            RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("cursed_relic", "Cursed Relic", "A relic radiates power and malice.", 1, 2,
                 RunOpt("Claim it", "Gain a Legendary+ skill. -15% max HP and awakening +20.", RunOut(1, "Power at a price.", RunSkillFx(Rarity.Legendary), RunStatFx(StatId.Hp, -15), RunFx(RunEffectKind.Meter, 20))),
-                RunOpt("Leave it", "RunNothing happens.", RunNothing));
+                RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("training_dummy", "Training Grounds", "Old training machines still work.", 0, 2.5,
                 RunOpt("Train", "Gain 25 XP.", RunOut(1, "You feel sharper.", RunFx(RunEffectKind.Xp, 25))),
                 RunOpt("Spar the champion", "Battle an elite for +6% ATK.", RunOut(1, "Champion beaten!", RunFx(RunEffectKind.Battle, 0, "elite"), RunStatFx(StatId.Atk, 6))));
@@ -424,7 +424,7 @@ namespace RogueStars.Rules.Content
             // Tile-bound events
             RunEvent("treasure_pod", "Treasure Pod", "A sealed treasure pod. Opening it is loud.", 1, 0,
                 RunOpt("Open", "2 loot items (each raises Danger); nearby enemies grow stronger.", RunOut(1, "Loot spills out.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.StrengthenEnemies, 10))),
-                RunOpt("Leave", "RunNothing happens.", RunNothing));
+                RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("campfire", "Campfire", "A warm campfire. Its light draws nearby enemies.", 0, 0,
                 RunOpt("Rest", "Heal 35% HP. Nearby enemies grow stronger.", RunOut(1, "You rest.", RunFx(RunEffectKind.HealPct, 35), RunFx(RunEffectKind.StrengthenEnemies, 12))),
                 RunOpt("Forge", "Upgrade a skill. Nearby enemies grow stronger.", RunOut(1, "You hone a technique.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.StrengthenEnemies, 12))));
