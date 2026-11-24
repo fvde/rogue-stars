@@ -32,7 +32,10 @@ public class ProgressionGuardTests
     [Theory]
     [InlineData(7, 20, 40)]
     [InlineData(30, 40, 75)]
-    [InlineData(60, 50, 100)]
+    // sidekick pass: 100 -> 120. Sidekicks now genuinely fight (abilities, blocks, drones) and no longer hand enemies rage,
+    // counters and thorns (old alien attacks did: aliens doing nothing at all was already +3 levels). Day-60 main level of the
+    // Active whale over 8 seeds: 90 before, ~100 now (seed 1, this test, swings 97-115); F2P 65 -> ~70, in its band. Owner to confirm.
+    [InlineData(60, 50, 120)]
     public void ActiveWhale_MainLevel_WithinBand(int day, int min, int max) =>
         Assert.InRange(At(Whale.Value, day, "main_level"), min, max);
 

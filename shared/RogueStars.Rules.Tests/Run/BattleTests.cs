@@ -155,14 +155,20 @@ public class BattleSimulatorTests
         var lo = new CombatLoadout { MountId = "skiff" };
         lo.WormStats.Add(new StatMod(StatId.Hp, 5000)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 100));
         lo.MountStats.Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Hp, 200));
-        lo.Aliens.Add(new CombatAlien { AlienTypeId = "a1", Stats = new StatBlock().Add(new StatMod(StatId.Atk, 20)).Add(new StatMod(StatId.Hp, 100)) });
+        var alien = new CombatAlien { AlienTypeId = "a1", Stats = new StatBlock().Add(new StatMod(StatId.Atk, 20)).Add(new StatMod(StatId.Hp, 100)).Add(new StatMod(StatId.Speed, 50)) };
+        alien.SkillIds.Add("ask_voidmaw_1");
+        lo.Aliens.Add(alien);
         var setup = new BattleSetup { RoundCap = 5 };
         setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, ContentDb.Default));
         setup.Enemy.Add(Unit("e1", CombatRole.Enemy, 100_000, 40, 0, 50));
         setup.Enemy.Add(Unit("e2", CombatRole.Enemy, 100_000, 40, 0, 50));
         var res = BattleSimulator.Simulate(setup, ContentDb.Default, new Rng(2));
-        var r1 = res.Log.Where(e => e.Round == 1 && e.Action == BattleAction.Basic).Select(e => res.Fighters[e.Actor].Role).ToList();
+        // round 1: the mount fires, the alien (a sidekick: start charge 50 + Speed 50) uses its ability, then the worm and the enemies attack
+        var r1 = res.Log.Where(e => e.Round == 1 && (e.Action == BattleAction.Basic || e.Action == BattleAction.SidekickAct)).Select(e => res.Fighters[e.Actor].Role).ToList();
         Assert.Equal(new[] { CombatRole.Mount, CombatRole.Alien, CombatRole.Worm, CombatRole.Enemy, CombatRole.Enemy }, r1);
+        // a sidekick never attacks: it acts every other round at Speed 50 (rounds 1, 3, 5)
+        Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Role == CombatRole.Alien);
+        Assert.Equal(new[] { 1, 3, 5 }, res.Log.Where(e => e.Action == BattleAction.SidekickAct).Select(e => e.Round).ToArray());
         int worm = res.Fighters.First(f => f.Role == CombatRole.Worm).Index;
         Assert.All(res.Log.Where(e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Side == BattleSide.Enemy), e => Assert.Equal(worm, e.Target));
         // mount HP becomes a shield on the worm that absorbs first

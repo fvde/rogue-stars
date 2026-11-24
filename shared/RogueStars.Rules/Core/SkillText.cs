@@ -220,6 +220,7 @@ namespace RogueStars.Rules.Core
             StatId.SupernovaGuard => "Supernova self-damage reduction",
             StatId.BleedDamage => "bleed damage",
             StatId.AlienPower => "alien power",
+            StatId.SidekickHaste => "sidekick speed",
             StatId.MountPower => "mount power",
             StatId.LootLuck => "bonus loot chance",
             StatId.XpGain => "run XP",
@@ -241,6 +242,7 @@ namespace RogueStars.Rules.Core
                 return Signed(t.Value) + "% damage " + Condition(t.Param.Substring(5));
             string effect = Effect(t, show);
             if (effect == null) return null;
+            if (t.When == TriggerKind.OnAct) effect = effect.Replace("% ATK", "% power"); // a sidekick's ATK is its ability power
             bool chance = t.Chance > 0 && (t.Chance < 100 || (show != null && show.Chance));
             string body = (chance ? Num(Math.Min(100, t.Chance)) + "% chance to " : "") + effect;
             string when = When(t.When);
@@ -277,7 +279,8 @@ namespace RogueStars.Rules.Core
                     {
                         var stat = Stat(t.Stat);
                         if (stat == null) return null;
-                        return (t.Target == TargetKind.Self ? "" : target + " get ") + stat + (t.Duration > 0 ? dur : " for the rest of the battle");
+                        string get = t.Target == TargetKind.Worm || t.Target == TargetKind.Enemy || t.Target == TargetKind.RandomEnemy || t.Target == TargetKind.LowestHpEnemy ? " gets " : " get ";
+                        return (t.Target == TargetKind.Self ? "" : target + get) + stat + (t.Duration > 0 ? dur : " for the rest of the battle");
                     }
                 case EffectKind.RunStatGrowth:
                     {
@@ -289,7 +292,18 @@ namespace RogueStars.Rules.Core
                 case EffectKind.HealOnTile: return "heal " + Num(t.Value) + "% of max HP";
                 case EffectKind.SlowAwakening:
                     return t.When == TriggerKind.OnRunStart ? "the boss awakens " + Num(t.Value) + "% slower" : "drain " + Num(t.Value) + " from the boss's awakening";
-                case EffectKind.Summon: return "summon " + Words(t.Param ?? "an ally");
+                case EffectKind.Summon:
+                {
+                    var sk = t.Param != null ? ContentDb.Default.Sidekick(t.Param) : null;
+                    if (sk == null) return "summon " + Words(t.Param ?? "an ally");
+                    int n = Math.Max(1, t.Stacks);
+                    return "launch " + (n > 1 ? Num(n) + " " + sk.Name + " sidekicks" : "a " + sk.Name + " sidekick") + " (" + Num(t.Value) + "% of the summoner's ATK as power)";
+                }
+                case EffectKind.Block:
+                {
+                    int n = Math.Max(1, t.Stacks);
+                    return "intercept the next " + (n > 1 ? Num(n) + " hits" : "hit") + " on " + target;
+                }
                 case EffectKind.RemoveStatus:
                     return "remove " + (t.Stacks > 0 ? Num(t.Stacks) + " " : "all ") + StatusName(t.Status) + " from " + target;
                 case EffectKind.ConsumeStatus:
@@ -300,7 +314,7 @@ namespace RogueStars.Rules.Core
                 }
                 case EffectKind.Strike: return t.Param == "counter" ? "counterattack" : "strike again";
                 case EffectKind.AllyAction:
-                    return t.Stacks > 1 ? Num(t.Stacks) + " of your aliens attack again" : "one of your aliens attacks again";
+                    return t.Stacks > 1 ? Num(t.Stacks) + " extra sidekick actions" : "one of your sidekicks takes an extra action";
                 case EffectKind.SkipNegativeEvent: return "skip " + Num(t.Value) + " bad event " + (t.Value == 1 ? "outcome" : "outcomes") + " per run";
                 default: return Words(t.Effect.ToString());
             }
@@ -333,6 +347,8 @@ namespace RogueStars.Rules.Core
             TriggerKind.OnBossAwaken => "When the boss awakens",
             TriggerKind.OnBattleWon => "After each won battle",
             TriggerKind.OnSupernova => "On Supernova",
+            TriggerKind.OnAct => null,
+            TriggerKind.OnSidekickAct => "When a sidekick acts",
             _ => Words(k.ToString()),
         };
 

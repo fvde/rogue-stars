@@ -81,6 +81,15 @@ namespace RogueStars.Rules.Systems
             return s;
         }
 
+        /// <summary>
+        /// Ability power (sidekick pass): aliens are never hit, so HP, ATK and DEF (base, genes, level, stars, traits) all feed the
+        /// power of their one ability (before the loadout's alien power). Old saved aliens keep their genes; only the reading changed.
+        /// </summary>
+        public static double AbilityPower(ContentDb content, OwnedAlien a) => BattleSimulator.SidekickPower(CombatStats(content, a), content);
+
+        /// <summary>Average rounds between the alien's own actions (Speed: base × genes × traits): "acts about every 3 turns".</summary>
+        public static double ActsEvery(ContentDb content, OwnedAlien a) => BattleSimulator.SidekickActsEvery(CombatStats(content, a).Value(StatId.Speed), content);
+
         /// <summary>Active archetype skill (highest step reached by stars). Earlier steps are replaced.</summary>
         public static string ArchetypeSkillId(ContentDb content, OwnedAlien a)
         {

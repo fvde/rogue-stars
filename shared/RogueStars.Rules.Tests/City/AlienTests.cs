@@ -103,15 +103,18 @@ public class AlienTests
     {
         var e = TestHelpers.Engine();
         var s = TestHelpers.NewPlayer(e);
-        GrantAlien(e, s, "alien_blorp"); // common balanced: 200 HP / 20 ATK / 5 DEF / 10 SPD
+        GrantAlien(e, s, "alien_blorp"); // common balanced: 200 HP / 20 ATK / 5 DEF / 34 SPD
         var a = Neutral(s, "alien_blorp");
         var st = AlienSystem.CombatStats(e.Content, a);
         Assert.Equal(200, st.Value(StatId.Hp), 6);
         a.Genes.Atk = 10; a.Level = 11; a.Stars = 3;
         a.Traits.Add("trait_fierce");
         st = AlienSystem.CombatStats(e.Content, a);
-        Assert.Equal(20 * 1.1 * 1.6 * 1.24 * 1.12, st.Value(StatId.Atk), 6);
-        Assert.Equal(10, st.Value(StatId.Speed), 6);
+        Assert.Equal(20 * 1.1 * 1.6 * 1.24 * 1.15, st.Value(StatId.Atk), 6);
+        Assert.Equal(34, st.Value(StatId.Speed), 6);
+        // sidekick pass: HP / ATK / DEF fold into ability power; Speed sets how often it acts (a Common: about every 3 turns)
+        Assert.Equal(st.Value(StatId.Atk) + st.Value(StatId.Hp) * 0.05 + st.Value(StatId.Def), AlienSystem.AbilityPower(e.Content, a), 6);
+        Assert.Equal(100 / 34.0, AlienSystem.ActsEvery(e.Content, a), 6);
     }
 
     [Fact]

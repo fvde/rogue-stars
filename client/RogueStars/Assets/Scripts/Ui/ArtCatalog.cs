@@ -52,6 +52,8 @@ namespace RogueStars.Client.UiKit
         public const string EnemyFolder = "Art/Enemies";
         /// <summary>Alien sprites: <c>Art/Aliens/&lt;alien type id&gt;</c> (transparent, square).</summary>
         public const string AlienFolder = "Art/Aliens";
+        /// <summary>Battle-scoped sidekicks (drones) by sidekick id (sk_drone…); without art HudArt.Drone is drawn.</summary>
+        public const string SidekickFolder = "Art/Sidekicks";
         /// <summary>A boss / elite drawn with a regular enemy's sprite of its family is drawn this much bigger.</summary>
         public const float BossFamilyScale = 1.3f, EliteFamilyScale = 1.15f;
 
@@ -246,6 +248,9 @@ namespace RogueStars.Client.UiKit
 
         /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the lettered token).</summary>
         public static Sprite Alien(string alienTypeId) => string.IsNullOrEmpty(alienTypeId) ? null : Load(AlienFolder + "/" + alienTypeId);
+
+        /// <summary>A summoned sidekick's sprite (sk_drone…), or null (the drawn drone, HudArt.Drone).</summary>
+        public static Sprite Sidekick(string sidekickId) => string.IsNullOrEmpty(sidekickId) ? null : Load(SidekickFolder + "/" + sidekickId);
 
         /// <summary>An enemy's own sprite by enemy def id (ember_imp…), or null.</summary>
         public static Sprite Enemy(string enemyId) => string.IsNullOrEmpty(enemyId) ? null : Load(EnemyFolder + "/" + enemyId);

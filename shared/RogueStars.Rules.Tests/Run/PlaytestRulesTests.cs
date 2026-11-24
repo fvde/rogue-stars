@@ -292,11 +292,12 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var nova = SkillLeveling.At(c, c.Skill("lab_frost_nova_5")!, 2).Triggers[0];
         Assert.Equal(100, nova.Chance, 6);
         Assert.Equal(2, nova.Duration);
-        // timed buff: the value grows, the duration stays
-        var rally = c.Skill("alien_rally")!;                                          // allies +15% ATK for 3 rounds
-        var r3 = SkillLeveling.At(c, rally, 3);
-        Assert.Equal(40, r3.Triggers[0].Stat.Percent, 6);
-        Assert.Equal(3, r3.Triggers[0].Duration);
+        // buff: the value grows (Battle Rhythm: +3% → +5% → +8% ATK per combo)
+        Assert.Equal(8, SkillLeveling.At(c, c.Skill("combo_rhythm")!, 3).Triggers[0].Stat.Percent, 6);
+        // a drone summon grows its power (Mothership Link: 30% → 50% → 80% of ATK); sidekick actions are a count (Awaken: Command 1 → 2 → 3)
+        var link = c.Skill("alien_rally")!;
+        Assert.Equal(50, SkillLeveling.At(c, link, 2).Triggers[0].Value, 6);
+        Assert.Equal(80, SkillLeveling.At(c, link, 3).Triggers[0].Value, 6);
         // passive stat skill: its own package grows
         Assert.Equal(40, SkillLeveling.At(c, c.Skill("bleed_razor")!, 3).Stats[0].Flat, 6);
         // the content def is never mutated

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
@@ -56,9 +57,10 @@ namespace RogueStars.Client.Screens
             }
             Ui.Label(head, (def?.Name ?? a.TypeId) + "  " + Fmt.Stars(a.Stars), Theme.FontNormal, Color.Lerp(color, Color.white, 0.4f));
             Ui.Label(head, "Lv " + a.Level + "/" + AlienSystem.MaxLevel(Content, a), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
-            var stats = AlienSystem.CombatStats(Content, a);
-            Note(card, "HP " + Fmt.Num(stats.Value(StatId.Hp)) + " · ATK " + Fmt.Num(stats.Value(StatId.Atk)) + " · DEF " + Fmt.Num(stats.Value(StatId.Def))
-                       + " · Work " + AlienSystem.WorkPower(Content, a).ToString("0.#"));
+            // a sidekick (sidekick pass): its one ability, its power (HP / ATK / DEF fold into it) and how often it acts (Speed)
+            var ability = Ui.Label(card, AbilityLine(Content, a), Theme.FontSmall, Color.Lerp(color, Color.white, 0.55f), TextAnchor.MiddleLeft, "Ability");
+            ability.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Note(card, PowerLine(Content, a) + " · Work " + AlienSystem.WorkPower(Content, a).ToString("0.#"));
             string work = a.WorkBuildingId != null ? "works at " + (Content.Blueprint(a.WorkBuildingId)?.Name ?? a.WorkBuildingId) : "idle";
             bool inSquad = State.Aliens.Squad.Contains(a.TypeId);
             Note(card, work + (inSquad ? " · in squad" : "") + (a.Traits.Count > 0 ? " · traits: " + string.Join(", ", a.Traits.ConvertAll(t => Content.AlienTrait(t)?.Name ?? t)) : ""));
@@ -73,6 +75,27 @@ namespace RogueStars.Client.Screens
                 a.Stars < AlienSystem.MaxStars && shards >= need, 26);
             Ui.Button(row, "Assign", () => AssignModal(a), Theme.Button, -1, 80, true, 26);
             Ui.Button(row, inSquad ? "Bench" : "Squad", () => ToggleSquad(a.TypeId, slots), Theme.Accent, -1, 80, inSquad || State.Aliens.Squad.Count < slots, 26);
+        }
+
+        /// <summary>"Ability: Block — Intercept the next hit on the worm." (the ability of the alien's current star tier).</summary>
+        public static string AbilityLine(ContentDb content, OwnedAlien a)
+        {
+            var skill = content.Skill(AlienSystem.ArchetypeSkillId(content, a));
+            if (skill == null) return "Ability: none";
+            string name = BattlePlaybackScreen.AbilityName(skill.Id, content.AlienType(a.TypeId)?.Name, content);
+            return "Ability: " + name + " — " + SkillText.Full(skill);
+        }
+
+        /// <summary>"Power 52 · acts about every 3 turns" (ability power before the squad's alien power; Speed sets the act frequency).</summary>
+        public static string PowerLine(ContentDb content, OwnedAlien a) =>
+            "Power " + Fmt.Num(Math.Round(AlienSystem.AbilityPower(content, a))) + " · " + ActsText(AlienSystem.ActsEvery(content, a));
+
+        /// <summary>"acts about every 3 turns" / "every 2.5 turns" / "every turn" (halves).</summary>
+        public static string ActsText(double every)
+        {
+            if (double.IsInfinity(every) || every <= 0) return "never acts";
+            double r = Math.Max(1, Math.Round(every * 2) / 2);
+            return r <= 1 ? "acts every turn" : "acts about every " + r.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " turns";
         }
 
         private void ToggleSquad(string typeId, int slots)

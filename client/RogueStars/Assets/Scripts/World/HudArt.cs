@@ -240,6 +240,71 @@ namespace RogueStars.Client.World
             return s2;
         }
 
+        /// <summary>
+        /// A drone sidekick (placeholder for ArtCatalog Art/Sidekicks/&lt;id&gt;): a small hovering pod with a glowing eye, two rotor
+        /// arms and a hover glow under it.
+        /// </summary>
+        public static Sprite Drone()
+        {
+            const string key = "drone";
+            if (Cache.TryGetValue(key, out var s) && s != null) return s;
+            int w = 256, h = 256;
+            var p = new IsoPaint(w, h);
+            float cx = w / 2f;
+            var hull = (Color)new Color32(0x8C, 0xE0, 0x5A, 255);
+            var metal = (Color)new Color32(0xA8, 0xB0, 0xD0, 255);
+            p.Ellipse(cx, 30, 70, 14, (x, y) => new Color(0.5f, 1f, 0.6f, 0.4f * Mathf.Clamp01(1 - Mathf.Abs(x - cx) / 70f)));
+            // rotor arms and their spinning discs
+            foreach (int side in new[] { -1, 1 })
+            {
+                p.Line(V(cx + side * 40, 150), V(cx + side * 96, 186), 16, Ink);
+                p.Line(V(cx + side * 40, 150), V(cx + side * 96, 186), 8, metal);
+                p.Ellipse(cx + side * 98, 194, 46, 10, new Color(0.85f, 0.95f, 1f, 0.55f));
+                p.Blob(cx + side * 98, 190, 12, 9, Shade(metal, -0.2f), Ink, 4);
+            }
+            // the pod and its eye
+            p.Blob(cx, 132, 66, 58, VGrad(Shade(hull, -0.4f), Shade(hull, 0.2f), 74, 190), Ink, 7);
+            p.Blob(cx, 120, 48, 14, Shade(hull, -0.5f), Ink, 4);
+            p.Blob(cx + 6, 146, 26, 24, (Color)new Color32(0x1C, 0x22, 0x3A, 255), Ink, 5);
+            p.Circle(cx + 10, 148, 13, new Color32(0xFF, 0xE0, 0x48, 255));
+            p.Circle(cx + 14, 153, 5, Color.white);
+            p.Ellipse(cx - 30, 168, 12, 7, new Color(1, 1, 1, 0.35f));
+            var made = p.ToSprite("rs_hud_drone", V(cx, 30));
+            Cache[key] = made;
+            return made;
+        }
+
+        /// <summary>
+        /// A generic alien sidekick (placeholder until ArtCatalog Art/Aliens/&lt;id&gt; exists): a round critter in its synergy's colour
+        /// with big eyes, a little antenna and stubby feet.
+        /// </summary>
+        public static Sprite AlienCritter(Color body)
+        {
+            string key = "critter_" + ColorUtility.ToHtmlStringRGB(body);
+            if (Cache.TryGetValue(key, out var s) && s != null) return s;
+            int w = 256, h = 256;
+            var p = new IsoPaint(w, h);
+            float cx = w / 2f;
+            p.Ellipse(cx, 22, 74, 12, new Color(0, 0, 0, 0.25f));
+            p.Blob(cx - 38, 34, 24, 16, Shade(body, -0.35f), Ink, 5);
+            p.Blob(cx + 38, 34, 24, 16, Shade(body, -0.35f), Ink, 5);
+            p.Line(V(cx + 8, 196), V(cx + 30, 236), 9, Ink);
+            p.Line(V(cx + 8, 196), V(cx + 30, 236), 4, Shade(body, -0.2f));
+            p.Blob(cx + 32, 238, 13, 13, new Color32(0xFF, 0xD8, 0x48, 255), Ink, 4);
+            p.Blob(cx, 112, 92, 86, VGrad(Shade(body, -0.35f), Shade(body, 0.25f), 30, 198), Ink, 7);
+            p.Ellipse(cx - 34, 160, 20, 12, new Color(1, 1, 1, 0.3f));
+            foreach (int side in new[] { -1, 1 })
+            {
+                p.Blob(cx + side * 30, 124, 22, 26, Color.white, Ink, 5);
+                p.Circle(cx + side * 30 + 6, 120, 11, new Color32(0x1C, 0x1A, 0x2E, 255));
+                p.Circle(cx + side * 30 + 10, 126, 4, Color.white);
+            }
+            p.Line(V(cx - 16, 78), V(cx + 16, 78), 6, Ink);
+            var made = p.ToSprite("rs_hud_critter", V(cx, 22));
+            Cache[key] = made;
+            return made;
+        }
+
         private static Sprite _arena;
 
         /// <summary>

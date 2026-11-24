@@ -16,7 +16,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Lacerate | `sig_bleed` | Bleed | start | On hit: apply Bleed to the enemy. | On hit: apply Bleed ×2 to the enemy. On hit: apply Bleed ×3 to the enemy. |
 | Ignite | `sig_fire` | Fire | start | On hit: apply Heat to the enemy. | On hit: apply Heat ×2 to the enemy. On hit: apply Heat ×3 to the enemy. |
 | Irradiate | `sig_radiation` | Radiation | start | On hit: apply Radiation to the enemy. | On hit: apply Radiation ×2 to the enemy. On hit: apply Radiation ×3 to the enemy. |
-| Command | `sig_alien` | Alien | Alien Package | Each round: one of your aliens attacks again. | Each round: 2 of your aliens attack again. Each round: 3 of your aliens attack again. |
+| Command | `sig_alien` | Alien | Alien Package | Each round: one of your sidekicks takes an extra action. | Each round: 2 extra sidekick actions. Each round: 3 extra sidekick actions. |
 | Flurry | `sig_combo` | Combo | Combo Package | On hit: 30% chance to strike again. | On hit: 45% chance to strike again. On hit: 60% chance to strike again. |
 | Riposte | `sig_counter` | Counter | Counter Package | When hit: 30% chance to counterattack. | When hit: 45% chance to counterattack. When hit: 60% chance to counterattack. |
 | Chill | `sig_ice` | Ice | Ice Package | On hit: apply Chill to the enemy. | On hit: apply Chill ×2 to the enemy. On hit: apply Chill ×3 to the enemy. |
@@ -148,18 +148,19 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Bloodlust | `mythic_bloodlust` | Mythic | Run · Bleed | 1 | End of each round: consume all enemies' Bleed: 20% ATK damage per stack, heal 60% of it (every 3 rounds). |
 | Crimson Tide | `bleed_crimson_tide` | Mythic | Run · Bleed | 1 | +10% life steal. On crit: apply Bleed ×2 to all enemies. |
 | Thousand Cuts | `mythic_thousand_cuts` | Mythic | Run · Bleed | 1 | +40% bleed damage. On hit: 60% chance to apply Bleed ×2 to the enemy. |
-| Rally Cry | `alien_rally` | Common | Run · Alien | 1 | Battle start: all allies get +15% ATK for 3 rounds. |
-| | | | | 2 | Battle start: all allies get +15% → +25% ATK for 3 rounds. |
-| | | | | 3 | Battle start: all allies get +25% → +40% ATK for 3 rounds. |
-| Squad Bond | `alien_bond` | Common | Run · Alien | 1 | +24% alien power. |
-| | | | | 2 | +24% → +40% alien power. |
-| | | | | 3 | +40% → +64% alien power. |
-| Alien Charm | `alien_charmer` | Legendary | Run · Alien | 1 | On attack: 15% chance to apply Charm to the enemy. |
-| | | | | 2 | On attack: 15% → 24% chance to apply Charm to the enemy. |
-| Hivemind | `alien_hivemind` | Legendary | Run · Alien | 1 | +40% alien power. Each round: heal the worm for 3% of max HP. |
-| | | | | 2 | +40% → +64% alien power. Each round: heal the worm for 3% → 5% of max HP. |
-| Ark Command | `mythic_ark_command` | Mythic | Run · Alien | 1 | +60% alien power. Battle start: all allies get +20% ATK for 3 rounds. |
-| Overmind | `alien_overmind` | Mythic | Run · Alien | 1 | +50% alien power. Each round: all allies gain 25 rage. |
+| Mothership Link | `alien_rally` | Common | Run · Alien | 1 | Battle start: launch a Drone sidekick (30% of the summoner's ATK as power). |
+| | | | | 2 | Battle start: launch a Drone sidekick (30% → 50% of the summoner's ATK as power). |
+| | | | | 3 | Battle start: launch a Drone sidekick (50% → 80% of the summoner's ATK as power). |
+| Squad Bond | `alien_bond` | Common | Run · Alien | 1 | +45% alien power. |
+| | | | | 2 | +45% → +75% alien power. |
+| | | | | 3 | +75% → +120% alien power. |
+| Alien Charm | `alien_charmer` | Legendary | Run · Alien | 1 | When a sidekick acts: 45% chance to apply Charm to the enemy. |
+| | | | | 2 | When a sidekick acts: 45% → 72% chance to apply Charm to the enemy. |
+| Hivemind | `alien_hivemind` | Legendary | Run · Alien | 1 | +40% alien power. When a sidekick acts: heal the worm for 6% of max HP. |
+| | | | | 2 | +40% → +64% alien power. When a sidekick acts: heal the worm for 6% → 9.5% of max HP. |
+| Ark Command | `mythic_ark_command` | Mythic | Run · Alien | 1 | +60% alien power. Battle start: 3 extra sidekick actions. |
+| Overmind | `alien_overmind` | Mythic | Run · Alien | 1 | +50% alien power. +50% sidekick speed. |
+| Swarm Beacon | `mythic_swarm_call` | Mythic | Run · Alien | 1 | Battle start: launch 3 Drone sidekicks (40% of the summoner's ATK as power). |
 | Counter Stance | `counter_riposte` | Common | Run · Counter | 1 | +15% counter chance. |
 | | | | | 2 | +15% → +25% counter chance. |
 | | | | | 3 | +25% → +40% counter chance. |
@@ -296,16 +297,16 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Bloodletting V | `lab_bloodletting_5` | Common | Laboratory · Bleed | 1 | On rage attack: deal 90% ATK damage to the enemy. On rage attack: apply Bleed ×2 to the enemy. |
 | | | | | 2 | On rage attack: deal 90% → 150% ATK damage to the enemy. On rage attack: apply Bleed ×2 → ×3 to the enemy. |
 | | | | | 3 | On rage attack: deal 150% → 240% ATK damage to the enemy. On rage attack: apply Bleed ×3 → ×5 to the enemy. |
-| Pack Tactics | `lab_pack_tactics` | Legendary | Laboratory · Alien | 1 | +15% alien power. Battle start: all allies gain 20 rage. |
-| | | | | 2 | +15% → +24% alien power. Battle start: all allies gain 20 → 32 rage. |
-| Pack Tactics II | `lab_pack_tactics_2` | Legendary | Laboratory · Alien | 1 | +30% alien power. Battle start: all allies gain 30 rage. |
-| | | | | 2 | +30% → +48% alien power. Battle start: all allies gain 30 → 48 rage. |
-| Pack Tactics III | `lab_pack_tactics_3` | Legendary | Laboratory · Alien | 1 | +45% alien power. Battle start: all allies gain 40 rage. |
-| | | | | 2 | +45% → +72% alien power. Battle start: all allies gain 40 → 64 rage. |
-| Pack Tactics IV | `lab_pack_tactics_4` | Legendary | Laboratory · Alien | 1 | +60% alien power. Battle start: all allies gain 50 rage. |
-| | | | | 2 | +60% → +96% alien power. Battle start: all allies gain 50 → 80 rage. |
-| Pack Tactics V | `lab_pack_tactics_5` | Legendary | Laboratory · Alien | 1 | +75% alien power. Battle start: all allies gain 60 rage. |
-| | | | | 2 | +75% → +120% alien power. Battle start: all allies gain 60 → 96 rage. |
+| Pack Tactics | `lab_pack_tactics` | Legendary | Laboratory · Alien | 1 | +15% alien power. When a sidekick acts: the worm gain 10 rage. |
+| | | | | 2 | +15% → +24% alien power. When a sidekick acts: the worm gain 10 → 16 rage. |
+| Pack Tactics II | `lab_pack_tactics_2` | Legendary | Laboratory · Alien | 1 | +30% alien power. When a sidekick acts: the worm gain 15 rage. |
+| | | | | 2 | +30% → +48% alien power. When a sidekick acts: the worm gain 15 → 24 rage. |
+| Pack Tactics III | `lab_pack_tactics_3` | Legendary | Laboratory · Alien | 1 | +45% alien power. When a sidekick acts: the worm gain 20 rage. |
+| | | | | 2 | +45% → +72% alien power. When a sidekick acts: the worm gain 20 → 32 rage. |
+| Pack Tactics IV | `lab_pack_tactics_4` | Legendary | Laboratory · Alien | 1 | +60% alien power. When a sidekick acts: the worm gain 25 rage. |
+| | | | | 2 | +60% → +96% alien power. When a sidekick acts: the worm gain 25 → 40 rage. |
+| Pack Tactics V | `lab_pack_tactics_5` | Legendary | Laboratory · Alien | 1 | +75% alien power. When a sidekick acts: the worm gain 30 rage. |
+| | | | | 2 | +75% → +120% alien power. When a sidekick acts: the worm gain 30 → 48 rage. |
 | Retaliation | `lab_retaliation` | Common | Laboratory · Counter | 1 | +10% counter chance. On counter: 10% chance to apply Stun to the enemy. |
 | | | | | 2 | +10% → +17% counter chance. On counter: 10% → 17% chance to apply Stun to the enemy. |
 | | | | | 3 | +17% → +27% counter chance. On counter: 17% → 27% chance to apply Stun to the enemy. |

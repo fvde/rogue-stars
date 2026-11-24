@@ -164,7 +164,7 @@ public class SignatureTests
         Assert.Equal("On hit: apply Bleed to the enemy.", T("sig_bleed"));
         Assert.Equal("On hit: apply Chill to the enemy.", T("sig_ice"));
         Assert.Equal("On hit: jump to 1 other enemy for 50% ATK damage.", T("sig_lightning"));
-        Assert.Equal("Each round: one of your aliens attacks again.", T("sig_alien"));
+        Assert.Equal("Each round: one of your sidekicks takes an extra action.", T("sig_alien"));
         Assert.Equal("When hit: 30% chance to counterattack.", T("sig_counter"));
         Assert.Equal("On hit: 30% chance to strike again.", T("sig_combo"));
         Assert.Equal(new[] { "Awakened (3 Fire skills): On hit: apply Heat ×2 to the enemy.", "Awakened (6 Fire skills): On hit: apply Heat ×3 to the enemy." },
@@ -242,7 +242,8 @@ public class SignatureTests
             for (int i = 0; i < 3; i++)
             {
                 var a = new CombatAlien { AlienTypeId = "a" + i, Name = "A" + i };
-                a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 40)).Add(new StatMod(StatId.Speed, 90));
+                a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 40)).Add(new StatMod(StatId.Speed, 40));
+                a.SkillIds.Add("ask_voidmaw_1"); // a sidekick acts with its ability (sidekick pass)
                 lo.Aliens.Add(a);
             }
         var setup = new BattleSetup { RoundCap = rounds };
@@ -350,7 +351,7 @@ public class SignatureTests
         var arc = F("sig_lightning");
         Assert.True(arc.Log.Any(x => x.SkillId == "sig_lightning" && x.Action == BattleAction.Skill && x.Amount > 0), "arc");
         Assert.All(arc.Log.Where(x => x.SkillId == "sig_lightning" && x.Action == BattleAction.Skill), x => Assert.Equal(BattleSide.Enemy, arc.Fighters[x.Target].Side));
-        int alienHits(BattleResult r) => r.Log.Count(x => x.Action == BattleAction.Basic && x.Actor >= 0 && r.Fighters[x.Actor].Role == CombatRole.Alien);
+        int alienHits(BattleResult r) => r.Log.Count(x => x.Action == BattleAction.SidekickAct && x.Actor >= 0 && r.Fighters[x.Actor].Role == CombatRole.Alien);
         Assert.True(alienHits(F("sig_alien", true)) > alienHits(Fight(c, new string[0], rounds: 12, enemyHp: 30, aliens: true)));
         Assert.True(F("sig_counter").Log.Any(x => x.Action == BattleAction.Counter), "riposte");
         Assert.True(F("sig_combo").Log.Any(x => x.Action == BattleAction.Combo), "flurry");

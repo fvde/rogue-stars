@@ -31,6 +31,20 @@ namespace RogueStars.Rules.Content
         public List<string> PossibleTraits = new List<string>();
     }
 
+    /// <summary>
+    /// A summoned sidekick (sidekick pass): exists for one battle, never attacked, charges by Speed and uses its one ability.
+    /// Its ability power is a % of the summoner's ATK (the Summon trigger's Value), x the side's alien power.
+    /// </summary>
+    [Serializable]
+    public sealed class SidekickDef
+    {
+        public string Id;
+        public string Name;
+        public string Description;
+        public double Speed;
+        public string AbilitySkillId;
+    }
+
     [Serializable]
     public sealed class AlienTraitDef
     {
@@ -80,6 +94,9 @@ namespace RogueStars.Rules.Content
         public readonly AlienTuningDef AlienTuning = new AlienTuningDef();
 
         public AlienTypeDef AlienType(string id) => id != null && AlienTypes.TryGetValue(id, out var a) ? a : null;
+        /// <summary>Battle-scoped sidekicks (drones) by id (EffectKind.Summon on the player side).</summary>
+        public readonly Dictionary<string, SidekickDef> Sidekicks = new Dictionary<string, SidekickDef>();
+        public SidekickDef Sidekick(string id) => id != null && Sidekicks.TryGetValue(id, out var d) ? d : null;
         public AlienTraitDef AlienTrait(string id) => id != null && AlienTraits.TryGetValue(id, out var t) ? t : null;
 
         partial void BuildAliens()
@@ -91,37 +108,54 @@ namespace RogueStars.Rules.Content
             AlienWorkTrait("trait_scholar", "Scholar", 15, 8, Currencies.HeroXp, Currencies.BlueprintTokens, Currencies.AlienTokens);
             AlienWorkTrait("trait_tireless", "Tireless", 10, 10);
             AlienWorkTrait("trait_prodigy", "Prodigy", 18, 3);
-            // Aliens are never attacked (untargetable), so HP / DEF traits did nothing in battle: Tough and Armored became
-            // offensive traits (ids kept for saved aliens).
-            AlienCombatTrait("trait_tough", "Brawler", 12, new StatMod(StatId.ComboChance, 12));
-            AlienCombatTrait("trait_fierce", "Fierce", 12, new StatMod(StatId.Atk, 0, 12));
-            AlienCombatTrait("trait_armored", "Giant Slayer", 10, new StatMod(StatId.BossDamage, 15));
-            AlienCombatTrait("trait_swift", "Swift", 10, new StatMod(StatId.DodgeIgnore, 15)); // was +15% Speed: an alien's speed orders nothing
-            AlienCombatTrait("trait_lucky", "Lucky", 8, new StatMod(StatId.CritChance, 5));
-            AlienCombatTrait("trait_vampiric", "Vampiric", 5, new StatMod(StatId.LifeSteal, 5));
-            AlienCombatTrait("trait_pyromaniac", "Pyromaniac", 6, new StatMod(StatId.FireDamage, 15));
-            AlienCombatTrait("trait_stormborn", "Stormborn", 6, new StatMod(StatId.LightningDamage, 15));
+            // Sidekicks (sidekick pass): aliens are never attacked; HP, ATK and DEF all fold into their ability power and Speed sets how
+            // often they act. Combat traits raise one of those (ids kept for saved aliens: Tough / Armored were Brawler / Giant Slayer,
+            // Swift was dodge ignore).
+            AlienCombatTrait("trait_tough", "Tough", 12, new StatMod(StatId.Hp, 0, 15), "more ability power");
+            AlienCombatTrait("trait_fierce", "Fierce", 12, new StatMod(StatId.Atk, 0, 15), "more ability power");
+            AlienCombatTrait("trait_armored", "Armored", 10, new StatMod(StatId.Def, 0, 30), "more ability power");
+            AlienCombatTrait("trait_swift", "Swift", 10, new StatMod(StatId.Speed, 0, 15), "acts more often");
+            AlienCombatTrait("trait_lucky", "Lucky", 8, new StatMod(StatId.CritChance, 10), "damage abilities crit more");
+            AlienCombatTrait("trait_vampiric", "Vampiric", 5, new StatMod(StatId.LifeSteal, 8), "damage abilities heal the worm");
+            AlienCombatTrait("trait_pyromaniac", "Pyromaniac", 6, new StatMod(StatId.FireDamage, 15), "hotter Heat");
+            AlienCombatTrait("trait_stormborn", "Stormborn", 6, new StatMod(StatId.LightningDamage, 15), "stronger Shock");
 
             // ---- species: id, name, rarity, family, archetype, role ----
             AlienSpecies("alien_blorp", "Blorp", Rarity.Common, SkillFamily.Bleed, "bleeder", "balanced", "trait_tough", "trait_green_thumb", "trait_tireless");
             AlienSpecies("alien_mossling", "Mossling", Rarity.Common, SkillFamily.AlienSynergy, "healer", "worker", "trait_green_thumb", "trait_tough", "trait_tireless");
-            AlienSpecies("alien_pebblehorn", "Pebblehorn", Rarity.Common, SkillFamily.Counter, "shielder", "tank", "trait_armored", "trait_deep_digger", "trait_tough");
+            AlienSpecies("alien_pebblehorn", "Pebblehorn", Rarity.Common, SkillFamily.Counter, "blocker", "tank", "trait_armored", "trait_deep_digger", "trait_swift");
             AlienSpecies("alien_zib", "Zib", Rarity.Common, SkillFamily.Combo, "rager", "dps", "trait_swift", "trait_fierce", "trait_tinkerer");
             AlienSpecies("alien_glimmerfly", "Glimmerfly", Rarity.Common, SkillFamily.Lightning, "shocker", "balanced", "trait_stormborn", "trait_swift", "trait_scholar");
             AlienSpecies("alien_emberkit", "Emberkit", Rarity.Rare, SkillFamily.Fire, "burner", "dps", "trait_pyromaniac", "trait_fierce", "trait_tinkerer");
-            AlienSpecies("alien_frostmite", "Frostmite", Rarity.Rare, SkillFamily.Ice, "freezer", "tank", "trait_armored", "trait_tough", "trait_deep_digger");
-            AlienSpecies("alien_sporeling", "Sporeling", Rarity.Rare, SkillFamily.Poison, "poisoner", "worker", "trait_green_thumb", "trait_tireless", "trait_vampiric");
-            AlienSpecies("alien_clackclaw", "Clackclaw", Rarity.Rare, SkillFamily.Counter, "counter", "tank", "trait_armored", "trait_deep_digger", "trait_lucky");
+            AlienSpecies("alien_frostmite", "Frostmite", Rarity.Rare, SkillFamily.Ice, "freezer", "tank", "trait_armored", "trait_swift", "trait_deep_digger");
+            AlienSpecies("alien_sporeling", "Sporeling", Rarity.Rare, SkillFamily.Poison, "poisoner", "worker", "trait_green_thumb", "trait_tireless", "trait_tough");
+            AlienSpecies("alien_clackclaw", "Clackclaw", Rarity.Rare, SkillFamily.Counter, "counter", "tank", "trait_armored", "trait_deep_digger", "trait_tough");
             AlienSpecies("alien_whirrbit", "Whirrbit", Rarity.Rare, SkillFamily.Combo, "combo", "worker", "trait_tinkerer", "trait_swift", "trait_scholar");
             AlienSpecies("alien_voidmaw", "Voidmaw", Rarity.Epic, SkillFamily.Crit, "striker", "dps", "trait_fierce", "trait_lucky", "trait_vampiric");
-            AlienSpecies("alien_thornqueen", "Thornqueen", Rarity.Epic, SkillFamily.Bleed, "bleeder", "balanced", "trait_vampiric", "trait_tough", "trait_green_thumb");
+            AlienSpecies("alien_thornqueen", "Thornqueen", Rarity.Epic, SkillFamily.Bleed, "bleeder", "balanced", "trait_fierce", "trait_tough", "trait_green_thumb");
             AlienSpecies("alien_gravitoad", "Gravitoad", Rarity.Epic, SkillFamily.Counter, "shielder", "tank", "trait_armored", "trait_tough", "trait_deep_digger");
             AlienSpecies("alien_solarch", "Solarch", Rarity.Legendary, SkillFamily.Fire, "burner", "dps", "trait_pyromaniac", "trait_fierce", "trait_prodigy");
             AlienSpecies("alien_tidecaller", "Tidecaller", Rarity.Legendary, SkillFamily.AlienSynergy, "healer", "worker", "trait_prodigy", "trait_scholar", "trait_tough");
-            AlienSpecies("alien_nebulisk", "Nebulisk", Rarity.Mythic, SkillFamily.Crit, "crit", "dps", "trait_lucky", "trait_stormborn", "trait_prodigy");
+            AlienSpecies("alien_nebulisk", "Nebulisk", Rarity.Mythic, SkillFamily.Crit, "crit", "dps", "trait_swift", "trait_fierce", "trait_prodigy");
+
+            // ---- battle-scoped sidekicks (summoned for one battle: Hive Carrier drones, Mothership Link, Swarm Beacon) ----
+            AddSidekick("sk_drone", "Drone", 40, "Zaps the front enemy.",
+                new SkillTrigger { When = TriggerKind.OnAct, Effect = EffectKind.Damage, Target = TargetKind.Enemy, Value = 150 });
         }
 
         // ---- content helpers (aliens) --------------------------------------------------------
+
+        private void AddSidekick(string id, string name, double speed, string description, params SkillTrigger[] ability)
+        {
+            var skill = new SkillDef
+            {
+                Id = "skab_" + id.Replace("sk_", ""), Name = name + " Zap", Description = description, Family = SkillFamily.AlienSynergy,
+                Rarity = Rarity.Common, Source = SkillSource.Alien, Draftable = false,
+            };
+            skill.Triggers.AddRange(ability);
+            AddSkill(skill);
+            Sidekicks.Add(id, new SidekickDef { Id = id, Name = name, Speed = speed, Description = description, AbilitySkillId = skill.Id });
+        }
 
         private void AlienWorkTrait(string id, string name, double pct, double weight, params string[] currencies)
         {
@@ -132,9 +166,9 @@ namespace RogueStars.Rules.Content
             AlienTraitOrder.Add(id);
         }
 
-        private void AlienCombatTrait(string id, string name, double weight, StatMod mod)
+        private void AlienCombatTrait(string id, string name, double weight, StatMod mod, string what)
         {
-            var t = new AlienTraitDef { Id = id, Name = name, Weight = weight, Description = name + ": " + SkillText.Stat(mod) + " in battle." };
+            var t = new AlienTraitDef { Id = id, Name = name, Weight = weight, Description = name + ": " + SkillText.Stat(mod) + " (" + what + ")." };
             t.CombatStats.Add(mod);
             AlienTraits.Add(id, t);
             AlienTraitOrder.Add(id);
@@ -143,7 +177,8 @@ namespace RogueStars.Rules.Content
         private static readonly double[] AlienBaseHp = { 200, 260, 340, 450, 600 };
         private static readonly double[] AlienBaseAtk = { 20, 26, 34, 45, 60 };
         private static readonly double[] AlienBaseDef = { 5, 7, 9, 12, 16 };
-        private static readonly double[] AlienBaseSpeed = { 10, 11, 12, 13, 15 };
+        /// <summary>Sidekick charge per turn (Combat.SidekickActAt = 100): a Common acts about every 3 rounds, a Legendary about every 2.3, a Mythic every 2.</summary>
+        private static readonly double[] AlienBaseSpeed = { 34, 37, 40, 44, 50 };
         private static readonly double[] AlienBaseWork = { 10, 13, 17, 22, 30 };
 
         private void AlienSpecies(string id, string name, Rarity rarity, SkillFamily family, string archetype, string role, params string[] traits)
@@ -183,64 +218,91 @@ namespace RogueStars.Rules.Content
             AlienTypes.Add(id, a);
         }
 
-        /// <summary>Archetype templates; tier 0..4 (stars 1/3/5/7/10), rarity adds a small boost.</summary>
+        /// <summary>
+        /// Archetype abilities (sidekick pass): each alien has ONE ability it uses when it acts (TriggerKind.OnAct); tier 0..4 =
+        /// stars 1/3/5/7/10 (later tiers replace earlier ones), rarity adds a small boost. Damage and status power come from the
+        /// alien's ability power (its ATK in battle); heals, shields, rage and buffs also scale with it (Combat.SidekickSupport*).
+        /// Only the Mythic (Nebulisk) has a two-part ability.
+        /// </summary>
         private static SkillDef AlienArchetypeSkill(string archetype, int tier, int rarity)
         {
             double k = 1 + 0.1 * rarity;
             var s = new SkillDef();
+            SkillTrigger Act(EffectKind e, TargetKind target)
+            {
+                var t = new SkillTrigger { When = TriggerKind.OnAct, Effect = e, Target = target };
+                s.Triggers.Add(t);
+                return t;
+            }
             switch (archetype)
             {
                 case "striker":
-                    s.Name = "Void Strike"; s.Description = "30% chance on attack to deal extra damage.";
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnAttack, Chance = 30, Effect = EffectKind.Damage, Value = AlienPick(tier, 40, 52, 66, 82, 105) * k });
+                    s.Name = "Void Strike"; s.Description = "Strikes the front enemy.";
+                    Act(EffectKind.Damage, TargetKind.Enemy).Value = R1(AlienPick(tier, 150, 180, 210, 245, 290) * k);
                     break;
                 case "healer":
-                    s.Name = "Soothing Spores"; s.Description = "Heals the worm every round.";
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Heal, Target = TargetKind.Worm, Value = AlienPick(tier, 2, 2.6, 3.3, 4.2, 5.5) * k });
+                    s.Name = "Soothing Spores"; s.Description = "Heals the worm.";
+                    Act(EffectKind.Heal, TargetKind.Worm).Value = R1(AlienPick(tier, 5, 6, 7, 8.5, 10) * k);
                     break;
                 case "shielder":
-                    s.Name = "Rock Ward"; s.Description = "Shields the worm at battle start.";
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Shield, Target = TargetKind.Worm, Value = AlienPick(tier, 8, 11, 14, 18, 24) * k });
+                    s.Name = "Rock Ward"; s.Description = "Shields the worm.";
+                    Act(EffectKind.Shield, TargetKind.Worm).Value = R1(AlienPick(tier, 8, 10, 12, 14.5, 17) * k);
+                    break;
+                case "blocker":
+                    s.Name = "Block"; s.Description = "Intercepts the next hit on the worm.";
+                    Act(EffectKind.Block, TargetKind.Worm).Stacks = tier >= 4 ? 3 : tier >= 2 ? 2 : 1;
                     break;
                 case "rager":
-                    s.Name = "War Chant"; s.Description = "Fills the worm's rage every round.";
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.GainRage, Target = TargetKind.Worm, Value = AlienPick(tier, 6, 8, 10, 13, 17) * k });
+                    s.Name = "War Chant"; s.Description = "Fills the worm's rage.";
+                    Act(EffectKind.GainRage, TargetKind.Worm).Value = R1(AlienPick(tier, 20, 25, 30, 36, 45) * k);
                     break;
-                case "burner": s.Name = "Kindle"; s.Description = "Attacks may add Heat."; s.Triggers.Add(AlienStatusTrigger(StatusId.Heat, tier, k, 3)); break;
-                case "freezer": s.Name = "Rime Bite"; s.Description = "Attacks may Freeze."; s.Triggers.Add(AlienStatusTrigger(StatusId.Freeze, tier, k * 0.5, 1)); break;
-                case "shocker": s.Name = "Static Wings"; s.Description = "Attacks may Shock."; s.Triggers.Add(AlienStatusTrigger(StatusId.Shock, tier, k * 0.8, 2)); break;
-                case "poisoner": s.Name = "Spore Cloud"; s.Description = "Attacks may irradiate."; s.Triggers.Add(AlienStatusTrigger(StatusId.Poison, tier, k, 4)); break;
-                case "bleeder": s.Name = "Thorn Lash"; s.Description = "Attacks may cause Bleed."; s.Triggers.Add(AlienStatusTrigger(StatusId.Bleed, tier, k, 3)); break;
+                case "burner": s.Name = "Kindle"; s.Description = "Heats the front enemy."; ActStatus(Act, StatusId.Heat, TargetKind.Enemy, AlienPickInt(tier, 1, 2, 2, 3, 3)); break;
+                case "freezer":
+                {
+                    s.Name = "Rime Bite"; s.Description = "May freeze the front enemy.";
+                    var t = ActStatus(Act, StatusId.Freeze, TargetKind.Enemy, 1);
+                    t.Chance = Math.Min(100, Math.Round(AlienPick(tier, 50, 60, 70, 80, 95) * k)); t.Duration = 1;
+                    break;
+                }
+                case "shocker": s.Name = "Static Wings"; s.Description = "Shocks the front enemy."; ActStatus(Act, StatusId.Shock, TargetKind.Enemy, AlienPickInt(tier, 1, 2, 2, 3, 3)); break;
+                case "poisoner": s.Name = "Spore Cloud"; s.Description = "Irradiates every enemy."; ActStatus(Act, StatusId.Poison, TargetKind.AllEnemies, AlienPickInt(tier, 2, 2, 3, 3, 4)); break;
+                case "bleeder": s.Name = "Thorn Lash"; s.Description = "Makes the front enemy bleed."; ActStatus(Act, StatusId.Bleed, TargetKind.Enemy, AlienPickInt(tier, 2, 2, 3, 3, 4)); break;
                 case "counter":
-                    // a stat on the alien itself did nothing (aliens are never attacked, so they never counter): it buffs the worm
-                    s.Name = "Snap Back"; s.Description = "The worm counters more often.";
-                    s.Triggers.Add(WormBuff(StatId.CounterChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
+                    s.Name = "Snap Back"; s.Description = "The worm counters more often for a while.";
+                    WormBuff(Act, StatId.CounterChance, AlienPick(tier, 6, 8, 10, 12, 14) * k);
                     break;
                 case "combo":
-                    s.Name = "Whirl"; s.Description = "The worm combos more often.";
-                    s.Triggers.Add(WormBuff(StatId.ComboChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
+                    s.Name = "Whirl"; s.Description = "The worm combos more often for a while.";
+                    WormBuff(Act, StatId.ComboChance, AlienPick(tier, 6, 8, 10, 12, 14) * k);
                     break;
                 case "crit":
-                    s.Name = "Starlight Eye"; s.Description = "The worm crits more often and harder.";
-                    s.Triggers.Add(WormBuff(StatId.CritChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
-                    s.Triggers.Add(WormBuff(StatId.CritDamage, AlienPick(tier, 10, 15, 20, 28, 40) * k));
+                    s.Name = "Starlight Eye"; s.Description = "The worm crits more often and harder for a while.";
+                    WormBuff(Act, StatId.CritChance, AlienPick(tier, 4, 5, 6, 8, 10) * k);
+                    WormBuff(Act, StatId.CritDamage, AlienPick(tier, 10, 13, 16, 21, 28) * k);
                     break;
                 default: throw new InvalidOperationException("unknown archetype " + archetype);
             }
             return s;
         }
 
-        private static SkillTrigger AlienStatusTrigger(StatusId status, int tier, double k, int duration) => new SkillTrigger
+        private static SkillTrigger ActStatus(Func<EffectKind, TargetKind, SkillTrigger> act, StatusId status, TargetKind target, int stacks)
         {
-            When = TriggerKind.OnAttack, Effect = EffectKind.ApplyStatus, Status = status, Duration = duration,
-            Chance = AlienPick(tier, 20, 25, 30, 36, 45) * k, Stacks = tier >= 3 ? 2 : 1,
-        };
+            var t = act(EffectKind.ApplyStatus, target);
+            t.Status = status; t.Stacks = stacks;
+            return t;
+        }
 
-        /// <summary>Support archetypes (counter / combo / crit) do what their text says: they raise the worm's stat for the battle.</summary>
-        private static SkillTrigger WormBuff(StatId stat, double points) => new SkillTrigger
+        /// <summary>Support abilities raise one of the worm's stats for <see cref="SidekickBuffRounds"/> rounds (about until the next action).</summary>
+        private static void WormBuff(Func<EffectKind, TargetKind, SkillTrigger> act, StatId stat, double points)
         {
-            When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.Worm, Stat = new StatMod(stat, points), Duration = 0,
-        };
+            var t = act(EffectKind.BuffStat, TargetKind.Worm);
+            t.Stat = new StatMod(stat, Math.Round(points)); t.Duration = SidekickBuffRounds; // whole points read better
+        }
+
+        public const int SidekickBuffRounds = 3;
+
+        private static double R1(double v) => Math.Round(v, 1);
+        private static int AlienPickInt(int tier, params int[] values) => values[Math.Min(tier, values.Length - 1)];
 
         private static double AlienPick(int tier, params double[] values) => values[Math.Min(tier, values.Length - 1)];
     }

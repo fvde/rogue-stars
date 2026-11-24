@@ -82,7 +82,8 @@ namespace RogueStars.Rules.Systems
             p += l.MetaSkillIds.Count * w.PowerPerSkill;
             p += (l.MountStats.Value(StatId.Atk) * 2 + l.MountStats.Value(StatId.Hp) * 0.2) * w.PowerPerMountStat;
             foreach (var a in l.Aliens)
-                if (a != null && a.Stats != null) p += (a.Stats.Value(StatId.Atk) * 2 + a.Stats.Value(StatId.Hp) * 0.2) * w.PowerPerAlienStat;
+                // sidekicks: ability power (HP / ATK / DEF fold into it); × 1.6 keeps the score where ATK×2 + HP×0.2 had it
+                if (a != null && a.Stats != null) p += BattleSimulator.SidekickPower(a.Stats, c) * 1.6 * w.PowerPerAlienStat;
             return (long)Math.Round(p);
         }
 

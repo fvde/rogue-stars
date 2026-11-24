@@ -243,8 +243,8 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.ParryChance, 5)); syn.Description = "Counters deal +{32}%; +{5} parry."; break;
                 case SkillFamily.AlienSynergy:
                     syn.Stats.Add(new StatMod(StatId.AlienPower, 18));
-                    syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.GainRage, Target = TargetKind.AllAllies, Value = 8 });
-                    syn.Description = "Aliens +{18}% power; the squad gains {8} rage every round."; break;
+                    syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnSidekickAct, Effect = EffectKind.GainRage, Target = TargetKind.Worm, Value = 10 });
+                    syn.Description = "Sidekicks +{18}% power; each sidekick action gives the worm {10} rage."; break;
                 default:
                     syn.Triggers.Add(Cond("vs_status:" + status, 22)); syn.Stats.Add(new StatMod(StatId.StatusChance, 8));
                     syn.Description = "+{22}% damage vs enemies with " + status + "; +{8} status chance."; break;
@@ -308,9 +308,9 @@ namespace RogueStars.Rules.Content
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnParry, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 110 });
                     ult.Stats.Add(new StatMod(StatId.ParryChance, 10)); ult.Description = "Parries reflect {110}% ATK true damage; +{10} parry."; break;
                 default:
-                    // (was a drone summon: drones are gone) the squad opens every battle with rage
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.GainRage, Target = TargetKind.AllAllies, Value = 40 });
-                    ult.Stats.Add(new StatMod(StatId.AlienPower, 25)); ult.Description = "Battle start: the squad gains {40} rage; aliens +{25}% power."; break;
+                    // the squad opens every battle: two sidekick actions (sidekick pass; was squad rage, which sidekicks do not use)
+                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = 2 });
+                    ult.Stats.Add(new StatMod(StatId.AlienPower, 25)); ult.Description = "Battle start: 2 sidekick actions; sidekicks +{25}% power."; break;
             }
 
             BuildAwakenedPartSkills(d, twin);
