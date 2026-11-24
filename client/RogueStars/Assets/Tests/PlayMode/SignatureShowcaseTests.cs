@@ -89,7 +89,7 @@ namespace RogueStars.Client.PlayTests
             Ui.Clear(_app.ModalLayer);
 
             // 3. a Fire battle: Heat stacks (the chip turns red near 10), then the Supernova and its hits on every fighter
-            var skills = new List<string> { "sig_fire", "fire_ember", "fire_flare" };
+            var skills = new List<string> { "sig_fire", "fire_ember", "fire_flashpoint" };
             var battle = FireBattle(c, skills);
             int hot = battle.Log.FindIndex(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Heat && e.Stacks >= 8);
             int nova = battle.Log.FindIndex(e => e.Action == BattleAction.Supernova && e.Amount == 0);

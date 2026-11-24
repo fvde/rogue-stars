@@ -233,5 +233,13 @@ namespace RogueStars.Client.App
             var full = RogueStars.Rules.Core.SkillText.Full(s);
             return string.IsNullOrEmpty(full) ? s.Description ?? "" : full;
         }
+
+        /// <summary>A card's text: the skill at a level (or its upgrade from <paramref name="owned"/>), costs marked for the warning colour.</summary>
+        public static string SkillCard(RogueStars.Rules.Content.ContentDb c, RogueStars.Rules.Core.SkillDef s, int owned)
+        {
+            if (s == null) return "";
+            var full = owned > 0 ? RogueStars.Rules.Core.SkillText.UpgradeFullMarked(c, s, owned, owned + 1) : RogueStars.Rules.Core.SkillText.FullMarked(c, s, 1);
+            return string.IsNullOrEmpty(full) ? s.Description ?? "" : full;
+        }
     }
 }

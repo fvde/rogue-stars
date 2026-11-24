@@ -43,16 +43,40 @@ namespace RogueStars.Client.Screens
         public static readonly Color Purple = new Color32(0xB8, 0x78, 0xF2, 255);
 
         private static readonly Regex Numbers = new Regex(@"([+\-−]?\d+(?:[.,]\d+)?\s?(?:%|×|x\b)?)", RegexOptions.Compiled);
-        private static readonly Regex Keys = new Regex(@"\b(Heat|Supernova|Radiation|Burn|Freeze|Frozen|Chill|Poison|Bleed|Stun|Shock|Shield|Heal|HP|ATK|DEF|Crit|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|SPD|Speed)\b", RegexOptions.Compiled);
+        private static readonly Regex Keys = new Regex(@"\b(Heat|Supernova|Radiation|Burn|Freeze|Frozen|Chill|Chilled|Poison|Bleed|Stun|Stuns|Shock|Shield|Heal|HP|ATK|DEF|Crit|Crits|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|SPD|Speed|Exposed|Stagger|Delay|Delayed|Charm|Arc|Arcs|Echo|Echoes|Signature)\b", RegexOptions.Compiled);
+        /// <summary>Warning colour for a skill's costs (trade-offs: "−15% max HP", "You take +20% damage").</summary>
+        public static readonly Color CostRed = new Color32(0xD2, 0x3C, 0x46, 255);
 
-        /// <summary>Rich text with the keywords coloured: numbers (and %) green, statuses / stats blue (pure; tested).</summary>
+        /// <summary>
+        /// Rich text with the keywords coloured: numbers (and %) green, statuses / stats blue; a cost marked by SkillText
+        /// (CostStart … CostEnd) is all in the warning colour (pure; tested).
+        /// </summary>
         public static string Keywords(string text)
         {
             if (string.IsNullOrEmpty(text)) return "";
+            var sb = new System.Text.StringBuilder();
+            string r = ColorUtility.ToHtmlStringRGB(CostRed);
+            int i = 0;
+            while (i < text.Length)
+            {
+                int s = text.IndexOf(SkillText.CostStart, i);
+                if (s < 0) { sb.Append(Plain(text.Substring(i))); break; }
+                sb.Append(Plain(text.Substring(i, s - i)));
+                int e = text.IndexOf(SkillText.CostEnd, s + 1);
+                if (e < 0) e = text.Length;
+                sb.Append("<color=#").Append(r).Append('>').Append(text, s + 1, e - s - 1).Append("</color>");
+                i = e + 1;
+            }
+            return sb.ToString();
+        }
+
+        private static string Plain(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
             string g = ColorUtility.ToHtmlStringRGB(KeyGreen), b = ColorUtility.ToHtmlStringRGB(KeyBlue);
-            var withKeys = Keys.Replace(text, m => "\u0001" + m.Value + "\u0002");
+            var withKeys = Keys.Replace(text, m => "\u0001" + m.Value + "\u0004");
             var withNums = Numbers.Replace(withKeys, m => "<color=#" + g + ">" + m.Value + "</color>");
-            return withNums.Replace("\u0001", "<color=#" + b + ">").Replace("\u0002", "</color>");
+            return withNums.Replace("\u0001", "<color=#" + b + ">").Replace("\u0004", "</color>");
         }
 
         private static Sprite _gold, _red, _blue;
