@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 [[ -f tools/art/prompts/direction.json ]] || { echo "missing tools/art/prompts/direction.json" >&2; exit 1; }
 curl -sf 127.0.0.1:8188/system_stats >/dev/null || { echo "ComfyUI not running on :8188" >&2; exit 1; }
 PY="arch -arm64 $HOME/AI/ComfyUI/.venv/bin/python"
-ORDER="simple-redo tile-redo grounds decor parts mounts hero-skins bosses buildings skills"
+ORDER="simple-redo hub-icons hub-planet hub-scene currencies avatar-frames tile-redo grounds decor parts mounts hero-skins bosses buildings skills"
 for pass in 1 2; do
   for p in $ORDER; do
     sheet=tools/art/packages/$p.json

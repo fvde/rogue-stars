@@ -1,0 +1,36 @@
+{
+  "name": "pkg-hub-icons",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5001,
+    5002
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game UI icon, one bold central object, slightly tilted three-quarter view, chunky and readable at small size, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, multiple objects, background scenery, watermark, blurry, photo, tiny details",
+  "subjects": {
+    "tab_planet": "home planet with a ring and a tiny colony dome",
+    "tab_worm": "cute pink worm head with two antennae",
+    "tab_city": "alien colony with two glass domes",
+    "tab_signals": "satellite dish beaming a signal",
+    "tab_arena": "two crossed laser swords",
+    "side_goals": "clipboard with a big green checkmark",
+    "side_shop": "little alien market stall with an awning",
+    "side_offer": "glowing gift box with a ribbon",
+    "side_pass": "comet ticket with a gold star",
+    "side_mail": "space mail envelope with a planet stamp",
+    "side_more": "four small rounded squares in a grid",
+    "side_invasion": "alien mothership with a red warning light",
+    "side_event": "shooting star with sparkles",
+    "side_sale": "black hole with a gift falling in",
+    "side_observatory": "observatory dome with a telescope",
+    "quick_starmap": "folded star map with a dotted route",
+    "quick_chest": "treasure chest with a portal swirl lock",
+    "quick_harvest": "basket of glowing alien fruit",
+    "quick_trials": "golden trophy with a star",
+    "play_button": "rocket launching from a portal",
+    "settings": "cog wheel with a small antenna",
+    "profile_level": "star badge shield"
+  }
+}

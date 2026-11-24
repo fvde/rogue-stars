@@ -3,7 +3,8 @@
   "width": 1024,
   "height": 1024,
   "seeds": [
-    2000
+    5301,
+    5302
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", game icon, one bold central object, isolated on a plain pure white background, no text, no frame",

@@ -1,0 +1,18 @@
+{
+  "name": "pkg-hub-scene",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    5201
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-ground.json",
+  "suffix": ", vertical mobile game background, empty middle area for a planet centerpiece, no characters, no text, no user interface",
+  "negative": "text, letters, user interface, characters, planet in the center, watermark, blurry, photo",
+  "subjects": {
+    "sky_day": "a calm colourful alien sky with soft clouds, two moons and a distant ringed planet",
+    "sky_night": "a deep violet starry night sky with a glowing nebula and shooting stars",
+    "sky_event": "a dramatic sky with a swirling purple portal storm and meteors",
+    "sky_invasion": "an ominous red sky with alien motherships on the horizon"
+  },
+  "fullframe": true
+}
