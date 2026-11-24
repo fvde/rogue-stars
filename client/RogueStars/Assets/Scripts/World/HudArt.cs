@@ -169,108 +169,28 @@ namespace RogueStars.Client.World
             foreach (var pip in RunFx.Pips(value)) { var q = R(pip * (s * 0.28f)); p.Circle(q.x, q.y, s * 0.085f, value == 1 ? (Color)new Color32(0xE8, 0x3A, 0x4A, 255) : (Color)new Color32(0xE0, 0x3A, 0x4A, 255)); }
         }
 
-        /// <summary>The stone pedestal under the dice button (pivot: top centre): a carved block with a rim slab and staggered courses.</summary>
-        private static Sprite Pedestal()
+        /// <summary>The stone pedestal under the dice button (<see cref="DiceStand"/>: same frame and camera as the cap).</summary>
+        public static Sprite Pedestal()
         {
-            int w = 760, h = 520;
-            var p = new IsoPaint(w, h);
-            float cx = w / 2f;
-            var stone = (Color)new Color32(0xA8, 0xB8, 0xC4, 255);
-            float top = h - 14;
-            // the rim slab: an iso diamond with a thick edge, overhanging the block below
-            var T = V(cx, top); var L = V(cx - 372, top - 150); var R = V(cx + 372, top - 150); var B = V(cx, top - 300);
-            const float rimH = 34;
-            // block faces under the rim (inset)
-            float inset = 26;
-            var bl = V(L.x + inset, L.y - rimH); var bb = V(B.x, B.y - rimH + inset * 0.4f); var br = V(R.x - inset, R.y - rimH);
-            var leftFace = new[] { bl, bb, V(bb.x, 0), V(bl.x, 0) };
-            var rightFace = new[] { bb, br, V(br.x, 0), V(bb.x, 0) };
-            p.Shape(leftFace, VGrad(Shade(stone, -0.42f), Shade(stone, -0.18f), 0, top), Ink, 6);
-            p.Shape(rightFace, VGrad(Shade(stone, -0.55f), Shade(stone, -0.32f), 0, top), Ink, 6);
-            // staggered courses of blocks on both faces
-            for (int face = 0; face < 2; face++)
-            {
-                var a = face == 0 ? bl : bb; var b = face == 0 ? bb : br;
-                var seam = Shade(stone, face == 0 ? -0.6f : -0.7f);
-                for (int row = 1; row < 5; row++)
-                {
-                    float dy = row * 66;
-                    p.Line(V(a.x, a.y - dy), V(b.x, b.y - dy), 4, seam);
-                    for (int c = 0; c < 4; c++)
-                    {
-                        float t = (c + (row % 2 == 0 ? 0.5f : 0.15f)) / 3.6f;
-                        if (t <= 0.02f || t >= 0.98f) continue;
-                        var q = Vector2.Lerp(a, b, t);
-                        p.Line(V(q.x, q.y - dy), V(q.x, q.y - dy + 62), 4, seam);
-                    }
-                }
-            }
-            // moss tufts along the foot and the rim's shadow on the faces
-            p.Poly(new[] { bl, bb, V(bb.x, bb.y - 26), V(bl.x, bl.y - 26) }, new Color(0, 0, 0, 0.28f));
-            p.Poly(new[] { bb, br, V(br.x, br.y - 26), V(bb.x, bb.y - 26) }, new Color(0, 0, 0, 0.32f));
-            var moss = (Color)new Color32(0x5C, 0xA8, 0x6A, 255);
-            foreach (var m in new[] { V(cx - 300, 40), V(cx - 120, 26), V(cx + 160, 30), V(cx + 310, 48) }) p.Blob(m.x, m.y, 34, 16, moss, new Color32(0x2E, 0x62, 0x3A, 255), 3);
-            // the rim slab: edge band, then the top with a lit bevel
-            p.Shape(new[] { L, B, V(B.x, B.y - rimH), V(L.x, L.y - rimH) }, VGrad(Shade(stone, -0.25f), Shade(stone, -0.05f), B.y - rimH, L.y), Ink, 6);
-            p.Shape(new[] { B, R, V(R.x, R.y - rimH), V(B.x, B.y - rimH) }, VGrad(Shade(stone, -0.4f), Shade(stone, -0.22f), B.y - rimH, R.y), Ink, 6);
-            p.Shape(new[] { T, R, B, L }, IsoPaint.Radial(Shade(stone, 0.22f), Shade(stone, -0.06f), cx - 60, top - 100, 420), Ink, 6);
-            p.Line(Vector2.Lerp(L, T, 0.03f) + V(6, -2), Vector2.Lerp(T, L, 0.03f) + V(0, -7), 6, new Color(1, 1, 1, 0.35f));
-            p.Line(Vector2.Lerp(L, B, 0.03f) + V(4, 4), Vector2.Lerp(B, L, 0.03f) + V(0, 6), 4, new Color(1, 1, 1, 0.2f));
-            return p.ToSprite("rs_hud_pedestal", V(cx, h));
+            const string key = "dicestand:pedestal";
+            if (Cache.TryGetValue(key, out var s) && s != null) return s;
+            s = DiceStand.DrawPedestal();
+            Cache[key] = s;
+            return s;
         }
 
         /// <summary>
-        /// The big 3D dice button (a glossy red rounded block seen from above at an angle; pivot: centre). The dice printed on
-        /// its top are the run screen's DiceView, laid into the top plane; this is the body.
+        /// The big dice button: a glossy red key cap (<see cref="DiceStand"/>) drawn in the same frame and through the same
+        /// camera as <see cref="Pedestal"/>, so laid over it its base sits exactly on the pedestal's top. The dice printed on
+        /// its top are the run screen's DiceView, laid into the top plane (<see cref="DiceStand.TopPlane"/>).
         /// </summary>
         public static Sprite DiceButton(bool active)
         {
-            string key = "dicebutton:" + active;
+            string key = "dicestand:cap:" + active;
             if (Cache.TryGetValue(key, out var s) && s != null) return s;
-            int w = 640, h = 560;
-            var p = new IsoPaint(w, h);
-            var red = active ? (Color)new Color32(0xEC, 0x52, 0x40, 255) : (Color)new Color32(0x8C, 0x84, 0x9A, 255);
-            float cx = w / 2f, cy = h / 2f + 40;
-            const float side = 74;
-            var top = new List<Vector2>();
-            var low = new List<Vector2>();
-            float a45 = 45 * Mathf.Deg2Rad;
-            Vector2 Proj(Vector2 v) => new Vector2(v.x * Mathf.Cos(a45) - v.y * Mathf.Sin(a45), (v.x * Mathf.Sin(a45) + v.y * Mathf.Cos(a45)) * 0.74f);
-            foreach (var v in RoundRect(-190, -190, 380, 380, 78, 10))
-            {
-                var r = Proj(v);
-                top.Add(V(cx + r.x, cy + r.y));
-                low.Add(V(cx + r.x, cy + r.y - side));
-            }
-            // a soft drop shadow on the pedestal
-            var shadow = new List<Vector2>();
-            foreach (var v in low) shadow.Add(v + V(10, -14));
-            p.Poly(shadow, new Color(0, 0, 0, 0.3f));
-            // the side band: quads between the top outline and its lowered copy, lighter where it faces the light
-            for (int i = 0; i < top.Count; i++)
-            {
-                var a = top[i]; var b = top[(i + 1) % top.Count];
-                float facing = Mathf.Clamp01(0.5f - (b.x - a.x) / Mathf.Max(1, (b - a).magnitude) * 0.5f);
-                p.Poly(new[] { a, b, low[(i + 1) % top.Count], low[i] }, Shade(red, -0.28f - 0.16f * facing));
-            }
-            p.Poly(low, (x, y) => Shade(red, -0.36f));
-            p.Stroke(low, 7, Ink);
-            // the top: glossy, lighter towards the back corner (light from the top left)
-            p.Poly(top, (x, y) => Color.Lerp(Shade(red, -0.06f), Shade(red, 0.18f), Mathf.Clamp01((y - (cy - 200)) / 400f)));
-            // lighter top bevel along the rim
-            var inner = new List<Vector2>();
-            foreach (var v in top) inner.Add(Vector2.Lerp(v, V(cx, cy), 0.07f));
-            p.Stroke(inner, 16, new Color(1, 0.86f, 0.8f, 0.28f));
-            var inner2 = new List<Vector2>();
-            foreach (var v in top) inner2.Add(Vector2.Lerp(v, V(cx, cy), 0.13f));
-            p.Stroke(inner2, 4, new Color(0.55f, 0.12f, 0.1f, 0.22f));
-            // a gloss sweep near the back corner
-            p.Ellipse(cx - 70, cy + 110, 120, 34, new Color(1, 1, 1, 0.14f));
-            p.Ellipse(cx - 90, cy + 118, 54, 14, new Color(1, 1, 1, 0.22f));
-            p.Stroke(top, 7, Ink);
-            var s2 = p.ToSprite("rs_hud_dicebutton_" + active, V(cx, h / 2f));
-            Cache[key] = s2;
-            return s2;
+            s = DiceStand.DrawCap(active);
+            Cache[key] = s;
+            return s;
         }
 
         /// <summary>

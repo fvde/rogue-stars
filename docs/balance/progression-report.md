@@ -534,12 +534,20 @@ nothing". Changes (GDD §3.1–3.3):
 The old session-time estimate (20 s + 2.5 s per roll + 3 s per popup + 1.6 s per battle round ÷ speed) undercounted the
 battle playback: the client plays **0.55 s per battle log entry** ÷ speed and a round has 3–10 entries (late fights with
 aliens, mount and statuses ~100 entries per fight). `shared/RogueStars.Sim.Core/RunClock.cs` models a run from what
-happened in it: intro 5 s + result screen 10 s; per roll the dice (0.45 s) plus a tap (manual 0.9 s) or the auto step gap
-(0.6 s); 0.16 s per hop; per fight 0.4 s + log entries × 0.55 s ÷ speed + Continue (manual 1.5 s) or auto close (0.8 s);
+happened in it: intro 5 s + result screen 10 s; per roll the dice (manual 1.6 s, auto 0.7 s: the client's board speed ×1,
+`RunFx`) plus a tap (manual 0.9 s) or the auto step gap (0.6 s); per hop 0.38 s manual / 0.23 s auto; per fight 0.4 s + log entries × 0.55 s ÷ speed + Continue (manual 1.5 s) or auto close (0.8 s);
 decisions (draft 6 s, mythic 8 s, event 6 s, fork 2.5 s, shop 5 s + 2 s per purchase + 1.5 s per reroll; farming 0.6 s
 each); outcome results (chance roll 1.3 s, then 2.5 s manual / 1.4 s auto). Styles: **manual**, **auto** (auto mode, the
 player decides at every pause) and **farming** (auto-pick). The bots' session time is auto mode at their battle speed (×2
 free, ×3 with the monthly pass). `--run-length` prints it per band.
+
+**Slower board (playtest, 2026-11):** the board's ×1 animations take ~1.6× as long by hand (dice 1.0 → 1.6 s, hop 0.24 →
+0.38 s) and ~1.4× in auto (dice 0.45 → 0.7 s, hop 0.15/0.16 → 0.23 s); `RunClock` now models manual and auto separately.
+`--run-length --days 60 --seeds 2`, same bands before → after: main 1–3 manual ×1 6.4 → 7.3, auto ×1 6.1 → 6.2, auto ×2
+5.4 → 5.5 min; main 4–10 (2 dice) manual 7.6 → 8.5, auto ×2 6.0 → 6.1. All non-Burrow runs: manual ×1 9.4, auto ×1 8.4,
+**auto ×2 6.4**, at the players' own speed 6.3, farming ×2 4.1 minutes — inside the 4–8 minute target
+(`Runs_BuildDeep_ShopALot_AndLast4To8Minutes` holds). Auto mode barely moves (+~15 s a run): the dice and hops are a
+small share of a run next to the battle playback and the decisions.
 
 ### Before → after
 

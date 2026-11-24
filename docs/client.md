@@ -298,15 +298,41 @@ design A (the board, tray and footer described in *Screens* above are superseded
   Markers are cropped tight (`IsoArt.MarkerHeight` = visible height): the common enemy is a small uniform gold skull,
   elites (horns), minibosses and the boss gate (crowns) step up; boss tiles (`TileCategory.BossTile`) show a small omen
   obelisk.
-  Landed tiles: the top takes `WorldBoard.LandedTint(accent)` (landed-only colouring kept). Hops, dice, landing pop,
-  popups and the follow camera (2D now, `RunFx.CameraStep` per axis, `CameraLead`) are ported; fork tap targets
-  (`BranchPick:A/B`, `BranchOption:A/B`) and rings are uGUI pins kept over their tiles every frame.
+  Landed tiles: the top takes `WorldBoard.LandedTint(accent)` (landed-only colouring kept). Hops, dice, landing pop and
+  popups are ported; fork tap targets (`BranchPick:A/B`, `BranchOption:A/B`) and rings are uGUI pins kept over their
+  tiles every frame.
+- **Camera** (`RunScreen`, pure helpers tested in `BoardCameraTests` at 16:9 … 21:9 and tablets): the worm's middle
+  (`WormFocus` 0.9 units over its feet) sits **horizontally centred** and at `FocalShare` (0.55) of the **open band**
+  between the top HUD (`HudTopRef` 340 ref px × width/1080) and the dice cap (`ControlsTopRef` × `ControlsScale`):
+  `FollowCentre(feet, holder, width)`. The view is `WorldBoard.ViewWidth` (9 units) wide, wider on short screens so the
+  band shows ≥ `MinBandUnits` 6.5 units (`DefaultViewWidth`, ≤ 14 on tablets); the bottom controls scale by
+  `ControlsScale` = min(width/1080, height/1920) in a bottom-centred 1080 × 2400 frame. (Before: the camera aimed at
+  80 % of the worm's x — "leaning to the middle", up to ~1.3 units off-centre on the side bands — and put its feet
+  9 % of the view height below the centre, so on tall phones the worm sat low, near the dice button.) The board's
+  render target keeps the view's aspect (both sides scale down together past 2048 × 4096); a size change of the screen
+  (late safe area, rotation) rebuilds. The camera follows with `RunFx.CameraStep` (sharpness 4/s; it keeps pace with
+  the board speed while the worm moves). **Look around**: one-finger drag pans, pinch (and the mouse wheel in the editor)
+  zooms about the fingers / cursor (`BoardGestures` on the board view and on the tap-target overlay, one shared
+  `BoardGestureState`; a drag that starts on a fork target pans and cancels its click, a tap still picks); the width
+  stays within `MinZoom`..`MaxZoom` (0.8–1.9 × default), the centre within the drawn path (`WorldBoard.PathBounds`) plus
+  1.5 units. The view stays where the player left it until a **roll or a move**, which eases position and zoom back to
+  the follow framing (smoothstep, `ReturnSeconds` 0.4 s; `RunScreen.MoveView` / `ReturnCamera`).
+- **Board speed** (×1, the speed chip divides): dice 1.6 s by hand / 0.7 s in auto (`RunFx.DiceRollSeconds`), a rest
+  beat 0.4 / 0.18 s, 0.38 s per hop / 0.23 s in auto (`HopStepSeconds`), the landing pop 0.7 s (`LandPopSeconds`), a
+  beat of 0.85 / 0.45 s before a fight or a decision covers the board; ~1.6× the earlier ×1 by hand, ~1.4× in auto.
+  RogueStars.Sim's `RunClock` mirrors the dice and hop times.
 - **HUD** (`Screens/SliceHud`): EXP hexagon + level pill with the XP fill, HP pill (heart), ATK (sword) and DEF (shield)
   pills (thick dark outline, inner lip and gloss), cog = pause (pending loot is in the pause sheet), coin chip; the boss
   rail down the left edge (a thick capsule, boss skull, a framed skull pip per clock miniboss, a gradient fill blue → the
-  awakening's colour, dice icon and "n/N"). Bottom: the glossy dice button on its carved stone pedestal (`RollButton`:
-  tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption`; two white dice printed into its
-  top plane, `DicePrint` → `FooterDice`: the last roll, a one-die roll beside its opposite face, `RunScreen.PrintedDice`),
+  awakening's colour, dice icon and "n/N"). Bottom: the **dice stand** (`World/DiceStand`): a glossy red key cap on a
+  carved stone pedestal (slab with a carved border on a coursed, staggered-joint column running off the screen's bottom
+  edge), both a small 3D model drawn through **one** perspective camera (front, 34° above) into the same frame, so the
+  cap's base is its footprint on the slab (contact shadow, occlusion line), its walls converge like the column's and its
+  top foreshortens like the slab's (`HudArt.Pedestal` / `HudArt.DiceButton`; always code-drawn — an imported
+  `Art/Slice/Hud/pedestal` would not match the cap's camera). `RollButton` (the frame; its `Cap` pulses about the base):
+  tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption` engraved on the cap's front wall
+  (`DiceStand.FrontWall01`); two white dice printed into its top plane (`DiceStand.TopPlane`: the camera's squash),
+  `DicePrint` → `FooterDice`: the last roll, a one-die roll beside its opposite face, `RunScreen.PrintedDice`),
   `SpeedChip` (board animations ×1/×2/×3, `RunScreen.BoardSpeed`), `AutoPickToggle`, the
   skills book (`SkillsButton`, count badge `SkillCount`). No skill tray, no footer, no Loot / AUTO buttons. Chunky text:
   `SliceKit.Chunky` (Fredoka, white, double dark outline + drop).
@@ -338,8 +364,9 @@ design A (the board, tray and footer described in *Screens* above are superseded
   `tools/art/slice-picks.json` (`{"slice-markers/enemy": "C_s1301.png", …}`, files under `~/AI/assets/<category>/<id>/`)
   and run `Tools/Art/Import Generated Art` / `ArtImporter.ImportCli` (`ArtImportRules.PlanSlice`; props and icons are
   trimmed, textures and arenas kept full-frame). Nothing is auto-picked for the slice.
-- **Captures**: `SliceShowcaseTests` (**Explicit**) renders `s1_board_start`, `s1_board_mid`, `s2_levelup`, `s3_battle`,
-  `s3_battle_later` at 1080×2400 into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/slice/`).
+- **Captures**: `SliceShowcaseTests` (**Explicit**) renders `s1_board_start`, `s1_board_mid`, `s1_board_zoomed` (pinched
+  out and dragged), `s2_levelup`, `s3_battle`, `s3_battle_later` at 1080×2400 (or `$ROGUESTARS_SHOT_SIZE`, e.g.
+  `1440x3200`) into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/slice/`).
   Tests: `IsoBoardTests` (projection, faces/markers, ArtCatalog swaps, world contents, landing, dice caption), the run /
   battle tests updated to the slice names.
 

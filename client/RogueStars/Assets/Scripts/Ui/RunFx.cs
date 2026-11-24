@@ -22,8 +22,16 @@ namespace RogueStars.Client.UiKit
 
         // ---- dice ---------------------------------------------------------------------------------
 
-        /// <summary>Length of the dice roll: ~1 s by hand, short in auto mode, 0 in skip mode.</summary>
-        public static float DiceSeconds(bool auto) => Skip ? 0 : auto ? 0.45f : 1.0f;
+        /// <summary>
+        /// Board timings at speed ×1 (the speed chip divides them: ×2, ×3). Mirrored by the run-time model
+        /// (RogueStars.Sim RunClock: DiceSec / AutoDiceSec, HopSec / AutoHopSec) — keep them in step.
+        /// </summary>
+        public const float DiceRollSeconds = 1.6f, AutoDiceRollSeconds = 0.7f, HopStepSeconds = 0.38f, AutoHopStepSeconds = 0.23f;
+        /// <summary>The landing pop of a tile (seconds at ×1).</summary>
+        public const float LandPopSeconds = 0.7f;
+
+        /// <summary>Length of the dice roll: ~1.6 s by hand, shorter in auto mode, 0 in skip mode.</summary>
+        public static float DiceSeconds(bool auto) => Skip ? 0 : auto ? AutoDiceRollSeconds : DiceRollSeconds;
 
         /// <summary>Share of the roll the dice tumble before they settle on their value.</summary>
         public const float DiceSettleAt = 0.78f;
@@ -100,7 +108,7 @@ namespace RogueStars.Client.UiKit
         // ---- token hop ----------------------------------------------------------------------------
 
         /// <summary>Seconds per tile hop (faster in auto mode).</summary>
-        public static float HopSeconds(bool auto) => Skip ? 0 : auto ? 0.15f : 0.24f;
+        public static float HopSeconds(bool auto) => Skip ? 0 : auto ? AutoHopStepSeconds : HopStepSeconds;
 
         /// <summary>Height of the hop arc in board units.</summary>
         public const float HopArc = 54;
@@ -127,7 +135,7 @@ namespace RogueStars.Client.UiKit
         // ---- camera -------------------------------------------------------------------------------
 
         /// <summary>Camera follow sharpness (1/s): higher = tighter.</summary>
-        public const float CameraSharpness = 6f;
+        public const float CameraSharpness = 4f;
         /// <summary>Fastest the camera ever moves (board units per second): a far target is reached smoothly, never snapped.</summary>
         public const float CameraMaxSpeed = 1500f;
 
@@ -338,23 +346,85 @@ namespace RogueStars.Client.UiKit
         }
     }
 
-    /// <summary>Drag on the board: lets the player look around; the run screen pauses its follow camera meanwhile.</summary>
-    public sealed class BoardDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    /// <summary>
+    /// What the board's gesture surfaces share (the board view and the tap-target overlay over it): the pointers down and
+    /// the view callback. <see cref="OnMove"/>(from, to, zoom): the world point under holder point <c>from</c> goes under
+    /// <c>to</c> (px from the holder's top-left), the view <c>zoom</c> times closer.
+    /// </summary>
+    public sealed class BoardGestureState
     {
-        public Action<float> OnDragY;
-        /// <summary>Both axes (canvas units): the world board pans in 2D.</summary>
-        public Action<Vector2> OnDrag2;
-        private Canvas _canvas;
+        public RectTransform Space;
+        public Action<Vector2, Vector2, float> OnMove;
+        public readonly Dictionary<int, Vector2> Pointers = new Dictionary<int, Vector2>();
+        /// <summary>Wheel zoom per notch.</summary>
+        public const float WheelStep = 1.12f;
+        /// <summary>Fingers closer than this (px) do not zoom (noise).</summary>
+        public const float MinPinch = 24f;
 
-        public void OnBeginDrag(PointerEventData e) { _canvas = GetComponentInParent<Canvas>()?.rootCanvas; }
+        /// <summary>A screen point in the space's px from its top-left (y down).</summary>
+        public Vector2 Local(Vector2 screen, Camera cam)
+        {
+            if (Space == null || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Space, screen, cam, out var local)) return screen;
+            var r = Space.rect;
+            return new Vector2(local.x - r.xMin, r.yMax - local.y);
+        }
+
+        /// <summary>
+        /// A pointer moved from <paramref name="prev"/> to <paramref name="cur"/>: one finger pans; with a second finger
+        /// down it is a pinch (zoom about the fingers' midpoint, which also pans).
+        /// </summary>
+        public void Moved(int id, Vector2 prev, Vector2 cur)
+        {
+            Pointers[id] = cur;
+            Vector2? other = null;
+            foreach (var kv in Pointers) if (kv.Key != id) { other = kv.Value; break; }
+            if (other.HasValue)
+            {
+                var o = other.Value;
+                float d0 = Vector2.Distance(prev, o), d1 = Vector2.Distance(cur, o);
+                float zoom = d0 > MinPinch && d1 > MinPinch ? d1 / d0 : 1;
+                OnMove?.Invoke((prev + o) / 2, (cur + o) / 2, zoom);
+            }
+            else OnMove?.Invoke(prev, cur, 1);
+        }
+    }
+
+    /// <summary>
+    /// The board's gestures (on the board view and on the tap-target overlay, sharing one <see cref="BoardGestureState"/>):
+    /// one finger (or the mouse) drags the view, two fingers pinch-zoom, the mouse wheel zooms at the cursor. A drag that
+    /// starts on a fork tap target pans and cancels its click (the event system ends the press when a drag begins), a tap
+    /// still picks.
+    /// </summary>
+    public sealed class BoardGestures : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IScrollHandler
+    {
+        public BoardGestureState State;
+
+        public void OnPointerDown(PointerEventData e) { if (State != null) State.Pointers[e.pointerId] = State.Local(e.position, e.pressEventCamera); }
+        public void OnPointerUp(PointerEventData e) { State?.Pointers.Remove(e.pointerId); }
+
+        public void OnBeginDrag(PointerEventData e)
+        {
+            if (State == null) return;
+            if (!State.Pointers.ContainsKey(e.pointerId)) State.Pointers[e.pointerId] = State.Local(e.position - e.delta, e.pressEventCamera);
+        }
 
         public void OnDrag(PointerEventData e)
         {
-            float scale = _canvas != null && _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1;
-            OnDragY?.Invoke(e.delta.y / scale);
-            OnDrag2?.Invoke(e.delta / scale);
+            if (State == null) return;
+            var cur = State.Local(e.position, e.pressEventCamera);
+            var prev = State.Pointers.TryGetValue(e.pointerId, out var p) ? p : State.Local(e.position - e.delta, e.pressEventCamera);
+            State.Moved(e.pointerId, prev, cur);
         }
 
-        public void OnEndDrag(PointerEventData e) { }
+        public void OnEndDrag(PointerEventData e) { State?.Pointers.Remove(e.pointerId); }
+
+        public void OnScroll(PointerEventData e)
+        {
+            if (State == null || Mathf.Abs(e.scrollDelta.y) < 0.01f) return;
+            var at = State.Local(e.position, e.enterEventCamera);
+            State.OnMove?.Invoke(at, at, Mathf.Pow(BoardGestureState.WheelStep, e.scrollDelta.y));
+        }
+
+        private void OnDisable() { State?.Pointers.Clear(); }
     }
 }

@@ -51,8 +51,15 @@ namespace RogueStars.Client.Screens
         private Vector2 _holderSize;
         /// <summary>Follow camera centre (board-local world units); NaN = not placed yet.</summary>
         private Vector2 _cam = new Vector2(float.NaN, float.NaN);
-        /// <summary>Seconds the camera stays where the player dragged it before following again.</summary>
-        private float _camHold;
+        /// <summary>View width now (world units; NaN = the default framing, <see cref="DefaultViewWidth"/>).</summary>
+        private float _camWidth = float.NaN;
+        /// <summary>The player moved / zoomed the view: it stays there until the next roll or move.</summary>
+        private bool _camManual;
+        /// <summary>Progress (0..1) of the ease back to the follow framing; negative = not returning.</summary>
+        private float _camReturn = -1;
+        private Vector2 _camReturnFrom;
+        private float _camReturnFromWidth;
+        private BoardGestureState _gestures;
         /// <summary>The worm's board-local position as drawn now (the camera follows it).</summary>
         private Vector2 _tokenPos;
         private RunHudStats? _hudShown;
@@ -82,8 +89,27 @@ namespace RogueStars.Client.Screens
         public static int BoardSpeed = 1;
         /// <summary>Hop arc height in world units.</summary>
         public const float HopArc = 0.55f;
-        /// <summary>Where the worm sits in the view: this fraction of the view height below its centre (the path climbs).</summary>
-        public const float CameraLead = 0.09f;
+        /// <summary>The worm's visual middle above its feet (world units): what the follow camera frames.</summary>
+        public const float WormFocus = 0.9f;
+        /// <summary>
+        /// Where the worm's middle sits in the open band between the top HUD and the dice cap (0 = at the HUD, 1 = at the
+        /// cap): a little below the band's middle, so more of the path ahead (up the screen) shows.
+        /// </summary>
+        public const float FocalShare = 0.55f;
+        /// <summary>Bottom of the top HUD (the coin chip) from the top, in reference px (× width / 1080).</summary>
+        public const float HudTopRef = 340;
+        /// <summary>The dice stand's frame reaches this far below the screen's bottom edge (reference px): the column runs off-screen.</summary>
+        public const float StandDrop = 30;
+        /// <summary>Top of the dice cap from the bottom, in reference px (× <see cref="ControlsScale"/>).</summary>
+        public static float ControlsTopRef => DiceStand.CapTop - StandDrop;
+        /// <summary>The open band between the HUD and the cap is at least this many world units tall (short screens widen the view).</summary>
+        public const float MinBandUnits = 6.5f;
+        /// <summary>Widest default view (world units) on the shortest screens (tablets).</summary>
+        public const float MaxDefaultWidth = 14f;
+        /// <summary>Pinch / wheel zoom: view width between these multiples of the default.</summary>
+        public const float MinZoom = 0.8f, MaxZoom = 1.9f;
+        /// <summary>Seconds of the eased pan and zoom back to the follow framing (a roll / a move).</summary>
+        public const float ReturnSeconds = 0.4f;
 
         public override string Title
         {
@@ -113,8 +139,8 @@ namespace RogueStars.Client.Screens
         /// <summary>No app header and no footer: the HUD floats over the world (reference 1).</summary>
         public override float HeaderHeight => 0;
         public override bool CoversResourceBar => true;
-        /// <summary>Toasts float above the dice pedestal.</summary>
-        public override float ToastBottomInset => (_hud != null ? _hud.Scale : 0.9f) * 560;
+        /// <summary>Toasts float above the dice cap.</summary>
+        public override float ToastBottomInset => ControlsScale(_holderSize.x > 0 ? _holderSize : new Vector2(972, 2160)) * (ControlsTopRef + 20);
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
         public bool Auto => _auto;
@@ -123,6 +149,8 @@ namespace RogueStars.Client.Screens
         /// <summary>Auto mode is on but waits for the player's decision.</summary>
         public bool AutoPaused => _auto && State.Run.Active != null && RunSystem.RequiresPlayer(Content, State.Run.Active, Farming);
         public bool Animating => _anim != null && _anim.Busy;
+        /// <summary>The board animations' speed now (the speed chip; 4 while a tap fast-forwards).</summary>
+        private float AnimSpeed => _anim != null ? Mathf.Max(1, _anim.Speed) : Mathf.Max(1, BoardSpeed);
         /// <summary>The world board (tests, captures).</summary>
         public WorldBoard World => _world;
 
@@ -295,7 +323,7 @@ namespace RogueStars.Client.Screens
             if (newRun)
             {
                 _runId = run.RunId; _trailSeen = run.Trail.Count; _rollsSeen = run.Rolls; _battlesSeen = run.BattleCount; _outcomeSeen = run.OutcomeSeq;
-                _cam = new Vector2(float.NaN, float.NaN); _camHold = 0; _hudShown = null;
+                _cam = new Vector2(float.NaN, float.NaN); _camWidth = float.NaN; _camManual = false; _camReturn = -1; _hudShown = null;
             }
 
             // What changed since the last build → dice, token hops, landing, then battle and decision.
@@ -318,7 +346,8 @@ namespace RogueStars.Client.Screens
             _anim.Clear();
             _anim.Speed = Mathf.Max(1, BoardSpeed);
             bool moving = path.Count > 1 && _world?.Token != null;
-            if (moving) { _camHold = 0; LastPopups.Clear(); } // a new move: the camera follows the worm again
+            if (moving) LastPopups.Clear();
+            if (moving || rolled) ReturnCamera(); // a roll / a new move: the view eases back to the worm
             if (rolled && run.LastDice.Count > 0) RollDice(run.LastDice);
             if (moving)
             {
@@ -353,7 +382,7 @@ namespace RogueStars.Client.Screens
                 if (!battle) _anim.Call(() => AnimateHud(hudNow));
                 // a moment to read the popups before a fight or a decision covers the board
                 bool next = battle || RunSystem.RequiresPlayer(Content, run, false) || newOutcome != null && RunPresentation.IsSheetSource(newOutcome.Source);
-                if (next && !RunFx.Skip) _anim.Wait(_auto ? 0.3f : 0.55f);
+                if (next && !RunFx.Skip) _anim.Wait(_auto ? 0.45f : 0.85f);
             }
             else if (!battle) _anim.Call(() => AnimateHud(hudNow));
             if (battle)
@@ -391,10 +420,10 @@ namespace RogueStars.Client.Screens
                 _footerDice?.Pose(Mathf.Min(1, t * 1.05f), PrintedDice(vals));
             });
             // the dice rest for a beat, then fade while the worm starts hopping
-            _anim.Then(_auto ? 0.12f : 0.25f, null, () =>
+            _anim.Then(_auto ? 0.18f : 0.4f, null, () =>
             {
                 if (stage == null) return;
-                UiTweens.Play(stage.gameObject, "fade", 0.25f, k => { if (group != null) group.alpha = 1 - k; }, () => { if (stage != null) UnityEngine.Object.Destroy(stage.gameObject); });
+                UiTweens.Play(stage.gameObject, "fade", 0.38f / AnimSpeed, k => { if (group != null) group.alpha = 1 - k; }, () => { if (stage != null) UnityEngine.Object.Destroy(stage.gameObject); });
             });
         }
 
@@ -408,7 +437,7 @@ namespace RogueStars.Client.Screens
                 view.ApplyLanded(tile.Cleared);
                 var go = view.Go;
                 if (!RunFx.Skip && go != null)
-                    UiTweens.Play(go, "land", 0.45f, k => { if (go != null) go.transform.localScale = Vector3.one * RunFx.LandPopScale(k); });
+                    UiTweens.Play(go, "land", RunFx.LandPopSeconds / AnimSpeed, k => { if (go != null) go.transform.localScale = Vector3.one * RunFx.LandPopScale(k); });
                 if (!RunFx.Skip && _overlay != null)
                 {
                     var at = Overlay(top);
@@ -533,17 +562,65 @@ namespace RogueStars.Client.Screens
         /// <summary>Camera height in board pixels (100 per world unit; tests of the follow camera).</summary>
         public float CameraY => _cam.y * 100;
 
-        /// <summary>Where the camera wants to be: over the worm, a little ahead (the path climbs), leaning to the middle.</summary>
-        private Vector2 CameraTarget()
+        /// <summary>Scale of the top HUD (reference px → holder px): the width over 1080.</summary>
+        public static float HudScale(Vector2 holder) => holder.x / 1080f;
+
+        /// <summary>
+        /// Scale of the bottom controls: the width over 1080, but never more than the height over 1920 (tablets: the dice
+        /// stand does not eat half the screen; it stays centred).
+        /// </summary>
+        public static float ControlsScale(Vector2 holder) => Mathf.Min(holder.x / 1080f, holder.y / 1920f);
+
+        /// <summary>The open band between the top HUD and the dice cap (holder px from the top: x = top, y = bottom).</summary>
+        public static Vector2 OpenBand(Vector2 holder) => new Vector2(HudScale(holder) * HudTopRef, holder.y - ControlsScale(holder) * ControlsTopRef);
+
+        /// <summary>Where the worm's middle sits on screen (holder px from the top-left): centred, in the open band.</summary>
+        public static Vector2 FocalPoint(Vector2 holder)
         {
-            float viewH = _world != null ? _world.ViewHeight : 20;
-            return new Vector2(_tokenPos.x * 0.8f, _tokenPos.y + viewH * CameraLead);
+            var band = OpenBand(holder);
+            return new Vector2(holder.x / 2, band.x + (band.y - band.x) * FocalShare);
         }
+
+        /// <summary>
+        /// The default view width (world units): <see cref="WorldBoard.ViewWidth"/>, wider on short screens so the open band
+        /// shows at least <see cref="MinBandUnits"/> (up to <see cref="MaxDefaultWidth"/>).
+        /// </summary>
+        public static float DefaultViewWidth(Vector2 holder)
+        {
+            if (holder.x <= 0 || holder.y <= 0) return WorldBoard.ViewWidth;
+            var band = OpenBand(holder);
+            float units = (band.y - band.x) / (holder.x / WorldBoard.ViewWidth);
+            if (units >= MinBandUnits) return WorldBoard.ViewWidth;
+            return Mathf.Min(MaxDefaultWidth, WorldBoard.ViewWidth * MinBandUnits / Mathf.Max(0.5f, units));
+        }
+
+        /// <summary>
+        /// The follow framing (pure; tested at several aspect ratios): the camera centre that puts the worm standing at
+        /// <paramref name="feet"/> (board-local) with its middle on <see cref="FocalPoint"/> of a holder of
+        /// <paramref name="holder"/> px showing <paramref name="viewWidth"/> world units across.
+        /// </summary>
+        public static Vector2 FollowCentre(Vector2 feet, Vector2 holder, float viewWidth)
+        {
+            if (holder.x <= 0 || holder.y <= 0) return feet + new Vector2(0, WormFocus);
+            float perUnit = holder.x / viewWidth;
+            var focal = FocalPoint(holder);
+            return new Vector2(feet.x - (focal.x - holder.x / 2) / perUnit, feet.y + WormFocus + (focal.y - holder.y / 2) / perUnit);
+        }
+
+        /// <summary>Where the camera wants to be: the worm's middle on the focal point at the default width.</summary>
+        private Vector2 CameraTarget() => FollowCentre(_tokenPos, _holderSize, DefaultViewWidth(_holderSize));
+
+        /// <summary>View width now (world units).</summary>
+        public float CameraWidth => float.IsNaN(_camWidth) ? DefaultViewWidth(_holderSize) : _camWidth;
+        /// <summary>The player has moved or zoomed the view (it stays until the next roll / move).</summary>
+        public bool CameraManual => _camManual;
+        /// <summary>The view is easing back to the follow framing.</summary>
+        public bool CameraReturning => _camReturn >= 0;
 
         private void ApplyCamera()
         {
             if (_world == null || float.IsNaN(_cam.x)) return;
-            _world.SetCamera(_cam);
+            _world.SetView(_cam, CameraWidth);
             if (_holder != null)
                 foreach (var kv in _pins)
                     if (kv.Key != null) kv.Key.anchoredPosition = Overlay(kv.Value) + PinOffset(kv.Key);
@@ -566,23 +643,74 @@ namespace RogueStars.Client.Screens
         /// <summary>A board-local world point in the overlay (top-left anchored).</summary>
         private Vector2 Overlay(Vector2 local) => _world != null ? _world.ToOverlay(local, _holderSize) : Vector2.zero;
 
-        /// <summary>One camera frame: eases towards the worm (never snaps), unless the player is looking around.</summary>
+        /// <summary>
+        /// One camera frame: the player's view stays put; a return eases (smoothstep, <see cref="ReturnSeconds"/>) from where
+        /// the player left it to the follow framing, then the camera follows the worm (exponential ease, never a snap).
+        /// </summary>
         public void StepCamera(float dt)
         {
-            if (_world == null) return;
-            if (_camHold > 0) { _camHold -= dt; ApplyCamera(); return; }
+            if (_world == null || float.IsNaN(_cam.x)) return;
+            if (_camManual) { ApplyCamera(); return; }
             var target = CameraTarget();
-            // RunFx.CameraStep works in board pixels: 100 per world unit
-            _cam = new Vector2(RunFx.CameraStep(_cam.x * 100, target.x * 100, dt) / 100, RunFx.CameraStep(_cam.y * 100, target.y * 100, dt) / 100);
+            float width = DefaultViewWidth(_holderSize);
+            if (_camReturn >= 0)
+            {
+                _camReturn = Mathf.Min(1, _camReturn + dt / ReturnSeconds);
+                float e = RunFx.Ease(_camReturn);
+                _cam = Vector2.Lerp(_camReturnFrom, target, e);
+                _camWidth = Mathf.Lerp(_camReturnFromWidth, width, e);
+                if (_camReturn >= 1) { _camReturn = -1; _camWidth = float.NaN; }
+                ApplyCamera();
+                return;
+            }
+            _camWidth = float.NaN;
+            // RunFx.CameraStep works in board pixels: 100 per world unit; it keeps pace with the board speed while the worm moves
+            float cdt = Animating ? dt * AnimSpeed : dt;
+            _cam = new Vector2(RunFx.CameraStep(_cam.x * 100, target.x * 100, cdt) / 100, RunFx.CameraStep(_cam.y * 100, target.y * 100, cdt) / 100);
             ApplyCamera();
         }
 
-        private void DragBoard(Vector2 delta)
+        /// <summary>Back to the follow framing: eased from wherever the player left the view (no-op when already following).</summary>
+        public void ReturnCamera()
         {
-            if (float.IsNaN(_cam.x) || _holderSize.y <= 0 || _world == null) return;
-            float perUnit = _holderSize.x / WorldBoard.ViewWidth;
-            _cam -= delta / perUnit;
-            _camHold = 3f;
+            if (!_camManual && float.IsNaN(_camWidth)) return;
+            _camManual = false;
+            if (float.IsNaN(_cam.x)) { _camWidth = float.NaN; return; }
+            _camReturnFrom = _cam;
+            _camReturnFromWidth = CameraWidth;
+            _camReturn = 0;
+        }
+
+        /// <summary>A board-local world point under a holder point (px from the top-left) for a view centre and width.</summary>
+        private Vector2 WorldAt(Vector2 holderPx, Vector2 centre, float width)
+        {
+            float perUnit = _holderSize.x / width;
+            return centre + new Vector2((holderPx.x - _holderSize.x / 2) / perUnit, -(holderPx.y - _holderSize.y / 2) / perUnit);
+        }
+
+        /// <summary>
+        /// The player moves the view (the gestures; tests call it directly): the world point under <paramref name="from"/>
+        /// (holder px from the top-left) ends up under <paramref name="to"/>, the view <paramref name="zoom"/> times closer
+        /// (pinch: &gt; 1 = fingers apart). The width stays within <see cref="MinZoom"/>..<see cref="MaxZoom"/> of the
+        /// default, the centre within the drawn path (plus a margin), so the board is never lost.
+        /// </summary>
+        public void MoveView(Vector2 from, Vector2 to, float zoom)
+        {
+            if (_world == null || float.IsNaN(_cam.x) || _holderSize.x <= 0) return;
+            float baseW = DefaultViewWidth(_holderSize), width = CameraWidth;
+            float newW = Mathf.Clamp(width / Mathf.Max(0.01f, zoom), baseW * MinZoom, baseW * MaxZoom);
+            var anchor = WorldAt(from, _cam, width);
+            float perUnit = _holderSize.x / newW;
+            var centre = anchor - new Vector2((to.x - _holderSize.x / 2) / perUnit, -(to.y - _holderSize.y / 2) / perUnit);
+            // bounds: the drawn path and the follow framing, plus a margin
+            var b = _world.PathBounds;
+            var follow = CameraTarget();
+            float xMin = Mathf.Min(b.xMin, follow.x) - 1.5f, xMax = Mathf.Max(b.xMax, follow.x) + 1.5f;
+            float yMin = Mathf.Min(b.yMin, follow.y) - 1.5f, yMax = Mathf.Max(b.yMax, follow.y) + 1.5f;
+            _cam = new Vector2(Mathf.Clamp(centre.x, xMin, xMax), Mathf.Clamp(centre.y, yMin, yMax));
+            _camWidth = newW;
+            _camManual = true;
+            _camReturn = -1;
             ApplyCamera();
         }
 
@@ -632,7 +760,10 @@ namespace RogueStars.Client.Screens
             var raw = view.gameObject.AddComponent<RawImage>();
             raw.texture = rt;
             raw.color = Color.white;
-            view.gameObject.AddComponent<BoardDrag>().OnDrag2 = DragBoard;
+            // one-finger drag pans, pinch / the mouse wheel zoom; the board view and the tap-target overlay share the
+            // gesture (a drag that starts on a fork target pans, a tap on it still picks)
+            _gestures = new BoardGestureState { Space = holder, OnMove = MoveView };
+            view.gameObject.AddComponent<BoardGestures>().State = _gestures;
 
             // fork: the path each option walks with the steps left
             var onPath = new Dictionary<int, int>();
@@ -644,6 +775,7 @@ namespace RogueStars.Client.Screens
 
             _overlay = Ui.Rect(holder, "BoardOverlay");
             Ui.Stretch(_overlay);
+            _overlay.gameObject.AddComponent<BoardGestures>().State = _gestures;
             var og = _overlay.gameObject.AddComponent<CanvasGroup>();
             og.blocksRaycasts = true;
             og.interactable = true;
@@ -729,53 +861,65 @@ namespace RogueStars.Client.Screens
         /// </summary>
         private void Controls(ActiveRun run)
         {
-            float s = _holderSize.x / 1080f;
+            // the controls live in a 1080 × 2400 reference frame anchored bottom-centre (ControlsScale: tablets keep them compact)
+            float s = ControlsScale(_holderSize);
             var root = Ui.Rect(_holder, "Controls");
-            Ui.Stretch(root);
+            root.anchorMin = root.anchorMax = new Vector2(0.5f, 0);
+            root.pivot = new Vector2(0.5f, 0);
+            root.sizeDelta = new Vector2(1080 * s, 2400 * s);
+            root.anchoredPosition = Vector2.zero;
 
-            var pedestal = SliceKit.Icon(root, "pedestal", s, 545, 2218, 780, true, "Pedestal");
-            pedestal.rectTransform.sizeDelta = new Vector2(780 * s, 534 * s);
+            // the dice stand: pedestal and cap drawn by one camera into one frame (DiceStand), laid over each other
+            float standY = 2400 + StandDrop - DiceStand.FrameH / 2f;
+            var pedestal = Ui.Panel(root, Color.white, "Pedestal");
+            pedestal.sprite = HudArt.Pedestal();
+            pedestal.raycastTarget = false;
+            SliceKit.Place(pedestal.rectTransform, s, 540, standY, DiceStand.FrameW, DiceStand.FrameH, true);
 
             bool encounter = run.Phase == RunPhase.Encounter;
             bool canRoll = run.Phase == RunPhase.AwaitRoll || encounter;
             bool deciding = !canRoll && run.Phase != RunPhase.Completed && run.Phase != RunPhase.Failed;
             bool live = canRoll || _auto || deciding;
             var btnRt = Ui.Rect(root, "RollButton");
-            SliceKit.Place(btnRt, s, 548, 2052, 650, 568, true);
-            var face = btnRt.gameObject.AddComponent<Image>();
+            SliceKit.Place(btnRt, s, 540, standY, DiceStand.FrameW, DiceStand.FrameH, true);
+            // the cap pulses / presses about its base on the slab
+            var face = Ui.Panel(btnRt, Color.white, "Cap");
             face.sprite = HudArt.DiceButton(live);
-            face.preserveAspect = true;
+            var frt = face.rectTransform;
+            frt.anchorMin = frt.anchorMax = frt.pivot = DiceStand.Base01;
+            frt.sizeDelta = new Vector2(DiceStand.FrameW * s, DiceStand.FrameH * s);
+            frt.anchoredPosition = Vector2.zero;
             var btn = btnRt.gameObject.AddComponent<Button>();
             btn.targetGraphic = face;
             btn.transition = Selectable.Transition.ColorTint;
             btn.interactable = live;
-            // two dice printed on the button's top (white on red, laid into the top plane: the plane squashes, the dice turn
-            // 45° in it); after a roll they show the last roll's dice, which the tumbling dice land on
+            // two dice printed on the cap's top (white on red, laid into the top plane: the plane squashes by the camera's
+            // pitch, the dice turn a little in it); after a roll they show the last roll's dice, which the tumbling dice land on
             var shown = PrintedDice(run.LastDice.Count > 0 ? run.LastDice : new List<int> { 3, 5 });
             int diceN = shown.Count;
-            float dieSize = (diceN == 1 ? 150 : diceN == 2 ? 128 : Mathf.Max(70, 300f / diceN)) * s;
-            var plane = Ui.Rect(btnRt, "DicePrint");
-            plane.anchorMin = plane.anchorMax = new Vector2(0.47f, 0.6f);
+            float dieSize = (diceN == 1 ? 150 : diceN == 2 ? 146 : Mathf.Max(70, 300f / diceN)) * s;
+            DiceStand.TopPlane(out var topAt, out float squash);
+            var plane = Ui.Rect(face.transform, "DicePrint");
+            plane.anchorMin = plane.anchorMax = topAt;
             plane.sizeDelta = new Vector2(10, 10);
             plane.anchoredPosition = Vector2.zero;
-            plane.localScale = new Vector3(1, 0.74f, 1);
+            plane.localScale = new Vector3(1, squash, 1);
             var dice = new DiceView(plane, diceN, dieSize, "FooterDice", new Color(1, 0.96f, 0.94f, 0.95f), new Color32(0xD8, 0x3A, 0x34, 255));
             dice.Root.anchorMin = dice.Root.anchorMax = new Vector2(0.5f, 0.5f);
             dice.Root.sizeDelta = new Vector2(diceN * dieSize * 1.3f, dieSize * 1.2f);
             dice.Root.anchoredPosition = Vector2.zero;
-            dice.Root.localRotation = Quaternion.Euler(0, 0, 45);
+            dice.Root.localRotation = Quaternion.Euler(0, 0, -8);
             dice.Pose(1, shown);
             _footerDice = dice;
-            // the caption is engraved into the button (dark red, a light lip under it)
-            var caption = Ui.Display(btnRt, DiceCaption(run, _auto, AutoPaused), (int)(54 * s), live ? (Color)new Color32(0xA8, 0x22, 0x2C, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
+            // the caption is engraved into the cap's front wall (dark red, a light lip under it)
+            var caption = Ui.Display(face.transform, DiceCaption(run, _auto, AutoPaused), (int)(Mathf.Min(50, DiceStand.FrontWallHeight * 0.62f) * s), live ? (Color)new Color32(0x9A, 0x1C, 0x26, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
             caption.raycastTarget = false;
             caption.horizontalOverflow = HorizontalWrapMode.Overflow;
             var lip = caption.gameObject.AddComponent<Shadow>();
             lip.effectColor = new Color(1, 0.72f, 0.66f, 0.75f);
             lip.effectDistance = new Vector2(1.5f, -3f);
-            caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = new Vector2(0.6f, 0.45f);
-            caption.rectTransform.sizeDelta = new Vector2(420 * s, 80 * s);
-            caption.rectTransform.localRotation = Quaternion.Euler(0, 0, 33);
+            caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = DiceStand.FrontWall01;
+            caption.rectTransform.sizeDelta = new Vector2(420 * s, 70 * s);
             var hold = btnRt.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () =>
             {
@@ -786,7 +930,7 @@ namespace RogueStars.Client.Screens
                     var r = State.Run.Active;
                     if (r != null && r.Phase == RunPhase.AwaitRoll) Run(new RunRoll());
                     else if (r != null && r.Phase == RunPhase.Encounter) Run(new RunEncounter());
-                    else if (r != null && r.Phase == RunPhase.ChooseBranch) { _camHold = 0; Rebuild(); } // the camera eases back to the fork
+                    else if (r != null && r.Phase == RunPhase.ChooseBranch) { ReturnCamera(); Rebuild(); } // the camera eases back to the fork
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
             };
@@ -889,6 +1033,12 @@ namespace RogueStars.Client.Screens
 
         public override void Frame(float dt)
         {
+            // the screen's size changed under a built board (rotation, a late safe area, a resized window): rebuild, so the
+            // board's render target, the HUD and the framing match the real aspect again
+            if (_world != null && BodyFrame != null && !Animating && State?.Run.Active != null
+                && (Mathf.Abs(BodyFrame.rect.width - _holderSize.x) > 1 || Mathf.Abs(BodyFrame.rect.height - _holderSize.y) > 1)
+                && BodyFrame.rect.width > 100 && BodyFrame.rect.height > 100)
+                Rebuild();
             StepCamera(dt);
             if (_toResult && !Animating && App.Router.Current == this)
             {

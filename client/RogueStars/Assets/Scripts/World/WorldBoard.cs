@@ -65,8 +65,15 @@ namespace RogueStars.Client.World
     {
         /// <summary>Render layer of every board object (only the board camera draws it).</summary>
         public const int Layer = 30;
-        /// <summary>Width of the view in world units (1080 px of the reference screen: ~5.4 tiles across, 1 unit = 120 px).</summary>
+        /// <summary>
+        /// Default width of the view in world units (1080 px of the reference screen: ~5.4 tiles across, 1 unit = 120 px);
+        /// the run screen widens it on short screens and while the player zooms out (<see cref="Width"/>).
+        /// </summary>
         public const float ViewWidth = 9.0f;
+        /// <summary>Width of the view now (world units; <see cref="SetView"/>).</summary>
+        public float Width { get; private set; } = ViewWidth;
+        /// <summary>The drawn path's extent (tile tops, board-local units) of the last build: the camera's pan bounds.</summary>
+        public Rect PathBounds { get; private set; }
         /// <summary>Depth window drawn around the worm (grid x + y behind / ahead).</summary>
         public const int Behind = 22, Ahead = 46;
         /// <summary>Worm height on the board (world units) and how far ahead "!" marks special tiles.</summary>
@@ -126,8 +133,10 @@ namespace RogueStars.Client.World
         /// <summary>The render target at <paramref name="w"/> × <paramref name="h"/> pixels (recreated when the size changes).</summary>
         public RenderTexture EnsureTarget(int w, int h)
         {
-            w = Mathf.Clamp(w, 64, 2048);
-            h = Mathf.Clamp(h, 64, 4096);
+            // never more than 2048 × 4096: scale both sides down together, so the target keeps the view's aspect
+            float fit = Mathf.Min(1, Mathf.Min(2048f / Mathf.Max(1, w), 4096f / Mathf.Max(1, h)));
+            w = Mathf.Max(64, Mathf.RoundToInt(w * fit));
+            h = Mathf.Max(64, Mathf.RoundToInt(h * fit));
             if (Target == null || Target.width != w || Target.height != h)
             {
                 if (Target != null) { Cam.targetTexture = null; Target.Release(); UnityEngine.Object.DestroyImmediate(Target); }
@@ -136,13 +145,18 @@ namespace RogueStars.Client.World
                 Cam.targetTexture = Target;
             }
             Cam.aspect = (float)w / h;
-            Cam.orthographicSize = ViewWidth / Cam.aspect / 2;
+            ApplyWidth();
+            return Target;
+        }
+
+        private void ApplyWidth()
+        {
+            Cam.orthographicSize = Width / Cam.aspect / 2;
             if (_vignette != null && _vignette.sprite != null)
             {
                 var vb = _vignette.sprite.bounds.size;
-                _vignette.transform.localScale = new Vector3(ViewWidth / vb.x, ViewHeight / vb.y, 1);
+                _vignette.transform.localScale = new Vector3(Width / vb.x, ViewHeight / vb.y, 1);
             }
-            return Target;
         }
 
         /// <summary>Visible height of the view in world units.</summary>
@@ -150,6 +164,16 @@ namespace RogueStars.Client.World
 
         /// <summary>Moves the camera (board-local world position of the view centre).</summary>
         public void SetCamera(Vector2 centre) => Cam.transform.localPosition = new Vector3(centre.x, centre.y, -50);
+
+        /// <summary>Moves the camera and sets the view's width in world units (zoom).</summary>
+        public void SetView(Vector2 centre, float width)
+        {
+            SetCamera(centre);
+            width = Mathf.Max(1, width);
+            if (Mathf.Abs(width - Width) < 1e-5f) return;
+            Width = width;
+            ApplyWidth();
+        }
         public Vector2 CameraCentre => Cam.transform.localPosition;
 
         /// <summary>
@@ -159,8 +183,8 @@ namespace RogueStars.Client.World
         public Vector2 ToOverlay(Vector2 local, Vector2 overlaySize)
         {
             var c = CameraCentre;
-            float hw = ViewWidth / 2, hh = ViewHeight / 2;
-            float vx = (local.x - c.x + hw) / ViewWidth, vy = (local.y - c.y + hh) / ViewHeight;
+            float hw = Width / 2, hh = ViewHeight / 2;
+            float vx = (local.x - c.x + hw) / Width, vy = (local.y - c.y + hh) / ViewHeight;
             return new Vector2(vx * overlaySize.x, -(1 - vy) * overlaySize.y);
         }
 
@@ -273,6 +297,9 @@ namespace RogueStars.Client.World
             int cd = Depth(centre);
             var visible = new List<RunTile>();
             foreach (var t in run.Tiles) if (InWindow(run, t, cd)) visible.Add(t);
+            var bounds = new Rect(TopOf(centre), Vector2.zero);
+            foreach (var t in visible) { var at = TopOf(t); bounds.xMin = Mathf.Min(bounds.xMin, at.x); bounds.xMax = Mathf.Max(bounds.xMax, at.x); bounds.yMin = Mathf.Min(bounds.yMin, at.y); bounds.yMax = Mathf.Max(bounds.yMax, at.y); }
+            PathBounds = bounds;
 
             // the plinth: path cells and set-piece floors (cell → height); its walls run on where neighbours share a height
             var plinth = new Dictionary<Vector2Int, int>();

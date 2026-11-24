@@ -25,7 +25,8 @@ namespace RogueStars.Client.PlayTests
     [Explicit("renders the vertical-slice screenshots; run with -testFilter SliceShowcaseTests")]
     public sealed class SliceShowcaseTests
     {
-        private const int W = 1080, H = 2400;
+        /// <summary>Capture size: 1080 × 2400, or $ROGUESTARS_SHOT_SIZE ("1440x3200", "1080x1920", …) for other aspects.</summary>
+        private static int W = 1080, H = 2400;
         private const long T0 = 1_772_452_800_000L;
         private ClientApp _app;
         private LocalGameService _svc;
@@ -41,6 +42,9 @@ namespace RogueStars.Client.PlayTests
             yield return null;
             yield return null;
             _app = AppBootstrap.Current;
+            var size = (Environment.GetEnvironmentVariable("ROGUESTARS_SHOT_SIZE") ?? "").Split('x');
+            if (size.Length == 2 && int.TryParse(size[0], out int sw) && int.TryParse(size[1], out int sh)) { W = sw; H = sh; }
+            else { W = 1080; H = 2400; }
             _dir = Path.Combine(Application.temporaryCachePath, "slice_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_dir);
             _svc = new LocalGameService(_dir, "local_slice", "Wiggles", new ManualClock(T0), 11);
@@ -66,6 +70,17 @@ namespace RogueStars.Client.PlayTests
             yield return Steps(6);
             yield return Wait(1.2f);
             yield return Shot("s1_board_mid");
+
+            // 2b. the player zoomed out and looked around (pinch / drag), then the view after a roll eased it back
+            if (_app.Router.Current is RunScreen zs && zs.World != null)
+            {
+                var hs = new Vector2(zs.BodyFrame.rect.width, zs.BodyFrame.rect.height);
+                var centre = hs / 2;
+                zs.MoveView(centre, centre, 0.6f);
+                zs.MoveView(centre, centre + new Vector2(0, 260), 1);
+                yield return Wait(0.3f);
+                yield return Shot("s1_board_zoomed");
+            }
 
             // 3. the level-up draft over the dimmed board
             var run = _svc.State.Run.Active;
