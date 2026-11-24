@@ -38,7 +38,7 @@ status default; trigger Chance × (1 + StatusChance/100), then target StatusResi
 (Value = % of target max HP, × HealPower / ShieldPower; `Param = "overheal_shield"` turns overheal into shield),
 `GainRage` (flat), `BuffStat` (`Stat` for `Duration` rounds, 0 = rest of battle; negative values debuff),
 `Summon` (`Param` = enemy def id → copy on the owner's threat scale; otherwise an untargetable drone with
-Value % (default 50) of the owner's HP/ATK). `CooldownRounds` blocks the trigger for N rounds after it fired.
+Value % (default 50) of the owner's HP/ATK; enemy bosses and part skills only — no draftable run / lab skill summons). `CooldownRounds` blocks the trigger for N rounds after it fired.
 Recursion is capped at depth 4.
 
 **Conditional damage bonuses:** a `Passive` trigger with `Param = "cond:<condition>"` and `Value = +%`.
@@ -100,3 +100,23 @@ awakening +, boss buffs, battles, strengthening enemies). Deliberate trades (cos
   granter after integration, so there is no fallback currency.
 - **Run rewards** are pending until completion; currencies are multiplied by `run_reward:<currency>` /
   `run_reward:*` modifiers, the level reward multiplier and Overcharged ×1.8. Failure / abandon pays nothing.
+
+## Run skill levels and numbers (skill tuning pass)
+
+- **Ladder:** `RunTuning.SkillLevelLadder` = 15 / 25 / 40 (each rung the sum of the two below). Common skills climb rungs
+  1→3 (Lv1 numbers ×1, ×5/3, ×8/3), Legendary rungs 2→3 (×1, ×8/5), Mythics never level (`SkillLeveling`).
+- **One growing number per trigger:** stats, conditional bonuses, buff / growth stats and value effects grow their number;
+  count effects (`ApplyStatus`, `ExtraDice`, `SkipNegativeEvent`) grow their chance up to 100%, then the count (status
+  stacks; the duration of single-stack statuses such as Freeze / Stun / Charm; dice). Values round to whole numbers from 10
+  (halves below; coins and counts whole) and always move past the previous level, so every level reads differently.
+- **Authoring:** a typical Common gives +15% at Lv1 (proc chances 30%), a Legendary ~+25%; pick Lv1 numbers that are
+  multiples of 3 (Common) or 5 (Legendary) so levels read as whole numbers. Point stats (crit, dodge, element damage,
+  alien power, status chance …) are **flat** (`Stat(StatId.FireDamage, 15)`): a `Percent` on them multiplies a zero base and
+  does nothing (`SkillTuningTests.PointStats_AreFlat…`).
+- **Every draftable skill must change an outcome** (`SkillTuningTests`): battle skills change a seeded battle at every
+  level and each trigger lands its effect; board skills have their own run tests. Removed for doing (almost) nothing:
+  drone summons (Mothership Link → replaced by the Overmind capstone, Swarm Beacon, lab Drone Bay) and loot % (Hoarder,
+  lab Treasure Sense: it only touched the ~1 account-loot item a run carries). Saved states with removed ids keep working
+  (unknown ids are skipped; `LaboratorySystem.StopRemovedResearch` stops research running on a removed node).
+- **Text:** `SkillText.Upgrade(content, skill, from, to)` renders the upgrade inline ("+15% → +25% crit chance"); offers of
+  an owned skill show it with the target level as title (`SkillText.Title(skill, level)` = "Keen Eye Lv 2").

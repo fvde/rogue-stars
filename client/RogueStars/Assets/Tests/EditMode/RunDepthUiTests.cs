@@ -76,6 +76,22 @@ namespace RogueStars.Client.Tests
             Assert.That(S.Run.Active.Gains.Exists(g => g.Source == "mythic" && g.SkillId == "mythic_titan_blood"), Is.True);
         }
 
+        /// <summary>Skill tuning pass: an owned skill offered again shows the target level and its upgrade inline ("+15% → +25%").</summary>
+        [Test]
+        public void LevelUpOffer_ShowsTheTargetLevel_AndTheUpgradeInline()
+        {
+            var run = StartRun();
+            run.Skills.Add("crit_keen");
+            run.Phase = RunPhase.Draft; run.MythicDraft = false;
+            run.DraftOffer.AddRange(new[] { "crit_keen", "gen_power", "gen_guard" });
+            Open();
+            string texts = System.Text.RegularExpressions.Regex.Replace(Texts(_f.App.ModalLayer), "<[^>]+>", "");
+            Assert.That(texts, Does.Contain("Keen Eye Lv 2"));
+            Assert.That(texts, Does.Contain("+15% → +25% crit chance"));
+            Assert.That(texts, Does.Contain("LEVEL 1 → 2"));
+            Assert.That(texts, Does.Contain("+15% ATK"), "a new skill shows its plain Lv1 text");
+        }
+
         [Test]
         public void Hud_ShowsTheSkillCount()
         {

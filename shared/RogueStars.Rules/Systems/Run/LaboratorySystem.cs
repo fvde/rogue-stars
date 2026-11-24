@@ -22,6 +22,7 @@ namespace RogueStars.Rules.Systems
             e.Register<LabResearch>(HandleResearch);
             e.Register<LabCollect>(HandleCollect);
             e.Register<LabToggle>(HandleToggle);
+            e.RegisterSettler(StopRemovedResearch);
             e.RegisterNewPlayer(ctx =>
             {
                 foreach (var id in SortedIds(ctx.Content))
@@ -33,6 +34,31 @@ namespace RogueStars.Rules.Systems
                     if (!loadout.DraftPoolSkillIds.Contains(sid)) loadout.DraftPoolSkillIds.Add(sid);
                 foreach (var m in StatBonuses(state, content)) loadout.WormStats.Add(m);
             });
+        }
+
+        /// <summary>
+        /// Saved states may hold nodes that content no longer has (the skill tuning pass removed Treasure Sense and Drone Bay):
+        /// they are ignored everywhere (sorted content ids drive the tree), and a research still running on one is stopped so it
+        /// never blocks a slot. Its researched levels stay counted in the research index (the Data was spent).
+        /// </summary>
+        public static void StopRemovedResearch(CommandContext ctx)
+        {
+            var lab = ctx.State.Lab;
+            if (lab.Entries.Count == 0) return;
+            List<string> stale = null;
+            foreach (var kv in lab.Entries)
+                if (kv.Value.ResearchingLevel > 0 && ctx.Content.LabNode(kv.Key) == null) (stale = stale ?? new List<string>()).Add(kv.Key);
+            if (stale == null) return;
+            stale.Sort(StringComparer.Ordinal);
+            foreach (var id in stale)
+            {
+                var entry = lab.Entries[id];
+                if (entry.TimerId != null) TimerSystem.Remove(ctx.State, entry.TimerId);
+                entry.TimerId = null;
+                entry.ResearchingLevel = 0;
+                entry.ReadyAtMs = 0;
+                entry.InAnnex = false;
+            }
         }
 
         /// <summary>Skill ids currently toggled on for the draft pool (current level's skill of each enabled skill node).</summary>

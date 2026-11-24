@@ -230,12 +230,13 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Empty(hide.Stats);                                                     // trigger-only skill
         var lv3 = SkillLeveling.At(c, hide, 3);
         Assert.Empty(lv3.Stats);                                                      // no +ATK / +HP package added
-        Assert.Equal(25, hide.Triggers[0].Value);
-        Assert.Equal(50, lv3.Triggers[0].Value, 6);                                   // +50% per level above 1
+        Assert.Equal(24, hide.Triggers[0].Value);
+        Assert.Equal(64, lv3.Triggers[0].Value, 6);                                   // the ladder: ×1, ×5/3, ×8/3
         Assert.Equal("Spiked Hide Lv 3", SkillText.Title(hide, 3));
         Assert.Equal("Spiked Hide Lv 3/3", SkillText.Title(c, hide, 3));
-        Assert.Contains(SkillText.Effects(c, hide, 3), l => l.Contains("50% ATK damage"));
-        Assert.Contains(SkillText.Effects(c, hide, 1), l => l.Contains("25% ATK damage"));
+        Assert.Contains(SkillText.Effects(c, hide, 3), l => l.Contains("64% ATK damage"));
+        Assert.Contains(SkillText.Effects(c, hide, 1), l => l.Contains("24% ATK damage"));
+        Assert.Contains("24% → 40% ATK damage", SkillText.UpgradeFull(c, hide, 1, 2));
 
         // in a run: the worm's ATK / HP do not move when Spiked Hide levels up, the fighter uses the leveled skill
         var e = RunTestKit.Engine();
@@ -255,44 +256,58 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(before.Atk, after.Atk, 6);
         Assert.Equal(before.MaxHp, after.MaxHp, 6);
         var spec = RunSystem.WormSpec(c, run);
-        Assert.Equal(50, spec.Skill(c, "counter_spiked").Triggers[0].Value, 6);
+        Assert.Equal(64, spec.Skill(c, "counter_spiked").Triggers[0].Value, 6);
     }
 
     [Fact]
     public void SkillLevels_ScaleValues_Chances_Stacks_Durations()
     {
         var c = ContentDb.Default;
-        // trigger-only status skill: chance and stacks grow
-        var ember = c.Skill("fire_ember")!;                                           // On hit: 32% chance Burn ×1
+        // the ladder: Common ×1, ×5/3, ×8/3 (15 → 25 → 40); Legendary ×1, ×8/5 (25 → 40)
+        Assert.Equal(5 / 3.0, SkillLeveling.Factor(c, Rarity.Common, 2), 6);
+        Assert.Equal(8 / 3.0, SkillLeveling.Factor(c, Rarity.Common, 3), 6);
+        Assert.Equal(1.6, SkillLeveling.Factor(c, Rarity.Legendary, 2), 6);
+        // trigger-only status skill: the chance grows (stacks stay while the chance is below 100%)
+        var ember = c.Skill("fire_ember")!;                                           // On hit: 30% chance Burn ×1
         var e3 = SkillLeveling.At(c, ember, 3);
-        Assert.Equal(64, e3.Triggers[0].Chance, 6);                                   // the old chain's top tier had 56% ×2
-        Assert.Equal(2, e3.Triggers[0].Stacks);
-        // damage + chance, the chance capped
-        var shard = c.Skill("ice_shard")!;                                            // On attack: 35% chance 35% ATK; 10% Freeze
+        Assert.Equal(80, e3.Triggers[0].Chance, 6);
+        Assert.Equal(1, e3.Triggers[0].Stacks);
+        // damage + chance: the damage grows, the proc chance stays; a status trigger's chance grows
+        var shard = c.Skill("ice_shard")!;                                            // On attack: 35% chance 36% ATK; 6% Freeze
         var s3 = SkillLeveling.At(c, shard, 3);
-        Assert.Equal(70, s3.Triggers[0].Value, 6);
-        Assert.Equal(70, s3.Triggers[0].Chance, 6);
-        Assert.Equal(20, s3.Triggers[1].Chance, 6);
+        Assert.Equal(96, s3.Triggers[0].Value, 6);
+        Assert.Equal(35, s3.Triggers[0].Chance, 6);
+        Assert.Equal(16, s3.Triggers[1].Chance, 6);
+        // past 100% the chance is capped and the stacks grow instead
         var hot = new SkillDef { Id = "x", Name = "X" };
         hot.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Chance = 80 });
-        Assert.Equal(c.RunTuning.SkillLevelChanceCap, SkillLeveling.At(c, hot, 3).Triggers[0].Chance, 6);
-        // timed buff: value and duration grow
-        var rally = c.Skill("alien_rally")!;                                          // allies +12% ATK for 3 rounds
+        var hot2 = SkillLeveling.At(c, hot, 2); var hot3 = SkillLeveling.At(c, hot, 3);
+        Assert.Equal(100, hot2.Triggers[0].Chance, 6);
+        Assert.Equal(1, hot2.Triggers[0].Stacks);
+        Assert.Equal(100, hot3.Triggers[0].Chance, 6);
+        Assert.Equal(2, hot3.Triggers[0].Stacks);                                      // 80% × 8/3 ≈ 2.1 stacks
+        // a sure status (100%) grows its stacks at every level: Miasma ×2 → ×3 (Legendary)
+        Assert.Equal(3, SkillLeveling.At(c, c.Skill("poison_miasma")!, 2).Triggers[0].Stacks);
+        // a sure single-stack status (Freeze) lasts longer instead: Frost Nova V freezes for 1 → 2 rounds
+        var nova = SkillLeveling.At(c, c.Skill("lab_frost_nova_5")!, 2).Triggers[0];
+        Assert.Equal(100, nova.Chance, 6);
+        Assert.Equal(2, nova.Duration);
+        // timed buff: the value grows, the duration stays
+        var rally = c.Skill("alien_rally")!;                                          // allies +15% ATK for 3 rounds
         var r3 = SkillLeveling.At(c, rally, 3);
-        Assert.Equal(24, r3.Triggers[0].Stat.Percent, 6);
-        Assert.Equal(4, r3.Triggers[0].Duration);
+        Assert.Equal(40, r3.Triggers[0].Stat.Percent, 6);
+        Assert.Equal(3, r3.Triggers[0].Duration);
         // passive stat skill: its own package grows
-        Assert.Equal(20 * 2, SkillLeveling.At(c, c.Skill("fire_kindle")!, 3).Stats[0].Percent, 6);
+        Assert.Equal(40, SkillLeveling.At(c, c.Skill("fire_kindle")!, 3).Stats[0].Flat, 6);
         // the content def is never mutated
-        Assert.Equal(25, c.Skill("counter_spiked")!.Triggers[0].Value);
-        // skills whose numbers do not scale (the run clock) are never offered as level-ups
-        Assert.False(SkillLeveling.Grows(c, c.Skill("gen_calm_mind")));
+        Assert.Equal(24, c.Skill("counter_spiked")!.Triggers[0].Value);
+        // the run clock skill grows too now (Calm Mind: the boss awakens 9% → 15% → 24% slower)
+        Assert.Equal(24, SkillLeveling.At(c, c.Skill("gen_calm_mind")!, 3).Triggers[0].Value, 6);
         var run = new ActiveRun();
         run.Skills.Add("gen_calm_mind");
-        Assert.False(RunDraft.CanLevelUp(c, run, c.Skill("gen_calm_mind")));
-        Assert.True(SkillLeveling.Grows(c, c.Skill("counter_spiked")));
-        Assert.All(c.Skills.Values.Where(x => x.Draftable && x.Source == SkillSource.Run && x.Triggers.Count > 0 && x.Stats.Count == 0 && x.Id != "gen_calm_mind"),
-            x => Assert.True(SkillLeveling.Grows(c, x), x.Id + " (trigger-only) does not grow"));
+        Assert.True(RunDraft.CanLevelUp(c, run, c.Skill("gen_calm_mind")));
+        Assert.All(c.Skills.Values.Where(x => x.Draftable && (x.Source == SkillSource.Run || x.Source == SkillSource.Laboratory)),
+            x => Assert.True(SkillLeveling.Grows(c, x), x.Id + " does not grow"));
     }
 
     [Fact]
@@ -301,13 +316,13 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var e = RunTestKit.Engine();
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
-        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_hoarder"); run.PendingDrafts = 1;
-        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_hoarder" }).Ok);
-        Assert.Equal(20, s.Run.Active!.ExtraLootPct, 6);
+        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_calm_mind"); run.PendingDrafts = 1;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_calm_mind" }).Ok);
+        Assert.Equal(9, s.Run.Active!.AwakeningReductionPct, 6);
         run = s.Run.Active!;
-        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_hoarder"); run.PendingDrafts = 1;
-        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_hoarder" }).Ok);
-        Assert.Equal(30, s.Run.Active!.ExtraLootPct, 6);                             // Legendary Lv 2/2: 20 × 1.5
+        run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.Add("gen_calm_mind"); run.PendingDrafts = 1;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = "gen_calm_mind" }).Ok);
+        Assert.Equal(15, s.Run.Active!.AwakeningReductionPct, 6);                    // Lv 2/3: 9 → 15
     }
 
     [Fact]
@@ -462,12 +477,12 @@ public class PlaytestRulesTests(ITestOutputHelper output)
 
         run.RunStats.Add(new StatMod(StatId.Atk, 0, 8));                             // shop perk
         run.RunStats.Add(new StatMod(StatId.Hp, 0, -10));                            // curse
-        run.Skills.Add("gen_guard");                                                 // +12% DEF
-        run.SkillLevels["gen_guard"] = 3;                                            // Lv 3: +24% DEF
+        run.Skills.Add("gen_guard");                                                 // +15% DEF
+        run.SkillLevels["gen_guard"] = 3;                                            // Lv 3: +40% DEF
         var w = RunSystem.WormStats(c, run);
         Assert.Equal(108, w.Atk, 6);
         Assert.Equal(900, w.MaxHp, 6);
-        Assert.Equal(20 * 1.24, w.Def, 6);
+        Assert.Equal(20 * 1.4, w.Def, 6);
         Assert.Equal(w.Atk, w.Stats.Value(StatId.Atk), 6);
         run.WormHp = 450;
         Assert.Equal(450, RunSystem.WormStats(c, run).Hp, 6);

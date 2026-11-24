@@ -107,8 +107,10 @@ public class RunDepthTests(ITestOutputHelper output)
         }
         run = s.Run.Active!;
         var block = BattleSimulator.FinalStats(RunSystem.WormSpec(c, run), c);
-        // level 1: +8% ATK; each further level +50% of the skill's own numbers: level 3 = +16% ATK, and nothing else grows
-        Assert.Equal(16, SkillLeveling.At(c, power, 3).Stats[0].Percent, 6);
+        // the level ladder: +15% → +25% → +40% ATK, and nothing else grows
+        Assert.Equal(15, power.Stats[0].Percent, 6);
+        Assert.Equal(25, SkillLeveling.At(c, power, 2).Stats[0].Percent, 6);
+        Assert.Equal(40, SkillLeveling.At(c, power, 3).Stats[0].Percent, 6);
         Assert.True(block.Value(StatId.Atk) > atk1 && atk1 > atk0, $"{atk0} → {atk1} → {block.Value(StatId.Atk)}");
         Assert.Equal(hp0, block.Value(StatId.Hp), 6); // no generic +HP per level any more
         Assert.False(RunDraft.IsEligible(c, run, power));                                 // max level: no longer offered

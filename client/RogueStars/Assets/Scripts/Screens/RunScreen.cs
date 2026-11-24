@@ -1329,13 +1329,13 @@ namespace RogueStars.Client.Screens
                 var fam = sk?.Family ?? SkillFamily.None;
                 var rarity = sk?.Rarity ?? Rarity.Common;
                 int ownedLevel = RunDraft.Level(run, sid);
-                string full = ownedLevel > 0 && sk != null ? SkillText.Full(Content, sk, ownedLevel + 1) : Fmt.SkillFull(sk);
+                string full = ownedLevel > 0 && sk != null ? SkillText.UpgradeFull(Content, sk, ownedLevel, ownedLevel + 1) : Fmt.SkillFull(sk);
                 if (sk?.UpgradesFrom != null && ownedLevel == 0) full += " Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom) + ".";
                 var spec = new SkillCardSpec
                 {
                     Id = sid, Tier = RunTuning.RunTier(rarity).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = fam,
                     IconArt = ArtCatalog.SkillIcon(sid),
-                    Title = ownedLevel > 0 && sk != null ? SkillText.Title(Content, sk, ownedLevel + 1) : sk?.Name ?? sid,
+                    Title = ownedLevel > 0 && sk != null ? SkillText.Title(sk, ownedLevel + 1) : sk?.Name ?? sid,
                     Body = full,
                 };
                 if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
@@ -1376,7 +1376,7 @@ namespace RogueStars.Client.Screens
                     : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
                     : o.Stat != null ? SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
                 int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.Full(Content, sk, ownedLv + 1) : Fmt.SkillFull(sk))
+                string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.UpgradeFull(Content, sk, ownedLv, ownedLv + 1) : Fmt.SkillFull(sk))
                     : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
                     : "Raises the stat for the rest of this run.";
                 var spec = new SkillCardSpec
@@ -1384,7 +1384,7 @@ namespace RogueStars.Client.Screens
                     Id = o.SkillId ?? ("perk" + i), Tier = skill ? RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString() : o.Kind == ShopOfferKind.Heal ? "Heal" : "Perk",
                     TierColor = skill ? RunPresentation.SkillColor(sk) : Theme.Good, Family = sk?.Family ?? SkillFamily.None,
                     IconArt = skill ? ArtCatalog.SkillIcon(o.SkillId) : HudArt.Icon(o.Kind == ShopOfferKind.Heal ? "heart" : "sword"),
-                    Title = ownedLv > 0 && sk != null ? SkillText.Title(Content, sk, ownedLv + 1) : what, Body = detail, Dim = o.Sold,
+                    Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : what, Body = detail, Dim = o.Sold,
                 };
                 if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
                 var card = SliceCards.Card(root, s, y, spec, null, null, "Offer", h, "Words");

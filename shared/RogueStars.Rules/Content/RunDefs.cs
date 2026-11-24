@@ -512,15 +512,14 @@ namespace RogueStars.Rules.Content
         /// <summary>The run tier of a rarity: Common and Rare → Common, Epic and Legendary → Legendary, Mythic → Mythic.</summary>
         public static Rarity RunTier(Rarity r) => r >= Rarity.Mythic ? Rarity.Mythic : r >= Rarity.Epic ? Rarity.Legendary : Rarity.Common;
         /// <summary>
-        /// Skill levels improve the skill's OWN effect (SkillLeveling): each level above 1 adds this % of every numeric value of
-        /// the skill (passive stats, trigger values: damage / heal / shield / rage / coins / summon power / conditional bonuses,
-        /// buff and growth stats) ...
+        /// Skill levels improve the skill's OWN effect along this ladder (SkillLeveling; owner: "+15% at level one, 25% at level 2,
+        /// 40% at level 3: the upgrades deepen the commitment but yield less than the first pick"). Each rung is the sum of the two
+        /// below (15, 25, 40, 65, …). A Common skill climbs from rung 1 (×1, ×5/3, ×8/3 of its Lv1 numbers: +15% → +25% → +40%),
+        /// a Legendary from rung 2 (×1, ×8/5: +25% → +40%), a Mythic from rung 3.
         /// </summary>
-        public double SkillLevelEffectPct = 50;
-        /// <summary>... raises trigger chances below 100% by the same % (never above this cap, never below the base) ...</summary>
-        public double SkillLevelChanceCap = 90;
-        /// <summary>... and adds +1 status stack / +1 round of duration (statuses, timed buffs) every this many levels.</summary>
-        public int SkillLevelStacksEvery = 2, SkillLevelDurationEvery = 2;
+        public double[] SkillLevelLadder = { 15, 25, 40 };
+        /// <summary>Trigger chances never grow past this (%); beyond it the trigger's stacks (or duration / count) grow instead.</summary>
+        public double SkillLevelChanceCap = 100;
         /// <summary>Weight factor of a level-up offer (an owned skill) against a new skill in drafts and shops.</summary>
         public double LevelUpOfferWeight = 0.6;
         /// <summary>Awakening meter points at which a miniboss (a lieutenant of the boss) attacks after the move.</summary>

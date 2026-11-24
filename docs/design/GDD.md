@@ -106,7 +106,7 @@ fights (at the latest after the level's hard roll limit, `LevelDef.MaxRolls` 45)
 rolls** (27–33 on average for every level band, one or two dice; base pace 28 rolls, relief tiles and choices shift
 it); runs give ~8–10 level-up drafts (run XP curve 3 + 1 per level; **one XP grant — a battle, a pickup, an event — gives
 at most one level-up**, the overflow carries (at most two levels' worth) and pays one level per roll) and ~10–13 fights. Skills and city buildings interact with the meter: slowing it (Stasis
-Beacon 5–18%, Calm Mind −1 per roll, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
+Beacon 5–18%, Calm Mind 9 / 15 / 24% slower, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
 with danger), events and boss tiles can speed it up. The HUD shows **"Roll n/N"**: N = the roll after which the boss is
 expected at the current pace (`RunSystem.BossRollEstimate`), and the boss banner shows "x rolls left". Board fights are
 a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and every won fight heals 15%, since a run has
@@ -121,10 +121,15 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 - **Skill tiers and levels** (owner decision, playtest): run skills have exactly **three fixed tiers — Common, Legendary,
   Mythic** — and never upgrade into another tier (the old upgrade chains are one skill each). A skill drafted, bought or
   forged again levels up to its tier's cap: **Common Lv3, Legendary Lv2, Mythic Lv1** (`RunTuning.MaxSkillLevelOf`). A level
-  improves the skill's **own** effect (`SkillLeveling`): +50% of every number per level above 1 (stats, damage / heal /
-  shield / rage / coins, buffs), chances ×the same (capped at 90%), +1 status stack and +1 round of duration at Lv3; whole
-  counts (dice, skipped events) and the run clock (awakening slow) do not scale (such skills never level). No generic
-  ATK / HP per level. `SkillText.Effects(content, skill, level)` / `Title` ("Spiked Hide Lv 2/3") show the leveled numbers.
+  improves the skill's **own** effect along the **level ladder** (`SkillLeveling`, `RunTuning.SkillLevelLadder` 15 / 25 /
+  40; owner: "+15% at level one, 25% at level 2, 40% at level 3 — the upgrades deepen the commitment to the build but yield
+  less than the first pick"): a Common skill's numbers ×1, ×5/3, ×8/3 (a typical Common: +15% → +25% → +40%), a Legendary's
+  ×1, ×8/5 (~+25% → +40%); Mythics are one strong package. Every trigger grows one number: stats, damage / heal / shield /
+  rage / coins / buff values, and for status / dice triggers the chance — capped at 100%, past it the stacks grow (or the
+  duration of single-stack statuses such as Freeze). Numbers round to readable steps and every level changes the text.
+  No generic ATK / HP per level. `SkillText.Effects(content, skill, level)` / `Title` ("Spiked Hide Lv 2/3") show the
+  leveled numbers; an owned skill offered again shows the target level ("Keen Eye Lv 2") and the upgrade inline
+  (`SkillText.Upgrade`: "+15% → +25% crit chance").
 - **Shops:** two per segment (forced stops), 4 skills (owned ones as level-ups at lower weight), 2 different stat perks
   (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices: skills
   **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
@@ -249,7 +254,7 @@ StatusChance, StatusResist, BossDamage, ElementDamage(per element), AlienPower, 
   tiers only: Common, Legendary, Mythic** (§3.3).
 - Level-up in a run → draft "choose 1 of 3" (rerolls from meta). A hidden legendary pity guarantees a
   Legendary after N level-ups without one. Run skills have prerequisites and family gating (no upgrade chains).
-- **Laboratory:** one branching tree of 38 nodes in four branches (offense, defense, elements, command). **Skill
+- **Laboratory:** one branching tree of 36 nodes in four branches (offense, defense, elements, command). **Skill
   nodes** unlock skills into the run draft pool and upgrade them (toggle on/off for the draft pool); **stat nodes**
   give permanent loadout bonuses of +1% to +10% per node (HP, ATK, DEF, crit chance/damage, combo, counter, dodge,
   damage reduction, shield power, rage gain, element damage, status chance, boss damage, alien power, mount power, loot
