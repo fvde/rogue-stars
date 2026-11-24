@@ -25,18 +25,22 @@ namespace RogueStars.Rules.Content
             LabPrereq[] Pkg(string id) => new[] { new LabPrereq(id, 1) };
 
             // ---- signature packages (signatures pass): each unlocks a synergy for every run: its signature, its 2 Common +
-            // 2 Legendary run skills and its Mythics. Fire, Radiation and Bleed are open from the start. Paced as a chain over the
-            // onboarding journey (Laboratory opens on day 5): Combo at once, each next one needs the previous package and a stat
-            // node at level 2; the Alien package also needs the Aliens feature (Command needs a squad). That synergy's lab skill
-            // nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) need its package.
+            // 2 Legendary run skills and its Mythics. Fire, Radiation and Bleed are open from the start. A chain: Combo comes with the
+            // Laboratory, each next one needs the previous package, a stat node at level 2 and its own level unlock (GDD §16:
+            // package_ice … package_time; the Alien package's level comes after Aliens, Command needs a squad). That synergy's lab
+            // skill nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) need its package.
             LabPackage("pkg_combo", "Combo Package", SkillFamily.Combo, "sig_combo", 1, null);
-            LabPackage("pkg_ice", "Ice Package", SkillFamily.Ice, "sig_ice", 2, new[] { new LabPrereq("pkg_combo", 1), new LabPrereq("lab_atk_1", 2) });
-            LabPackage("pkg_lightning", "Lightning Package", SkillFamily.Lightning, "sig_lightning", 3, new[] { new LabPrereq("pkg_ice", 1), new LabPrereq("lab_hp_1", 2) });
-            LabPackage("pkg_counter", "Counter Package", SkillFamily.Counter, "sig_counter", 4, new[] { new LabPrereq("pkg_lightning", 1), new LabPrereq("lab_def_1", 2) });
+            LabPackage("pkg_ice", "Ice Package", SkillFamily.Ice, "sig_ice", 2, new[] { new LabPrereq("pkg_combo", 1), new LabPrereq("lab_atk_1", 2) })
+                .RequiresFeature = Features.PackageIce;
+            LabPackage("pkg_lightning", "Lightning Package", SkillFamily.Lightning, "sig_lightning", 3, new[] { new LabPrereq("pkg_ice", 1), new LabPrereq("lab_hp_1", 2) })
+                .RequiresFeature = Features.PackageLightning;
+            LabPackage("pkg_counter", "Counter Package", SkillFamily.Counter, "sig_counter", 4, new[] { new LabPrereq("pkg_lightning", 1), new LabPrereq("lab_def_1", 2) })
+                .RequiresFeature = Features.PackageCounter;
             LabPackage("pkg_alien", "Alien Package", SkillFamily.AlienSynergy, "sig_alien", 5, new[] { new LabPrereq("pkg_counter", 1), new LabPrereq("lab_alien_power_1", 2) })
-                .RequiresFeature = Features.Aliens;
+                .RequiresFeature = Features.PackageAlien;
             // skill redesign (R13): Time comes last in the chain (after Alien), with a defense stat node at level 2
-            LabPackage("pkg_time", "Time Package", SkillFamily.Time, "sig_time", 6, new[] { new LabPrereq("pkg_alien", 1), new LabPrereq("lab_def_1", 2) });
+            LabPackage("pkg_time", "Time Package", SkillFamily.Time, "sig_time", 6, new[] { new LabPrereq("pkg_alien", 1), new LabPrereq("lab_def_1", 2) })
+                .RequiresFeature = Features.PackageTime;
 
             // ---- offense ----
             RunLab("res_eagle_eye", "Eagle Eye", true, SkillFamily.None, Rarity.Rare, Off, 1, null, false, (b, lv) =>

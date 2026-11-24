@@ -309,7 +309,9 @@ namespace RogueStars.Rules.Systems
                 RunTriggers(ctx, run, TriggerKind.OnBossAwaken, null);
             }
             var at = c.RunTuning.MinibossAtMeter;
-            while (run.Mode != RunMode.Burrow && run.MinibossesSpawned < at.Count && run.Awakening >= at[run.MinibossesSpawned] - 1e-9)
+            var levelDef = c.RunLevel(run.LevelId);
+            bool clock = levelDef == null || levelDef.ClockMinibosses; // the first main levels have none yet (GDD §16)
+            while (clock && run.Mode != RunMode.Burrow && run.MinibossesSpawned < at.Count && run.Awakening >= at[run.MinibossesSpawned] - 1e-9)
             {
                 run.MinibossesSpawned++;
                 run.PendingAmbushes++;

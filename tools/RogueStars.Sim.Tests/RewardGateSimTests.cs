@@ -35,13 +35,15 @@ public class RewardGateSimTests
     }
 
     [Fact]
-    public void Day1_Inventory_IsStaminaDiamondsOreAndParts()
+    public void Day1_Inventory_IsStaminaDiamondsOreBiomassAndParts()
     {
         var p = new SimPlayer(TimeProfile.Active, SpendProfile.F2P, 1);
         p.PlayDay(0);
         var owned = p.S.Wallet.Balances.Where(kv => kv.Value > 0).Select(kv => kv.Key).ToHashSet();
-        // Day 1 uses: runs (stamina), Diamonds, part levels (Ore; Gear Cores once a part can pass level 10).
-        Assert.Subset(new HashSet<string> { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.GearCores }, owned);
+        // Day 1 uses (level unlocks, ~L8 for an Active player): runs (stamina), Diamonds, part levels (Ore; Gear Cores once a
+        // part can pass level 10), worm levels and the farm (Biomass, Worm Level at L3). Data, tokens and Grain still wait.
+        Assert.Subset(new HashSet<string> { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.GearCores, Currencies.Biomass }, owned);
+        Assert.Contains(Currencies.Biomass, owned);
         Assert.NotEmpty(p.S.Parts.Items);
     }
 }

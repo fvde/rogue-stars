@@ -290,7 +290,8 @@ namespace RogueStars.Rules.Content
             var pod = RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special); pod.EventId = "treasure_pod";
             pod.Text = "Guarded account loot.";
             RunTile("event", "Strange Signal", TileCategory.Event, TileValence.Special);
-            RunTile("campfire", "Campfire", TileCategory.Campfire, TileValence.Positive).EventId = "campfire";
+            var fire = RunTile("campfire", "Campfire", TileCategory.Campfire, TileValence.Positive); fire.EventId = "campfire";
+            fire.MinMainLevel = Campaign.CampfiresFromLevel; // level-unlocked run content (GDD §16)
             var shop = RunTile("shop", "Wandering Shop", TileCategory.Shop, TileValence.Special); shop.ForceStop = true; shop.Consumable = false;
             var h1 = RunTile("hazard_spikes", "Crystal Spikes", TileCategory.Hazard, TileValence.Negative); h1.Value = 10;
             var h2 = RunTile("hazard_toll", "Toll Drones", TileCategory.Hazard, TileValence.Negative); h2.Coins = 30;
@@ -320,6 +321,14 @@ namespace RogueStars.Rules.Content
             TilePools["pool_burrow"] = RunStandardPool(1.3, 1.4);
             TilePools["pool_dark"] = RunStandardPool(1.5, 1.5);
             TilePools["pool_void"] = RunStandardPool(1.25, 1.2);
+            // The tutorial run (main level 1, GDD §16): roll, fight, level up, pick skills, beat the boss. Nothing else on
+            // the board: no events, elites, hazards, debuffs, treasure or campfires.
+            TilePools[Campaign.TutorialPool] = new List<WeightedId>
+            {
+                new WeightedId("empty", 5), new WeightedId("enemy_1", 16), new WeightedId("enemy_2", 8),
+                new WeightedId("buff_atk", 3), new WeightedId("buff_hp", 3), new WeightedId("buff_def", 2),
+                new WeightedId("loot", 7), new WeightedId("coin_pickup", 5), new WeightedId("shard", 3),
+            };
         }
 
         private void RunBossTile(string id, string name, double meter, double bossPct, long coins)

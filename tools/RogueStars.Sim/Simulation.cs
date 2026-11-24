@@ -12,8 +12,8 @@ public sealed class SimResult
     /// <summary>Checkpoint day → ordered metrics.</summary>
     public SortedDictionary<int, List<(string name, double value)>> Checkpoints = new();
     public long Commands, FailedCommands;
-    /// <summary>Feature id → (account day, main level) of its unlock.</summary>
-    public Dictionary<string, (int day, long level)> Unlocks = new();
+    /// <summary>Feature id → (account day, main level, minutes played, runs played) of its unlock.</summary>
+    public Dictionary<string, (int day, long level, double minutes, int runs)> Unlocks = new();
     public double WallSeconds;
     /// <summary>Every played run (only with keepRunLog).</summary>
     public List<RunRecord> RunLog = new();
@@ -45,7 +45,7 @@ public static class Simulation
             }
         }
         res.Commands = p.Commands; res.FailedCommands = p.FailedCommands;
-        res.Unlocks = new Dictionary<string, (int day, long level)>(p.Unlocks);
+        res.Unlocks = new Dictionary<string, (int day, long level, double minutes, int runs)>(p.Unlocks);
         res.WallSeconds = sw.Elapsed.TotalSeconds;
         res.RunLog = p.RunLog;
         return res;

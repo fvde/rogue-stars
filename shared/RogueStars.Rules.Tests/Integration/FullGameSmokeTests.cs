@@ -119,7 +119,7 @@ public class FullGameSmokeTests
             p.Do(new PartEquip { Uid = part.Uid, Slot = slot });
         }
 
-        // Day 2 (level 8): the City unlocks with the Biomass Farm blueprint and the stashed Biomass; first collection.
+        // Level 8 (the City opens at level 6) with the Biomass Farm blueprint and the stashed Biomass; first collection.
         p.S.Counters[Requirements.MainLevelCounter] = 8;
         Assert.Contains(Features.BiomassFarm, p.PlayUntilDay(2));
         Assert.True(p.S.Wallet.Get(Currencies.Biomass) > 0);
@@ -128,9 +128,9 @@ public class FullGameSmokeTests
         var collected = (Dictionary<string, long>)p.Do(new CityCollect(), 2 * Hour).Payload!;
         Assert.True(collected[Currencies.Biomass] > 0);
 
-        // Later portal progress (stand-in for many more runs) over 14 days: one unlock per day (pulls, aliens, housing,
-        // heroes, mounts, breeding...).
-        p.S.Counters[Requirements.MainLevelCounter] = 30;
+        // Later portal progress (stand-in for many more runs) to level 34: pulls, aliens, housing, heroes, mounts, breeding
+        // ... unlock with their levels (no calendar gate).
+        p.S.Counters[Requirements.MainLevelCounter] = 34;
         p.RunRewards(200_000, 200_000, 100_000);
         var unlockEvents = p.PlayUntilDay(14);
         Assert.Contains(Features.Aliens, unlockEvents);
@@ -209,7 +209,7 @@ public class FullGameSmokeTests
     {
         var p = new Player(99);
         p.S.Counters[Requirements.MainLevelCounter] = 40;
-        p.PlayUntilDay(19); // day-gated unlocks, one per day: everything up to the Burrow
+        p.PlayUntilDay(19); // level unlocks: everything up to Overcharged
         p.RunRewards(500_000, 500_000, 200_000);
         p.Do(new PurchaseStart { ProductId = "diamonds_8000" });
         p.Do(new PurchaseComplete { ProductId = "diamonds_8000", ReceiptId = "dev:rt-1" });

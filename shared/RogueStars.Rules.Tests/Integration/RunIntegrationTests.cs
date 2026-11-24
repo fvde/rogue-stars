@@ -170,8 +170,8 @@ public class RunIntegrationTests
         }
         Assert.True(firstWon, "a fresh worm should win Ember Wastes 1");
         Assert.True(s.Counter(Requirements.MainLevelCounter) >= 3, $"stuck at {s.Counter(Requirements.MainLevelCounter)} after {runs} runs");
-        // Worm Level unlocks on day 3 (onboarding v2): the early upgrades are part levels.
-        Assert.True(s.Worm.Level == 1, "worm levelling is gated until Worm Level unlocks");
+        // Worm Level unlocks with level 3 (GDD §16 level unlocks): the first upgrades are part levels, then worm levels.
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.WormLevel));
         Assert.True(s.Counter("part_levels") > 0, "runs paid for part levels");
     }
 }

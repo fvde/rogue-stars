@@ -112,8 +112,11 @@ namespace RogueStars.Rules.Content
         public double PoolWeight = 4;
         /// <summary>At most this many GAME tiles per run (each resolves once, then it is cleared).</summary>
         public int MaxPerRun = 2;
-        /// <summary>No GAME tiles on main levels below this (the first, tutorial run stays plain).</summary>
-        public int MinMainLevel = 2;
+        /// <summary>
+        /// No GAME tiles on main levels below this: the Alien Arcade is level-unlocked run content (GDD §16,
+        /// Features.RunMinigames unlocks at this − 1; tests keep the two in step).
+        /// </summary>
+        public int MinMainLevel = 15;
         /// <summary>Chance (%) that a GAME tile pays a skill roll instead of run coins.</summary>
         public double SkillRollChancePct = 50;
         /// <summary>Tier auto mode uses when farming (no player): a Miss = consolation coins only, no skill roll.</summary>

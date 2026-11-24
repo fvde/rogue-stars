@@ -30,7 +30,9 @@ namespace RogueStars.Rules.Systems
             }
             var rng = new Rng(0x5167UL ^ state.Run.SignatureSeed).Fork("signature:" + state.Run.RunsStarted);
             rng.Shuffle(pool);
-            if (pool.Count > content.RunTuning.SignatureChoices) pool.RemoveRange(content.RunTuning.SignatureChoices, pool.Count - content.RunTuning.SignatureChoices);
+            // Before the Signature Choice unlock (GDD §16) the run gets the first one: a single offer, no pick screen.
+            int choices = Features.IsUnlocked(state, content, Features.RunSignatures) ? content.RunTuning.SignatureChoices : 1;
+            if (pool.Count > choices) pool.RemoveRange(choices, pool.Count - choices);
             return pool;
         }
 
