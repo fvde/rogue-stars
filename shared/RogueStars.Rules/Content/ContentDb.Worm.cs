@@ -68,7 +68,7 @@ namespace RogueStars.Rules.Content
         /// Aliens pass: sidekicks have no stats and work in % of the worm's ATK / max HP, so each squad alien adds a share of the worm's
         /// stat power: PowerAlienBasePct + PowerAlienPerRarityPct × rarity + PowerAlienPerStarPct × (stars − 1) percent.
         /// </summary>
-        public double PowerAlienBasePct = 3, PowerAlienPerRarityPct = 0.5, PowerAlienPerStarPct = 0.6;
+        public double PowerAlienBasePct = 1, PowerAlienPerRarityPct = 0.25, PowerAlienPerStarPct = 0.25;
     }
 
     public sealed partial class ContentDb

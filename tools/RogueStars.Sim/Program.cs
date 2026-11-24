@@ -27,6 +27,12 @@ if (opts.Has("age-jump"))
     }
     return;
 }
+if (opts.Has("alien-share"))
+{
+    // Aliens pass: each alien's damage contribution at 1★ / 10★ next to a day-N bot worm (AlienShare).
+    Console.WriteLine(AlienShare.Markdown(opts.Int("days", 60), opts.Int("seeds", 5)));
+    return;
+}
 if (opts.Has("run-length"))
 {
     // Run length per level band (awakening clock sizing): bots play --days with every run recorded.

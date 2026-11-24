@@ -142,7 +142,7 @@ public class AlienAbilityTests
 
     /// <summary>A worm (ATK given) and sidekicks against defenceless dummies (no DEF, 1 ATK): exact numbers.</summary>
     internal static BattleResult Dummy(IEnumerable<CombatAlien> aliens, double wormAtk = 200, int rounds = 6, int dummies = 1, IEnumerable<string>? wormSkills = null,
-        ContentDb? content = null, double wormHp = 100000, ulong seed = 3, IEnumerable<StatMod>? wormStats = null, Dictionary<string, int>? levels = null)
+        ContentDb? content = null, double wormHp = 100000, ulong seed = 3, IEnumerable<StatMod>? wormStats = null, Dictionary<string, int>? levels = null, double dummyDef = 0)
     {
         var c = content ?? C;
         var lo = new CombatLoadout { DisplayName = "Worm" };
@@ -154,7 +154,7 @@ public class AlienAbilityTests
         for (int i = 0; i < dummies; i++)
         {
             var d = new CombatantSpec { Id = "dummy" + i, Name = "Dummy " + i, Role = CombatRole.Enemy, Targetable = true };
-            d.Stats.Add(new StatMod(StatId.Hp, 1e7)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 1));
+            d.Stats.Add(new StatMod(StatId.Hp, 1e7)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 1)).Add(new StatMod(StatId.Def, dummyDef));
             setup.Enemy.Add(d);
         }
         return BattleSimulator.Simulate(setup, c, new Rng(seed));
@@ -175,6 +175,15 @@ public class AlienAbilityTests
         Assert.Equal(60, Hit(400));              // scales with the worm's ATK
         Assert.Equal(50, Hit(200, 10));          // 25% at 10★
         Assert.Equal(44, Hit(200, 1, new[] { "alien_bond" })); // Squad Bond +45% alien power: 30 × 1.45 = 43.5
+    }
+
+    /// <summary>"15% ATK" is 15% of the worm's hit through the target's DEF (200 ATK − 100 DEF = 100 → 15), never floored away by DEF.</summary>
+    [Fact]
+    public void AHit_IsItsPercentOfTheWormsHit_ThroughDef()
+    {
+        var r = Dummy(new[] { Alien("alien_blorp", 1, 400) }, 200, 2, dummyDef: 100);
+        Assert.Equal(15, r.Log.First(e => e.Action == BattleAction.Skill && e.SkillId == "ask_blorp_1").Amount);
+        Assert.Equal(100, r.Log.First(e => e.Action == BattleAction.Basic && r.Fighters[e.Actor].Role == CombatRole.Worm && !e.Crit).Amount);
     }
 
     /// <summary>A sidekick's statuses are the shared ones with the worm as their source: the worm's power, its DoT ticks, its triggers.</summary>

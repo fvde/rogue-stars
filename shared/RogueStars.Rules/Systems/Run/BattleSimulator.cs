@@ -532,12 +532,12 @@ namespace RogueStars.Rules.Systems
             f.Charge = T.SidekickStartCharge;
         }
 
-        /// <summary>A fighter's ATK for its hits and status power; a sidekick's is AtkPct % of its worm's live ATK × (1 + alien power %).</summary>
+        /// <summary>A fighter's ATK; a sidekick's is its worm's live ATK × (1 + alien power %) (its hits then take their % of it, ComputeDamage).</summary>
         private double AtkOf(Fighter f)
         {
             if (!f.Sidekick) return f.S(StatId.Atk);
             var worm = FirstWorm(f.Side);
-            return worm == null ? 0 : worm.S(StatId.Atk) * f.AtkPct / 100.0 * Math.Max(0, 1 + f.AlienPower / 100.0);
+            return worm == null ? 0 : worm.S(StatId.Atk) * Math.Max(0, 1 + f.AlienPower / 100.0);
         }
 
         private double AlienPowerOf(BattleSide side)
@@ -1164,11 +1164,17 @@ namespace RogueStars.Rules.Systems
             return dealt;
         }
 
+        /// <summary>
+        /// Hit damage. A sidekick's hit (aliens pass) is atkPct % (× its AtkPct %) of a full-strength hit at its worm's ATK × alien power:
+        /// "15% ATK" is 15% of what that hit would deal through the target's DEF, never floored away by it.
+        /// </summary>
         private double ComputeDamage(Fighter att, Fighter def, double atkPct, double bonusPct, bool crit, AttackKind kind, bool trueDamage)
         {
             double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + att.S(StatId.CritDamage), def.S(StatId.CritResist));
+            double share = 1;
+            if (att.Sidekick) { share = atkPct / 100.0 * att.AtkPct / 100.0; atkPct = 100; }
             return CombatMath.HitDamage(AtkOf(att), atkPct, bonusPct, def.S(StatId.Def), def.S(StatId.DamageReduction), trueDamage,
-                crit, critMult, CondMultiplier(att, def, kind), TakenMultiplier(def), T) * DealtMultiplier(att);
+                crit, critMult, CondMultiplier(att, def, kind), TakenMultiplier(def), T) * DealtMultiplier(att) * share;
         }
 
         /// <summary>Damage the fighter deals, from its statuses (Chill: −3% per stack, scaled by the chiller's ice damage).</summary>

@@ -63,10 +63,10 @@ namespace RogueStars.Sim
         };
 
         /// <summary>Currencies whose income is also split by source (runs by mode, city, quests, arena, invasions, shop, other).</summary>
-        public static readonly string[] SourceTracked = { Currencies.Biomass, Currencies.Ore, ProgressionCurrencies.PartAwakenCores, Currencies.Data, Currencies.ArenaMedals };
+        public static readonly string[] SourceTracked = { Currencies.Biomass, Currencies.Ore, ProgressionCurrencies.PartAwakenCores, Currencies.Data, Currencies.ArenaMedals, Currencies.Grain };
         public static readonly string[] Sources = { "run_main", "run_burrow", "run_dark", "city", "quests", "arena", "invasion", "shop", "other" };
         /// <summary>Cumulative income per SourceTracked currency (row) and Sources entry (column).</summary>
-        public readonly double[,] EarnedBySource = new double[5, 9];
+        public readonly double[,] EarnedBySource = new double[SourceTracked.Length, Sources.Length];
         public readonly double[] Earned = new double[Tracked.Length];
         public readonly double[] SpentRes = new double[Tracked.Length];
         private readonly long[] _before = new long[Tracked.Length];
