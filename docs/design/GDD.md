@@ -307,27 +307,29 @@ define Basic/Combo/Counter/Rage attack styles).
 ## 7. Heroes, Mounts, Aliens
 ### 7.1 Heroes (traits for the worm)
 - The worm equips one **Hero persona** (9: Star Knight, Chef, Void Pirate, Shadow Noodle, Prism Alchemist, Sparkplug, Beast Tamer,
-  Nebula Monk, Hourglass Hermit). Unlock by shards; **stars 1–10** via shards. Each hero has a hand-written **kit** (hero and mount
+  Nebula Monk, Hourglass Hermit). Heroes count as Mythic. Unlock with 50 shards; **stars 1–10** on the shared shard table
+  (§12.2). Each hero has a hand-written **kit** (hero and mount
   kits, owner-approved page rev 2): 1★ Trait + Ability (a timer or a counter that says what fills it, e.g. "Starfall 2/4"), 3★ one
   number, 5★ / 7★ clauses, 10★ capstone. Heroes are not tied to a synergy. Stars and hero level raise worm stats from one shared
   budget. Kits per star: docs/design/heroes-mounts.md.
-- Hero level via Hero XP. Heroes come from **summon events** (§12.1): a hero copy unlocks the hero, every further copy is
-  +1★ (at 10★ it becomes exchange tokens); shards (events, exchange) keep unlocking (40) and starring up as before. There is
-  **no starter hero**: the Heroes unlock gives only the summon events and the first event's 10 tickets.
+- Hero level via Hero XP. Heroes come from **summon events** (§12.1): a won hero is a batch of 50 shards (the first unlocks the
+  hero; at 10★ a batch becomes exchange tokens); stars are bought with shards. There is **no starter hero**: the Heroes unlock
+  gives only the summon events and the first event's 10 tickets.
 
 ### 7.2 Mounts (spaceships)
 - One active mount: a **vehicle on a reload** with **no stats** (no ATK / HP / DR, no shield from mount HP): one passive + one
-  active (a shot every N rounds from round 1), both changing at 1★ / 3★ / 5★ / A3 / A5; damage is % of the worm's ATK × (1 + mount
-  damage %: +5% at 2★ / 4★ / A1 / A2 / A4, +1% per Fuel level, collection, lab). Its statuses and crits are the worm's (rider
-  link). 9 mounts (Scout Saucer starter, Magma Barge, Siphon Hauler, Star Lancer, Frost Frigate, Rift Racer, Aegis Walker, Hive
-  Carrier, Chrono Skiff): docs/design/heroes-mounts.md. **Stars 1–5**, then
-  **awakening levels 1–5**. Mounts come from **summon events** (§12.1): a copy unlocks the mount (or 30 shards do), every
-  further copy is +1★ up to 5★, then the shards of the next awakening level (awakening also costs Mount Cores). Mount level via Fuel.
+  active (a shot every N rounds from round 1), both changing at 1★ / 3★ / 5★ / 8★ / 10★; damage is % of the worm's ATK × (1 + mount
+  damage %: +5% at 2★ / 4★ / 6★ / 7★ / 9★, +1% per Fuel level, collection, lab). Its statuses and crits are the worm's (rider
+  link). 9 mounts (Scout Saucer, Magma Barge, Siphon Hauler, Star Lancer, Frost Frigate, Rift Racer, Aegis Walker, Hive
+  Carrier, Chrono Skiff): docs/design/heroes-mounts.md. Mounts count as Mythic: **stars 1–10** on the shared shard table
+  (§12.2); the former awakening 1–5 is stars 6★–10★, which also cost Mount Cores (100 / 200 / 400 / 700 / 1 100). Mounts come
+  from **summon events** (§12.1): a won mount is a batch of 50 shards (the first unlocks it). **No starter mount**: the Mounts
+  unlock gives the mount events and the first event's 10 tickets. Mount level via Fuel.
 
 ### 7.3 Aliens
 - One alien **per alien type** (species); 20 species (7 Common · 5 Rare · 4 Epic · 2 Legendary · 2 Mythic). Each has one
   ability (aliens pass, owner review rev 4.3), a Speed (34 Common … 50 Mythic), up to 3 traits, rarity and **stars 1–10 via
-  shards** (duplicates and breeding) — **the only progression**; alien levels were removed. **No combat stats:** the ability
+  shards** (the shared table of §12.2 at every rarity: pulled batches of 50, breeding, the Shard Reactor) — **the only progression**; alien levels were removed. **No combat stats:** the ability
   works in % of the worm's ATK (hits, statuses) or max HP (heals, shields), × alien power. Every star is its own ability
   step: the main % grows (wide ranges every star, small ranges only at tier stars), tier stars 1/3/5/7/10 also change the
   effect (stacks, targets, chances). Whole numbers only. Per-alien table: docs/design/skill-conventions.md "Sidekicks".
@@ -351,7 +353,8 @@ define Basic/Combo/Counter/Rage attack styles).
 - The city is a grid on the planet unlocked area by area (early game = unlocking city elements one by one:
   Biomass farm, Grain farm, Ore mine, Housing, Laboratory, Breeding Pen, Diamond mine, Observatory, …).
 - **Blueprints** are pulled (gacha) or earned. Place a building, level it (Ore + Biomass + time), raise its
-  stars with duplicate blueprints (1–10 stars; star milestones add effects). Rarity: Common → Mythic.
+  stars with shards (1–10 stars on the shared table of §12.2: a won blueprint is a batch of 50 shards; star milestones add
+  effects). Rarity: Common → Mythic.
 - **Production buildings** generate resources over time (settled from timestamps); alien workers boost
   output by their work stats/traits. Player sets a **production priority** (which resource gets the boosted
   share).
@@ -360,6 +363,9 @@ define Basic/Combo/Counter/Rage attack styles).
   meter slowdown, squad slot unlocks.
 - **Staffed buildings:** some utility boons need workers (e.g. the Mythic **Research Annex**: a second laboratory slot
   while two aliens of 3★+ work there).
+- **Shard Reactor** (Mythic): turns spare shards into shards of a rarer item of the same type that the player picks (alien
+  shards → a higher-rarity alien; blueprint shards → a higher-rarity blueprint): ×4 source shards per rarity step, Grain (aliens)
+  or Ore (blueprints) and time; one job per working alien (1 worker slot, +1 at 3★ and 6★). docs/design/pull-system.md.
 - **Collection bonus:** owned blueprints give small permanent stats by stars (long-haul pull value).
 - Construction and upgrade timers: speed up with Diamonds (linear published rate) or ads (each ad −15% of
   the remaining time, max 3 ads per timer).
@@ -390,8 +396,11 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 | Part Signal | Part Tokens | Parts, runes |
 | Alien Signal | Alien Tokens | Aliens; Grain and hero summon tickets (the old hero-shard share) |
 - Each pull type can always be paid with Diamonds instead.
-- Weighted rarity tiers; **hidden pity** per pull type (shared across banners of that type, carries over);
-  10-pull guarantees at least one Epic+. Duplicates convert to shards/stars.
+- Flat published rates: Common 58.3%, Rare 28%, Epic 9.5%, **Legendary 3%**, **Mythic 1.2%** on every pull. **Fixed, visible
+  pity** per pull type (shared across banners of that type, carries over): "Mythic x/100" (the 100th pull without a Mythic is
+  one) and "Legendary x/40" (the 40th without a Legendary or better is at least Legendary; its Mythic chance stays 1.2%). No
+  soft or hidden pity anywhere. The visible 10-pull rule: every 10× pull has at least one Epic. A blueprint / alien result is a
+  batch of 50 shards (§12.2). docs/design/pull-system.md.
 - **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner). The Blueprint Signal's
   old mount share is Ore and mount summon tickets; heroes and mounts are not in the Signals any more.
 
@@ -399,18 +408,25 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 Heroes and mounts are obtained in **temporary rotating summon events** (docs/design/summon-events.md, all numbers in
 `ContentDb.SummonEvents`): one **hero event (6 days)** and one **mount event (3 days)** at a time, each featuring one hero /
 mount from a global rotation; the player's first event of a type starts at its feature unlock. Pulls cost **persistent
-tickets** (or Diamonds) and pay exchange tokens. A visible **Luck** meter (300 heroes / 200 mounts) guarantees the featured
-copy when full and is **kept until the next event of that type** (the hidden Legendary pity of the Signals applies too).
+tickets** (or Diamonds) and pay exchange tokens. The featured hero / mount (a batch of 50 shards) drops at a flat 1.2%; the
+other 98.8% are filler (Hero XP / Fuel, Mount Cores, Signal tokens, a 0.05% Awaken Core). The visible **Luck** meter (100)
+guarantees the featured batch when full and is **kept until the next event of that type**. No Legendary / Rare hero or mount drops.
 Per event: six task lines counted from the event start (enemies, won levels, won mini-games, Alien / Part / Blueprint pulls;
 one ticket per target), pull-count milestones, an exchange shop with event limits, a free + premium day pass, packs with
-daily limits and a daily ad ticket. Duplicates are stars (heroes to 10★, mounts to 5★ then awakening shards).
-- Target: an active F2P player reaches mythic pity at least once a week.
+daily limits and a daily ad ticket.
+
+### 12.2 One star system for pulled items
+Heroes and mounts (Mythic), and aliens and blueprints of every rarity, are shard based on one table: **50 shards unlock**
+(1★), 1★→2★ and 2★→3★ 50 each, 3★→4★ … 6★→7★ 100 each, 7★→8★ … 9★→10★ 150 each: **1 000 shards from nothing to 10★**.
+Pulls never pay small shard amounts: winning an item is a batch of 50 shards, and the first batch of an item the player does
+not own unlocks it. Parts keep their own merge ladder (§6). Old saves: stars kept (mounts: stars + awakening), loose shards
+converted step by step (docs/design/pull-system.md).
 
 ## 13. Currencies
 | Currency | Use |
 |---|---|
 | Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
-| Grain | Breeding (its only sink; more uses later) |
+| Grain | Breeding, Shard Reactor alien jobs |
 | Ore | Parts level, Mythic+ merges, buildings |
 | Data | Laboratory research (Dark Side clears, daily/weekly chests, arena shop) |
 | Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
@@ -422,7 +438,8 @@ daily limits and a daily ad ticket. Duplicates are stars (heroes to 10★, mount
 | Blueprint/Part/Alien Tokens | Free pulls |
 | Hero / Mount Summon Tickets | Summon event pulls (kept between events) |
 | Star Sigils / Hangar Bolts | Summon event exchange shops (per pull) |
-| Shards (per hero/alien/blueprint), Mount Cores | Stars |
+| Shards (per hero/alien/mount/blueprint) | Unlock (50) and stars (the shared table, §12.2); spare alien / blueprint shards feed the Shard Reactor |
+| Mount Cores | Mount stars 6★–10★ |
 | Stamina | Runs (regenerating) |
 | Arena Tickets, Burrow Keys, Invasion Attempts | Mode entry (regenerating / daily) |
 | Run Coins | In-run only |
@@ -467,14 +484,14 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Hero XP | hero levels | Heroes (D10) | 3 000 |
 | Data | laboratory research | Laboratory (D5) | 100 |
 | Part / Alien / Blueprint Tokens | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
-| Mount Cores | mount awakening | Mounts | none |
+| Mount Cores | mount stars 6★–10★ | Mounts | none |
 | Hero / Mount Summon Tickets | summon event pulls | Heroes / Mounts | 30 each |
 | Star Sigils / Hangar Bolts | summon exchange shops | Heroes / Mounts | none |
 | Arena Tickets / Arena Medals | arena fights / arena shop | Arena (D15) | 5 / none |
 | Burrow Keys | Burrow runs | Burrow (D19) | 2 |
 | Invasion Attempts | invasion battles | Invasions (D18) | 3 |
 | Guild Marks | guild shop | Guilds (D17) | none |
-| Hero / Alien / Blueprint / Mount shards | stars (hero unlock, mount awakening) | Heroes / Aliens / City / Mounts | none |
+| Hero / Alien / Blueprint / Mount shards | unlock and stars | Heroes / Aliens / City / Mounts | none |
 | Parts, Runes, Blueprints, Aliens, Mounts, hero copies, hero shard rewards | – | Parts / Runes (D11) / City / Aliens / Mounts / Heroes | Runes 5 (best kept), others none |
 
 ## 14. Monetization (mainstream RPG model, no A/B, no spend-based pricing)

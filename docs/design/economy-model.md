@@ -15,11 +15,12 @@ and are checked by `EconomyLongHaulTests` (shared/RogueStars.Rules.Tests/Progres
 Diamonds for pulls are spent as 10-pulls (1 350 Diamonds) rotating over the three pull types.
 
 ## Gacha tuning (per pull type)
-- Base tiers: Common 60%, Rare 28%, Epic 9.5%, Legendary 2%, Mythic 0.5% (published via `GachaSystem.GetOdds`).
-- 1 pull = 1 token or 150 Diamonds; 10 pulls = 10 tokens or 1 350 Diamonds; a 10-pull contains Epic+.
-- Hidden pity (never shown): the 50th pull without a Mythic is Mythic; Legendary weight +2.5 per pull after
-  25 pulls without Legendary+, the 40th is Legendary+. Pity is per pull type, shared by all its banners and
-  carried over between banners/weeks.
+- Pull system (docs/design/pull-system.md): flat tiers Common 58.3%, Rare 28%, Epic 9.5%, Legendary 3%, Mythic 1.2% (published
+  via `GachaSystem.GetOdds`).
+- 1 pull = 1 token or 150 Diamonds; 10 pulls = 10 tokens or 1 350 Diamonds; a 10-pull contains Epic+ (shown on the pull card).
+- Fixed, visible pity: "Mythic x/100" (the 100th pull without a Mythic is Mythic) and "Legendary x/40"; no soft or hidden pity.
+  Pity is per pull type, shared by all its banners and carried over between banners/weeks. A blueprint / alien result is a
+  batch of 50 shards on the shared 10★ table (1 000 shards).
 - Weekly themed banners for every type; the featured Mythic takes 50% of Mythic outcomes.
 - Alien Signal: ~40% of outcomes are Grain (Common / Rare) and hero summon tickets (Epic+); Blueprint Signal ~25% Ore and
   mount summon tickets. Heroes and mounts come from summon events (docs/design/summon-events.md).
@@ -28,8 +29,8 @@ Diamonds for pulls are spent as 10-pulls (1 350 Diamonds) rotating over the thre
 | Metric | Value | Target |
 |---|---|---|
 | Pulls per type per week | ~45 (42 from tokens, ~3 from Diamonds) | — |
-| Mythics per type per week | ~1.07 (about half from the hidden pity) | about weekly |
-| Shards to hero 10★ | 3 470 (unlock 40, then 30/60/100/160/250/380/550/800/1 100); a hero copy from a summon event is +1★ | genuinely hard |
+| Mythics per type per week | ~0.75 (1 per ~58 pulls; before the pull system ~1.07 with the hidden pity at 50) | about weekly |
+| Shards to hero 10★ | 1 000 (unlock 50, then 50/50/100/100/100/100/150/150/150); a summon event Mythic is 50 shards | genuinely hard |
 | Weeks to 10★ via summon events, F2P all-in on one hero | ~78 (seeds 50 / 78 / 84) | many months (test band: 9 months – 3 years) |
 | Weeks to 10★, spender (30× Diamonds in that hero's events) | ~9 | clearly faster |
 
@@ -62,9 +63,8 @@ after the main hero is maxed.
   Level unlocked): before that no surge run is consumed and no surge counter or text is shown. City farms
   (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
   Sinks: worm levels, talents, buildings (no laboratory).
-- Mounts: mount summon events (docs/design/summon-events.md): a copy unlocks a mount (or 30 shards), every further copy is
-  +1★ to 5★ (or 20/50/100/180 shards), then the shards of the next awakening level; awakening 1–5 costs 1 040 shards +
-  2 500 Mount Cores. Mount Cores come from the mount events, Burrow floors 6+, the Dark Side (1–4 per clear) and the guild
+- Mounts: mount summon events (docs/design/summon-events.md, pull-system.md): a batch of 50 shards unlocks a mount, stars to 10★
+  on the shared table (1 000 shards), stars 6★–10★ (the former awakening) also cost 2 500 Mount Cores in all. Mount Cores come from the mount events, Burrow floors 6+, the Dark Side (1–4 per clear) and the guild
   shop.
 
 ## Endless campaign rewards
@@ -174,9 +174,9 @@ did not gate `CityBuild`, so the bot used the City days before the client shows 
 the City unlock (`--variant open_blueprint,open_biomass,open_ore` restores 14).
 
 ## Levers
-- Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).
+- Mythic frequency: tokens per day, the Mythic weight (1.2%) and `MythicPity` (mean pulls per Mythic ≈ (1−0.988^100)/0.012 ≈ 58).
 - Hero / mount pacing: summon event Luck max and Mythic weight, featured shard amounts, exchange limits, task targets and pass
-  tickets (`ContentDb.SummonEvents`); `HeroConfig.StarShardCosts`, `MountConfig.StarShardCosts`.
+  tickets (`ContentDb.SummonEvents`); the shared star table `ContentDb.ShardStars` (pull system).
 - Part pacing: `PartMergeRecipe.FodderPoints/SameDefCount/Ore` per rarity; part power: `PartRarityDef.StatMultiplier`,
   `PartsConfig.SkillPowerScale` (0.25; awakened 0.3).
 - Awaken Cores: arena shop price/limit, invasion chances, Burrow rare-drop chances.

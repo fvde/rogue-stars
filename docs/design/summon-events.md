@@ -1,5 +1,11 @@
 # Summon events — how heroes and mounts are obtained
 
+> **Pull system (2026-11-24, docs/design/pull-system.md) supersedes the pull table, Luck and duplicates sections below:** the
+> featured hero / mount is a batch of 50 shards at a flat 1.2% with Luck (the fixed, visible pity) at **100**; the other 98.8% are
+> filler (no Legendary / Rare hero or mount drops); heroes and mounts go to 10★ on the shared shard table (mount awakening is stars
+> 6★–10★); there is no starter mount. Schedules, tasks, milestones, exchange, pass, packs and mailing are unchanged. The tuning
+> tables at the end are from before the pull system (new numbers: pull-system.md "Simulator").
+
 Owner design (decided): heroes and mounts come from **temporary rotating summon events**. All numbers live in
 `ContentDb.SummonEvents` (`shared/RogueStars.Rules/Content/ContentDb.SummonEvents.cs`); the system is
 `Systems/Meta/SummonEventSystem.cs`; the client screens are `SummonEventScreen` (hub, draw result, packs, tasks),
@@ -18,8 +24,8 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
   the unlock** (`hero@welcome`): it features the hero / mount of the occurrence running at the unlock and lasts until the
   end of the global occurrence that contains *unlock + 4 days* (mounts: 2 days) — so 4–10 days (mounts 2–5); then the
   player is in the global rotation from the start of the next occurrence. The unlocks also grant 10 tickets of the type
-  (the first 10× draw). There is **no starter hero** (heroes only come from the events; the tutorial step is "Pull in the
-  hero summon event"); the Mounts unlock still gives the first mount (a Scout Saucer copy).
+  (the first 10× draw). There is **no starter hero and no starter mount** (both only come from the events; the tutorial step is
+  "Pull in the hero summon event").
 - **Task progress counts from the event start:** the settler joins the event (a fresh `SummonEventProgress` with the task
   counters as baselines) on the first command after it starts; counters only change through commands, so the baseline
   equals the counters at the start.
@@ -28,28 +34,25 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 - A pull costs **1 ticket** (10× = 10) — `hero_tickets` / `mount_tickets`, **persistent between events** (save up across
   banners) — or Diamonds: heroes 200 / 1 800, mounts 150 / 1 350. Each pull pays **10 exchange tokens** (Star Sigils /
   Hangar Bolts, also persistent).
-- **Luck (visible pity):** "Luck x / max" = pulls since the last featured copy, max **300 (heroes) / 200 (mounts)**: the
-  pull that fills it is the featured copy. Luck is per type and **kept until the next event of that type** (and beyond).
-  It is the Mythic counter of the Signals' pity machinery (`GachaSystem.RollTier`): the hidden Legendary soft pity (+2.5
-  weight per pull after 25 without Legendary+) and hard pity (40) apply as in the Signals, and a 10× draw holds at least
-  one Epic+.
+- **Luck (visible, fixed pity):** "Luck x / 100" = pulls since the last featured batch: the pull that fills it is the featured
+  batch. Luck is per type and **kept until the next event of that type** (and beyond). It is the Mythic counter of the shared
+  pull roll (`GachaSystem.RollTier`); events have no Legendary pity and no 10× rule.
 
-| Tier (published %) | Hero event | Mount event |
-|---|---|---|
-| Common (55 / 55.6) | Hero XP ×400 | Fuel ×500 |
-| Rare (30) | featured shards ×3 | featured shards ×1 |
-| Epic (11.85 / 11.2) | featured shards ×8 | featured shards ×4 (⅔) · Mount Cores ×5 (⅓) |
-| Legendary (3) | featured shards ×20 (½) · another hero's shards ×15 (½) | featured shards ×10 (½) · Mount Cores ×10 (½) |
-| Mythic (0.15 / 0.2) | **featured hero copy** | **featured mount copy** |
+| Hero event | % | Mount event | % |
+|---|---|---|---|
+| Hero XP ×300 | 88.75 | Fuel ×300 | 81.75 |
+| Hero XP ×1 000 | 5 | Mount Cores ×5 | 7 |
+| Alien / Part / Blueprint Tokens ×1 | 2 / 2 / 1 | Fuel ×1 500 | 5 |
+| Awaken Core ×1 | 0.05 | Blueprint / Part / Alien Tokens ×1 | 2 / 2 / 1 |
+| | | Awaken Core ×1 | 0.05 |
+| **featured hero: 50 shards** | **1.2** | **featured mount: 50 shards** | **1.2** |
 
-## Duplicates → stars
-- **Hero copy** (`RewardKinds.Hero`): the first unlocks the hero at 1★ (and equips it when none is equipped), every further
-  copy **+1★** up to 10★; at 10★ a copy becomes 300 Star Sigils. Shards keep working (HeroUnlock 40, HeroStarUp) — the
-  two roads add up.
-- **Mount copy** (`RewardKinds.Mount`, same kind as before, new meaning): the first unlocks at 1★, every further copy **+1★
-  up to 5★**, then pays the **mount shards of the next awakening level** (100 / 150 / 200 / 260 / 330; the Mount Cores of
-  awakening are still needed), and once fully awakened 300 Hangar Bolts. **MountUnlock** (new): a mount unlocks with 30 of
-  its shards, like heroes (the events pay featured shards long before the first copy).
+## Batches → stars
+- **Hero batch** (`RewardKinds.Hero`): 50 shards; the batch of a hero the player does not own unlocks it at 1★ (and equips it
+  when none is equipped); stars are bought with shards on the shared table (HeroStarUp); a batch for a 10★ hero becomes 300
+  Star Sigils. Shards from the exchange, milestones and pass add up (HeroUnlock at 50).
+- **Mount batch** (`RewardKinds.Mount`): the same, up to 10★ (6★–10★ also cost Mount Cores, the former awakening); a batch for a
+  10★ mount becomes 300 Hangar Bolts. MountUnlock at 50 shards.
 
 ## Per event
 - **Tasks** (one ticket per reached target; claim one line or all). Targets from `--counter-rates` (Active F2P per day:
@@ -66,8 +69,8 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 
   An active F2P player reaches ~4 of 5 targets per hero line and ~3 per mount line; a casual player 1–2; a binge player all.
 - **Pull milestones** (pulls in this event): heroes 10 Hero XP ×2 000 · 25 featured shards ×20 · 50 tickets ×3 · 100
-  featured shards ×60 · 150 **featured copy**; mounts 10 Fuel ×2 000 · 25 featured shards ×10 · 50 tickets ×3 · 80 Mount
-  Cores ×30 · 120 **featured copy**.
+  featured shards ×60 · 150 **featured batch (50 shards)**; mounts 10 Fuel ×2 000 · 25 featured shards ×10 · 50 tickets ×3 · 80 Mount
+  Cores ×30 · 120 **featured batch (50 shards)**.
 - **Exchange shop** (tokens, limits per event): heroes — featured shards ×10 for 60 (3), Hero Summon Ticket 150 (3), Hero XP
   ×2 000 for 40 (10), Alien Tokens ×2 for 80 (3), Diamonds ×50 for 100 (5); mounts — featured shards ×10 for 80 (2), Mount
   Summon Ticket 150 (3), Mount Cores ×10 for 100 (2), Fuel ×1 500 for 40 (10), Blueprint Tokens ×2 for 80 (3). No featured

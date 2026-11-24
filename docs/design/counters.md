@@ -152,3 +152,10 @@ Meta content now reads the keys the owning workstreams actually write:
 - `mount_copies` — mount copies received (RewardKinds.Mount: unlock, +1★, awakening shards or overflow) — Progression/Mounts
 - (summon events) `heroes_unlocked`, `hero_stars`, `hero_stars_max` also count unlocks / stars from hero copies; `mount_stars` counts
   stars from mount copies; `mounts_unlocked` also counts MountUnlock (30 shards).
+## Pull system (docs/design/pull-system.md)
+- `hero_copies`, `mount_copies` now count hero / mount **batches** (50 shards each; the first unlocks) — Progression
+- `hero_shards_obtained` also counts the shards of hero batches — Progression/Heroes
+- `alien_duplicates`, `blueprint_duplicates` count batches beyond the unlocking one (50 shards each) — City
+- `reactor_jobs_started` — Shard Reactor jobs started — City/ShardReactor
+- `reactor_shards_in` — source shards fused in the Shard Reactor — City/ShardReactor
+- `reactor_shards_out` — target shards the Shard Reactor paid out — City/ShardReactor
