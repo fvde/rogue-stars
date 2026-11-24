@@ -98,30 +98,30 @@ namespace RogueStars.Client.UiKit
             return t;
         }
 
-        /// <summary>Skill/item rarity: Common grey, Rare blue, Epic purple, Legendary orange, Mythic red (run skills are coloured by this, not by family).</summary>
+        /// <summary>Rarity colours, the same everywhere (owner): Common grey, Rare green, Epic blue, Legendary purple, Mythic rich red. Run skills, parts, aliens and blueprints all use them.</summary>
         public static Color RarityColor(Rarity r)
         {
             switch (r)
             {
-                case Rarity.Common: return Hex(0xB8AEA6);
-                case Rarity.Rare: return Hex(0x4FA3FF);
-                case Rarity.Epic: return Hex(0xB58CFF);
-                case Rarity.Legendary: return Hex(0xFF9A2E);
-                case Rarity.Mythic: return Hex(0xFF4545);
+                case Rarity.Common: return Hex(0x9AA0A6);
+                case Rarity.Rare: return Hex(0x4CC25A);
+                case Rarity.Epic: return Hex(0x3D8BFF);
+                case Rarity.Legendary: return Hex(0xA65BFF);
+                case Rarity.Mythic: return Hex(0xC8102E);
                 default: return Color.gray;
             }
         }
 
         /// <summary>
-        /// Run skill colour: run skills have three tiers (RunTuning.RunTier): Common grey, Legendary orange, Mythic red.
+        /// Run skill colour: run skills have three tiers (RunTuning.RunTier): Common grey, Legendary purple, Mythic red.
         /// </summary>
         public static Color SkillTierColor(Rarity r) => RarityColor(RogueStars.Rules.Content.RunTuning.RunTier(r));
 
-        /// <summary>Colours of the 14-step part ladder (Common … Mythic SS+2): Mythic pink, Mythic S red-orange, Mythic SS gold, lighter per +1/+2.</summary>
+        /// <summary>Colours of the 14-step part ladder, matching RarityColor: Common grey, Uncommon pale green, Rare green, Epic blue, Legendary purple, Mythic rich red; Mythic S red-orange, Mythic SS gold, lighter per +1/+2.</summary>
         private static readonly int[] PartLadder =
         {
-            0x9AA0A6, 0x5BC26B, 0x3D8BFF, 0xA65BFF, 0xFF9F1C,
-            0xFF3D7F, 0xFF5C95, 0xFF7AAB,
+            0x9AA0A6, 0x8FBF94, 0x4CC25A, 0x3D8BFF, 0xA65BFF,
+            0xC8102E, 0xDA3A52, 0xE8687A,
             0xFF4A1F, 0xFF6A45, 0xFF8A6B,
             0xF5C518, 0xFFD54A, 0xFFE57F,
         };
