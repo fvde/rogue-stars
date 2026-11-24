@@ -1,8 +1,14 @@
 {
-  "name": "pkg-slice-setpieces", "width": 1024, "height": 1024, "seeds": [5201, 5202],
+  "name": "pkg-slice-setpieces",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5201,
+    5202
+  ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
-  "suffix": ", one large landmark set piece for a mossy alien meadow game level, sitting on a small patch of grass and rock, centered, isolated on a plain pure white background, no text",
-  "negative": "characters, multiple landmarks, sky, horizon, text, watermark, blurry, photo, realistic",
+  "suffix": ", one large landmark set piece for a mossy alien meadow game level, the object only with no ground patch, no base, no platform, centered, isolated on a plain pure white background, no text",
+  "negative": "characters, multiple landmarks, sky, horizon, text, watermark, blurry, photo, realistic, ground patch, base, platform, tile, floor",
   "subjects": {
     "crashed_saucer": "a crashed flying saucer half buried in the ground, leaking green smoke",
     "portal_well": "an ancient round stone well with a glowing purple portal inside",

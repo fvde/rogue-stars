@@ -1,0 +1,25 @@
+{
+  "name": "pkg-slice-markers2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5111,
+    5112
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", a single small object floating on its own, no base, no pedestal, no plinth, no platform, no tile, no ground, no shadow, centered, isolated on a plain pure white background, no text",
+  "negative": "base, pedestal, plinth, platform, stand, tile, floor, ground, stone slab, scenery, multiple objects, text, letters, watermark, blurry, photo, realistic",
+  "subjects": {
+    "enemy": "a small plain golden alien skull, simple shape, few details",
+    "elite": "a big horned alien skull with red glowing eyes",
+    "miniboss": "a crowned alien skull on a small stone plinth, purple glow",
+    "event": "a rolled parchment scroll with a wax seal, floating slightly",
+    "mystery": "a rounded teal stone with a big carved question mark",
+    "chest": "a small wooden treasure chest with gold trim, closed",
+    "rest": "a small cozy campfire with logs and a pot",
+    "shop": "a tiny alien merchant cart with a striped awning",
+    "minigame": "a small retro arcade cabinet with a glowing screen",
+    "portal": "a small swirling purple portal ring filled with glowing purple swirl",
+    "reward": "a wrapped gift box with a big ribbon bow"
+  }
+}

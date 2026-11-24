@@ -1,6 +1,10 @@
 {
   "variants": [
-    {"key": "I", "model": "flux", "style": "isometric mobile game asset, high three-quarter top-down view, chunky clean cartoon shapes, bold dark outline, soft cel shading, bright saturated colors, simple readable silhouette", "note": "Flux, iso cartoon prop"},
-    {"key": "J", "model": "flux", "style": "isometric casual mobile board game asset, 3/4 top-down view, smooth glossy toy-like shapes, thick outline, few large details, warm lighting", "note": "Flux, iso toy prop"}
+    {
+      "key": "I",
+      "model": "flux",
+      "style": "isometric mobile game asset, high three-quarter top-down view, chunky clean cartoon shapes, bold dark outline, soft cel shading, bright saturated colors, simple readable silhouette",
+      "note": "Flux, iso cartoon prop"
+    }
   ]
 }
