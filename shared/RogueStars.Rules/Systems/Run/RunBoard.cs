@@ -253,39 +253,48 @@ namespace RogueStars.Rules.Systems
             ref int lastDir, ref int forcedDir, int segment, ref int salt)
         {
             int v = Lateral(x, y);
-            double hairpinChance = kind == BoardLayoutKind.Hook ? 0.7 : kind == BoardLayoutKind.Straight ? 0.25 : kind == BoardLayoutKind.Diamonds ? 0.2 : 0.4;
-            // hairpin: out a, across hb, back a (back ≤ out keeps the quadrant invariant), then hc on (keeps the next run off the U)
-            const int ha = 3, hb = 3, hc = 2;
-            if (forcedDir < 0 && room >= ha + hb + ha + hc && Hash01(segment, salt++) < hairpinChance)
+            double hairpinChance = kind == BoardLayoutKind.Hook ? 0.8 : kind == BoardLayoutKind.Straight ? 0.4 : kind == BoardLayoutKind.Diamonds ? 0.35 : 0.55;
+            // hairpin: out a, across hb, back a (back ≤ out keeps the quadrant invariant), then hc on (keeps the next run off
+            // the U). Two sizes: the wide one (3, 3, 3, 2) and a tight one (2, 2, 2, 2) that fits the short trunk stretches
+            // between forks. Right after a fork it may start only along the fork's exit heading.
+            if (Hash01(segment, salt++) < hairpinChance)
             {
-                // X-major (+X a, +Y b, −X a, +Y c): lateral from v up to v+a, down to v+a−b−a−c; Y-major mirrored
-                int xmMax = v + ha, xmMin = v + ha - hb - ha - hc;
-                int ymMin = v - ha, ymMax = v - ha + hb + ha + hc;
-                bool xm = xmMax <= band && xmMin >= -band, ym = ymMax <= band && ymMin >= -band;
-                // before a fork the hairpin must leave room to get back to the middle of the band
-                int after = room - (ha + hb + ha + hc);
-                if (forkSoon && Math.Abs(xmMin) - 1 > after) xm = false;
-                if (forkSoon && Math.Abs(ymMax) - 1 > after) ym = false;
-                if (xm && ym)
+                bool wide = room >= 11 && Hash01(segment, salt++) < 0.55;
+                int ha = wide ? 3 : 2, hb = wide ? 3 : 2, hc = 2;
+                int hlen = ha + hb + ha + hc;
+                if (room >= hlen)
                 {
-                    if (v > 0) ym = false;
-                    else if (v < 0) xm = false;
-                    else if (Hash01(segment, salt++) < 0.5) xm = false;
-                    else ym = false;
-                }
-                if (xm || ym)
-                {
-                    int f = xm ? 1 : 0, s = xm ? 0 : 1, back = xm ? 3 : 2;
-                    for (int i = 0; i < ha; i++) plan.Enqueue(f);
-                    for (int i = 0; i < hb; i++) plan.Enqueue(s);
-                    for (int i = 0; i < ha; i++) plan.Enqueue(back);
-                    for (int i = 0; i < hc; i++) plan.Enqueue(s);
-                    // the slot inside the U, between the outgoing and the return run
-                    b.SetPieces.Add(xm
-                        ? new RunSetPiece { X = x + 1, Y = y + 1, W = ha - 1, H = hb - 1, Height = h, Segment = segment, Shape = "hairpin" }
-                        : new RunSetPiece { X = x + 1, Y = y + 1, W = hb - 1, H = ha - 1, Height = h, Segment = segment, Shape = "hairpin" });
-                    lastDir = s;
-                    return h;
+                    // X-major (+X a, +Y b, −X a, +Y c): lateral from v up to v+a, down to v+a−b−a−c; Y-major mirrored
+                    int xmMax = v + ha, xmMin = v + ha - hb - ha - hc;
+                    int ymMin = v - ha, ymMax = v - ha + hb + ha + hc;
+                    bool xm = xmMax <= band && xmMin >= -band && (forcedDir < 0 || forcedDir == 1);
+                    bool ym = ymMax <= band && ymMin >= -band && (forcedDir < 0 || forcedDir == 0);
+                    // before a fork the hairpin must leave room to get back to the middle of the band
+                    int after = room - hlen;
+                    if (forkSoon && Math.Abs(xmMin) - 1 > after) xm = false;
+                    if (forkSoon && Math.Abs(ymMax) - 1 > after) ym = false;
+                    if (xm && ym)
+                    {
+                        if (v > 0) ym = false;
+                        else if (v < 0) xm = false;
+                        else if (Hash01(segment, salt++) < 0.5) xm = false;
+                        else ym = false;
+                    }
+                    if (xm || ym)
+                    {
+                        int f = xm ? 1 : 0, sd = xm ? 0 : 1, back = xm ? 3 : 2;
+                        for (int i = 0; i < ha; i++) plan.Enqueue(f);
+                        for (int i = 0; i < hb; i++) plan.Enqueue(sd);
+                        for (int i = 0; i < ha; i++) plan.Enqueue(back);
+                        for (int i = 0; i < hc; i++) plan.Enqueue(sd);
+                        // the slot inside the U, between the outgoing and the return run
+                        b.SetPieces.Add(xm
+                            ? new RunSetPiece { X = x + 1, Y = y + 1, W = ha - 1, H = hb - 1, Height = h, Segment = segment, Shape = "hairpin" }
+                            : new RunSetPiece { X = x + 1, Y = y + 1, W = hb - 1, H = ha - 1, Height = h, Segment = segment, Shape = "hairpin" });
+                        lastDir = sd;
+                        forcedDir = -1;
+                        return h;
+                    }
                 }
             }
 

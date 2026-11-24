@@ -18,7 +18,7 @@ namespace RogueStars.Client.World
         /// <summary>Thickness of a path slab over the platform.</summary>
         public const float Slab = 0.16f;
         /// <summary>Platform wall under a height-0 slab (the decorated trim).</summary>
-        public const float Wall = 0.62f;
+        public const float Wall = 0.7f;
         /// <summary>Sprite pixels per world unit of the generated art.</summary>
         public const float Ppu = 100;
 

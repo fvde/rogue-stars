@@ -217,7 +217,7 @@ namespace RogueStars.Client.UiKit
 
         /// <summary>Resources root of the slice art.</summary>
         public const string SliceRoot = "Art/Slice";
-        /// <summary>Tile markers standing on tiles: <c>Art/Slice/Markers/&lt;id&gt;</c> (enemy, elite, miniboss, boss, event, mystery, chest, rest, shop, minigame, portal, reward).</summary>
+        /// <summary>Tile markers standing on tiles: <c>Art/Slice/Markers/&lt;id&gt;</c> (enemy, elite, miniboss, boss, omen, event, mystery, chest, rest, shop, minigame, portal, reward).</summary>
         public const string SliceMarkers = SliceRoot + "/Markers";
         /// <summary>Set pieces inside loops: <c>Art/Slice/SetPieces/&lt;id&gt;</c> (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound, time_clock, alien_tree).</summary>
         public const string SliceSetPieces = SliceRoot + "/SetPieces";
@@ -225,10 +225,12 @@ namespace RogueStars.Client.UiKit
         public const string SliceScatterFolder = SliceRoot + "/Scatter";
         /// <summary>HUD icons: <c>Art/Slice/Hud/&lt;id&gt;</c> (dice, pedestal, heart, sword, shield, coin, exp, cog, skull, book, speed, reroll, boss_rail_top).</summary>
         public const string SliceHudFolder = SliceRoot + "/Hud";
-        /// <summary>Full-frame textures: <c>Art/Slice/Textures/&lt;id&gt;</c> (tile_top_moss, tile_side_rock; ground_meadow optional).</summary>
+        /// <summary>Full-frame textures: <c>Art/Slice/Textures/&lt;id&gt;</c> (tile_top_moss, tile_side_rock; ground_meadow, backdrop_deep optional).</summary>
         public const string SliceTextures = SliceRoot + "/Textures";
         /// <summary>Battle arenas (3/4 top-down, full-frame): <c>Art/Slice/Battle/&lt;id&gt;</c> (battle_meadow, battle_meadow_ruins).</summary>
         public const string SliceBattleFolder = SliceRoot + "/Battle";
+        /// <summary>Battle mounts the worm rides by mount id: <c>Art/Slice/Mounts/&lt;mount id&gt;</c> (else <c>Art/Slice/Mounts/mount</c>).</summary>
+        public const string SliceMounts = SliceRoot + "/Mounts";
         /// <summary>Skill icons by run skill id: <c>Art/Skills/&lt;skill id&gt;</c>.</summary>
         public const string SkillFolder = "Art/Skills";
 
@@ -238,6 +240,8 @@ namespace RogueStars.Client.UiKit
         public static Sprite SliceHud(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceHudFolder + "/" + id);
         public static Sprite SliceTexture(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceTextures + "/" + id);
         public static Sprite SliceBattle(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceBattleFolder + "/" + id);
+        /// <summary>The battle mount's art (by mount id, else the generic one), or null (the drawn hover saucer).</summary>
+        public static Sprite SliceMount(string mountId) => (string.IsNullOrEmpty(mountId) ? null : Load(SliceMounts + "/" + mountId)) ?? Load(SliceMounts + "/mount");
         public static Sprite SkillIcon(string skillId) => string.IsNullOrEmpty(skillId) ? null : Load(SkillFolder + "/" + skillId);
 
         /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the lettered token).</summary>
