@@ -36,6 +36,7 @@ namespace RogueStars.Rules.Systems
 
             e.RegisterNewPlayer(ctx =>
             {
+                ctx.State.Run.SignatureSeed = ctx.Rng.Fork("signature").NextULong(); // a fork: the player stream is not consumed
                 foreach (var cur in new[] { Currencies.BurrowKeys }) // stamina: Progression's starting wallet
                 {
                     var rule = ctx.Content.Regen(cur);

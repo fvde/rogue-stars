@@ -453,7 +453,10 @@ namespace RogueStars.Rules.Systems
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;
-            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString());
+            int novas = 0;
+            foreach (var le in result.Log) if (le.Action == BattleAction.Supernova && le.Amount == 0 && le.Actor == le.Target) novas++;
+            ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString(),
+                result.PlayerDamageDealt.ToString(), result.PlayerDamageTaken.ToString(), novas.ToString());
             if (result.PlayerWon())
             {
                 OnBattleWin(ctx, run, kind, xp, coins);

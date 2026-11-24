@@ -48,6 +48,8 @@ namespace RogueStars.Rules.Systems
         public ProgressArchive MainArchive = new ProgressArchive();
         public ProgressArchive DarkArchive = new ProgressArchive();
         public long RunsStarted;
+        /// <summary>Seed of the run-start signature offers (set once for a new player from its seed; 0 for older saves).</summary>
+        public ulong SignatureSeed;
         /// <summary>Daily Biomass surge: reset-day of the counter and won portal runs that used the bonus that day.</summary>
         public long BiomassBonusDay = -1;
         public int BiomassBonusRuns;

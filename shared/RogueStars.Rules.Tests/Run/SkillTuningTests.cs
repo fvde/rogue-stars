@@ -311,7 +311,7 @@ public class SkillTuningTests
             {
                 bool moved = false;
                 foreach (bool brawl in new[] { false, true })
-                    for (int seed = 0; seed < 8 && !moved; seed++)
+                    for (int seed = 0; seed < 16 && !moved; seed++) // chance-on-crit upgrades need a few more seeds
                         moved = Signature(Fight(c, s.Id, seed, brawl, lv)) != Signature(Fight(c, s.Id, seed, brawl, lv - 1));
                 if (!moved) failures.Add(s.Id + ": Lv" + lv + " changes no battle");
             }

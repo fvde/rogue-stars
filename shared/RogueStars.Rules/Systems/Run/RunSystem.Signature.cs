@@ -28,7 +28,7 @@ namespace RogueStars.Rules.Systems
                 var s = content.Skills[id];
                 if (s.Signature && families.Contains(s.Family)) pool.Add(id);
             }
-            var rng = new Rng(0x5167UL).Fork("signature:" + state.PlayerId + ":" + state.Run.RunsStarted);
+            var rng = new Rng(0x5167UL ^ state.Run.SignatureSeed).Fork("signature:" + state.Run.RunsStarted);
             rng.Shuffle(pool);
             if (pool.Count > content.RunTuning.SignatureChoices) pool.RemoveRange(content.RunTuning.SignatureChoices, pool.Count - content.RunTuning.SignatureChoices);
             return pool;

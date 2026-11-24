@@ -93,11 +93,11 @@ namespace RogueStars.Rules.Content
 
             // Signatures pass: Heat replaced Burn (Fire), Poison is shown as Radiation (unlimited, permanent), Bleed is capped at
             // 10 permanent stacks that Bleed skills consume for burst and lifesteal, Chill (Ice) weakens and cools Heat.
-            b.Statuses[StatusId.Heat] = new StatusDef { Id = StatusId.Heat, MaxStacks = 10, Permanent = true, BurstAtStacks = 10, BurstAtkPct = 160,
+            b.Statuses[StatusId.Heat] = new StatusDef { Id = StatusId.Heat, MaxStacks = 10, Permanent = true, BurstAtStacks = 10, BurstAtkPct = 250,
                 BurstRecoilPct = 12, HasElement = true, ElementStat = StatId.FireDamage };
-            b.Statuses[StatusId.Poison] = new StatusDef { Id = StatusId.Poison, MaxStacks = 9999, Permanent = true, DotAtkPct = 2, HealReductionPct = 30, HasElement = true, ElementStat = StatId.PoisonDamage };
-            b.Statuses[StatusId.Bleed] = new StatusDef { Id = StatusId.Bleed, MaxStacks = 10, Permanent = true, DotAtkPct = 4, IgnoresShield = true, HasElement = true, ElementStat = StatId.BleedDamage };
-            b.Statuses[StatusId.Chill] = new StatusDef { Id = StatusId.Chill, MaxStacks = 10, DefaultDuration = 3, DamageDealtPctPerStack = -3, Cools = StatusId.Heat, HasElement = true, ElementStat = StatId.IceDamage };
+            b.Statuses[StatusId.Poison] = new StatusDef { Id = StatusId.Poison, MaxStacks = 9999, Permanent = true, DotAtkPct = 4, HealReductionPct = 30, HasElement = true, ElementStat = StatId.PoisonDamage };
+            b.Statuses[StatusId.Bleed] = new StatusDef { Id = StatusId.Bleed, MaxStacks = 10, Permanent = true, DotAtkPct = 6, IgnoresShield = true, HasElement = true, ElementStat = StatId.BleedDamage };
+            b.Statuses[StatusId.Chill] = new StatusDef { Id = StatusId.Chill, MaxStacks = 10, DefaultDuration = 3, DamageDealtPctPerStack = -2, Cools = StatusId.Heat, HasElement = true, ElementStat = StatId.IceDamage };
             b.Statuses[StatusId.Freeze] = new StatusDef { Id = StatusId.Freeze, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, DamageTakenPctPerStack = 20, ApplyCooldownRounds = 3, HasElement = true, ElementStat = StatId.IceDamage };
             b.Statuses[StatusId.Stun] = new StatusDef { Id = StatusId.Stun, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, ApplyCooldownRounds = 3 };
             b.Statuses[StatusId.Shock] = new StatusDef { Id = StatusId.Shock, MaxStacks = 5, DefaultDuration = 2, DamageTakenPctPerStack = 6, HasElement = true, ElementStat = StatId.LightningDamage };

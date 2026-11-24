@@ -229,8 +229,8 @@ public class BattleSimulatorTests
         Assert.All(applied, s => Assert.True(s <= c.Combat.Statuses[StatusId.Bleed].MaxStacks));
         var ticks = res.Log.Where(e => e.Action == BattleAction.StatusTick).ToList();
         Assert.NotEmpty(ticks);
-        // Bleed tick = stacks × 4% ATK, no DEF (target has 0 DR); capped at 10 stacks
-        Assert.Contains(ticks, t => t.Amount == 40);
+        // Bleed tick = stacks × 6% ATK, no DEF (target has 0 DR); capped at 10 stacks
+        Assert.Contains(ticks, t => t.Amount == 60);
         // Bleed is permanent: it never expires
         Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.StatusExpired && e.Status == StatusId.Bleed);
     }
