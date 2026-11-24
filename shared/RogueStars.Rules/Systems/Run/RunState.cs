@@ -53,6 +53,18 @@ namespace RogueStars.Rules.Systems
         /// <summary>Daily Biomass surge: reset-day of the counter and won portal runs that used the bonus that day.</summary>
         public long BiomassBonusDay = -1;
         public int BiomassBonusRuns;
+        /// <summary>
+        /// "Longest survived": the most rolls of any finished run (won or lost) per level, for the levels played most recently
+        /// (RunSystem.LongestRolls; at most RunSystem.LongestRollsKept entries, the newest last).
+        /// </summary>
+        public List<LevelRolls> LongestRolls = new List<LevelRolls>();
+    }
+
+    [Serializable]
+    public sealed class LevelRolls
+    {
+        public string LevelId;
+        public int Rolls;
     }
 
     [Serializable]
@@ -129,6 +141,8 @@ namespace RogueStars.Rules.Systems
         public StatMod Stat;
         public double Value;
         public long Price;
+        /// <summary>The price before a SALE (0 = not on sale; Price is what it costs).</summary>
+        public long ListPrice;
         public bool Sold;
     }
 
@@ -388,6 +402,8 @@ namespace RogueStars.Rules.Systems
         public List<RunGain> Gains = new List<RunGain>();
         public int Minibosses;
         public int ShopBuys;
+        /// <summary>The level's longest survived run in rolls, this one included ("Longest Journey").</summary>
+        public int LongestRolls;
         public BattleResult LastBattle;
     }
 

@@ -74,7 +74,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Supply cache | Run coins and run XP (in-run resources only) |
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
-| Campfire | Heal or upgrade a skill; strengthens nearby enemy tiles |
+| Campfire | **Rest** (restore 35% HP) or **Train** (improve 1 owned skill **of the player's choice**: one level, or a chain's lower tier into its upgrade; signatures and maxed skills cannot train; nothing to train = coins; auto picks the lowest-level skill, earliest gained on ties); either strengthens nearby enemy tiles |
 | Shop (force stop) | Two per segment. 4 skills (owned ones offered as level-ups), 2 stat perks and a heal for run coins; reroll with rising price |
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
@@ -134,7 +134,8 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
   (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices: skills
   **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
   reroll. A run **starts with the cheapest skill price + 30 coins** (`RunSystem.StartCoins`) and its first shop leads with a
-  Common skill, so the first shop always allows a purchase. No result screen after a shop. Income ~3× (fight coins 10
+  Common skill, so the first shop always allows a purchase. **SALE:** with 20% (`ShopTableDef.SaleChancePct`) one skill
+  offer of a fill costs 50% less (`SalePct`; the list price is shown struck through). No result screen after a shop. Income ~3× (fight coins 10
   per tile level + 6 per enemy, elites 25, supply caches 25 / 50, coin clusters 12, minibosses +30): a run earns ~550–800
   coins and buys 10–20 perks. Shops spend in-run coins only.
 - **Pacing against the bigger build:** board fights get +0.8% HP/ATK per roll of the run so far (the boss's forces grow
@@ -150,6 +151,9 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 shard, pickup, boss tile, fights) and each pickup / skill effect while passing records a structured outcome in
 `ActiveRun.TileOutcomes` (source "tile" / "battle" / "pass", the tile, a sequence number; lines incl. Empty, Avoided,
 StepPenalty), cleared at every roll; the client turns them into landing popups. Decisions report as below.
+
+**Longest survived:** every finished run (won or lost) records its rolls per level (`RunSystem.LongestRolls`, the 20 most
+recently played levels); the home shows "Longest survived: N rolls" for the next level, the result "Longest Journey".
 
 **Outcome results:** every event / chest / campfire choice (shops: none) produces a structured
 outcome (`ActiveRun.LastOutcome`: source, choice, whether chance was involved, the lucky outcome's chance and whether it

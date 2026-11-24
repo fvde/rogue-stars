@@ -19,7 +19,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunStart>(HandleStart);
             e.Register<RunRoll>((c, ctx) => { var r = Need(ctx); Roll(ctx, r); return Ok(ctx); });
             e.Register<RunChooseBranch>((c, ctx) => { var r = Need(ctx); ChooseBranch(ctx, r, c.Index); return Ok(ctx); });
-            e.Register<RunChooseEventOption>((c, ctx) => { var r = Need(ctx); ChooseEventOption(ctx, r, c.Index); return Ok(ctx); });
+            e.Register<RunChooseEventOption>((c, ctx) => { var r = Need(ctx); ChooseEventOption(ctx, r, c.Index, c.SkillId); return Ok(ctx); });
             e.Register<RunDraftPick>((c, ctx) => { var r = Need(ctx); DraftPick(ctx, r, c.SkillId); return Ok(ctx); });
             e.Register<RunDraftReroll>((c, ctx) => { var r = Need(ctx); DraftReroll(ctx, r); return Ok(ctx); });
             e.Register<RunShopBuy>((c, ctx) => { var r = Need(ctx); ShopBuy(ctx, r, c.Index); return Ok(ctx); });

@@ -196,7 +196,7 @@ public class SignatureTests
             run.Skills.Add("gen_power");
             var ctx = RunTestKit.Ctx(e, s);
             typeof(RunSystem).GetMethod("ApplyEffects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-                .Invoke(null, new object[] { ctx, run, new List<RunEffect> { new RunEffect(RunEffectKind.LoseRandomSkill, 1) }, 0 });
+                .Invoke(null, new object[] { ctx, run, new List<RunEffect> { new RunEffect(RunEffectKind.LoseRandomSkill, 1) }, 0, null });
             Assert.Contains("sig_bleed", run.Skills);
         }
         RunTestKit.AutoToEnd(e, ref s);

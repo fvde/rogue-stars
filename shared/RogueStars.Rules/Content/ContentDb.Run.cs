@@ -425,7 +425,7 @@ namespace RogueStars.Rules.Content
                     RunOut(1, "You surface with treasure — and the boss stirs.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.AwakenRatePct, 15))),
                 RunOpt("Steer away", "Nothing happens.", RunNothing));
             RunEvent("echoing_shrine", "Echoing Shrine", "Ancient echoes can sharpen a technique.", 1, 2.5,
-                RunOpt("Meditate", "Upgrade a skill; awakening +10.", RunOut(1, "Your technique evolves.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.Meter, 10))),
+                RunOpt("Meditate", "Improve 1 skill of your choice; awakening +10.", RunOut(1, "Your technique evolves.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.Meter, 10))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
             var patch = RunOpt("Patch the leak (40 coins)", "Pay to stay safe.", RunOut(1, "Fixed.", RunFx(RunEffectKind.Coins, 0)));
             patch.CoinCost = 40;
@@ -458,9 +458,10 @@ namespace RogueStars.Rules.Content
                 RunOpt("Fight the guardian", "Elite fight. Win: 2 account loot items (paid on clear, each +Danger); nearby enemies grow stronger.",
                     RunOut(1, "The guardian falls. Loot spills out.", RunFx(RunEffectKind.Battle, 10, "elite"), RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.StrengthenEnemies, 10))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
+            // Train: the player picks which owned skill improves (RunChooseEventOption.SkillId, RunSystem.TrainChoices)
             RunEvent("campfire", "Campfire", "A warm campfire. Its light draws nearby enemies.", 0, 0,
-                RunOpt("Rest", "Heal 35% HP. Nearby enemies grow stronger.", RunOut(1, "You rest.", RunFx(RunEffectKind.HealPct, 35), RunFx(RunEffectKind.StrengthenEnemies, 12))),
-                RunOpt("Forge", "Upgrade a skill. Nearby enemies grow stronger.", RunOut(1, "You hone a technique.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.StrengthenEnemies, 12))));
+                RunOpt("Rest", "Restore 35% HP. Nearby enemies grow stronger.", RunOut(1, "You rest.", RunFx(RunEffectKind.HealPct, 35), RunFx(RunEffectKind.StrengthenEnemies, 12))),
+                RunOpt("Train", "Improve 1 skill of your choice. Nearby enemies grow stronger.", RunOut(1, "You hone a technique.", RunFx(RunEffectKind.UpgradeSkill, 1), RunFx(RunEffectKind.StrengthenEnemies, 12))));
         }
 
         // ---- shops & loot ---------------------------------------------------------------------

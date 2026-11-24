@@ -451,6 +451,9 @@ namespace RogueStars.Rules.Content
         public long RerollBase = 10, RerollStep = 10;
         /// <summary>Distinct stat perks per shop (from StatOffers).</summary>
         public int StatOfferCount = 1;
+        /// <summary>Chance (%) that one skill offer of a shop fill is on SALE at <see cref="SalePct"/> off (its list price is shown struck through).</summary>
+        public double SaleChancePct = 20;
+        public double SalePct = 50;
     }
 
     /// <summary>Run-wide tunables (dice, xp, draft, danger, revive...).</summary>

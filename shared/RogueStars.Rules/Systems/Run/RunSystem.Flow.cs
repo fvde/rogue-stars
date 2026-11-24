@@ -950,7 +950,7 @@ namespace RogueStars.Rules.Systems
 
         private static bool CanAffordOption(ActiveRun run, EventOption o) => run.Coins >= o.CoinCost && run.Shards >= o.ShardCost;
 
-        private static void ChooseEventOption(CommandContext ctx, ActiveRun run, int index)
+        private static void ChooseEventOption(CommandContext ctx, ActiveRun run, int index, string trainSkill = null)
         {
             var c = ctx.Content;
             Require(run.Phase == RunPhase.Event && run.EventId != null, "no event open");
@@ -962,6 +962,11 @@ namespace RogueStars.Rules.Systems
                 foreach (var fx in oc.Effects)
                     if (fx.Kind == RunEffectKind.GainSignature)
                         Require(int.TryParse(fx.Param, out var si) && si >= 0 && si < run.SignatureChoice.Count, "no such signature offered");
+            if (!string.IsNullOrEmpty(trainSkill))
+            {
+                Require(ImprovesSkill(opt), "this option improves no skill");
+                Require(TrainChoices(c, run).Contains(trainSkill), "skill cannot be improved");
+            }
             var before = Snap.Of(run);
             run.Coins -= opt.CoinCost;
             run.Shards -= opt.ShardCost;
@@ -992,7 +997,7 @@ namespace RogueStars.Rules.Systems
                 if (IsNegativeOutcome(outcome) && TrySkipNegative(ctx, run)) run.LastEventText = "Your boon shields you from misfortune.";
                 else
                 {
-                    ApplyEffects(ctx, run, outcome.Effects, eventTileId);
+                    ApplyEffects(ctx, run, outcome.Effects, eventTileId, trainSkill);
                 }
             }
             result.Text = run.LastEventText;
@@ -1032,7 +1037,7 @@ namespace RogueStars.Rules.Systems
             return true;
         }
 
-        private static void ApplyEffects(CommandContext ctx, ActiveRun run, List<RunEffect> effects, int originTile)
+        private static void ApplyEffects(CommandContext ctx, ActiveRun run, List<RunEffect> effects, int originTile, string trainSkill = null)
         {
             var c = ctx.Content;
             for (int i = 0; i < effects.Count; i++)
@@ -1054,7 +1059,7 @@ namespace RogueStars.Rules.Systems
                         run.SignatureChoice.Clear();
                         break;
                     }
-                    case RunEffectKind.UpgradeSkill: UpgradeRandomSkill(ctx, run); break;
+                    case RunEffectKind.UpgradeSkill: TrainSkill(ctx, run, trainSkill); trainSkill = null; break;
                     case RunEffectKind.LoseRandomSkill:
                     {
                         var sigs = Signatures(run);
@@ -1103,21 +1108,64 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        /// <summary>Campfire forge / shrine: a chain upgrade of an owned skill, else a level-up of an owned skill, else coins.</summary>
-        private static void UpgradeRandomSkill(CommandContext ctx, ActiveRun run)
+        /// <summary>True if one of the option's outcomes improves a skill (campfire Train, shrine): the player picks which.</summary>
+        public static bool ImprovesSkill(EventOption o)
         {
-            var c = ctx.Content;
-            var upgrades = new List<string>();
+            if (o == null) return false;
+            foreach (var oc in o.Outcomes)
+                foreach (var fx in oc.Effects)
+                    if (fx.Kind == RunEffectKind.UpgradeSkill) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The owned skills a campfire Train (or a shrine) can improve, in the order gained: a skill below its max level
+        /// levels up; a chain's lower tier turns into its upgrade (<see cref="TrainTarget"/>). Signatures (they level by
+        /// awakening only) and maxed skills are not listed.
+        /// </summary>
+        public static List<string> TrainChoices(ContentDb c, ActiveRun run)
+        {
+            var list = new List<string>();
+            foreach (var id in run.Skills)
+                if (TrainTarget(c, run, id) != null) list.Add(id);
+            return list;
+        }
+
+        /// <summary>What training an owned skill gives: the skill itself one level up, or its chain upgrade; null = cannot be improved.</summary>
+        public static string TrainTarget(ContentDb c, ActiveRun run, string ownedId)
+        {
+            var s = c.Skill(ownedId);
+            if (s == null || s.Signature || !run.Skills.Contains(ownedId)) return null;
+            if (RunDraft.CanLevelUp(c, run, s)) return ownedId;
             foreach (var id in RunDraft.SortedSkillIds(c))
             {
-                var s = c.Skills[id];
-                if (s.UpgradesFrom != null && run.Skills.Contains(s.UpgradesFrom) && RunDraft.IsEligible(c, run, s)) upgrades.Add(id);
+                var u = c.Skills[id];
+                if (u.UpgradesFrom == ownedId && RunDraft.IsEligible(c, run, u)) return id;
             }
-            if (upgrades.Count == 0)
-                foreach (var id in run.Skills)
-                    if (RunDraft.CanLevelUp(c, run, c.Skill(id))) upgrades.Add(id);
-            if (upgrades.Count == 0) { run.Coins += c.RunTuning.DraftEmptyCoins; return; }
-            GrantSkill(ctx, run, upgrades[run.Rng.Range(0, upgrades.Count)], 0, "event");
+            return null;
+        }
+
+        /// <summary>The default Train pick (auto mode, bots, a command without a skill): the lowest-level choice, the earliest gained on ties.</summary>
+        public static string TrainAutoPick(ContentDb c, ActiveRun run)
+        {
+            string best = null;
+            int bestLv = int.MaxValue;
+            foreach (var id in TrainChoices(c, run))
+            {
+                int lv = RunDraft.Level(run, id);
+                if (lv < bestLv) { best = id; bestLv = lv; }
+            }
+            return best;
+        }
+
+        /// <summary>Campfire Train / shrine: improves the chosen owned skill (default: <see cref="TrainAutoPick"/>); nothing to improve = coins.</summary>
+        private static void TrainSkill(CommandContext ctx, ActiveRun run, string chosen)
+        {
+            var c = ctx.Content;
+            string owned = !string.IsNullOrEmpty(chosen) ? chosen : TrainAutoPick(c, run);
+            string target = owned != null ? TrainTarget(c, run, owned) : null;
+            if (target == null) { run.Coins += c.RunTuning.DraftEmptyCoins; return; }
+            GrantSkill(ctx, run, target, 0, "event");
         }
 
         // ---- shops ----------------------------------------------------------------------------
@@ -1160,6 +1208,7 @@ namespace RogueStars.Rules.Systems
                 pool.RemoveAt(idx);
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Skill, SkillId = s.Id, Price = table.SkillPrices.TryGetValue(s.Rarity, out var p) ? p : 50 });
             }
+            ApplySale(table, run);
             run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
             var stats = new List<StatMod>(table.StatOffers);
             for (int i = 0; i < table.StatOfferCount && stats.Count > 0; i++)
@@ -1169,6 +1218,20 @@ namespace RogueStars.Rules.Systems
                 stats.RemoveAt(k);
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Stat, Stat = new StatMod(m.Stat, m.Flat, m.Percent), Value = m.Percent != 0 ? m.Percent : m.Flat, Price = table.StatPrice });
             }
+        }
+
+        /// <summary>
+        /// SALE: with <see cref="ShopTableDef.SaleChancePct"/> one of the fill's skill offers costs <see cref="ShopTableDef.SalePct"/>
+        /// less (ListPrice keeps the old price). Drawn from a forked stream, so the run's own random stream is untouched.
+        /// </summary>
+        private static void ApplySale(ShopTableDef table, ActiveRun run)
+        {
+            if (table.SaleChancePct <= 0 || run.Shop.Count == 0) return;
+            var rng = run.Rng.Fork("shop_sale:" + run.ShopsVisited + ":" + run.ShopRerolls);
+            if (rng.NextDouble() * 100 >= table.SaleChancePct) return;
+            var o = run.Shop[rng.Range(0, run.Shop.Count)];
+            o.ListPrice = o.Price;
+            o.Price = Math.Max(1, (long)Math.Round(o.Price * (1 - table.SalePct / 100)));
         }
 
         // ---- completion -----------------------------------------------------------------------
@@ -1262,9 +1325,32 @@ namespace RogueStars.Rules.Systems
                 s.Count("runs_failed");
                 ctx.Emit("run_failed", run.RunId, run.PendingLoot.Count.ToString());
             }
+            summary.LongestRolls = RecordRolls(s, run.LevelId, run.Rolls);
             run.Phase = won ? RunPhase.Completed : RunPhase.Failed;
             s.Run.LastSummary = summary;
             s.Run.Active = null;
+        }
+
+        /// <summary>Levels whose longest run is kept (the most recently finished ones).</summary>
+        public const int LongestRollsKept = 20;
+
+        /// <summary>The most rolls any finished run on this level lasted (0 = none kept).</summary>
+        public static int LongestRolls(GameState s, string levelId)
+        {
+            var e = s.Run.LongestRolls.Find(x => x.LevelId == levelId);
+            return e != null ? e.Rolls : 0;
+        }
+
+        private static int RecordRolls(GameState s, string levelId, int rolls)
+        {
+            var list = s.Run.LongestRolls;
+            int i = list.FindIndex(x => x.LevelId == levelId);
+            var e = i >= 0 ? list[i] : new LevelRolls { LevelId = levelId };
+            if (i >= 0) list.RemoveAt(i);
+            e.Rolls = Math.Max(e.Rolls, rolls);
+            list.Add(e);
+            while (list.Count > LongestRollsKept) list.RemoveAt(0);
+            return e.Rolls;
         }
 
         private static Reward Scaled(Reward r, double mult)
