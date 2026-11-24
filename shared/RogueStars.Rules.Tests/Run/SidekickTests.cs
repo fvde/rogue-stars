@@ -212,6 +212,20 @@ public class SidekickTests
         Assert.Contains(r.Log, e => e.SkillId == "alien_charmer" && e.Action == BattleAction.StatusApplied && e.Status == StatusId.Charm);
     }
 
+    /// <summary>Sidekick actions and guarded hits are counts: a levelled run skill grows them (2 → 3 → 5), never a fraction.</summary>
+    [Fact]
+    public void SidekickCounts_GrowWithSkillLevels()
+    {
+        var c = new ContentDb();
+        c.AddSkill(new SkillDef { Id = "rally_probe", Name = "Rally", Family = SkillFamily.AlienSynergy, Rarity = Rarity.Common, Source = SkillSource.Run,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Stacks = 2 },
+                         new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Block, Target = TargetKind.Worm, Stacks = 1 } } });
+        var s = c.Skill("rally_probe")!;
+        Assert.Equal(new[] { 3, 2 }, SkillLeveling.At(c, s, 2).Triggers.Select(t => t.Stacks));
+        Assert.Equal(new[] { 5, 3 }, SkillLeveling.At(c, s, 3).Triggers.Select(t => t.Stacks));
+        Assert.Equal("Battle start: 2 extra sidekick actions.", SkillText.Full(s).Split(". ")[0] + ".");
+    }
+
     /// <summary>Old saved aliens (genes HP / ATK / DEF / Speed, old trait ids) load and read as ability power and act frequency.</summary>
     [Fact]
     public void OldSavedAliens_Load_AndReadAsAbilityPowerAndFrequency()

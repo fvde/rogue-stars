@@ -165,8 +165,8 @@ namespace RogueStars.Rules.Content
             // often, or hook the worm onto their actions.
             RunChain("alien_bond", SkillFamily.AlienSynergy, new[] { "Squad Bond", "Squad Unity", "Squad Soul" }, RunChainCRE, (b, t) =>
                 b.Desc("Sidekick abilities are stronger.").Stat(StatId.AlienPower, 45));
-            RunSkill("alien_rally", "Rally Cry", SkillFamily.AlienSynergy, Rarity.Rare).Desc("Battle start: your sidekicks act at once.")
-                .Kick(TriggerKind.OnBattleStart, EffectKind.AllyAction, 2);
+            RunSkill("alien_rally", "Mothership Link", SkillFamily.AlienSynergy, Rarity.Rare).Desc("Battle start: launch a drone sidekick.") // id kept (was Rally Cry)
+                .Kick(TriggerKind.OnBattleStart, EffectKind.Summon, 1, 30, "sk_drone");
             RunSkill("alien_charmer", "Alien Charm", SkillFamily.AlienSynergy, Rarity.Epic).FamilyGate(2).Desc("Sidekick actions may charm the enemy.")
                 .Status(TriggerKind.OnSidekickAct, 45, StatusId.Charm);
             RunSkill("alien_hivemind", "Hivemind", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(3).Desc("Sidekicks +40 power; each sidekick action heals the worm.")

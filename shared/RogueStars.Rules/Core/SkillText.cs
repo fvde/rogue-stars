@@ -279,7 +279,8 @@ namespace RogueStars.Rules.Core
                     {
                         var stat = Stat(t.Stat);
                         if (stat == null) return null;
-                        return (t.Target == TargetKind.Self ? "" : target + " get ") + stat + (t.Duration > 0 ? dur : " for the rest of the battle");
+                        string get = t.Target == TargetKind.Worm || t.Target == TargetKind.Enemy || t.Target == TargetKind.RandomEnemy || t.Target == TargetKind.LowestHpEnemy ? " gets " : " get ";
+                        return (t.Target == TargetKind.Self ? "" : target + get) + stat + (t.Duration > 0 ? dur : " for the rest of the battle");
                     }
                 case EffectKind.RunStatGrowth:
                     {

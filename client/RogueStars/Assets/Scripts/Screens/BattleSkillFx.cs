@@ -29,7 +29,13 @@ namespace RogueStars.Client.Screens
             if (e == null || string.IsNullOrEmpty(e.SkillId) || battle == null) return null;
             if (e.Action == BattleAction.StatusExpired) return null;
             if (e.Actor < 0 || e.Actor >= battle.Fighters.Count || battle.Fighters[e.Actor].Side != BattleSide.Player) return null;
+            // a sidekick's ability (aliens, drones) plays on the sidekick itself (BattlePlaybackScreen: hop + name float)
+            var who = battle.Fighters[e.Actor];
+            if (who.Role == CombatRole.Alien || who.Role == CombatRole.Summon) return null;
             string effect = EffectText(e);
+            // Command / Rally Cry: the 0-buff on a sidekick marks the extra action it grants
+            if (e.Action == BattleAction.Buff && e.Amount == 0 && e.Target >= 0 && e.Target < battle.Fighters.Count
+                && (battle.Fighters[e.Target].Role == CombatRole.Alien || battle.Fighters[e.Target].Role == CombatRole.Summon)) effect = "Extra action";
             string name = c?.Skill(e.SkillId)?.Name ?? e.SkillId;
             return new SkillFire { SkillId = e.SkillId, Effect = effect, Label = name + " · " + effect };
         }

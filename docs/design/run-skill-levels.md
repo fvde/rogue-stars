@@ -148,9 +148,9 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Bloodlust | `mythic_bloodlust` | Mythic | Run · Bleed | 1 | End of each round: consume all enemies' Bleed: 20% ATK damage per stack, heal 60% of it (every 3 rounds). |
 | Crimson Tide | `bleed_crimson_tide` | Mythic | Run · Bleed | 1 | +10% life steal. On crit: apply Bleed ×2 to all enemies. |
 | Thousand Cuts | `mythic_thousand_cuts` | Mythic | Run · Bleed | 1 | +40% bleed damage. On hit: 60% chance to apply Bleed ×2 to the enemy. |
-| Rally Cry | `alien_rally` | Common | Run · Alien | 1 | Battle start: 2 extra sidekick actions. |
-| | | | | 2 | Battle start: 2 → 3 extra sidekick actions. |
-| | | | | 3 | Battle start: 3 → 5 extra sidekick actions. |
+| Mothership Link | `alien_rally` | Common | Run · Alien | 1 | Battle start: launch a Drone sidekick (30% of the summoner's ATK as power). |
+| | | | | 2 | Battle start: launch a Drone sidekick (30% → 50% of the summoner's ATK as power). |
+| | | | | 3 | Battle start: launch a Drone sidekick (50% → 80% of the summoner's ATK as power). |
 | Squad Bond | `alien_bond` | Common | Run · Alien | 1 | +45% alien power. |
 | | | | | 2 | +45% → +75% alien power. |
 | | | | | 3 | +75% → +120% alien power. |

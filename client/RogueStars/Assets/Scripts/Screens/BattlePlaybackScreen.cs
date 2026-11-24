@@ -16,7 +16,9 @@ namespace RogueStars.Client.Screens
     /// right. Each entry drives code tweens (no packages): the attacker lunges toward its target, the target flashes and
     /// shakes, floating damage numbers rise (crits bigger with "CRIT"), dodge / heal / shield / status / resist / stun
     /// popups, HP bars tween down, status chips (BURN 2), knocked-out fighters fade, a turn-order strip shows who acts
-    /// next. Speed ×1/×2, ×3 with the monthly pass (marked PASS otherwise).
+    /// next. Speed ×1/×2, ×3 with the monthly pass (marked PASS otherwise). Sidekicks (aliens, drones) stand along the left edge,
+    /// are never hit and act on their own turns: a hop and flash, their ability's name floating up, then its effect; a blocking
+    /// sidekick raises a guard on the worm (shield chip with the count) and dashes in front of it when it intercepts a hit.
     /// Bar values come straight from the log entries (TargetHp/Shield/Rage, ActorShield/Rage). <see cref="PlayAll"/> /
     /// <see cref="PlaySteps"/> apply entries without animation; <see cref="Instant"/> makes the playback skip every
     /// animation (tests, scripted playthroughs); in EditMode every tween completes at once anyway.
@@ -40,6 +42,9 @@ namespace RogueStars.Client.Screens
             public string ChipKey = "";
             public bool Visible = true;
             public bool Dead;
+            /// <summary>Hits this fighter's guards still hold (Block abilities of its sidekicks).</summary>
+            public int Guards;
+            public bool Sidekick => Info.Side == BattleSide.Player && (Info.Role == CombatRole.Alien || Info.Role == CombatRole.Summon);
         }
 
         private static int _speed = 1;
@@ -413,7 +418,7 @@ namespace RogueStars.Client.Screens
             count = Math.Max(1, count);
             if (side == BattleSide.Player)
             {
-                if (index == count - 1) return new Vector2(-190, 30);
+                if (index == count - 1) return WormSpot;
                 return CompanionPosition(index);
             }
             float lane = (StageH - 60) / count;
@@ -422,8 +427,17 @@ namespace RogueStars.Client.Screens
             return new Vector2(x, y);
         }
 
-        /// <summary>The k-th companion spot (mount slot, aliens, summons): a column along the arena's left edge.</summary>
-        public static Vector2 CompanionPosition(int k) => new Vector2(-430 + (k % 2) * 70, 330 - (k % 5) * 190);
+        /// <summary>The hero group's spot (the worm on its mount), right of the sidekick column.</summary>
+        public static readonly Vector2 WormSpot = new Vector2(-80, 30);
+
+        /// <summary>
+        /// The k-th companion spot (sidekicks: aliens, then drones; reference 3): a column along the arena's left edge, top to
+        /// bottom, slightly staggered, clear of the worm's saucer.
+        /// </summary>
+        public static Vector2 CompanionPosition(int k) => new Vector2(-424 + (k % 2) * 30, 372 - (k % 6) * 170);
+
+        /// <summary>Scale of a sidekick on the stage (the worm and the enemies are 1).</summary>
+        public const float SidekickScale = 0.56f;
 
         /// <summary>
         /// Seats the worm on its mount: the mount's art (ArtCatalog <c>Art/Slice/Mounts/&lt;mount id&gt;</c>, else the drawn
@@ -461,10 +475,13 @@ namespace RogueStars.Client.Screens
             root.sizeDelta = ViewSize;
             // the worm always takes the hero spot; anything else that ends up last on the player side (a summon) a companion spot
             bool playerSide = f.Side == BattleSide.Player;
+            bool sidekick = playerSide && (f.Role == CombatRole.Alien || f.Role == CombatRole.Summon);
             v.Home = f.Role == CombatRole.Worm ? StagePosition(BattleSide.Player, 0, 1)
+                : sidekick ? CompanionPosition(SidekickOrdinal(f))
                 : playerSide && index == count - 1 ? CompanionPosition(index) : StagePosition(f.Side, index, count);
             root.anchoredPosition = v.Home;
-            if (playerSide && f.Role != CombatRole.Worm) root.localScale = Vector3.one * 0.62f;
+            if (sidekick) root.localScale = Vector3.one * SidekickScale;
+            else if (playerSide && f.Role != CombatRole.Worm) root.localScale = Vector3.one * 0.62f;
             else if (f.Side != BattleSide.Player)
             {
                 float lane = (StageH - 60) / Math.Max(1, count);
@@ -563,6 +580,18 @@ namespace RogueStars.Client.Screens
             return v;
         }
 
+        /// <summary>The fighter's place among its side's sidekicks (aliens first, then drones in summon order).</summary>
+        private int SidekickOrdinal(BattleFighterInfo f)
+        {
+            int k = 0;
+            foreach (var o in _battle.Fighters)
+            {
+                if (o == f) return k;
+                if (o.Side == f.Side && (o.Role == CombatRole.Alien || o.Role == CombatRole.Summon)) k++;
+            }
+            return k;
+        }
+
         /// <summary>Drawn size of a regular enemy / alien sprite on the stage (bosses and elites: × the ArtCatalog role scales).</summary>
         public const float EnemySpriteSize = 330, AlienSpriteSize = 220, WormSpriteSize = 380;
 
@@ -579,8 +608,18 @@ namespace RogueStars.Client.Screens
             switch (f.Role)
             {
                 case CombatRole.Worm: size = WormSpriteSize; return ArtCatalog.Hero();
-                case CombatRole.Alien: size = AlienSpriteSize; return ArtCatalog.Alien(f.Id);
+                case CombatRole.Alien:
+                {
+                    // its art, else a drawn critter in its synergy's colour (never the lettered box: sidekicks act on screen)
+                    size = AlienSpriteSize;
+                    var fam = content?.AlienType(f.Id)?.Family ?? SkillFamily.AlienSynergy;
+                    return ArtCatalog.Alien(f.Id) ?? (f.Side == BattleSide.Player ? HudArt.AlienCritter(Theme.FamilyColor(fam)) : null);
+                }
                 case CombatRole.Mount: return null;
+                case CombatRole.Summon when f.Side == BattleSide.Player:
+                    // a battle-scoped sidekick (drone): its art, else the drawn drone
+                    size = AlienSpriteSize * 0.8f;
+                    return ArtCatalog.Sidekick(f.Id) ?? HudArt.Drone();
             }
             if (f.Side != BattleSide.Enemy) return null;
             var s = ArtCatalog.EnemyOrFamily(f.Id, content, out family);
@@ -763,8 +802,29 @@ namespace RogueStars.Client.Screens
                     if (target != null) Popup(target, "RESIST", Theme.TextDim, animate, 32);
                     break;
                 case BattleAction.Buff:
+                    // an extra sidekick action (Command) is credited with a 0-buff on the sidekick: its own act entry shows it
+                    if (target != null && target.Sidekick && e.Amount == 0 && actor != target) break;
                     if (target != null) Popup(target, "BUFF", Theme.Good, animate, 32);
                     if (target != null && target == _hero) TrackBuff(e);
+                    break;
+                case BattleAction.SidekickAct:
+                    if (actor == null) break;
+                    SidekickActs++;
+                    if (animate) Hop(actor);
+                    AbilityFloat(actor, AbilityName(e.SkillId, actor.Info.Name), e.Stacks > 0, animate);
+                    break;
+                case BattleAction.Guard:
+                    if (target == null) break;
+                    target.Guards = e.Stacks;
+                    Popup(target, "GUARD", Theme.Premium, animate, 34);
+                    if (animate && actor != null) Hop(actor);
+                    break;
+                case BattleAction.Block:
+                    if (target == null) break;
+                    target.Guards = e.Stacks;
+                    Blocks++;
+                    if (animate && actor != null) Intercept(actor, target);
+                    Popup(target, "BLOCKED", Theme.Premium, animate, 56, Fmt.Num(e.Amount) + " stopped");
                     break;
                 case BattleAction.SkipTurn:
                     if (actor != null) Popup(actor, "STUNNED", Theme.TextDim, animate, 32);
@@ -837,6 +897,96 @@ namespace RogueStars.Client.Screens
             UiTweens.Play(sprite.gameObject, "hit", Beat, t => sprite.anchoredPosition = home + new Vector2(dir * 50 * Mathf.Sin(t * Mathf.PI), 0),
                 () => sprite.anchoredPosition = home);
         }
+
+        /// <summary>A sidekick's turn: a small hop and a bright flash on its sprite.</summary>
+        private void Hop(FighterView v)
+        {
+            var sprite = v.Sprite;
+            var img = v.SpriteImage;
+            var baseColor = v.SpriteColor;
+            var home = new Vector2(0, SpriteBase);
+            UiTweens.Play(sprite.gameObject, "hop", Beat * 1.2f, t =>
+            {
+                sprite.anchoredPosition = home + new Vector2(0, 46 * Mathf.Sin(t * Mathf.PI));
+                if (!v.Dead) img.color = Color.Lerp(baseColor, new Color(1f, 1f, 0.75f), 0.7f * Mathf.Sin(t * Mathf.PI));
+            }, () => { sprite.anchoredPosition = home; if (!v.Dead) img.color = baseColor; });
+        }
+
+        /// <summary>A blocking sidekick dashes in front of the guarded worm (towards the enemies) and back.</summary>
+        private void Intercept(FighterView blocker, FighterView guarded)
+        {
+            var rt = blocker.Root;
+            var from = blocker.Home;
+            var to = guarded.Root.anchoredPosition + new Vector2(170, -10);
+            float beat = Beat * 1.6f;
+            rt.SetAsLastSibling();
+            UiTweens.Play(rt.gameObject, "move", beat, t =>
+            {
+                float k = t < 0.3f ? t / 0.3f : t < 0.7f ? 1 : 1 - (t - 0.7f) / 0.3f;
+                rt.anchoredPosition = Vector2.Lerp(from, to, Mathf.SmoothStep(0, 1, k));
+            }, () => rt.anchoredPosition = from);
+            Hit(blocker, false);
+        }
+
+        /// <summary>The ability's name floating up from a sidekick ("Block", "Kindle"); extra actions (Command) say so.</summary>
+        private void AbilityFloat(FighterView v, string name, bool extra, bool animate)
+        {
+            AbilityFloats.Add(name);
+            if (!animate || Instant || !Application.isPlaying || _stage == null || string.IsNullOrEmpty(name)) return;
+            var holder = Ui.Chip(_stage, name, new Color(0.06f, 0.16f, 0.1f, 0.92f), Color.Lerp(RoleColor(v.Info.Role), Color.white, 0.35f), 30, 56,
+                RoleColor(v.Info.Role), "AbilityFloat");
+            holder.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
+            holder.pivot = new Vector2(0, 0.5f);
+            // right of the sidekick, at its middle (the column of sidekicks stays readable: a label never sits on its neighbour)
+            var s = v.Sprite;
+            float sx = ((s.anchorMin.x - 0.5f) * ViewSize.x + s.sizeDelta.x * 0.42f) * v.Root.localScale.x;
+            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y * 0.55f) * v.Root.localScale.y;
+            var start = v.Root.anchoredPosition + new Vector2(sx, sy);
+            start.x = Mathf.Clamp(start.x, -530, 160);
+            holder.anchoredPosition = start;
+            Text cap = null;
+            if (extra)
+            {
+                cap = Ui.Label(holder, "EXTRA", 20, Theme.Gold, TextAnchor.LowerLeft, "Extra");
+                cap.fontStyle = FontStyle.Bold;
+                cap.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                cap.rectTransform.anchorMin = new Vector2(0, 1); cap.rectTransform.anchorMax = new Vector2(1, 1); cap.rectTransform.pivot = new Vector2(0, 0);
+                cap.rectTransform.sizeDelta = new Vector2(0, 26); cap.rectTransform.anchoredPosition = new Vector2(14, 0);
+            }
+            var group = holder.gameObject.AddComponent<CanvasGroup>();
+            float life = Mathf.Max(0.8f, StepSeconds * 2.2f);
+            UiTweens.Play(holder.gameObject, "float", life, t =>
+            {
+                holder.localScale = Vector3.one * (t < 0.12f ? Mathf.Lerp(0.6f, 1.08f, t / 0.12f) : t < 0.2f ? Mathf.Lerp(1.08f, 1f, (t - 0.12f) / 0.08f) : 1);
+                holder.anchoredPosition = start + new Vector2(24 * RunFx.Ease(t), 34 * RunFx.Ease(t));
+                group.alpha = t < 0.75f ? 1 : 1 - (t - 0.75f) / 0.25f;
+            }, () => Ui.DestroyGo(holder.gameObject));
+        }
+
+        /// <summary>
+        /// A sidekick ability's short name: "Pebblehorn Block 2" → "Block" (the species and the star tier are on the sidekick
+        /// already), a drone's "Drone Zap" stays.
+        /// </summary>
+        public static string AbilityName(string skillId, string sidekickName, ContentDb content = null)
+        {
+            var def = (content ?? ContentDb.Default).Skill(skillId);
+            string n = def?.Name ?? skillId ?? "";
+            if (!string.IsNullOrEmpty(sidekickName) && n.StartsWith(sidekickName + " ", StringComparison.Ordinal) && n.Length > sidekickName.Length + 1 && !n.EndsWith(" Zap", StringComparison.Ordinal))
+                n = n.Substring(sidekickName.Length + 1);
+            int sp = n.LastIndexOf(' ');
+            if (sp > 0 && int.TryParse(n.Substring(sp + 1), out _)) n = n.Substring(0, sp);
+            return n;
+        }
+
+        /// <summary>Sidekick actions / intercepted hits played so far, and the ability names floated (tests, screenshots).</summary>
+        public int SidekickActs { get; private set; }
+        public int Blocks { get; private set; }
+        public readonly List<string> AbilityFloats = new List<string>();
+        /// <summary>Actors of the turn-order pips (fighter indices; tests).</summary>
+        public readonly List<int> NextActors = new List<int>();
+        /// <summary>Guards the fighter's sidekicks still hold (tests).</summary>
+        public int GuardsOn(int index) => View(index)?.Guards ?? 0;
 
         private void Die(FighterView v, bool animate)
         {
@@ -963,6 +1113,7 @@ namespace RogueStars.Client.Screens
         {
             if (_order == null) return;
             Ui.Clear(_order);
+            NextActors.Clear();
             var caption = Ui.Label(_order, "NEXT", 22, Theme.TextDim);
             caption.fontStyle = FontStyle.Bold;
             Ui.Size(caption, 80, -1, 0);
@@ -970,14 +1121,24 @@ namespace RogueStars.Client.Screens
             for (int i = _next; i < _battle.Log.Count && shown < 6; i++)
             {
                 var e = _battle.Log[i];
-                if (!IsAttack(e.Action) && e.Action != BattleAction.SkipTurn) continue;
+                // attacks, skipped turns and sidekick actions (a sidekick's ability effects follow its act: not separate turns)
+                if (!IsAttack(e.Action) && e.Action != BattleAction.SkipTurn && e.Action != BattleAction.SidekickAct) continue;
                 if (e.Actor == last) continue;
-                last = e.Actor;
                 var v = View(e.Actor);
                 if (v == null) continue;
-                var sq = Ui.RoundPanel(_order, v.Info.Role == CombatRole.Worm ? Theme.Worm : RoleColor(v.Info.Role), 12, "Turn");
-                Ui.Size(sq, 48, 48, 0);
-                if (shown == 0) UiShapes.Outline(sq.rectTransform, Color.white, 12, 4);
+                if (v.Sidekick && e.Action != BattleAction.SidekickAct) continue;
+                last = e.Actor;
+                bool kick = v.Sidekick;
+                var sq = Ui.RoundPanel(_order, v.Info.Role == CombatRole.Worm ? Theme.Worm : RoleColor(v.Info.Role), kick ? 18 : 12, kick ? "Turn:Sidekick" : "Turn");
+                Ui.Size(sq, kick ? 36 : 48, kick ? 36 : 48, 0);
+                if (kick)
+                {
+                    // a sidekick's pip: smaller, round, with its letter
+                    var l = Ui.Display(sq.rectTransform, v.Info.Role == CombatRole.Summon ? "D" : v.Info.Name.Substring(0, 1), 22, Theme.Shade(RoleColor(v.Info.Role), 0.35f), TextAnchor.MiddleCenter);
+                    Ui.Stretch(l.rectTransform);
+                }
+                if (shown == 0) UiShapes.Outline(sq.rectTransform, Color.white, kick ? 18 : 12, 4);
+                NextActors.Add(e.Actor);
                 shown++;
             }
             Ui.Spacer(_order);
@@ -1001,6 +1162,9 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Heal: case BattleAction.Regen: case BattleAction.LifeSteal: what = (target ?? actor)?.Info.Name + " heals " + Fmt.Num(e.Amount); break;
                 case BattleAction.Shield: what = (target ?? actor)?.Info.Name + " gains " + Fmt.Num(e.Amount) + " shield"; break;
                 case BattleAction.GainRage: case BattleAction.StatusExpired: return;
+                case BattleAction.SidekickAct: what = who + " uses " + AbilityName(e.SkillId, who) + (e.Stacks > 0 ? " (extra action)" : ""); break;
+                case BattleAction.Guard: what = who + " guards " + tgt + " (" + e.Stacks + (e.Stacks == 1 ? " hit)" : " hits)"); break;
+                case BattleAction.Block: what = who + " blocks a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " stopped)"; break;
                 default:
                     what = who + " " + e.Action.ToString().ToLowerInvariant() + (tgt.Length > 0 ? " → " + tgt : "")
                            + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "") + (e.Parry ? " parried" : "")
@@ -1017,6 +1181,18 @@ namespace RogueStars.Client.Screens
         {
             if (actor != null) { actor.ShieldNow = e.ActorShield; actor.RageNow = e.ActorRage; }
             if (target != null) { target.HpNow = e.TargetHp; target.ShieldNow = e.TargetShield; target.RageNow = e.TargetRage; }
+        }
+
+        /// <summary>The worm's guard chip: a shield icon with the hits its blocking sidekicks still intercept.</summary>
+        private static void GuardChip(RectTransform chips, int guards)
+        {
+            var icon = Ui.Panel(chips, Color.white, "Guard");
+            icon.sprite = HudArt.Icon("shield");
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            Ui.Size(icon, 62, 62, 0);
+            var n = SliceKit.Chunky(icon.transform, guards.ToString(), 34, Color.white, TextAnchor.LowerRight, "Count");
+            Ui.Stretch(n.rectTransform, 0, -10, -8, 0);
         }
 
         /// <summary>Current bar values of fighter <paramref name="index"/> (tests).</summary>
@@ -1039,10 +1215,12 @@ namespace RogueStars.Client.Screens
             // status chips: rebuilt only when they change
             var parts = new List<string>();
             foreach (var kv in v.Statuses) parts.Add(kv.Key + ":" + kv.Value);
+            parts.Add("guard:" + v.Guards);
             string key = string.Join(",", parts);
             if (key == v.ChipKey) return;
             v.ChipKey = key;
             Ui.Clear(v.Chips);
+            if (v.Guards > 0) GuardChip(v.Chips, v.Guards);
             foreach (var kv in v.Statuses)
             {
                 // a status icon with its stack count (reference 3)

@@ -43,10 +43,10 @@ namespace RogueStars.Client.Screens
             Modal("Keep the baby " + (Content.AlienType(child.TypeId)?.Name ?? child.TypeId) + "?", b =>
             {
                 Ui.Label(b, "Genes (child vs current):", Theme.FontNormal);
-                GeneRow(b, "HP", child.Genes.Hp, current?.Genes.Hp ?? 0);
-                GeneRow(b, "ATK", child.Genes.Atk, current?.Genes.Atk ?? 0);
-                GeneRow(b, "DEF", child.Genes.Def, current?.Genes.Def ?? 0);
-                GeneRow(b, "Speed", child.Genes.Speed, current?.Genes.Speed ?? 0);
+                GeneRow(b, "HP (power)", child.Genes.Hp, current?.Genes.Hp ?? 0);
+                GeneRow(b, "ATK (power)", child.Genes.Atk, current?.Genes.Atk ?? 0);
+                GeneRow(b, "DEF (power)", child.Genes.Def, current?.Genes.Def ?? 0);
+                GeneRow(b, "Speed (acts more)", child.Genes.Speed, current?.Genes.Speed ?? 0);
                 GeneRow(b, "Work", child.Genes.Work, current?.Genes.Work ?? 0);
                 Note(b, "Traits: " + (child.Traits.Count == 0 ? "none" : string.Join(", ", child.Traits.ConvertAll(t => Content.AlienTrait(t)?.Name ?? t))));
                 Note(b, "Replace keeps level and stars of the current alien; discard converts the baby into shards and some Grain.");

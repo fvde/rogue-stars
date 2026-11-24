@@ -86,7 +86,9 @@ namespace RogueStars.Client.Tests
             Assert.That(size, Is.EqualTo(BattlePlaybackScreen.EnemySpriteSize));
             Assert.That(BattlePlaybackScreen.FighterSprite(new BattleFighterInfo { Id = "x", Role = CombatRole.Enemy, Side = BattleSide.Enemy }, C, out _, out _), Is.Null);
             Assert.That(BattlePlaybackScreen.FighterSprite(new BattleFighterInfo { Id = "alien_blorp", Role = CombatRole.Alien, Side = BattleSide.Player }, C, out _, out _), Is.SameAs(Fake));
-            Assert.That(BattlePlaybackScreen.FighterSprite(new BattleFighterInfo { Id = "alien_zib", Role = CombatRole.Alien, Side = BattleSide.Player }, C, out _, out _), Is.Null);
+            // an alien without art: the drawn critter (sidekick pass), not the lettered box
+            Assert.That(BattlePlaybackScreen.FighterSprite(new BattleFighterInfo { Id = "alien_zib", Role = CombatRole.Alien, Side = BattleSide.Player }, C, out _, out _),
+                Is.SameAs(RogueStars.Client.World.HudArt.AlienCritter(Theme.FamilyColor(SkillFamily.Combo))));
 
             // on the stage: sprites without the letter; the box keeps its letter; a hit still flashes and settles back
             BattlePlaybackScreen.Instant = true;

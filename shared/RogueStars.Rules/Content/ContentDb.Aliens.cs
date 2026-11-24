@@ -296,7 +296,7 @@ namespace RogueStars.Rules.Content
         private static void WormBuff(Func<EffectKind, TargetKind, SkillTrigger> act, StatId stat, double points)
         {
             var t = act(EffectKind.BuffStat, TargetKind.Worm);
-            t.Stat = new StatMod(stat, R1(points)); t.Duration = SidekickBuffRounds;
+            t.Stat = new StatMod(stat, Math.Round(points)); t.Duration = SidekickBuffRounds; // whole points read better
         }
 
         public const int SidekickBuffRounds = 3;
