@@ -57,6 +57,14 @@ namespace RogueStars.Client.UiKit
         public static readonly Color Dim = new Color(0.04f, 0.02f, 0.03f, 0.82f);
 
         // ---- type ----
+        /// <summary>
+        /// The type scale (owner feedback "the font is slightly too small", measured against the references at 1080 × 2400):
+        /// every Ui.Label / Ui.Display size is multiplied by <see cref="TypeScale"/> (small print ≤ 24 by
+        /// <see cref="SmallTypeScale"/>, it sits in tight chips). Chunky display text (SliceKit.Chunky: HUD pills, ribbons,
+        /// reference-measured screens) keeps its exact size.
+        /// </summary>
+        public const float TypeScale = 1.15f, SmallTypeScale = 1.1f;
+        public static int Type(int size) => size <= 0 ? size : Mathf.RoundToInt(size * (size <= 24 ? SmallTypeScale : TypeScale));
         public const int FontSmall = 26;
         public const int FontNormal = 32;
         public const int FontLarge = 40;

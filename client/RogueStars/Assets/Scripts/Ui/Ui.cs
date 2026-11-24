@@ -172,7 +172,7 @@ namespace RogueStars.Client.UiKit
             var rt = Rect(parent, name);
             var t = rt.gameObject.AddComponent<Text>();
             t.font = Font;
-            t.fontSize = size;
+            t.fontSize = Theme.Type(size);
             t.color = color ?? Theme.Text;
             t.alignment = align;
             t.text = text ?? "";

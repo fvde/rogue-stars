@@ -1,0 +1,626 @@
+using System;
+using System.Collections.Generic;
+using RogueStars.Client.App;
+using RogueStars.Client.UiKit;
+using RogueStars.Client.World;
+using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace RogueStars.Client.Screens
+{
+    /// <summary>
+    /// The run's decision screens of the screens pass (references rest, event, event-vendor, chest, shop): events on a
+    /// stage with option tiles or at a vendor's counter, the campfire's Train picker, the chest reveal (Mythic choice,
+    /// signature offers, guarded loot), the restyled result sheet and the shop.
+    /// </summary>
+    public sealed partial class RunScreen
+    {
+        /// <summary>The chest intro plays before a Mythic choice / signature offer / loot (play mode, not in skip mode).</summary>
+        public static bool ShowChestIntro => Application.isPlaying && !InstantOutcomes;
+
+        // ---- events ----------------------------------------------------------------------------------------------
+
+        private UiModal EventModal(ActiveRun run)
+        {
+            Content.RunEvents.TryGetValue(run.EventId ?? "", out var ev);
+            if (ev == null)
+                return Modal(run.EventId ?? "Event", b => Ui.Label(b, run.EventId ?? "", Theme.FontNormal), new ModalButton("Continue", () => Run(new RunChooseEventOption { Index = 0 }), Theme.Accent));
+            if (ev.Id == "resonance") return ShowChestIntro ? ChestIntro("chest_signature", "You found a Signal!", () => _decision = SignatureReveal(run, ev)) : SignatureReveal(run, ev);
+            var look = RunScenes.Look(ev.Id);
+            var visible = VisibleOptions(run, ev);
+            return look.Kind == EventLayoutKind.Vendor && visible.Count == 2 ? VendorModal(run, ev, look, visible) : SceneModal(run, ev, look, visible);
+        }
+
+        /// <summary>The options shown (a Resonance option whose signature is not offered is hidden).</summary>
+        private List<int> VisibleOptions(ActiveRun run, EventDef ev)
+        {
+            var list = new List<int>();
+            for (int i = 0; i < ev.Options.Count; i++)
+            {
+                var o = ev.Options[i];
+                var sigFx = o.Outcomes.Count > 0 ? o.Outcomes[0].Effects.Find(fx => fx.Kind == RunEffectKind.GainSignature) : null;
+                if (sigFx != null && (!int.TryParse(sigFx.Param, out var si) || si < 0 || si >= run.SignatureChoice.Count)) continue;
+                list.Add(i);
+            }
+            return list;
+        }
+
+        private static string OptionName(EventOption o) =>
+            "Button:" + o.Text + (o.CoinCost > 0 ? " [" + o.CoinCost + " coins]" : "") + (o.ShardCost > 0 ? " [" + o.ShardCost + " shards]" : "");
+
+        private static bool Affordable(ActiveRun run, EventOption o) => run.Coins >= o.CoinCost && run.Shards >= o.ShardCost;
+
+        /// <summary>Picks an option: one that improves a skill opens the Train picker first (when there is a choice).</summary>
+        private void ChooseOption(ActiveRun run, EventDef ev, int index, UiModal modal)
+        {
+            var o = ev.Options[index];
+            if (RunSystem.ImprovesSkill(o) && RunSystem.TrainChoices(Content, run).Count > 0) { TrainPicker(run, index, modal); return; }
+            modal.Close();
+            Run(new RunChooseEventOption { Index = index });
+        }
+
+        /// <summary>The scene layout (references rest / event): stage on top, title band, flavour line, option tiles.</summary>
+        private UiModal SceneModal(ActiveRun run, EventDef ev, EventLook look, List<int> visible)
+        {
+            var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
+            RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), () => SkillsModal(run), PauseModal);
+            bool campfire = ev.Id == "campfire";
+            string flavour = look.Line ?? ev.Text;
+            RunScenes.Panel(root, frame, s, look.Title ?? ev.Name, flavour, campfire ? 60 : 46);
+            int n = visible.Count;
+            var xs = RunScenes.Columns(n);
+            float size = n <= 2 ? 320 : 262;
+            for (int k = 0; k < n; k++)
+            {
+                int index = visible[k];
+                var o = ev.Options[index];
+                bool ok = Affordable(run, o);
+                string outcome = RunScenes.OutcomeText(o, Content);
+                if (campfire && RunSystem.ImprovesSkill(o))
+                    outcome = RunSystem.TrainChoices(Content, run).Count > 0 ? "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Olive) + ">Improve 1 existing skill</color>"
+                        : "Nothing to train: <color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Gain) + ">+" + Content.RunTuning.DraftEmptyCoins + "</color> coins";
+                else if (campfire) outcome = "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Olive) + ">" + (RunScenes.EffectLines(o, Content).Find(l => l.Key).Value ?? "Rest").Replace("+", "") + "</color>";
+                if (!ok) outcome = "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Loss) + ">Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards") + "</color>";
+                var tile = RunScenes.OptionTile(frame, s, xs[k], 1915, size, o.Text, RunScenes.IconSprite(RunScenes.OptionIcon(o)), outcome, ok,
+                    () => ChooseOption(run, ev, index, modal), OptionName(o), n <= 2 ? (campfire ? 62 : 46) : 38, n <= 2 ? (campfire ? 56 : 46) : 36, n <= 2 ? 400 : 330);
+                if (campfire) AddAlias(tile, RunSystem.ImprovesSkill(o) ? "Option:Train" : "Option:Rest");
+            }
+            if (_auto)
+            {
+                var hint = RunScenes.Text(frame, "Auto mode waits for your choice.", s, 32, RunScenes.Ink, TextAnchor.MiddleCenter, "AutoHint");
+                RunScenes.At(hint.rectTransform, s, 540, 2350, 900, 50);
+            }
+            UiTween.PopIn(frame, 0.12f);
+            return modal;
+        }
+
+        /// <summary>A second, invisible button over a tile under another name (the showcase and tests find options by role).</summary>
+        private static void AddAlias(Button tile, string name)
+        {
+            var alias = Ui.Button(tile.transform, "", () => tile.onClick.Invoke(), new Color(1, 1, 1, 0.001f), 10, 10, tile.interactable, 10);
+            alias.name = name;
+            Ui.Stretch((RectTransform)alias.transform);
+            var le = alias.GetComponent<LayoutElement>(); if (le != null) le.ignoreLayout = true;
+        }
+
+        /// <summary>The vendor layout (reference event-vendor): NPC, speech bubble, two blessing / curse cards with Sign.</summary>
+        private UiModal VendorModal(ActiveRun run, EventDef ev, EventLook look, List<int> visible)
+        {
+            var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
+            RunScenes.VendorStage(root, frame, s, look.Title ?? ev.Name, look.Art, look.Line ?? ev.Text);
+            float[] xs = { 268, 812 };
+            for (int k = 0; k < 2; k++)
+            {
+                int index = visible[k];
+                var o = ev.Options[index];
+                bool ok = Affordable(run, o);
+                RunScenes.Halves(o, Content, out var blessing, out var curse);
+                bool nothing = o.Outcomes.TrueForAll(oc => oc.Effects.Count == 0) && o.CoinCost == 0 && o.ShardCost == 0;
+                string sign = nothing ? "Leave" : o.CoinCost > 0 || o.ShardCost > 0 ? "Pay" : "Sign";
+                if (!ok) curse += "\n<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Loss) + ">Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards") + "</color>";
+                RunScenes.VendorCard(frame, s, xs[k], blessing, curse, sign, ok, () => ChooseOption(run, ev, index, modal), OptionName(o));
+            }
+            var or = SliceKit.Chunky(frame, "OR", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "Or");
+            RunScenes.At(or.rectTransform, s, 540, 2282, 160, 120);
+            UiTween.PopIn(frame, 0.12f);
+            return modal;
+        }
+
+        /// <summary>
+        /// The campfire's Train picker (owner rule): the run's owned skills that can improve, each as a card with its upgrade
+        /// inline ("+15% → +25% crit chance"); signatures and maxed skills are not offered. Picking sends the option with the skill.
+        /// </summary>
+        private void TrainPicker(ActiveRun run, int index, UiModal parent)
+        {
+            var choices = RunSystem.TrainChoices(Content, run);
+            float s = ModalScale();
+            var root = SliceCards.Overlay(App.ModalLayer, "Train", out var modal, 0.96f);
+            SliceCards.Header(root, s, SliceCards.GoldRibbon, "TRAIN", "TrainTitle", "Pick a skill to improve!");
+            int n = Math.Max(1, choices.Count);
+            float step = Mathf.Min(287, 1000f / n), h = Mathf.Min(280, step - 10), y = 1050 + h / 2 - 140;
+            foreach (var owned in choices)
+            {
+                string id = owned;
+                string target = RunSystem.TrainTarget(Content, run, id);
+                var sk = Content.Skill(target);
+                int lv = RunDraft.Level(run, id);
+                bool chain = target != id;
+                var spec = new SkillCardSpec
+                {
+                    Id = id, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
+                    IconArt = ArtCatalog.SkillIcon(target),
+                    Title = chain ? sk?.Name ?? target : SkillText.Title(sk, lv + 1),
+                    Body = chain ? Fmt.SkillCard(Content, sk, 0) + " Replaces " + (Content.Skill(id)?.Name ?? id) + "." : Fmt.SkillCard(Content, sk, lv),
+                    Chip = chain ? "UPGRADE" : "LEVEL " + lv + " → " + (lv + 1), ChipName = "LevelUpChip",
+                    ChipColor = chain ? (Color)new Color32(0xD6, 0xC2, 0xFF, 255) : new Color32(0x9C, 0xF0, 0xB5, 255),
+                };
+                SliceCards.Card(root, s, y, spec, () => { modal.Close(); parent.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index, SkillId = id }); }, null, "Train:" + id, h);
+                y += step;
+            }
+            var note = SliceKit.Chunky(root, "Signatures and max-level skills can't train.", (int)(34 * s), new Color(1, 1, 1, 0.8f), TextAnchor.MiddleCenter, "TrainNote");
+            SliceKit.Place(note.rectTransform, s, 540, 2120, 1000, 50, true);
+            var back = Ui.Button(root, "", modal.Close, SliceCards.Purple, 320 * s, 150 * s, true, 20);
+            back.name = "Button:Back";
+            SliceKit.Place((RectTransform)back.transform, s, 540, 2260, 320, 150, true);
+            UiShapes.Outline((RectTransform)back.transform, IsoArt.Ink, Theme.RadiusButton, 6);
+            var bt = SliceKit.Chunky(back.transform, "Back", (int)(64 * s), Color.white, TextAnchor.MiddleCenter, "BackText");
+            Ui.Stretch(bt.rectTransform, 0, 0, 0, 8 * s);
+            UiTween.PopIn(root, 0.15f);
+        }
+
+        // ---- chest ----------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// The chest moment (reference chest): the board dimmed, a gold ribbon, the big glowing chest, "Tap anywhere to
+        /// open!"; a tap bursts it open and <paramref name="reveal"/> builds what was inside (in the card family). Auto mode
+        /// opens it after a short look.
+        /// </summary>
+        private UiModal ChestIntro(string prop, string title, Action reveal)
+        {
+            var root = SliceCards.Overlay(App.ModalLayer, "Chest", out var modal, 0.9f);
+            BuildChest(root, prop, title, modal.Close, reveal, out _);
+            return modal;
+        }
+
+        /// <summary>The chest stage inside <paramref name="root"/>; a tap runs <paramref name="close"/> then <paramref name="reveal"/>.</summary>
+        private RectTransform BuildChest(RectTransform root, string prop, string title, Action close, Action reveal, out Button tap)
+        {
+            Canvas.ForceUpdateCanvases();
+            var holder = Ui.Rect(root, "ChestStage");
+            Ui.Stretch(holder);
+            var frame = RunScenes.Frame(holder, out float s);
+            var glow = Ui.Panel(frame, new Color(1f, 0.86f, 0.42f, 0.55f), "ChestGlow");
+            glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
+            RunScenes.At(glow.rectTransform, s, 540, 1260, 980, 980);
+            UiPulse.On(glow, 0.06f, 1.6f, 0.6f);
+            var rib = Ui.Panel(frame, Color.white, "Ribbon");
+            rib.sprite = prop == "chest_mythic" ? SliceCards.RedRibbon : prop == "chest_signature" ? SliceCards.Ribbon(SignaturePick.SignatureColor) : SliceCards.GoldRibbon;
+            rib.preserveAspect = true; rib.raycastTarget = false;
+            RunScenes.At(rib.rectTransform, s, 540, 395, 1010, 172);
+            var t = SliceKit.Chunky(rib.transform, title, (int)(80 * s), Color.white, TextAnchor.MiddleCenter, "ChestTitle");
+            Ui.Stretch(t.rectTransform, 0, 0, 0, 14 * s);
+            var chest = Ui.Panel(frame, Color.white, "Chest");
+            chest.sprite = ScreenArt.Prop(prop); chest.preserveAspect = true; chest.raycastTarget = false;
+            RunScenes.At(chest.rectTransform, s, 540, 1270, 660, 580);
+            UiBob.On(chest.rectTransform, 10 * s, 1.8f);
+            var hint = SliceKit.Chunky(frame, "Tap anywhere to open!", (int)(60 * s), new Color(1, 1, 1, 0.78f), TextAnchor.MiddleCenter, "ChestHint");
+            RunScenes.At(hint.rectTransform, s, 540, 2055, 1000, 90);
+            UiPulse.On(hint, 0.04f, 1.4f, 0.55f);
+            var b = Ui.Button(holder, "", null, new Color(1, 1, 1, 0.001f), 10, 10, true, 10);
+            b.name = "ChestTap";
+            Ui.Stretch((RectTransform)b.transform);
+            var le = b.GetComponent<LayoutElement>(); if (le != null) le.ignoreLayout = true;
+            bool opened = false;
+            void Open()
+            {
+                if (opened) return;
+                opened = true;
+                var seq = UiSequence.On(holder.gameObject);
+                seq.Then(0.32f, k =>
+                {
+                    float sc = 1 + 0.25f * Mathf.Sin(k * Mathf.PI) + 0.04f * Mathf.Sin(k * 40);
+                    chest.rectTransform.localScale = Vector3.one * sc;
+                    glow.color = new Color(1f, 0.9f, 0.5f, 0.55f + 0.45f * k);
+                }, () => { close?.Invoke(); reveal?.Invoke(); });
+            }
+            b.onClick.AddListener(Open);
+            if (_auto && Application.isPlaying) UiSequence.On(holder.gameObject).Wait(0.8f, Open);
+            tap = b;
+            return holder;
+        }
+
+        /// <summary>The signature offer (Resonance) revealed from its chest: one card per offered signature, and the coins.</summary>
+        private UiModal SignatureReveal(ActiveRun run, EventDef ev)
+        {
+            float s = ModalScale();
+            var root = SliceCards.Overlay(App.ModalLayer, "Signature", out var modal);
+            SliceCards.Header(root, s, SliceCards.Ribbon(SignaturePick.SignatureColor), "SIGNATURE!", "SignatureTitle", "Attune to a signal!");
+            var visible = VisibleOptions(run, ev);
+            float step = Mathf.Min(287, 900f / Math.Max(1, visible.Count)), y = 1050;
+            foreach (int i in visible)
+            {
+                int index = i;
+                var o = ev.Options[i];
+                var sigFx = o.Outcomes.Count > 0 ? o.Outcomes[0].Effects.Find(fx => fx.Kind == RunEffectKind.GainSignature) : null;
+                SkillCardSpec spec;
+                if (sigFx != null)
+                {
+                    int.TryParse(sigFx.Param, out var si);
+                    var sig = Content.Skill(run.SignatureChoice[si]);
+                    spec = new SkillCardSpec
+                    {
+                        Id = sig?.Id ?? "sig", Tier = "Signature", TierColor = SignaturePick.SignatureColor, Family = sig?.Family ?? SkillFamily.None,
+                        IconArt = ArtCatalog.SkillIcon(sig?.Id), Title = sig?.Name ?? o.Text, Body = SignaturePick.Body(Content, sig),
+                        Chip = "SIGNATURE · " + SkillText.FamilyName(sig?.Family ?? SkillFamily.None).ToUpperInvariant(), ChipName = "SignatureChip", ChipColor = SignaturePick.SignatureColor,
+                    };
+                }
+                else
+                {
+                    spec = new SkillCardSpec { Id = "coins", Tier = "Coins", TierColor = Theme.Gold, IconArt = ScreenArt.Icon("coins_big"), Title = o.Text, Body = SkillText.StripMarks(o.RiskText ?? "") };
+                }
+                var card = SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index }); }, null, OptionName(o));
+                if (sigFx != null) card.Find("Draft:" + spec.Id)?.gameObject.SetActive(true);
+                y += step;
+            }
+            UiTween.PopIn(root, 0.15f);
+            return modal;
+        }
+
+        // ---- outcome result (restyled) -------------------------------------------------------------------------
+
+        private UiModal OutcomeSheet(RunOutcome o)
+        {
+            var root = SliceCards.Overlay(App.ModalLayer, "Outcome", out var modal, 0.88f);
+            Canvas.ForceUpdateCanvases();
+            var content = Ui.Rect(root, "Content");
+            Ui.Stretch(content);
+            var group = content.gameObject.AddComponent<CanvasGroup>();
+            var frame = RunScenes.Frame(content, out float s);
+            bool good = o.Lines.Count == 0 || o.Lines.Exists(l => l.Good);
+            var cap = SliceKit.Chunky(frame, SourceCaption(o.Source) + " RESULT", (int)(44 * s), new Color32(0xFF, 0xE0, 0x6A, 255), TextAnchor.MiddleCenter, "Caption");
+            RunScenes.At(cap.rectTransform, s, 540, 300, 1000, 60);
+            var rib = Ui.Panel(frame, Color.white, "Ribbon");
+            rib.sprite = good ? SliceCards.GoldRibbon : SliceCards.RedRibbon; rib.preserveAspect = true; rib.raycastTarget = false;
+            RunScenes.At(rib.rectTransform, s, 540, 430, 1010, 172);
+            var title = SliceKit.Chunky(rib.transform, o.Title ?? "Result", (int)(76 * s), Color.white, TextAnchor.MiddleCenter, "ResultTitle");
+            Ui.Stretch(title.rectTransform, 40 * s, 0, 40 * s, 14 * s);
+            title.horizontalOverflow = HorizontalWrapMode.Wrap; title.resizeTextForBestFit = true; title.resizeTextMaxSize = title.fontSize; title.resizeTextMinSize = (int)(44 * s);
+            if (!string.IsNullOrEmpty(o.Choice) && o.Source != "shop")
+            {
+                var ch = SliceKit.Chunky(frame, (o.Source == "minigame" ? "Medal: " : "You chose: ") + o.Choice, (int)(46 * s), Color.white, TextAnchor.MiddleCenter, "Choice");
+                RunScenes.At(ch.rectTransform, s, 540, 575, 1000, 70);
+            }
+
+            // the paper panel with the chance roll, the outcome text and one row per gain / loss
+            float rows = o.Lines.Count * 122 + (o.Chance ? 330 : 0) + (string.IsNullOrEmpty(o.Text) ? 0 : 110) + 70;
+            float top = 650, height = Mathf.Clamp(rows, 260, 1320);
+            var paper = Ui.RoundPanel(frame, SliceKit.Ink, 40 * s, "Paper");
+            paper.raycastTarget = false;
+            RunScenes.At(paper.rectTransform, s, 540, top + height / 2, 980, height);
+            var face = Ui.RoundPanel(paper.transform, RunScenes.Paper, 34 * s, "Face");
+            face.raycastTarget = false;
+            Ui.Stretch(face.rectTransform, 7 * s, 7 * s, 7 * s, 7 * s);
+            var col = Ui.Column(face.transform, 14 * s, (int)(30 * s), null, "Body");
+            Ui.Stretch(col);
+            col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+
+            RectTransform meter = null, marker = null;
+            Text stamp = null;
+            float landing = 0.5f;
+            if (o.Chance)
+            {
+                float pct = Mathf.Clamp01((float)(o.SuccessChancePct / 100.0));
+                var panel = Ui.Column(col, 14 * s, 0, null, "ChanceMeter");
+                var cl = Ui.Label(panel, Fmt.Pct(Math.Round(o.SuccessChancePct)) + " chance", 50, new Color32(0xB8, 0x7A, 0x10, 255), TextAnchor.MiddleCenter, "ChanceLabel");
+                cl.font = Ui.DisplayFont; cl.fontSize = (int)(56 * s);
+                Ui.Size(cl, -1, 76 * s);
+                var trackEdge = Ui.RoundPanel(panel, SliceKit.Ink, 26 * s, "TrackEdge");
+                Ui.Size(trackEdge, -1, 92 * s);
+                var track = Ui.Rect(trackEdge.transform, "Track");
+                Ui.Stretch(track, 6 * s, 6 * s, 6 * s, 6 * s);
+                var lucky = Ui.RoundPanel(track, new Color32(0x5C, 0xC0, 0x48, 255), 20 * s, "Lucky");
+                lucky.rectTransform.anchorMin = new Vector2(0, 0); lucky.rectTransform.anchorMax = new Vector2(pct, 1);
+                lucky.rectTransform.offsetMin = lucky.rectTransform.offsetMax = Vector2.zero;
+                var bad = Ui.RoundPanel(track, new Color32(0xD8, 0x44, 0x4C, 255), 20 * s, "Unlucky");
+                bad.rectTransform.anchorMin = new Vector2(pct, 0); bad.rectTransform.anchorMax = new Vector2(1, 1);
+                bad.rectTransform.offsetMin = bad.rectTransform.offsetMax = Vector2.zero;
+                var m = Ui.RoundPanel(track, Color.white, 10 * s, "Marker");
+                UiShapes.Outline(m.rectTransform, SliceKit.Ink, 10 * s, 5);
+                marker = m.rectTransform;
+                marker.anchorMin = marker.anchorMax = new Vector2(0, 0.5f);
+                marker.pivot = new Vector2(0.5f, 0.5f);
+                marker.sizeDelta = new Vector2(30 * s, 130 * s);
+                landing = o.Success ? pct * 0.5f : pct + (1 - pct) * 0.5f;
+                stamp = SliceKit.Chunky(panel, "", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "ChanceResult");
+                Ui.Size(stamp, -1, 110 * s);
+                meter = track;
+            }
+            var details = Ui.Column(col, 12 * s, 0, null, "Lines");
+            if (!string.IsNullOrEmpty(o.Text))
+            {
+                var ot = Ui.Label(details, o.Text, 40, RunScenes.Ink, TextAnchor.MiddleCenter, "OutcomeText");
+                ot.font = Ui.DisplayFont; ot.fontSize = (int)(46 * s);
+            }
+            foreach (var l in o.Lines)
+            {
+                var icon = OutcomeIcon(l, Content);
+                var row = Ui.Row(details, 110 * s, 18 * s, l.Good ? new Color32(0xDC, 0xEE, 0xC4, 255) : new Color32(0xF6, 0xD2, 0xCC, 255), (int)(14 * s), "Line:" + l.Kind);
+                var dot = Ui.RoundPanel(row, icon.Value, 40 * s, "Icon");
+                Ui.Size(dot, 82 * s, 82 * s, 0);
+                UiShapes.Outline(dot.rectTransform, SliceKit.Ink, 40 * s, 4);
+                var glyph = SliceKit.Chunky(dot.transform, icon.Key, (int)((icon.Key.Length > 1 ? 30 : 42) * s), Color.white, TextAnchor.MiddleCenter, "Glyph");
+                Ui.Stretch(glyph.rectTransform);
+                var t = Ui.Label(row, OutcomeLineText(l, Content), 40, l.Good ? new Color32(0x2E, 0x6E, 0x1E, 255) : new Color32(0xA8, 0x1E, 0x2A, 255));
+                t.font = Ui.DisplayFont; t.fontSize = (int)(44 * s);
+                t.resizeTextForBestFit = true; t.resizeTextMaxSize = t.fontSize; t.resizeTextMinSize = (int)(28 * s);
+                Ui.Size(t, -1, -1, 1);
+            }
+            var cont = Ui.Button(frame, "", CloseOutcome, new Color32(0x3E, 0x3A, 0x78, 255), 430 * s, 180 * s, true, 20);
+            cont.name = "OutcomeContinue";
+            RunScenes.At((RectTransform)cont.transform, s, 540, 2085, 430, 180);
+            UiShapes.Outline((RectTransform)cont.transform, SliceKit.Ink, Theme.RadiusButton, 7);
+            var ct = SliceKit.Chunky(cont.transform, "Continue", (int)(76 * s), Color.white, TextAnchor.MiddleCenter, "ContinueText");
+            Ui.Stretch(ct.rectTransform, 0, 0, 0, 8 * s);
+            var hint = SliceKit.Chunky(frame, _auto ? "Auto continues in a moment." : "Tap Continue.", (int)(32 * s), new Color(1, 1, 1, 0.6f), TextAnchor.MiddleCenter, "Hint");
+            RunScenes.At(hint.rectTransform, s, 540, 2230, 900, 50);
+
+            Action startReveal = () =>
+            {
+                if (marker == null) { group.alpha = 1; return; }
+                void Land()
+                {
+                    float w = meter.rect.width;
+                    marker.anchoredPosition = new Vector2(landing * w, 0);
+                    stamp.text = o.Success ? "SUCCESS!" : "NO LUCK";
+                    stamp.color = o.Success ? new Color32(0x6C, 0xE0, 0x4C, 255) : new Color32(0xF0, 0x50, 0x58, 255);
+                    details.GetComponent<CanvasGroup>().alpha = 1;
+                    _outcomeRevealing = false;
+                }
+                var dg = details.gameObject.AddComponent<CanvasGroup>();
+                if (InstantOutcomes || !Application.isPlaying) { Land(); return; }
+                dg.alpha = 0;
+                _outcomeRevealing = true;
+                var seq = UiSequence.On(modal.Root);
+                seq.Then(ChanceSpinSeconds, k =>
+                {
+                    float w = meter.rect.width;
+                    float decay = (1 - k) * (1 - k);
+                    float x = landing + 0.5f * decay * Mathf.Sin(k * Mathf.PI * 9);
+                    marker.anchoredPosition = new Vector2(Mathf.Clamp01(x) * w, 0);
+                    stamp.text = k < 1 ? "rolling…" : "";
+                }, Land);
+            };
+            // guarded loot: the chest bursts open first, then the result
+            bool chest = o.Source == "treasure" && o.Lines.Exists(l => l.Kind == OutcomeKind.AccountLoot) && ShowChestIntro;
+            if (chest)
+            {
+                group.alpha = 0; group.interactable = false; group.blocksRaycasts = false;
+                _outcomeRevealing = true;
+                RectTransform stage = null;
+                stage = BuildChest(root, "chest_common", "You found a Chest!", () => Ui.DestroyGo(stage.gameObject), () =>
+                {
+                    group.alpha = 1; group.interactable = true; group.blocksRaycasts = true;
+                    _outcomeRevealing = false;
+                    startReveal();
+                }, out _);
+            }
+            else startReveal();
+            return modal;
+        }
+
+        // ---- shop ----------------------------------------------------------------------------------------------
+
+        private static readonly string[] ShopLines =
+        {
+            "I adore worms. They buy things.",
+            "Everything here fell off a comet. Honest.",
+            "Coins in, power out. Simple as orbit.",
+            "Back again? My favourite customer this light-year!",
+        };
+
+        /// <summary>The shop's price label: a coin and the price, the struck-through list price under SALE, or "Sold".</summary>
+        private static void ShopPriceLabel(Button b, ShopOffer o)
+        {
+            var label = b.transform.Find("Price")?.GetComponent<Text>();
+            if (label != null) label.text = o.Sold ? "Sold" : o.Price.ToString();
+            var coin = b.transform.Find("Coin");
+            if (coin != null) coin.gameObject.SetActive(!o.Sold);
+            var sale = b.transform.Find("Was");
+            if (sale != null) sale.gameObject.SetActive(!o.Sold);
+        }
+
+        /// <summary>A yellow price button (coin icon + price; "Was" with the struck list price on SALE), named "Button:n coins".</summary>
+        private Button PriceButton(RectTransform frame, float s, float x, float y, float w, float h, ShopOffer o, Action buy, bool enabled)
+        {
+            var b = Ui.Button(frame, "", buy, RunScenes.SignYellow, w * s, h * s, enabled, 20);
+            b.name = "Button:" + o.Price + " coins";
+            RunScenes.At((RectTransform)b.transform, s, x, y, w, h);
+            UiShapes.Outline((RectTransform)b.transform, SliceKit.Ink, Theme.RadiusButton, 6);
+            bool sale = o.ListPrice > o.Price;
+            float py = sale ? -h * 0.18f : 0;
+            var coin = Ui.Panel(b.transform, Color.white, "Coin");
+            coin.sprite = HudArt.Icon("coin"); coin.preserveAspect = true; coin.raycastTarget = false;
+            coin.rectTransform.anchorMin = coin.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            coin.rectTransform.sizeDelta = new Vector2(h * 0.5f * s, h * 0.5f * s);
+            coin.rectTransform.anchoredPosition = new Vector2(-w * 0.24f * s, py * s);
+            var t = SliceKit.Chunky(b.transform, o.Sold ? "Sold" : o.Price.ToString(), (int)(Mathf.Min(58, h * 0.45f) * s), Color.white, TextAnchor.MiddleCenter, "Price");
+            Ui.Stretch(t.rectTransform, w * 0.3f * s, 0, 8 * s, 6 * s);
+            t.rectTransform.anchoredPosition = new Vector2(t.rectTransform.anchoredPosition.x, py * s);
+            if (sale)
+            {
+                var was = SliceKit.Chunky(b.transform, o.ListPrice.ToString(), (int)(34 * s), new Color32(0xE8, 0xE4, 0xF0, 255), TextAnchor.MiddleCenter, "Was");
+                was.rectTransform.anchorMin = was.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                was.rectTransform.sizeDelta = new Vector2(w * 0.6f * s, 44 * s);
+                was.rectTransform.anchoredPosition = new Vector2(10 * s, h * 0.25f * s);
+                var strike = Ui.Panel(was.transform, new Color32(0x2A, 0x20, 0x34, 255), "Strike");
+                strike.raycastTarget = false;
+                strike.rectTransform.anchorMin = strike.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                strike.rectTransform.sizeDelta = new Vector2(80 * s, 6 * s);
+                strike.rectTransform.localRotation = Quaternion.Euler(0, 0, 12);
+                var tag = SliceKit.Chunky(frame, "SALE!", (int)(48 * s), Color.white, TextAnchor.MiddleCenter, "Sale");
+                RunScenes.At(tag.rectTransform, s, x - 30, y - h / 2 - 26, w, 60);
+            }
+            ShopPriceLabel(b, o);
+            return b;
+        }
+
+        /// <summary>
+        /// The shop (reference shop): the HUD, a wooden SHOP sign, the shopkeeper with a speech bubble, the utility offers
+        /// (heal, stat perks) as small priced tiles, the skill offers as cards (tier tag, framed icon, name + level, coloured
+        /// keywords, price; SALE with the struck list price), Exit, Reroll with its price and the skills book. Buying keeps
+        /// it open (<see cref="RefreshShop"/>).
+        /// </summary>
+        private UiModal ShopModal(ActiveRun run)
+        {
+            var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
+            long reroll = table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
+            _shopButtons.Clear();
+            var root = RunScenes.Overlay(App.ModalLayer, "Shop", out var modal, out var frame, out float s, new Color32(0x3E, 0x22, 0x16, 255));
+            var wood = Ui.Panel(root, Color.white, "Wood");
+            wood.sprite = HudArt.Gradient(new Color32(0x4A, 0x2A, 0x1A, 255), new Color32(0x7A, 0x46, 0x2A, 255));
+            wood.raycastTarget = false;
+            Ui.Stretch(wood.rectTransform);
+            frame.SetAsLastSibling();
+            for (int i = 0; i < 7; i++)
+            {
+                var plank = Ui.Panel(frame, new Color(0, 0, 0, 0.12f), "Plank");
+                plank.raycastTarget = false;
+                RunScenes.At(plank.rectTransform, s, 80 + i * 160, 600, 6, 1200);
+            }
+            var arch = Ui.Panel(frame, new Color(0.25f, 0.4f, 0.7f, 0.55f), "Window");
+            arch.sprite = ScreenArt.Glow(); arch.raycastTarget = false;
+            RunScenes.At(arch.rectTransform, s, 600, 620, 760, 760);
+            var shelf = Ui.Panel(frame, new Color32(0x5A, 0x32, 0x1C, 255), "Shelf");
+            shelf.raycastTarget = false;
+            RunScenes.At(shelf.rectTransform, s, 540, 1070, 1200, 40);
+            UiShapes.Outline(shelf.rectTransform, SliceKit.Ink, 4, 4);
+
+            var hud = SliceHud.Build(frame, RunScenes.RefW * s, PauseModal, null, true);
+            var stats = RunPresentation.Hud(Content, run);
+            hud.Show(stats, stats.Level, stats.XpNeed > 0 ? (float)stats.Xp / stats.XpNeed : 0, RunSystem.BuildSize(run));
+            _shopHudCoins = hud.Coins;
+            if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
+
+            var sign = Ui.RoundPanel(frame, new Color32(0x8A, 0x52, 0x2E, 255), 24 * s, "ShopSign");
+            sign.raycastTarget = false;
+            RunScenes.At(sign.rectTransform, s, 540, 395, 600, 200);
+            UiShapes.Outline(sign.rectTransform, SliceKit.Ink, 24 * s, 7);
+            var signText = Ui.Display(sign.transform, "SHOP", 150, new Color32(0xE6, 0xC4, 0xA8, 255), TextAnchor.MiddleCenter, "Title");
+            signText.fontSize = (int)(150 * s);
+            var so = signText.gameObject.AddComponent<Shadow>(); so.effectColor = new Color(0, 0, 0, 0.45f); so.effectDistance = new Vector2(0, -6 * s);
+            Ui.Stretch(signText.rectTransform);
+            _shopCoins = SliceKit.Chunky(frame, ShopBoughtLine(run), (int)(30 * s), new Color32(0xFF, 0xE0, 0x9A, 255), TextAnchor.MiddleCenter, "ShopCoins");
+            RunScenes.At(_shopCoins.rectTransform, s, 540, 1036, 600, 40);
+
+            var npc = Ui.Panel(frame, Color.white, "Npc:shopkeeper");
+            npc.sprite = ScreenArt.Character("shopkeeper"); npc.preserveAspect = true; npc.raycastTarget = false;
+            RunScenes.At(npc.rectTransform, s, 235, 810, 500, 500);
+            RunScenes.Bubble(frame, s, 665, 590, 700, 170, ShopLines[Math.Abs(run.ShopsVisited) % ShopLines.Length], false);
+
+            // utility offers (heal, stat perks): small priced tiles right of the shopkeeper
+            var utility = new List<int>();
+            var skills = new List<int>();
+            for (int i = 0; i < run.Shop.Count; i++) (run.Shop[i].Kind == ShopOfferKind.Skill ? skills : utility).Add(i);
+            int un = Math.Min(3, utility.Count);
+            for (int k = 0; k < un; k++)
+            {
+                int index = utility[k];
+                var o = run.Shop[index];
+                float x = un == 3 ? 560 + k * 210 : 640 + k * 300;
+                float size = un == 3 ? 190 : 210;
+                string label = o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value) : SkillText.Stat(o.Stat) ?? "+stat";
+                var tileEdge = Ui.RoundPanel(frame, SliceKit.Ink, 26 * s, "Utility:" + label);
+                tileEdge.raycastTarget = false;
+                RunScenes.At(tileEdge.rectTransform, s, x, 820, size, size);
+                var tileFace = Ui.RoundPanel(tileEdge.transform, o.Sold ? (Color)new Color32(0x6A, 0x66, 0x74, 255) : new Color32(0x74, 0x78, 0xA8, 255), 22 * s, "Face");
+                tileFace.raycastTarget = false;
+                Ui.Stretch(tileFace.rectTransform, 6 * s, 6 * s, 6 * s, 6 * s);
+                var icon = Ui.Panel(tileFace.transform, Color.white, "Icon");
+                icon.sprite = o.Kind == ShopOfferKind.Heal ? ScreenArt.Icon("heal") : o.Stat != null && o.Stat.Stat == StatId.Hp ? ScreenArt.Icon("max_hp")
+                    : o.Stat != null && o.Stat.Stat == StatId.Def ? HudArt.Icon("shield") : o.Stat != null && o.Stat.Stat == StatId.Atk ? HudArt.Icon("sword") : ScreenArt.Icon("upgrade");
+                icon.preserveAspect = true; icon.raycastTarget = false;
+                Ui.Stretch(icon.rectTransform, size * 0.16f * s, size * 0.08f * s, size * 0.16f * s, size * 0.3f * s);
+                var lt = SliceKit.Chunky(tileFace.transform, label, (int)(34 * s), Color.white, TextAnchor.LowerCenter, "Label");
+                Ui.Stretch(lt.rectTransform, 4 * s, 0, 4 * s, 10 * s);
+                lt.horizontalOverflow = HorizontalWrapMode.Wrap; lt.resizeTextForBestFit = true; lt.resizeTextMaxSize = lt.fontSize; lt.resizeTextMinSize = (int)(22 * s);
+                var slot = Ui.Rect(frame, "OfferSlot:" + index);
+                Ui.Stretch(slot);
+                var buy = PriceButton(slot, s, x, 975, size, 92, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                AddOfferName(buy, label);
+                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
+            }
+
+            // skill offers as cards
+            int n = Math.Max(1, skills.Count);
+            float h = Mathf.Min(285, 1060f / n - 14), y = 1110 + h / 2;
+            foreach (int index in skills)
+            {
+                var o = run.Shop[index];
+                var sk = Content.Skill(o.SkillId);
+                int ownedLv = RunDraft.Level(run, o.SkillId);
+                var spec = new SkillCardSpec
+                {
+                    Id = o.SkillId, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
+                    IconArt = ArtCatalog.SkillIcon(o.SkillId), Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : sk?.Name ?? o.SkillId,
+                    Body = Fmt.SkillCard(Content, sk, ownedLv), Dim = o.Sold,
+                };
+                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
+                string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
+                var card = SliceCards.Card(frame, s, y, spec, null, () => Session.Info(info), "Offer", h, "Words");
+                var body = card.Find("Words/SkillText") as RectTransform;
+                if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
+                var chip = card.Find("Words/LevelUpChip") as RectTransform;
+                if (chip != null) chip.anchoredPosition = new Vector2(-300 * s, chip.anchoredPosition.y);
+                var slot = Ui.Rect(frame, "OfferSlot:" + index);
+                Ui.Stretch(slot);
+                var buy = PriceButton(slot, s, 925, y + 22 * h / 280, 200, h * 0.48f, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                AddOfferName(buy, spec.Title);
+                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
+                y += h + 14;
+            }
+
+            // Exit (green), Reroll (purple, price), the skills book
+            var exit = Ui.Button(frame, "", () => { modal.Close(); Run(new RunShopLeave()); }, new Color32(0xC2, 0xE0, 0x5A, 255), 370 * s, 175 * s, true, 20);
+            exit.name = "Button:Leave";
+            RunScenes.At((RectTransform)exit.transform, s, 265, 2272, 370, 175);
+            UiShapes.Outline((RectTransform)exit.transform, SliceKit.Ink, Theme.RadiusButton, 7);
+            var et = SliceKit.Chunky(exit.transform, "Exit", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "ExitText");
+            Ui.Stretch(et.rectTransform, 0, 0, 0, 8 * s);
+            var rr = Ui.Button(frame, "", () => Run(new RunShopReroll()), SliceCards.Purple, 370 * s, 175 * s, run.Coins >= reroll, 20);
+            rr.name = "Button:Reroll (" + reroll + ")";
+            RunScenes.At((RectTransform)rr.transform, s, 665, 2272, 370, 175);
+            UiShapes.Outline((RectTransform)rr.transform, SliceKit.Ink, Theme.RadiusButton, 7);
+            var rt = SliceKit.Chunky(rr.transform, "Reroll", (int)(66 * s), Color.white, TextAnchor.MiddleCenter, "RerollText");
+            Ui.Stretch(rt.rectTransform, 0, 0, 0, 70 * s);
+            var rc = Ui.Panel(rr.transform, Color.white, "Coin");
+            rc.sprite = HudArt.Icon("coin"); rc.preserveAspect = true; rc.raycastTarget = false;
+            rc.rectTransform.anchorMin = rc.rectTransform.anchorMax = new Vector2(0.5f, 0.28f);
+            rc.rectTransform.sizeDelta = new Vector2(56 * s, 56 * s);
+            rc.rectTransform.anchoredPosition = new Vector2(-62 * s, 0);
+            var rp = SliceKit.Chunky(rr.transform, reroll > 0 ? reroll.ToString() : "FREE", (int)(50 * s), Color.white, TextAnchor.MiddleLeft, "RerollPrice");
+            rp.rectTransform.anchorMin = rp.rectTransform.anchorMax = new Vector2(0.5f, 0.28f);
+            rp.rectTransform.pivot = new Vector2(0, 0.5f);
+            rp.rectTransform.sizeDelta = new Vector2(170 * s, 60 * s);
+            rp.rectTransform.anchoredPosition = new Vector2(-28 * s, 0);
+            RunScenes.SkillsBook(frame, s, 975, 2272, () => SkillsModal(run));
+            UiTween.PopIn(frame, 0.12f);
+            return modal;
+        }
+
+        /// <summary>"3 bought this run" under the counter (empty before the first purchase).</summary>
+        private static string ShopBoughtLine(ActiveRun run) => run.ShopBuys > 0 ? run.ShopBuys + " bought this run" : "";
+
+        private Text _shopHudCoins;
+
+        /// <summary>The offer's name under its buy button (invisible; tests and the playthrough find the button by the name next to it).</summary>
+        private static void AddOfferName(Button buy, string name)
+        {
+            var t = Ui.Label(buy.transform, name, 10, new Color(0, 0, 0, 0), TextAnchor.MiddleCenter, "OfferName");
+            var le = t.GetComponent<LayoutElement>(); if (le != null) le.ignoreLayout = true;
+            t.rectTransform.sizeDelta = Vector2.zero;
+        }
+    }
+}

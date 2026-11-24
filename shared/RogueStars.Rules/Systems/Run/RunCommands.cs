@@ -13,8 +13,12 @@ namespace RogueStars.Rules.Systems
     /// <summary>Pick a leg at a branch: Index into ActiveRun.BranchOptions.</summary>
     [Serializable] public sealed class RunChooseBranch : GameCommand { public int Index; }
 
-    /// <summary>Choose an option of the current event (also campfire / treasure).</summary>
-    [Serializable] public sealed class RunChooseEventOption : GameCommand { public int Index; }
+    /// <summary>
+    /// Choose an option of the current event (also campfire / treasure). SkillId: for an option that improves a skill
+    /// (campfire Train, shrine) the owned skill the player picked (one of RunSystem.TrainChoices); empty = the
+    /// deterministic default (RunSystem.TrainAutoPick: auto mode, bots, older clients).
+    /// </summary>
+    [Serializable] public sealed class RunChooseEventOption : GameCommand { public int Index; public string SkillId; }
 
     /// <summary>Pick one skill of the current draft offer.</summary>
     [Serializable] public sealed class RunDraftPick : GameCommand { public string SkillId; }

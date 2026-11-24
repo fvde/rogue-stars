@@ -74,7 +74,7 @@ public class MultiSignatureTests
             run.Skills.Add("gen_power");
             var ctx = RunTestKit.Ctx(e, s);
             typeof(RunSystem).GetMethod("ApplyEffects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-                .Invoke(null, new object[] { ctx, run, new List<RunEffect> { new RunEffect(RunEffectKind.LoseRandomSkill, 1) }, 0 });
+                .Invoke(null, new object[] { ctx, run, new List<RunEffect> { new RunEffect(RunEffectKind.LoseRandomSkill, 1) }, 0, null });
         }
         Assert.Equal(new[] { "sig_fire", "sig_bleed", "sig_radiation" }, RunSystem.Signatures(run));
     }

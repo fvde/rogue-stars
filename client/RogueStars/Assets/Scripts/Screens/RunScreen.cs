@@ -24,7 +24,7 @@ namespace RogueStars.Client.Screens
     /// resumes by itself after it while still on. "Auto-pick: On" (farming, ClientSettings.AutoPickDrafts, off by default)
     /// takes the default choices instead.
     /// </summary>
-    public sealed class RunScreen : UiScreen
+    public sealed partial class RunScreen : UiScreen
     {
         private string _runId;
         private int _trailSeen;
@@ -1176,14 +1176,14 @@ namespace RogueStars.Client.Screens
         {
             var run = State.Run.Active;
             if (run == null || run.Phase != RunPhase.Shop) return;
-            if (_shopCoins != null) _shopCoins.text = run.Coins + " coins · " + run.ShopBuys + " bought this run";
+            if (_shopCoins != null) _shopCoins.text = ShopBoughtLine(run);
+            if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
             foreach (var kv in _shopButtons)
             {
                 if (kv.Key == null || kv.Value >= run.Shop.Count) continue;
                 var o = run.Shop[kv.Value];
                 kv.Key.interactable = !o.Sold && run.Coins >= o.Price;
-                var label = kv.Key.GetComponentInChildren<Text>();
-                if (label != null) label.text = o.Sold ? "Sold" : o.Price + " coins";
+                ShopPriceLabel(kv.Key, o);
             }
         }
 
@@ -1201,7 +1201,7 @@ namespace RogueStars.Client.Screens
             {
                 case RunPhase.ChooseBranch: _decision = null; break; // picked on the board (A / B landing tiles)
                 case RunPhase.Event: _decision = EventModal(run); break;
-                case RunPhase.Draft: _decision = DraftModal(run); break;
+                case RunPhase.Draft: _decision = run.MythicDraft && ShowChestIntro ? ChestIntro("chest_mythic", "You found a Chest!", () => _decision = DraftModal(run)) : DraftModal(run); break;
                 case RunPhase.Shop: _decision = ShopModal(run); break;
                 case RunPhase.Defeated: _decision = ReviveModal(run); break;
                 case RunPhase.BurrowChoice: _decision = BurrowModal(run); break;
@@ -1240,76 +1240,6 @@ namespace RogueStars.Client.Screens
         }
 
         private string TileName(RunTile t) => Content.BoardTiles.TryGetValue(t.TileId ?? "", out var d) ? d.Name : t.TileId;
-
-        private UiModal EventModal(ActiveRun run)
-        {
-            Content.RunEvents.TryGetValue(run.EventId ?? "", out var ev);
-            var deep = Theme.Hex(0x1C1F3A);
-            return Ui.Sheet(App.ModalLayer, ev?.Name ?? "Event", deep, Theme.Hex(0x3E4690), (box, modal) =>
-            {
-                var head = Ui.Row(box, 130, 22);
-                var portrait = Ui.RoundPanel(head, Theme.Hex(0x2E3570), 36, "Portrait");
-                Ui.Size(portrait, 130, 130, 0);
-                UiShapes.Outline(portrait.rectTransform, Theme.Hex(0x6E78C8), 36, 4);
-                var glyph = Ui.Display(portrait.transform, "?", 72, Theme.Hex(0xAEB6F2), TextAnchor.MiddleCenter);
-                Ui.Stretch(glyph.rectTransform);
-                var titles = Ui.Column(head, 2, 0, null, "Titles");
-                titles.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                Ui.Size(titles, -1, -1, 1);
-                Ui.Caption(titles, "Event", Theme.Premium);
-                Ui.Display(titles, ev?.Name ?? "Event", 50, Theme.Text);
-                Ui.Label(box, ev?.Text ?? run.EventId, Theme.FontNormal, Theme.Hex(0xD7DBFA));
-                if (ev == null)
-                {
-                    Ui.Button(box, "Continue", () => { modal.Close(); Run(new RunChooseEventOption { Index = 0 }); }, Theme.Accent);
-                    return;
-                }
-                for (int i = 0; i < ev.Options.Count; i++)
-                {
-                    int index = i;
-                    var o = ev.Options[i];
-                    // Resonance (skill redesign): an option per offered signature, named and explained; a missing one is hidden
-                    var sigFx = o.Outcomes.Count > 0 ? o.Outcomes[0].Effects.Find(fx => fx.Kind == RunEffectKind.GainSignature) : null;
-                    SkillDef offeredSig = null;
-                    if (sigFx != null)
-                    {
-                        int.TryParse(sigFx.Param, out var si);
-                        if (si < 0 || si >= run.SignatureChoice.Count) continue;
-                        offeredSig = Content.Skill(run.SignatureChoice[si]);
-                    }
-                    string cost = (o.CoinCost > 0 ? " [" + o.CoinCost + " coins]" : "") + (o.ShardCost > 0 ? " [" + o.ShardCost + " shards]" : "");
-                    bool affordable = run.Coins >= o.CoinCost && run.Shards >= o.ShardCost;
-                    bool def = i == ev.DefaultOption;
-                    var btn = Ui.CardButton(box, "Button:" + o.Text + cost, Theme.Hex(0x262C5C), def ? Theme.Premium : Theme.Gold,
-                        () => { modal.Close(); Run(new RunChooseEventOption { Index = index }); }, out var card, 36, 24, 10);
-                    btn.interactable = affordable;
-                    if (offeredSig != null)
-                    {
-                        card.name = "Signature:" + offeredSig.Id;
-                        UiShapes.Outline(card, SignaturePick.SignatureColor, 16, 4);
-                        Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(offeredSig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
-                        Ui.Label(card, "Attune: " + offeredSig.Name, Theme.FontNormal, Theme.Text).fontStyle = FontStyle.Bold;
-                        Ui.Label(card, SliceCards.Keywords(SignaturePick.Body(Content, offeredSig)), 24, Theme.Hex(0xD7DBFA));
-                        continue;
-                    }
-                    Ui.Label(card, o.Text, Theme.FontNormal, Theme.Text).fontStyle = FontStyle.Bold; // the cost is a chip below
-                    var tags = OptionTags(o);
-                    if (tags.Count > 0)
-                    {
-                        var row = Ui.ChipRow(card, 48, 8);
-                        int shown = 0;
-                        foreach (var tag in tags)
-                        {
-                            if (shown++ >= 3) break;
-                            Ui.Chip(row, tag.Value, tag.Key ? Theme.Hex(0x173D2A) : Theme.Hex(0x4A1A1D), tag.Key ? Theme.Hex(0x9CF0B5) : Theme.Hex(0xFFB3B5), 22, 44);
-                        }
-                    }
-                    if (!string.IsNullOrEmpty(o.RiskText)) Ui.Label(card, o.RiskText, 24, Theme.Hex(0xAEB6F2));
-                    if (!affordable) Ui.Label(card, "Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"), 22, Theme.Bad);
-                }
-                Ui.Label(box, _auto ? "Auto mode waits for your choice." : "Tap an option to decide.", 22, Theme.Hex(0x8E95C8), TextAnchor.MiddleCenter);
-            });
-        }
 
         // ---- outcome results (event / chest / campfire / shop) ----------------------------------
 
@@ -1404,90 +1334,6 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        private UiModal OutcomeSheet(RunOutcome o)
-        {
-            var deep = Theme.Hex(0x1C1F3A);
-            return Ui.Sheet(App.ModalLayer, "Outcome", deep, Theme.Hex(0x3E4690), (box, modal) =>
-            {
-                Ui.Caption(box, SourceCaption(o.Source) + " RESULT", Theme.Premium);
-                Ui.Display(box, o.Title ?? "Result", 50, Theme.Text);
-                if (!string.IsNullOrEmpty(o.Choice) && o.Source != "shop") Ui.Label(box, (o.Source == "minigame" ? "Medal: " : "You chose: ") + o.Choice, Theme.FontNormal, Theme.Hex(0xD7DBFA));
-
-                RectTransform meter = null, marker = null;
-                Text stamp = null;
-                float landing = 0.5f;
-                if (o.Chance)
-                {
-                    // the chance roll: a bar split into the lucky zone (green, its % chance) and the rest (red); a marker
-                    // sweeps back and forth and lands in the zone the rules picked
-                    float pct = Mathf.Clamp01((float)(o.SuccessChancePct / 100.0));
-                    var panel = Ui.Column(box, 10, 0, null, "ChanceMeter");
-                    Ui.Label(panel, Fmt.Pct(Math.Round(o.SuccessChancePct)) + " chance", 34, Theme.Gold, TextAnchor.MiddleCenter, "ChanceLabel").fontStyle = FontStyle.Bold;
-                    var track = Ui.Rect(panel, "Track");
-                    Ui.Size(track, -1, 64);
-                    var good = Ui.RoundPanel(track, Theme.Shade(Theme.Good, 0.8f), 18, "Lucky");
-                    good.rectTransform.anchorMin = new Vector2(0, 0); good.rectTransform.anchorMax = new Vector2(pct, 1);
-                    good.rectTransform.offsetMin = good.rectTransform.offsetMax = Vector2.zero;
-                    var bad = Ui.RoundPanel(track, Theme.Shade(Theme.Bad, 0.8f), 18, "Unlucky");
-                    bad.rectTransform.anchorMin = new Vector2(pct, 0); bad.rectTransform.anchorMax = new Vector2(1, 1);
-                    bad.rectTransform.offsetMin = bad.rectTransform.offsetMax = Vector2.zero;
-                    var m = Ui.RoundPanel(track, Theme.Cream, 8, "Marker");
-                    marker = m.rectTransform;
-                    marker.anchorMin = marker.anchorMax = new Vector2(0, 0.5f);
-                    marker.pivot = new Vector2(0.5f, 0.5f);
-                    marker.sizeDelta = new Vector2(18, 92);
-                    landing = o.Success ? pct * 0.5f : pct + (1 - pct) * 0.5f;
-                    stamp = Ui.Display(panel, "", 48, Theme.Text, TextAnchor.MiddleCenter, "ChanceResult");
-                    meter = track;
-                }
-
-                var details = Ui.Column(box, 10, 0, null, "Lines");
-                if (!string.IsNullOrEmpty(o.Text)) Ui.Label(details, o.Text, Theme.FontNormal, Theme.Hex(0xAEB6F2), TextAnchor.MiddleCenter, "OutcomeText");
-                foreach (var l in o.Lines)
-                {
-                    var icon = OutcomeIcon(l, Content);
-                    var row = Ui.Row(details, 70, 16, l.Good ? Theme.Hex(0x173D2A) : Theme.Hex(0x4A1A1D), 18, "Line:" + l.Kind);
-                    var dot = Ui.RoundPanel(row, icon.Value, 30, "Icon");
-                    Ui.Size(dot, 58, 58, 0);
-                    var glyph = Ui.Display(dot.transform, icon.Key, icon.Key.Length > 1 ? 22 : 30, Theme.TextOn(icon.Value), TextAnchor.MiddleCenter);
-                    Ui.Stretch(glyph.rectTransform);
-                    var t = Ui.Label(row, OutcomeLineText(l, Content), 28, l.Good ? Theme.Hex(0x9CF0B5) : Theme.Hex(0xFFB3B5));
-                    t.fontStyle = FontStyle.Bold;
-                    Ui.Size(t, -1, -1, 1);
-                }
-                var cont = Ui.Button(box, "Continue", CloseOutcome, Theme.Accent, -1, 110, true, 40);
-                cont.name = "OutcomeContinue";
-                Ui.Label(box, _auto ? "Auto continues in a moment." : "Tap Continue.", 22, Theme.Hex(0x8E95C8), TextAnchor.MiddleCenter);
-
-                if (marker != null)
-                {
-                    var group = details.gameObject.AddComponent<CanvasGroup>();
-                    void Land()
-                    {
-                        float w = meter.rect.width;
-                        marker.anchoredPosition = new Vector2(landing * w, 0);
-                        stamp.text = o.Success ? "SUCCESS!" : "NO LUCK";
-                        stamp.color = o.Success ? Theme.Good : Theme.Bad;
-                        group.alpha = 1;
-                        _outcomeRevealing = false;
-                    }
-                    if (InstantOutcomes || !Application.isPlaying) { Land(); return; }
-                    group.alpha = 0;
-                    _outcomeRevealing = true;
-                    var seq = UiSequence.On(modal.Root);
-                    seq.Then(ChanceSpinSeconds, t =>
-                    {
-                        // fast sweeps that slow down and settle on the landing spot
-                        float w = meter.rect.width;
-                        float decay = (1 - t) * (1 - t);
-                        float x = landing + 0.5f * decay * Mathf.Sin(t * Mathf.PI * 9);
-                        marker.anchoredPosition = new Vector2(Mathf.Clamp01(x) * w, 0);
-                        stamp.text = t < 1 ? "rolling…" : "";
-                    }, Land);
-                }
-            });
-        }
-
         /// <summary>"Fire 2 · Radiation 1": the run's skills by family.</summary>
         private string BuildSummary(ActiveRun run)
         {
@@ -1566,69 +1412,6 @@ namespace RogueStars.Client.Screens
             return modal;
         }
 
-        /// <summary>
-        /// The shop in the same card family: blue "SHOP" ribbon, the coins line, one compact card per offer (skills by tier,
-        /// heals and stat perks green) with its price button, reroll and leave. Buying keeps it open (<see cref="RefreshShop"/>).
-        /// </summary>
-        private UiModal ShopModal(ActiveRun run)
-        {
-            var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
-            long reroll = table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
-            _shopButtons.Clear();
-            float s = ModalScale();
-            var root = SliceCards.Overlay(App.ModalLayer, "Shop", out var modal);
-            SliceCards.Header(root, s, SliceCards.BlueRibbon, "SHOP", "Title", null, 0, 300);
-            _shopCoins = SliceKit.Chunky(root, run.Coins + " coins · " + run.ShopBuys + " bought this run", (int)(42 * s), new Color32(0xFF, 0xE0, 0x6A, 255), TextAnchor.MiddleCenter, "ShopCoins");
-            SliceKit.Place(_shopCoins.rectTransform, s, 540, 405, 1000, 60);
-            int n = Math.Max(1, run.Shop.Count);
-            float h = Mathf.Min(200, 1460f / n - 12), y = 470 + h / 2;
-            for (int i = 0; i < run.Shop.Count; i++)
-            {
-                int index = i;
-                var o = run.Shop[i];
-                bool skill = o.Kind == ShopOfferKind.Skill;
-                var sk = skill ? Content.Skill(o.SkillId) : null;
-                string what = skill ? (sk?.Name ?? o.SkillId)
-                    : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
-                    : o.Stat != null ? SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
-                int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                string detail = skill ? Fmt.SkillCard(Content, sk, ownedLv)
-                    : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
-                    : "Raises the stat for the rest of this run.";
-                var spec = new SkillCardSpec
-                {
-                    Id = o.SkillId ?? ("perk" + i), Tier = skill ? RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString() : o.Kind == ShopOfferKind.Heal ? "Heal" : "Perk",
-                    TierColor = skill ? RunPresentation.SkillColor(sk) : Theme.Good, Family = sk?.Family ?? SkillFamily.None,
-                    IconArt = skill ? ArtCatalog.SkillIcon(o.SkillId) : HudArt.Icon(o.Kind == ShopOfferKind.Heal ? "heart" : "sword"),
-                    Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : what, Body = detail, Dim = o.Sold,
-                };
-                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
-                var card = SliceCards.Card(root, s, y, spec, null, null, "Offer", h, "Words");
-                // the offer's name is its own text (the tests look the buy button up by the name next to it)
-                var nameText = card.Find("Words/SkillName")?.GetComponent<Text>();
-                if (nameText != null) nameText.text = spec.Title;
-                var words = card.Find("Words") as RectTransform;
-                var body = words != null ? words.Find("SkillText") as RectTransform : null;
-                if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
-                var buy = Ui.Button(card, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), Theme.Gold, 210 * s, 84 * s, !o.Sold && run.Coins >= o.Price, (int)(32 * s));
-                var bt = (RectTransform)buy.transform;
-                bt.anchorMin = bt.anchorMax = new Vector2(1, 0);
-                bt.pivot = new Vector2(1, 0);
-                bt.sizeDelta = new Vector2(210 * s, 84 * s);
-                bt.anchoredPosition = new Vector2(-24 * s, 20 * s);
-                UiShapes.Outline(bt, IsoArt.Ink, Theme.RadiusButton, 4);
-                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
-                y += h + 12;
-            }
-            var rr = SliceCards.Reroll(root, s, "Reroll (" + reroll + ")", () => Run(new RunShopReroll()), true, 2086, "Button:Reroll (" + reroll + ")");
-            ((RectTransform)rr.transform).anchoredPosition = new Vector2(300 * s, ((RectTransform)rr.transform).anchoredPosition.y);
-            var leave = Ui.Button(root, "Leave", () => { modal.Close(); Run(new RunShopLeave()); }, Theme.Accent, 320 * s, 170 * s, true, (int)(58 * s));
-            SliceKit.Place((RectTransform)leave.transform, s, 780, 2086, 320, 170, true);
-            UiShapes.Outline((RectTransform)leave.transform, IsoArt.Ink, Theme.RadiusButton, 6);
-            UiTween.PopIn(root, 0.15f);
-            return modal;
-        }
-
         private UiModal ReviveModal(ActiveRun run)
         {
             long cost = Content.RunTuning.ReviveDiamondCost;
@@ -1702,142 +1485,5 @@ namespace RogueStars.Client.Screens
                     Ui.Label(row, (s == null ? id : lv > 0 ? SkillText.Title(Content, s, lv) : s.Name) + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + SkillText.FamilyName(s.Family) : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
                 }
             });
-    }
-
-    /// <summary>Run result: VICTORY/DEFEAT, the level's three stars, loot secured (or lost), double rewards, next level.</summary>
-    public sealed class RunResultScreen : UiScreen
-    {
-        public override string Title => "Run result";
-
-        /// <summary>Rewarded ad (instant with No Ads): the won run's rewards once more (<see cref="RunDoubleRewards"/>).</summary>
-        private void DoubleRewards(RectTransform body, RunSummary s)
-        {
-            if (!s.Won || s.Doublable.Count == 0) return;
-            if (s.Doubled) { Ui.Display(body, "Rewards doubled!", Theme.FontLarge, Theme.Good, TextAnchor.MiddleCenter); return; }
-            int left = ShopSystem.AdViewsLeft(State, Content, RunSystem.DoubleRewardsAdPlacement, Now);
-            bool noAds = ShopSystem.HasNoAds(State, Content);
-            string label = (noAds ? "Double these rewards" : "Watch ad: double rewards") + " <size=24>(" + (left > 0 ? left + " left today" : "daily limit reached") + ")</size>";
-            var b = Ui.Button(body, label, () =>
-            {
-                if (noAds) { Run(new RunDoubleRewards()); return; }
-                Session.Ads.Show(RunSystem.DoubleRewardsAdPlacement, ad =>
-                {
-                    if (ad.Ok) Run(new RunDoubleRewards { AdToken = ad.Value });
-                    else Session.Error(Fmt.Humanize(ad.Error));
-                });
-            }, new Color(0, 0, 0, 0), -1, 100, left > 0, 30);
-            b.name = "DoubleRewards";
-            b.GetComponentInChildren<Text>().color = Theme.Cream;
-            UiShapes.Outline((RectTransform)b.transform, Theme.Gold, Theme.RadiusButton, 4);
-        }
-
-        protected override void Build(RectTransform body)
-        {
-            var s = State.Run.LastSummary;
-            if (s == null) { Note(body, "No run finished yet."); return; }
-            var level = Content.RunLevel(s.LevelId);
-            var boss = level?.BossId != null && Content.RunBosses.TryGetValue(level.BossId, out var bd) ? bd : null;
-            var portal = level != null ? Content.Portal(level.PortalId) : null;
-
-            Ui.Spacer(body, 10);
-            var banner = Ui.Display(body, s.Won ? "VICTORY" : "DEFEAT", 120, s.Won ? Theme.Gold : Theme.Bad, TextAnchor.MiddleCenter, "Banner");
-            UiTween.PopIn(banner, 0.35f);
-            string where = (portal != null ? portal.Name + " · " : "") + (level != null && level.Number > 0 ? "Level " + PortalsScreen.LevelNum(level.Number) : level?.Name ?? s.LevelId)
-                           + (s.Won && boss != null ? " · " + boss.Name + " defeated" : "") + (s.Mode != RunMode.Normal ? " · " + s.Mode : "");
-            Ui.Label(body, where, Theme.FontNormal, Theme.Hex(0xE8CFA8), TextAnchor.MiddleCenter);
-
-            if (level != null && s.Mode != RunMode.Burrow)
-            {
-                var prog = RunSystem.Progress(State, Content, s.LevelId);
-                string[] feats = { "Cleared", "HP ≥ " + level.FeatHpPct + "%", "Boss in " + level.FeatBossRounds + " rounds" };
-                var stars = Ui.Row(body, 190, 30, null, 0, "Stars");
-                stars.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-                for (int i = 0; i < 3; i++)
-                {
-                    bool got = i < prog.Feats.Count && prog.Feats[i];
-                    bool isNew = s.NewFeats.Contains(i);
-                    var col = Ui.Column(stars, 2, 0, null, "Star" + i);
-                    Ui.Size(col, 250, -1, 0);
-                    var star = Ui.Label(col, got ? "★" : "☆", 120, got ? Theme.Gold : Theme.Hex(0x6B5634), TextAnchor.MiddleCenter, "StarGlyph");
-                    Ui.Size(star, -1, 130);
-                    if (isNew) UiTween.PopIn(star, 0.5f);
-                    Ui.Label(col, feats[i] + (isNew ? "  NEW" : ""), 22, got ? Theme.Hex(0xE8CFA8) : Theme.Hex(0xA88E66), TextAnchor.MiddleCenter);
-                }
-            }
-            var stats = Ui.ChipRow(body, 52, 10);
-            stats.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            Ui.Chip(stats, "Rolls " + s.Rolls, Theme.Panel, Theme.TextDim, 24, 48);
-            Ui.Chip(stats, "Run level " + s.Level, Theme.Panel, Theme.TextDim, 24, 48);
-            if (s.Mode == RunMode.Burrow) Ui.Chip(stats, "Floors " + s.Floors, Theme.Panel, Theme.TextDim, 24, 48);
-            Ui.Chip(stats, "Skills " + s.Gains.Count, Theme.Panel, Theme.TextDim, 24, 48).name = "SkillsChip";
-            if (s.Minibosses > 0) Ui.Chip(stats, "Minibosses " + s.Minibosses, Theme.Panel, Theme.TextDim, 24, 48);
-            if (s.ShopBuys > 0) Ui.Chip(stats, "Shop buys " + s.ShopBuys, Theme.Panel, Theme.TextDim, 24, 48);
-            BuildGained(body, s);
-
-            Ui.Caption(body, s.Won ? "Loot secured" : "Pending loot lost", s.Won ? Theme.Hex(0xE8CFA8) : Theme.Bad);
-            if (s.Granted.Count == 0) Note(body, s.Won ? "No rewards." : "Better luck next time.");
-            var grid = Ui.Grid(body, new Vector2(300, 170), 3, 14);
-            foreach (var r in s.Granted) RewardTile(grid, r, s);
-            if (s.BiomassBonus && RewardGate.CurrencyHasUse(State, Content, Currencies.Biomass, Now)) Ui.Label(body, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", Theme.FontNormal, Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter).name = "SurgeApplied";
-            if (s.Mode == RunMode.Normal || s.Mode == RunMode.Overcharged) PortalsScreen.SurgeLabel(body, State, Content, Now);
-            DoubleRewards(body, s);
-
-            // next: the following main level after a won main run, else replay
-            LevelDef next = null;
-            if (s.Won && s.Mode == RunMode.Normal && level != null && level.Number > 0)
-            {
-                var candidate = RunSystem.NextMainLevel(State, Content);
-                if (candidate != null && RunSystem.IsLevelUnlocked(State, Content, candidate.Id, RunMode.Normal)) next = candidate;
-            }
-            var target = next ?? level;
-            if (target != null)
-            {
-                var mode = next != null ? RunMode.Normal : s.Mode;
-                string caption = next != null ? "NEXT: LEVEL " + PortalsScreen.LevelNum(next.Number) : s.Won ? "PLAY AGAIN" : "TRY AGAIN";
-                var go = Ui.Button(body, caption, () => SignaturePick.StartRun(App, new RunStart { PortalId = target.PortalId, LevelId = target.Id, Mode = mode }, r => { if (r.Ok) App.Router.Replace(new RunScreen()); }),
-                    Theme.Accent, -1, 140, true, 56);
-                go.name = "Again";
-            }
-            var back = Ui.Button(body, "Back to portals", () => App.Router.Pop(), new Color(0, 0, 0, 0), -1, 80, true, 30);
-            back.name = "Button:Portals";
-            back.GetComponentInChildren<Text>().color = Theme.Hex(0xC9B08A);
-        }
-
-        /// <summary>One line per build gain of the run: what, its level, and where it came from (draft, MYTHIC, shop, event).</summary>
-        public static string GainText(RunGain g, ContentDb c)
-        {
-            string src = g.Source == "mythic" ? "MYTHIC" : g.Source == "draft" ? "draft" : g.Source == "shop" ? "shop" : g.Source == "boon" ? "boon" : "event";
-            if (g.Stat != null) return (RogueStars.Rules.Core.SkillText.Stat(g.Stat) ?? "+stat") + " · " + src;
-            var s = c.Skill(g.SkillId);
-            return (s?.Name ?? g.SkillId) + (g.Level > 1 ? " Lv " + g.Level : "") + " · " + src;
-        }
-
-        private void BuildGained(RectTransform body, RunSummary s)
-        {
-            if (s.Gains.Count == 0) return;
-            Ui.Caption(body, "Skills gained this run (" + s.Gains.Count + ")", Theme.Hex(0xE8CFA8));
-            var list = Ui.Grid(body, new Vector2(320, 44), 3, 8); // wraps: 20–40 gains per run
-            list.name = "GainedSkills";
-            foreach (var g in s.Gains)
-            {
-                var sk = g.SkillId != null ? Content.Skill(g.SkillId) : null;
-                var col = sk != null ? RunPresentation.SkillColor(sk) : g.Source == "mythic" ? Theme.RarityColor(Rarity.Mythic) : Theme.Good; // by rarity
-                Ui.Chip(list, GainText(g, Content), Theme.Tint(col, 0.25f), Color.Lerp(col, Color.white, 0.5f), 20, 40).name = "Gain";
-            }
-        }
-
-        private void RewardTile(Transform grid, Reward r, RunSummary s)
-        {
-            Color c = r.Kind == RewardKinds.Currency ? Theme.CurrencyColor(r.Id) : r.Rarity > 0 ? Theme.RarityColor((Rarity)Mathf.Clamp(r.Rarity, 0, (int)Rarity.Mythic)) : Theme.Premium;
-            var tile = Ui.Card(grid, Theme.Hex(0x2A1D0C), r.Kind == RewardKinds.Currency ? (Color?)null : c, 32, 14, 4, 4, "Reward");
-            var lg = tile.GetComponent<VerticalLayoutGroup>();
-            lg.childAlignment = TextAnchor.MiddleCenter;
-            lg.childForceExpandWidth = false;
-            var icon = Ui.RoundPanel(tile, Theme.Shade(c, 0.6f), 18, "Icon");
-            Ui.Size(icon, 60, 60, 0);
-            icon.rectTransform.sizeDelta = new Vector2(60, 60);
-            var line = Ui.Display(tile, "+" + Fmt.Reward(r, Content), 28, Theme.Text, TextAnchor.MiddleCenter);
-            line.verticalOverflow = VerticalWrapMode.Truncate;
-        }
     }
 }

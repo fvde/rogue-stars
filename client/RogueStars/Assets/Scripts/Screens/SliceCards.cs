@@ -54,6 +54,7 @@ namespace RogueStars.Client.Screens
         public static string Keywords(string text)
         {
             if (string.IsNullOrEmpty(text)) return "";
+            text = text.Replace("→", "»"); // the display font has no arrow; » keeps the card in the chunky font
             var sb = new System.Text.StringBuilder();
             string r = ColorUtility.ToHtmlStringRGB(CostRed);
             int i = 0;
@@ -78,6 +79,9 @@ namespace RogueStars.Client.Screens
             var withNums = Numbers.Replace(withKeys, m => "<color=#" + g + ">" + m.Value + "</color>");
             return withNums.Replace("\u0001", "<color=#" + b + ">").Replace("\u0004", "</color>");
         }
+
+        /// <summary>Card type (reference 2 at 1080 px): the description and the name on the ribbon.</summary>
+        public const int BodySize = 46, TitleSize = 58;
 
         private static Sprite _gold, _red, _blue;
 
@@ -168,7 +172,7 @@ namespace RogueStars.Client.Screens
             rib.rectTransform.anchorMin = new Vector2(0, 1); rib.rectTransform.anchorMax = new Vector2(1, 1);
             rib.rectTransform.pivot = new Vector2(0.5f, 1);
             rib.rectTransform.offsetMin = new Vector2(240 * s * k, -96 * s * k); rib.rectTransform.offsetMax = new Vector2(-70 * s, -50 * s * k);
-            var name = SliceKit.Chunky(c, spec.Title, (int)(54 * s * Mathf.Lerp(0.8f, 1, k)), Color.white, TextAnchor.MiddleLeft, "SkillName");
+            var name = SliceKit.Chunky(c, spec.Title, (int)(TitleSize * s * Mathf.Lerp(0.8f, 1, k)), Color.white, TextAnchor.MiddleLeft, "SkillName");
             name.rectTransform.anchorMin = new Vector2(0, 1); name.rectTransform.anchorMax = new Vector2(1, 1);
             name.rectTransform.pivot = new Vector2(0, 1);
             name.rectTransform.offsetMin = new Vector2(266 * s * k, -96 * s * k); name.rectTransform.offsetMax = new Vector2(-80 * s, -18 * s * k);
@@ -182,10 +186,12 @@ namespace RogueStars.Client.Screens
                 chip.sizeDelta = new Vector2(chip.sizeDelta.x, 40 * s);
             }
             // the description with coloured keywords
-            var body = Ui.Display(c, Keywords(spec.Body), (int)(38 * s * Mathf.Lerp(0.78f, 1, k)), BodyInk, TextAnchor.UpperLeft, "SkillText");
+            var body = Ui.Display(c, Keywords(spec.Body), (int)(BodySize * s * Mathf.Lerp(0.78f, 1, k)), BodyInk, TextAnchor.UpperLeft, "SkillText");
+            body.fontSize = (int)(BodySize * s * Mathf.Lerp(0.78f, 1, k)); // exact, measured against reference 2
             body.supportRichText = true;
             body.raycastTarget = false;
-            body.resizeTextForBestFit = true; body.resizeTextMinSize = (int)(20 * s); body.resizeTextMaxSize = body.fontSize;
+            body.resizeTextForBestFit = true; body.resizeTextMinSize = (int)(22 * s); body.resizeTextMaxSize = body.fontSize;
+            body.verticalOverflow = VerticalWrapMode.Truncate; // best fit shrinks long texts into the panel instead of spilling out
             body.rectTransform.anchorMin = Vector2.zero; body.rectTransform.anchorMax = Vector2.one;
             body.rectTransform.offsetMin = new Vector2(266 * s * k, 22 * s); body.rectTransform.offsetMax = new Vector2(-40 * s, -106 * s * k);
             // the framed icon tile with the tier tag above it

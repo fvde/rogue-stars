@@ -322,7 +322,8 @@ namespace RogueStars.Client.Tests
             // The hub keeps toasts above its PLAY card and tabs; screens without a bottom bar use the default inset.
             _f.App.Router.Pop();
             _f.App.Update(0.01f);
-            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(_f.App.Router.Current.FooterHeight + 4).Within(0.01f));
+            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(_f.App.Router.Current.ToastBottomInset).Within(0.01f));
+            Assert.That(_f.App.Router.Current.ToastBottomInset, Is.GreaterThan(400f), "clear of START and the tabs");
             _f.App.Open("mail");
             _f.App.Update(0.01f);
             Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(ToastCenter.DefaultBottomInset).Within(0.01f));
