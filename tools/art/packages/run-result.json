@@ -10,9 +10,9 @@
   "suffix": ", game victory screen emblem, centered, isolated on a plain pure white background, no text, no letters",
   "negative": "text, letters, numbers, background scenery, watermark, blurry, photo",
   "subjects": {
-    "victory_crown": "a big golden crown with golden laurel leaves underneath, glowing",
-    "defeat_crest": "a cracked dull grey crown with broken laurel leaves",
-    "victory_trophy": "a golden alien star trophy with a tiny worm silhouette on top",
-    "xp_book": "a golden book with an up chevron emblem"
+    "crown": "a big golden crown with golden laurel leaves underneath, glowing",
+    "crest_broken": "a cracked dull grey crown with broken laurel leaves",
+    "banner": "a hanging red and gold victory pennant banner with ribbon tails, blank",
+    "banner_defeat": "a torn dark grey hanging pennant banner with ribbon tails, blank"
   }
 }
