@@ -1,0 +1,264 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+
+namespace RogueStars.Client.Editor
+{
+    /// <summary>What an imported file is (decides its destination and whether it is trimmed to its opaque pixels).</summary>
+    public enum ArtKind { Alien, Enemy, TileSet, Ground, Background, Decor }
+
+    /// <summary>One file to copy: generated source → stable path under <c>Assets/Art/Resources/Art/</c>.</summary>
+    public sealed class ArtImportItem
+    {
+        public ArtKind Kind;
+        public string Id;
+        public string Source;
+        /// <summary>Destination relative to <c>Assets/Art/Resources/</c>, e.g. <c>Art/Enemies/ember_imp.png</c>.</summary>
+        public string Dest;
+        /// <summary>Trim transparent margins (tile slabs, decor props) so the art fills the box it is drawn in.</summary>
+        public bool Trim;
+        /// <summary>Copy only when the destination does not exist yet (curated full-frame backgrounds are never replaced).</summary>
+        public bool KeepExisting;
+
+        public override string ToString() => Kind + " " + Id + ": " + Source + " → " + Dest;
+    }
+
+    /// <summary>
+    /// Which generated files go into the game (pure; tested). The generator (tools/art) writes
+    /// <c>~/AI/assets/&lt;category&gt;/&lt;id&gt;/&lt;variant&gt;_s&lt;seed&gt;.png</c>; only the simple variants are eligible
+    /// (<see cref="SpriteVariants"/>: C, then S — one per id, the preferred variant first, then the lowest seed), minus the
+    /// <see cref="Skip"/> list. Full-frame board backgrounds come from <c>~/AI/out/pkg-boards/&lt;biome&gt;__BB__*.png</c>.
+    /// </summary>
+    public static class ArtImportRules
+    {
+        /// <summary>Eligible sprite variants in order of preference (C = Flux simple, S = Flux extra simple; A_ = too complicated).</summary>
+        public static readonly List<string> SpriteVariants = new List<string> { "C", "S" };
+        /// <summary>Ground texture variants in order of preference (any full-frame ground; tools/art/prompts/direction-ground.json).</summary>
+        public static readonly List<string> GroundVariants = new List<string> { "G2", "G1", "C", "S" };
+        /// <summary>Board background variants (the distinct "BB" set; the "BA" ones look alike).</summary>
+        public static readonly List<string> BoardVariants = new List<string> { "BB" };
+        /// <summary>Files never imported: "&lt;category&gt;/&lt;id&gt;/&lt;file without .png&gt;" (the owner rejected them).</summary>
+        public static readonly HashSet<string> Skip = new HashSet<string>
+        {
+            "enemies/null_shade/C_s1301", // too featureless
+            "enemies/magma_slug/C_s1301", // blurry
+            "boards/moon_craters/BB_s3001", // not one of the distinct boards
+        };
+
+        /// <summary>"C_s1301.png" → C, 1301. False for anything else (review sheets, stray files).</summary>
+        public static bool TryParse(string fileName, out string variant, out int seed)
+        {
+            variant = null;
+            seed = 0;
+            if (string.IsNullOrEmpty(fileName) || !fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return false;
+            var stem = fileName.Substring(0, fileName.Length - 4);
+            int i = stem.LastIndexOf("_s", StringComparison.Ordinal);
+            if (i <= 0 || !int.TryParse(stem.Substring(i + 2), out seed)) return false;
+            variant = stem.Substring(0, i);
+            return true;
+        }
+
+        /// <summary>
+        /// The file to import among <paramref name="files"/> (names, with their category/id prefix <paramref name="key"/> for the
+        /// skip list): the first variant of <paramref name="variants"/> that has a file, lowest seed first; null if none.
+        /// </summary>
+        public static string Pick(IEnumerable<string> files, string key, IList<string> variants)
+        {
+            string best = null;
+            int bestRank = int.MaxValue, bestSeed = int.MaxValue;
+            foreach (var path in files)
+            {
+                var name = Path.GetFileName(path);
+                if (!TryParse(name, out var v, out int seed)) continue;
+                int rank = variants.IndexOf(v);
+                if (rank < 0) continue;
+                if (Skip.Contains(key + "/" + name.Substring(0, name.Length - 4))) continue;
+                if (rank < bestRank || (rank == bestRank && seed < bestSeed)) { best = path; bestRank = rank; bestSeed = seed; }
+            }
+            return best;
+        }
+
+        /// <summary>Decor folder "lava_2" → biome "lava" (the part before the trailing number), else null.</summary>
+        public static string DecorBiome(string folder)
+        {
+            int i = folder.LastIndexOf('_');
+            if (i <= 0 || !int.TryParse(folder.Substring(i + 1), out _)) return null;
+            return folder.Substring(0, i);
+        }
+
+        /// <summary>
+        /// Everything to import from <paramref name="assetsRoot"/> (~/AI/assets) and <paramref name="boardsRoot"/>
+        /// (~/AI/out/pkg-boards), sorted by destination. <paramref name="dirs"/> / <paramref name="files"/> list a folder's
+        /// sub-folders / files (full paths; empty when missing) so tests can feed a fake tree.
+        /// </summary>
+        public static List<ArtImportItem> Plan(string assetsRoot, string boardsRoot, Func<string, IEnumerable<string>> dirs, Func<string, IEnumerable<string>> files)
+        {
+            var items = new List<ArtImportItem>();
+            // aliens / enemies: their own folders plus the simple redo (one folder for both, routed by the alien_ prefix)
+            var creatures = new SortedDictionary<string, List<(string key, string path)>>(StringComparer.Ordinal);
+            void Collect(string category, Func<string, bool> accept)
+            {
+                foreach (var dir in dirs(Path.Combine(assetsRoot, category)))
+                {
+                    var id = Path.GetFileName(dir);
+                    if (!accept(id)) continue;
+                    if (!creatures.TryGetValue(id, out var list)) creatures[id] = list = new List<(string, string)>();
+                    foreach (var f in files(dir)) list.Add((category + "/" + id, f));
+                }
+            }
+            Collect("aliens", _ => true);
+            Collect("enemies", _ => true);
+            Collect("simple-redo", _ => true);
+            foreach (var kv in creatures)
+            {
+                bool alien = kv.Key.StartsWith("alien_", StringComparison.Ordinal);
+                string best = null;
+                // the skip list is keyed by the file's own category folder
+                var eligible = kv.Value.Where(e => Pick(new[] { e.path }, e.key, SpriteVariants) != null).Select(e => e.path).ToList();
+                best = Pick(eligible, "", SpriteVariants);
+                if (best == null) continue;
+                items.Add(new ArtImportItem
+                {
+                    Kind = alien ? ArtKind.Alien : ArtKind.Enemy, Id = kv.Key, Source = best,
+                    Dest = (alien ? "Art/Aliens/" : "Art/Enemies/") + kv.Key + ".png",
+                });
+            }
+            // tile slabs: one generic slab per biome tile set
+            foreach (var dir in dirs(Path.Combine(assetsRoot, "board-tile-sprites")))
+            {
+                var biome = Path.GetFileName(dir);
+                var best = Pick(files(dir), "board-tile-sprites/" + biome, SpriteVariants);
+                if (best != null) items.Add(new ArtImportItem { Kind = ArtKind.TileSet, Id = biome, Source = best, Dest = "Art/Boards/" + biome + "/tiles/slab.png", Trim = true });
+            }
+            // seamless ground textures (full-frame, not trimmed)
+            foreach (var dir in dirs(Path.Combine(assetsRoot, "grounds")))
+            {
+                var biome = Path.GetFileName(dir);
+                var best = Pick(files(dir), "grounds/" + biome, GroundVariants);
+                if (best != null) items.Add(new ArtImportItem { Kind = ArtKind.Ground, Id = biome, Source = best, Dest = "Art/Boards/" + biome + "/ground.png" });
+            }
+            // decor props: ~/AI/assets/decor/<biome>_<n>/ → Art/Decor/<biome>/<biome>_<n>.png
+            foreach (var dir in dirs(Path.Combine(assetsRoot, "decor")))
+            {
+                var folder = Path.GetFileName(dir);
+                var biome = DecorBiome(folder);
+                if (biome == null) continue;
+                var best = Pick(files(dir), "decor/" + folder, SpriteVariants);
+                if (best != null) items.Add(new ArtImportItem { Kind = ArtKind.Decor, Id = folder, Source = best, Dest = "Art/Decor/" + biome + "/" + folder + ".png", Trim = true });
+            }
+            // full-frame board backgrounds: <biome>__BB__<model>__s<seed>.png; existing (curated) backgrounds are kept
+            var boards = new SortedDictionary<string, (string path, int rank, int seed)>(StringComparer.Ordinal);
+            foreach (var f in files(boardsRoot))
+            {
+                var name = Path.GetFileName(f);
+                if (!name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) continue;
+                var parts = name.Substring(0, name.Length - 4).Split(new[] { "__" }, StringSplitOptions.None);
+                if (parts.Length != 4 || !parts[3].StartsWith("s") || !int.TryParse(parts[3].Substring(1), out int seed)) continue;
+                int rank = BoardVariants.IndexOf(parts[1]);
+                if (rank < 0 || Skip.Contains("boards/" + parts[0] + "/" + parts[1] + "_" + parts[3])) continue;
+                if (!boards.TryGetValue(parts[0], out var cur) || rank < cur.rank || (rank == cur.rank && seed < cur.seed)) boards[parts[0]] = (f, rank, seed);
+            }
+            foreach (var kv in boards)
+                items.Add(new ArtImportItem { Kind = ArtKind.Background, Id = kv.Key, Source = kv.Value.path, Dest = "Art/Boards/" + kv.Key + "/background.png", KeepExisting = true });
+            items.Sort((a, b) => string.CompareOrdinal(a.Dest, b.Dest));
+            return items;
+        }
+    }
+
+    /// <summary>
+    /// <c>Tools/Art/Import Generated Art</c>: copies the eligible generated art (<see cref="ArtImportRules"/>) into
+    /// <c>Assets/Art/Resources/Art/…</c> under stable names, trims tile slabs and decor props to their opaque pixels, and
+    /// writes only files whose bytes changed. Batchmode:
+    /// <c>Unity -batchmode -nographics -quit -projectPath … -executeMethod RogueStars.Client.Editor.ArtImporter.ImportCli</c>
+    /// (<c>ROGUESTARS_ART_ASSETS</c> / <c>ROGUESTARS_ART_BOARDS</c> override ~/AI/assets and ~/AI/out/pkg-boards).
+    /// </summary>
+    public static class ArtImporter
+    {
+        public const string ResourcesRoot = "Assets/Art/Resources";
+
+        public static string DefaultAssetsRoot => Environment.GetEnvironmentVariable("ROGUESTARS_ART_ASSETS")
+                                                  ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AI/assets");
+        public static string DefaultBoardsRoot => Environment.GetEnvironmentVariable("ROGUESTARS_ART_BOARDS")
+                                                  ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AI/out/pkg-boards");
+
+        [MenuItem("Tools/Art/Import Generated Art")]
+        public static void ImportMenu()
+        {
+            var log = Import(DefaultAssetsRoot, DefaultBoardsRoot);
+            Debug.Log("[ArtImporter]\n" + string.Join("\n", log));
+        }
+
+        /// <summary>Batchmode entry point (-executeMethod); prints what was written.</summary>
+        public static void ImportCli()
+        {
+            var log = Import(DefaultAssetsRoot, DefaultBoardsRoot);
+            foreach (var l in log) Console.WriteLine("[ArtImporter] " + l);
+        }
+
+        private static IEnumerable<string> Dirs(string path) =>
+            Directory.Exists(path) ? Directory.GetDirectories(path).OrderBy(p => p, StringComparer.Ordinal) : Enumerable.Empty<string>();
+
+        private static IEnumerable<string> Files(string path) =>
+            Directory.Exists(path) ? Directory.GetFiles(path).OrderBy(p => p, StringComparer.Ordinal) : Enumerable.Empty<string>();
+
+        /// <summary>Imports everything eligible; returns one line per item ("written", "unchanged", "kept").</summary>
+        public static List<string> Import(string assetsRoot, string boardsRoot)
+        {
+            var log = new List<string>();
+            var plan = ArtImportRules.Plan(assetsRoot, boardsRoot, Dirs, Files);
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                foreach (var item in plan)
+                {
+                    var dest = Path.Combine(ResourcesRoot, item.Dest);
+                    if (item.KeepExisting && File.Exists(dest)) { log.Add("kept      " + item.Dest); continue; }
+                    var bytes = File.ReadAllBytes(item.Source);
+                    if (item.Trim) bytes = TrimToOpaque(bytes) ?? bytes;
+                    if (File.Exists(dest) && File.ReadAllBytes(dest).SequenceEqual(bytes)) { log.Add("unchanged " + item.Dest); continue; }
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                    File.WriteAllBytes(dest, bytes);
+                    log.Add("written   " + item.Dest + "  ←  " + item.Source);
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+            AssetDatabase.Refresh();
+            return log;
+        }
+
+        /// <summary>The PNG cropped to its opaque pixels (alpha &gt; 8) plus a 2 px margin; null when it cannot be read.</summary>
+        public static byte[] TrimToOpaque(byte[] png)
+        {
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!tex.LoadImage(png)) return null;
+                var px = tex.GetPixels32();
+                int w = tex.width, h = tex.height, x0 = w, y0 = h, x1 = -1, y1 = -1;
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                        if (px[y * w + x].a > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+                if (x1 < 0) return null;
+                x0 = Math.Max(0, x0 - 2); y0 = Math.Max(0, y0 - 2); x1 = Math.Min(w - 1, x1 + 2); y1 = Math.Min(h - 1, y1 + 2);
+                int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+                if (cw == w && ch == h) return png;
+                var crop = new Texture2D(cw, ch, TextureFormat.RGBA32, false);
+                crop.SetPixels(tex.GetPixels(x0, y0, cw, ch));
+                crop.Apply();
+                var bytes = crop.EncodeToPNG();
+                UnityEngine.Object.DestroyImmediate(crop);
+                return bytes;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(tex);
+            }
+        }
+    }
+}

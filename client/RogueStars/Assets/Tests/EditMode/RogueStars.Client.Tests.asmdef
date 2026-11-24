@@ -3,6 +3,7 @@
     "rootNamespace": "RogueStars.Client.Tests",
     "references": [
         "RogueStars.Client",
+        "RogueStars.Client.Editor",
         "RogueStars.Rules",
         "RogueStars.Sim.Core",
         "UnityEngine.UI",

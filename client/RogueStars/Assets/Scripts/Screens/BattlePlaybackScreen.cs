@@ -361,15 +361,27 @@ namespace RogueStars.Client.Screens
                 default: size = new Vector2(146, 146); radius = 38; break;
             }
             var color = RoleColor(f.Role);
-            // the worm is the hero sprite (ArtCatalog) when it is there, every other role a rounded token with its letter
-            var hero = f.Role == CombatRole.Worm ? ArtCatalog.Hero() : null;
+            // the fighter's art (ArtCatalog): the hero worm, an alien by type id, an enemy by def id (bosses / elites without
+            // their own art: a family sprite, scaled up, on a glow in the role's colour); without art a rounded token with its letter
+            var hero = FighterSprite(f, Content, out bool family, out float spriteSize);
             Image body;
             if (hero != null)
             {
+                if (family)
+                {
+                    var glow = Ui.Panel(root, new Color(color.r, color.g, color.b, 0.45f), "RoleGlow");
+                    glow.sprite = UiShapes.Circle;
+                    glow.raycastTarget = false;
+                    var grt = glow.rectTransform;
+                    grt.anchorMin = grt.anchorMax = new Vector2(player ? 0.3f : 0.7f, 0);
+                    grt.pivot = new Vector2(0.5f, 0.5f);
+                    grt.sizeDelta = new Vector2(spriteSize * 0.95f, spriteSize * 0.32f);
+                    grt.anchoredPosition = new Vector2(0, 52);
+                }
                 body = Ui.Panel(root, Color.white, "Sprite");
                 body.sprite = hero;
                 body.preserveAspect = true;
-                size = new Vector2(164, 164);
+                size = new Vector2(spriteSize, spriteSize);
             }
             else body = Ui.RoundPanel(root, f.Role == CombatRole.Worm ? Theme.Worm : Theme.Shade(color, 0.5f), radius, "Sprite");
             body.raycastTarget = false;
@@ -383,7 +395,7 @@ namespace RogueStars.Client.Screens
             v.SpriteImage = body;
             v.SpriteColor = body.color;
             v.FlashColor = hero != null ? new Color(1f, 0.45f, 0.42f) : Color.white; // a sprite cannot get whiter: it flashes red
-            if (f.Role != CombatRole.Worm)
+            if (f.Role != CombatRole.Worm && hero == null)
             {
                 var letter = Ui.Display(srt, RoleLetter(f.Role), 44, Color.Lerp(color, Color.white, 0.6f), TextAnchor.MiddleCenter);
                 Ui.Stretch(letter.rectTransform);
@@ -403,6 +415,32 @@ namespace RogueStars.Client.Screens
             v.Chips = chips;
             if (f.SummonedBy >= 0) { v.Visible = false; root.gameObject.SetActive(false); }
             return v;
+        }
+
+        /// <summary>Drawn size of a regular enemy / alien sprite on the stage (bosses and elites: × the ArtCatalog role scales).</summary>
+        public const float EnemySpriteSize = 150, AlienSpriteSize = 132, WormSpriteSize = 164;
+
+        /// <summary>
+        /// The art of a fighter (pure lookup through ArtCatalog; tests): the worm → the hero sprite, an alien → its sprite by
+        /// type id, an enemy-side fighter → its own sprite by def id, else (bosses, elites, summons) a sprite of its family
+        /// (<paramref name="family"/>). Bosses and elites are drawn bigger. Null = the lettered box.
+        /// </summary>
+        public static Sprite FighterSprite(BattleFighterInfo f, ContentDb content, out bool family, out float size)
+        {
+            family = false;
+            size = EnemySpriteSize;
+            if (f == null) return null;
+            switch (f.Role)
+            {
+                case CombatRole.Worm: size = WormSpriteSize; return ArtCatalog.Hero();
+                case CombatRole.Alien: size = AlienSpriteSize; return ArtCatalog.Alien(f.Id);
+                case CombatRole.Mount: return null;
+            }
+            if (f.Side != BattleSide.Enemy) return null;
+            var s = ArtCatalog.EnemyOrFamily(f.Id, content, out family);
+            size = EnemySpriteSize * (f.Role == CombatRole.Boss ? ArtCatalog.BossFamilyScale : f.Role == CombatRole.Elite ? ArtCatalog.EliteFamilyScale : 1);
+            if (f.Role == CombatRole.Summon) size = AlienSpriteSize;
+            return s;
         }
 
         /// <summary>Stretch horizontally across the fighter card, a fixed height, top offset <paramref name="y"/>.</summary>

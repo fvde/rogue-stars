@@ -344,7 +344,7 @@ namespace RogueStars.Client.Tests
             Assert.That(ArtCatalog.FamilyOf(C.MainLevel(1)), Is.EqualTo("ember"));
             Assert.That(ArtCatalog.BiomeFor("ember").Id, Is.EqualTo("lava"));
             Assert.That(ArtCatalog.BiomeFor("glacier").Id, Is.EqualTo("seabed"));
-            Assert.That(ArtCatalog.BiomeFor("void"), Is.SameAs(ArtCatalog.Default), "an unmapped family: the procedural board");
+            Assert.That(ArtCatalog.BiomeFor("no_such_family"), Is.SameAs(ArtCatalog.Default), "an unmapped family: the procedural board");
             Assert.That(ArtCatalog.BiomeFor((string)null), Is.SameAs(ArtCatalog.Default));
             Assert.That(ArtCatalog.Background(ArtCatalog.Default), Is.Null, "the default biome has no ground image");
 
@@ -386,36 +386,22 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Art_IsImported_BoardGroundScrollsWithParallax_HeroIsTheToken()
+        public void Art_IsImported_BoardGroundIsLockedToTheBoard_HeroIsTheToken()
         {
             ArtCatalog.Loader = null;
             Assert.That(ArtCatalog.Hero(), Is.Not.Null, "Assets/Art/Resources/Art/Hero/hero_worm.png is a sprite");
             Assert.That(ArtCatalog.Background(ArtCatalog.BiomeFor("ember")), Is.Not.Null, "lava ground imported");
             Assert.That(ArtCatalog.Background(ArtCatalog.BiomeFor("glacier")), Is.Not.Null, "seabed ground imported");
 
-            // parallax: periodic over two (mirrored) copies, continuous, slower than the camera
-            float T = 1700;
-            Assert.That(RunFx.GroundTop(0, 0.5f, T), Is.EqualTo(2 * T));
-            Assert.That(RunFx.GroundTop(100, 0.5f, T), Is.EqualTo(2 * T - 50).Within(1e-3f));
-            Assert.That(RunFx.GroundTop(4 * T + 100, 0.5f, T), Is.EqualTo(RunFx.GroundTop(100, 0.5f, T)).Within(1e-2f), "one period later the same");
-            for (float c = 0; c < 8 * T; c += 37)
-            {
-                float y = RunFx.GroundTop(c, 0.5f, T);
-                Assert.That(y, Is.GreaterThan(0).And.LessThanOrEqualTo(2 * T));
-            }
-
             StartRun();
             var screen = Open();
             var ground = FindNamed(screen.Root, "BoardGround");
             Assert.That(ground, Is.Not.Null, "level 1 (ember) draws the lava ground");
             Assert.That(ground.GetSiblingIndex(), Is.LessThan(FindNamed(screen.Root, "Board").GetSiblingIndex()), "behind the path");
-            var copies = new List<RectTransform>();
-            foreach (Transform t in ground) copies.Add((RectTransform)t);
-            Assert.That(copies.Count, Is.GreaterThanOrEqualTo(3));
-            Assert.That(copies[1].localScale.y, Is.EqualTo(-1), "mirror-repeated: no seam");
-            Assert.That(copies[0].localScale.y, Is.EqualTo(1));
-            float g0 = screen.GroundY, c0 = screen.CameraY;
-            Assert.That(g0, Is.EqualTo(RunFx.GroundTop(c0, RunScreen.GroundParallax, copies[0].rect.height - 1)).Within(0.5f));
+            var layer = screen.GroundView;
+            Assert.That(layer, Is.Not.Null);
+            Assert.That(layer.Rows, Is.GreaterThanOrEqualTo(2));
+            Assert.That(screen.GroundY, Is.EqualTo(GroundLayer.Phase(screen.CameraY, layer.Pitch)).Within(0.5f), "placed 1:1 by the camera's phase");
             var worm = FindNamed(FindNamed(screen.Root, "Token"), "Worm").GetComponent<Image>();
             Assert.That(worm.sprite, Is.SameAs(ArtCatalog.Hero()), "the hero sprite is the token");
             Assert.That(worm.GetComponent<UiBob>(), Is.Not.Null);
