@@ -84,7 +84,7 @@ namespace RogueStars.Client.App
             app.Session.PlatformAds = PlatformServices.CreateAds(platform);
             if (app.Session.PlatformAds is MaxAdGateway max) max.UserId = () => app.Session.State?.PlayerId;
             app.Session.Changed += app.OnStateChanged;
-            app.Session.EventRaised += e => app.Toasts.Event(e, app.Session.Content, app.Session.State);
+            app.Session.ToastRaised += e => app.Toasts.Event(e, app.Session.Content, app.Session.State);
             app.Session.ErrorRaised += m => app.Toasts.Error(m);
             app.Session.InfoRaised += m => app.Toasts.Info(m);
             return app;
@@ -120,7 +120,6 @@ namespace RogueStars.Client.App
                 ConnectionStatus = r.Ok ? "connected" : "error: " + r.Error;
                 if (r.Ok)
                 {
-                    if (service.IsOnline) Toasts.Info("Connected to server");
                     Session.InitPlatform();
                     OnStateChanged();
                     return;

@@ -50,7 +50,7 @@ public class SkillTuningTests
         Assert.Equal("Counterattacks: 10% → 15% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation"), 1, 2));
         Assert.Equal("Counterattacks: 15% → 20% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation"), 2, 3));
         Assert.Equal("Counterattacks: 21% → 28% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation_5"), 2, 3));
-        Assert.Equal("Run start: the boss awakens 9% → 15% slower.", SkillText.UpgradeFull(C, C.Skill("gen_calm_mind"), 1, 2));
+        Assert.Equal("From now on, the boss awakens 9% → 15% slower.", SkillText.UpgradeFull(C, C.Skill("gen_calm_mind"), 1, 2));
         Assert.StartsWith("Level up: its numbers climb +15% → +25% → +40% (Legendary +25% → +40%)", SkillText.LevelUpRule(C));
     }
 

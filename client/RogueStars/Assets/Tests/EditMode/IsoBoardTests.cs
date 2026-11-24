@@ -187,7 +187,7 @@ namespace RogueStars.Client.Tests
             run.Phase = RunPhase.Encounter; run.EncounterKind = "boss";
             Assert.That(RunScreen.DiceCaption(run, false, false), Is.EqualTo("Enter Arena"));
             Assert.That(RunScreen.DiceCaption(run, true, false), Is.EqualTo("Auto…"));
-            Assert.That(RunScreen.DiceCaption(run, true, true), Is.EqualTo("Your choice"));
+            Assert.That(RunScreen.DiceCaption(run, true, true), Is.EqualTo("Enter Arena"), "auto waits: the tap is the player's");
         }
     }
 }

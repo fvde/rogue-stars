@@ -110,7 +110,7 @@ namespace RogueStars.Client.PlayTests
             Assert.That(lockAt, Is.GreaterThan(0), "the showcase fight locks Heat");
             var ctx = BattleHudContext.FromRun(run, c);
             ctx.Skills = skills;
-            var playback = new BattlePlaybackScreen(battle, false, ctx);
+            var playback = new BattlePlaybackScreen(battle, ctx);
             _app.Router.Push(playback);
             yield return Wait(0.5f);
             playback.PlaySteps(Math.Max(0, lockAt + 1 - playback.NextIndex));

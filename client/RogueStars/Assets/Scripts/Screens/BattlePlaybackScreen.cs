@@ -52,7 +52,6 @@ namespace RogueStars.Client.Screens
         private static int _speed = 1;
 
         private readonly BattleResult _battle;
-        private readonly bool _autoClose;
         private readonly List<FighterView> _views = new List<FighterView>();
         private int _next;
         private float _timer;
@@ -85,7 +84,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Height of a fighter's feet over its card's bottom (the bars and statuses sit under it).</summary>
         public const float SpriteBase = 96;
 
-        /// <summary>Skip mode: no animations, the whole log is applied on the next frame and auto playbacks close at once.</summary>
+        /// <summary>Skip mode: no animations, the whole log is applied on the next frame.</summary>
         public static bool Instant;
         /// <summary>Extra playback multiplier for scripted playthroughs/tests (1 in the game).</summary>
         public static float TimeScale = 1f;
@@ -104,10 +103,10 @@ namespace RogueStars.Client.Screens
         /// <summary>Every skill firing played so far, in order ("Magma Tail · Burn ×2"; tests).</summary>
         public readonly List<string> SkillFires = new List<string>();
 
-        public BattlePlaybackScreen(BattleResult battle, bool autoClose = false, BattleHudContext context = null)
+        /// <summary>A fight's playback; it always waits for the player's Continue (auto mode only rolls the dice).</summary>
+        public BattlePlaybackScreen(BattleResult battle, BattleHudContext context = null)
         {
             _battle = battle;
-            _autoClose = autoClose;
             _ctx = context;
         }
 
@@ -125,8 +124,6 @@ namespace RogueStars.Client.Screens
         /// <summary>The top strip as text (tests).</summary>
         public string HudText => _hud?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
-        /// <summary>Opened by auto mode: pops itself shortly after the fight; otherwise it waits for Continue.</summary>
-        public bool AutoClose => _autoClose;
         public int Speed => _speed;
         public float StepSeconds => 0.55f / _speed / Mathf.Max(0.01f, TimeScale);
         /// <summary>Animation time for one beat of an entry (lunge, hit, bar) at the current speed.</summary>
@@ -197,7 +194,7 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(panelShade.rectTransform, 0, 0, 0, 10 * s);
 
             // the HUD over the arena: the run's top HUD with the worm's live HP, "Round n/N", a skip chip
-            _hud = SliceHud.Build(holder, frameW, () => Session.Info("Battle in progress — >> skips it"), null, _ctx.Coins >= 0);
+            _hud = SliceHud.Build(holder, frameW, () => Session.Info("Tap >> to skip the fight"), null, _ctx.Coins >= 0);
             if (_hud.Coins != null) _hud.Coins.text = Fmt.Num(_ctx.Coins);
             var roundPill = SliceKit.Pill(holder, s, 540, 296, 300, 62, new Color32(0x14, 0x12, 0x20, 200), "RoundPill");
             _round = SliceKit.Chunky(roundPill.transform, "Round 1/" + _battle.Rounds, (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
@@ -724,20 +721,9 @@ namespace RogueStars.Client.Screens
 
         // ---- playback ----------------------------------------------------------------------------
 
-        /// <summary>
-        /// Every fight is seen: even a trivially won one (a single blow) stays on screen at least this long before auto
-        /// mode closes it (playtest 0.1.86: "landed on battle tiles that did nothing").
-        /// </summary>
-        public const float MinVisibleSeconds = 1.8f;
-        private float _elapsed;
-
-        /// <summary>Seconds auto mode keeps the finished fight on screen: 0.8 s, longer for very short fights.</summary>
-        public static float AutoCloseHold(float elapsed) => Mathf.Max(0.8f, MinVisibleSeconds - elapsed);
-
         public override void Frame(float dt)
         {
             if (_battle == null || Root == null) return;
-            _elapsed += dt;
             _fires.Tick(dt); // skill tiles play their queued fires, also after the last entry
             if (Finished) return;
             if (Instant) { PlayAll(); return; }
@@ -1468,8 +1454,6 @@ namespace RogueStars.Client.Screens
                 if (Application.isPlaying && !Instant) UiTween.PopIn(_banner, 0.3f);
             }
             if (_endPanel != null) _endPanel.gameObject.SetActive(true);
-            if (_autoClose && Application.isPlaying)
-                UiSequence.On(Root.gameObject).Wait(Instant ? 0.05f : AutoCloseHold(_elapsed), Close);
         }
 
         /// <summary>The end panel's Continue button: back to the run.</summary>

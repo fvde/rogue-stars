@@ -13,8 +13,8 @@ namespace RogueStars.Client.Screens
     /// <summary>
     /// Run result (reference victory; defeat is our own variant): the dimmed arena, the crest (a gold crown in laurels, or a
     /// cracked grey one), the ribbon "VICTORY!" / "DEFEATED", a hanging pennant with the level tag, "You Survived · N Rolls ·
-    /// Longest Journey", the level's three stars, a full-width reward strip (tiles: icon + amount), the run's chips and
-    /// skills gained, double rewards (rewarded ad), Continue (back to the portals) and the next level / try again.
+    /// Longest Journey", the level's three stars, a full-width reward strip (tiles: icon + amount, identical rewards summed
+    /// into one tile, <see cref="Aggregate"/>), the run's chips, double rewards (rewarded ad), Continue (back to the portals) and the next level / try again.
     /// </summary>
     public sealed class RunResultScreen : UiScreen
     {
@@ -26,13 +26,23 @@ namespace RogueStars.Client.Screens
         private static readonly Color Gold = new Color32(0xF6, 0xCC, 0x40, 255);
         private static readonly Color StripBg = new Color32(0x2E, 0x24, 0x48, 255);
 
-        /// <summary>One line per build gain of the run: what, its level, and where it came from (draft, MYTHIC, shop, event).</summary>
-        public static string GainText(RunGain g, ContentDb c)
+        /// <summary>
+        /// The reward strip's tiles: identical rewards (same kind, id and rarity) summed into one, in first-seen order
+        /// (owner playtest 0.1.200: "30 Diamonds", not 10, 10, 10). Pure; tested.
+        /// </summary>
+        public static List<Reward> Aggregate(IEnumerable<Reward> rewards)
         {
-            string src = g.Source == "mythic" ? "MYTHIC" : g.Source == "draft" ? "draft" : g.Source == "shop" ? "shop" : g.Source == "boon" ? "boon" : "event";
-            if (g.Stat != null) return (SkillText.Stat(g.Stat) ?? "+stat") + " · " + src;
-            var s = c.Skill(g.SkillId);
-            return (s?.Name ?? g.SkillId) + (g.Level > 1 ? " Lv " + g.Level : "") + " · " + src;
+            var list = new List<Reward>();
+            var at = new Dictionary<string, int>();
+            if (rewards == null) return list;
+            foreach (var r in rewards)
+            {
+                if (r == null) continue;
+                string key = r.Kind + "|" + r.Id + "|" + r.Rarity;
+                if (at.TryGetValue(key, out int i)) list[i].Amount += r.Amount;
+                else { at[key] = list.Count; list.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity)); }
+            }
+            return list;
         }
 
         protected override void Build(RectTransform body)
@@ -122,7 +132,7 @@ namespace RogueStars.Client.Screens
                 line.rectTransform.sizeDelta = new Vector2(0, 10 * s); line.rectTransform.anchoredPosition = new Vector2(0, -y * s);
             }
             frame.SetAsLastSibling();
-            var shown = new List<Reward>(sum.Granted);
+            var shown = Aggregate(sum.Granted);
             if (shown.Count == 0)
             {
                 var none = SliceKit.Chunky(frame, won ? "No rewards this time." : "Pending loot lost.", (int)(46 * s), new Color(1, 1, 1, 0.75f), TextAnchor.MiddleCenter, "NoRewards");
@@ -137,7 +147,7 @@ namespace RogueStars.Client.Screens
                 RunScenes.At(more.rectTransform, s, 540, 1622, 400, 44);
             }
 
-            // the run's numbers and skills gained
+            // the run's numbers (the skills gained are not listed: owner playtest 0.1.200)
             var chips = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("Run level " + sum.Level, "LevelChip"),
@@ -154,7 +164,6 @@ namespace RogueStars.Client.Screens
                 Ui.Stretch(t.rectTransform, 8 * s, 0, 8 * s, 2 * s);
                 t.horizontalOverflow = HorizontalWrapMode.Wrap; t.resizeTextForBestFit = true; t.resizeTextMaxSize = t.fontSize; t.resizeTextMinSize = (int)(18 * s);
             }
-            BuildGained(frame, s, sum);
             if (sum.BiomassBonus && RewardGate.CurrencyHasUse(State, Content, Currencies.Biomass, Now))
             {
                 var surge = SliceKit.Chunky(frame, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", (int)(32 * s), Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter, "SurgeApplied");
@@ -215,30 +224,6 @@ namespace RogueStars.Client.Screens
             var name = SliceKit.Chunky(frame, "+" + Fmt.Reward(r, Content), (int)(24 * s), new Color(1, 1, 1, 0.8f), TextAnchor.UpperCenter, "RewardName");
             RunScenes.At(name.rectTransform, s, x, y + size / 2 + 30, size + 24, 40);
             name.horizontalOverflow = HorizontalWrapMode.Wrap; name.resizeTextForBestFit = true; name.resizeTextMaxSize = name.fontSize; name.resizeTextMinSize = (int)(16 * s);
-        }
-
-        /// <summary>The skills gained this run as small chips (up to 12, then "+N more").</summary>
-        private void BuildGained(RectTransform frame, float s, RunSummary sum)
-        {
-            if (sum.Gains.Count == 0) return;
-            var list = Ui.Rect(frame, "GainedSkills");
-            RunScenes.At(list, s, 540, 1835, 1000, 150);
-            var grid = list.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(326 * s, 44 * s);
-            grid.spacing = new Vector2(10 * s, 8 * s);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
-            grid.childAlignment = TextAnchor.UpperCenter;
-            int max = 12;
-            for (int i = 0; i < sum.Gains.Count && i < max; i++)
-            {
-                var g = sum.Gains[i];
-                var sk = g.SkillId != null ? Content.Skill(g.SkillId) : null;
-                var col = sk != null ? RunPresentation.SkillColor(sk) : g.Source == "mythic" ? Theme.RarityColor(Rarity.Mythic) : Theme.Good;
-                var chip = Ui.Chip(list, GainText(g, Content), Theme.Tint(col, 0.35f), Color.Lerp(col, Color.white, 0.6f), 20, 40);
-                chip.name = "Gain";
-            }
-            if (sum.Gains.Count > max) Ui.Chip(list, "+" + (sum.Gains.Count - max) + " more", SliceKit.PillDark, Color.white, 20, 40).name = "Gain";
         }
 
         /// <summary>Rewarded ad (instant with No Ads): the won run's rewards once more (<see cref="RunDoubleRewards"/>).</summary>

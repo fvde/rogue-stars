@@ -163,42 +163,6 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AutoMode_FarmingToggle_BuysSensiblyInShops_ThenLeaves()
-        {
-            bool before = _f.App.Settings.AutoPickDrafts;
-            try
-            {
-                StartFirstRun();
-                _f.App.Router.Push(new RunScreen());
-                var toggle = (RunScreen)_f.App.Router.Current;
-                Button farm = null;
-                foreach (var b in toggle.Root.GetComponentsInChildren<Button>(true)) if (b.name == "AutoPickToggle") farm = b;
-                if (farm == null) foreach (var b in _f.App.Root.GetComponentsInChildren<Button>(true)) if (b.name == "AutoPickToggle") farm = b;
-                Assert.That(farm, Is.Not.Null, "auto-pick toggle on the run screen");
-                _f.App.Settings.SetAutoPickDrafts(false);
-                farm.onClick.Invoke();
-                Assert.That(_f.App.Settings.AutoPickDrafts, Is.True, "toggle turns farming on");
-                _f.Service.ExecuteNow(new RunAbandon());
-                _f.App.Router.Pop();
-
-                var screen = RunIntoShop();
-                Assert.That(screen.Farming, Is.True);
-                Assert.That(screen.AutoPaused, Is.False);
-                // farming buys what the draft logic wants most, one offer per step, then leaves
-                for (int i = 0; i < 30 && _f.Service.State.Run.Active != null && _f.Service.State.Run.Active.Phase == RunPhase.Shop; i++)
-                    screen.Frame(1f + RunScreen.AutoOutcomeSeconds);
-                var active = _f.Service.State.Run.Active;
-                Assert.That(active == null || active.Phase != RunPhase.Shop, Is.True, "left the shop");
-                if (active != null)
-                {
-                    Assert.That(active.ShopBuys, Is.GreaterThan(0), "bought perks");
-                    Assert.That(active.Coins, Is.LessThan(1000));
-                }
-            }
-            finally { _f.App.Settings.SetAutoPickDrafts(before); }
-        }
-
-        [Test]
         public void NewPlayer_CanPlayFirstRunEndToEnd_ThroughTheRunScreen()
         {
             _f.App.Open("portals");

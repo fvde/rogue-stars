@@ -343,8 +343,11 @@ namespace RogueStars.Rules.Content
             RunChain("crit_keen", SkillFamily.None, new[] { "Keen Eye", "Hawk Eye", "Star Eye" }, RunChainCRE, (b, t) =>
                 b.Desc("+crit chance.").Stat(StatId.CritChance, 15));
             RunSkill("crit_brutal", "Brutal Force", SkillFamily.None, Rarity.Rare).Desc("+24% crit damage.").Stat(StatId.CritDamage, 24);
+            // OnRunStart effects of run skills apply when the skill is gained (RunSystem.GrantSkill), at any point of the run:
+            // the rest of the clock runs slower (owner playtest 0.1.200: no "Run start:" text on a skill bought mid-run)
             RunSkill("gen_calm_mind", "Calm Mind", SkillFamily.None, Rarity.Rare).Desc("The boss awakens slower: a longer run.")
-                .Board(TriggerKind.OnRunStart, EffectKind.SlowAwakening, 9);
+                .Board(TriggerKind.OnRunStart, EffectKind.SlowAwakening, 9)
+                .Text("From now on, the boss awakens {v0}% slower.");
             // skill redesign
             RunSkill("gen_ambush", "Ambush Instinct", SkillFamily.None, Rarity.Common).Desc("Pick your fights: arrive angry.")
                 .Board(TriggerKind.OnTileLand, EffectKind.StartRage, 15, "tile:Enemy")

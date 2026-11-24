@@ -97,7 +97,7 @@ namespace RogueStars.Client.PlayTests
             var ctx = BattleHudContext.FromRun(run, c);
             ctx.Skills = skills;
             ctx.Levels = new Dictionary<string, int> { ["sig_fire"] = 2 };
-            var playback = new BattlePlaybackScreen(battle, false, ctx);
+            var playback = new BattlePlaybackScreen(battle, ctx);
             _app.Router.Push(playback);
             yield return Wait(0.5f);
             if (hot >= 0 && hot < nova)

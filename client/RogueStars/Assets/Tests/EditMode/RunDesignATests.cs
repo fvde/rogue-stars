@@ -137,8 +137,9 @@ namespace RogueStars.Client.Tests
             Assert.That(FindNamed(screen.Root, "Footer"), Is.Null, "no stacked footer: one composed world");
             Assert.That(FindNamed(screen.Root, "Slots"), Is.Null, "no skill tray on the board");
             Assert.That(FindNamed(holder, "TopStrip").GetSiblingIndex(), Is.GreaterThan(FindNamed(holder, "BoardView").GetSiblingIndex()), "HUD over the board");
-            foreach (var name in new[] { "Pedestal", "RollButton", "FooterDice", "SpeedChip", "AutoPickToggle", "SkillsButton", "BossClock" })
+            foreach (var name in new[] { "Pedestal", "RollButton", "FooterDice", "SpeedChip", "SkillsButton", "BossClock" })
                 Assert.That(FindNamed(holder, name), Is.Not.Null, name + " over the world");
+            Assert.That(FindNamed(holder, "AutoPickToggle"), Is.Null, "no auto-pick: auto only rolls");
             Assert.That(FindNamed(FindNamed(holder, "RollButton"), "FooterDice"), Is.Not.Null, "the dice sit on the button");
             Assert.That(Texts(FindNamed(holder, "RollButton")), Does.Contain("Hold for Auto"));
             var rb = (RectTransform)FindNamed(holder, "RollButton");

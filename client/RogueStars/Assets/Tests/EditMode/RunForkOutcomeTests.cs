@@ -12,7 +12,7 @@ namespace RogueStars.Client.Tests
 {
     /// <summary>
     /// Run screen: the zoomed board with A / B landing tiles to tap at a fork (no text list), the "Roll n/N" clock, and the
-    /// result screen of event / chest / campfire / shop outcomes (chance roll, gained/lost lines, auto passes it).
+    /// result screen of event / chest / campfire / shop outcomes (chance roll, gained/lost lines, auto waits for Continue).
     /// </summary>
     public sealed class RunForkOutcomeTests
     {
@@ -172,7 +172,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AutoMode_PassesTheResultScreen_AfterAShortLook()
+        public void AutoMode_WaitsForContinue_OnTheResultScreen_ThenRollsOn()
         {
             var screen = EventOnScreen("campfire");
             screen.StartAuto();
@@ -183,11 +183,13 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.OutcomeOpen, Is.True);
             Assert.That(Texts(FindNamed(_f.App.ModalLayer, "Modal:Outcome")), Does.Contain("CAMPFIRE RESULT"));
             long rolls = S.Counter("run_rolls");
-            screen.Frame(RunScreen.AutoOutcomeSeconds / 2);
-            Assert.That(screen.OutcomeOpen, Is.True, "shown for a moment");
+            for (int i = 0; i < 30; i++) screen.Frame(1f);
+            Assert.That(screen.OutcomeOpen, Is.True, "the result waits for the player's tap (auto only rolls)");
+            Assert.That(screen.AutoPaused, Is.True);
             Assert.That(S.Counter("run_rolls"), Is.EqualTo(rolls), "auto waits while the result is shown");
-            screen.Frame(RunScreen.AutoOutcomeSeconds);
-            Assert.That(screen.OutcomeOpen, Is.False, "auto passes the result");
+            FindNamed(_f.App.ModalLayer, "OutcomeContinue").GetComponent<Button>().onClick.Invoke();
+            Assert.That(screen.OutcomeOpen, Is.False);
+            Assert.That(screen.Auto, Is.True, "auto is still on");
             screen.Frame(1f);
             Assert.That(S.Counter("run_rolls"), Is.EqualTo(rolls + 1), "and rolls on");
         }

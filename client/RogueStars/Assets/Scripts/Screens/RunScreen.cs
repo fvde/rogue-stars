@@ -17,12 +17,12 @@ namespace RogueStars.Client.Screens
     /// world (<see cref="WorldBoard"/>: tile blocks on the rules' iso grid, markers standing on tiles, set pieces in the
     /// loops, scatter, the worm) rendered under the uGUI HUD (<see cref="SliceHud"/>: level / HP / ATK / DEF pills, cog,
     /// coins, the boss rail) and the bottom controls (the big dice button on its pedestal — tap to roll, hold for auto —,
-    /// the speed chip, auto-pick, the skills book). Decision popups (branch on the board, event cards, skill draft, shop,
+    /// the speed chip, the skills book). Decision popups (branch on the board, event cards, skill draft, shop,
     /// revive, Burrow), battle playback and auto mode as before.
-    /// Auto mode (hold the dice): sends RunAutoStep for the clear steps (roll, move, tiles, battles with fast playback); a
-    /// tap anywhere stops it. At a real decision (RunSystem.RequiresPlayer) auto pauses and the decision UI opens; auto
-    /// resumes by itself after it while still on. "Auto-pick: On" (farming, ClientSettings.AutoPickDrafts, off by default)
-    /// takes the default choices instead.
+    /// Auto mode (hold the dice) ONLY rolls the dice (owner playtest 0.1.200): while it is on and the run waits for a
+    /// roll with nothing open, it sends RunRoll again; a tap anywhere stops it. Everything else — every decision, result,
+    /// chest, battle playback, encounter — waits for the player's tap; auto pauses meanwhile and resumes after it while
+    /// still on (<see cref="AutoPaused"/>).
     /// </summary>
     public sealed partial class RunScreen : UiScreen
     {
@@ -33,7 +33,6 @@ namespace RogueStars.Client.Screens
         private bool _auto;
         private float _autoTimer;
         private string _decisionKey;
-        private string _pausedKey;
         private UiModal _decision;
         private GameObject _autoOverlay;
         private UiSequence _anim;
@@ -42,7 +41,6 @@ namespace RogueStars.Client.Screens
         private Text _coins;
         private int _outcomeSeen;
         private UiModal _outcome;
-        private float _outcomeTimer;
         private bool _outcomeRevealing;
 
         // ---- presentation: the world board, follow camera, HUD shown values, landing feedback ----
@@ -81,8 +79,6 @@ namespace RogueStars.Client.Screens
 
         /// <summary>Skip mode for tests: the chance roll of an outcome lands at once (no spinning animation).</summary>
         public static bool InstantOutcomes;
-        /// <summary>Auto mode closes an outcome result after this many seconds (after its chance roll).</summary>
-        public const float AutoOutcomeSeconds = 1.4f;
         /// <summary>Duration of the spinning chance indicator.</summary>
         public const float ChanceSpinSeconds = 1.3f;
         /// <summary>Board animation speed (the speed chip: ×1, ×2, ×3 for dice, hops and landings).</summary>
@@ -144,10 +140,8 @@ namespace RogueStars.Client.Screens
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
         public bool Auto => _auto;
-        /// <summary>Auto-pick drafts / farming (player setting, off by default).</summary>
-        public bool Farming => App.Settings != null && App.Settings.AutoPickDrafts;
-        /// <summary>Auto mode is on but waits for the player's decision.</summary>
-        public bool AutoPaused => _auto && State.Run.Active != null && RunSystem.RequiresPlayer(Content, State.Run.Active, Farming);
+        /// <summary>Auto mode is on but waits for the player (anything but a roll is next, or a screen is open).</summary>
+        public bool AutoPaused => _auto && State.Run.Active != null && WaitsForPlayer(State.Run.Active);
         public bool Animating => _anim != null && _anim.Busy;
         /// <summary>The board animations' speed now (the speed chip; 4 while a tap fast-forwards).</summary>
         private float AnimSpeed => _anim != null ? Mathf.Max(1, _anim.Speed) : Mathf.Max(1, BoardSpeed);
@@ -282,7 +276,7 @@ namespace RogueStars.Client.Screens
         public static string DiceCaption(ActiveRun run, bool auto, bool autoPaused)
         {
             if (run == null) return "";
-            if (auto) return autoPaused ? "Your choice" : "Auto…";
+            if (auto && !autoPaused) return "Auto…";
             switch (run.Phase)
             {
                 case RunPhase.AwaitRoll: return "Hold for Auto";
@@ -389,7 +383,7 @@ namespace RogueStars.Client.Screens
             {
                 var result = run.LastBattle;
                 var ctx = BattleContext();
-                _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(result, _auto, ctx)));
+                _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(result, ctx)));
             }
             _anim.Call(() => ShowOutcomeOrDecision(run));
         }
@@ -877,7 +871,7 @@ namespace RogueStars.Client.Screens
         /// <summary>
         /// The bottom controls (reference 1): the big dice button on its stone pedestal (tap = roll / fight / reopen the
         /// decision, hold = auto; its caption says what the tap does), the last roll's dice printed on it, the speed chip
-        /// and the auto-pick chip bottom-left, the skills book bottom-right.
+        /// bottom-left, the skills book bottom-right.
         /// </summary>
         private void Controls(ActiveRun run)
         {
@@ -943,7 +937,7 @@ namespace RogueStars.Client.Screens
             var hold = btnRt.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () =>
             {
-                if (_auto) StopAuto();
+                if (_auto && !AutoPaused) StopAuto();
                 else if (Animating) _anim.Speed = 4; // tap while the dice roll / the worm hops: fast-forward
                 else
                 {
@@ -957,7 +951,7 @@ namespace RogueStars.Client.Screens
             hold.OnHold = StartAuto;
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
 
-            // speed chip (×1 / ×2 / ×3 board animations) and the auto-pick chip above it
+            // speed chip (×1 / ×2 / ×3 board animations)
             var speed = Ui.Button(root, "", CycleSpeed, new Color32(0x3A, 0x2E, 0x58, 245), 210 * s, 110 * s, true, 20);
             speed.name = "SpeedChip";
             SliceKit.Place((RectTransform)speed.transform, s, 142, 2284, 214, 112, true);
@@ -972,13 +966,6 @@ namespace RogueStars.Client.Screens
             var sText = SliceKit.Chunky(speed.transform, "x" + Mathf.Max(1, BoardSpeed), (int)(48 * s), Color.white, TextAnchor.MiddleCenter, "SpeedText");
             sText.rectTransform.anchorMin = sText.rectTransform.anchorMax = new Vector2(0.7f, 0.5f);
             sText.rectTransform.sizeDelta = new Vector2(100 * s, 60 * s);
-
-            var pick = Ui.Button(root, "", ToggleFarming, Farming ? (Color)new Color32(0xF6, 0xC8, 0x3C, 255) : (Color)new Color32(0x5A, 0x4E, 0x6E, 240), 200 * s, 74 * s, true, 20);
-            pick.name = "AutoPickToggle";
-            SliceKit.Place((RectTransform)pick.transform, s, 126, 2164, 184, 72, true);
-            UiShapes.Outline((RectTransform)pick.transform, SliceKit.PillEdge, 22 * s, 4);
-            var pt = SliceKit.Chunky(pick.transform, "Auto-pick\n<size=" + (int)(22 * s) + ">" + (Farming ? "ON" : "OFF") + "</size>", (int)(26 * s), Color.white, TextAnchor.MiddleCenter, "AutoPickText");
-            Ui.Stretch(pt.rectTransform);
 
             // the skills book (count badge) bottom-right
             var book = Ui.Button(root, "", () => SkillsModal(run), new Color(0, 0, 0, 0), 150 * s, 160 * s, true, 20);
@@ -1042,7 +1029,7 @@ namespace RogueStars.Client.Screens
                 _anim = UiSequence.On(Root.gameObject);
                 _anim.Clear();
                 var ctx = BattleContext();
-                _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(battle, _auto, ctx)));
+                _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(battle, ctx)));
             }
             _toResult = true;
             CloseDecision();
@@ -1066,52 +1053,37 @@ namespace RogueStars.Client.Screens
                 App.Router.Replace(new RunResultScreen());
                 return;
             }
-            if (_outcome != null && _outcome.IsOpen)
-            {
-                // the result of an event / chest / campfire / shop: auto passes it after a short look
-                if (!_auto || _outcomeRevealing) { _outcomeTimer = 0; RemoveAutoOverlay(); return; }
-                _outcomeTimer += dt;
-                if (_outcomeTimer >= AutoOutcomeSeconds) CloseOutcome();
-                return;
-            }
             if (!_auto) return;
             var run = State.Run.Active;
-            if (run != null && RunSystem.RequiresPlayer(Content, run, Farming))
+            if (run == null) { StopAuto(); return; }
+            if (WaitsForPlayer(run))
             {
-                // paused at a player decision: no tap-to-stop overlay (the decision UI must be usable); resumes after
+                // paused: a decision, result, chest, playback or encounter waits for the player's tap. No tap-to-stop
+                // overlay (that screen must be usable); auto rolls again once the player closed it, while still on.
                 RemoveAutoOverlay();
                 _autoTimer = 0;
-                string key = run.RunId + "|" + run.Phase + "|" + run.Rolls + "|" + run.EventId + "|" + run.BattleCount;
-                if (key != _pausedKey)
-                {
-                    _pausedKey = key;
-                    Session.Info("Auto paused — your choice");
-                }
                 return;
             }
             EnsureAutoOverlay();
-            if (Animating || Session.InFlight > 0 || App.Router.Current != this) { _autoTimer = 0; return; }
+            if (Animating || Session.InFlight > 0) { _autoTimer = 0; return; }
             _autoTimer += dt;
             if (_autoTimer < 0.6f) return;
             _autoTimer = 0;
-            if (run == null) { StopAuto(); return; }
-            CloseDecision();
-            Run(new RunAutoStep { Farming = Farming }, r => { if (!r.Ok) StopAuto(); });
+            Run(new RunRoll(), r => { if (!r.Ok) StopAuto(); });
         }
 
-        /// <summary>Toggle "Auto-pick drafts (farming)" (persisted per device).</summary>
-        public void ToggleFarming()
-        {
-            App.Settings?.SetAutoPickDrafts(!Farming);
-            Rebuild();
-        }
+        /// <summary>
+        /// Auto mode only rolls: it waits while anything but a roll is next (a decision, an encounter, a revive…), or a
+        /// screen is open over the board (a result sheet, a decision sheet, a battle playback, a chest).
+        /// </summary>
+        private bool WaitsForPlayer(ActiveRun run) =>
+            run.Phase != RunPhase.AwaitRoll || OutcomeOpen || _decision != null && _decision.IsOpen || App.Router.Current != this;
 
         public void StartAuto()
         {
             if (_auto) return;
             _auto = true;
             _autoTimer = 0;
-            Session.Info("Auto mode — tap anywhere to stop");
             Rebuild();
         }
 
@@ -1119,7 +1091,6 @@ namespace RogueStars.Client.Screens
         {
             if (!_auto) return;
             _auto = false;
-            _pausedKey = null;
             RemoveAutoOverlay();
             if (Root != null) Rebuild();
         }
@@ -1257,7 +1228,6 @@ namespace RogueStars.Client.Screens
                 _outcomeSeen = run.OutcomeSeq;
                 CloseDecision();
                 _outcome = OutcomeSheet(run.LastOutcome);
-                _outcomeTimer = 0;
                 return;
             }
             ShowDecision(run);
