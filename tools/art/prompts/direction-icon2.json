@@ -1,0 +1,19 @@
+{
+  "variants": [
+    {
+      "key": "M",
+      "model": "flux",
+      "style": "comic style mobile game icon, one simple bold object, thick black ink outline, flat bright colors with one soft cel shade, chunky friendly shapes, centered, filling the square"
+    },
+    {
+      "key": "N",
+      "model": "flux",
+      "style": "2D cartoon mobile game item sprite, bold clean black outline, flat bright colors, cel shading, simple readable silhouette, slight three-quarter view"
+    },
+    {
+      "key": "O",
+      "model": "flux",
+      "style": "hand drawn comic sticker icon, bold uneven black outline, warm saturated colors, simple shapes, tiny highlight, playful"
+    }
+  ]
+}

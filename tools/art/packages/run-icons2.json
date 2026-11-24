@@ -1,0 +1,25 @@
+{
+  "name": "pkg-run-icons2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6701,
+    6702,
+    6703
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon2.json",
+  "suffix": ", game reward icon, centered, isolated on a plain pure white background, no text, no frame, no border, no background shape",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "coins_small": "three blue space coins stacked",
+    "coins_big": "a wooden bucket overflowing with blue space coins",
+    "heal": "a glossy red heart with a green plus",
+    "max_hp": "a red heart with a green up arrow",
+    "skill_book": "a thick purple spell book with a gold star",
+    "upgrade": "a glowing book with an up arrow",
+    "reroll": "two thick curved purple arrows chasing each other in a circle",
+    "curse": "a cracked purple skull with a downward arrow",
+    "blessing": "a green four pointed star with upward arrows",
+    "sale_tag": "a red sale price tag"
+  }
+}
