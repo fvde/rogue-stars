@@ -15,6 +15,7 @@ namespace RogueStars.Client.Screens
         protected override void Build(RectTransform body)
         {
             var cfg = Content.HeroConfig;
+            Ui.Button(body, "Summon events: get heroes and stars", () => App.Router.Push(new SummonEventScreen(RogueStars.Rules.Content.SummonEventType.Hero)), Theme.Purple).name = "OpenSummon";
             Note(body, "Hero XP " + Fmt.Num(State.Wallet.Get(Currencies.HeroXp)) + " · equipped: " + (string.IsNullOrEmpty(State.Heroes.Equipped) ? "none" : cfg.Defs.TryGetValue(State.Heroes.Equipped, out var eq) ? eq.Name : State.Heroes.Equipped));
             var ids = new List<string>(cfg.Defs.Keys);
             ids.Sort((a, b) =>
@@ -66,6 +67,7 @@ namespace RogueStars.Client.Screens
         protected override void Build(RectTransform body)
         {
             var cfg = Content.MountConfig;
+            Ui.Button(body, "Summon events: get mounts and stars", () => App.Router.Push(new SummonEventScreen(RogueStars.Rules.Content.SummonEventType.Mount)), Theme.Purple).name = "OpenSummon";
             Note(body, "Fuel " + Fmt.Num(State.Wallet.Get(Currencies.Fuel)) + " · Mount Cores " + State.Wallet.Get(Currencies.MountCores));
             var ids = new List<string>(cfg.Defs.Keys);
             ids.Sort((a, b) =>
@@ -87,7 +89,12 @@ namespace RogueStars.Client.Screens
                 var weapons = new List<string>();
                 foreach (var w in def.Weapons) weapons.Add((w.Awaken > 0 ? "A" + w.Awaken : w.Star + "★") + " " + (Content.Skill(w.SkillId)?.Name ?? w.SkillId));
                 Ui.Label(card, string.Join(" · ", weapons), 22);
-                if (m == null) { Note(card, "Shards " + shards + " — mounts come from Signals and events."); continue; }
+                if (m == null)
+                {
+                    Ui.Button(card, "Unlock (" + shards + "/" + cfg.UnlockShards + " shards)", () => Run(new MountUnlock { MountId = mid }), Theme.Accent, -1, 80, shards >= cfg.UnlockShards).name = "Unlock:" + mid;
+                    Note(card, "Mounts come from mount summon events: copies and shards.");
+                    continue;
+                }
                 var row = Ui.Row(card, 80, 8);
                 if (m.Stars < cfg.MaxStars)
                 {
