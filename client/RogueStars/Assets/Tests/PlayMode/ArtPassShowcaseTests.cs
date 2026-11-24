@@ -73,7 +73,7 @@ namespace RogueStars.Client.PlayTests
 
             // the battle with sprites: an alien companion, a regular enemy, an elite with its own art and a boss drawn with its
             // family's sprite (scaled up)
-            var battle = SpriteBattle(c);
+            var battle = SpriteBattle(c, "ember_imp", "elite_lava_brute", "boss_magma_tyrant");
             var playback = new BattlePlaybackScreen(battle);
             _app.Router.Push(playback);
             yield return Wait(1.6f);
@@ -82,7 +82,15 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("b" + shot++ + "_battle_sprites_later");
             playback.PlayAll();
             yield return Wait(0.6f);
-            yield return Shot("b" + shot + "_battle_end");
+            yield return Shot("b" + shot++ + "_battle_end");
+            playback.Continue();
+            yield return Wait(0.3f);
+            // the static family: spark drone, static eel, the storm caller elite and the hive queen (family sprite)
+            playback = new BattlePlaybackScreen(SpriteBattle(c, "spark_drone", "static_eel", "elite_storm_caller", "boss_storm_hive"));
+            _app.Router.Push(playback);
+            yield return Wait(1.6f);
+            yield return Shot("b" + shot + "_battle_static");
+            playback.PlayAll();
             playback.Continue();
         }
 
@@ -98,8 +106,11 @@ namespace RogueStars.Client.PlayTests
             var level = c.MainLevel(number);
             var start = _svc.ExecuteNow(new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal });
             Assert.That(start.Ok, Is.True, start.Error);
-            _svc.State.Run.Active.RunStats.Add(new StatMod(StatId.Hp, 0, 2000));
-            _svc.State.Run.Active.RunStats.Add(new StatMod(StatId.Atk, 0, 1500));
+            // an unbeatable worm for the pictures (late portals hit hard)
+            _svc.State.Run.Active.RunStats.Add(new StatMod(StatId.Hp, 500000));
+            _svc.State.Run.Active.RunStats.Add(new StatMod(StatId.Def, 20000));
+            _svc.State.Run.Active.RunStats.Add(new StatMod(StatId.Atk, 50000));
+            _svc.State.Run.Active.WormHp = -1;
             _app.Router.Push(new RunScreen());
             BattlePlaybackScreen.Instant = true;
             for (int i = 0; i < steps && _svc.State.Run.Active != null; i++)
@@ -125,7 +136,7 @@ namespace RogueStars.Client.PlayTests
             Ui.Clear(_app.ModalLayer);
         }
 
-        private static BattleResult SpriteBattle(ContentDb c)
+        private static BattleResult SpriteBattle(ContentDb c, params string[] enemies)
         {
             var setup = new BattleSetup { RoundCap = 12 };
             var lo = new CombatLoadout { MountId = "skiff" };
@@ -134,9 +145,7 @@ namespace RogueStars.Client.PlayTests
             alien.Stats.Add(new StatMod(StatId.Hp, 400)).Add(new StatMod(StatId.Atk, 40));
             lo.Aliens.Add(alien);
             setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, new List<string>()));
-            setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "ember_imp", 4));
-            setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "elite_lava_brute", 4));
-            setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "boss_magma_tyrant", 4));
+            foreach (var e in enemies) setup.Enemy.Add(BattleSimulator.BuildEnemy(c, e, 4));
             return BattleSimulator.Simulate(setup, c, new Rng(5));
         }
 
