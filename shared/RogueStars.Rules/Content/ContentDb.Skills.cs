@@ -16,6 +16,12 @@ namespace RogueStars.Rules.Content
         public RunSkillBuilder FamilyGate(int count) { Def.RequiresFamilyCount = count; return this; }
         public RunSkillBuilder Requires(params string[] ids) { Def.Requires.AddRange(ids); return this; }
         public RunSkillBuilder NotDraftable() { Def.Draftable = false; return this; }
+        /// <summary>A count effect on sidekicks: AllyAction (Stacks sidekick actions), Summon (Stacks sidekicks of Param at Value % ATK), Block.</summary>
+        public RunSkillBuilder Kick(TriggerKind when, EffectKind effect, int stacks, double value = 0, string param = null, TargetKind target = TargetKind.Self)
+        {
+            Def.Triggers.Add(new SkillTrigger { When = when, Effect = effect, Stacks = stacks, Value = value, Param = param, Target = target });
+            return this;
+        }
 
         public RunSkillBuilder On(TriggerKind when, EffectKind effect, double value, TargetKind target = TargetKind.Enemy, double chance = 100, int cooldown = 0, string param = null)
         {
@@ -155,14 +161,16 @@ namespace RogueStars.Rules.Content
             Skills["bleed_frenzy"].Triggers[0].Status = StatusId.Bleed;
 
             // ---- Alien Synergy (package) ------------------------------------------------------
+            // Sidekick pass: aliens (and drones) are sidekicks that act with one ability; Alien skills make them stronger, act more
+            // often, or hook the worm onto their actions.
             RunChain("alien_bond", SkillFamily.AlienSynergy, new[] { "Squad Bond", "Squad Unity", "Squad Soul" }, RunChainCRE, (b, t) =>
-                b.Desc("Aliens hit harder.").Stat(StatId.AlienPower, 24));
-            RunSkill("alien_rally", "Rally Cry", SkillFamily.AlienSynergy, Rarity.Rare).Desc("Battle start: allies +15% ATK for 3 rounds.")
-                .Buff(TriggerKind.OnBattleStart, StatId.Atk, 15, TargetKind.AllAllies, 3);
-            RunSkill("alien_charmer", "Alien Charm", SkillFamily.AlienSynergy, Rarity.Epic).FamilyGate(2).Desc("Attacks may charm the target.")
-                .Status(TriggerKind.OnAttack, 15, StatusId.Charm);
-            RunSkill("alien_hivemind", "Hivemind", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(3).Desc("Aliens +40%; the squad heals the worm.")
-                .Stat(StatId.AlienPower, 40).On(TriggerKind.OnRoundStart, EffectKind.Heal, 3, TargetKind.Worm);
+                b.Desc("Sidekick abilities are stronger.").Stat(StatId.AlienPower, 45));
+            RunSkill("alien_rally", "Rally Cry", SkillFamily.AlienSynergy, Rarity.Rare).Desc("Battle start: your sidekicks act at once.")
+                .Kick(TriggerKind.OnBattleStart, EffectKind.AllyAction, 2);
+            RunSkill("alien_charmer", "Alien Charm", SkillFamily.AlienSynergy, Rarity.Epic).FamilyGate(2).Desc("Sidekick actions may charm the enemy.")
+                .Status(TriggerKind.OnSidekickAct, 45, StatusId.Charm);
+            RunSkill("alien_hivemind", "Hivemind", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(3).Desc("Sidekicks +40 power; each sidekick action heals the worm.")
+                .Stat(StatId.AlienPower, 40).On(TriggerKind.OnSidekickAct, EffectKind.Heal, 6, TargetKind.Worm);
 
             // ---- Counter (package) ------------------------------------------------------------
             // was "Riposte" (the Counter signature is Riposte now)
@@ -206,7 +214,7 @@ namespace RogueStars.Rules.Content
             Sig("sig_ice", "Chill", SkillFamily.Ice, "Every hit chills the enemy (and cools its Heat).").Status(TriggerKind.OnHit, 100, StatusId.Chill);
             Sig("sig_lightning", "Arc", SkillFamily.Lightning, "Every hit jumps to another enemy.")
                 .Def.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.Damage, Value = 50, Target = TargetKind.OtherEnemies, Stacks = 1 });
-            Sig("sig_alien", "Command", SkillFamily.AlienSynergy, "Each round an alien acts again.")
+            Sig("sig_alien", "Command", SkillFamily.AlienSynergy, "Each round a sidekick takes an extra action.")
                 .Def.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = 1 });
             Sig("sig_counter", "Riposte", SkillFamily.Counter, "Hits against you may be answered.")
                 .On(TriggerKind.OnDamaged, EffectKind.Strike, 0, TargetKind.Enemy, 30, 0, "counter");
@@ -293,10 +301,12 @@ namespace RogueStars.Rules.Content
                 .On(TriggerKind.OnRoundEnd, EffectKind.ConsumeStatus, 20, TargetKind.AllEnemies, 100, 3, "heal:60");
             Skills["mythic_bloodlust"].Triggers[0].Status = StatusId.Bleed;
             // Alien Synergy
-            RunSkill("alien_overmind", "Overmind", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("The squad fights as one mind.")
-                .Stat(StatId.AlienPower, 50).On(TriggerKind.OnRoundStart, EffectKind.GainRage, 25, TargetKind.AllAllies);
-            RunSkill("mythic_ark_command", "Ark Command", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Your squad fights as one.")
-                .Stat(StatId.AlienPower, 60).Buff(TriggerKind.OnBattleStart, StatId.Atk, 20, TargetKind.AllAllies, 3);
+            RunSkill("alien_overmind", "Overmind", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("The squad fights as one mind: sidekicks act far more often.")
+                .Stat(StatId.AlienPower, 50).Stat(StatId.SidekickHaste, 50);
+            RunSkill("mythic_ark_command", "Ark Command", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Your squad opens every battle.")
+                .Stat(StatId.AlienPower, 60).Kick(TriggerKind.OnBattleStart, EffectKind.AllyAction, 3);
+            RunSkill("mythic_swarm_call", "Swarm Beacon", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Drones answer your call.")
+                .Kick(TriggerKind.OnBattleStart, EffectKind.Summon, 3, 40, "sk_drone");
             // Counter
             RunSkill("counter_mirror", "Mirror Carapace", SkillFamily.Counter, Rarity.Mythic).Desc("Parries reflect true damage.")
                 .On(TriggerKind.OnParry, EffectKind.TrueDamage, 100, TargetKind.Enemy).Stat(StatId.ParryChance, 10);

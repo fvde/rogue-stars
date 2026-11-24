@@ -99,7 +99,7 @@ public class SkillTuningTests
 
     public static readonly string[] Removed =
     {
-        "alien_mothership", "mythic_swarm_call", "lab_drone_bay", "lab_drone_bay_5", "gen_hoarder", "lab_treasure_sense", "lab_treasure_sense_3",
+        "alien_mothership", "lab_drone_bay", "lab_drone_bay_5", "gen_hoarder", "lab_treasure_sense", "lab_treasure_sense_3",
     };
 
     [Fact]
@@ -108,8 +108,9 @@ public class SkillTuningTests
         foreach (var id in Removed) Assert.Null(C.Skill(id));
         Assert.Null(C.LabNode("res_drone_bay"));
         Assert.Null(C.LabNode("res_treasure_sense"));
+        // (sidekick pass) a draftable summon launches a battle-scoped sidekick (Swarm Beacon's drones), never an enemy
         foreach (var s in Pool(C))
-            Assert.DoesNotContain(s.Triggers, t => t.Effect == EffectKind.Summon);
+            Assert.All(s.Triggers.Where(t => t.Effect == EffectKind.Summon), t => Assert.NotNull(C.Sidekick(t.Param)));
     }
 
     /// <summary>
@@ -156,7 +157,7 @@ public class SkillTuningTests
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
-        foreach (var id in new[] { "alien_mothership", "mythic_swarm_call", "lab_drone_bay_3", "gen_hoarder", "lab_treasure_sense_2" })
+        foreach (var id in new[] { "alien_mothership", "lab_drone_bay_3", "gen_hoarder", "lab_treasure_sense_2" })
         {
             run.Skills.Add(id);
             run.SkillLevels[id] = 2;
@@ -229,7 +230,8 @@ public class SkillTuningTests
         for (int i = 0; i < 2; i++)
         {
             var a = new CombatAlien { AlienTypeId = "alien_" + i, Name = "Alien " + i };
-            a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Speed, 90));
+            a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Def, 8)).Add(new StatMod(StatId.Speed, 45));
+            a.SkillIds.Add(i == 0 ? "ask_voidmaw_1" : "ask_blorp_1"); // sidekicks: a striker and a bleeder (sidekick pass)
             lo.Aliens.Add(a);
         }
         var skills = new List<string>(KitIds);
@@ -264,6 +266,8 @@ public class SkillTuningTests
                 case EffectKind.BuffStat:
                 case EffectKind.Strike:
                 case EffectKind.AllyAction: if (e.Action == BattleAction.Buff) return true; break;
+                case EffectKind.Summon: if (e.Action == BattleAction.Summon) return true; break;
+                case EffectKind.Block: if (e.Action == BattleAction.Guard) return true; break;
                 case EffectKind.RemoveStatus:
                 case EffectKind.ConsumeStatus: if (e.Action == BattleAction.StatusRemoved && e.Status == t.Status) return true; break;
             }

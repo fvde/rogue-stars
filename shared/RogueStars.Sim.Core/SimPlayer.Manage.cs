@@ -93,7 +93,8 @@ namespace RogueStars.Sim
             }
         }
 
-        private static double AlienPower(StatBlock s) => s.Value(StatId.Atk) * 2 + s.Value(StatId.Hp) * 0.2 + s.Value(StatId.Def);
+        /// <summary>Squad pick: ability power per round (power × actions per round; sidekick pass).</summary>
+        private double AlienPower(StatBlock s) => BattleSimulator.SidekickPower(s, C) / BattleSimulator.SidekickActsEvery(s.Value(StatId.Speed), C);
 
         private void Aliens()
         {

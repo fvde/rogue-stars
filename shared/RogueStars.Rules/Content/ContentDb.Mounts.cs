@@ -69,7 +69,7 @@ namespace RogueStars.Rules.Content
             AddMountDef("mount_frost_frigate", "Frost Frigate", SkillFamily.Ice, SkillFamily.Counter, "Cryo Beam");
             AddMountDef("mount_toxic_hauler", "Toxic Hauler", SkillFamily.Poison, SkillFamily.Combo, "Sludge Sprayer");
             AddMountDef("mount_star_lancer", "Star Lancer", SkillFamily.Crit, SkillFamily.Bleed, "Lance Cannon");
-            AddMountDef("mount_hive_carrier", "Hive Carrier", SkillFamily.AlienSynergy, SkillFamily.Crit, "Spore Cannon"); // was "Drone Bay": the name promised drones the weapon never had
+            AddMountDef("mount_hive_carrier", "Hive Carrier", SkillFamily.AlienSynergy, SkillFamily.Crit, "Drone Bay"); // launches drone sidekicks (sidekick pass)
         }
 
         /// <summary>

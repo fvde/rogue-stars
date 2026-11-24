@@ -31,14 +31,19 @@ Stats are percent points for chance-type stats (25 = 25%). `StatMod.Percent` is 
 | `OnLowHp` | once per battle when HP drops below `Combat.LowHpTriggerPct` (30%) | the attacker |
 | `OnStatusApplied` | owner applied a status; optional `Param` = status name filter (e.g. `"Burn"`) | the affected fighter |
 | `OnBattleWon` | after victory (battle effects like Heal apply to the HP carried on; see run triggers) | – |
+| `OnAct` | a **sidekick's** action (its charge is full, or an extra action): its one ability | front enemy |
+| `OnSidekickAct` | on the side's worm and mount, right after one of its sidekicks acted | front enemy |
 
 Effects in battle: `Damage` / `TrueDamage` (Value = % of owner ATK; skill hits can crit, cannot be dodged or
 parried, get the family's element bonus: Fire→FireDamage…), `ApplyStatus` (Status, Stacks, Duration 0 =
 status default; trigger Chance × (1 + StatusChance/100), then target StatusResist roll), `Heal` / `Shield`
 (Value = % of target max HP, × HealPower / ShieldPower; `Param = "overheal_shield"` turns overheal into shield),
 `GainRage` (flat), `BuffStat` (`Stat` for `Duration` rounds, 0 = rest of battle; negative values debuff),
-`Summon` (enemy skills only: `Param` = enemy def id → a copy on the owner's threat scale, e.g. the Storm Hive's spark
-drones; on the player side it does nothing — player drones were removed in the dead-effects pass). `CooldownRounds` blocks the trigger for N rounds after it fired.
+`Summon` (enemy skills: `Param` = enemy def id → a copy on the owner's threat scale, e.g. the Storm Hive's spark
+drones; player side: `Param` = a `ContentDb.Sidekicks` id → `Stacks` battle-scoped sidekicks whose ability power is `Value` % of
+the summoner's ATK — Hive Carrier's Drone Bay, Swarm Beacon; anything else does nothing), `AllyAction` (`Stacks` extra sidekick
+actions, round-robin over the side's sidekicks), `Block` (on a sidekick: the worm's next `Stacks` hits are intercepted, guards
+stack up to `Combat.MaxGuards` = 3). `CooldownRounds` blocks the trigger for N rounds after it fired.
 Recursion is capped at depth 4.
 
 **Conditional damage bonuses:** a `Passive` trigger with `Param = "cond:<condition>"` and `Value = +%`.
@@ -51,14 +56,37 @@ stat vs bosses) are summed and applied as one multiplier.
 `Worm` = own side's worm; `AllAllies` = every living fighter of the owner's side.
 
 **Other stat semantics:** `Regen` = % max HP healed at the start of each own turn; `LifeSteal` = % of damage
-dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` / `MountPower` on the worm add % ATK (and HP for
-aliens) to aliens / the mount (`AlienPower` on the mount counts too: Hive Carrier weapons); the mount's HP stat becomes a
+dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` on the worm adds % ability power to its sidekicks, `MountPower` % ATK to
+the mount (`AlienPower` on the mount counts too: Hive Carrier weapons); the mount's HP stat becomes a
 battle-start shield on the worm (the mount absorbs damage). Shock / Freeze (element statuses without a DoT): the applier's
 Lightning / Ice damage scales their damage-taken bonus. `LootLuck` = % chance of a bonus item on every run loot roll
 (tile, event and completion rolls; 100 = always one more); `XpGain` = % more run XP.
 
 **Untargetable fighters** (aliens, mount) are never hit: their HP, DEF, Speed, dodge, parry, counter and regen do nothing
 in battle. Alien / mount skills that should help defensively buff the worm (`BuffStat` with `Target = Worm`).
+
+## Sidekicks (sidekick pass)
+
+Aliens and player-side summons (drones) are **sidekicks** (`CombatRole.Alien` / `CombatRole.Summon`, untargetable). Only the
+worm is attacked; a sidekick never attacks, gains no rage and has no statuses. It sits in the turn order (Mount → Aliens →
+Summons → Worm) and each of its turns adds **Speed × (1 + the worm's `SidekickHaste` %)** charge; at `Combat.SidekickActAt`
+(100) it **acts** once (spending 100; at most one own action per turn; battles start at 50 charge). An action is a
+`BattleAction.SidekickAct` log marker (SkillId = the ability, Stacks 1 = an extra action) followed by the ability's effects
+(its `OnAct` triggers), then `OnSidekickAct` on the worm and mount (Hivemind, Alien Charm, Pack Tactics, Hive part skills).
+
+- **Frequency:** alien base Speed by rarity 34 / 37 / 40 / 44 / 50 (Common … Mythic): a Common acts about every 3 worm
+  turns, a Mythic every 2. Speed genes and the Swift trait raise it. Drones: Speed 40.
+- **Ability power** (the sidekick's ATK in battle) = ATK + HP × 0.05 + DEF × 1 (`SidekickHpToPower` / `SidekickDefToPower`;
+  base, genes, level, stars and traits all count), × (1 + alien power %). Damage abilities deal % of it; status abilities
+  carry it as their DoT / Heat power. Heal / Shield / GainRage / BuffStat abilities are × the **support scale** =
+  min(1.5, (power before alien power / 35)^0.2) × (1 + alien power %).
+- **One ability per sidekick**, simple (Mythic Nebulisk: two buffs). A sidekick's buff refreshes on its next action instead of
+  stacking with itself. A sidekick's lifesteal (Vampiric) heals the worm.
+- **Block:** a guard on the worm intercepts the next attack hit (basic / rage / combo / counter): nothing lands, no on-hit or
+  when-hit triggers; `BattleAction.Guard` (guard raised) and `BattleAction.Block` (Actor = blocker, Amount = damage stopped).
+- **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions.
+- Alien combat traits: Tough (+15% HP), Fierce (+15% ATK), Armored (+30% DEF) → power; Swift (+15% Speed) → frequency;
+  Lucky / Vampiric / Pyromaniac / Stormborn for damage / Heat / Shock abilities.
 
 ## Run (board) triggers (RunSystem)
 

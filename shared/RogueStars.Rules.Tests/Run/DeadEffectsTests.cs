@@ -24,6 +24,7 @@ public class DeadEffectsTests
     {
         EffectKind.Damage, EffectKind.TrueDamage, EffectKind.ApplyStatus, EffectKind.Heal, EffectKind.Shield, EffectKind.GainRage,
         EffectKind.BuffStat, EffectKind.Summon, EffectKind.RemoveStatus, EffectKind.ConsumeStatus, EffectKind.Strike, EffectKind.AllyAction,
+        EffectKind.Block,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>
@@ -41,7 +42,7 @@ public class DeadEffectsTests
     /// </summary>
     private static string Sig(BattleResult r) =>
         r.Winner + "|" + r.Rounds + "|" + r.PlayerDamageDealt + "|" + r.PlayerDamageTaken + "|" + Math.Round(r.WormHpLeft)
-        + "|" + string.Join(",", r.Fighters.Select(f => f.DamageDealt + ":" + (f.Targetable ? f.EndHp : 0) + ":" + f.EndRage));
+        + "|" + string.Join(",", r.Fighters.Select(f => f.DamageDealt + ":" + (f.Targetable ? f.EndHp + "+" + f.EndShield : "0") + ":" + f.EndRage));
 
     /// <summary>
     /// The SkillTuningTests arena (worm + mount + two aliens vs a shielded slug, a dodging wraith and a boss), with the skill where its
@@ -60,7 +61,8 @@ public class DeadEffectsTests
         for (int i = 0; i < 2; i++)
         {
             var a = new CombatAlien { AlienTypeId = "alien_" + i, Name = "Alien " + i };
-            a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Speed, 90));
+            a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Def, 8)).Add(new StatMod(StatId.Speed, 45));
+            a.SkillIds.Add(i == 0 ? "ask_voidmaw_1" : "ask_blorp_1"); // sidekicks: a striker and a bleeder (sidekick pass)
             lo.Aliens.Add(a);
         }
         var def = skillId != null ? c.Skill(skillId) : null;
@@ -225,25 +227,37 @@ public class DeadEffectsTests
         Assert.Contains("bonus loot chance", node.Description);
     }
 
-    // ---- drones are gone; Summon is an enemy effect ------------------------------------------------------------------
+    // ---- drones came back as sidekicks (sidekick pass); enemy summons are the bosses' guards ------------------------
 
+    /// <summary>
+    /// Every Summon is either an enemy skill calling an enemy (the Storm Hive's spark drones) or a player skill launching a
+    /// battle-scoped sidekick (ContentDb.Sidekicks: Hive Carrier's Drone Bay, Swarm Beacon). Only those mention drones.
+    /// </summary>
     [Fact]
-    public void NoDrones_AndSummonIsOnlyForEnemies()
+    public void Summons_AreEnemyGuards_OrSidekickDrones()
     {
         var enemySkills = new HashSet<string>(C.Enemies.Values.SelectMany(e => e.SkillIds));
         foreach (var s in C.Skills.Values)
         {
+            bool sidekickSummon = false;
             foreach (var t in s.Triggers.Where(t => t.Effect == EffectKind.Summon))
             {
-                Assert.True(enemySkills.Contains(s.Id), s.Id + " summons but is not an enemy skill");
-                Assert.True(t.Param != null && C.Enemies.ContainsKey(t.Param), s.Id + " summons an unknown enemy " + t.Param);
+                if (enemySkills.Contains(s.Id)) Assert.True(t.Param != null && C.Enemies.ContainsKey(t.Param), s.Id + " summons an unknown enemy " + t.Param);
+                else
+                {
+                    Assert.True(C.Sidekick(t.Param) != null, s.Id + " summons an unknown sidekick " + t.Param);
+                    Assert.True(t.Value > 0, s.Id + ": a sidekick summon needs power");
+                    sidekickSummon = true;
+                }
             }
-            if (enemySkills.Contains(s.Id)) continue;
+            if (enemySkills.Contains(s.Id) || sidekickSummon || C.Sidekicks.Values.Any(k => k.AbilitySkillId == s.Id)) continue;
             foreach (var text in new[] { s.Name, s.Description, SkillText.Full(s) })
                 Assert.DoesNotContain("drone", text ?? "", StringComparison.OrdinalIgnoreCase);
         }
-        Assert.Contains(C.Skills.Values, s => s.Triggers.Any(t => t.Effect == EffectKind.Summon)); // the boss summons still work
-        Assert.Equal("Spore Cannon", C.Skill("mount_hive_carrier_w1")!.Name);
+        Assert.Contains(C.Skills.Values, s => enemySkills.Contains(s.Id) && s.Triggers.Any(t => t.Effect == EffectKind.Summon)); // the boss summons still work
+        var bay = C.Skill("mount_hive_carrier_w1")!;
+        Assert.Equal("Drone Bay", bay.Name);
+        Assert.Contains(bay.Triggers, t => t.Effect == EffectKind.Summon && t.Param == "sk_drone");
     }
 
     [Fact]
@@ -283,7 +297,7 @@ public class DeadEffectsTests
                     var lo = new CombatLoadout { DisplayName = "Worm" };
                     lo.WormStats.Add(new StatMod(StatId.Hp, 2600)).Add(new StatMod(StatId.Atk, 100)).Add(new StatMod(StatId.Def, 20)).Add(new StatMod(StatId.Speed, 100));
                     var a = new CombatAlien { AlienTypeId = sp.Id, Name = sp.Name };
-                    a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Speed, 90));
+                    a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Def, 8)).Add(new StatMod(StatId.Speed, 45));
                     if (with) a.Stats.AddAll(tr.CombatStats);
                     a.SkillIds.Add(sp.ArchetypeSkills[^1].SkillId);
                     lo.Aliens.Add(a);
@@ -336,6 +350,7 @@ public class DeadEffectsTests
             if (ap > 0) lo.MountStats.Add(new StatMod(StatId.AlienPower, ap));
             var a = new CombatAlien { AlienTypeId = "a", Name = "A" };
             a.Stats.Add(new StatMod(StatId.Hp, 300)).Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Speed, 90));
+            a.SkillIds.Add("ask_voidmaw_1");
             lo.Aliens.Add(a);
             var setup = new BattleSetup();
             setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, null));

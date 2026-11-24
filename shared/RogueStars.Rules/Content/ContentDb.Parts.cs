@@ -377,10 +377,17 @@ namespace RogueStars.Rules.Content
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Self, Value = Math.Round(3 * v, 1) });
                     s.Description = "More counters; counters grant a shield.";
                     break;
+                case SkillFamily.AlienSynergy when source == SkillSource.Mount:
+                    // Hive Carrier (sidekick pass): its bay launches drone sidekicks for the battle (power = % of the mount's ATK)
+                    s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Summon, Target = TargetKind.Self, Param = "sk_drone",
+                        Value = Math.Round(80 * v), Stacks = v >= 3 ? 2 : 1 });
+                    s.Description = v >= 3 ? "Battle start: launch 2 drone sidekicks; sidekicks are stronger." : "Battle start: launch a drone sidekick; sidekicks are stronger.";
+                    break;
                 case SkillFamily.AlienSynergy:
                     s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.AllAllies, Stat = new StatMod(StatId.Atk, 0, Math.Round(5 * v, 1)), Duration = 3 });
-                    s.Description = "Aliens are stronger and start battles empowered.";
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = Math.Max(1, (int)Math.Round(v / 1.2)) });
+                    s.Description = "Sidekicks are stronger and act at battle start.";
                     break;
                 default:
                     s.Stats.Add(new StatMod(StatId.Atk, 0, Math.Round(4 * v, 1)));

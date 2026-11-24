@@ -222,8 +222,10 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 
 ## 4. Combat (fully automatic, deterministic, seeded)
 - Battles are turn-based in rounds with a round cap; reaching the cap with enemies alive is a loss.
-- Combatants: the **Worm** (only the worm can be targeted unless a skill says otherwise), squad **Aliens**
-  (attack, cast skills; untargetable by default), the **Mount** (fires mount weapons), enemies.
+- Combatants: the **Worm** (the only one that is attacked), squad **Aliens** and battle-scoped summons (drones) as
+  **sidekicks** (never attacked; they charge by Speed — a Common acts about every 3 worm turns — and then use their one
+  ability; HP / ATK / DEF fold into ability power; a Block ability intercepts hits on the worm), the **Mount** (fires mount
+  weapons), enemies. Details: docs/design/skill-conventions.md "Sidekicks".
 - Turn order: Mount → Aliens → Worm → enemies. Speed stat decides which side opens (worm side default).
 - Each attacker has Basic, Rage, Combo and Counter attacks. Rage fills per action/hit; a full bar fires
   the Rage attack in addition to the basic attack. Rage may overfill to 125%.

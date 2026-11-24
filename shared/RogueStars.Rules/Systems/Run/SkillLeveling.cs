@@ -147,7 +147,8 @@ namespace RogueStars.Rules.Systems
 
         /// <summary>Count effects grow their chance, then (past the cap) their count; value effects grow their value.</summary>
         public static bool IsCountEffect(EffectKind k) =>
-            k == EffectKind.ApplyStatus || k == EffectKind.ExtraDice || k == EffectKind.SkipNegativeEvent;
+            k == EffectKind.ApplyStatus || k == EffectKind.ExtraDice || k == EffectKind.SkipNegativeEvent
+            || k == EffectKind.AllyAction || k == EffectKind.Block;
 
         private static void GrowCount(ContentDb content, SkillTrigger b, SkillTrigger p, SkillTrigger c, double f, double cap)
         {
@@ -160,6 +161,14 @@ namespace RogueStars.Rules.Systems
             }
             c.Chance = cap;
             bool prevCapped = p.Chance >= cap - 1e-9;
+            if (b.Effect == EffectKind.AllyAction || b.Effect == EffectKind.Block)
+            {
+                // sidekick actions / guarded hits: the count grows
+                int kn = Math.Max(Math.Max(1, b.Stacks), (int)Math.Round(Math.Max(1, b.Stacks) * want / cap, MidpointRounding.AwayFromZero));
+                if (prevCapped && kn <= p.Stacks) kn = p.Stacks + 1;
+                c.Stacks = kn;
+                return;
+            }
             if (b.Effect == EffectKind.ApplyStatus)
             {
                 content.Combat.Statuses.TryGetValue(b.Status, out var sd);

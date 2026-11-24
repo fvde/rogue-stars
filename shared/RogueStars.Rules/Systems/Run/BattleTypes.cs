@@ -5,7 +5,10 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    /// <summary>Role of a combatant. Turn order within a side: Mount → Aliens → Summons → Worm → Enemies/Elites/Boss.</summary>
+    /// <summary>
+    /// Role of a combatant. Turn order within a side: Mount → Aliens → Summons → Worm → Enemies/Elites/Boss. Aliens and player-side
+    /// summons (drones) are <b>sidekicks</b>: never targeted, they charge by Speed and act with their single ability (BattleSim).
+    /// </summary>
     public enum CombatRole { Worm, Alien, Mount, Summon, Enemy, Elite, Boss }
 
     public enum BattleSide { Player = 0, Enemy = 1 }
@@ -21,6 +24,13 @@ namespace RogueStars.Rules.Systems
         Supernova,
         /// <summary>Stacks removed (cooling, consumption): Stacks = stacks left, Amount = stacks removed.</summary>
         StatusRemoved,
+        /// <summary>A sidekick's turn: marker before its ability (Actor = Target = the sidekick, SkillId = the ability, Stacks = 1 for an
+        /// extra action such as Command's, 0 for its own charged turn). The ability's effects follow as their own entries.</summary>
+        SidekickAct,
+        /// <summary>A blocking sidekick raised a guard (Actor = sidekick, Target = the guarded worm, Stacks = guards up).</summary>
+        Guard,
+        /// <summary>A guard intercepted a hit (Actor = the blocking sidekick, Target = the guarded worm, Amount = the damage stopped, Stacks = guards left).</summary>
+        Block,
     }
 
     /// <summary>

@@ -31,6 +31,10 @@ namespace RogueStars.Rules.Core
         OnBattleWon,
         /// <summary>A Heat-stacked fighter the owner heated went Supernova (context = the exploding fighter).</summary>
         OnSupernova,
+        /// <summary>The owner is a sidekick and it is its turn to act (its charge is full, or an extra action): its single ability.</summary>
+        OnAct,
+        /// <summary>One of the owner's sidekicks just acted (fires on the side's worm and mount; context = the front enemy).</summary>
+        OnSidekickAct,
     }
 
     public enum EffectKind
@@ -47,12 +51,14 @@ namespace RogueStars.Rules.Core
         ExtraDice,         // Value = extra dice for the next roll
         HealOnTile,        // Value = % max HP
         SlowAwakening,     // Value = meter points removed
-        Summon,            // enemy skills only: Param = enemy def id (bosses calling their guard)
+        Summon,            // enemy skills: Param = enemy def id (bosses calling their guard); player side: Param = sidekick def id
+                           // (ContentDb.Sidekicks), Value = its ability power as % of the summoner's ATK, Stacks = how many (battle-scoped)
         SkipNegativeEvent, // Value = number of negative event outcomes skipped this run (city boon buildings)
         RemoveStatus,      // Status, Stacks (0 = all): remove stacks from the target (cooling removes Heat)
         ConsumeStatus,     // Status: remove all its stacks from the target; Value = % ATK damage per stack; Param "heal:N" heals N% of it
         Strike,            // the owner attacks the context target again (Param "counter" = a counterattack, else a combo strike)
-        AllyAction,        // Stacks = number of the owner's aliens that take an extra action (attack)
+        AllyAction,        // Stacks = extra sidekick actions (round-robin over the owner's sidekicks): each activates its ability
+        Block,             // Stacks = hits on the target (the worm) the owner (a sidekick) intercepts; guards stack up to Combat.MaxGuards
     }
 
     /// <summary>OtherEnemies: up to Stacks random enemies other than the context target (Arc's jumps).</summary>

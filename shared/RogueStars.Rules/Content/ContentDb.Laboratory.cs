@@ -94,8 +94,8 @@ namespace RogueStars.Rules.Content
 
             // ---- command (squad, mount, loot) ----
             RunLab("res_pack_tactics", "Pack Tactics", false, SkillFamily.AlienSynergy, Rarity.Epic, Cmd, 1, Pkg("pkg_alien"), true, (b, lv) =>
-                b.Desc("Aliens +AlienPower; allies gain rage at battle start.").Stat(StatId.AlienPower, 15 * lv)
-                 .On(TriggerKind.OnBattleStart, EffectKind.GainRage, 10 + 10 * lv, TargetKind.AllAllies));
+                b.Desc("Sidekicks +power; each sidekick action gives the worm rage.").Stat(StatId.AlienPower, 15 * lv)
+                 .On(TriggerKind.OnSidekickAct, EffectKind.GainRage, 5 + 5 * lv, TargetKind.Worm));
             LabStat("lab_alien_power_1", "Hive Linguistics", Cmd, 1, StatId.AlienPower, false, 1, null, false);
             // Treasure Sense (loot %: it only touched the ~1 account-loot item a run carries) and Drone Bay (a drone summon) were
             // removed in the skill tuning pass; Lucky Dice moved up to row 2 so the branch keeps its shape.

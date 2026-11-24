@@ -111,6 +111,29 @@ namespace RogueStars.Rules.Systems
             return Simulate(setup, content, rng);
         }
 
+        /// <summary>A sidekick's ability power from its HP / ATK / DEF (before alien power): it is never hit, so all three feed its ability.</summary>
+        public static double SidekickPower(double atk, double hp, double def, BattleTuning t) =>
+            Math.Max(0, atk) + Math.Max(0, hp) * t.SidekickHpToPower + Math.Max(0, def) * t.SidekickDefToPower;
+
+        /// <summary>Ability power of an alien's combat stats (UI: the alien screens), before the loadout's alien power.</summary>
+        public static double SidekickPower(StatBlock stats, ContentDb content) =>
+            SidekickPower(stats.Value(StatId.Atk), stats.Value(StatId.Hp), stats.Value(StatId.Def), (content ?? ContentDb.Default).Combat);
+
+        /// <summary>
+        /// How a sidekick's heals / shields / rage / buffs scale with its power before alien power: (power / ref)^exp, at most the cap
+        /// (alien power then multiplies them in full, like it multiplies damage).
+        /// </summary>
+        public static double SidekickSupportScale(double power, BattleTuning t) =>
+            Math.Min(t.SidekickSupportCap, Math.Pow(Math.Max(0, power) / Math.Max(1, t.SidekickPowerRef), t.SidekickSupportExp));
+
+        /// <summary>Average rounds between a sidekick's own actions at this Speed (UI: "acts about every 3 turns").</summary>
+        public static double SidekickActsEvery(double speed, ContentDb content, double hastePct = 0)
+        {
+            var t = (content ?? ContentDb.Default).Combat;
+            double perRound = Math.Max(0, speed) * (1 + hastePct / 100.0);
+            return perRound <= 0 ? double.PositiveInfinity : Math.Max(1, t.SidekickActAt / perRound);
+        }
+
         /// <summary>Final stat block of a combatant including its skills' passive packages (for UI and run HP).</summary>
         public static StatBlock FinalStats(CombatantSpec spec, ContentDb content)
         {
@@ -145,6 +168,8 @@ namespace RogueStars.Rules.Systems
         public StatId Stat;
         public double Flat, Percent;
         public int Rounds; // -1 = rest of battle
+        /// <summary>A sidekick's buff (its index, else -1): the same sidekick's next action refreshes it instead of stacking.</summary>
+        public int Sidekick = -1;
     }
 
     internal sealed class CondBonus
@@ -175,6 +200,13 @@ namespace RogueStars.Rules.Systems
         public readonly List<CondBonus> Conds = new List<CondBonus>();
         public double DamageDealt;
         public int SummonedBy = -1;
+        /// <summary>Sidekick (alien, player-side summon): never hit, charges by Speed and acts with its ability.</summary>
+        public bool Sidekick;
+        public double Charge;
+        /// <summary>The side's alien power (%) a sidekick got at its start: it multiplies its support abilities in full.</summary>
+        public double AlienPower;
+        /// <summary>Indices of the sidekicks guarding this fighter, oldest first (Block): each intercepts one hit.</summary>
+        public readonly List<int> Guards = new List<int>();
 
         public double S(StatId s)
         {
@@ -256,18 +288,16 @@ namespace RogueStars.Rules.Systems
         {
             foreach (var s in _setup.Player) MakeFighter(s, BattleSide.Player);
             foreach (var s in _setup.Enemy) MakeFighter(s, BattleSide.Enemy);
-            // Alien/Mount power from the side's worm (GDD §4.1 AlienPower, MountPower). The mount's own AlienPower (Hive Carrier
-            // weapons: mount skills sit on the mount) reaches the squad too.
+            // Alien / mount power from the side's worm (GDD §4.1). The mount's own AlienPower (Hive Carrier weapons sit on the mount)
+            // reaches the sidekicks too. Aliens are sidekicks: their HP / ATK / DEF become ability power (InitSidekick).
             for (int side = 0; side < 2; side++)
             {
                 Fighter worm = FirstWorm((BattleSide)side);
-                if (worm == null) continue;
-                double ap = worm.S(StatId.AlienPower), mp = worm.S(StatId.MountPower);
-                foreach (var f in F) if ((int)f.Side == side && f.Role == CombatRole.Mount) ap += f.S(StatId.AlienPower);
+                double ap = AlienPowerOf((BattleSide)side), mp = worm != null ? worm.S(StatId.MountPower) : 0;
                 foreach (var f in F)
                 {
                     if ((int)f.Side != side) continue;
-                    if (f.Role == CombatRole.Alien) { f.Pct[(int)StatId.Atk] += ap; f.Pct[(int)StatId.Hp] += ap; }
+                    if (f.Role == CombatRole.Alien || f.Role == CombatRole.Summon) InitSidekick(f, ap);
                     else if (f.Role == CombatRole.Mount) f.Pct[(int)StatId.Atk] += mp;
                 }
             }
@@ -279,6 +309,36 @@ namespace RogueStars.Rules.Systems
                 var worm = FirstWorm(f.Side);
                 if (worm != null && worm.Alive) worm.Shield += Math.Max(0, f.S(StatId.Hp));
             }
+        }
+
+        /// <summary>
+        /// A sidekick's HP, ATK and DEF fold into its ability power (its ATK in battle): ATK + HP × HpToPower + DEF × DefToPower, then
+        /// × (1 + alien power %). Its charge starts at SidekickStartCharge.
+        /// </summary>
+        private void InitSidekick(Fighter f, double alienPower)
+        {
+            f.Sidekick = true;
+            double power = BattleSimulator.SidekickPower(f.S(StatId.Atk), f.S(StatId.Hp), f.S(StatId.Def), T);
+            f.Flat[(int)StatId.Atk] = power;
+            f.Pct[(int)StatId.Atk] = alienPower;
+            f.AlienPower = alienPower;
+            f.Charge = T.SidekickStartCharge;
+        }
+
+        private double AlienPowerOf(BattleSide side)
+        {
+            var worm = FirstWorm(side);
+            double ap = worm != null ? worm.S(StatId.AlienPower) : 0;
+            foreach (var f in F) if (f.Side == side && f.Role == CombatRole.Mount) ap += f.S(StatId.AlienPower);
+            return ap;
+        }
+
+        /// <summary>Support abilities (heal, shield, rage, buffs) of a sidekick scale with its power; everyone else's are as written.</summary>
+        private double SupportScale(Fighter owner)
+        {
+            if (!owner.Sidekick) return 1;
+            double ap = 1 + owner.AlienPower / 100.0;
+            return BattleSimulator.SidekickSupportScale(owner.S(StatId.Atk) / Math.Max(0.01, ap), T) * Math.Max(0, ap);
         }
 
         private Fighter FirstWorm(BattleSide side)
@@ -394,6 +454,7 @@ namespace RogueStars.Rules.Systems
 
         private void TakeTurn(Fighter f)
         {
+            if (f.Sidekick) { SidekickTurn(f); return; }
             double regen = f.S(StatId.Regen);
             if (regen > 0 && f.Hp < f.MaxHp) Heal(f, f, f.MaxHp * regen / 100.0 * (1 + f.S(StatId.HealPower) / 100.0), BattleAction.Regen, null, false);
 
@@ -458,6 +519,38 @@ namespace RogueStars.Rules.Systems
                 links++;
             }
             if (f.Alive) EndTurn(f);
+        }
+
+        /// <summary>A sidekick's turn: it charges Speed × (1 + haste %); a full charge (SidekickActAt) is spent on one action.</summary>
+        private void SidekickTurn(Fighter f)
+        {
+            var worm = FirstWorm(f.Side);
+            double haste = worm != null ? Math.Max(-90, worm.S(StatId.SidekickHaste)) : 0;
+            f.Charge += Math.Max(0, f.S(StatId.Speed)) * (1 + haste / 100.0);
+            if (f.Charge < T.SidekickActAt) return;
+            f.Charge = Math.Min(T.SidekickActAt, f.Charge - T.SidekickActAt); // at most one own action per turn
+            SidekickAct(f, false);
+        }
+
+        /// <summary>
+        /// A sidekick acts: a SidekickAct marker, its ability (OnAct triggers), then OnSidekickAct on its side's worm and mount.
+        /// </summary>
+        private void SidekickAct(Fighter f, bool extra)
+        {
+            if (!f.Alive || Over) return;
+            string ability = null;
+            foreach (var sk in f.Skills)
+                foreach (var t in sk.Triggers)
+                    if (ability == null && t.When == TriggerKind.OnAct) ability = sk.Id;
+            var e = Log(BattleAction.SidekickAct, f, f, 0);
+            if (e != null) { e.SkillId = ability; e.Stacks = extra ? 1 : 0; }
+            Fire(f, TriggerKind.OnAct, null);
+            if (Over) return;
+            foreach (var o in F)
+            {
+                if (Over) break;
+                if (o.Side == f.Side && o.Alive && (o.Role == CombatRole.Worm || o.Role == CombatRole.Mount)) Fire(o, TriggerKind.OnSidekickAct, null);
+            }
         }
 
         private void EndTurn(Fighter f)
@@ -542,6 +635,16 @@ namespace RogueStars.Rules.Systems
             if (!att.Alive || !def.Alive || Over) return;
 
             bool crit = R.Chance(CombatMath.CritProbability(att.S(StatId.CritChance), T));
+            if (def.Guards.Count > 0)
+            {
+                // a blocking sidekick intercepts the hit: nothing lands, no on-hit or when-hit triggers
+                var blocker = F[def.Guards[0]];
+                def.Guards.RemoveAt(0);
+                double stopped = ComputeDamage(att, def, StylePct(att.Style, kind), 0, crit, kind, false);
+                var b = Log(BattleAction.Block, blocker, def, stopped);
+                if (b != null) { b.Crit = crit; b.Stacks = def.Guards.Count; }
+                return;
+            }
             double dodgeP = CombatMath.DodgeProbability(def.S(StatId.Dodge), att.S(StatId.DodgeIgnore), def.ConsecutiveDodges, T);
             if (dodgeP > 0 && R.Chance(dodgeP))
             {
@@ -714,6 +817,7 @@ namespace RogueStars.Rules.Systems
                 case EffectKind.ConsumeStatus:
                 case EffectKind.Strike:
                 case EffectKind.AllyAction:
+                case EffectKind.Block:
                     return true;
                 default:
                     return false;
@@ -834,7 +938,11 @@ namespace RogueStars.Rules.Systems
                         if (!tg.Alive || tg.Side == owner.Side) continue;
                         bool crit = R.Chance(CombatMath.CritProbability(owner.S(StatId.CritChance), T));
                         double dmg = ComputeDamage(owner, tg, t.Value, bonus, crit, AttackKind.Skill, isTrue);
-                        DealDamage(owner, tg, dmg, false, BattleAction.Skill, crit, false, StatusId.None, skill.Id);
+                        double dealt = DealDamage(owner, tg, dmg, false, BattleAction.Skill, crit, false, StatusId.None, skill.Id);
+                        // a sidekick's lifesteal (Vampiric) heals its worm: the sidekick itself is never hurt
+                        double ls = owner.Sidekick ? owner.S(StatId.LifeSteal) : 0;
+                        var lw = ls > 0 && dealt > 0 ? FirstWorm(owner.Side) : null;
+                        if (lw != null && lw.Alive) Heal(owner, lw, dealt * ls / 100.0, BattleAction.LifeSteal, skill.Id, false);
                         if (tg.Alive) Fire(tg, TriggerKind.OnDamaged, owner);
                     }
                     break;
@@ -844,13 +952,14 @@ namespace RogueStars.Rules.Systems
                     break;
                 case EffectKind.Heal:
                     foreach (var tg in targets)
-                        Heal(owner, tg, tg.MaxHp * t.Value / 100.0 * (1 + owner.S(StatId.HealPower) / 100.0), BattleAction.Heal, skill.Id, t.Param == "overheal_shield");
+                        if (!tg.Sidekick) // sidekicks have no HP to heal
+                            Heal(owner, tg, tg.MaxHp * t.Value / 100.0 * SupportScale(owner) * (1 + owner.S(StatId.HealPower) / 100.0), BattleAction.Heal, skill.Id, t.Param == "overheal_shield");
                     break;
                 case EffectKind.Shield:
                     foreach (var tg in targets)
                     {
-                        if (!tg.Alive) continue;
-                        double amt = tg.MaxHp * t.Value / 100.0 * (1 + owner.S(StatId.ShieldPower) / 100.0);
+                        if (!tg.Alive || tg.Sidekick) continue;
+                        double amt = tg.MaxHp * t.Value / 100.0 * SupportScale(owner) * (1 + owner.S(StatId.ShieldPower) / 100.0);
                         tg.Shield += amt;
                         var e = Log(BattleAction.Shield, owner, tg, amt);
                         if (e != null) e.SkillId = skill.Id;
@@ -859,9 +968,10 @@ namespace RogueStars.Rules.Systems
                 case EffectKind.GainRage:
                     foreach (var tg in targets)
                     {
-                        if (!tg.Alive) continue;
-                        tg.Rage = Math.Min(T.RageOverfillMax, tg.Rage + t.Value);
-                        var e = Log(BattleAction.GainRage, owner, tg, t.Value);
+                        if (!tg.Alive || tg.Sidekick) continue; // sidekicks have no rage
+                        double rage = t.Value * SupportScale(owner);
+                        tg.Rage = Math.Min(T.RageOverfillMax, tg.Rage + rage);
+                        var e = Log(BattleAction.GainRage, owner, tg, rage);
                         if (e != null) e.SkillId = skill.Id;
                     }
                     break;
@@ -870,7 +980,20 @@ namespace RogueStars.Rules.Systems
                     foreach (var tg in targets)
                     {
                         if (!tg.Alive) continue;
-                        var b = new BuffInst { Stat = t.Stat.Stat, Flat = t.Stat.Flat, Percent = t.Stat.Percent, Rounds = t.Duration > 0 ? t.Duration : -1 };
+                        double k = SupportScale(owner);
+                        var b = new BuffInst { Stat = t.Stat.Stat, Flat = t.Stat.Flat * k, Percent = t.Stat.Percent * k, Rounds = t.Duration > 0 ? t.Duration : -1, Sidekick = owner.Sidekick ? owner.Index : -1 };
+                        if (owner.Sidekick)
+                        {
+                            // a sidekick's buff refreshes (its next action renews it) rather than stacking with itself
+                            for (int bi = tg.Buffs.Count - 1; bi >= 0; bi--)
+                            {
+                                var old = tg.Buffs[bi];
+                                if (old.Sidekick != owner.Index || old.Stat != b.Stat) continue;
+                                tg.BFlat[(int)old.Stat] -= old.Flat;
+                                tg.BPct[(int)old.Stat] -= old.Percent;
+                                tg.Buffs.RemoveAt(bi);
+                            }
+                        }
                         tg.Buffs.Add(b);
                         tg.BFlat[(int)b.Stat] += b.Flat;
                         tg.BPct[(int)b.Stat] += b.Percent;
@@ -901,22 +1024,31 @@ namespace RogueStars.Rules.Systems
                 }
                 case EffectKind.AllyAction:
                 {
-                    var aliens = new List<Fighter>();
-                    foreach (var o in F) if (o.Side == owner.Side && o.Alive && o.Role == CombatRole.Alien) aliens.Add(o);
-                    if (aliens.Count == 0) break;
-                    int start = Round % aliens.Count;
-                    for (int n = 0; n < Math.Min(Math.Max(1, t.Stacks), aliens.Count); n++)
+                    // Stacks extra sidekick actions, round-robin over the side's sidekicks (a lone sidekick acts several times)
+                    var kicks = new List<Fighter>();
+                    foreach (var o in F) if (o.Side == owner.Side && o.Alive && o.Sidekick) kicks.Add(o);
+                    if (kicks.Count == 0) break;
+                    int start = Round % kicks.Count;
+                    for (int n = 0; n < Math.Max(1, t.Stacks); n++)
                     {
                         if (Over || !owner.Alive) break;
-                        var a = aliens[(start + n) % aliens.Count];
-                        var tg = DefaultTarget(a);
-                        if (tg == null || !a.Alive) continue;
+                        var a = kicks[(start + n) % kicks.Count];
+                        if (!a.Alive) continue;
                         var e = Log(BattleAction.Buff, owner, a, 0); // the extra action, credited to the skill
                         if (e != null) e.SkillId = skill.Id;
-                        Attack(a, tg, AttackKind.Basic, 0);
+                        SidekickAct(a, true);
                     }
                     break;
                 }
+                case EffectKind.Block:
+                    foreach (var tg in targets)
+                    {
+                        if (!tg.Alive || !tg.Targetable) continue;
+                        for (int n = 0; n < Math.Max(1, t.Stacks) && tg.Guards.Count < T.MaxGuards; n++) tg.Guards.Add(owner.Index);
+                        var e = Log(BattleAction.Guard, owner, tg, 0);
+                        if (e != null) { e.SkillId = skill.Id; e.Stacks = tg.Guards.Count; }
+                    }
+                    break;
             }
         }
 
@@ -1042,6 +1174,8 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         private void Summon(Fighter owner, SkillDef skill, SkillTrigger t)
         {
+            var sk = C.Sidekick(t.Param);
+            if (owner.Side == BattleSide.Player && sk != null) { SummonSidekicks(owner, skill, t, sk); return; }
             if (owner.Side != BattleSide.Enemy || t.Param == null || !C.Enemies.ContainsKey(t.Param)) return;
             int count = 0;
             foreach (var f in F) if (f.Side == owner.Side && f.Alive) count++;
@@ -1054,6 +1188,32 @@ namespace RogueStars.Rules.Systems
             Res.Fighters[nf.Index].StartRage = Round0(nf.Rage);
             var e = Log(BattleAction.Summon, owner, nf, 0);
             if (e != null) e.SkillId = skill.Id;
+        }
+
+        /// <summary>
+        /// Player-side summon (sidekick pass): Stacks battle-scoped sidekicks of a SidekickDef (drones), each with ability power =
+        /// Value % of the summoner's ATK × (1 + the side's alien power %), untargetable, charging by the def's Speed.
+        /// </summary>
+        private void SummonSidekicks(Fighter owner, SkillDef skill, SkillTrigger t, SidekickDef sk)
+        {
+            for (int n = 0; n < Math.Max(1, t.Stacks); n++)
+            {
+                int count = 0;
+                foreach (var f in F) if (f.Side == owner.Side && f.Alive) count++;
+                if (count >= T.MaxFightersPerSide) return;
+                var spec = new CombatantSpec
+                {
+                    Id = sk.Id, Name = sk.Name, Role = CombatRole.Summon, Targetable = false, Style = AttackStyle.Blaster,
+                };
+                spec.Stats.Add(new StatMod(StatId.Atk, owner.S(StatId.Atk) * t.Value / 100.0)).Add(new StatMod(StatId.Speed, sk.Speed));
+                if (!string.IsNullOrEmpty(sk.AbilitySkillId)) spec.SkillIds.Add(sk.AbilitySkillId);
+                var nf = MakeFighter(spec, owner.Side);
+                nf.SummonedBy = owner.Index;
+                InitSidekick(nf, AlienPowerOf(owner.Side));
+                InitHp(nf);
+                var e = Log(BattleAction.Summon, owner, nf, 0);
+                if (e != null) e.SkillId = skill.Id;
+            }
         }
 
         // ---- log ------------------------------------------------------------------------------
