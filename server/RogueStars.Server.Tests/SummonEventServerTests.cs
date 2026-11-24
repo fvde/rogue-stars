@@ -36,7 +36,7 @@ public class SummonEventServerTests : IDisposable
         var payload = pull.Body.GetProperty("payload");
         Assert.Single(payload.GetProperty("items").EnumerateArray());
         Assert.Equal(def.TokensPerPull, payload.GetProperty("tokens").GetInt64());
-        Assert.Equal(def.Gacha.MythicHardPity, payload.GetProperty("luckMax").GetInt32());
+        Assert.Equal(def.Gacha.MythicPity, payload.GetProperty("luckMax").GetInt32());
 
         // Replaying the same request id does not pull again.
         var again = await p.CommandAsync("SummonPull", new { eventType = 0, count = 1, payment = 0 }, "pull-1");

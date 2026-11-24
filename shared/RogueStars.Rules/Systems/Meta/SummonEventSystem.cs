@@ -9,8 +9,9 @@ namespace RogueStars.Rules.Systems
     /// Summon events (docs/design/summon-events.md): the way to get heroes and mounts. One hero event (6 days) and one mount
     /// event (3 days) at a time, each featuring one hero / mount from a deterministic global rotation
     /// (<see cref="SummonEventTypeDef.Rotation"/>); the player's first event of a type starts when its feature unlocks.
-    /// Pulls cost persistent tickets (or Diamonds) and pay exchange tokens; the visible Luck meter is the Mythic pity (the
-    /// featured copy), carried to the next event of the type; copies of a hero / mount raise its stars (granters in
+    /// Pulls cost persistent tickets (or Diamonds) and pay exchange tokens; a Mythic (a flat 1.2%) is the featured hero / mount's
+    /// batch of 50 shards, the rest is filler; the visible Luck meter is the fixed Mythic pity (100), carried to the next event of
+    /// the type (pull system, docs/design/pull-system.md). Batches unlock the hero / mount or pay its shards (granters in
     /// HeroSystem / MountSystem). Per event: task lines counted from the event start, pull-count milestones, an exchange
     /// shop with event limits, a free + premium day pass, packs (products) and a daily ad ticket.
     /// When an event ends, its unclaimed task and pass rewards are mailed (on joining the next event of the type).
@@ -93,7 +94,7 @@ namespace RogueStars.Rules.Systems
 
         public static int Luck(GameState s, SummonEventType type) => s.Summons.Luck.TryGetValue(type, out var p) ? p.SinceMythic : 0;
 
-        public static int LuckMax(ContentDb c, SummonEventType type) => c.SummonType(type)?.Gacha.MythicHardPity ?? 0;
+        public static int LuckMax(ContentDb c, SummonEventType type) => c.SummonType(type)?.Gacha.MythicPity ?? 0;
 
         /// <summary>Resolve the featured placeholder in a reward id ("@featured", "shards_mount_@featured").</summary>
         public static Reward Resolve(Reward r, string featuredId) =>
@@ -350,12 +351,13 @@ namespace RogueStars.Rules.Systems
             bool gotMin = false;
             for (int i = 0; i < cmd.Count; i++)
             {
-                bool forceMin = cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
+                bool forceMin = def.Gacha.TenPullGuarantee && cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
                 var tier = GachaSystem.RollTier(def.Gacha, pity, ctx.Rng, forceMin);
                 if (tier.Tier >= def.Gacha.TenPullMinTier) gotMin = true;
                 result.Items.Add(PickItem(tier, prog.FeaturedId, ctx.Rng));
             }
-            // Grant after rolling (a granter never influences later rolls); a copy's note is what it did when granted.
+            // Grant after rolling (a granter never influences later rolls); a batch's note is what it did when granted.
+            long batch = ctx.Content.ShardStars.BatchShards;
             foreach (var item in result.Items)
             {
                 if (item.Kind == RewardKinds.Hero)
@@ -363,12 +365,14 @@ namespace RogueStars.Rules.Systems
                     item.Note = HeroSystem.CopyEffect(s, ctx.Content, item.Id);
                     ctx.Grant(new Reward(item.Kind, item.Id, item.Amount));
                     item.Stars = HeroSystem.Get(s, item.Id)?.Stars ?? 0;
+                    item.Shards = item.Note == "overflow" ? 0 : item.Amount * batch;
                 }
                 else if (item.Kind == RewardKinds.Mount)
                 {
                     item.Note = MountSystem.CopyEffect(s, ctx.Content, item.Id);
                     ctx.Grant(new Reward(item.Kind, item.Id, item.Amount));
                     item.Stars = MountSystem.Get(s, item.Id)?.Stars ?? 0;
+                    item.Shards = item.Note == "overflow" ? 0 : item.Amount * batch;
                 }
                 else ctx.Grant(new Reward(item.Kind, item.Id, item.Amount));
             }
@@ -376,7 +380,7 @@ namespace RogueStars.Rules.Systems
             ctx.Grant(Reward.Cur(def.TokenCurrency, result.Tokens));
             prog.Pulls += cmd.Count;
             result.Luck = pity.SinceMythic;
-            result.LuckMax = def.Gacha.MythicHardPity;
+            result.LuckMax = def.Gacha.MythicPity;
             result.LuckTriggered = pity.MythicPityTriggers > triggersBefore;
 
             string key = Key(cmd.EventType);
@@ -389,11 +393,7 @@ namespace RogueStars.Rules.Systems
         private static SummonPullItem PickItem(GachaTierDef tier, string featuredId, Rng rng)
         {
             var weights = new double[tier.Pool.Count];
-            for (int i = 0; i < weights.Length; i++)
-            {
-                var e = tier.Pool[i];
-                weights[i] = e.Id == featuredId ? 0 : e.Weight; // "other heroes": never the featured one
-            }
+            for (int i = 0; i < weights.Length; i++) weights[i] = tier.Pool[i].Weight;
             int idx = rng.PickWeighted(weights);
             if (idx < 0) throw new RuleException("empty summon pool");
             var en = tier.Pool[idx];

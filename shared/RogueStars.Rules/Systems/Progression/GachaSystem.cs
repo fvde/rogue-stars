@@ -7,16 +7,35 @@ namespace RogueStars.Rules.Systems
 {
     /// <summary>
     /// Gacha: three pull types (Blueprint, Part, Alien), each payable with its free token or Diamonds;
-    /// 1- and 10-pulls (10-pull guarantees Epic+); weighted rarity tiers; hidden mythic hard pity and
-    /// legendary soft/hard pity per pull type (shared across banners, carried over); themed rotating
-    /// mythic banners with a featured rate-up. Results use ctx.Rng and are granted through ctx.Grant.
+    /// 1- and 10-pulls (the visible 10-pull rule: at least one Epic+); flat published rarity rates; the fixed, visible pity
+    /// per pull type ("Mythic x / 100", "Legendary x / 40", shared across banners, carried over; no soft or hidden pity —
+    /// docs/design/pull-system.md); themed rotating mythic banners with a featured rate-up. A blueprint / alien result is one
+    /// batch of ShardStars.BatchShards shards (the first unlocks the item). Results use ctx.Rng and are granted through ctx.Grant.
     /// </summary>
     public static class GachaSystem
     {
         public static void Register(GameEngine e)
         {
             e.Register<GachaPull>(HandlePull);
+            PullSystemMigration.Register(e);
         }
+
+        // ---- pity (visible) ------------------------------------------------------------------------
+
+        /// <summary>The visible counters of a pull type: "Mythic x / 100", "Legendary x / 40".</summary>
+        public static GachaPityStatus Pity(GameState s, ContentDb c, GachaType type)
+        {
+            var def = c.GachaConfig.Types.TryGetValue(type, out var d) ? d : null;
+            var p = s.Gacha.Pity.TryGetValue(type, out var x) ? x : null;
+            return PityOf(def, p);
+        }
+
+        /// <summary>The visible counters of any pull type definition (Signals and summon events).</summary>
+        public static GachaPityStatus PityOf(GachaTypeDef def, GachaPityState p) => new GachaPityStatus
+        {
+            Mythic = p?.SinceMythic ?? 0, MythicPity = def?.MythicPity ?? 0,
+            Legendary = def != null && def.LegendaryPity > 0 ? p?.SinceLegendary ?? 0 : 0, LegendaryPity = def?.LegendaryPity ?? 0,
+        };
 
         // ---- banners -------------------------------------------------------------------------------
 
@@ -55,14 +74,18 @@ namespace RogueStars.Rules.Systems
         // ---- odds ----------------------------------------------------------------------------------
 
         /// <summary>
-        /// Published odds per tier and item (base rates). With a banner, the featured item takes
-        /// FeaturedShare of the Mythic tier. Pity is hidden and not included.
+        /// Published odds per tier and item (the flat rates of every pull). With a banner, the featured item takes
+        /// FeaturedShare of the Mythic tier. The fixed pity values and the 10-pull rule are published with them.
         /// </summary>
         public static GachaOdds GetOdds(ContentDb c, GachaType type, string bannerId, long nowMs)
         {
             var def = c.GachaConfig.Types[type];
             var banner = ResolveBanner(c, type, bannerId, nowMs, false);
-            var odds = new GachaOdds { Type = type, BannerId = banner != null ? banner.Id : "", TenPullMinTier = def.TenPullMinTier };
+            var odds = new GachaOdds
+            {
+                Type = type, BannerId = banner != null ? banner.Id : "", TenPullGuarantee = def.TenPullGuarantee, TenPullMinTier = def.TenPullMinTier,
+                MythicPity = def.MythicPity, LegendaryPity = def.LegendaryPity, BatchShards = c.ShardStars.BatchShards,
+            };
             double total = 0;
             foreach (var t in def.Tiers) total += Math.Max(0, t.Weight);
             foreach (var t in def.Tiers)
@@ -133,14 +156,25 @@ namespace RogueStars.Rules.Systems
             bool gotMin = false;
             for (int i = 0; i < cmd.Count; i++)
             {
-                bool forceMin = cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
+                bool forceMin = def.TenPullGuarantee && cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
                 var tier = RollTier(def, pity, ctx.Rng, forceMin);
                 if (tier.Tier >= def.TenPullMinTier) gotMin = true;
                 var item = PickItem(tier, banner, ctx.Rng);
                 result.Items.Add(item);
             }
-            // Grant after rolling so a granter can never influence later rolls of the same command.
-            foreach (var item in result.Items) ctx.Grant(new Reward(item.Kind, item.Id, item.Amount, item.Rarity));
+            // Grant after rolling so a granter can never influence later rolls of the same command. A blueprint / alien is one
+            // batch of shards: its note says whether it unlocked the item ("new") or paid shards ("shards").
+            foreach (var item in result.Items)
+            {
+                if (item.Kind == RewardKinds.Blueprint || item.Kind == RewardKinds.Alien)
+                {
+                    bool owned = item.Kind == RewardKinds.Blueprint ? CitySystem.Owned(s, item.Id) != null : AlienSystem.Owned(s, item.Id) != null;
+                    item.Note = owned ? "shards" : "new";
+                    item.Shards = item.Amount * c.ShardStars.BatchShards;
+                }
+                ctx.Grant(new Reward(item.Kind, item.Id, item.Amount, item.Rarity));
+            }
+            result.Pity = PityOf(def, pity);
 
             string key = cmd.PullType.ToString().ToLowerInvariant();
             s.Count("pulls_" + key, cmd.Count);
@@ -154,32 +188,33 @@ namespace RogueStars.Rules.Systems
             return CommandResult.Success(result);
         }
 
-        /// <summary>One tier roll with the hidden pity (also used by summon events, whose Mythic pity is the visible Luck).</summary>
-        internal static GachaTierDef RollTier(GachaTypeDef def, GachaPityState pity, Rng rng, bool forceMin)
+        /// <summary>
+        /// One tier roll with the fixed, visible pity (also used by summon events, whose Mythic pity is the Luck meter):
+        /// the MythicPity-th pull without a Mythic is a Mythic; otherwise one roll on the flat published rates, and a result below
+        /// Legendary becomes Legendary on the LegendaryPity-th pull without Legendary+ (the Mythic chance of that pull stays the flat
+        /// rate), and a result below TenPullMinTier becomes that tier on a 10-pull's last pull without one (<paramref name="forceMin"/>).
+        /// </summary>
+        public static GachaTierDef RollTier(GachaTypeDef def, GachaPityState pity, Rng rng, bool forceMin)
         {
             pity.TotalPulls++;
             GachaTierDef chosen = null;
-            if (pity.SinceMythic + 1 >= def.MythicHardPity)
+            if (def.MythicPity > 0 && pity.SinceMythic + 1 >= def.MythicPity)
             {
-                foreach (var t in def.Tiers) if (t.Tier == Rarity.Mythic) chosen = t;
+                chosen = TierOf(def, Rarity.Mythic);
                 if (chosen != null) pity.MythicPityTriggers++;
             }
             if (chosen == null)
             {
-                int sinceLeg = pity.SinceLegendary + 1;
                 var weights = new double[def.Tiers.Count];
-                for (int i = 0; i < weights.Length; i++)
-                {
-                    var t = def.Tiers[i];
-                    double w = t.Weight;
-                    if (t.Tier == Rarity.Legendary && sinceLeg > def.LegendarySoftPityStart)
-                        w += def.LegendarySoftPityStep * (sinceLeg - def.LegendarySoftPityStart);
-                    if (sinceLeg >= def.LegendaryHardPity && t.Tier < Rarity.Legendary) w = 0;
-                    if (forceMin && t.Tier < def.TenPullMinTier) w = 0;
-                    weights[i] = w;
-                }
+                for (int i = 0; i < weights.Length; i++) weights[i] = Math.Max(0, def.Tiers[i].Weight);
                 int idx = rng.PickWeighted(weights);
                 chosen = def.Tiers[idx < 0 ? def.Tiers.Count - 1 : idx];
+                if (chosen.Tier < Rarity.Legendary && def.LegendaryPity > 0 && pity.SinceLegendary + 1 >= def.LegendaryPity)
+                {
+                    var leg = TierOf(def, Rarity.Legendary);
+                    if (leg != null) { chosen = leg; pity.LegendaryPityTriggers++; }
+                }
+                if (forceMin && chosen.Tier < def.TenPullMinTier) chosen = TierOf(def, def.TenPullMinTier) ?? chosen;
             }
 
             if (chosen.Tier == Rarity.Mythic) { pity.SinceMythic = 0; pity.SinceLegendary = 0; pity.Mythics++; }
@@ -189,6 +224,12 @@ namespace RogueStars.Rules.Systems
                 if (chosen.Tier == Rarity.Legendary) pity.SinceLegendary = 0; else pity.SinceLegendary++;
             }
             return chosen;
+        }
+
+        private static GachaTierDef TierOf(GachaTypeDef def, Rarity r)
+        {
+            foreach (var t in def.Tiers) if (t.Tier == r) return t;
+            return null;
         }
 
         private static GachaPullItem PickItem(GachaTierDef tier, ActiveBannerInfo banner, Rng rng)

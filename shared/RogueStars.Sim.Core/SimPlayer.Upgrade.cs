@@ -258,9 +258,9 @@ namespace RogueStars.Sim
             if (!Unlocked(Features.Heroes)) return;
             var cfg = C.HeroConfig;
             foreach (var id in cfg.Defs.Keys.OrderBy(x => x, StringComparer.Ordinal))
-                if (HeroSystem.Get(S, id) == null && Bal(Currencies.HeroShards(id)) >= cfg.StarShardCosts[1]) Exec(new HeroUnlock { HeroId = id });
+                if (HeroSystem.Get(S, id) == null && Bal(Currencies.HeroShards(id)) >= C.ShardStars.UnlockShards) Exec(new HeroUnlock { HeroId = id });
             foreach (var (id, h) in S.Heroes.Owned.OrderBy(k => k.Key, StringComparer.Ordinal).ToList())
-                while (h.Stars < cfg.MaxStars && Bal(Currencies.HeroShards(id)) >= cfg.StarShardCosts[h.Stars + 1] && Ok(new HeroStarUp { HeroId = id })) { }
+                while (h.Stars < cfg.MaxStars && Bal(Currencies.HeroShards(id)) >= C.ShardStars.NextCost(h.Stars) && Ok(new HeroStarUp { HeroId = id })) { }
             var best = S.Heroes.Owned.OrderByDescending(k => k.Value.Stars).ThenByDescending(k => k.Key == TargetHero).ThenByDescending(k => k.Value.Level)
                 .ThenBy(k => k.Key, StringComparer.Ordinal).Select(k => k.Key).FirstOrDefault();
             if (best != null && S.Heroes.Equipped != best) Exec(new HeroEquip { HeroId = best });
@@ -276,19 +276,18 @@ namespace RogueStars.Sim
             if (!Unlocked(Features.Mounts)) return;
             var cfg = C.MountConfig;
             foreach (var id in cfg.Defs.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
-                if (MountSystem.Get(S, id) == null && Bal(Currencies.MountShards(id)) >= cfg.UnlockShards) Exec(new MountUnlock { MountId = id });
+                if (MountSystem.Get(S, id) == null && Bal(Currencies.MountShards(id)) >= C.ShardStars.UnlockShards) Exec(new MountUnlock { MountId = id });
             if (S.Mounts.Owned.Count == 0) return;
             foreach (var (id, m) in S.Mounts.Owned.OrderBy(k => k.Key, StringComparer.Ordinal).ToList())
             {
-                while (m.Stars < cfg.MaxStars && Bal(Currencies.MountShards(id)) >= cfg.StarShardCosts[m.Stars + 1] && Ok(new MountStarUp { MountId = id })) { }
-                while (m.Stars >= cfg.MaxStars && m.Awaken < cfg.MaxAwaken && Bal(Currencies.MountShards(id)) >= cfg.AwakenShardCosts[m.Awaken + 1]
-                       && Bal(Currencies.MountCores) >= cfg.AwakenCoreCosts[m.Awaken + 1] && Ok(new MountAwaken { MountId = id })) { }
+                while (m.Stars < cfg.MaxStars && Bal(Currencies.MountShards(id)) >= C.ShardStars.NextCost(m.Stars)
+                       && Bal(Currencies.MountCores) >= MountSystem.NextStarCores(S, C, id) && Ok(new MountStarUp { MountId = id })) { }
             }
-            var best = S.Mounts.Owned.OrderByDescending(k => k.Value.Stars + k.Value.Awaken).ThenByDescending(k => k.Value.Level)
+            var best = S.Mounts.Owned.OrderByDescending(k => k.Value.Stars).ThenByDescending(k => k.Value.Level)
                 .ThenBy(k => k.Key, StringComparer.Ordinal).Select(k => k.Key).First();
             if (S.Mounts.Active != best) Exec(new MountEquip { MountId = best });
             var a = S.Mounts.Owned[best];
-            while (a.Level < cfg.MaxLevel(a.Stars, a.Awaken) && Bal(Currencies.Fuel) >= cfg.LevelFuelCosts[a.Level] && Ok(new MountLevelUp { MountId = best, Levels = 1 })) { }
+            while (a.Level < cfg.MaxLevel(a.Stars) && Bal(Currencies.Fuel) >= cfg.LevelFuelCosts[a.Level] && Ok(new MountLevelUp { MountId = best, Levels = 1 })) { }
         }
     }
 }

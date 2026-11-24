@@ -15,7 +15,7 @@ namespace RogueStars.Rules.Systems
 
     /// <summary>
     /// City: a grid of areas unlocked one by one; blueprints (one building each) are placed, constructed and
-    /// upgraded on timers; blueprint stars 1–10 from duplicate shards with star milestones; production buildings
+    /// upgraded on timers; blueprint stars 1–10 on the shared shard table (pull batches of 50) with star milestones; production buildings
     /// settle lazily from timestamps into capped storage; boon buildings feed runs (meta skills, draft rerolls,
     /// squad slots), stamina and other systems (breeding, laboratory).
     ///
@@ -152,12 +152,8 @@ namespace RogueStars.Rules.Systems
             return (long)Math.Ceiling(ms / BuildSpeed(state, content, nowMs));
         }
 
-        /// <summary>Shards needed for the next star, or 0 at max.</summary>
-        public static long StarCost(ContentDb content, OwnedBlueprint b)
-        {
-            var costs = content.CityTuning.BlueprintStarCosts;
-            return b.Stars >= MaxStars || b.Stars - 1 >= costs.Length ? 0 : costs[b.Stars - 1];
-        }
+        /// <summary>Shards needed for the next star (the shared table, ContentDb.ShardStars), or 0 at max.</summary>
+        public static long StarCost(ContentDb content, OwnedBlueprint b) => b.Stars >= MaxStars ? 0 : Math.Max(0, content.ShardStars.NextCost(b.Stars));
 
         // ---- boons ------------------------------------------------------------------------------
 
@@ -293,7 +289,7 @@ namespace RogueStars.Rules.Systems
         public static int WorkerSlots(ContentDb content, BlueprintDef def, OwnedBlueprint b)
         {
             if (def == null) return 0;
-            if (def.Category != BuildingCategory.Production) return def.WorkerSlots;
+            if (def.Category != BuildingCategory.Production) return def.WorkerSlots + (b != null ? (int)MilestoneValue(def, b.Stars, BoonKind.WorkerSlots) : 0);
             return content.CityTuning.Rarity[(int)def.Rarity].WorkerSlots + (int)MilestoneValue(def, b.Stars, BoonKind.WorkerSlots);
         }
 
@@ -442,7 +438,10 @@ namespace RogueStars.Rules.Systems
             loadout.WormStats.AddAll(CollectionBonus(state, content));
         }
 
-        /// <summary>Blueprint granter: first copy = owned blueprint (1 star); further copies become shards.</summary>
+        /// <summary>
+        /// Blueprint granter (pull system, docs/design/pull-system.md): every copy is one batch of ShardStars.BatchShards shards; the
+        /// batch of a blueprint the player does not own unlocks it (1★, the batch's shards spent at once).
+        /// </summary>
         private static void GrantBlueprint(CommandContext ctx, Reward r)
         {
             if (RewardWildcard.IsWildcard(r))
@@ -456,18 +455,36 @@ namespace RogueStars.Rules.Systems
             long copies = r.Amount;
             if (!ctx.State.City.Blueprints.ContainsKey(def.Id))
             {
-                ctx.State.City.Blueprints[def.Id] = new OwnedBlueprint { Id = def.Id, Stars = 1, LastSettleMs = ctx.NowMs };
-                ctx.State.Count("blueprints_obtained");
-                ctx.Emit("blueprint_new", def.Id);
+                Unlock(ctx, def);
                 copies--;
             }
             if (copies > 0)
             {
-                long shards = copies * ctx.Content.CityTuning.BlueprintShardsPerDuplicate[(int)def.Rarity];
+                long shards = copies * ctx.Content.ShardStars.BatchShards;
                 ctx.State.Wallet.Add(Currencies.BlueprintShards(def.Id), shards);
                 ctx.State.Count("blueprint_duplicates", copies);
                 ctx.Emit("blueprint_shards", def.Id, shards.ToString());
             }
+        }
+
+        private static void Unlock(CommandContext ctx, BlueprintDef def)
+        {
+            ctx.State.City.Blueprints[def.Id] = new OwnedBlueprint { Id = def.Id, Stars = 1, LastSettleMs = ctx.NowMs };
+            ctx.State.Count("blueprints_obtained");
+            ctx.Emit("blueprint_new", def.Id);
+        }
+
+        /// <summary>
+        /// Unlock a blueprint from loose shards (Shard Reactor output): when it is not owned and its shards reach UnlockShards, they
+        /// are spent and the blueprint is owned at 1★. True if it unlocked.
+        /// </summary>
+        public static bool TryUnlockFromShards(CommandContext ctx, string blueprintId)
+        {
+            var def = ctx.Content.Blueprint(blueprintId);
+            if (def == null || Owned(ctx.State, blueprintId) != null) return false;
+            if (!ctx.State.Wallet.TrySpend(Currencies.BlueprintShards(blueprintId), ctx.Content.ShardStars.UnlockShards)) return false;
+            Unlock(ctx, def);
+            return true;
         }
 
         // ---- handlers -----------------------------------------------------------------------------

@@ -24,6 +24,7 @@ namespace RogueStars.Rules.Content
         StoragePct,          // + % storage cap of this building (milestones)
         WorkerSlots,         // + worker slots of this building (milestones)
         ResearchSlots,       // + laboratory research slots (Research Annex; needs its workers, see BuildingBoon.RequiredWorkers)
+        ReactorSpeedPct,     // Shard Reactor job speed-up percent (its own level boon)
     }
 
     [Serializable]
@@ -129,10 +130,6 @@ namespace RogueStars.Rules.Content
         /// <summary>Production priority: prioritized currency +Boost%, every other currency −Penalty%.</summary>
         public double PriorityBoostPct = 30, PriorityPenaltyPct = 10;
         public int MaxSquadSlots = 3;
-        /// <summary>Shards needed to go from star s to s+1 (index 0 = 1→2 ... index 8 = 9→10).</summary>
-        public long[] BlueprintStarCosts = { 1, 2, 3, 5, 8, 12, 18, 26, 36 };
-        /// <summary>Shards per duplicate blueprint copy, by rarity.</summary>
-        public long[] BlueprintShardsPerDuplicate = { 1, 1, 1, 1, 1 };
         public BuildingRarityTuning[] Rarity = new BuildingRarityTuning[0];
     }
 
@@ -304,6 +301,8 @@ namespace RogueStars.Rules.Content
             reliquary.Boons.Add(new BuildingBoon { Kind = BoonKind.RunSkill, SkillTiers = { new SkillTier(1, "bsk_ember_crown") } });
             reliquary.Milestones.Add(new StarMilestone { Stars = 5, Kind = BoonKind.RunSkill, SkillId = "bsk_storm_mantle", Description = "Second start skill" });
             reliquary.Milestones.Add(new StarMilestone { Stars = 10, Kind = BoonKind.RunSkill, SkillId = "bsk_frost_sigil", Description = "Third start skill" });
+
+            BuildShardReactor(); // Mythic: excess shards → shards of a rarer item of the same type (ContentDb.Reactor.cs)
         }
 
         // ---- content helpers (city) ----------------------------------------------------------

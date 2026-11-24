@@ -69,11 +69,11 @@ namespace RogueStars.Rules.Content
         public long TokensPerPull = 10;
         public long DiamondCost1, DiamondCost10;
         /// <summary>
-        /// Tiers, pool and pity (reuses the Signals' roll: hidden Legendary soft/hard pity, 10-pull Epic+). The visible
-        /// Luck meter is the Mythic pity: <see cref="GachaTypeDef.MythicHardPity"/> = Luck max, the Mythic tier is the
-        /// featured copy, so Luck counts pulls since the last featured copy and the pull that fills it is the featured
-        /// copy. Pool ids <see cref="SummonEventsConfig.Featured"/> = the event's featured id; an entry whose id is the
-        /// featured id itself is skipped (the "other heroes" entries).
+        /// Tiers, pool and pity (the Signals' roll, docs/design/pull-system.md): a Common filler tier (resources, Signal tokens, a
+        /// very rare Awaken Core) and the Mythic tier = the featured hero / mount batch of 50 shards, a flat 1.2%. The visible Luck
+        /// meter is the Mythic pity: <see cref="GachaTypeDef.MythicPity"/> = Luck max (100), so Luck counts pulls since the last
+        /// featured batch and the pull that fills it is the featured batch. No Legendary / Rare drops, no Legendary pity, no 10-pull
+        /// rule. Pool ids <see cref="SummonEventsConfig.Featured"/> = the event's featured id.
         /// </summary>
         public GachaTypeDef Gacha = new GachaTypeDef();
         /// <summary>Global rotation: occurrence k = [Epoch + k·Duration, +Duration), featured = Rotation[k mod n].</summary>
@@ -118,9 +118,6 @@ namespace RogueStars.Rules.Content
             const long D = MetaTime.Day;
             const string F = SummonEventsConfig.Featured;
             Reward Cur(string c, long n) => Reward.Cur(c, n);
-            double[] heroWeights = { 55, 30, 11.85, 3, 0.15 };
-            double[] mountWeights = { 55.6, 30, 11.2, 3, 0.2 };
-
             SummonTaskLineDef Task(string id, string text, string counter, Reward reward, params long[] targets)
             {
                 var t = new SummonTaskLineDef { Id = id, Text = text, CounterKey = counter, Reward = reward };
@@ -165,15 +162,14 @@ namespace RogueStars.Rules.Content
                 "hero_sparkplug", "hero_alchemist", "hero_beast_tamer", "hero_noodle_ninja",
                 "hero_hourglass_hermit", // hero & mount kits (appended)
             });
-            hero.Gacha = SummonGacha("Hero Summon", hero.TicketCurrency, heroWeights, luckMax: 300);
-            var heroOthers = GachaSortedKeys(HeroConfig.Defs);
-            SummonTier(hero.Gacha, Rarity.Common, new GachaEntry(RewardKinds.Currency, Currencies.HeroXp, 400, 0, 1));
-            SummonTier(hero.Gacha, Rarity.Rare, new GachaEntry(RewardKinds.HeroShards, F, 3, 0, 1));
-            SummonTier(hero.Gacha, Rarity.Epic, new GachaEntry(RewardKinds.HeroShards, F, 8, 0, 1));
-            SummonTier(hero.Gacha, Rarity.Legendary, new GachaEntry(RewardKinds.HeroShards, F, 20, 0, 1));
-            // Half of the Legendary results are shards of another hero (spread evenly; the featured one is skipped).
-            foreach (var id in heroOthers) SummonTier(hero.Gacha, Rarity.Legendary, new GachaEntry(RewardKinds.HeroShards, id, 15, 0, 1.0 / (heroOthers.Count - 1)));
-            SummonTier(hero.Gacha, Rarity.Mythic, new GachaEntry(RewardKinds.Hero, F, 1, 0, 1));
+            // Pull system: 1.2% the featured hero's batch of 50 shards (Luck 100), 98.8% filler (no Legendary / Rare hero drops).
+            hero.Gacha = SummonGacha("Hero Summon", hero.TicketCurrency, new GachaEntry(RewardKinds.Hero, F, 1, 0, 1),
+                new GachaEntry(RewardKinds.Currency, Currencies.HeroXp, 300, 0, 88.75),
+                new GachaEntry(RewardKinds.Currency, Currencies.HeroXp, 1000, 0, 5),
+                new GachaEntry(RewardKinds.Currency, Currencies.AlienTokens, 1, 0, 2),
+                new GachaEntry(RewardKinds.Currency, Currencies.PartTokens, 1, 0, 2),
+                new GachaEntry(RewardKinds.Currency, Currencies.BlueprintTokens, 1, 0, 1),
+                new GachaEntry(RewardKinds.Currency, ProgressionCurrencies.PartAwakenCores, 1, 0, 0.05));
             // Tasks (one ticket per reached target): an active F2P player reaches ~4 of 5 targets per line in 6 days
             // (simulator --counter-rates: ~120 enemies, ~3.5 won levels, ~5 mini-game medals, ~6 Alien / ~10 Part / ~3
             // Blueprint pulls a day), a casual player ~1–2, a binge player all.
@@ -217,14 +213,15 @@ namespace RogueStars.Rules.Content
                 "mount_scout_saucer", "mount_magma_barge", "mount_frost_frigate", "mount_toxic_hauler", "mount_star_lancer", "mount_hive_carrier",
                 "mount_rift_racer", "mount_aegis_walker", "mount_chrono_skiff", // hero & mount kits (appended)
             });
-            mount.Gacha = SummonGacha("Mount Summon", mount.TicketCurrency, mountWeights, luckMax: 200);
-            SummonTier(mount.Gacha, Rarity.Common, new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 500, 0, 1));
-            SummonTier(mount.Gacha, Rarity.Rare, new GachaEntry(RewardKinds.Currency, MountShardsOf(F), 1, 0, 1));
-            SummonTier(mount.Gacha, Rarity.Epic, new GachaEntry(RewardKinds.Currency, MountShardsOf(F), 4, 0, 2));
-            SummonTier(mount.Gacha, Rarity.Epic, new GachaEntry(RewardKinds.Currency, Currencies.MountCores, 5, 0, 1));
-            SummonTier(mount.Gacha, Rarity.Legendary, new GachaEntry(RewardKinds.Currency, MountShardsOf(F), 10, 0, 1));
-            SummonTier(mount.Gacha, Rarity.Legendary, new GachaEntry(RewardKinds.Currency, Currencies.MountCores, 10, 0, 1));
-            SummonTier(mount.Gacha, Rarity.Mythic, new GachaEntry(RewardKinds.Mount, F, 1, 0, 1));
+            // Pull system: 1.2% the featured mount's batch of 50 shards (Luck 100), 98.8% filler (no Legendary / Rare mount drops).
+            mount.Gacha = SummonGacha("Mount Summon", mount.TicketCurrency, new GachaEntry(RewardKinds.Mount, F, 1, 0, 1),
+                new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 300, 0, 81.75),
+                new GachaEntry(RewardKinds.Currency, Currencies.MountCores, 5, 0, 7),
+                new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 1500, 0, 5),
+                new GachaEntry(RewardKinds.Currency, Currencies.BlueprintTokens, 1, 0, 2),
+                new GachaEntry(RewardKinds.Currency, Currencies.PartTokens, 1, 0, 2),
+                new GachaEntry(RewardKinds.Currency, Currencies.AlienTokens, 1, 0, 1),
+                new GachaEntry(RewardKinds.Currency, ProgressionCurrencies.PartAwakenCores, 1, 0, 0.05));
             // 3-day targets: an active F2P player reaches ~3 of 5 per line (mount events come twice as often).
             var mt = Cur(mount.TicketCurrency, 1);
             mount.Tasks.Add(Task("enemies", "Defeat {0} enemies", "run_enemies_defeated", mt, 50, 150, 300, 500, 800));
@@ -256,18 +253,25 @@ namespace RogueStars.Rules.Content
         /// <summary>Mount shard currency of a mount id, or of the featured placeholder (resolved by the summon system).</summary>
         public static string MountShardsOf(string mountId) => Currencies.MountShards(mountId);
 
-        private static GachaTypeDef SummonGacha(string name, string ticket, double[] weights, int luckMax)
+        /// <summary>
+        /// A summon event's pull table: the Common filler tier (entry weights = percent of all pulls) and the Mythic tier (the featured
+        /// batch) at a flat Mythic rate of 100 − filler; the Mythic pity (Luck) at 100; no Legendary pity, no 10-pull rule.
+        /// </summary>
+        private static GachaTypeDef SummonGacha(string name, string ticket, GachaEntry featured, params GachaEntry[] filler)
         {
             var g = new GachaTypeDef
             {
                 Name = name, TokenCurrency = ticket, TokenCost1 = 1, TokenCost10 = 10,
-                MythicHardPity = luckMax, LegendarySoftPityStart = 25, LegendarySoftPityStep = 2.5, LegendaryHardPity = 40,
-                TenPullMinTier = Rarity.Epic,
+                MythicPity = 100, LegendaryPity = 0, TenPullGuarantee = false,
             };
-            for (int t = 0; t < weights.Length; t++) g.Tiers.Add(new GachaTierDef { Tier = (Rarity)t, Weight = weights[t] });
+            var common = new GachaTierDef { Tier = Rarity.Common };
+            foreach (var e in filler) { common.Pool.Add(e); common.Weight += e.Weight; }
+            common.Weight = Math.Round(common.Weight, 6);
+            g.Tiers.Add(common);
+            var mythic = new GachaTierDef { Tier = Rarity.Mythic, Weight = Math.Round(100 - common.Weight, 6) };
+            mythic.Pool.Add(featured);
+            g.Tiers.Add(mythic);
             return g;
         }
-
-        private static void SummonTier(GachaTypeDef g, Rarity tier, GachaEntry e) => g.Tiers[(int)tier].Pool.Add(e);
     }
 }

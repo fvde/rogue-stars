@@ -3,13 +3,11 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    /// <summary>Unlock a mount at 1★ with MountConfig.UnlockShards of its shards (like HeroUnlock; summon events pay shards).</summary>
+    /// <summary>Unlock a mount at 1★ with ContentDb.ShardStars.UnlockShards (50) of its shards (like HeroUnlock).</summary>
     [Serializable] public sealed class MountUnlock : GameCommand { public string MountId; }
-    /// <summary>Raise a mount one star (max 5) with its mount shards.</summary>
+    /// <summary>Raise a mount one star (max 10) with its mount shards (the shared table) and, for 6★–10★, Mount Cores.</summary>
     [Serializable] public sealed class MountStarUp : GameCommand { public string MountId; }
-    /// <summary>Awaken a 5★ mount one level (max 5) with mount shards + Mount Cores.</summary>
-    [Serializable] public sealed class MountAwaken : GameCommand { public string MountId; }
-    /// <summary>Level a mount with Fuel (cap grows with stars and awakening).</summary>
+    /// <summary>Level a mount with Fuel (cap grows with stars).</summary>
     [Serializable] public sealed class MountLevelUp : GameCommand { public string MountId; public int Levels = 1; }
     /// <summary>Make a mount the active one; empty MountId dismounts.</summary>
     [Serializable] public sealed class MountEquip : GameCommand { public string MountId; }

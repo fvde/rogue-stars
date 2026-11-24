@@ -45,14 +45,15 @@ namespace RogueStars.Rules.Content
         public long DiamondCost10;
         /// <summary>Ordered Common → Mythic.</summary>
         public List<GachaTierDef> Tiers = new List<GachaTierDef>();
-        /// <summary>Hidden: the N-th pull without a Mythic is a Mythic.</summary>
-        public int MythicHardPity = 50;
-        /// <summary>Hidden: after this many pulls without Legendary+, the Legendary weight grows by SoftPityStep per pull.</summary>
-        public int LegendarySoftPityStart = 25;
-        public double LegendarySoftPityStep = 2.5;
-        /// <summary>Hidden: the N-th pull without Legendary+ is at least Legendary.</summary>
-        public int LegendaryHardPity = 40;
-        /// <summary>A 10-pull always contains at least one result of this tier or better.</summary>
+        /// <summary>Visible, fixed pity ("Mythic x / 100"): the N-th pull without a Mythic is a Mythic (0 = none).</summary>
+        public int MythicPity = 100;
+        /// <summary>
+        /// Visible, fixed pity ("Legendary x / 40"): the N-th pull without a Legendary-or-better result is at least Legendary (0 = none).
+        /// That pull still rolls Mythic at the flat Mythic rate; every lower result becomes Legendary.
+        /// </summary>
+        public int LegendaryPity = 40;
+        /// <summary>Visible 10-pull rule: a 10-pull contains at least one result of <see cref="TenPullMinTier"/> or better (false = none).</summary>
+        public bool TenPullGuarantee = true;
         public Rarity TenPullMinTier = Rarity.Epic;
     }
 
@@ -103,7 +104,7 @@ namespace RogueStars.Rules.Content
 
     public sealed partial class ContentDb
     {
-        /// <summary>Pull types, pools, hidden pity, banner rotations (Progression).</summary>
+        /// <summary>Pull types, pools, visible pity, banner rotations (Progression; docs/design/pull-system.md).</summary>
         public readonly GachaConfig GachaConfig = new GachaConfig();
 
         /// <summary>Ids of a City-owned content dictionary with the given rarity, ordinal order (pool order is part of determinism).</summary>
@@ -117,13 +118,15 @@ namespace RogueStars.Rules.Content
         partial void BuildGacha()
         {
             var g = GachaConfig;
-            double[] tierWeights = { 60, 28, 9.5, 2.0, 0.5 };
+            // Pull system (docs/design/pull-system.md): Mythic a flat 1.2% with a visible pity at 100, Legendary a flat 3% with a
+            // visible pity at 40 (rate × pity = 1.2 for both); the 1.7 points come out of Common. No soft or hidden pity.
+            double[] tierWeights = { 58.3, 28, 9.5, 3.0, 1.2 };
             int[] partRarityForTier = { (int)PartRarity.Common, (int)PartRarity.Rare, (int)PartRarity.Epic, (int)PartRarity.Legendary, (int)PartRarity.Mythic };
-            // Heroes and mounts are no longer in the Signals: summon events are the way to get them (ContentDb.SummonEvents,
-            // docs/design/summon-events.md). Their old share of the outcomes (mount copies ~25% of the Blueprint Signal, hero
-            // shards ~40% of the Alien Signal) is supplies: Ore / Grain in the low tiers (usable from the Signal's unlock on),
-            // the type's summon tickets from Epic up, so blueprint and alien pacing stay as they were.
-            long[] supplyForTier = { 300, 800, 1, 3, 10 };
+            // Heroes and mounts are not in the Signals: summon events are the way to get them (ContentDb.SummonEvents,
+            // docs/design/summon-events.md). Their old share of the outcomes is supplies: Ore / Grain in the low tiers (usable from
+            // the Signal's unlock on), the type's summon tickets in Epic and Legendary. The Mythic tier holds Mythic items only
+            // (pull system: a Mythic result is always a Mythic batch).
+            long[] supplyForTier = { 300, 800, 1, 3, 0 };
 
             var part = NewGachaType(GachaType.Part, "Part Signal", Currencies.PartTokens);
             var bp = NewGachaType(GachaType.Blueprint, "Blueprint Signal", Currencies.BlueprintTokens);
@@ -135,17 +138,20 @@ namespace RogueStars.Rules.Content
                 if (t < 4) foreach (var id in GachaSortedKeys(PartsConfig.Runes)) pt.Pool.Add(new GachaEntry(RewardKinds.Rune, id, 1, t, 2));
                 part.Tiers.Add(pt);
 
-                // Every City blueprint and alien type is pullable in the tier of its rarity (City owns the granters).
+                // Every City blueprint and alien type is pullable in the tier of its rarity (City owns the granters); one result
+                // is one batch of ShardStars.BatchShards shards (the first unlocks the item).
                 var bt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
                 var bpIds = GachaIdsOfRarity(Blueprints, d => d.Rarity, (Rarity)t);
                 foreach (var id in bpIds) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
-                bt.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Ore : Currencies.MountTickets, supplyForTier[t], t, Math.Max(1, bpIds.Count) / 3.0));
+                if (supplyForTier[t] > 0)
+                    bt.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Ore : Currencies.MountTickets, supplyForTier[t], t, Math.Max(1, bpIds.Count) / 3.0));
                 bp.Tiers.Add(bt);
 
                 var at = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
                 var alienIds = GachaIdsOfRarity(AlienTypes, d => d.Rarity, (Rarity)t);
                 foreach (var id in alienIds) at.Pool.Add(new GachaEntry(RewardKinds.Alien, id, 1, t, 2));
-                at.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Grain : Currencies.HeroTickets, supplyForTier[t], t, 2.0 * Math.Max(1, alienIds.Count) * (40.0 / 60.0)));
+                if (supplyForTier[t] > 0)
+                    at.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Grain : Currencies.HeroTickets, supplyForTier[t], t, 2.0 * Math.Max(1, alienIds.Count) * (40.0 / 60.0)));
                 alien.Tiers.Add(at);
             }
 
@@ -170,6 +176,7 @@ namespace RogueStars.Rules.Content
                 {
                     GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
                     GachaThemeOf("bp_reliquary_week", "Reliquary Week", RewardKinds.Blueprint, "bp_ancient_reliquary", 1, mythic),
+                    GachaThemeOf("bp_reactor_ignition", "Reactor Ignition", RewardKinds.Blueprint, ShardReactorId, 1, mythic),
                 },
             });
             g.Rotations.Add(new BannerRotation
@@ -190,8 +197,7 @@ namespace RogueStars.Rules.Content
                 Type = type, Name = name, TokenCurrency = token, TokenCost1 = 1, TokenCost10 = 10,
                 AdPlacementId = "free_pull_" + type.ToString().ToLowerInvariant(),
                 DiamondCost1 = 150, DiamondCost10 = 1350,
-                MythicHardPity = 50, LegendarySoftPityStart = 25, LegendarySoftPityStep = 2.5, LegendaryHardPity = 40,
-                TenPullMinTier = Rarity.Epic,
+                MythicPity = 100, LegendaryPity = 40, TenPullGuarantee = true, TenPullMinTier = Rarity.Epic,
             };
             GachaConfig.Types[type] = d;
             return d;

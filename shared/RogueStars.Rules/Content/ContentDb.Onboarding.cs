@@ -216,7 +216,6 @@ namespace RogueStars.Rules.Content
             G(Features.Heroes, Reward.Cur(Currencies.HeroTickets, 10)); // the first hero summon event's 10× pull (no starter hero: heroes only come from events)
             G(Features.Mounts, Reward.Cur(Currencies.MountTickets, 10)); // the first mount summon event's 10× pull
             G(Features.Runes, new Reward(RewardKinds.Rune, "rune_vigor", 1, 0));
-            G(Features.Mounts, new Reward(RewardKinds.Mount, "mount_scout_saucer", 1));
             G(Features.Breeding, new Reward(RewardKinds.Blueprint, "bp_breeding_pen", 1));
 
             T("wake_up", "The worm wakes", null, null);

@@ -25,6 +25,7 @@ namespace RogueStars.Rules.Systems
             CitySystem.Register(e);
             AlienSystem.Register(e);
             BreedingSystem.Register(e);
+            ShardReactorSystem.Register(e);
             TimerSystem.Register(e);
             // Workstream Meta: onboarding, liveops, quests, shop, mail, arena, guild
             OnboardingSystem.Register(e);

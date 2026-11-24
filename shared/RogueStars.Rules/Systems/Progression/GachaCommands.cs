@@ -34,6 +34,19 @@ namespace RogueStars.Rules.Systems
         public Rarity Tier;
         /// <summary>True when this is the banner's featured item.</summary>
         public bool Featured;
+        /// <summary>Blueprint / alien results: the batch's shards and what it did ("new" = unlocked the item, "shards").</summary>
+        public long Shards;
+        public string Note = "";
+    }
+
+    /// <summary>The visible pity counters ("Mythic 37 / 100", "Legendary 12 / 40"); a pity of 0 = none.</summary>
+    [Serializable]
+    public sealed class GachaPityStatus
+    {
+        public int Mythic;
+        public int MythicPity;
+        public int Legendary;
+        public int LegendaryPity;
     }
 
     [Serializable]
@@ -42,6 +55,8 @@ namespace RogueStars.Rules.Systems
         public GachaType Type;
         public string BannerId;
         public List<GachaPullItem> Items = new List<GachaPullItem>();
+        /// <summary>The visible counters after these pulls.</summary>
+        public GachaPityStatus Pity = new GachaPityStatus();
     }
 
     /// <summary>A resolved banner (from the rotation or the live-ops schedule).</summary>
@@ -56,15 +71,21 @@ namespace RogueStars.Rules.Systems
         public long EndMs;
     }
 
-    /// <summary>Published odds (base rates; hidden pity is intentionally not part of it).</summary>
+    /// <summary>Published odds: the flat rates of every pull, the fixed pity values and the 10-pull rule.</summary>
     [Serializable]
     public sealed class GachaOdds
     {
         public GachaType Type;
         public string BannerId;
         public List<GachaOddsTier> Tiers = new List<GachaOddsTier>();
-        /// <summary>Guarantee shown to players: a 10-pull contains at least one result of this tier or better.</summary>
+        /// <summary>Rule shown to players: a 10-pull contains at least one result of TenPullMinTier or better (when TenPullGuarantee).</summary>
+        public bool TenPullGuarantee;
         public Rarity TenPullMinTier;
+        /// <summary>The fixed pity: the MythicPity-th pull without a Mythic is a Mythic; LegendaryPity likewise (0 = none).</summary>
+        public int MythicPity;
+        public int LegendaryPity;
+        /// <summary>Shards one won blueprint / alien pays.</summary>
+        public long BatchShards;
     }
 
     [Serializable]

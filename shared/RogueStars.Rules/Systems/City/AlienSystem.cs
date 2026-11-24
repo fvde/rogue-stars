@@ -41,12 +41,8 @@ namespace RogueStars.Rules.Systems
         public static OwnedAlien Owned(GameState state, string typeId) =>
             typeId != null && state.Aliens.Owned.TryGetValue(typeId, out var a) ? a : null;
 
-        /// <summary>Shards needed for the next star, or 0 at max.</summary>
-        public static long StarCost(ContentDb content, OwnedAlien a)
-        {
-            var c = content.AlienTuning.StarCosts;
-            return a.Stars >= MaxStars || a.Stars - 1 >= c.Length ? 0 : c[a.Stars - 1];
-        }
+        /// <summary>Shards needed for the next star (the shared table, ContentDb.ShardStars), or 0 at max.</summary>
+        public static long StarCost(ContentDb content, OwnedAlien a) => a.Stars >= MaxStars ? 0 : Math.Max(0, content.ShardStars.NextCost(a.Stars));
 
         /// <summary>Active squad: the first SquadSlots owned entries of the squad list.</summary>
         public static List<string> ActiveSquad(GameState state, ContentDb content)
@@ -272,7 +268,10 @@ namespace RogueStars.Rules.Systems
 
         // ---- engine hooks -----------------------------------------------------------------------
 
-        /// <summary>Alien granter: new type = new alien with rolled genes/traits; existing type → shards.</summary>
+        /// <summary>
+        /// Alien granter (pull system, docs/design/pull-system.md): every copy is one batch of ShardStars.BatchShards shards; the
+        /// batch of a type the player does not own unlocks it (a new alien with rolled genes / traits, the batch's shards spent).
+        /// </summary>
         private static void GrantAlien(CommandContext ctx, Reward r)
         {
             if (RewardWildcard.IsWildcard(r))
@@ -286,18 +285,37 @@ namespace RogueStars.Rules.Systems
             long copies = r.Amount;
             if (!ctx.State.Aliens.Owned.ContainsKey(def.Id))
             {
-                ctx.State.Aliens.Owned[def.Id] = RollNew(ctx.Rng, ctx.Content, def);
-                ctx.State.Count("aliens_obtained");
-                ctx.Emit("alien_new", def.Id);
+                Unlock(ctx, def);
                 copies--;
             }
             if (copies > 0)
             {
-                long shards = copies * ctx.Content.AlienTuning.ShardsPerDuplicate[(int)def.Rarity];
+                long shards = copies * ctx.Content.ShardStars.BatchShards;
                 ctx.State.Wallet.Add(Currencies.AlienShards(def.Id), shards);
                 ctx.State.Count("alien_duplicates", copies);
                 ctx.Emit("alien_shards", def.Id, shards.ToString());
             }
+        }
+
+        /// <summary>A new alien of a type the player does not own (its unlock batch: the shards are paid and spent at once).</summary>
+        private static void Unlock(CommandContext ctx, AlienTypeDef def)
+        {
+            ctx.State.Aliens.Owned[def.Id] = RollNew(ctx.Rng, ctx.Content, def);
+            ctx.State.Count("aliens_obtained");
+            ctx.Emit("alien_new", def.Id);
+        }
+
+        /// <summary>
+        /// Unlock an alien from loose shards (Shard Reactor output): when the type is not owned and its shards reach UnlockShards, they
+        /// are spent and the alien is new. True if it unlocked.
+        /// </summary>
+        public static bool TryUnlockFromShards(CommandContext ctx, string typeId)
+        {
+            var def = ctx.Content.AlienType(typeId);
+            if (def == null || Owned(ctx.State, typeId) != null) return false;
+            if (!ctx.State.Wallet.TrySpend(Currencies.AlienShards(typeId), ctx.Content.ShardStars.UnlockShards)) return false;
+            Unlock(ctx, def);
+            return true;
         }
 
         private static void ContributeLoadout(GameState state, ContentDb content, long nowMs, CombatLoadout loadout)

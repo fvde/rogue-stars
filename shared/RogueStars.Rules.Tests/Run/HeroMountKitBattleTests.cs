@@ -38,7 +38,7 @@ public class HeroMountKitBattleTests
     }
 
     internal static List<string> Hero(string id, int star) => HeroSystem.TraitSkills(C, id, star);
-    internal static List<string> Mount(string id, int stars, int awaken = 0) => MountSystem.WeaponSkills(C, id, stars, awaken);
+    internal static List<string> Mount(string id, int stars, int awaken = 0) => MountSystem.WeaponSkills(C, id, stars + awaken);
 
     /// <summary>A worm (ATK 100, no crit unless a probe gives it) with the given meta / run skills, a mount, aliens, against enemies.</summary>
     internal static BattleResult Fight(IEnumerable<string> meta, string? mount = null, IEnumerable<CombatantSpec>? enemies = null, int rounds = 10,

@@ -30,9 +30,8 @@ namespace RogueStars.Rules.Content
     public sealed class HeroConfig
     {
         public Dictionary<string, HeroDef> Defs = new Dictionary<string, HeroDef>();
+        /// <summary>Max stars; the shard costs are the shared table (ContentDb.ShardStars, docs/design/pull-system.md).</summary>
         public int MaxStars = 10;
-        /// <summary>StarShardCosts[s] = shards to reach star s (index 1 = unlock; index 0 unused).</summary>
-        public List<long> StarShardCosts = new List<long>();
         /// <summary>StarStatPercent[s] = % bonus to the hero's base stats at star s.</summary>
         public List<double> StarStatPercent = new List<double>();
         public int MaxLevelBase = 10;
@@ -43,7 +42,7 @@ namespace RogueStars.Rules.Content
         public List<StatMod> CollectionPerStar = new List<StatMod>();
         /// <summary>The kit steps (stars where a hero's kit changes).</summary>
         public int[] KitStars = { 1, 3, 5, 7, 10 };
-        /// <summary>What a hero copy (RewardKinds.Hero) at max stars becomes (summon event exchange tokens).</summary>
+        /// <summary>What a hero batch (RewardKinds.Hero) of a 10★ hero becomes (summon event exchange tokens).</summary>
         public Reward CopyOverflow;
 
         public int MaxLevel(int stars) => Math.Min(LevelXpCosts.Count, MaxLevelBase + MaxLevelPerStar * stars);
@@ -58,7 +57,6 @@ namespace RogueStars.Rules.Content
         {
             var h = HeroConfig;
             h.MaxStars = 10;
-            h.StarShardCosts.AddRange(new long[] { 0, 40, 30, 60, 100, 160, 250, 380, 550, 800, 1100 });
             h.StarStatPercent.AddRange(new double[] { 0, 0, 10, 22, 36, 52, 70, 92, 118, 148, 185 });
             h.MaxLevelBase = 10; h.MaxLevelPerStar = 10;
             h.LevelXpCosts.Add(0);

@@ -43,10 +43,18 @@ public class SummonEventTests
         Assert.Equal(c.MountConfig.Defs.Keys.OrderBy(k => k), mount.Rotation.OrderBy(k => k));
         foreach (var def in new[] { hero, mount })
         {
-            Assert.Equal(5, def.Gacha.Tiers.Count);
+            // Pull system: a filler tier and the Mythic tier (no Legendary / Rare hero or mount drops), Mythic a flat 1.2%.
+            Assert.Equal(new[] { Rarity.Common, Rarity.Mythic }, def.Gacha.Tiers.Select(t => t.Tier));
             Assert.All(def.Gacha.Tiers, t => Assert.NotEmpty(t.Pool));
-            // The Mythic tier is the featured copy: the Luck meter counts pulls since the last one.
-            var mythic = Assert.Single(def.Gacha.Tiers[(int)Rarity.Mythic].Pool);
+            Assert.Equal(1.2, def.Gacha.Tiers[1].Weight, 6);
+            Assert.Equal(100, def.Gacha.Tiers.Sum(t => t.Weight), 6);
+            Assert.Equal(100, def.Gacha.MythicPity);
+            Assert.Equal(0, def.Gacha.LegendaryPity);
+            Assert.False(def.Gacha.TenPullGuarantee);
+            Assert.DoesNotContain(def.Gacha.Tiers[0].Pool, x => x.Kind == RewardKinds.Hero || x.Kind == RewardKinds.HeroShards || x.Kind == RewardKinds.Mount || x.Id.StartsWith("shards_"));
+            Assert.Contains(def.Gacha.Tiers[0].Pool, x => x.Id == ProgressionCurrencies.PartAwakenCores && x.Weight <= 0.05);
+            // The Mythic tier is the featured batch: the Luck meter counts pulls since the last one.
+            var mythic = Assert.Single(def.Gacha.Tiers[1].Pool);
             Assert.Equal(SummonEventsConfig.Featured, mythic.Id);
             Assert.Equal(def.Type == Hero ? RewardKinds.Hero : RewardKinds.Mount, mythic.Kind);
             Assert.Equal(6, def.Tasks.Count);
@@ -189,7 +197,7 @@ public class SummonEventTests
         var (e, s) = Unlocked();
         var def = e.Content.SummonType(Hero)!;
         int max = SummonEventSystem.LuckMax(e.Content, Hero);
-        Assert.Equal(def.Gacha.MythicHardPity, max);
+        Assert.Equal(def.Gacha.MythicPity, max);
         var ev = SummonEventSystem.CurrentEvent(s, e.Content, Hero, TestHelpers.T0)!;
         // Pull single pulls; Luck counts pulls since the last featured copy and never reaches max without one.
         int copies = 0, sinceCopy = 0, guaranteed = 0;
@@ -222,33 +230,50 @@ public class SummonEventTests
     }
 
     [Fact]
-    public void Duplicates_RaiseStars_HeroesUpTo10_MountsTo5ThenAwakening()
+    public void FeaturedBatches_Are50Shards_TheFirstUnlocks_StarsAreBought_At10StarsOverflow()
     {
         var (e, s) = Unlocked();
-        var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = TestHelpers.T0 };
+        var c = e.Content;
+        var ctx = new CommandContext { State = s, Content = c, Engine = e, NowMs = TestHelpers.T0 };
         const string hero = "hero_chef";
-        Assert.Equal("new", HeroSystem.CopyEffect(s, e.Content, hero));
+        Assert.Equal("new", HeroSystem.CopyEffect(s, c, hero));
         ctx.Grant(new Reward(RewardKinds.Hero, hero, 1));
         Assert.Equal(1, s.Heroes.Owned[hero].Stars);
         Assert.Equal(hero, s.Heroes.Equipped);
+        Assert.Equal(0, Bal(s, Currencies.HeroShards(hero)));
         ctx.Grant(new Reward(RewardKinds.Hero, hero, 4));
-        Assert.Equal(5, s.Heroes.Owned[hero].Stars);
-        ctx.Grant(new Reward(RewardKinds.Hero, hero, 5));
+        Assert.Equal(1, s.Heroes.Owned[hero].Stars); // batches are shards; stars are raised with them
+        Assert.Equal(200, Bal(s, Currencies.HeroShards(hero)));
+        Assert.Equal("shards", HeroSystem.CopyEffect(s, c, hero));
+        ctx.Grant(new Reward(RewardKinds.Hero, hero, 15));
+        for (int star = 2; star <= 10; star++) Ok(e, ref s, new HeroStarUp { HeroId = hero }, TestHelpers.T0);
         Assert.Equal(10, s.Heroes.Owned[hero].Stars);
-        Assert.Equal("overflow", HeroSystem.CopyEffect(s, e.Content, hero));
+        Assert.Equal(0, Bal(s, Currencies.HeroShards(hero))); // 20 batches = 1 000 shards = unlock to 10★
+        Assert.Equal("overflow", HeroSystem.CopyEffect(s, c, hero));
+        ctx = new CommandContext { State = s, Content = c, Engine = e, NowMs = TestHelpers.T0 };
         ctx.Grant(new Reward(RewardKinds.Hero, hero, 1));
-        Assert.Equal(10, s.Heroes.Owned[hero].Stars);
-        Assert.Equal(e.Content.HeroConfig.CopyOverflow.Amount, Bal(s, Currencies.HeroSigils));
+        Assert.Equal(0, Bal(s, Currencies.HeroShards(hero)));
+        Assert.Equal(c.HeroConfig.CopyOverflow.Amount, Bal(s, Currencies.HeroSigils));
         Assert.Equal(10, s.Counter("hero_stars_max"));
 
-        // A pulled copy reports what it did.
-        s.Summons.Luck[Hero] = new GachaPityState { SinceMythic = e.Content.SummonType(Hero)!.Gacha.MythicHardPity - 1 };
+        // A pulled batch reports what it did.
+        s.Summons.Luck[Hero] = new GachaPityState { SinceMythic = c.SummonType(Hero)!.Gacha.MythicPity - 1 };
         var r = Pull(e, ref s, Hero, 1, TestHelpers.T0);
-        var copy = Assert.Single(r.Items);
-        Assert.Equal(RewardKinds.Hero, copy.Kind);
+        var batch = Assert.Single(r.Items);
+        Assert.Equal(RewardKinds.Hero, batch.Kind);
         Assert.True(r.LuckTriggered);
-        Assert.Equal(copy.Id == hero ? "overflow" : "new", copy.Note);
-        Assert.Equal(1 + (copy.Id == hero ? 9 : 0), copy.Stars);
+        Assert.Equal(batch.Id == hero ? "overflow" : "new", batch.Note);
+        Assert.Equal(batch.Id == hero ? 0 : 50, batch.Shards);
+        Assert.Equal(batch.Id == hero ? 10 : 1, batch.Stars);
+
+        // Mounts: the same table to 10★ (stars 6–10 also take Mount Cores).
+        ctx = new CommandContext { State = s, Content = c, Engine = e, NowMs = TestHelpers.T0 };
+        ctx.Grant(new Reward(RewardKinds.Mount, "mount_magma_barge", 20));
+        s.Wallet.Add(Currencies.MountCores, 2500);
+        for (int star = 2; star <= 10; star++) Ok(e, ref s, new MountStarUp { MountId = "mount_magma_barge" }, TestHelpers.T0);
+        Assert.Equal(10, s.Mounts.Owned["mount_magma_barge"].Stars);
+        Assert.Equal(0, Bal(s, Currencies.MountShards("mount_magma_barge")));
+        Assert.Equal(0, Bal(s, Currencies.MountCores));
     }
 
     // ---- tasks, milestones, exchange, pass ------------------------------------------------------------------
@@ -308,9 +333,12 @@ public class SummonEventTests
         var last = def.Milestones[^1];
         s.Summons.Events[Mount].Pulls = last.Pulls;
         string featured = s.Summons.Events[Mount].FeaturedId;
-        int before = MountSystem.Get(s, featured)?.Stars ?? 0;
+        bool owned = MountSystem.Get(s, featured) != null;
+        long shards = Bal(s, Currencies.MountShards(featured));
         Ok(e, ref s, new SummonMilestoneClaim { EventType = Mount, Pulls = last.Pulls }, TestHelpers.T0);
-        Assert.Equal(before + 1, MountSystem.Get(s, featured)!.Stars);
+        // a batch of 50 shards: it unlocks the mount when not owned, else pays the shards
+        Assert.Equal(1, MountSystem.Get(s, featured)!.Stars);
+        Assert.Equal(owned ? shards + 50 : shards, Bal(s, Currencies.MountShards(featured)));
     }
 
     [Fact]

@@ -23,8 +23,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>The player's current (or last) event of each type.</summary>
         public Dictionary<SummonEventType, SummonEventProgress> Events = new Dictionary<SummonEventType, SummonEventProgress>();
         /// <summary>
-        /// Pity per event type, kept across events: SinceMythic is the visible Luck (pulls since the last featured copy),
-        /// the Legendary counters stay hidden like the Signals'.
+        /// Pity per event type, kept across events: SinceMythic is the visible Luck (pulls since the last featured batch, max 100).
+        /// Events have no Legendary pity.
         /// </summary>
         public Dictionary<SummonEventType, GachaPityState> Luck = new Dictionary<SummonEventType, GachaPityState>();
 
@@ -71,7 +71,7 @@ namespace RogueStars.Rules.Systems
         public bool Welcome;
     }
 
-    /// <summary>One pull result. Note: what a copy did ("new", "star", "awaken", "overflow"), empty for other rewards.</summary>
+    /// <summary>One pull result. Note: what a featured batch did ("new" = unlocked, "shards", "overflow" at 10★), empty for filler.</summary>
     [Serializable]
     public sealed class SummonPullItem
     {
@@ -81,8 +81,10 @@ namespace RogueStars.Rules.Systems
         public Rarity Tier;
         public bool Featured;
         public string Note = "";
-        /// <summary>Star count (heroes / mounts) after a "new" or "star" copy.</summary>
+        /// <summary>Star count (heroes / mounts) after a featured batch.</summary>
         public int Stars;
+        /// <summary>Shards a featured batch paid (50), 0 for filler and overflow.</summary>
+        public long Shards;
     }
 
     [Serializable]
@@ -95,7 +97,7 @@ namespace RogueStars.Rules.Systems
         public long Tokens;
         public int Luck;
         public int LuckMax;
-        /// <summary>The pulls filled the Luck meter (a guaranteed featured copy).</summary>
+        /// <summary>The pulls filled the Luck meter (a guaranteed featured batch).</summary>
         public bool LuckTriggered;
     }
 

@@ -45,7 +45,7 @@ namespace RogueStars.Rules.Systems
             if (hero != null)
                 foreach (var sk in HeroSystem.TraitSkills(c, hero, heroStar)) if (!outIds.Contains(sk)) outIds.Add(sk);
             if (mount != null)
-                foreach (var sk in MountSystem.WeaponSkills(c, mount, mountStar, mountAwaken)) if (!outIds.Contains(sk)) outIds.Add(sk);
+                foreach (var sk in MountSystem.WeaponSkills(c, mount, mountStar + mountAwaken)) if (!outIds.Contains(sk)) outIds.Add(sk);
             return outIds;
         }
 

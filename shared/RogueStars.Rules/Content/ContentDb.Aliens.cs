@@ -79,10 +79,6 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class AlienTuningDef
     {
-        /// <summary>Shards to go from star s to s+1 (index 0 = 1→2 ... 8 = 9→10).</summary>
-        public long[] StarCosts = { 2, 4, 6, 10, 15, 22, 30, 42, 60 };
-        /// <summary>Shards per duplicate alien copy, by rarity.</summary>
-        public long[] ShardsPerDuplicate = { 1, 1, 1, 1, 1 };
         /// <summary>
         /// Removed alien levels (aliens pass), kept only for the save migration's Grain refund: level L → L+1 cost
         /// LegacyLevelGrainBase[rarity at the time] × LegacyLevelGrainGrowth^(L−1).

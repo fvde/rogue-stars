@@ -149,7 +149,6 @@ public static class Metrics
         var mounts = s.Mounts.Owned.Values.ToList();
         A("mounts_owned", mounts.Count);
         A("mount_stars_best", mounts.Count == 0 ? 0 : mounts.Max(x => x.Stars));
-        A("mount_awaken_best", mounts.Count == 0 ? 0 : mounts.Max(x => x.Awaken));
         A("mount_level_best", mounts.Count == 0 ? 0 : mounts.Max(x => x.Level));
 
         // City

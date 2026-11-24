@@ -300,7 +300,7 @@ public class CityTests
         Assert.Equal(0, s.Wallet.Get(Currencies.BlueprintShards(Farm)));
         GrantBlueprint(e, s, Farm, 3);
         Assert.Single(s.City.Blueprints);
-        Assert.Equal(3, s.Wallet.Get(Currencies.BlueprintShards(Farm)));
+        Assert.Equal(150, s.Wallet.Get(Currencies.BlueprintShards(Farm))); // a copy is a batch of 50 shards
         Assert.Equal(1, s.Counter("blueprints_obtained"));
         Assert.Equal(3, s.Counter("blueprint_duplicates"));
         Assert.Throws<RuleException>(() => GrantBlueprint(e, s, "bp_nope"));
@@ -311,8 +311,8 @@ public class CityTests
     {
         var e = Engine();
         var s = TestHelpers.NewPlayer(e);
-        long total = e.Content.CityTuning.BlueprintStarCosts.Sum();
-        Assert.Equal(111, total);
+        long total = (e.Content.ShardStars.TotalTo(10) - e.Content.ShardStars.UnlockShards) / e.Content.ShardStars.BatchShards; // 19 batches after the unlock
+        Assert.Equal(19, total);
         GrantBlueprint(e, s, Farm, 1 + total);
         GrantBlueprint(e, s, "bp_ore_mine");
         Assert.Equal("not enough shards", Fail(e, ref s, new BlueprintStarUp { BlueprintId = "bp_ore_mine" }, T0));

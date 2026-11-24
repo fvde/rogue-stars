@@ -187,7 +187,7 @@ namespace RogueStars.Sim
             // hero and mount kits: what the run fought with (id and star / kit step)
             string heroTag = S.Run.Active?.Loadout?.HeroId, mountTag = S.Run.Active?.Loadout?.MountId;
             if (heroTag != null && HeroSystem.Get(S, heroTag) is HeroEntry he) heroTag += " " + he.Stars + "★";
-            if (mountTag != null && MountSystem.Get(S, mountTag) is MountEntry me) mountTag += " " + (me.Awaken > 0 ? "A" + me.Awaken : me.Stars + "★");
+            if (mountTag != null && MountSystem.Get(S, mountTag) is MountEntry me) mountTag += " " + (me.Stars + "★");
             var alienDmg = new Dictionary<string, long>();
             void Tally(CommandResult res)
             {

@@ -76,7 +76,7 @@ public class HeroMountKitContentTests
             foreach (var slot in new[] { "Passive", "Active" })
             {
                 var lines = d.Kit.Where(k => k.Slot == slot).ToList();
-                Assert.Equal(new[] { "1★", "3★", "5★", "A3", "A5" }, lines.Select(k => k.StepLabel));
+                Assert.Equal(new[] { "1★", "3★", "5★", "8★", "10★" }, lines.Select(k => k.StepLabel));
                 Assert.Single(lines.Select(k => k.Name).Distinct());
                 for (int i = 1; i < lines.Count; i++) Assert.NotEqual(lines[i - 1].Text, lines[i].Text);
             }
@@ -400,15 +400,16 @@ public class HeroMountKitContentTests
     public void MountDamage_InBetweenSteps_Levels_Collection()
     {
         var cfg = C.MountConfig;
-        double Pct(int stars, int awaken, int level) => MountSystem.MountStats(C, "mount_scout_saucer", new MountEntry { Stars = stars, Awaken = awaken, Level = level }).Value(StatId.MountPower);
-        Assert.Equal(0, Pct(1, 0, 1));
-        Assert.Equal(5, Pct(2, 0, 1));   // 2★
-        Assert.Equal(5, Pct(3, 0, 1));   // 3★ is a kit step: no extra %
-        Assert.Equal(10, Pct(4, 0, 1));  // 4★
-        Assert.Equal(15, Pct(5, 1, 1));  // A1
-        Assert.Equal(20, Pct(5, 2, 1));  // A2
-        Assert.Equal(25, Pct(5, 4, 1));  // A4
-        Assert.Equal(25 + 29, Pct(5, 5, 30)); // +1% per level
+        double Pct(int stars, int level) => MountSystem.MountStats(C, "mount_scout_saucer", new MountEntry { Stars = stars, Level = level }).Value(StatId.MountPower);
+        Assert.Equal(0, Pct(1, 1));
+        Assert.Equal(5, Pct(2, 1));   // 2★
+        Assert.Equal(5, Pct(3, 1));   // 3★ is a kit step: no extra %
+        Assert.Equal(10, Pct(4, 1));  // 4★
+        Assert.Equal(15, Pct(6, 1));  // 6★ (was A1)
+        Assert.Equal(20, Pct(7, 1));  // 7★ (was A2)
+        Assert.Equal(20, Pct(8, 1));  // 8★ is a kit step (was A3)
+        Assert.Equal(25, Pct(9, 1));  // 9★ (was A4)
+        Assert.Equal(25 + 29, Pct(10, 30)); // +1% per level
         Assert.Equal(new[] { new StatMod(StatId.MountPower, 1) }.Select(m => (m.Stat, m.Flat)), cfg.CollectionPerStep.Select(m => (m.Stat, m.Flat)));
     }
 }

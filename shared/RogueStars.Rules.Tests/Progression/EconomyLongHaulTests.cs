@@ -100,8 +100,8 @@ public class EconomyLongHaulTests
             if (focus)
                 foreach (var x in def.Exchange.Where(x => x.Reward.Kind == RewardKinds.Hero || x.Reward.Kind == RewardKinds.HeroShards))
                     while (e.Execute(ref s, new SummonExchangeBuy { EventType = SummonEventType.Hero, ItemId = x.Id }, now).Ok) { }
-            if (HeroSystem.Get(s, FocusHero) == null && s.Wallet.Get(Currencies.HeroShards(FocusHero)) >= C.HeroConfig.StarShardCosts[1]) Exec(new HeroUnlock { HeroId = FocusHero });
-            while (HeroSystem.Get(s, FocusHero) is { } h && h.Stars < 10 && s.Wallet.Get(Currencies.HeroShards(FocusHero)) >= C.HeroConfig.StarShardCosts[h.Stars + 1])
+            if (HeroSystem.Get(s, FocusHero) == null && s.Wallet.Get(Currencies.HeroShards(FocusHero)) >= C.ShardStars.UnlockShards) Exec(new HeroUnlock { HeroId = FocusHero });
+            while (HeroSystem.Get(s, FocusHero) is { } h && h.Stars < 10 && s.Wallet.Get(Currencies.HeroShards(FocusHero)) >= C.ShardStars.NextCost(h.Stars))
                 Exec(new HeroStarUp { HeroId = FocusHero });
             if (HeroSystem.Get(s, FocusHero)?.Stars >= 10) return (ev.EndMs - TestHelpers.T0) / (7.0 * Day);
             now = ev.EndMs;

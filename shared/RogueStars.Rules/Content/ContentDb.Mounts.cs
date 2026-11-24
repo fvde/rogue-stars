@@ -15,11 +15,11 @@ namespace RogueStars.Rules.Content
         /// <summary>Mounts are not tied to a synergy (hero &amp; mount kits): None. Kept for saves and old screens.</summary>
         public SkillFamily Family;
         public SkillFamily SupportFamily;
-        /// <summary>Kit skills by step: the passive and the active at 1★ / 3★ / 5★ / A3 / A5, each step replacing the one before.</summary>
+        /// <summary>Kit skills by step: the passive and the active at 1★ / 3★ / 5★ / 8★ / 10★, each step replacing the one before.</summary>
         public List<SkillStep> Weapons = new List<SkillStep>();
         /// <summary>The kit as the screens show it: Passive and Active lines per step.</summary>
         public List<KitText> Kit = new List<KitText>();
-        /// <summary>The active's reload (rounds) at each kit step (1★, 3★, 5★, A3, A5).</summary>
+        /// <summary>The active's reload (rounds) at each kit step (1★, 3★, 5★, 8★, 10★).</summary>
         public List<int> Reloads = new List<int>();
     }
 
@@ -27,46 +27,47 @@ namespace RogueStars.Rules.Content
     public sealed class MountConfig
     {
         public Dictionary<string, MountDef> Defs = new Dictionary<string, MountDef>();
-        public int MaxStars = 5;
-        /// <summary>Mount shards that unlock a mount at 1★ without a copy (MountUnlock; summon events pay featured shards).</summary>
-        public long UnlockShards = 30;
-        public int MaxAwaken = 5;
         /// <summary>
-        /// What a mount copy (RewardKinds.Mount) beyond the first is worth: +1★ up to MaxStars, then the mount shards of the
-        /// next awakening level (Mount Cores still needed), and once fully awakened this (summon event exchange tokens).
+        /// Max stars (pull system, docs/design/pull-system.md): 10★ on the shared shard table (ContentDb.ShardStars) like every Mythic;
+        /// the former awakening 1–5 are stars 6★–10★ (old saves: stars + awakening).
         /// </summary>
+        public int MaxStars = 10;
+        /// <summary>What a mount batch (RewardKinds.Mount) of a 10★ mount becomes (summon event exchange tokens).</summary>
         public Reward CopyOverflow;
-        /// <summary>StarShardCosts[s] = mount shards to reach star s (2..5).</summary>
-        public List<long> StarShardCosts = new List<long>();
-        /// <summary>AwakenShardCosts[a] / AwakenCoreCosts[a] = cost to reach awakening a (1..5).</summary>
-        public List<long> AwakenShardCosts = new List<long>();
-        public List<long> AwakenCoreCosts = new List<long>();
+        /// <summary>StarCoreCosts[s] = Mount Cores to reach star s besides the shards (the former awakening cores, stars 6–10; 0 below).</summary>
+        public List<long> StarCoreCosts = new List<long>();
         public int MaxLevelBase = 20;
         public int MaxLevelPerStep = 10;
         /// <summary>LevelFuelCosts[L] = Fuel from level L to L+1.</summary>
         public List<long> LevelFuelCosts = new List<long>();
-        /// <summary>Permanent worm stats per star+awakening of every owned mount (collection bonus: +1% mount damage).</summary>
+        /// <summary>Permanent worm stats per star of every owned mount (collection bonus: +1% mount damage).</summary>
         public List<StatMod> CollectionPerStep = new List<StatMod>();
         /// <summary>Mount damage % per level above 1 (Fuel keeps a sink; no mount stats).</summary>
         public double DamagePctPerLevel = 1;
-        /// <summary>Mount damage % at each in-between step (2★, 4★, A1, A2, A4): the kit steps change texts, these a number.</summary>
+        /// <summary>Mount damage % at each in-between step (2★, 4★, 6★, 7★, 9★): the kit steps change texts, these a number.</summary>
         public double DamagePctPerStep = 5;
-        /// <summary>The kit steps (star, awakening): 1★, 3★, 5★, A3, A5.</summary>
-        public int[][] KitSteps = { new[] { 1, 0 }, new[] { 3, 0 }, new[] { 5, 0 }, new[] { 5, 3 }, new[] { 5, 5 } };
+        /// <summary>The kit steps: 1★, 3★, 5★, 8★, 10★ (8★ / 10★ were awakening 3 / 5).</summary>
+        public int[] KitSteps = { 1, 3, 5, 8, 10 };
+        /// <summary>The in-between steps (2★, 4★, 6★, 7★, 9★; were 2★, 4★, A1, A2, A4).</summary>
+        public int[] BetweenStars = { 2, 4, 6, 7, 9 };
 
-        public int MaxLevel(int stars, int awaken) => Math.Min(LevelFuelCosts.Count, MaxLevelBase + MaxLevelPerStep * (stars + awaken));
+        public int MaxLevel(int stars) => Math.Min(LevelFuelCosts.Count, MaxLevelBase + MaxLevelPerStep * stars);
 
-        /// <summary>The kit step index (0 = 1★ … 4 = A5) a mount at these stars / awakening has reached.</summary>
-        public int KitStep(int stars, int awaken)
+        /// <summary>The kit step index (0 = 1★ … 4 = 10★) a mount at these stars has reached.</summary>
+        public int KitStep(int stars)
         {
             int k = 0;
-            for (int i = 0; i < KitSteps.Length; i++) if (stars >= KitSteps[i][0] && awaken >= KitSteps[i][1]) k = i;
+            for (int i = 0; i < KitSteps.Length; i++) if (stars >= KitSteps[i]) k = i;
             return k;
         }
 
-        /// <summary>In-between steps reached (2★, 4★, A1, A2, A4): each gives DamagePctPerStep mount damage.</summary>
-        public int BetweenSteps(int stars, int awaken) =>
-            (stars >= 2 ? 1 : 0) + (stars >= 4 ? 1 : 0) + (awaken >= 1 ? 1 : 0) + (awaken >= 2 ? 1 : 0) + (awaken >= 4 ? 1 : 0);
+        /// <summary>In-between steps reached: each gives DamagePctPerStep mount damage.</summary>
+        public int BetweenSteps(int stars)
+        {
+            int n = 0;
+            foreach (var s in BetweenStars) if (stars >= s) n++;
+            return n;
+        }
     }
 
     public sealed partial class ContentDb
@@ -77,14 +78,13 @@ namespace RogueStars.Rules.Content
         partial void BuildMounts()
         {
             var m = MountConfig;
-            m.MaxStars = 5; m.MaxAwaken = 5; m.UnlockShards = 30;
+            m.MaxStars = 10;
             m.CopyOverflow = Reward.Cur(Currencies.MountBolts, 300);
-            m.StarShardCosts.AddRange(new long[] { 0, 0, 20, 50, 100, 180 });
-            m.AwakenShardCosts.AddRange(new long[] { 0, 100, 150, 200, 260, 330 });
-            m.AwakenCoreCosts.AddRange(new long[] { 0, 100, 200, 400, 700, 1100 });
+            // The former awakening Mount Cores stay on stars 6–10 (Mount Cores keep their sources: events, Burrow, Dark Side, guild shop).
+            m.StarCoreCosts.AddRange(new long[] { 0, 0, 0, 0, 0, 0, 100, 200, 400, 700, 1100 });
             m.MaxLevelBase = 20; m.MaxLevelPerStep = 10;
             m.LevelFuelCosts.Add(0);
-            for (int l = 1; l < m.MaxLevelBase + m.MaxLevelPerStep * (m.MaxStars + m.MaxAwaken); l++) m.LevelFuelCosts.Add((long)Math.Round(50 * Math.Pow(l, 1.5)));
+            for (int l = 1; l < m.MaxLevelBase + m.MaxLevelPerStep * m.MaxStars; l++) m.LevelFuelCosts.Add((long)Math.Round(50 * Math.Pow(l, 1.5)));
             m.CollectionPerStep.Add(new StatMod(StatId.MountPower, 1));
             m.DamagePctPerLevel = 1; m.DamagePctPerStep = 5;
 
@@ -195,7 +195,7 @@ namespace RogueStars.Rules.Content
 
             // ---- Star Lancer: Lance Sight + Impale ----------------------------------------------------------------------------
             d = NewMount("mount_star_lancer", "Star Lancer", "Crit hunter: worm crits charge the lance; Impale always crits and pierces the line.");
-            // a slow heavy lance: every 3 rounds at every step (A3 / A5 keep the reload; tuned to ~20% / ~30% of the side's damage at 5★ / A5)
+            // a slow heavy lance: every 3 rounds at every step (8★ / 10★ keep the reload; tuned to ~20% / ~30% of the side's damage at 5★ / 10★)
             int[] charge = { 15, 20, 25, 30, 35 }, chargeCap = { 30, 40, 50, 60, 70 }, lance = { 120, 125, 130, 140, 140 }, lanceReload = { 3, 3, 3, 3, 3 };
             string[] sightText =
             {
@@ -394,14 +394,14 @@ namespace RogueStars.Rules.Content
             return d;
         }
 
-        /// <summary>The passive or active at kit step k (0 = 1★ … 4 = A5): <c>mountId_passive_k+1</c>, replacing the step before.</summary>
+        /// <summary>The passive or active at kit step k (0 = 1★ … 4 = 10★): <c>mountId_passive_k+1</c>, replacing the step before.</summary>
         private void MountStep(MountDef d, int k, string slot, string name, string text, params SkillTrigger[] triggers)
         {
             string kind = slot == "Passive" ? "passive" : "active";
             var s = KitSkill(d.Id + "_" + kind + "_" + (k + 1), name, SkillSource.Mount, text, triggers);
-            var step = MountConfig.KitSteps[k];
-            d.Weapons.Add(new SkillStep(step[0], step[1], s.Id, k > 0 ? d.Id + "_" + kind + "_" + k : null));
-            d.Kit.Add(new KitText(step[0], step[1], slot, name, text));
+            int star = MountConfig.KitSteps[k];
+            d.Weapons.Add(new SkillStep(star, 0, s.Id, k > 0 ? d.Id + "_" + kind + "_" + k : null));
+            d.Kit.Add(new KitText(star, 0, slot, name, text));
             if (slot != "Passive")
                 foreach (var t in triggers)
                     if (t.Effect == EffectKind.Rule && t.Param != null && t.Param.StartsWith("reload:", StringComparison.Ordinal))

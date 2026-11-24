@@ -28,14 +28,14 @@ public class KitMigrationTests
     public void OldStepIds_ReadAsTheKitAtThatStep()
     {
         var ids = KitMigration.MetaSkillIds(C, OldLoadout());
-        Assert.Equal(new[] { "arm_tesla_whip_sk1" }.Concat(HeroSystem.TraitSkills(C, "hero_chef", 7)).Concat(MountSystem.WeaponSkills(C, "mount_frost_frigate", 5, 3)), ids);
+        Assert.Equal(new[] { "arm_tesla_whip_sk1" }.Concat(HeroSystem.TraitSkills(C, "hero_chef", 7)).Concat(MountSystem.WeaponSkills(C, "mount_frost_frigate", 5 + 3)), ids);
         Assert.Contains("hero_chef_c7", ids);                 // 7★: Second Course
         Assert.Contains("mount_frost_frigate_passive_4", ids); // A3
         // the highest old step wins (b2 = 10★; w4 = A5); old steps between kit steps land on the kit step below (w2 = 2★ → 1★)
         var top = new CombatLoadout(); top.MetaSkillIds.AddRange(new[] { "hero_star_knight_a1", "hero_star_knight_b2", "mount_scout_saucer_w4" });
-        Assert.Equal(HeroSystem.TraitSkills(C, "hero_star_knight", 10).Concat(MountSystem.WeaponSkills(C, "mount_scout_saucer", 5, 5)), KitMigration.MetaSkillIds(C, top));
+        Assert.Equal(HeroSystem.TraitSkills(C, "hero_star_knight", 10).Concat(MountSystem.WeaponSkills(C, "mount_scout_saucer", 5 + 5)), KitMigration.MetaSkillIds(C, top));
         var two = new CombatLoadout(); two.MetaSkillIds.Add("mount_magma_barge_w2");
-        Assert.Equal(MountSystem.WeaponSkills(C, "mount_magma_barge", 1, 0), KitMigration.MetaSkillIds(C, two));
+        Assert.Equal(MountSystem.WeaponSkills(C, "mount_magma_barge", 1), KitMigration.MetaSkillIds(C, two));
         // a new loadout is untouched
         var now = new CombatLoadout(); now.MetaSkillIds.AddRange(HeroSystem.TraitSkills(C, "hero_chef", 3));
         Assert.False(KitMigration.HasLegacy(C, now));
@@ -84,6 +84,7 @@ public class KitMigrationTests
         s.Run.Active!.Loadout.MetaSkillIds.AddRange(old.MetaSkillIds);
         s.Run.Active.Loadout.MountId = old.MountId;
         s.Run.Active.Loadout.MountStats.AddBlock(old.MountStats);
+        s.Gacha.Migrated = 0; // a save from before the pull system
         string json = JsonSerializer.Serialize(s, TestHelpers.Json);
         var loaded = JsonSerializer.Deserialize<GameState>(json, TestHelpers.Json)!;
         Assert.Equal(7, loaded.Heroes.Owned["hero_chef"].Stars);
@@ -91,9 +92,12 @@ public class KitMigrationTests
         Assert.Equal((5, 3, 55), (loaded.Mounts.Owned["mount_frost_frigate"].Stars, loaded.Mounts.Owned["mount_frost_frigate"].Awaken, loaded.Mounts.Owned["mount_frost_frigate"].Level));
         // the kits come from the kept stars (the progression contributors build the loadout from these)
         Assert.Contains("hero_chef_c7", HeroSystem.TraitSkills(C, "hero_chef", loaded.Heroes.Owned["hero_chef"].Stars));
+        // the pull system folds the awakening into stars on the first command (5★ A3 = 8★)
+        e.Settle(loaded, loaded.LastCommandMs);
         var m = loaded.Mounts.Owned["mount_frost_frigate"];
-        Assert.Contains("mount_frost_frigate_active_4", MountSystem.WeaponSkills(C, "mount_frost_frigate", m.Stars, m.Awaken));
-        Assert.Equal(20 + 54, MountSystem.MountStats(C, "mount_frost_frigate", m).Value(StatId.MountPower), 6); // 2★, 4★, A1, A2 × 5% + 54 levels × 1%
+        Assert.Equal((8, 0), (m.Stars, m.Awaken));
+        Assert.Contains("mount_frost_frigate_active_4", MountSystem.WeaponSkills(C, "mount_frost_frigate", m.Stars));
+        Assert.Equal(20 + 54, MountSystem.MountStats(C, "mount_frost_frigate", m).Value(StatId.MountPower), 6); // 2★, 4★, 6★, 7★ × 5% + 54 levels × 1%
         RunTestKit.AutoToEnd(e, ref loaded);
         Assert.NotNull(loaded.Run.LastSummary);
     }

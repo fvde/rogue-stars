@@ -6,10 +6,11 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Heroes (worm personas): unlock by shards, stars 1–10 by shards, level by Hero XP (worm stats only, one shared budget), a
-    /// hand-written kit (1★ Trait + Ability, 3★ a number, 5★ / 7★ clauses, 10★ capstone), one equipped hero, collection bonus.
-    /// Granter for RewardKinds.HeroShards and RewardKinds.Hero (a hero copy from summon events: the first unlocks the hero at
-    /// 1★, every further copy raises it one star; at max stars a copy becomes HeroConfig.CopyOverflow).
+    /// Heroes (worm personas, all Mythic): unlock by 50 shards, stars 1–10 on the shared shard table (ContentDb.ShardStars), level by
+    /// Hero XP (worm stats only, one shared budget), a hand-written kit (1★ Trait + Ability, 3★ a number, 5★ / 7★ clauses, 10★
+    /// capstone), one equipped hero, collection bonus. Granter for RewardKinds.HeroShards and RewardKinds.Hero (a hero batch from
+    /// summon events: 50 shards; the batch of a hero the player does not own unlocks it at 1★; a batch for a 10★ hero becomes
+    /// HeroConfig.CopyOverflow). Stars are raised with HeroStarUp.
     /// </summary>
     public static class HeroSystem
     {
@@ -36,18 +37,12 @@ namespace RogueStars.Rules.Systems
         /// <summary>Shards needed for the next star (or to unlock when not owned); -1 at max stars.</summary>
         public static long NextStarCost(GameState s, ContentDb c, string heroId)
         {
-            var h = Get(s, heroId); var cfg = c.HeroConfig;
-            int next = h == null ? 1 : h.Stars + 1;
-            return next <= cfg.MaxStars ? cfg.StarShardCosts[next] : -1;
+            var h = Get(s, heroId);
+            return h == null ? c.ShardStars.UnlockShards : h.Stars >= c.HeroConfig.MaxStars ? -1 : c.ShardStars.NextCost(h.Stars);
         }
 
         /// <summary>Total shards from nothing to the given star.</summary>
-        public static long TotalShardsToStar(ContentDb c, int stars)
-        {
-            long t = 0;
-            for (int i = 1; i <= stars && i < c.HeroConfig.StarShardCosts.Count; i++) t += c.HeroConfig.StarShardCosts[i];
-            return t;
-        }
+        public static long TotalShardsToStar(ContentDb c, int stars) => c.ShardStars.TotalTo(stars);
 
         /// <summary>Trait skill ids active at the given star count.</summary>
         public static List<string> TraitSkills(ContentDb c, string heroId, int stars)
@@ -99,40 +94,48 @@ namespace RogueStars.Rules.Systems
             foreach (var sk in TraitSkills(c, s.Heroes.Equipped, h.Stars)) if (!l.MetaSkillIds.Contains(sk)) l.MetaSkillIds.Add(sk);
         }
 
-        // ---- copies (summon events) ---------------------------------------------------------------
+        // ---- batches (summon events) -------------------------------------------------------------
 
-        /// <summary>What the next copy of a hero does: "new", "star" (+1★) or "overflow" (max stars).</summary>
+        /// <summary>What the next batch of a hero does: "new" (unlocks it), "shards" (+50 shards) or "overflow" (10★).</summary>
         public static string CopyEffect(GameState s, ContentDb c, string heroId)
         {
             var h = Get(s, heroId);
-            return h == null ? "new" : h.Stars < c.HeroConfig.MaxStars ? "star" : "overflow";
+            return h == null ? "new" : h.Stars < c.HeroConfig.MaxStars ? "shards" : "overflow";
         }
 
+        /// <summary>
+        /// A hero batch (RewardKinds.Hero, Amount = batches): ShardStars.BatchShards shards each; a hero the player does not own is
+        /// unlocked at 1★ with them; a batch for a 10★ hero becomes HeroConfig.CopyOverflow.
+        /// </summary>
         private static void GrantCopies(CommandContext ctx, Reward r)
         {
-            var s = ctx.State; var cfg = ctx.Content.HeroConfig;
+            var s = ctx.State; var c = ctx.Content; var cfg = c.HeroConfig;
             GameEngine.Require(cfg.Defs.ContainsKey(r.Id), "unknown hero " + r.Id);
             for (long i = 0; i < r.Amount; i++)
             {
                 s.Count("hero_copies");
                 var h = Get(s, r.Id);
-                if (h == null)
+                if (h != null && h.Stars >= cfg.MaxStars)
                 {
-                    s.Heroes.Owned[r.Id] = new HeroEntry();
-                    if (string.IsNullOrEmpty(s.Heroes.Equipped)) s.Heroes.Equipped = r.Id;
-                    s.Count("heroes_unlocked");
-                    ProgressionUtil.CountMax(s, "hero_stars_max", 1);
-                    ctx.Emit("hero_unlocked", r.Id);
+                    if (cfg.CopyOverflow != null) ctx.Grant(cfg.CopyOverflow);
+                    continue;
                 }
-                else if (h.Stars < cfg.MaxStars)
-                {
-                    h.Stars++;
-                    s.Count("hero_stars");
-                    ProgressionUtil.CountMax(s, "hero_stars_max", h.Stars);
-                    ctx.Emit("hero_star", r.Id, h.Stars.ToString());
-                }
-                else if (cfg.CopyOverflow != null) ctx.Grant(cfg.CopyOverflow);
+                s.Wallet.Add(Currencies.HeroShards(r.Id), c.ShardStars.BatchShards);
+                s.Count("hero_shards_obtained", c.ShardStars.BatchShards);
+                if (h == null) Unlock(ctx, r.Id);
             }
+        }
+
+        /// <summary>Unlock a hero at 1★ with UnlockShards of its shards (the caller checked it is not owned).</summary>
+        private static void Unlock(CommandContext ctx, string heroId)
+        {
+            var s = ctx.State;
+            ProgressionUtil.Spend(s, Currencies.HeroShards(heroId), ctx.Content.ShardStars.UnlockShards);
+            s.Heroes.Owned[heroId] = new HeroEntry();
+            if (string.IsNullOrEmpty(s.Heroes.Equipped)) s.Heroes.Equipped = heroId;
+            s.Count("heroes_unlocked");
+            ProgressionUtil.CountMax(s, "hero_stars_max", 1);
+            ctx.Emit("hero_unlocked", heroId);
         }
 
         // ---- handlers ------------------------------------------------------------------------------
@@ -148,11 +151,7 @@ namespace RogueStars.Rules.Systems
             Features.Require(ctx.State, ctx.Content, Features.Heroes);
             var s = ctx.State; RequireDef(ctx.Content, cmd.HeroId);
             GameEngine.Require(Get(s, cmd.HeroId) == null, "hero already unlocked");
-            ProgressionUtil.Spend(s, Currencies.HeroShards(cmd.HeroId), ctx.Content.HeroConfig.StarShardCosts[1]);
-            s.Heroes.Owned[cmd.HeroId] = new HeroEntry();
-            if (string.IsNullOrEmpty(s.Heroes.Equipped)) s.Heroes.Equipped = cmd.HeroId;
-            s.Count("heroes_unlocked");
-            ctx.Emit("hero_unlocked", cmd.HeroId);
+            Unlock(ctx, cmd.HeroId);
             return CommandResult.Success();
         }
 
@@ -163,7 +162,7 @@ namespace RogueStars.Rules.Systems
             var h = Get(s, cmd.HeroId);
             GameEngine.Require(h != null, "hero not unlocked");
             GameEngine.Require(h.Stars < cfg.MaxStars, "hero is at max stars");
-            ProgressionUtil.Spend(s, Currencies.HeroShards(cmd.HeroId), cfg.StarShardCosts[h.Stars + 1]);
+            ProgressionUtil.Spend(s, Currencies.HeroShards(cmd.HeroId), ctx.Content.ShardStars.NextCost(h.Stars));
             h.Stars++;
             s.Count("hero_stars");
             ProgressionUtil.CountMax(s, "hero_stars_max", h.Stars);

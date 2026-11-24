@@ -54,7 +54,7 @@ public class AlienTests
         GrantAlien(e, s, "alien_emberkit");
         Assert.Single(s.Aliens.Owned);
         Assert.Equal(genes.Atk, AlienSystem.Owned(s, "alien_emberkit").Genes.Atk); // existing alien untouched
-        Assert.Equal(3, s.Wallet.Get(Currencies.AlienShards("alien_emberkit")));
+        Assert.Equal(150, s.Wallet.Get(Currencies.AlienShards("alien_emberkit"))); // a copy is a batch of 50 shards
         Assert.Equal(1, s.Counter("aliens_obtained"));
         Assert.Equal(3, s.Counter("alien_duplicates"));
         Assert.Throws<RuleException>(() => GrantAlien(e, s, "alien_nope"));
@@ -86,7 +86,7 @@ public class AlienTests
     {
         var e = TestHelpers.Engine();
         var s = TestHelpers.NewPlayer(e);
-        long total = e.Content.AlienTuning.StarCosts.Sum();
+        long total = (e.Content.ShardStars.TotalTo(10) - e.Content.ShardStars.UnlockShards) / e.Content.ShardStars.BatchShards; // 19 batches after the unlock
         GrantAlien(e, s, "alien_frostmite", 1 + total);
         for (int star = 1; star <= 10; star++)
         {

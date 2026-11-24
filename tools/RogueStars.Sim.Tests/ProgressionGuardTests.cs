@@ -73,7 +73,6 @@ public class ProgressionGuardTests
         // Mount 5★ is the end of the star road, not of the mount (awakening 1–5 follows). The endless campaign's milestone
         // chests (Blueprint tokens) can tip seed 1 over 5★ just before day 60 (median ~day 90): see "Endless campaign".
         Assert.InRange(At(F2p.Value, 60, "mount_stars_best"), 1, 5);
-        Assert.Equal(0, At(F2p.Value, 60, "mount_awaken_best"));
         Assert.True(At(F2p.Value, 60, "part_rarity_avg") < 8, "parts average Mythic S after two months");
         Assert.True(At(F2p.Value, 60, "lab_research") < At(F2p.Value, 60, "lab_research_max"), "laboratory maxed in two months");
         Assert.True(At(F2p.Value, 60, "lab_hours_pct") < 5, "laboratory research hours: the tree is a multi-year road");

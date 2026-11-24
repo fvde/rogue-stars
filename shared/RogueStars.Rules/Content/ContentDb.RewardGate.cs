@@ -104,7 +104,7 @@ namespace RogueStars.Rules.Content
             Cur(Currencies.PartTokens, "Part Signal pulls", 30, F(Features.PartPulls));
             Cur(Currencies.AlienTokens, "Alien Signal pulls", 30, F(Features.AlienPulls));
             Cur(Currencies.BlueprintTokens, "Blueprint Signal pulls", 30, F(Features.Blueprints));
-            Cur(Currencies.MountCores, "Mount awakening", -1, F(Features.Mounts));
+            Cur(Currencies.MountCores, "Mount stars 6★–10★", -1, F(Features.Mounts));
             Cur(Currencies.HeroTickets, "Hero summon event pulls", 30, F(Features.Heroes));
             Cur(Currencies.MountTickets, "Mount summon event pulls", 30, F(Features.Mounts));
             Cur(Currencies.HeroSigils, "Hero summon exchange shop", -1, F(Features.Heroes));
@@ -117,7 +117,7 @@ namespace RogueStars.Rules.Content
             Cur(Currencies.HeroShards("*"), "Hero unlock and stars", -1, F(Features.Heroes));
             Cur(Currencies.AlienShards("*"), "Alien stars", -1, F(Features.Aliens));
             Cur(Currencies.BlueprintShards("*"), "Building stars", -1, F(Features.BiomassFarm));
-            Cur(Currencies.MountShards("*"), "Mount stars and awakening", -1, F(Features.Mounts));
+            Cur(Currencies.MountShards("*"), "Mount unlock and stars", -1, F(Features.Mounts));
 
             Item(RewardKinds.Part, "Worm parts", -1, F(Features.Parts));
             Item(RewardKinds.Rune, "Part sockets", 5, F(Features.Runes));

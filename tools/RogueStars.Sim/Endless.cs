@@ -75,7 +75,7 @@ public static class Endless
 
         var mount = string.IsNullOrEmpty(s.Mounts.Active) ? null : MountSystem.Get(s, s.Mounts.Active);
         var mc = c.MountConfig;
-        if (mount != null && mount.Level < mc.MaxLevel(mount.Stars, mount.Awaken)) r[4] = Per(mc.LevelFuelCosts[mount.Level], Currencies.Fuel, frontier);
+        if (mount != null && mount.Level < mc.MaxLevel(mount.Stars)) r[4] = Per(mc.LevelFuelCosts[mount.Level], Currencies.Fuel, frontier);
 
         int darkMax = (int)s.Counter(RunSystem.DarkSideMaxCounter);
         if (darkMax >= 1 && Metrics.LabDone(s) < Metrics.LabTotal(c)) r[5] = Per(LaboratorySystem.NextDataCost(s, c), Currencies.Data, c.DarkSideLevel(darkMax));

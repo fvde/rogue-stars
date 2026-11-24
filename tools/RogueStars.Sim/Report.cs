@@ -14,7 +14,7 @@ public static class Report
         ("darkside_cleared", "Dark Side"), ("worm_level", "Worm lv"), ("talent_tier", "Talent tier"), ("part_rarity_avg", "Part rarity avg"),
         ("part_level_avg", "Part lv avg"), ("rune_slots", "Rune slots"), ("rune_rarity_avg", "Rune rarity"), ("forge_unlocks", "Forge"),
         ("parts_awakened", "Awakened parts"), ("hero_stars_best", "Hero ★ best"), ("hero_stars_avg", "Hero ★ avg"), ("heroes_owned", "Heroes"),
-        ("mount_stars_best", "Mount ★"), ("mount_awaken_best", "Mount awaken"), ("blueprints_owned", "Blueprints"), ("blueprint_stars_avg", "BP ★ avg"),
+        ("mount_stars_best", "Mount ★"), ("blueprints_owned", "Blueprints"), ("blueprint_stars_avg", "BP ★ avg"),
         ("buildings", "Buildings"), ("building_level_avg", "Bld lv avg"), ("prod_h_biomass", "Biomass/h"), ("prod_h_ore", "Ore/h"),
         ("prod_h_diamonds", "Diamonds/h"), ("aliens_owned", "Aliens"), ("alien_stars_avg", "Alien ★ avg"), ("squad_size", "Squad"),
         ("breeds", "Breeds"), ("lab_research", "Lab"), ("arena_league", "League"), ("invasion_score", "Invasion score"),

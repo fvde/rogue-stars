@@ -62,7 +62,7 @@ public static class KitShare
             }
             sb.AppendLine();
         }
-        foreach (var (stars, awaken, label) in new[] { (1, 0, "1★"), (5, 0, "5★"), (5, 5, "A5") })
+        foreach (var (stars, label) in new[] { (1, "1★"), (5, "5★"), (10, "10★") })
         {
             sb.AppendLine($"Mounts at {label} (win % · dmg rel. · mount share of side damage):");
             sb.AppendLine();
@@ -70,8 +70,8 @@ public static class KitShare
             sb.AppendLine("|---|" + string.Concat(Enumerable.Repeat("---|", Sigs.Length + 3)));
             foreach (var m in c.MountConfig.Defs.Keys.OrderBy(x => x, StringComparer.Ordinal))
             {
-                double mp = MountSystem.MountStats(c, m, new MountEntry { Stars = stars, Awaken = awaken, Level = 1 }).Value(StatId.MountPower);
-                var row = Sigs.Select(sig => Run(c, baseLo, sig, MountSystem.WeaponSkills(c, m, stars, awaken), m, mp, seeds, atk, hp, baseCells[sig])).ToList();
+                double mp = MountSystem.MountStats(c, m, new MountEntry { Stars = stars, Level = 1 }).Value(StatId.MountPower);
+                var row = Sigs.Select(sig => Run(c, baseLo, sig, MountSystem.WeaponSkills(c, m, stars), m, mp, seeds, atk, hp, baseCells[sig])).ToList();
                 sb.AppendLine(Row(c.MountConfig.Defs[m].Name, row, true));
             }
             sb.AppendLine();
@@ -81,7 +81,7 @@ public static class KitShare
         sb.AppendLine();
         foreach (var sig in new[] { "sig_fire", "sig_radiation", "sig_bleed" })
         {
-            var kit = HeroSystem.TraitSkills(c, "hero_star_knight", 1).Concat(MountSystem.WeaponSkills(c, "mount_scout_saucer", 1, 0)).ToList();
+            var kit = HeroSystem.TraitSkills(c, "hero_star_knight", 1).Concat(MountSystem.WeaponSkills(c, "mount_scout_saucer", 1)).ToList();
             var cell = Run(c, baseLo, sig, kit, "mount_scout_saucer", 0, seeds, atk, hp, baseCells[sig]);
             sb.AppendLine($"- {sig.Substring(4)}: alone {baseCells[sig].Win:0}% → {cell.Win:0}% · {cell.Rel:0.00} (mount {cell.Share:0.0}% of side damage)");
         }

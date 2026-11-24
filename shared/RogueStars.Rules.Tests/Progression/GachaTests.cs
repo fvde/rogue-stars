@@ -81,10 +81,12 @@ public class GachaTests
         foreach (var d in C.AlienTypes.Values)
             Assert.Contains(al.Tiers[(int)d.Rarity].Pool, en => en.Kind == RewardKinds.Alien && en.Id == d.Id);
         // Summon events are the way to get heroes and mounts: no mount copies or hero shards in the Signals. Their old share
-        // (~25% of Blueprint, ~40% of Alien outcomes) is supplies: Ore / Grain, summon tickets from Epic up.
+        // (~25% of Blueprint, ~40% of Alien outcomes) is supplies: Ore / Grain, summon tickets in Epic and Legendary. The Mythic
+        // tier holds Mythic items only (pull system).
         void Supplies(GachaTypeDef def, string low, string ticket, double min, double max)
         {
-            foreach (var t in def.Tiers)
+            Assert.All(def.Tiers.Single(x => x.Tier == Rarity.Mythic).Pool, en => Assert.NotEqual(RewardKinds.Currency, en.Kind));
+            foreach (var t in def.Tiers.Where(x => x.Tier < Rarity.Mythic))
             {
                 var sup = t.Pool.Where(en => en.Kind == RewardKinds.Currency).ToList();
                 Assert.Single(sup);
@@ -166,21 +168,22 @@ public class GachaTests
             gap++;
             if (it.Tier == Rarity.Mythic) { maxGap = Math.Max(maxGap, gap); gap = 0; }
         }
-        Assert.Equal(def.MythicHardPity, maxGap); // hit exactly at the threshold at least once
+        Assert.Equal(def.MythicPity, maxGap); // hit exactly at the threshold at least once
         Assert.True(s.Gacha.Pity[GachaType.Part].MythicPityTriggers > 0);
 
         // Deterministic check: one pull before the threshold is guaranteed Mythic.
         var s2 = Rich(e, 99);
-        s2.Gacha.For(GachaType.Alien).SinceMythic = def.MythicHardPity - 1;
+        s2.Gacha.For(GachaType.Alien).SinceMythic = def.MythicPity - 1;
         Assert.Equal(Rarity.Mythic, Pull(e, ref s2, GachaType.Alien).Items[0].Tier);
         Assert.Equal(0, s2.Gacha.Pity[GachaType.Alien].SinceMythic);
     }
 
     [Fact]
-    public void LegendaryPity_SoftAndHard()
+    public void LegendaryPity_FixedAt40_NoSoftPity()
     {
         var e = Engine(cloner: false);
         var def = C.GachaConfig.Types[GachaType.Blueprint];
+        Assert.Equal(40, def.LegendaryPity);
         int maxGap = 0;
         var s = Rich(e);
         int gap = 0;
@@ -190,10 +193,12 @@ public class GachaTests
             gap++;
             if (it.Tier >= Rarity.Legendary) { maxGap = Math.Max(maxGap, gap); gap = 0; }
         }
-        Assert.True(maxGap <= def.LegendaryHardPity);
-        // Effective Legendary+ rate is clearly above the published 2.5% because of the soft pity.
-        long leg = s.Counter("pulls_legendary") + s.Counter("pulls_mythic");
-        Assert.True(leg / 3000.0 > 0.03);
+        Assert.True(maxGap <= def.LegendaryPity);
+        // Deterministic: the 39th pull without Legendary+ is never forced (no soft pity), the 40th always is.
+        var s2 = Rich(e, 5);
+        s2.Gacha.For(GachaType.Blueprint).SinceLegendary = def.LegendaryPity - 1;
+        Assert.True(Pull(e, ref s2, GachaType.Blueprint).Items[0].Tier >= Rarity.Legendary);
+        Assert.Equal(1, s2.Gacha.Pity[GachaType.Blueprint].LegendaryPityTriggers + s2.Gacha.Pity[GachaType.Blueprint].Mythics);
     }
 
     [Fact]
@@ -204,11 +209,15 @@ public class GachaTests
         var b1 = GachaSystem.ActiveBanner(C, GachaType.Part, TestHelpers.T0)!;
         var b2 = GachaSystem.ActiveBanner(C, GachaType.Part, TestHelpers.T0 + Week)!;
         Assert.NotEqual(b1.Id, b2.Id);
-        s.Gacha.For(GachaType.Part).SinceMythic = def.MythicHardPity - 11;
-        // 10 pulls on banner 1 (seed chosen so none is a natural Mythic), then banner 2 next week.
-        var r1 = Pull(e, ref s, GachaType.Part, 10, b1.Id);
-        Assert.All(r1.Items, i => Assert.NotEqual(Rarity.Mythic, i.Tier));
-        Assert.Equal(def.MythicHardPity - 1, s.Gacha.Pity[GachaType.Part].SinceMythic);
+        // 10 pulls on banner 1 (the first seed where none is a natural Mythic), then banner 2 next week.
+        for (long seed = 1; ; seed++)
+        {
+            s = Rich(e, seed);
+            s.Gacha.For(GachaType.Part).SinceMythic = def.MythicPity - 11;
+            var r1 = Pull(e, ref s, GachaType.Part, 10, b1.Id);
+            if (r1.Items.All(i => i.Tier != Rarity.Mythic)) break;
+        }
+        Assert.Equal(def.MythicPity - 1, s.Gacha.Pity[GachaType.Part].SinceMythic);
         var next = Pull(e, ref s, GachaType.Part, 1, b2.Id, TestHelpers.T0 + Week).Items[0];
         Assert.Equal(Rarity.Mythic, next.Tier);
         Assert.Equal(1, s.Gacha.Pity[GachaType.Part].MythicPityTriggers);
@@ -262,7 +271,7 @@ public class GachaTests
         int featured = 0, n = 400;
         for (int i = 0; i < n; i++)
         {
-            s.Gacha.For(GachaType.Part).SinceMythic = def.MythicHardPity - 1;
+            s.Gacha.For(GachaType.Part).SinceMythic = def.MythicPity - 1;
             var it = Pull(e, ref s, GachaType.Part, 1, b.Id).Items[0];
             Assert.Equal(Rarity.Mythic, it.Tier);
             if (it.Featured) { featured++; Assert.Equal(b.Theme.FeaturedId, it.Id); }
@@ -271,7 +280,7 @@ public class GachaTests
     }
 
     [Fact]
-    public void PublishedOdds_SumTo100_AndHidePity()
+    public void PublishedOdds_SumTo100_AndPublishTheFixedPity()
     {
         foreach (var t in new[] { GachaType.Blueprint, GachaType.Part, GachaType.Alien })
             foreach (var withBanner in new[] { false, true })
@@ -283,6 +292,10 @@ public class GachaTests
                 foreach (var tier in odds.Tiers) Assert.Equal(tier.Percent, tier.Items.Sum(i => i.Percent), 6);
                 Assert.Equal(withBanner, odds.Tiers.Single(x => x.Tier == Rarity.Mythic).Items.Any(i => i.Featured));
                 Assert.Equal(Rarity.Epic, odds.TenPullMinTier);
+                Assert.True(odds.TenPullGuarantee);
+                Assert.Equal((100, 40), (odds.MythicPity, odds.LegendaryPity));
+                Assert.Equal(1.2, odds.Tiers.Single(x => x.Tier == Rarity.Mythic).Percent, 6);
+                Assert.Equal(3.0, odds.Tiers.Single(x => x.Tier == Rarity.Legendary).Percent, 6);
             }
     }
 }

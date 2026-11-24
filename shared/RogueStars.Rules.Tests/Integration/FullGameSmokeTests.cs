@@ -168,11 +168,14 @@ public class FullGameSmokeTests
         string child = (string)p.Do(new BreedCollect { JobId = job }).Payload!;
         p.Do(new BreedResolve { ChildId = child, Keep = BreedKeep.Replace });
 
-        // No starter hero: heroes come only from the summon events (the unlock's 10 tickets are the first 10× draw); the
-        // first mount comes with the Mounts unlock.
+        // No starter hero and no starter mount: both come only from the summon events (the unlocks' 10 tickets are the first
+        // 10× draws); here a server mail stands in for a lucky mount draw.
         Assert.Empty(p.S.Heroes.Owned);
+        Assert.Empty(p.S.Mounts.Owned);
         var pull = (SummonPullResult)p.Do(new SummonPull { EventType = SummonEventType.Hero, Count = 10, Payment = SummonPayment.Tickets }).Payload!;
         Assert.Equal(10, pull.Items.Count);
+        string mountMail = (string)p.Do(new MailPush { Title = "Mount", Body = "", Rewards = { new Reward(RewardKinds.Mount, "mount_scout_saucer", 1) } }).Payload!;
+        p.Do(new MailClaim { MailId = mountMail });
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
 
         // Quests: login, part pull, ad (No-token ad fails, a real token works).
@@ -222,7 +225,7 @@ public class FullGameSmokeTests
         p.Do(new AlienSetSquad { AlienTypeIds = { "alien_blorp" } });
         p.Do(new SummonPull { EventType = SummonEventType.Hero, Count = 10, Payment = SummonPayment.Tickets });
         // a hero copy (heroes only come from the summon events; here a server mail stands in for a lucky draw)
-        string heroMail = (string)p.Do(new MailPush { Title = "Hero", Body = "", Rewards = { new Reward(RewardKinds.Hero, "hero_star_knight", 1) } }).Payload!;
+        string heroMail = (string)p.Do(new MailPush { Title = "Hero", Body = "", Rewards = { new Reward(RewardKinds.Hero, "hero_star_knight", 1), new Reward(RewardKinds.Mount, "mount_scout_saucer", 1) } }).Payload!;
         p.Do(new MailClaim { MailId = heroMail });
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
         p.Do(new LoginClaim());

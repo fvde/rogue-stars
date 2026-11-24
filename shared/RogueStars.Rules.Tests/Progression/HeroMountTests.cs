@@ -23,10 +23,10 @@ public class HeroTests
     }
 
     [Fact]
-    public void Stars1To10_CostSteepShardAmounts()
+    public void Stars1To10_OnTheSharedShardTable()
     {
         var e = Engine(); var s = Player(e);
-        var costs = C.HeroConfig.StarShardCosts;
+        var costs = C.ShardStars.StepCosts;
         Grant(e, s, new Reward(RewardKinds.HeroShards, H, costs[1] - 1));
         Fail(e, ref s, new HeroUnlock { HeroId = H });
         Grant(e, s, new Reward(RewardKinds.HeroShards, H, 1));
@@ -35,7 +35,7 @@ public class HeroTests
         Fail(e, ref s, new HeroUnlock { HeroId = H });
         for (int star = 2; star <= 10; star++)
         {
-            Assert.True(costs[star] > costs[star - 1] || star == 2, "costs grow");
+            Assert.True(costs[star] >= costs[star - 1], "costs never fall");
             Assert.Equal(costs[star], HeroSystem.NextStarCost(s, C, H));
             Grant(e, s, new Reward(RewardKinds.HeroShards, H, costs[star] - 1));
             Fail(e, ref s, new HeroStarUp { HeroId = H });
@@ -45,7 +45,7 @@ public class HeroTests
             Assert.Equal(0, s.Wallet.Get(Currencies.HeroShards(H)));
         }
         Assert.Contains("max", Fail(e, ref s, new HeroStarUp { HeroId = H }));
-        Assert.True(HeroSystem.TotalShardsToStar(C, 10) >= 3000);
+        Assert.Equal(1000, HeroSystem.TotalShardsToStar(C, 10));
         // Duplicates beyond max stars still become shards (value for later content).
         Grant(e, s, new Reward(RewardKinds.HeroShards, H, 5));
         Assert.Equal(5, s.Wallet.Get(Currencies.HeroShards(H)));
@@ -71,7 +71,7 @@ public class HeroTests
     public void LevelCap_GrowsWithStars_AndStatsReachLoadout()
     {
         var e = Engine(); var s = Player(e);
-        Grant(e, s, new Reward(RewardKinds.HeroShards, H, 40));
+        Grant(e, s, new Reward(RewardKinds.HeroShards, H, 50));
         Ok(e, ref s, new HeroUnlock { HeroId = H });
         SetBalance(s, Currencies.HeroXp, 10_000_000);
         int cap = C.HeroConfig.MaxLevel(1);
@@ -99,9 +99,9 @@ public class MountTests
     {
         var e = Engine(); var s = Player(e);
         var cfg = C.MountConfig;
-        SetBalance(s, Currencies.MountShards(M), cfg.UnlockShards - 1);
+        SetBalance(s, Currencies.MountShards(M), C.ShardStars.UnlockShards - 1);
         Assert.Contains("not enough", Fail(e, ref s, new MountUnlock { MountId = M }));
-        SetBalance(s, Currencies.MountShards(M), cfg.UnlockShards);
+        SetBalance(s, Currencies.MountShards(M), C.ShardStars.UnlockShards);
         Ok(e, ref s, new MountUnlock { MountId = M });
         Assert.Equal(1, s.Mounts.Owned[M].Stars);
         Assert.Equal(M, s.Mounts.Active);
@@ -110,27 +110,24 @@ public class MountTests
     }
 
     [Fact]
-    public void Granter_FirstCopyUnlocks_CopiesRaiseStars_ThenAwakeningShards_ThenOverflow()
+    public void Granter_ABatchIs50Shards_TheFirstUnlocks_At10StarsOverflow()
     {
         var e = Engine(); var s = Player(e);
         var cfg = C.MountConfig;
         Grant(e, s, new Reward(RewardKinds.Mount, M, 3));
-        Assert.Equal(3, s.Mounts.Owned[M].Stars); // 1 unlocks, 2 copies = 2 stars
+        Assert.Equal(1, s.Mounts.Owned[M].Stars); // the first batch unlocks, two more are 100 shards (no automatic stars)
         Assert.Equal(M, s.Mounts.Active);
-        Assert.Equal(0, s.Wallet.Get(Currencies.MountShards(M)));
-        Grant(e, s, new Reward(RewardKinds.Mount, M, 2));
-        Assert.Equal(cfg.MaxStars, s.Mounts.Owned[M].Stars);
-        Assert.Equal("awaken", MountSystem.CopyEffect(s, C, M));
-        Grant(e, s, new Reward(RewardKinds.Mount, M, 1)); // at 5★: the shards of the next awakening level
-        Assert.Equal(cfg.AwakenShardCosts[1], s.Wallet.Get(Currencies.MountShards(M)));
-        s.Mounts.Owned[M].Awaken = cfg.MaxAwaken;
+        Assert.Equal(100, s.Wallet.Get(Currencies.MountShards(M)));
+        Assert.Equal("shards", MountSystem.CopyEffect(s, C, M));
+        s.Mounts.Owned[M].Stars = cfg.MaxStars;
         Assert.Equal("overflow", MountSystem.CopyEffect(s, C, M));
         Grant(e, s, new Reward(RewardKinds.Mount, M, 1));
+        Assert.Equal(100, s.Wallet.Get(Currencies.MountShards(M)));
         Assert.Equal(cfg.CopyOverflow.Amount, s.Wallet.Get(cfg.CopyOverflow.Id));
     }
 
     [Fact]
-    public void Stars1To5_ThenAwakening1To5_WithKitStepsAt1_3_5_A3_A5()
+    public void Stars1To10_SharedTable_CoresFrom6Stars_KitStepsAt1_3_5_8_10()
     {
         var e = Engine(); var s = Player(e);
         var cfg = C.MountConfig;
@@ -139,49 +136,43 @@ public class MountTests
         SetBalance(s, Currencies.MountCores, 100_000);
         string P(int k) => M + "_passive_" + k;
         string A(int k) => M + "_active_" + k;
-        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 1, 0));
-        Assert.Contains("max stars", Fail(e, ref s, new MountAwaken { MountId = M }));
-        for (int star = 2; star <= 5; star++)
+        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 1));
+        for (int star = 2; star <= 10; star++)
         {
-            long before = s.Wallet.Get(Currencies.MountShards(M));
+            long before = s.Wallet.Get(Currencies.MountShards(M)), cores = s.Wallet.Get(Currencies.MountCores);
             Ok(e, ref s, new MountStarUp { MountId = M });
-            Assert.Equal(before - cfg.StarShardCosts[star], s.Wallet.Get(Currencies.MountShards(M)));
+            Assert.Equal(before - C.ShardStars.StepCosts[star], s.Wallet.Get(Currencies.MountShards(M)));
+            Assert.Equal(cores - cfg.StarCoreCosts[star], s.Wallet.Get(Currencies.MountCores));
+            Assert.Equal(star >= 6, cfg.StarCoreCosts[star] > 0);
         }
-        Fail(e, ref s, new MountStarUp { MountId = M });
-        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 2, 0));
-        Assert.Equal(new[] { P(2), A(2) }, MountSystem.WeaponSkills(C, M, 4, 0));
-        Assert.Equal(new[] { P(3), A(3) }, MountSystem.WeaponSkills(C, M, 5, 0));
-        for (int a = 1; a <= 5; a++)
-        {
-            long cores = s.Wallet.Get(Currencies.MountCores);
-            Ok(e, ref s, new MountAwaken { MountId = M });
-            Assert.Equal(cores - cfg.AwakenCoreCosts[a], s.Wallet.Get(Currencies.MountCores));
-        }
-        Assert.Contains("fully", Fail(e, ref s, new MountAwaken { MountId = M }));
-        Assert.Equal(new[] { P(3), A(3) }, MountSystem.WeaponSkills(C, M, 5, 2));
-        Assert.Equal(new[] { P(4), A(4) }, MountSystem.WeaponSkills(C, M, 5, 3));
-        Assert.Equal(new[] { P(5), A(5) }, MountSystem.WeaponSkills(C, M, 5, 5));
+        Assert.Contains("max stars", Fail(e, ref s, new MountStarUp { MountId = M }));
+        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 2));
+        Assert.Equal(new[] { P(2), A(2) }, MountSystem.WeaponSkills(C, M, 4));
+        Assert.Equal(new[] { P(3), A(3) }, MountSystem.WeaponSkills(C, M, 7));
+        Assert.Equal(new[] { P(4), A(4) }, MountSystem.WeaponSkills(C, M, 8));
+        Assert.Equal(new[] { P(5), A(5) }, MountSystem.WeaponSkills(C, M, 10));
         var l = e.BuildLoadout(s, TestHelpers.T0);
         Assert.Equal(M, l.MountId);
         Assert.Contains(P(5), l.MetaSkillIds);
         Assert.Contains(A(5), l.MetaSkillIds);
-        // no mount stats: 5 in-between steps (2★, 4★, A1, A2, A4) × 5% mount damage, nothing else
+        // no mount stats: 5 in-between steps (2★, 4★, 6★, 7★, 9★) × 5% mount damage, nothing else
         Assert.Equal(0, l.MountStats.Value(StatId.Atk), 6);
         Assert.Equal(0, l.MountStats.Value(StatId.Hp), 6);
         Assert.Equal(25, l.MountStats.Value(StatId.MountPower), 6);
         Assert.Equal(SkillSource.Mount, C.Skill(A(5))!.Source);
+        Assert.Equal("10★", C.MountConfig.Defs[M].Kit.Last().StepLabel);
     }
 
     [Fact]
-    public void LevelWithFuel_CapByStarsAndAwakening()
+    public void LevelWithFuel_CapByStars()
     {
         var e = Engine(); var s = Player(e);
         Grant(e, s, new Reward(RewardKinds.Mount, M, 1));
         SetBalance(s, Currencies.Fuel, 100_000_000);
-        int cap = C.MountConfig.MaxLevel(1, 0);
+        int cap = C.MountConfig.MaxLevel(1);
         Ok(e, ref s, new MountLevelUp { MountId = M, Levels = cap - 1 });
         Fail(e, ref s, new MountLevelUp { MountId = M });
-        Assert.True(C.MountConfig.MaxLevel(5, 5) > cap);
+        Assert.True(C.MountConfig.MaxLevel(10) > cap);
         // Fuel keeps a sink: +1% mount damage per level above 1
         Assert.Equal(cap - 1, MountSystem.MountStats(C, M, s.Mounts.Owned[M]).Value(StatId.MountPower), 6);
     }
@@ -200,7 +191,7 @@ public class LoadoutTests
         var left = PartsSystem.AddPart(s, C, "arm_tesla_whip", (int)PartRarity.Mythic);
         var right = PartsSystem.AddPart(s, C, "arm_drill_lance", (int)PartRarity.Common);
         var body = PartsSystem.AddPart(s, C, "body_plated_shell", (int)PartRarity.Rare);
-        Grant(e, s, new Reward(RewardKinds.HeroShards, "hero_chef", 40));
+        Grant(e, s, new Reward(RewardKinds.HeroShards, "hero_chef", 50));
         Grant(e, s, new Reward(RewardKinds.Mount, "mount_scout_saucer", 1));
         Ok(e, ref s, new HeroUnlock { HeroId = "hero_chef" });
         Ok(e, ref s, new PartEquip { Uid = left.Uid, Slot = PartSlot.LeftArm });
