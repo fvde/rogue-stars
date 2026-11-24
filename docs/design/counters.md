@@ -139,3 +139,5 @@ Meta content now reads the keys the owning workstreams actually write:
 - `run_minigames_started` — run mini-games started (RunMinigameStart on a GAME tile) — Run
 - `run_minigames_played` — run mini-games finished with any tier (RunMinigameFinish, farming included) — Run
 - `run_minigames_gold` — run mini-games finished with a Gold medal — Run
+- `run_signature_<skillId>` — runs started with that signature (e.g. `run_signature_sig_fire`) — Run
+- `run_signature_awakened` — signature awakenings (level 2 or 3 reached in a run) — Run

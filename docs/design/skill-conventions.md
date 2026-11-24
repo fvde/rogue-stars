@@ -134,3 +134,40 @@ awakening +, boss buffs, battles, strengthening enemies). Deliberate trades (cos
   Swift → dodge ignore; ids kept).
 - **Text:** `SkillText.Upgrade(content, skill, from, to)` renders the upgrade inline ("+15% → +25% crit chance"); offers of
   an owned skill show it with the target level as title (`SkillText.Title(skill, level)` = "Keen Eye Lv 2").
+
+## Signatures, synergies and key mechanics (signatures pass)
+
+- **Synergies:** Fire, Radiation (internal id `Poison`: `SkillFamily.Poison`, `StatusId.Poison`, `StatId.PoisonDamage`; shown as
+  "Radiation" via `SkillText.FamilyName` / `StatusName`) and Bleed are open from the start (`RunTuning.StarterSynergies`). Ice,
+  Lightning, Alien, Counter and Combo are **Laboratory packages** (`LabNodeKind.Package`, branch `packages`, one level; a chain:
+  Combo → Ice → Lightning → Counter → Alien, each needing the previous package and a stat node at level 2; Alien also needs the
+  Aliens feature). `CombatLoadout.UnlockedFamilies` lists the open synergies; `RunDraft.FamilyUnlocked` keeps a locked synergy's
+  run skills and Mythics out of drafts, shops and Mythic choices (an empty list = a run saved before: everything). Lab skill nodes
+  of a package synergy need the package. Crit is no synergy any more: Keen Eye, Brutal Force, Executioner and the three former
+  Crit Mythics are generic (`SkillFamily.Crit` stays for parts / heroes / mounts and old saves).
+- **Signature skills** (`SkillDef.Signature`, `sig_<synergy>`, not draftable): one per synergy, each does one simple thing (Ignite,
+  Irradiate, Lacerate, Chill: on hit 1 stack; Arc: on hit 50% ATK to 1 other enemy; Command: each round one alien attacks again;
+  Riposte: when hit 30% chance to counterattack; Flurry: on hit 30% chance to strike again). `RunSystem.SignatureOffer` = up to
+  `RunTuning.SignatureChoices` (3) of the unlocked synergies' signatures, shuffled from `RunState.SignatureSeed` + the run counter
+  (stable until a run starts, identical on client and server); `RunStart.SignatureId` picks one (empty = the first). Awakening
+  (`RunSystem.UpdateSignature`, `SkillLeveling.Awaken`): level 2 / 3 at `RunTuning.SignatureAwakenAt` = 3 / 6 owned skills of its
+  synergy (the signature itself is never counted by `RunDraft.FamilyCount`): stacks, jumps and aliens ×level, proc chances ×1 /
+  ×1.5 / ×2. It is never drafted, bought, levelled by drafts or events, or lost to "lose a random skill". Drafts, Mythic choices
+  and shops weight its synergy ×`SignatureFamilyWeight` (1.4) and the synergy slot offers it from the first draft.
+- **One Mythic pool:** Mythics are never in the normal draft or the shop and have no family / prerequisite gates; every miniboss
+  choice draws from all Mythics of the unlocked synergies plus the generic ones (owned synergies weighted).
+- **Heat (Fire):** permanent stacks (max 10). At 10 the fighter goes **Supernova** (`StatusDef.BurstAtStacks`): every targetable
+  fighter of its side (itself included) takes `BurstAtkPct` 250% of the heater's ATK × (1 + fire damage %) × (1 + `SupernovaDamage`
+  %), DR and damage-taken statuses apply; the heater's side's worm takes `BurstRecoilPct` 12% of its max HP × (1 − `SupernovaGuard`
+  %); the Heat is removed; the heater's `OnSupernova` triggers fire. Log: `BattleAction.Supernova` (marker with Amount 0, then one
+  entry per hit). Killing or cooling the enemy first avoids the recoil. Legacy `StatusId.Burn` has no content (old logs read "Heat").
+- **Cooling:** `EffectKind.RemoveStatus` (Status, Stacks; 0 = all) and `StatusDef.Cools` (each Chill stack applied removes one Heat);
+  logged as `BattleAction.StatusRemoved`.
+- **Radiation:** permanent, unlimited stacks (9999), 4% of the applier's ATK × (1 + radiation damage %) per stack each turn, −30%
+  healing received.
+- **Bleed:** permanent, max 10 stacks, 6% ATK per stack each turn, ignores shields. `EffectKind.ConsumeStatus` removes all stacks:
+  Value % ATK skill damage per stack, `Param = "heal:N"` heals the owner's worm N% of it (Blood Frenzy, Bloodlust).
+- **Chill (Ice):** max 10, 3 turns, −2% damage dealt per stack (× the chiller's ice damage), cools Heat.
+- **New effects / targets:** `Strike` (attack the context target again; `Param "counter"` = a counterattack), `AllyAction` (Stacks
+  aliens attack again), `TargetKind.OtherEnemies` (Stacks random enemies other than the context target), trigger `OnSupernova`,
+  stats `SupernovaDamage` / `SupernovaGuard` (points).
