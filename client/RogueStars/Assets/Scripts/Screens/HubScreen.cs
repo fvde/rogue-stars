@@ -287,7 +287,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Height (reference px from the bottom) of the tabs, START, the feature row and the guide.</summary>
         private float BottomBlock()
         {
-            float h = 210 + 220;
+            float h = 210 + 250;
             if (FeatureRow().Count > 0) h += 200;
             h += GuideItems() * 132;
             return h + 20;
@@ -326,7 +326,7 @@ namespace RogueStars.Client.Screens
             BuildTabs();
             BuildStart();
             var features = FeatureRow();
-            float y = 210 + 220;
+            float y = 210 + 250;
             if (features.Count > 0)
             {
                 var panel = Ui.RoundPanel(_frame, Panel, 40 * _s, "FeatureRow");

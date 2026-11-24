@@ -200,8 +200,9 @@ namespace RogueStars.Client.World
             p.Line(V(c + 150, 100), V(c - 120, 170), 46, Ink); p.Line(V(c + 150, 100), V(c - 120, 170), 32, Shade(wood, 0.15f));
             // an alien flame: teal-green, layered
             var outer = (Color)new Color32(0x4C, 0xE0, 0x8C, 255);
-            p.Shape(Flame(c, 150, 170, 410), VGrad(Shade(outer, -0.2f), Shade(outer, 0.35f), 150, 560), Ink, 10);
-            p.Shape(Flame(c + 6, 160, 96, 230), new Color32(0xB8, 0xFF, 0xD8, 255), Ink, 0);
+            p.Shape(new[] { V(c - 140, 150), V(c - 172, 250), V(c - 128, 360), V(c - 96, 300), V(c - 70, 420), V(c - 20, 560), V(c + 20, 470), V(c + 70, 520), V(c + 96, 400), V(c + 150, 440), V(c + 170, 290), V(c + 140, 150) },
+                VGrad(Shade(outer, -0.2f), Shade(outer, 0.35f), 150, 560), Ink, 10);
+            p.Shape(new[] { V(c - 80, 160), V(c - 96, 250), V(c - 50, 330), V(c - 10, 420), V(c + 20, 340), V(c + 60, 380), V(c + 92, 260), V(c + 80, 160) }, new Color32(0xB8, 0xFF, 0xD8, 255), Ink, 0);
             p.Shape(Star(c - 10, 250, 20, 4, 0.4f, 90), Color.white, Ink, 0);
             p.Shape(Star(c + 50, 320, 14, 4, 0.4f, 90), Color.white, Ink, 0);
             for (int i = 0; i < 10; i++)
