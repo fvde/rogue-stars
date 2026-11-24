@@ -206,30 +206,51 @@ namespace RogueStars.Client.App
         {
             Ui.Clear(_root);
             _live.Clear();
-            var bar = Ui.Stretch(Ui.Row(_root, -1, 12, HubKit.Bg, 12, "Bar"));
+            var bar = Ui.Stretch(Ui.Row(_root, -1, 12, BarBg, 0, "Bar"));
             var bl = bar.GetComponent<HorizontalLayoutGroup>();
             bl.childForceExpandHeight = false; bl.childAlignment = TextAnchor.MiddleLeft;
             bl.padding = new RectOffset(12, 12, 10, 10);
+            var edge = Ui.Panel(bar, new Color32(0x14, 0x10, 0x22, 255), "Edge");
+            edge.raycastTarget = false;
+            edge.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            edge.rectTransform.anchorMin = Vector2.zero; edge.rectTransform.anchorMax = new Vector2(1, 0); edge.rectTransform.pivot = new Vector2(0.5f, 0);
+            edge.rectTransform.sizeDelta = new Vector2(0, 6); edge.rectTransform.anchoredPosition = Vector2.zero;
             var s = _app.Session;
-            var profile = HubKit.RoundPanel(bar, HubKit.Card, "ProfileChip");
-            Ui.Size(profile, ProfileWidth, 84, 0);
+            // the profile (reference home): the worm's portrait in a gold frame, the name and the power
+            var profile = Ui.Panel(bar, new Color(0, 0, 0, 0), "ProfileChip");
+            Ui.Size(profile, ProfileWidth, 140, 0);
             var pb = profile.gameObject.AddComponent<Button>();
             pb.targetGraphic = profile;
             pb.onClick.AddListener(ShowProfile);
-            var avatar = HubKit.RoundPanel(profile.transform, HubKit.Pink, "Avatar");
-            var art = avatar.rectTransform;
-            art.anchorMin = new Vector2(0, 0.5f); art.anchorMax = new Vector2(0, 0.5f); art.pivot = new Vector2(0, 0.5f);
-            art.sizeDelta = new Vector2(68, 68); art.anchoredPosition = new Vector2(8, 0);
-            var lv = Ui.Label(avatar.transform, s.State != null ? s.State.Worm.Level.ToString() : "", 28, HubKit.PinkInk, TextAnchor.MiddleCenter, "WormLevel");
-            lv.fontStyle = FontStyle.Bold;
+            var frame = Ui.RoundPanel(profile.transform, Screens.SliceKit.Ink, 22, "AvatarFrame");
+            var frt = frame.rectTransform;
+            frt.anchorMin = frt.anchorMax = frt.pivot = new Vector2(0, 0.5f);
+            frt.sizeDelta = new Vector2(132, 132); frt.anchoredPosition = new Vector2(0, 0);
+            var gold = Ui.RoundPanel(frame.transform, new Color32(0xF2, 0xC2, 0x3C, 255), 18, "Gold");
+            Ui.Stretch(gold.rectTransform, 5, 5, 5, 5);
+            var avatar = Ui.RoundPanel(gold.transform, new Color32(0x3C, 0x5C, 0x9C, 255), 14, "Avatar");
+            Ui.Stretch(avatar.rectTransform, 8, 8, 8, 8);
+            var face = Ui.Panel(avatar.transform, Color.white, "Portrait");
+            face.sprite = ArtCatalog.Hero(); face.preserveAspect = true; face.raycastTarget = false;
+            face.enabled = face.sprite != null;
+            Ui.Stretch(face.rectTransform, 4, 4, 4, 0);
+            var lvBg = Ui.RoundPanel(frame.transform, new Color32(0x5C, 0xC8, 0x4C, 255), 16, "LevelBadge");
+            var lrt = lvBg.rectTransform;
+            lrt.anchorMin = lrt.anchorMax = new Vector2(1, 0); lrt.pivot = new Vector2(1, 0);
+            lrt.sizeDelta = new Vector2(56, 40); lrt.anchoredPosition = new Vector2(6, -4);
+            var lv = Screens.SliceKit.Chunky(lvBg.transform, s.State != null ? s.State.Worm.Level.ToString() : "", 28, Color.white, TextAnchor.MiddleCenter, "WormLevel");
             Ui.Stretch(lv.rectTransform);
             string who = s.State != null ? (s.State.DisplayName ?? s.State.PlayerId) : "…";
-            var name = Ui.Label(profile.transform, who, 26, HubKit.Ink, TextAnchor.UpperLeft, "Name");
-            name.fontStyle = FontStyle.Bold;
-            Ui.Stretch(name.rectTransform, 90, 10, 10, 40);
+            var name = Screens.SliceKit.Chunky(profile.transform, who, 38, Color.white, TextAnchor.UpperLeft, "Name");
+            Ui.Stretch(name.rectTransform, 150, 14, 6, 70);
+            name.horizontalOverflow = HorizontalWrapMode.Wrap;
             string online = s.IsOnline ? "  ·  " + s.Service.ModeName.ToUpperInvariant() : "";
-            var power = Ui.Label(profile.transform, s.State != null && s.Engine != null ? "Power " + Fmt.Num(Power()) + online : "", 22, HubKit.InkDim, TextAnchor.LowerLeft, "Power");
-            Ui.Stretch(power.rectTransform, 90, 40, 10, 10);
+            var power = Screens.SliceKit.Chunky(profile.transform, s.State != null && s.Engine != null ? Fmt.Num(Power()) + online : "", 34, new Color32(0xFF, 0xD0, 0x48, 255), TextAnchor.LowerLeft, "Power");
+            Ui.Stretch(power.rectTransform, 196, 70, 6, 16);
+            var sword = Ui.Panel(profile.transform, Color.white, "PowerIcon");
+            sword.sprite = World.HudArt.Icon("sword"); sword.preserveAspect = true; sword.raycastTarget = false;
+            sword.rectTransform.anchorMin = sword.rectTransform.anchorMax = new Vector2(0, 0);
+            sword.rectTransform.sizeDelta = new Vector2(40, 40); sword.rectTransform.anchoredPosition = new Vector2(170, 38);
             if (s.State == null) return;
             // Up to five currency chips (stamina first) and "All" in a 2-column block to the right of the profile.
             var visible = HubLayout.VisibleCurrencies(s.State, s.Content);
@@ -243,7 +264,7 @@ namespace RogueStars.Client.App
             for (int i = 0; i < shown; i++)
             {
                 string id = visible[i];
-                var chip = HubKit.RoundPanel(grid, HubKit.Card, "ChipBg:" + id);
+                var chip = HubKit.RoundPanel(grid, new Color32(0x16, 0x12, 0x2A, 255), "ChipBg:" + id);
                 var cb = chip.gameObject.AddComponent<Button>(); // tap: what it is for and where to spend it
                 cb.targetGraphic = chip;
                 cb.onClick.AddListener(() => ShowCurrency(id));
@@ -251,9 +272,9 @@ namespace RogueStars.Client.App
                 dot.sprite = HubKit.Circle;
                 var drt = dot.rectTransform;
                 drt.anchorMin = drt.anchorMax = drt.pivot = new Vector2(0, 0.5f);
-                drt.sizeDelta = new Vector2(20, 20); drt.anchoredPosition = new Vector2(12, 0);
-                var t = Ui.Label(chip.transform, "", 22, HubKit.Ink, TextAnchor.MiddleLeft, "Chip:" + id);
-                t.fontStyle = FontStyle.Bold;
+                drt.sizeDelta = new Vector2(30, 30); drt.anchoredPosition = new Vector2(8, 0);
+                UiShapes.Outline(drt, Screens.SliceKit.Ink, 15, 3);
+                var t = Screens.SliceKit.Chunky(chip.transform, "", 28, Color.white, TextAnchor.MiddleLeft, "Chip:" + id);
                 Ui.Stretch(t.rectTransform, 40, 0, 6, 0);
                 _live.Add(new KeyValuePair<Text, Func<string>>(t, () => ChipText(id)));
             }
@@ -267,6 +288,9 @@ namespace RogueStars.Client.App
 
         /// <summary>Profile chip and currency chip widths: 12 + 400 + 12 + (2 × 265 + 6) + 12 ≤ 978.</summary>
         public const float ProfileWidth = 400, ChipWidth = 265;
+
+        /// <summary>The top bar's band (reference home: a dark purple band under the portrait and the currencies).</summary>
+        public static readonly Color BarBg = new Color32(0x2A, 0x22, 0x46, 255);
 
         private long _power;
         private long _powerVersion = -1;
