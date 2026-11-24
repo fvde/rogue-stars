@@ -7,15 +7,10 @@
       "note": "Flux, outlined sprite (hero style)"
     },
     {
-      "key": "A",
-      "model": "sdxl_ref",
-      "style_refs": [
-        "battle.png"
-      ],
-      "ref_weight": 0.45,
-      "ref_mode": "style transfer",
-      "style": "2D game sprite, thick dark outline, flat cel shading, vibrant colors",
-      "note": "SDXL + light battle ref (enemy look)"
+      "key": "S",
+      "model": "flux",
+      "style": "minimal flat cartoon mascot sprite, very few details, big clear shapes, bold black outline, only three or four colors, instantly readable character",
+      "note": "Flux, extra simple"
     }
   ]
 }

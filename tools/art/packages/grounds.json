@@ -1,0 +1,34 @@
+{
+  "name": "pkg-grounds",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    4001
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-ground.json",
+  "suffix": ", seamless tileable ground surface seen straight from above, even coverage across the whole frame, small scattered details only, no buildings, no path, no large objects, no horizon",
+  "negative": "horizon, sky, perspective, buildings, ruins, path, road, large objects, characters, text, watermark, blurry, photo",
+  "fullframe": true,
+  "subjects": {
+    "seabed": "ground of alien seabed",
+    "lava": "ground of volcanic rock floor",
+    "ice": "ground of frozen ice floor",
+    "toxic_swamp": "ground of toxic green swamp mud",
+    "crystal_cave": "ground of pink and violet crystal cave floor",
+    "alien_jungle": "ground of alien jungle floor",
+    "desert_ruins": "ground of desert sand",
+    "space_station": "ground of space station deck",
+    "mushroom_forest": "ground of mushroom forest floor",
+    "cloud_islands": "ground of floating cloud island tops",
+    "clockwork_city": "ground of time-travel clockwork plaza floor",
+    "prehistoric": "ground of prehistoric jungle clearing",
+    "neon_city": "ground of futuristic neon city rooftop floor",
+    "shipwreck": "ground of graveyard of crashed spaceships on a rusty metal plain",
+    "candy_planet": "ground of candy planet ground",
+    "moon_craters": "ground of grey moon surface",
+    "coral_reef": "ground of bright coral reef floor",
+    "ash_wastes": "ground of ashen volcanic wasteland",
+    "frozen_future": "ground of frozen futuristic city plaza",
+    "gas_giant": "ground of floating metal platforms above swirling gas giant clouds"
+  }
+}

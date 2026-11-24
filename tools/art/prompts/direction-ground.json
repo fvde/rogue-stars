@@ -1,0 +1,22 @@
+{
+  "variants": [
+    {
+      "key": "G1",
+      "model": "sdxl_ref",
+      "style_refs": [
+        "board-a.png",
+        "board-b.png"
+      ],
+      "ref_weight": 0.45,
+      "ref_mode": "style transfer",
+      "style": "hand-painted cartoon game ground texture, dark outlines on small details, vibrant colors",
+      "note": "SDXL + board refs, style only"
+    },
+    {
+      "key": "G2",
+      "model": "flux",
+      "style": "hand-painted 2D cartoon mobile game ground texture, bold outlines on small details, vibrant saturated colors",
+      "note": "Flux ground texture"
+    }
+  ]
+}
