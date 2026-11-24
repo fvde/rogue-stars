@@ -90,7 +90,7 @@ namespace RogueStars.Rules.Content
         public long[] LegacyLevelGrainBase = { 80, 120, 180, 280, 400 };
         public double LegacyLevelGrainGrowth = 1.065;
         /// <summary>Work power growth in percent per star above 1 (stars are the only progression).</summary>
-        public double StarWorkPct = 20;
+        public double StarWorkPct = 40;
         /// <summary>Initial gene roll: uniform in [−InitialGeneSpread, +InitialGeneSpread]. Genes always clamp to [GeneMin, GeneMax]. Genes are inactive (coming soon).</summary>
         public double InitialGeneSpread = 15, GeneMin = -30, GeneMax = 60;
         /// <summary>Chance for the 1st, 2nd, 3rd trait when a new alien is rolled.</summary>
