@@ -64,7 +64,11 @@ namespace RogueStars.Rules.Content
         public Dictionary<StatId, double> PowerWeights = new Dictionary<StatId, double>();
         public double PowerPerSkill = 120;
         public double PowerPerMountStat = 0.5;
-        public double PowerPerAlienStat = 0.5;
+        /// <summary>
+        /// Aliens pass: sidekicks have no stats and work in % of the worm's ATK / max HP, so each squad alien adds a share of the worm's
+        /// stat power: PowerAlienBasePct + PowerAlienPerRarityPct × rarity + PowerAlienPerStarPct × (stars − 1) percent.
+        /// </summary>
+        public double PowerAlienBasePct = 3, PowerAlienPerRarityPct = 0.5, PowerAlienPerStarPct = 0.6;
     }
 
     public sealed partial class ContentDb

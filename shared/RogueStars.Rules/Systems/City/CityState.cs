@@ -52,6 +52,10 @@ namespace RogueStars.Rules.Systems
         public string TimerId;
     }
 
+    /// <summary>
+    /// Genes (aliens pass: "coming soon"): stored on every alien and still rolled and bred, but read nowhere — they have no effect
+    /// yet. HP / ATK / DEF are kept for old saves.
+    /// </summary>
     [Serializable]
     public sealed class AlienGenes
     {
@@ -65,8 +69,9 @@ namespace RogueStars.Rules.Systems
     public sealed class OwnedAlien
     {
         public string TypeId;
+        /// <summary>Removed (aliens pass): alien levels are gone; an old save's level is refunded in Grain once and reset to 1.</summary>
         public int Level = 1;
-        /// <summary>1..10, raised with alien shards.</summary>
+        /// <summary>1..10, raised with alien shards: the only progression.</summary>
         public int Stars = 1;
         public AlienGenes Genes = new AlienGenes();
         /// <summary>Up to 3 trait ids.</summary>
@@ -84,6 +89,10 @@ namespace RogueStars.Rules.Systems
         public Dictionary<string, OwnedAlien> Owned = new Dictionary<string, OwnedAlien>();
         /// <summary>Squad order (alien type ids). Only the first CitySystem.SquadSlots entries fight.</summary>
         public List<string> Squad = new List<string>();
+        /// <summary>Save migrations applied (AlienSystem.Migrate): 1 = aliens pass (levels refunded in Grain, old traits remapped).</summary>
+        public int Migrated;
+        /// <summary>Grain refunded for removed alien levels by the aliens-pass migration (shown once, kept for support).</summary>
+        public long LevelGrainRefunded;
     }
 
     [Serializable]

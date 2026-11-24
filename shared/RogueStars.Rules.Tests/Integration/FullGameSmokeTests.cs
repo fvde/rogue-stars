@@ -162,7 +162,6 @@ public class FullGameSmokeTests
         p.Do(new AlienAssign { AlienTypeId = "alien_blorp", BlueprintId = "bp_grain_farm" });
         var aliens = p.S.Aliens.Owned.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
         p.Do(new AlienSetSquad { AlienTypeIds = { aliens[0] } });
-        p.Do(new AlienLevelUp { AlienTypeId = aliens[0] });
         p.Build("bp_breeding_pen", 6, 4);
         string job = (string)p.Do(new BreedStart { ParentA = aliens[0], ParentB = aliens[1] }).Payload!;
         p.Rush(BreedingSystem.Job(p.S, job).TimerId);

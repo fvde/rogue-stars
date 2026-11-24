@@ -6,8 +6,11 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Aliens: one alien per alien type (species). Each has genes (stat quality), up to 3 traits, level (Grain)
-    /// and stars 1–10 (shards from duplicates; archetype skill upgrades at stars 3/5/7/10).
+    /// Aliens: one alien per alien type (species). Aliens pass (owner-approved review rev 4.3): an alien is a sidekick with NO stats —
+    /// its one ability works in % of the worm's ATK / max HP; stars 1–10 (shards from duplicates and breeding) are its only
+    /// progression (every star is its own ability step; tier stars 3/5/7/10 change the effect); traits shape its tempo or effect;
+    /// genes are stored and bred but inactive ("coming soon"). Alien levels were removed: an old save's levels are refunded in Grain
+    /// (<see cref="Migrate"/>).
     ///
     /// Work vs squad (design decision): an alien can work in one building AND be in the squad at the same time;
     /// aliens in the active squad work at AlienTuning.SquadWorkFactor (50%). An alien works in at most one building.
@@ -16,13 +19,19 @@ namespace RogueStars.Rules.Systems
     public static class AlienSystem
     {
         public const int MaxStars = 10;
+        /// <summary>The save migration version this build applies (AlienState.Migrated).</summary>
+        public const int MigrationVersion = 1;
+
+        /// <summary>Species whose rarity changed in the aliens pass: the rarity their removed levels were paid at (Grain refund).</summary>
+        public static readonly Dictionary<string, Rarity> LegacyLevelRarity = new Dictionary<string, Rarity> { ["alien_emberkit"] = Rarity.Rare };
 
         public static void Register(GameEngine e)
         {
-            e.Register<AlienLevelUp>(HandleLevelUp);
             e.Register<AlienStarUp>(HandleStarUp);
             e.Register<AlienAssign>(HandleAssign);
             e.Register<AlienSetSquad>(HandleSetSquad);
+            e.RegisterSettler(Migrate);
+            e.RegisterNewPlayer(ctx => ctx.State.Aliens.Migrated = MigrationVersion); // a new save has nothing to migrate
             e.RegisterLoadoutContributor(ContributeLoadout);
             e.Rewards.Register(RewardKinds.Alien, GrantAlien);
         }
@@ -31,16 +40,6 @@ namespace RogueStars.Rules.Systems
 
         public static OwnedAlien Owned(GameState state, string typeId) =>
             typeId != null && state.Aliens.Owned.TryGetValue(typeId, out var a) ? a : null;
-
-        public static int MaxLevel(ContentDb content, OwnedAlien a) => content.AlienTuning.MaxLevelBase + content.AlienTuning.MaxLevelPerStar * a.Stars;
-
-        /// <summary>Grain to go from the alien's current level to the next.</summary>
-        public static long LevelCost(ContentDb content, OwnedAlien a)
-        {
-            var def = content.AlienType(a.TypeId);
-            var t = content.AlienTuning;
-            return (long)Math.Round(t.LevelGrainBase[(int)def.Rarity] * Math.Pow(t.LevelGrainGrowth, a.Level - 1));
-        }
 
         /// <summary>Shards needed for the next star, or 0 at max.</summary>
         public static long StarCost(ContentDb content, OwnedAlien a)
@@ -62,42 +61,40 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Combat stats: base × (1+gene%) × level growth × star growth (speed: gene only) + combat traits.</summary>
+        /// <summary>
+        /// Combat stats (aliens pass): only Speed (species Speed, + Swift) and a Vampiric lifesteal — no HP / ATK / DEF, genes inactive.
+        /// </summary>
         public static StatBlock CombatStats(ContentDb content, OwnedAlien a)
         {
             var def = content.AlienType(a.TypeId);
-            var t = content.AlienTuning;
-            double grow = (1 + t.LevelCombatPct * (a.Level - 1) / 100.0) * (1 + t.StarCombatPct * (a.Stars - 1) / 100.0);
             var s = new StatBlock();
-            s.Add(new StatMod(StatId.Hp, def.BaseHp * (1 + a.Genes.Hp / 100.0) * grow));
-            s.Add(new StatMod(StatId.Atk, def.BaseAtk * (1 + a.Genes.Atk / 100.0) * grow));
-            s.Add(new StatMod(StatId.Def, def.BaseDef * (1 + a.Genes.Def / 100.0) * grow));
-            s.Add(new StatMod(StatId.Speed, def.BaseSpeed * (1 + a.Genes.Speed / 100.0)));
+            s.Add(new StatMod(StatId.Speed, def != null ? def.BaseSpeed : 0));
             foreach (var tid in a.Traits)
             {
                 var tr = content.AlienTrait(tid);
-                if (tr != null) s.AddAll(tr.CombatStats);
+                if (tr != null && tr.Kind != AlienTraitKind.Legacy && tr.Kind != AlienTraitKind.Work) s.AddAll(tr.CombatStats);
             }
             return s;
         }
 
-        /// <summary>
-        /// Ability power (sidekick pass): aliens are never hit, so HP, ATK and DEF (base, genes, level, stars, traits) all feed the
-        /// power of their one ability (before the loadout's alien power). Old saved aliens keep their genes; only the reading changed.
-        /// </summary>
-        public static double AbilityPower(ContentDb content, OwnedAlien a) => BattleSimulator.SidekickPower(CombatStats(content, a), content);
-
-        /// <summary>Average rounds between the alien's own actions (Speed: base × genes × traits): "acts about every 3 turns".</summary>
+        /// <summary>Average rounds between the alien's own actions (Speed: species × Swift): "acts about every 3 turns".</summary>
         public static double ActsEvery(ContentDb content, OwnedAlien a) => BattleSimulator.SidekickActsEvery(CombatStats(content, a).Value(StatId.Speed), content);
 
-        /// <summary>Active archetype skill (highest step reached by stars). Earlier steps are replaced.</summary>
-        public static string ArchetypeSkillId(ContentDb content, OwnedAlien a)
+        /// <summary>The ability step of a star (1..10) of a species.</summary>
+        public static string AbilityAt(ContentDb content, string typeId, int stars)
         {
-            var def = content.AlienType(a.TypeId);
+            var def = content.AlienType(typeId);
+            if (def == null) return null;
             string id = null;
-            foreach (var step in def.ArchetypeSkills) if (a.Stars >= step.Stars) id = step.SkillId;
+            foreach (var step in def.ArchetypeSkills) if (stars >= step.Stars) id = step.SkillId;
             return id;
         }
+
+        /// <summary>Active ability (the step of the alien's stars). Earlier steps are replaced.</summary>
+        public static string ArchetypeSkillId(ContentDb content, OwnedAlien a) => AbilityAt(content, a.TypeId, a.Stars);
+
+        /// <summary>True if the star is a tier star (1/3/5/7/10): the ability's effect may change there, not only its main %.</summary>
+        public static bool IsTierStar(ContentDb content, int star) => Array.IndexOf(content.AlienTuning.SkillStars, star) >= 0;
 
         /// <summary>Skill ids the alien uses in combat.</summary>
         public static List<string> SkillIds(ContentDb content, OwnedAlien a)
@@ -108,14 +105,12 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Work power in percent before trait bonuses and squad factor.</summary>
+        /// <summary>Work power in percent before trait bonuses and squad factor: base × star growth (genes inactive).</summary>
         public static double WorkPower(ContentDb content, OwnedAlien a)
         {
             var def = content.AlienType(a.TypeId);
             var t = content.AlienTuning;
-            return def.BaseWork * (1 + a.Genes.Work / 100.0)
-                * (1 + t.LevelWorkPct * (a.Level - 1) / 100.0)
-                * (1 + t.StarWorkPct * (a.Stars - 1) / 100.0);
+            return def.BaseWork * (1 + t.StarWorkPct * (a.Stars - 1) / 100.0);
         }
 
         /// <summary>Production bonus (percent) of this alien when working on <paramref name="currency"/>.</summary>
@@ -132,7 +127,7 @@ namespace RogueStars.Rules.Systems
             return v;
         }
 
-        /// <summary>Roll a brand-new alien of a type (genes uniform ±InitialGeneSpread, traits by TraitChances).</summary>
+        /// <summary>Roll a brand-new alien of a type (genes uniform ±InitialGeneSpread, stored but inactive; traits from its pool).</summary>
         public static OwnedAlien RollNew(Rng rng, ContentDb content, AlienTypeDef def)
         {
             var t = content.AlienTuning;
@@ -154,19 +149,125 @@ namespace RogueStars.Rules.Systems
 
         private static double RollGene(Rng rng, double spread) => Math.Round((rng.NextDouble() * 2 - 1) * spread, 2);
 
-        /// <summary>Weighted pick from a pool (content order), excluding traits already present; null if none.</summary>
+        /// <summary>
+        /// Weighted pick from a pool (content order), excluding traits already present, legacy traits and a second tempo trait (Swift
+        /// or Eager); null if none.
+        /// </summary>
         public static string PickTrait(Rng rng, ContentDb content, IList<string> pool, ICollection<string> exclude)
         {
+            bool tempo = false;
+            foreach (var id in exclude) if (content.AlienTrait(id)?.Kind == AlienTraitKind.Tempo) tempo = true;
             var ids = new List<string>();
             var weights = new List<double>();
             foreach (var id in pool)
             {
                 var tr = content.AlienTrait(id);
-                if (tr == null || exclude.Contains(id) || ids.Contains(id)) continue;
+                if (tr == null || tr.Weight <= 0 || tr.Kind == AlienTraitKind.Legacy || exclude.Contains(id) || ids.Contains(id)) continue;
+                if (tempo && tr.Kind == AlienTraitKind.Tempo) continue;
                 ids.Add(id); weights.Add(tr.Weight);
             }
             int i = rng.PickWeighted(weights);
             return i < 0 ? null : ids[i];
+        }
+
+        /// <summary>
+        /// A trait as the species has it (aliens pass): work traits and traits of the species' pool stay; a legacy trait becomes the
+        /// first of its remap targets in the pool that is still free (Tough → Bulwark or Lingering …); any other combat trait (from another
+        /// species, a mutation or a legacy remap outside the pool) becomes the pool's first free trait of the same kind (effect / tempo).
+        /// Null if the pool has none of that kind.
+        /// </summary>
+        public static string ConvertTrait(ContentDb content, AlienTypeDef species, string traitId, ICollection<string> taken = null)
+        {
+            var tr = content.AlienTrait(traitId);
+            if (tr == null || species == null) return null;
+            if (tr.Kind == AlienTraitKind.Work || species.PossibleTraits.Contains(traitId)) return traitId;
+            bool Free(string id) => taken == null || !taken.Contains(id);
+            if (tr.Kind == AlienTraitKind.Legacy)
+            {
+                foreach (var to in tr.RemapTo) if (species.PossibleTraits.Contains(to) && Free(to)) return to;
+                foreach (var to in tr.RemapTo) if (species.PossibleTraits.Contains(to)) return to;
+            }
+            bool tempo = tr.Kind == AlienTraitKind.Tempo || (tr.Kind == AlienTraitKind.Legacy && tr.RemapTo.Contains(ContentDb.TraitSwift));
+            var kind = tempo ? AlienTraitKind.Tempo : AlienTraitKind.Effect;
+            foreach (bool free in new[] { true, false })
+                foreach (var id in species.PossibleTraits)
+                    if (content.AlienTrait(id)?.Kind == kind && (!free || Free(id))) return id;
+            return null;
+        }
+
+        /// <summary>
+        /// A trait list as the species has it (<see cref="ConvertTrait"/>, in order): traits that already fit keep their place, the others
+        /// convert into what is still free; duplicates dropped, at most one tempo trait.
+        /// </summary>
+        public static List<string> ConvertTraits(ContentDb content, AlienTypeDef species, IEnumerable<string> traits)
+        {
+            var src = new List<string>(traits);
+            var slot = new string[src.Count];
+            var taken = new List<string>();
+            for (int pass = 0; pass < 2; pass++)
+                for (int i = 0; i < src.Count; i++)
+                {
+                    var tr = content.AlienTrait(src[i]);
+                    bool fits = tr != null && (tr.Kind == AlienTraitKind.Work || species.PossibleTraits.Contains(src[i]));
+                    if (fits != (pass == 0)) continue;
+                    var to = ConvertTrait(content, species, src[i], taken);
+                    if (to == null || taken.Contains(to)) continue;
+                    bool isTempo = content.AlienTrait(to)?.Kind == AlienTraitKind.Tempo;
+                    bool hasTempo = false;
+                    foreach (var t in taken) if (content.AlienTrait(t)?.Kind == AlienTraitKind.Tempo) hasTempo = true;
+                    if (isTempo && hasTempo) continue;
+                    slot[i] = to;
+                    taken.Add(to);
+                }
+            var list = new List<string>();
+            foreach (var t in slot) if (t != null) list.Add(t);
+            return list;
+        }
+
+        /// <summary>Grain an old save paid for an alien's removed levels (level 1 → its level, at the rarity it had then).</summary>
+        public static long LegacyLevelGrain(ContentDb content, string typeId, int level)
+        {
+            var def = content.AlienType(typeId);
+            if (def == null || level <= 1) return 0;
+            var t = content.AlienTuning;
+            var rarity = LegacyLevelRarity.TryGetValue(typeId, out var r) ? r : def.Rarity;
+            long sum = 0;
+            for (int l = 1; l < level; l++) sum += (long)Math.Round(t.LegacyLevelGrainBase[(int)rarity] * Math.Pow(t.LegacyLevelGrainGrowth, l - 1));
+            return sum;
+        }
+
+        // ---- save migration -------------------------------------------------------------------------
+
+        /// <summary>
+        /// Aliens pass migration (settler, once per save): alien levels are removed — each alien's level goes back to 1 and 100% of the
+        /// Grain spent on it comes back (straight to the wallet: it was the player's); old combat traits are remapped by species on
+        /// owned aliens and waiting newborns. Stars, shards, genes (inactive), squad and work are kept.
+        /// </summary>
+        public static void Migrate(CommandContext ctx)
+        {
+            var st = ctx.State.Aliens;
+            if (st.Migrated >= MigrationVersion) return;
+            var c = ctx.Content;
+            long refund = 0;
+            var ids = new List<string>(st.Owned.Keys);
+            ids.Sort(string.CompareOrdinal);
+            foreach (var id in ids)
+            {
+                var a = st.Owned[id];
+                if (a.Level > 1) { refund += LegacyLevelGrain(c, a.TypeId, a.Level); a.Level = 1; }
+                var def = c.AlienType(a.TypeId);
+                if (def != null) a.Traits = ConvertTraits(c, def, a.Traits);
+            }
+            foreach (var child in ctx.State.Breeding.Pending)
+            {
+                var def = c.AlienType(child.TypeId);
+                if (def != null) child.Traits = ConvertTraits(c, def, child.Traits);
+            }
+            st.Migrated = MigrationVersion;
+            if (refund <= 0) return;
+            ctx.State.Wallet.Add(Currencies.Grain, refund);
+            st.LevelGrainRefunded += refund;
+            ctx.Emit("alien_levels_refunded", refund.ToString());
         }
 
         // ---- engine hooks -----------------------------------------------------------------------
@@ -206,26 +307,15 @@ namespace RogueStars.Rules.Systems
                 var a = Owned(state, id);
                 var def = content.AlienType(id);
                 if (a == null || def == null) continue;
-                var ca = new CombatAlien { AlienTypeId = id, Name = def.Name, Stats = CombatStats(content, a) };
+                var ca = new CombatAlien { AlienTypeId = id, Name = def.Name, Stats = CombatStats(content, a), Stars = a.Stars };
                 ca.SkillIds.AddRange(SkillIds(content, a));
+                foreach (var t in ConvertTraits(content, def, a.Traits))
+                    if (content.AlienTrait(t)?.Kind != AlienTraitKind.Work) ca.Traits.Add(t);
                 loadout.Aliens.Add(ca);
             }
         }
 
         // ---- handlers ---------------------------------------------------------------------------
-
-        private static CommandResult HandleLevelUp(AlienLevelUp cmd, CommandContext ctx)
-        {
-            Features.Require(ctx.State, ctx.Content, Features.Aliens);
-            var a = Owned(ctx.State, cmd.AlienTypeId);
-            GameEngine.Require(a != null, "alien not owned");
-            GameEngine.Require(a.Level < MaxLevel(ctx.Content, a), "max level for current stars");
-            GameEngine.Require(ctx.State.Wallet.TrySpend(Currencies.Grain, LevelCost(ctx.Content, a)), "not enough grain");
-            a.Level++;
-            ctx.State.Count("alien_level_ups");
-            ctx.Emit("alien_level_up", a.TypeId, a.Level.ToString());
-            return CommandResult.Success();
-        }
 
         private static CommandResult HandleStarUp(AlienStarUp cmd, CommandContext ctx)
         {

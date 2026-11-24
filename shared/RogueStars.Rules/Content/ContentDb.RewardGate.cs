@@ -97,7 +97,7 @@ namespace RogueStars.Rules.Content
             // Cap raises: Rare+ parts (MaxCapRaises > 0).
             Cur(Currencies.AdvancementPlates, "Part level cap raises (Rare+)", 20, PartMin(PartRarity.Rare));
             Cur(ProgressionCurrencies.PartAwakenCores, "Part awakening (Mythic+)", -1, PartMin(PartRarity.Mythic));
-            Cur(Currencies.Grain, "Alien levels, breeding", 2000, F(Features.Aliens), F(Features.Breeding));
+            Cur(Currencies.Grain, "Breeding", 2000, F(Features.Aliens), F(Features.Breeding)); // aliens pass: breeding is Grain's only sink
             Cur(Currencies.Fuel, "Mount levels", 4000, F(Features.Mounts));
             Cur(Currencies.HeroXp, "Hero levels", 3000, F(Features.Heroes));
             Cur(Currencies.Data, "Laboratory research", 100, F(Features.Laboratory));

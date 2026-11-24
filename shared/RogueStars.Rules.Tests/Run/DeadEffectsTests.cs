@@ -26,7 +26,7 @@ public class DeadEffectsTests
         EffectKind.BuffStat, EffectKind.Summon, EffectKind.RemoveStatus, EffectKind.ConsumeStatus, EffectKind.Strike, EffectKind.AllyAction,
         EffectKind.Block, EffectKind.BlockStatus, EffectKind.Rule, EffectKind.ForceSupernova, EffectKind.MultiplyStatus, EffectKind.TransferStatus,
         EffectKind.TickStatus, EffectKind.Execute, EffectKind.Reflect, EffectKind.CheatDeath, EffectKind.FreeRageAttack, EffectKind.Charge,
-        EffectKind.LoseHp, EffectKind.StackAll, EffectKind.Sacrifice, EffectKind.Echo, EffectKind.Rewind, EffectKind.Loop,
+        EffectKind.LoseHp, EffectKind.StackAll, EffectKind.Sacrifice, EffectKind.Echo, EffectKind.Rewind, EffectKind.Loop, EffectKind.Guard,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>

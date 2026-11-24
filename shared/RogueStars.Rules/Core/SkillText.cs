@@ -516,8 +516,9 @@ namespace RogueStars.Rules.Core
                     var sk = t.Param != null ? ContentDb.Default.Sidekick(t.Param) : null;
                     if (sk == null) return "summon " + Words(t.Param ?? "an ally");
                     int n = Math.Max(1, t.Stacks);
-                    return "launch " + (n > 1 ? Num(n) + " " + sk.Name + " sidekicks" : "a " + sk.Name + " sidekick") + " (" + Num(t.Value) + "% of the summoner's ATK as power)";
+                    return "launch " + (n > 1 ? Num(n) + " " + sk.Name + " sidekicks" : "a " + sk.Name + " sidekick") + " (it zaps for " + Num(t.Value) + "% of the worm's ATK)";
                 }
+                case EffectKind.Guard: return "guard " + target + ": the next hit it takes deals " + Num(t.Value) + "% less";
                 case EffectKind.Block:
                 {
                     int n = Math.Max(1, t.Stacks);
@@ -613,7 +614,7 @@ namespace RogueStars.Rules.Core
             TriggerKind.OnArcJump => "Each Arc jump",
             TriggerKind.OnShieldHit => "When your shield absorbs a hit",
             TriggerKind.OnFatal => "When a hit would kill you",
-            TriggerKind.OnBlock => "When an alien blocks a hit",
+            TriggerKind.OnBlock => "When an alien blocks or guards a hit",
             TriggerKind.OnTurnEnd => "End of your turn",
             _ => Words(k.ToString()),
         };

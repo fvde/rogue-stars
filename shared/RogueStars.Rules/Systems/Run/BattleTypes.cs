@@ -47,6 +47,10 @@ namespace RogueStars.Rules.Systems
         Staggered,
         /// <summary>A sidekick (Actor) left the battle in the worm's (Target) place (Sacrifice Protocol).</summary>
         Sacrifice,
+        // ---- aliens pass (appended) ----
+        /// <summary>A guard softened a hit on the worm (Actor = the guarding sidekick, Target = the worm, Amount = damage prevented,
+        /// Stacks = guarded hits left). The hit itself follows and lands (on-hit triggers and counters fire).</summary>
+        Guarded,
     }
 
     /// <summary>
@@ -62,6 +66,8 @@ namespace RogueStars.Rules.Systems
         public CombatRole Role;
         public StatBlock Stats = new StatBlock();
         public List<string> SkillIds = new List<string>();
+        /// <summary>A sidekick's effect traits (aliens pass: Twin, Wide, Lingering, Bulwark, Eager; trait ids).</summary>
+        public List<string> Traits = new List<string>();
         /// <summary>Run skill levels above 1 (skill id → level): those skills fight at their leveled form (SkillLeveling).</summary>
         public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
         /// <summary>The skill as this combatant uses it (leveled run skills; the content def otherwise).</summary>

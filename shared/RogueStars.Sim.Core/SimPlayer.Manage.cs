@@ -93,13 +93,14 @@ namespace RogueStars.Sim
             }
         }
 
-        /// <summary>Squad pick: ability power per round (power × actions per round; sidekick pass).</summary>
-        private double AlienPower(StatBlock s) => BattleSimulator.SidekickPower(s, C) / BattleSimulator.SidekickActsEvery(s.Value(StatId.Speed), C);
+        /// <summary>Squad pick (aliens pass: no stats): rarity first, then stars, then how often it acts.</summary>
+        private double AlienPower(OwnedAlien a) =>
+            (int)C.AlienType(a.TypeId).Rarity * 100 + a.Stars * 10 - AlienSystem.ActsEvery(C, a);
 
         private void Aliens()
         {
             if (!Unlocked(Features.Aliens) || S.Aliens.Owned.Count == 0) return;
-            var owned = S.Aliens.Owned.Values.OrderByDescending(a => AlienPower(AlienSystem.CombatStats(C, a))).ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList();
+            var owned = S.Aliens.Owned.Values.OrderByDescending(AlienPower).ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList();
             if (Unlocked(Features.AlienSquad))
             {
                 int slots = CitySystem.SquadSlots(S, C);
@@ -122,15 +123,7 @@ namespace RogueStars.Sim
             }
             foreach (var a in owned)
                 while (AlienSystem.StarCost(C, a) > 0 && Bal(Currencies.AlienShards(a.TypeId)) >= AlienSystem.StarCost(C, a) && Ok(new AlienStarUp { AlienTypeId = a.TypeId })) { }
-            // Levels: squad first, cheapest first, within a share of the Grain (breeding needs Grain too).
-            var squad = AlienSystem.ActiveSquad(S, C);
-            for (int guard = 0; guard < 400; guard++)
-            {
-                var pick = S.Aliens.Owned.Values.Where(a => a.Level < AlienSystem.MaxLevel(C, a))
-                    .OrderBy(a => squad.Contains(a.TypeId) ? 0 : 1).ThenBy(a => AlienSystem.LevelCost(C, a)).ThenBy(a => a.TypeId, StringComparer.Ordinal).FirstOrDefault();
-                if (pick == null || AlienSystem.LevelCost(C, pick) > Bal(Currencies.Grain) * 0.6) break;
-                if (!Ok(new AlienLevelUp { AlienTypeId = pick.TypeId })) break;
-            }
+            // (aliens pass) no alien levels: Grain goes to breeding only
         }
 
         private long _breedWeek = -1, _breedWeekBase;
@@ -140,7 +133,8 @@ namespace RogueStars.Sim
             return S.Counter("breeds_started") - _breedWeekBase;
         }
 
-        private static double GeneSum(AlienGenes g) => g.Hp + g.Atk + g.Def + g.Speed + g.Work;
+        /// <summary>Breeding value of traits (aliens pass: genes are inactive, only the species' combat traits matter).</summary>
+        private int TraitScore(List<string> traits) => traits.Count(t => C.AlienTrait(t)?.Kind == AlienTraitKind.Effect || C.AlienTrait(t)?.Kind == AlienTraitKind.Tempo);
 
         private void Breeding()
         {
@@ -150,22 +144,26 @@ namespace RogueStars.Sim
             foreach (var child in S.Breeding.Pending.ToList())
             {
                 var cur = AlienSystem.Owned(S, child.TypeId);
-                bool better = cur != null && GeneSum(child.Genes) + 10 * child.Traits.Count > GeneSum(cur.Genes) + 10 * cur.Traits.Count;
+                // aliens pass: genes do nothing yet, so a child is kept only for better traits; otherwise it becomes shards of its species
+                bool better = cur != null && TraitScore(child.Traits) > TraitScore(cur.Traits);
                 Exec(new BreedResolve { ChildId = child.Id, Keep = better ? BreedKeep.Replace : BreedKeep.Discard });
             }
-            var ranked = S.Aliens.Owned.Values.OrderByDescending(a => (int)C.AlienType(a.TypeId).Rarity).ThenByDescending(a => GeneSum(a.Genes))
+            var ranked = S.Aliens.Owned.Values.OrderByDescending(a => (int)C.AlienType(a.TypeId).Rarity).ThenBy(a => a.Stars)
                 .ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList();
             if (ranked.Count < 2) return;
             int slots = BreedingSystem.Slots(S, C);
-            // Breed the best alien with the next best (better genes for the squad); if Grain is short, the cheapest pair.
-            // Improve the best alien whose genes are not near the cap yet; once all are good, breed only for the quest.
+            // Aliens pass: breeding is the targeted shard source and Grain's only sink: every free slot pairs the best squad alien
+            // that is not 10★ yet with the cheapest other alien (half the children are its species → shards).
             var pairs = new List<(OwnedAlien a, OwnedAlien b)>();
             var squadIds = AlienSystem.ActiveSquad(S, C);
-            var target = ranked.Where(a => squadIds.Contains(a.TypeId)).FirstOrDefault(a => GeneSum(a.Genes) < 150);
-            if (target != null)
-                foreach (var other in ranked) if (other != target) { pairs.Add((target, other)); break; }
+            var target = ranked.Where(a => squadIds.Contains(a.TypeId)).FirstOrDefault(a => a.Stars < AlienSystem.MaxStars);
             var cheap = ranked.OrderBy(a => (int)C.AlienType(a.TypeId).Rarity).ThenBy(a => a.TypeId, StringComparer.Ordinal).Take(2).ToList();
-            // Cheap pairs only for the weekly "breed 2" quest; Grain otherwise goes to alien levels.
+            if (target != null)
+            {
+                var partner = cheap.FirstOrDefault(o => o != target) ?? ranked.First(o => o != target);
+                for (int n = 0; n < slots; n++) pairs.Add((target, partner));
+            }
+            // Cheap pairs for the weekly "breed 2" quest.
             long weekStart = GameClock.WeekStartMs(C, GameClock.WeekIndex(C, Now));
             if (cheap.Count == 2 && _breedsThisWeek(weekStart) < 2) pairs.Add((cheap[0], cheap[1]));
             foreach (var (a, b) in pairs)

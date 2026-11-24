@@ -49,10 +49,15 @@ namespace RogueStars.Rules.Content
         /// SidekickStartCharge. At most one own action per turn (extra actions come from Command and other AllyAction effects).
         /// </summary>
         public double SidekickActAt = 100, SidekickStartCharge = 50;
-        /// <summary>Ability power = ATK + HP × SidekickHpToPower + DEF × SidekickDefToPower, then × (1 + alien power %): a sidekick is never hit.</summary>
-        public double SidekickHpToPower = 0.05, SidekickDefToPower = 1;
-        /// <summary>Support abilities (heal, shield, rage, buffs) scale with (power / SidekickPowerRef)^SidekickSupportExp, at most SidekickSupportCap.</summary>
-        public double SidekickPowerRef = 35, SidekickSupportExp = 0.2, SidekickSupportCap = 1.5;
+        /// <summary>
+        /// Aliens pass: sidekicks have no stats. Their hits are a % of the worm's ATK, heals and shields a % of its max HP, both
+        /// × (1 + the side's alien power %). At most MaxExtraSidekickActions extra sidekick actions per round on a side (Command,
+        /// Tidecaller, Swarm Link, Hivemind chains).
+        /// </summary>
+        public int MaxExtraSidekickActions = 6;
+        /// <summary>Hivemind / a drone's signature trigger: a Strike signature (Flurry, Riposte, Echo) strikes for HiveStrikePct % of
+        /// the worm's ATK, Arc jumps for HiveArcPct %.</summary>
+        public double HiveStrikePct = 30, HiveArcPct = 25;
         /// <summary>Hits a worm's guards (Block abilities) can hold at once.</summary>
         public int MaxGuards = 3;
         /// <summary>Attack multipliers (% of ATK) per attack style and attack kind.</summary>

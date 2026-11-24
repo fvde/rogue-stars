@@ -283,7 +283,7 @@ namespace RogueStars.Rules.Content
 
             RunSkill("alien_decoy", "Decoy", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(2).Needs("blocks").Desc("Blocked attackers lose their way.")
                 .Add(Tg(TriggerKind.OnBlock, EffectKind.ApplyStatus, status: StatusId.Charm, chance: 20, step: 10))
-                .Text("When an alien blocks a hit: {c0}% chance to Charm the attacker.");
+                .Text("When an alien blocks or guards a hit: {c0}% chance to Charm the attacker.");
         }
 
         /// <summary>

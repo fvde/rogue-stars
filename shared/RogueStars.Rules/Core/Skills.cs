@@ -74,12 +74,13 @@ namespace RogueStars.Rules.Core
         HealOnTile,        // Value = % max HP
         SlowAwakening,     // Value = meter points removed
         Summon,            // enemy skills: Param = enemy def id (bosses calling their guard); player side: Param = sidekick def id
-                           // (ContentDb.Sidekicks), Value = its ability power as % of the summoner's ATK, Stacks = how many (battle-scoped)
+                           // (ContentDb.Sidekicks) [";max:N" = at most N alive from this summoner], Value = its power as % of the
+                           // worm's ATK, Stacks = how many (battle-scoped)
         SkipNegativeEvent, // Value = number of negative event outcomes skipped this run (city boon buildings)
         RemoveStatus,      // Status, Stacks (0 = all): remove stacks from the target (cooling removes Heat)
         ConsumeStatus,     // Status: remove all its stacks from the target; Value = % ATK damage per stack; Param "heal:N" heals N% of it
         Strike,            // the owner attacks the context target again (Param "counter" = a counterattack, else a combo strike)
-        AllyAction,        // Stacks = extra sidekick actions (round-robin over the owner's sidekicks): each activates its ability
+        AllyAction,        // Stacks = extra sidekick actions (round-robin over the owner's sidekicks; Param "all": each, "others": not the owner)
         Block,             // Stacks = hits on the target (the worm) the owner (a sidekick) intercepts; guards stack up to Combat.MaxGuards
         // ---- skill redesign (R2, R6, R7, R13, R14): appended, saves store ints ----
         BlockStatus,       // Status, Duration: the target can't gain the status for Duration rounds (per-target StatusCd)
@@ -100,6 +101,8 @@ namespace RogueStars.Rules.Core
         Rewind,            // undo the damage of the owner's last Stacks hits taken
         Loop,              // OnFatal: rewind every fighter to the start of the round before last
         StartRage,         // board (OnTileLand tile:Enemy): the next battle starts with Value rage
+        // ---- aliens pass (appended) ----
+        Guard,             // the target's (the worm's) next attack hit taken deals Value % less; one guard per fighter, a new one refreshes it
     }
 
     /// <summary>

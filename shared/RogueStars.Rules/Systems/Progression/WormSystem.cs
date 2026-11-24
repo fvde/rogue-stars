@@ -77,13 +77,18 @@ namespace RogueStars.Rules.Systems
         public static long ComputePower(CombatLoadout l, ContentDb c)
         {
             var w = c.WormConfig;
-            double p = 0;
-            foreach (var kv in w.PowerWeights) p += l.WormStats.Value(kv.Key) * kv.Value;
-            p += l.MetaSkillIds.Count * w.PowerPerSkill;
+            double stats = 0;
+            foreach (var kv in w.PowerWeights) stats += l.WormStats.Value(kv.Key) * kv.Value;
+            double p = stats + l.MetaSkillIds.Count * w.PowerPerSkill;
             p += (l.MountStats.Value(StatId.Atk) * 2 + l.MountStats.Value(StatId.Hp) * 0.2) * w.PowerPerMountStat;
             foreach (var a in l.Aliens)
-                // sidekicks: ability power (HP / ATK / DEF fold into it); × 1.6 keeps the score where ATK×2 + HP×0.2 had it
-                if (a != null && a.Stats != null) p += BattleSimulator.SidekickPower(a.Stats, c) * 1.6 * w.PowerPerAlienStat;
+            {
+                // sidekicks (aliens pass): no stats; a share of the worm's stat power by rarity and stars
+                if (a == null) continue;
+                var def = c.AlienType(a.AlienTypeId);
+                int rarity = def != null ? (int)def.Rarity : 0;
+                p += stats * (w.PowerAlienBasePct + w.PowerAlienPerRarityPct * rarity + w.PowerAlienPerStarPct * (Math.Max(1, a.Stars) - 1)) / 100.0;
+            }
             return (long)Math.Round(p);
         }
 

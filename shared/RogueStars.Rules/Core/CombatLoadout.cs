@@ -11,8 +11,13 @@ namespace RogueStars.Rules.Core
     {
         public string AlienTypeId;
         public string Name;
+        /// <summary>Aliens pass: only Speed (and a Vampiric lifesteal); sidekicks have no HP / ATK / DEF.</summary>
         public StatBlock Stats = new StatBlock();
         public List<string> SkillIds = new List<string>();
+        /// <summary>Its traits (aliens pass: effect traits change its ability in battle).</summary>
+        public List<string> Traits = new List<string>();
+        /// <summary>Its stars (power score).</summary>
+        public int Stars = 1;
     }
 
     /// <summary>

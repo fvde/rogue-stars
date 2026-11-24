@@ -45,12 +45,13 @@ public class BreedingTests
     public void DurationAndCost_ByRarity_SpeedFromBuildingsAndModifiers()
     {
         var (e, s, t) = WithPen();
-        Assert.Equal(500, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_emberkit"));
-        Assert.Equal(4 * Hour, BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_emberkit", t));
+        Assert.Equal(500, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_frostmite"));
+        Assert.Equal(200, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_emberkit")); // aliens pass: Emberkit is a Common
+        Assert.Equal(4 * Hour, BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
         CitySystem.Owned(s, "bp_breeding_pen").Level = 6; // +10% speed
-        Assert.Equal((long)Math.Ceiling(4 * Hour / 1.1), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_emberkit", t));
+        Assert.Equal((long)Math.Ceiling(4 * Hour / 1.1), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
         s.Modifiers.Add(new Modifier { Target = "breeding_speed", Multiplier = 2 });
-        Assert.Equal((long)Math.Ceiling(4 * Hour / 2.2), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_emberkit", t));
+        Assert.Equal((long)Math.Ceiling(4 * Hour / 2.2), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
         CitySystem.Owned(s, "bp_breeding_pen").Level = 10; // second slot
         Assert.Equal(2, BreedingSystem.Slots(s, e.Content));
     }
@@ -95,14 +96,13 @@ public class BreedingTests
     {
         var (e, s, t) = WithPen();
         var before = AlienSystem.Owned(s, "alien_blorp");
-        before.Level = 7; before.Stars = 2;
-        AlienSystem.Owned(s, "alien_mossling").Level = 7; AlienSystem.Owned(s, "alien_mossling").Stars = 2;
+        before.Stars = 2;
+        AlienSystem.Owned(s, "alien_mossling").Stars = 2;
         var child = BreedOnce(e, ref s, t);
         Ok(e, ref s, new BreedResolve { ChildId = child.Id, Keep = BreedKeep.Replace }, t + 2 * Hour);
         var a = AlienSystem.Owned(s, child.TypeId);
         Assert.Equal(child.Genes.Hp, a.Genes.Hp);
         Assert.Equal(child.Traits, a.Traits);
-        Assert.Equal(7, a.Level);
         Assert.Equal(2, a.Stars);
         Assert.Equal(1, a.Generation);
         Assert.Equal(3, s.Aliens.Owned.Count);
@@ -141,33 +141,35 @@ public class BreedingTests
     }
 
     [Fact]
-    public void Inheritance_GenesStayWithinBounds_TraitsFromParentsOrMutation()
+    public void Inheritance_GenesStayWithinBounds_TraitsFromParentsOrMutation_FitTheChildsPool()
     {
         var c = TestHelpers.Engine().Content;
-        var a = Parent("alien_blorp", -10, "trait_tough", "trait_fierce");
-        var b = Parent("alien_zib", 20, "trait_swift");
-        var parentTraits = new[] { "trait_tough", "trait_fierce", "trait_swift" };
+        var a = Parent("alien_blorp", -10, "trait_twin", "trait_lingering");
+        var b = Parent("alien_zib", 20, "trait_swift", "trait_wide");
         var rng = new Rng(5);
-        int mutations = 0, inherited = 0;
+        int mutations = 0, converted = 0;
         const int N = 2000;
         foreach (double q in new[] { 0.0, 10.0 })
         {
             for (int i = 0; i < N; i++)
             {
                 var child = BreedingSystem.RollChild(rng, c, a, b, q);
+                Assert.Contains(child.TypeId, new[] { "alien_blorp", "alien_zib" }); // randomly one of the parents' species
                 foreach (var g in new[] { child.Genes.Hp, child.Genes.Atk, child.Genes.Def, child.Genes.Speed, child.Genes.Work })
                     Assert.InRange(g, -10 - 8 + q - 0.01, 20 + 8 + q + 0.01);
                 Assert.InRange(child.Traits.Count, 0, 3);
                 Assert.Equal(child.Traits.Count, child.Traits.Distinct().Count());
-                int foreign = child.Traits.Count(t => !parentTraits.Contains(t));
-                Assert.True(foreign <= (child.Mutated ? 1 : 0));
+                // aliens pass: combat traits from the other species (or a mutation) convert into the child's pool; one tempo trait at most
+                var pool = c.AlienType(child.TypeId)!.PossibleTraits;
+                Assert.All(child.Traits, t => Assert.True(pool.Contains(t) || c.AlienTrait(t)!.Kind == AlienTraitKind.Work, child.TypeId + " got " + t));
+                Assert.True(child.Traits.Count(t => c.AlienTrait(t)!.Kind == AlienTraitKind.Tempo) <= 1);
                 if (child.Mutated) mutations++;
-                inherited += child.Traits.Count(t => parentTraits.Contains(t));
+                if (child.TypeId == "alien_blorp" && child.Traits.Contains("trait_twin") && !child.Traits.Contains("trait_wide")) converted++;
             }
         }
-        // ~8% (q=0) and ~13% (q=10) mutation rate; ~50% / ~60% inherit rate.
+        // ~8% (q=0) and ~13% (q=10) mutation rate
         Assert.InRange(mutations, (int)(N * 0.17), (int)(N * 0.25));
-        Assert.InRange(inherited, (int)(3 * N * 1.0), (int)(3 * N * 1.2));
+        Assert.True(converted > 0);
     }
 
     [Fact]

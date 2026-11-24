@@ -9,16 +9,30 @@ public class AlienTests
 {
     private const long T0 = TestHelpers.T0;
 
+    /// <summary>Aliens pass: 20 species (7 C · 5 R · 4 E · 2 L · 2 M), one ability step per star, species-fitted trait pools.</summary>
     [Fact]
-    public void Content_SixteenSpecies_WithArchetypeSkillChains()
+    public void Content_TwentySpecies_OneAbilityStepPerStar_AndFittedTraitPools()
     {
         var c = TestHelpers.Engine().Content;
-        Assert.Equal(16, c.AlienTypes.Count);
+        Assert.Equal(20, c.AlienTypes.Count);
+        Assert.Equal(new[] { 7, 5, 4, 2, 2 }, Enumerable.Range(0, 5).Select(r => c.AlienTypes.Values.Count(a => (int)a.Rarity == r)));
+        Assert.Equal(Rarity.Common, c.AlienType("alien_emberkit")!.Rarity);
+        foreach (var id in new[] { "alien_shiverpup", "alien_arcwhisk", "alien_chronoslug", "alien_swarmheart" }) Assert.NotNull(c.AlienType(id));
         foreach (var a in c.AlienTypes.Values)
         {
-            Assert.Equal(new[] { 1, 3, 5, 7, 10 }, a.ArchetypeSkills.Select(x => x.Stars));
-            foreach (var step in a.ArchetypeSkills) Assert.Equal(SkillSource.Alien, c.Skill(step.SkillId).Source);
-            foreach (var t in a.PossibleTraits) Assert.NotNull(c.AlienTrait(t));
+            Assert.Equal(Enumerable.Range(1, 10), a.ArchetypeSkills.Select(x => x.Stars));
+            foreach (var step in a.ArchetypeSkills)
+            {
+                var s = c.Skill(step.SkillId)!;
+                Assert.Equal(SkillSource.Alien, s.Source);
+                Assert.Equal(a.AbilityName, s.Name); // no trailing tier number in the name
+            }
+            Assert.Equal(a.Family, a.Synergies[0]);
+            // pool: Swift and Eager (one tempo trait at a time), effect traits that fit the ability, exactly one work trait
+            Assert.Contains(ContentDb.TraitSwift, a.PossibleTraits);
+            Assert.Contains(ContentDb.TraitEager, a.PossibleTraits);
+            Assert.Single(a.PossibleTraits, t => c.AlienTrait(t)!.Kind == AlienTraitKind.Work);
+            Assert.DoesNotContain(a.PossibleTraits, t => c.AlienTrait(t)!.Kind == AlienTraitKind.Legacy);
         }
     }
 
@@ -29,10 +43,10 @@ public class AlienTests
         var s = TestHelpers.NewPlayer(e);
         GrantAlien(e, s, "alien_emberkit");
         var a = AlienSystem.Owned(s, "alien_emberkit");
-        Assert.Equal(1, a.Level);
         Assert.Equal(1, a.Stars);
         Assert.InRange(a.Traits.Count, 1, 3);
         foreach (var t in a.Traits) Assert.Contains(t, e.Content.AlienType("alien_emberkit").PossibleTraits);
+        Assert.True(a.Traits.Count(t => e.Content.AlienTrait(t)!.Kind == AlienTraitKind.Tempo) <= 1, "Swift or Eager, not both");
         foreach (var g in new[] { a.Genes.Hp, a.Genes.Atk, a.Genes.Def, a.Genes.Speed, a.Genes.Work }) Assert.InRange(g, -15, 15);
         var genes = TestHelpers.Clone(a.Genes);
 
@@ -56,65 +70,102 @@ public class AlienTests
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(s1.Aliens, TestHelpers.Json), System.Text.Json.JsonSerializer.Serialize(s2.Aliens, TestHelpers.Json));
     }
 
+    /// <summary>Aliens pass: alien levels are gone (no command, no cost, no cap); Grain is spent only on breeding.</summary>
     [Fact]
-    public void LevelUp_CostsGrain_CappedByStars()
+    public void AlienLevels_AreRemoved()
     {
         var e = TestHelpers.Engine();
-        var s = Broke(e);
-        GrantAlien(e, s, "alien_blorp");
-        var a = AlienSystem.Owned(s, "alien_blorp");
-        Assert.Equal(80, AlienSystem.LevelCost(e.Content, a));
-        Assert.Equal("not enough grain", Fail(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0));
-        s.Wallet.Add(Currencies.Grain, 165);
-        Ok(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0);
-        Ok(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0); // 80 + 85 (growth 1.065)
-        Assert.Equal(3, AlienSystem.Owned(s, "alien_blorp").Level);
-        Assert.Equal(0, s.Wallet.Get(Currencies.Grain));
-        Assert.Equal(28, AlienSystem.MaxLevel(e.Content, AlienSystem.Owned(s, "alien_blorp")));
-        AlienSystem.Owned(s, "alien_blorp").Level = 28;
-        s.Wallet.Add(Currencies.Grain, 1_000_000);
-        Assert.Equal("max level for current stars", Fail(e, ref s, new AlienLevelUp { AlienTypeId = "alien_blorp" }, T0));
-        Assert.Equal(2, s.Counter("alien_level_ups"));
+        Assert.Null(e.CommandType("AlienLevelUp"));
+        Assert.DoesNotContain(e.CommandNames, n => n.Contains("Level") && n.StartsWith("Alien", StringComparison.Ordinal));
+        Assert.Contains("breeding", e.Content.CurrencyUse(Currencies.Grain)!.Use, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("level", e.Content.CurrencyUse(Currencies.Grain)!.Use, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Stars_OneToTen_UpgradeArchetypeSkillAt3_5_7_10()
+    public void Stars_OneToTen_EveryStarIsItsOwnAbilityStep()
     {
         var e = TestHelpers.Engine();
         var s = TestHelpers.NewPlayer(e);
         long total = e.Content.AlienTuning.StarCosts.Sum();
         GrantAlien(e, s, "alien_frostmite", 1 + total);
-        var expected = new Dictionary<int, string> { [1] = "ask_frostmite_1", [2] = "ask_frostmite_1", [3] = "ask_frostmite_2", [4] = "ask_frostmite_2",
-            [5] = "ask_frostmite_3", [6] = "ask_frostmite_3", [7] = "ask_frostmite_4", [9] = "ask_frostmite_4", [10] = "ask_frostmite_5" };
         for (int star = 1; star <= 10; star++)
         {
             if (star > 1) Ok(e, ref s, new AlienStarUp { AlienTypeId = "alien_frostmite" }, T0);
             var a = AlienSystem.Owned(s, "alien_frostmite");
             Assert.Equal(star, a.Stars);
-            if (expected.TryGetValue(star, out var skill)) Assert.Equal(new[] { skill }, AlienSystem.SkillIds(e.Content, a));
+            Assert.Equal(new[] { "ask_frostmite_" + star }, AlienSystem.SkillIds(e.Content, a));
+            Assert.Equal(star is 1 or 3 or 5 or 7 or 10, AlienSystem.IsTierStar(e.Content, star));
         }
         Assert.Equal(0, s.Wallet.Get(Currencies.AlienShards("alien_frostmite")));
         Assert.Equal("max stars", Fail(e, ref s, new AlienStarUp { AlienTypeId = "alien_frostmite" }, T0));
-        Assert.Equal("ask_frostmite_4", e.Content.Skill("ask_frostmite_5").UpgradesFrom);
+        Assert.Equal("ask_frostmite_9", e.Content.Skill("ask_frostmite_10").UpgradesFrom);
+        Assert.Equal(9, s.Counter("alien_star_ups"));
     }
 
+    /// <summary>Aliens pass: no HP / ATK / DEF; genes are inactive; Speed is the species' (Swift +15%); work grows with stars only.</summary>
     [Fact]
-    public void CombatStats_ScaleWithGenesLevelStarsAndTraits()
+    public void CombatStats_OnlySpeed_GenesInactive_WorkGrowsWithStars()
     {
         var e = TestHelpers.Engine();
         var s = TestHelpers.NewPlayer(e);
-        GrantAlien(e, s, "alien_blorp"); // common balanced: 200 HP / 20 ATK / 5 DEF / 34 SPD
+        GrantAlien(e, s, "alien_blorp");
         var a = Neutral(s, "alien_blorp");
+        a.Traits.Clear();
         var st = AlienSystem.CombatStats(e.Content, a);
-        Assert.Equal(200, st.Value(StatId.Hp), 6);
-        a.Genes.Atk = 10; a.Level = 11; a.Stars = 3;
-        a.Traits.Add("trait_fierce");
-        st = AlienSystem.CombatStats(e.Content, a);
-        Assert.Equal(20 * 1.1 * 1.6 * 1.24 * 1.15, st.Value(StatId.Atk), 6);
+        Assert.Equal(0, st.Value(StatId.Hp));
+        Assert.Equal(0, st.Value(StatId.Atk));
+        Assert.Equal(0, st.Value(StatId.Def));
         Assert.Equal(34, st.Value(StatId.Speed), 6);
-        // sidekick pass: HP / ATK / DEF fold into ability power; Speed sets how often it acts (a Common: about every 3 turns)
-        Assert.Equal(st.Value(StatId.Atk) + st.Value(StatId.Hp) * 0.05 + st.Value(StatId.Def), AlienSystem.AbilityPower(e.Content, a), 6);
-        Assert.Equal(100 / 34.0, AlienSystem.ActsEvery(e.Content, a), 6);
+        double work = AlienSystem.WorkPower(e.Content, a);
+        a.Genes.Atk = 40; a.Genes.Speed = 40; a.Genes.Work = 40; a.Level = 50; // genes and old levels change nothing
+        Assert.Equal(34, AlienSystem.CombatStats(e.Content, a).Value(StatId.Speed), 6);
+        Assert.Equal(work, AlienSystem.WorkPower(e.Content, a), 6);
+        a.Traits.Add(ContentDb.TraitSwift);
+        Assert.Equal(34 * 1.15, AlienSystem.CombatStats(e.Content, a).Value(StatId.Speed), 6);
+        Assert.Equal(100 / (34 * 1.15), AlienSystem.ActsEvery(e.Content, a), 6);
+        a.Stars = 3;
+        Assert.Equal(10 * (1 + 2 * e.Content.AlienTuning.StarWorkPct / 100.0), AlienSystem.WorkPower(e.Content, a), 6);
+    }
+
+    /// <summary>
+    /// Save migration (aliens pass): an old save's alien levels go back to 1 and 100% of the Grain spent on them comes back (by the
+    /// rarity they were paid at: Emberkit was Rare); old combat traits are remapped by species; stars, shards and genes stay.
+    /// </summary>
+    [Fact]
+    public void OldSave_AlienLevelsRefundGrain_TraitsRemap_OnTheFirstCommand()
+    {
+        var e = TestHelpers.Engine();
+        var s = TestHelpers.NewPlayer(e);
+        string json = System.Text.Json.JsonSerializer.Serialize(s, TestHelpers.Json);
+        var old = System.Text.Json.JsonSerializer.Deserialize<GameState>(json, TestHelpers.Json)!;
+        old.Aliens.Migrated = 0; // a save from before the aliens pass (the field did not exist)
+        old.Aliens.Owned["alien_blorp"] = new OwnedAlien { TypeId = "alien_blorp", Level = 3, Stars = 2, Traits = { "trait_tough", "trait_green_thumb" },
+            Genes = new AlienGenes { Hp = 20, Atk = -5, Def = 35, Speed = 10, Work = 4 } };
+        old.Aliens.Owned["alien_emberkit"] = new OwnedAlien { TypeId = "alien_emberkit", Level = 2, Traits = { "trait_pyromaniac", "trait_fierce" } };
+        old.Aliens.Owned["alien_voidmaw"] = new OwnedAlien { TypeId = "alien_voidmaw", Level = 1, Traits = { "trait_fierce", "trait_lucky", "trait_vampiric" } };
+        old.Aliens.Owned["alien_mossling"] = new OwnedAlien { TypeId = "alien_mossling", Level = 1, Traits = { "trait_tough" } };
+        old.Wallet.Add(Currencies.AlienShards("alien_blorp"), 7);
+        long grain = old.Wallet.Get(Currencies.Grain);
+        e.Settle(old, T0);
+        // Blorp (Common): levels 1→2→3 = 80 + 85; Emberkit (paid as a Rare): 1→2 = 120
+        Assert.Equal(80 + 85 + 120, old.Aliens.LevelGrainRefunded);
+        Assert.Equal(grain + 285, old.Wallet.Get(Currencies.Grain));
+        Assert.All(old.Aliens.Owned.Values, a => Assert.Equal(1, a.Level));
+        var blorp = old.Aliens.Owned["alien_blorp"];
+        Assert.Equal(2, blorp.Stars);
+        Assert.Equal(7, old.Wallet.Get(Currencies.AlienShards("alien_blorp")));
+        Assert.Equal(35, blorp.Genes.Def); // genes are kept (inactive)
+        Assert.Equal(new[] { "trait_lingering", "trait_green_thumb" }, blorp.Traits);              // Tough → Bulwark or Lingering: Blorp has Lingering
+        Assert.Equal(new[] { "trait_twin", "trait_wide" }, old.Aliens.Owned["alien_emberkit"].Traits); // Pyromaniac → Twin, Fierce → Twin or Wide
+        Assert.Equal(new[] { "trait_swift", "trait_vampiric" }, old.Aliens.Owned["alien_voidmaw"].Traits); // Fierce → (no Twin / Wide, Vampiric taken) dropped; Lucky → Swift
+        Assert.Equal(new[] { "trait_twin" }, old.Aliens.Owned["alien_mossling"].Traits);            // Tough → (no Bulwark / Lingering) Twin
+        Assert.Equal(AlienSystem.MigrationVersion, old.Aliens.Migrated);
+        // once only
+        old.Aliens.Owned["alien_blorp"].Level = 9;
+        e.Settle(old, T0 + 1);
+        Assert.Equal(grain + 285, old.Wallet.Get(Currencies.Grain));
+        // a new save is born migrated
+        Assert.Equal(AlienSystem.MigrationVersion, TestHelpers.NewPlayer(e).Aliens.Migrated);
     }
 
     [Fact]
@@ -135,7 +186,9 @@ public class AlienTests
         var ca = Assert.Single(l.Aliens);
         Assert.Equal("alien_zib", ca.AlienTypeId);
         Assert.Equal(new[] { "ask_zib_1" }, ca.SkillIds);
-        Assert.True(ca.Stats.Value(StatId.Hp) > 0);
+        Assert.Equal(0, ca.Stats.Value(StatId.Hp)); // aliens pass: sidekicks have no stats but Speed
+        Assert.Equal(37, ca.Stats.Value(StatId.Speed) / (ca.Traits.Contains(ContentDb.TraitSwift) ? 1.15 : 1), 6);
+        Assert.Equal(1, ca.Stars);
 
         CitySystem.Owned(s, "bp_housing_pod").Level = 12; // second slot
         Assert.Equal("duplicate alien in squad", Fail(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_zib", "alien_zib" } }, t));

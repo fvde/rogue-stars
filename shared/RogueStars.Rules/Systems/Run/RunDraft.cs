@@ -169,7 +169,7 @@ namespace RogueStars.Rules.Systems
                         case "echo": if (t.Effect == EffectKind.Echo) return true; break;
                         case "shield": if (t.Effect == EffectKind.Shield) return true; break;
                         case "aliens": if (t.Effect == EffectKind.Summon && content.Sidekick(t.Param) != null) return true; break;
-                        case "blocks": if (t.Effect == EffectKind.Block) return true; break;
+                        case "blocks": if (t.Effect == EffectKind.Block || t.Effect == EffectKind.Guard) return true; break;
                     }
                 }
                 return false;

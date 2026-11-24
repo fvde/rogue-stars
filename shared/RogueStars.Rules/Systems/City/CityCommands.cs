@@ -40,8 +40,6 @@ namespace RogueStars.Rules.Systems
 
     // ---- Aliens -------------------------------------------------------------------------------
 
-    [Serializable] public sealed class AlienLevelUp : GameCommand { public string AlienTypeId; }
-
     [Serializable] public sealed class AlienStarUp : GameCommand { public string AlienTypeId; }
 
     /// <summary>Assign an alien to work in a building (BlueprintId null/empty = unassign). Moving between buildings is allowed.</summary>

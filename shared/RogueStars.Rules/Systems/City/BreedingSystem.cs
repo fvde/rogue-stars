@@ -6,12 +6,14 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Breeding Pen: two owned aliens (parents are kept) breed for Grain + time (by the higher parent rarity).
+    /// Breeding Pen: two owned aliens (parents are kept) breed for Grain + time (by the higher parent rarity). Aliens pass: Grain's
+    /// only sink, and the targeted shard source (a discarded child gives shards of its species: pair the alien you want, half the
+    /// children are its species). Genes are still bred but inactive ("coming soon"); traits convert to the child species' pool.
     /// Building boons: BreedingSlots (parallel jobs), BreedingSpeedPct (shorter timers; also the "breeding_speed"
     /// modifier), BreedingQualityPct (gene points added to the child + higher inherit/mutation chances).
     /// Flow: BreedStart → timer (kind "breeding", speed-ups via TimerSpeedUp) → BreedCollect (child rolled with
     /// ctx.Rng, becomes a pending choice) → BreedResolve Replace (child's genes/traits replace the current alien of
-    /// its type; level, stars, squad and work assignment are kept) or Discard (shards + Grain refund).
+    /// its type; stars, squad and work assignment are kept) or Discard (shards + Grain refund).
     /// Child type: one of the parents' types (50/50).
     /// </summary>
     public static class BreedingSystem
@@ -61,7 +63,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>
         /// Roll a child (deterministic for a given rng state). Genes: lerp(parentA, parentB, u) + uniform(±GeneVariance)
         /// + quality, clamped to [GeneMin, GeneMax]. Traits: each parent trait inherited with chance; then a
-        /// mutation may add a new random trait (replacing a random one when full).
+        /// mutation may add a new random trait (replacing a random one when full); finally traits outside the child species' pool
+        /// convert into it (AlienSystem.ConvertTraits: one tempo trait at most, no duplicates).
         /// </summary>
         public static PendingChild RollChild(Rng rng, ContentDb content, OwnedAlien a, OwnedAlien b, double quality)
         {
@@ -92,6 +95,8 @@ namespace RogueStars.Rules.Systems
                     child.Mutated = true;
                 }
             }
+            var species = content.AlienType(child.TypeId);
+            if (species != null) child.Traits = AlienSystem.ConvertTraits(content, species, child.Traits);
             return child;
         }
 
