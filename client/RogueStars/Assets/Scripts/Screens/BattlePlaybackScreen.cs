@@ -633,11 +633,16 @@ namespace RogueStars.Client.Screens
             }
         }
 
+        /// <summary>The letter on a status icon: H(eat), R(adiation), B(leed), C(hill), F(reeze), S(hock / stun) …</summary>
+        public static string StatusGlyph(StatusId s) => SkillText.StatusName(s).Substring(0, 1);
+
         public static Color StatusColor(StatusId s)
         {
             switch (s)
             {
-                case StatusId.Burn: return Theme.Accent;
+                case StatusId.Burn:
+                case StatusId.Heat: return Theme.Hex(0xFF8A2A);
+                case StatusId.Chill: return Theme.Hex(0x8FD8FF);
                 case StatusId.Freeze: return Theme.Premium;
                 case StatusId.Poison: return Theme.Hex(0x8BE04E);
                 case StatusId.Bleed: return Theme.Bad;
@@ -680,6 +685,9 @@ namespace RogueStars.Client.Screens
         {
             while (!Finished) Step(false);
         }
+
+        /// <summary>Index of the next log entry to play (screenshots).</summary>
+        public int NextIndex => _next;
 
         /// <summary>Apply the next N entries (screenshots mid-fight).</summary>
         public void PlaySteps(int n)
@@ -728,7 +736,25 @@ namespace RogueStars.Client.Screens
                 case BattleAction.StatusApplied:
                     if (target == null) break;
                     target.Statuses[e.Status] = Math.Max(1, e.Stacks);
-                    Popup(target, e.Status.ToString().ToUpperInvariant(), StatusColor(e.Status), animate, 34);
+                    Popup(target, SkillText.StatusName(e.Status).ToUpperInvariant(), StatusColor(e.Status), animate, 34);
+                    break;
+                case BattleAction.StatusRemoved:
+                    if (target == null) break;
+                    if (e.Stacks <= 0) target.Statuses.Remove(e.Status); else target.Statuses[e.Status] = e.Stacks;
+                    if (e.Status == StatusId.Heat) Popup(target, "COOLED", StatusColor(StatusId.Chill), animate, 32);
+                    break;
+                case BattleAction.Supernova:
+                    if (target == null) break;
+                    if (e.Amount == 0 && e.Actor == e.Target)
+                    {
+                        // the marker: the heated fighter blows; its Heat is gone
+                        target.Statuses.Remove(StatusId.Heat);
+                        Nova(target, animate);
+                        SupernovaCount++;
+                        break;
+                    }
+                    if (animate) Hit(target, true);
+                    Popup(target, "-" + Fmt.Num(e.Amount), target.Info.Side == BattleSide.Player ? Theme.Hex(0xFF5A3A) : Theme.Hex(0xFFB03A), animate, 66, target.Info.Side == BattleSide.Player ? "RECOIL" : "NOVA");
                     break;
                 case BattleAction.StatusExpired:
                     target?.Statuses.Remove(e.Status);
@@ -763,7 +789,9 @@ namespace RogueStars.Client.Screens
             Feed(e, actor, target);
             OnSkillFire(e, animate);
             if (animate || Finished) TurnOrder();
-            if (Finished) End();
+            if (Finished) { End(); return; }
+            // a Supernova hits every fighter at once: its hit entries play in the same beat as the burst
+            if (e.Action == BattleAction.Supernova && _battle.Log[_next].Action == BattleAction.Supernova && _battle.Log[_next].Amount > 0) Step(animate);
         }
 
         // ---- animations (play mode; complete at once in EditMode / Instant) -------------------------------
@@ -848,6 +876,9 @@ namespace RogueStars.Client.Screens
             float sx = (s.anchorMin.x - 0.5f) * ViewSize.x * v.Root.localScale.x;
             float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y / 2) * v.Root.localScale.y;
             var start = v.Root.anchoredPosition + new Vector2(sx + jitter, sy + (_popupSeq % 2) * 24);
+            // wide words ("SUPERNOVA!") stay on the stage
+            float half = Mathf.Min(350, text.Length * size * 0.33f);
+            start.x = Mathf.Clamp(start.x, -540 + half, 540 - half);
             holder.anchoredPosition = start;
             var label = SliceKit.Chunky(holder, text, size, color, TextAnchor.MiddleCenter);
             Ui.Stretch(label.rectTransform, 0, caption != null ? 36 : 0, 0, 0);
@@ -871,6 +902,60 @@ namespace RogueStars.Client.Screens
                 if (cap != null) cap.color = new Color(color.r, color.g, color.b, a);
                 if (outline != null) outline.effectColor = new Color(SliceKit.Ink.r, SliceKit.Ink.g, SliceKit.Ink.b, a);
             }, () => Ui.DestroyGo(holder.gameObject));
+        }
+
+        /// <summary>Supernovas played so far (tests).</summary>
+        public int SupernovaCount { get; private set; }
+
+        /// <summary>Heat at or above this reads as dangerous (the chip turns red and pulses): 80% of the Supernova threshold.</summary>
+        public static int HeatDangerAt(ContentDb c) =>
+            c.Combat.Statuses.TryGetValue(StatusId.Heat, out var d) && d.BurstAtStacks > 0 ? Mathf.Max(1, Mathf.CeilToInt(d.BurstAtStacks * 0.8f)) : int.MaxValue;
+
+        /// <summary>The Supernova burst: a flash over the stage and an expanding fire ring with a white core on the exploding fighter.</summary>
+        private void Nova(FighterView v, bool animate)
+        {
+            if (!animate || v == null || Instant || !Application.isPlaying || _stage == null) return;
+            var s = v.Sprite;
+            float sx = (s.anchorMin.x - 0.5f) * ViewSize.x * v.Root.localScale.x;
+            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y / 2) * v.Root.localScale.y;
+            var at = v.Root.anchoredPosition + new Vector2(sx, sy);
+            var flash = Ui.Panel(_stage, new Color(1f, 0.6f, 0.2f, 0.4f), "SupernovaFlash");
+            flash.raycastTarget = false;
+            Ui.Stretch(flash.rectTransform, -400, -400, -400, -400);
+            var ring = Ui.Panel(_stage, new Color(1f, 0.5f, 0.12f, 0.95f), "SupernovaFx");
+            ring.sprite = UiShapes.Circle;
+            ring.raycastTarget = false;
+            var rt = ring.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(240, 240);
+            rt.anchoredPosition = at;
+            var core = Ui.Panel(rt, new Color(1f, 0.95f, 0.75f, 1f), "Core");
+            core.sprite = UiShapes.Circle;
+            core.raycastTarget = false;
+            Ui.Stretch(core.rectTransform, 50, 50, 50, 50);
+            // the word beside the burst, towards the middle of the stage (the hit numbers stay readable on the fighters)
+            var word = SliceKit.Chunky(_stage, "SUPERNOVA!", 92, Theme.Hex(0xFFB03A), TextAnchor.MiddleCenter, "SupernovaWord");
+            word.raycastTarget = false;
+            var wrt = word.rectTransform;
+            wrt.anchorMin = wrt.anchorMax = new Vector2(0.5f, 0.5f);
+            wrt.sizeDelta = new Vector2(700, 130);
+            float wx = at.x > 0 ? Mathf.Clamp(at.x - 420, -190, 190) : Mathf.Clamp(at.x + 420, -190, 190);
+            wrt.anchoredPosition = new Vector2(wx, at.y - 90);
+            float life = Mathf.Max(0.7f, StepSeconds * 2.2f);
+            UiTweens.Play(word.gameObject, "word", life * 1.4f, t =>
+            {
+                float pop = t < 0.12f ? Mathf.Lerp(0.5f, 1.2f, t / 0.12f) : t < 0.22f ? Mathf.Lerp(1.2f, 1f, (t - 0.12f) / 0.1f) : 1f;
+                wrt.localScale = Vector3.one * pop;
+                word.color = new Color(1f, 0.69f, 0.23f, t < 0.75f ? 1 : 1 - (t - 0.75f) / 0.25f);
+            }, () => Ui.DestroyGo(word.gameObject));
+            UiTweens.Play(ring.gameObject, "nova", life, t =>
+            {
+                float e = 1 - (1 - t) * (1 - t);
+                rt.localScale = Vector3.one * Mathf.Lerp(0.25f, 5.2f, e);
+                ring.color = new Color(1f, Mathf.Lerp(0.75f, 0.3f, t), 0.12f, 0.95f * (1 - t));
+                core.color = new Color(1f, 0.95f, 0.75f, Mathf.Clamp01(1 - t * 1.6f));
+                flash.color = new Color(1f, 0.6f, 0.2f, 0.45f * Mathf.Clamp01(1 - t * 2.2f));
+            }, () => { Ui.DestroyGo(ring.gameObject); Ui.DestroyGo(flash.gameObject); });
         }
 
         /// <summary>Upcoming actors (next attack-like entries), the first one outlined.</summary>
@@ -907,8 +992,12 @@ namespace RogueStars.Client.Screens
             switch (e.Action)
             {
                 case BattleAction.Death: what = tgt.Length > 0 ? tgt + " is knocked out" : who + " is knocked out"; break;
-                case BattleAction.StatusApplied: what = who + " applies " + e.Status + (e.Stacks > 1 ? " ×" + e.Stacks : "") + " to " + tgt; break;
-                case BattleAction.StatusTick: what = e.Status + " deals " + Fmt.Num(e.Amount) + " to " + (target?.Info.Name ?? ""); break;
+                case BattleAction.StatusApplied: what = who + " applies " + SkillText.StatusName(e.Status) + (e.Stacks > 1 ? " ×" + e.Stacks : "") + " to " + tgt; break;
+                case BattleAction.StatusTick: what = SkillText.StatusName(e.Status) + " deals " + Fmt.Num(e.Amount) + " to " + (target?.Info.Name ?? ""); break;
+                case BattleAction.StatusRemoved: what = SkillText.StatusName(e.Status) + " −" + e.Amount + " on " + (target?.Info.Name ?? ""); break;
+                case BattleAction.Supernova:
+                    what = e.Amount == 0 && e.Actor == e.Target ? (target?.Info.Name ?? "") + " goes SUPERNOVA" : "Supernova hits " + (target?.Info.Name ?? "") + " for " + Fmt.Num(e.Amount);
+                    break;
                 case BattleAction.Heal: case BattleAction.Regen: case BattleAction.LifeSteal: what = (target ?? actor)?.Info.Name + " heals " + Fmt.Num(e.Amount); break;
                 case BattleAction.Shield: what = (target ?? actor)?.Info.Name + " gains " + Fmt.Num(e.Amount) + " shield"; break;
                 case BattleAction.GainRage: case BattleAction.StatusExpired: return;
@@ -958,13 +1047,17 @@ namespace RogueStars.Client.Screens
             {
                 // a status icon with its stack count (reference 3)
                 var c = StatusColor(kv.Key);
-                var icon = Ui.RoundPanel(v.Chips, c, 12, "Status:" + kv.Key);
+                // Heat close to its Supernova reads as dangerous: red, a hot outline and a pulse
+                bool danger = kv.Key == StatusId.Heat && kv.Value >= HeatDangerAt(Content);
+                if (danger) c = Theme.Hex(0xFF2E2E);
+                var icon = Ui.RoundPanel(v.Chips, c, 12, "Status:" + kv.Key + (danger ? ":Danger" : ""));
                 icon.raycastTarget = false;
-                Ui.Size(icon, 48, 48, 0);
-                UiShapes.Outline(icon.rectTransform, SliceKit.Ink, 12, 3);
-                var g = SliceKit.Chunky(icon.transform, kv.Key.ToString().Substring(0, 1), 30, Color.white, TextAnchor.MiddleCenter, "Glyph");
+                Ui.Size(icon, danger ? 76 : 62, danger ? 76 : 62, 0);
+                UiShapes.Outline(icon.rectTransform, danger ? Theme.Hex(0xFFE04A) : SliceKit.Ink, 12, danger ? 5 : 3);
+                if (danger && Application.isPlaying) UiPulse.On(icon, 0.12f, 0.6f, 0.75f);
+                var g = SliceKit.Chunky(icon.transform, StatusGlyph(kv.Key), danger ? 46 : 38, Color.white, TextAnchor.MiddleCenter, "Glyph");
                 Ui.Stretch(g.rectTransform);
-                var n = SliceKit.Chunky(icon.transform, kv.Value.ToString(), 28, Color.white, TextAnchor.LowerRight, "Stacks");
+                var n = SliceKit.Chunky(icon.transform, kv.Value.ToString(), danger ? 40 : 34, danger ? Theme.Hex(0xFFE04A) : Color.white, TextAnchor.LowerRight, "Stacks");
                 Ui.Stretch(n.rectTransform, 0, 0, -12, -10);
             }
         }
@@ -1030,7 +1123,7 @@ namespace RogueStars.Client.Screens
             Ui.Clear(_heroChips);
             if (_hero.ShieldNow > 0) Ui.Chip(_heroChips, "SHIELD " + Fmt.Num(_hero.ShieldNow), Theme.Hex(0x12303A), Theme.Hex(0xB8F0FF), 20, 40);
             foreach (var kv in _hero.Statuses)
-                Ui.Chip(_heroChips, kv.Key.ToString().ToUpperInvariant() + (kv.Value > 1 ? " " + kv.Value : ""), Theme.Tint(StatusColor(kv.Key), 0.4f), StatusColor(kv.Key), 20, 40);
+                Ui.Chip(_heroChips, SkillText.StatusName(kv.Key).ToUpperInvariant() + (kv.Value > 1 ? " " + kv.Value : ""), Theme.Tint(StatusColor(kv.Key), 0.4f), StatusColor(kv.Key), 20, 40);
         }
 
         private void End()

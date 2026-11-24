@@ -1300,7 +1300,7 @@ namespace RogueStars.Client.Screens
             });
         }
 
-        /// <summary>"Fire 2 · Crit 1": the run's skills by family.</summary>
+        /// <summary>"Fire 2 · Radiation 1": the run's skills by family.</summary>
         private string BuildSummary(ActiveRun run)
         {
             var counts = new Dictionary<SkillFamily, int>();
@@ -1313,7 +1313,7 @@ namespace RogueStars.Client.Screens
                 counts[f]++;
             }
             var parts = new List<string>();
-            foreach (var f in order) parts.Add(f + " " + counts[f]);
+            foreach (var f in order) parts.Add(SkillText.FamilyName(f) + " " + counts[f]);
             return parts.Count == 0 ? "no skills yet" : string.Join(" · ", parts);
         }
 
@@ -1360,7 +1360,7 @@ namespace RogueStars.Client.Screens
                 if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
                 else if (sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
                 else if (fam != SkillFamily.None && owned.Contains(fam)) { spec.Chip = "SYNERGY"; spec.ChipName = "SynergyChip"; spec.ChipColor = Theme.Gold; }
-                string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + fam : "") + "): " + full + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
+                string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + SkillText.FamilyName(fam) : "") + "): " + full + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
                 SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info));
                 y += step;
             }
@@ -1477,6 +1477,22 @@ namespace RogueStars.Client.Screens
             {
                 var ids = RunSystem.ActiveSkillIds(run);
                 if (ids.Count == 0) Note(b, "No skills yet: level up on the board to draft some.");
+                // the signature first: the run's identity, its awakening and how far the next one is
+                var sig = run.SignatureId != null ? Content.Skill(run.SignatureId) : null;
+                if (sig != null && ids.Remove(sig.Id))
+                {
+                    int slv = RunDraft.Level(run, sig.Id);
+                    var scol = Theme.FamilyColor(sig.Family);
+                    var card = Card(b, Theme.Tint(scol, 0.3f), 6);
+                    card.name = "Signature:" + sig.Id;
+                    UiShapes.Outline(card, SignaturePick.SignatureColor, 16, 4);
+                    Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(sig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
+                    Ui.Label(card, SkillText.Title(Content, sig, slv), Theme.FontNormal, Color.Lerp(scol, Color.white, 0.6f));
+                    Ui.Label(card, Fmt.SkillFull(SkillLeveling.At(Content, sig, slv)), Theme.FontSmall, Theme.Text);
+                    int next = RunSystem.NextAwakeningAt(Content, run);
+                    Ui.Label(card, next > 0 ? "Awakens at " + next + " " + SkillText.FamilyName(sig.Family) + " skills (have " + RunDraft.FamilyCount(Content, run, sig.Family) + ")." : "Fully awakened.",
+                        20, Theme.TextDim);
+                }
                 foreach (var id in ids)
                 {
                     var s = Content.Skill(id);
@@ -1485,7 +1501,7 @@ namespace RogueStars.Client.Screens
                     UiShapes.Outline(row, Theme.Shade(col, 0.9f), 16, 3);
                     Ui.Dot(row, col, 28, "Rarity");
                     int lv = RunDraft.Level(run, id);
-                    Ui.Label(row, (s == null ? id : lv > 0 ? SkillText.Title(Content, s, lv) : s.Name) + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + s.Family : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
+                    Ui.Label(row, (s == null ? id : lv > 0 ? SkillText.Title(Content, s, lv) : s.Name) + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + SkillText.FamilyName(s.Family) : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
                 }
             });
     }
@@ -1580,7 +1596,7 @@ namespace RogueStars.Client.Screens
             {
                 var mode = next != null ? RunMode.Normal : s.Mode;
                 string caption = next != null ? "NEXT: LEVEL " + PortalsScreen.LevelNum(next.Number) : s.Won ? "PLAY AGAIN" : "TRY AGAIN";
-                var go = Ui.Button(body, caption, () => Run(new RunStart { PortalId = target.PortalId, LevelId = target.Id, Mode = mode }, r => { if (r.Ok) App.Router.Replace(new RunScreen()); }),
+                var go = Ui.Button(body, caption, () => SignaturePick.StartRun(App, new RunStart { PortalId = target.PortalId, LevelId = target.Id, Mode = mode }, r => { if (r.Ok) App.Router.Replace(new RunScreen()); }),
                     Theme.Accent, -1, 140, true, 56);
                 go.name = "Again";
             }

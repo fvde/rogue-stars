@@ -217,7 +217,7 @@ namespace RogueStars.Client.UiKit
 
         /// <summary>Resources root of the slice art.</summary>
         public const string SliceRoot = "Art/Slice";
-        /// <summary>Tile markers standing on tiles: <c>Art/Slice/Markers/&lt;id&gt;</c> (enemy, elite, miniboss, boss, omen, event, mystery, chest, rest, shop, minigame, portal, reward).</summary>
+        /// <summary>Tile markers standing on tiles: <c>Art/Slice/Markers/&lt;id&gt;</c> (enemy, elite, miniboss, omen, event, mystery, chest, rest, shop, minigame, portal, reward; the boss gate shows the run's boss sprite, IsoArt.BossMarker).</summary>
         public const string SliceMarkers = SliceRoot + "/Markers";
         /// <summary>Set pieces inside loops: <c>Art/Slice/SetPieces/&lt;id&gt;</c> (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound, time_clock, alien_tree).</summary>
         public const string SliceSetPieces = SliceRoot + "/SetPieces";

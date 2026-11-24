@@ -287,6 +287,8 @@ namespace RogueStars.Client.Tests
             Assert.That(tex.Trim, Is.False, "full-frame textures keep their frame");
             Assert.That(plan.Find(i => i.Id == "slice-skills/fire_kindle").Dest, Is.EqualTo("Art/Skills/fire_kindle.png"));
             Assert.That(ArtImportRules.PlanSlice("/assets", null), Is.Empty);
+            // the generic boss marker is retired (the board shows the run's boss)
+            Assert.That(ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks("{ \"slice-markers/boss\": \"C_s1.png\" }")), Is.Empty);
         }
 
         // The board's ground and props are the world board's now (IsoBoardTests).

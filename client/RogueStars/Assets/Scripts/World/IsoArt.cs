@@ -107,7 +107,7 @@ namespace RogueStars.Client.World
             {
                 case "rest": return 1.35f;
                 case "shop": return 1.4f;
-                case "boss": return 1.5f;
+                case "boss": return 1.5f; // × 1.25 on the gate: ~2.5× the enemy skull, the run's own boss
                 case "miniboss": return 1.22f;
                 case "elite": return 1.0f;
                 case "omen": return 0.82f;
@@ -354,7 +354,21 @@ namespace RogueStars.Client.World
 
         /// <summary>A tile marker prop (slice-markers id; pivot at its foot): the imported art, else a drawn placeholder.</summary>
         public static Sprite Marker(string id) =>
-            ArtCatalog.SliceMarker(id) ?? Get("marker:" + id, () => DrawMarker(id));
+            (id == "boss" ? null : ArtCatalog.SliceMarker(id)) ?? Get("marker:" + id, () => DrawMarker(id));
+
+        /// <summary>
+        /// The boss gate's marker: the run's own boss, drawn with the sprite its battle uses (ArtCatalog.EnemyOrFamily: its
+        /// sprite, else its family's); the code-drawn skull only when there is no art at all. No generic slice "boss" marker.
+        /// </summary>
+        public static Sprite BossMarker(ContentDb content, string bossId)
+        {
+            var boss = content != null && bossId != null && content.RunBosses.TryGetValue(bossId, out var b) ? b : null;
+            var art = boss != null ? ArtCatalog.EnemyOrFamily(boss.EnemyId, content, out _) : null;
+            return art != null ? art : Marker("boss");
+        }
+
+        /// <summary>The boss marker's width limit (it dominates its tile like a set piece).</summary>
+        public const float BossMarkerWidth = Iso.TileW * 1.8f;
 
         private static Sprite DrawMarker(string id)
         {

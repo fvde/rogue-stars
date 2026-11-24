@@ -293,6 +293,8 @@ namespace RogueStars.Client.Tests
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
             Assert.That(screen.Layout, Is.Not.Null);
+            Assert.That(FindButton(screen.Root, "LabNode:pkg_combo"), Is.Not.Null, "the synergy packages are the first tab");
+            screen.ShowBranch("offense");
             Assert.That(screen.Layout.Nodes.Count, Is.GreaterThan(5));
             Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1"), Is.Not.Null, "stat node drawn in the offense tab");
             Text annex = null;
@@ -325,6 +327,22 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             Assert.That(_f.Service.ExecuteNow(new LabCollect { ResearchId = "lab_atk_1" }).Ok, Is.True);
             Assert.That(LaboratorySystem.Entry(S, "lab_atk_1").Level, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Laboratory_PackagesAreDistinctNodes_WithSignatureAndSkillCount()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.App.Open("laboratory");
+            var screen = (LaboratoryScreen)_f.App.Router.Current;
+            foreach (var id in new[] { "pkg_combo", "pkg_ice", "pkg_lightning", "pkg_counter", "pkg_alien" })
+                Assert.That(FindButton(screen.Root, "LabNode:" + id), Is.Not.Null, id);
+            Assert.That(screen.PackageLine(C.LabNode("pkg_ice")), Is.EqualTo("Chill + 7 skills"));
+            Assert.That(FindButton(screen.Root, "LabNode:pkg_ice").GetComponentInChildren<Text>().text, Does.Contain("Chill + 7 skills"));
+            screen.NodeModal("pkg_ice");
+            bool listed = false;
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.name == "PackageSkills" && t.text.Contains("Frostbite")) listed = true;
+            Assert.That(listed, Is.True, "the modal lists the run skills the package unlocks");
         }
 
         [Test]

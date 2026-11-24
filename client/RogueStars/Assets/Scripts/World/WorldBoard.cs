@@ -393,7 +393,9 @@ namespace RogueStars.Client.World
                     var mgo = new GameObject("Marker:" + marker) { layer = Layer };
                     mgo.transform.SetParent(go.transform, false);
                     mgo.transform.localPosition = new Vector2(0, -0.02f);
-                    view.Marker = Fit(mgo, IsoArt.Marker(marker), Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true);
+                    bool boss = marker == "boss";
+                    var sprite = boss ? IsoArt.BossMarker(content, run.BossId) : IsoArt.Marker(marker);
+                    view.Marker = Fit(mgo, sprite, boss ? IsoArt.BossMarkerWidth : Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true);
                     view.MarkerShadow = Shadow(mgo, Mathf.Min(Iso.TileW * 0.7f, view.Marker.bounds.size.x * 0.85f), order + 2);
                     if (look.Gate) mgo.transform.localScale = Vector3.one * 1.25f;
                 }

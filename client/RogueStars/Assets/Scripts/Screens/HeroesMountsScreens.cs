@@ -32,7 +32,7 @@ namespace RogueStars.Client.Screens
                 var card = Card(body, Color.Lerp(Theme.FamilyColor(def.Family), Theme.Panel, equipped ? 0.55f : 0.8f));
                 var head = Ui.Row(card, 56, 8);
                 Ui.Label(head, def.Name + (h != null ? "  " + Fmt.Stars(h.Stars) : ""), Theme.FontNormal, h != null ? Theme.Text : Theme.TextDim);
-                Ui.Label(head, def.Family + (def.SecondaryFamily != SkillFamily.None ? " / " + def.SecondaryFamily : ""), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
+                Ui.Label(head, SkillText.FamilyName(def.Family) + (def.SecondaryFamily != SkillFamily.None ? " / " + SkillText.FamilyName(def.SecondaryFamily) : ""), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
                 var traits = new List<string>();
                 foreach (var t in def.Traits)
                 {
@@ -83,7 +83,7 @@ namespace RogueStars.Client.Screens
                 var card = Card(body, Color.Lerp(Theme.FamilyColor(def.Family), Theme.Panel, active ? 0.55f : 0.8f));
                 var head = Ui.Row(card, 56, 8);
                 Ui.Label(head, def.Name + (m != null ? "  " + Fmt.Stars(m.Stars) + (m.Awaken > 0 ? " A" + m.Awaken : "") : "  (not owned)"), Theme.FontNormal, m != null ? Theme.Text : Theme.TextDim);
-                Ui.Label(head, def.Family.ToString(), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
+                Ui.Label(head, SkillText.FamilyName(def.Family), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
                 var weapons = new List<string>();
                 foreach (var w in def.Weapons) weapons.Add((w.Awaken > 0 ? "A" + w.Awaken : w.Star + "★") + " " + (Content.Skill(w.SkillId)?.Name ?? w.SkillId));
                 Ui.Label(card, string.Join(" · ", weapons), 22);

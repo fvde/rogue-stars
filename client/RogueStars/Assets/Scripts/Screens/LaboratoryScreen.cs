@@ -21,9 +21,9 @@ namespace RogueStars.Client.Screens
         /// <summary>In-branch prerequisite edges (from prerequisite to node).</summary>
         public readonly List<KeyValuePair<string, string>> Edges = new List<KeyValuePair<string, string>>();
 
-        private static readonly string[] BranchOrder = { "offense", "defense", "elements", "command" };
+        private static readonly string[] BranchOrder = { "packages", "offense", "defense", "elements", "command" };
 
-        /// <summary>Branches in the GDD order (offense, defense, elements, command), unknown ones after them.</summary>
+        /// <summary>Branches: the synergy packages first, then the GDD order (offense, defense, elements, command), unknown ones after them.</summary>
         public static List<string> Branches(ContentDb c)
         {
             var list = new List<string>();
@@ -116,6 +116,15 @@ namespace RogueStars.Client.Screens
             Legend(body);
         }
 
+        /// <summary>Opens a branch tab by id ("packages", "offense" …; tests and deep links).</summary>
+        public void ShowBranch(string branch)
+        {
+            int i = LabTreeLayout.Branches(Content).IndexOf(branch);
+            if (i < 0) return;
+            _branch = i;
+            Rebuild();
+        }
+
         private string BranchProgress(string branch)
         {
             int have = 0, max = 0;
@@ -190,6 +199,7 @@ namespace RogueStars.Client.Screens
         {
             if (def == null) return Theme.Panel;
             if (def.Kind == LabNodeKind.Stat) return StatColor;
+            if (def.Kind == LabNodeKind.Package) return Theme.FamilyColor(def.Family);
             var sk = def.Levels.Count > 0 ? Content.Skill(def.Levels[0].SkillId) : null;
             return Theme.FamilyColor(sk?.Family ?? SkillFamily.None);
         }
@@ -215,6 +225,15 @@ namespace RogueStars.Client.Screens
                 Line(canvas, new Vector2(a.center.x, a.yMax), new Vector2(b.center.x, b.yMin), met ? col : Color.Lerp(col, Theme.Background, 0.6f), def.RequireAll ? 6 : 3);
             }
             foreach (var kv in layout.Nodes) Node(canvas, Content.LabNode(kv.Key), kv.Value);
+        }
+
+        /// <summary>"Chill + 7 skills": the package's signature and how many run skills it brings.</summary>
+        public string PackageLine(LabResearchDef def)
+        {
+            var sig = def.Levels.Count > 0 ? Content.Skill(def.Levels[0].SkillId) : null;
+            int n = 0;
+            foreach (var sk in Content.Skills.Values) if (sk.Family == def.Family && sk.Source == SkillSource.Run && sk.Draftable) n++;
+            return (sig?.Name ?? "?") + " + " + n + " skills";
         }
 
         private static int RequiredLevel(LabResearchDef def, string prereq)
@@ -246,10 +265,12 @@ namespace RogueStars.Client.Screens
             var baseCol = NodeColor(def);
             Color col = !prereq ? Color.Lerp(baseCol, Theme.Locked, 0.75f) : e.Level == 0 ? Color.Lerp(baseCol, Theme.Panel, 0.55f) : Color.Lerp(baseCol, Theme.Panel, 0.2f);
             string state = researching ? "researching" : maxed ? "max" : !prereq ? "locked" : e.Level == 0 ? "available" : "";
-            string kind = def.Kind == LabNodeKind.Skill ? "SKILL" + (e.Level > 0 ? (e.Enabled ? " · on" : " · off") : "") : "STAT";
+            string kind = def.Kind == LabNodeKind.Skill ? "SKILL" + (e.Level > 0 ? (e.Enabled ? " · on" : " · off") : "") : def.Kind == LabNodeKind.Package ? "SYNERGY PACKAGE" : "STAT";
             string req = def.Requires.Count > 1 ? (def.RequireAll ? " · ALL " : " · ANY ") + def.Requires.Count : "";
-            string label = "<size=18>" + kind + req + "</size>\n" + def.Name + "\n<size=20>Lv " + e.Level + "/" + def.Levels.Count + (state.Length > 0 ? " · " + state : "") + "</size>";
-            var btn = Ui.Button(canvas, label, () => NodeModal(def.Id), col, -1, -1, true, 22);
+            string label = def.Kind == LabNodeKind.Package
+                ? "<size=22>" + kind + "</size>\n" + def.Name + "\n<size=28>" + PackageLine(def) + (e.Level > 0 ? " · unlocked" : state.Length > 0 ? " · " + state : "") + "</size>"
+                : "<size=18>" + kind + req + "</size>\n" + def.Name + "\n<size=20>Lv " + e.Level + "/" + def.Levels.Count + (state.Length > 0 ? " · " + state : "") + "</size>";
+            var btn = Ui.Button(canvas, label, () => NodeModal(def.Id), col, -1, -1, true, def.Kind == LabNodeKind.Package ? 32 : 22);
             btn.name = "LabNode:" + def.Id;
             var rt = (RectTransform)btn.transform;
             Object.DestroyImmediate(btn.GetComponent<LayoutElement>());
@@ -257,7 +278,17 @@ namespace RogueStars.Client.Screens
             rt.pivot = new Vector2(0, 1);
             rt.anchoredPosition = new Vector2(r.x, -r.y);
             rt.sizeDelta = new Vector2(r.width, r.height);
-            if (def.Kind == LabNodeKind.Skill)
+            if (def.Kind == LabNodeKind.Package)
+            {
+                // package nodes: a thick synergy-coloured frame and the signature's icon (or its initial)
+                UiShapes.Outline(rt, e.Level > 0 ? Theme.Gold : baseCol, 16, e.Level > 0 ? 6 : 4);
+                var band = Ui.Panel(rt, baseCol, "PackageBand");
+                band.raycastTarget = false;
+                var brt = band.rectTransform;
+                brt.anchorMin = new Vector2(0, 1); brt.anchorMax = Vector2.one; brt.pivot = new Vector2(0.5f, 1);
+                brt.sizeDelta = new Vector2(0, 18); brt.anchoredPosition = Vector2.zero;
+            }
+            else if (def.Kind == LabNodeKind.Skill)
             {
                 // skill nodes: family-coloured top band
                 var band = Ui.Panel(rt, baseCol, "SkillBand");
@@ -279,7 +310,8 @@ namespace RogueStars.Client.Screens
 
         private void Legend(RectTransform body)
         {
-            Note(body, "Skill nodes (coloured band) add skills to the run draft pool and can be toggled; stat nodes (steel edge) give permanent bonuses. "
+            Note(body, "Synergy packages unlock a whole synergy for every run: its signature (one of the three offered at run start) and its skills. "
+                       + "Skill nodes (coloured band) add skills to the run draft pool and can be toggled; stat nodes (steel edge) give permanent bonuses. "
                        + "Gold lines: all prerequisites needed; thin lines: any one of them. Prerequisites in other branches are listed in the node.");
         }
 
@@ -295,9 +327,19 @@ namespace RogueStars.Client.Screens
             bool afford = State.Wallet.CanAfford(Currencies.Data, cost);
             Modal(def.Name, b =>
             {
-                Ui.Label(b, (def.Kind == LabNodeKind.Skill ? "Skill node" : "Stat node") + " · " + Fmt.Humanize(def.Branch) + " row " + def.Tier + " · Lv " + e.Level + "/" + def.Levels.Count,
+                Ui.Label(b, (def.Kind == LabNodeKind.Skill ? "Skill node" : def.Kind == LabNodeKind.Package ? "Synergy package" : "Stat node") + " · " + Fmt.Humanize(def.Branch) + " row " + def.Tier + " · Lv " + e.Level + "/" + def.Levels.Count,
                     Theme.FontSmall, NodeColor(def));
                 if (!string.IsNullOrEmpty(def.Description)) Note(b, def.Description);
+                if (def.Kind == LabNodeKind.Package)
+                {
+                    var unlocks = new List<string>();
+                    foreach (var sk in Content.Skills.Values)
+                        if (sk.Family == def.Family && sk.Source == SkillSource.Run && sk.Draftable) unlocks.Add(sk.Name + " (" + sk.Rarity + ")");
+                    unlocks.Sort(string.CompareOrdinal);
+                    Ui.Label(b, "Run skills: " + string.Join(", ", unlocks), 22, Theme.TextDim).name = "PackageSkills";
+                    if (def.RequiresFeature != null && !Session.IsUnlocked(def.RequiresFeature))
+                        Ui.Label(b, "Needs " + (Content.Feature(def.RequiresFeature)?.Name ?? def.RequiresFeature) + " unlocked.", 22, Theme.Bad);
+                }
                 if (e.Level > 0) Ui.Label(b, "Now: " + LevelText(def, e.Level), 24, Theme.Good);
                 if (e.Level < def.Levels.Count) Ui.Label(b, "Next: " + LevelText(def, e.Level + 1), 24, Theme.Text);
                 if (def.Requires.Count > 0)
@@ -346,6 +388,11 @@ namespace RogueStars.Client.Screens
             {
                 var sk = Content.Skill(lv.SkillId);
                 return sk == null ? lv.SkillId : sk.Name + " (" + sk.Rarity + ") — " + Fmt.SkillFull(sk);
+            }
+            if (def.Kind == LabNodeKind.Package)
+            {
+                var sig = Content.Skill(lv.SkillId);
+                return sig == null ? lv.SkillId : "Signature " + sig.Name + " — " + Fmt.SkillFull(sig);
             }
             var parts = new List<string>();
             foreach (var m in lv.Stats) parts.Add(m.Stat + " " + (m.Percent != 0 ? "+" + Fmt.Pct(m.Percent) : "+" + m.Flat.ToString("0.#")));

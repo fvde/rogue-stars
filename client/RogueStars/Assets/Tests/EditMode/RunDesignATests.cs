@@ -197,6 +197,7 @@ namespace RogueStars.Client.Tests
             run.SkillLevels[commons[0].Id] = 2;
 
             run.Loadout.MetaSkillIds.Clear(); // only the run's skills here
+            run.Skills.Remove(run.SignatureId); // (the signature would lead the tray)
             var tray = RunPresentation.Tray(C, run, 7);
             Assert.That(tray.Overflow, Is.EqualTo(0));
             Assert.That(tray.Tiles.Count, Is.EqualTo(3));
@@ -220,7 +221,7 @@ namespace RogueStars.Client.Tests
             var b = new BattleResult { Winner = BattleSide.Player, Rounds = 2 };
             b.Fighters.Add(new BattleFighterInfo { Index = 0, Name = "Worm", Role = CombatRole.Worm, Side = BattleSide.Player, Targetable = true, MaxHp = 1000, StartHp = 900, EndHp = 890, Alive = true });
             b.Fighters.Add(new BattleFighterInfo { Index = 1, Name = "Hound", Role = CombatRole.Enemy, Side = BattleSide.Enemy, Targetable = true, MaxHp = 500, StartHp = 500, EndHp = 0, Alive = false });
-            b.Log.Add(new BattleLogEntry { Round = 1, Actor = 0, Target = 1, Action = BattleAction.StatusApplied, Status = StatusId.Burn, Stacks = 2, SkillId = skillA, TargetHp = 500 });
+            b.Log.Add(new BattleLogEntry { Round = 1, Actor = 0, Target = 1, Action = BattleAction.StatusApplied, Status = StatusId.Heat, Stacks = 2, SkillId = skillA, TargetHp = 500 });
             b.Log.Add(new BattleLogEntry { Round = 1, Actor = 0, Target = 1, Action = BattleAction.Skill, Amount = 120, SkillId = skillA, TargetHp = 380 });
             b.Log.Add(new BattleLogEntry { Round = 1, Actor = 1, Target = 0, Action = BattleAction.Skill, Amount = 40, SkillId = enemySkill, TargetHp = 860 });
             b.Log.Add(new BattleLogEntry { Round = 2, Actor = 0, Target = 0, Action = BattleAction.Heal, Amount = 30, SkillId = skillB, TargetHp = 890 });
@@ -236,7 +237,7 @@ namespace RogueStars.Client.Tests
             var battle = HandBattle(two[0].Id, two[1].Id, two[2].Id);
             var fires = BattleSkillFx.Fires(battle, C);
             Assert.That(fires.ConvertAll(f => f.SkillId), Is.EqualTo(new List<string> { two[0].Id, two[0].Id, two[1].Id }), "only the player's side, every skill effect");
-            Assert.That(fires[0].Label, Is.EqualTo(two[0].Name + " · Burn ×2"));
+            Assert.That(fires[0].Label, Is.EqualTo(two[0].Name + " · Heat ×2"));
             Assert.That(fires[1].Effect, Is.EqualTo("120 dmg"));
             Assert.That(fires[2].Effect, Is.EqualTo("+30 HP"));
             Assert.That(BattleSkillFx.EffectText(new BattleLogEntry { Action = BattleAction.Skill, Amount = 240, Crit = true }), Is.EqualTo("Crit 240"));
@@ -272,7 +273,7 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.FireCount(sk[0].Id), Is.EqualTo(2));
             Assert.That(screen.FireCount(sk[1].Id), Is.EqualTo(1));
             Assert.That(screen.FireCount(sk[2].Id), Is.EqualTo(0), "the enemy's skill is not on our strip");
-            Assert.That(screen.SkillFires, Does.Contain(sk[0].Name + " · Burn ×2"));
+            Assert.That(screen.SkillFires, Does.Contain(sk[0].Name + " · Heat ×2"));
             Assert.That(screen.FireQueue.Busy, Is.False, "skip mode queues no animation");
             Assert.That(FindNamed(screen.Root, "FireFlash"), Is.Null);
             Assert.That(screen.HudText, Does.Contain("HP " + Fmt.Num(890) + " / " + Fmt.Num(1000)), "the worm's HP from the log in the top strip");
@@ -290,8 +291,8 @@ namespace RogueStars.Client.Tests
             _f.App.Router.Push(screen);
             var started = new List<string>();
             screen.FireQueue.Started += (k, l) => started.Add(k + "=" + l);
-            screen.Frame(screen.StepSeconds); // entry 0: Burn ×2 starts on its tile
-            Assert.That(started, Is.EqualTo(new List<string> { sk[0].Id + "=" + sk[0].Name + " · Burn ×2" }));
+            screen.Frame(screen.StepSeconds); // entry 0: Heat ×2 starts on its tile
+            Assert.That(started, Is.EqualTo(new List<string> { sk[0].Id + "=" + sk[0].Name + " · Heat ×2" }));
             Assert.That(screen.FireQueue.Duration, Is.EqualTo(screen.FireSeconds).Within(1e-4f));
             // entry 1 comes before the first fire is over: it waits on the same tile
             Assert.That(screen.StepSeconds, Is.LessThan(screen.FireSeconds));

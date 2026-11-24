@@ -187,6 +187,9 @@ namespace RogueStars.Client.Editor
         /// "&lt;category&gt;/&lt;id&gt;" (e.g. "slice-markers/enemy") to the chosen file name in
         /// <c>~/AI/assets/&lt;category&gt;/&lt;id&gt;/</c> ("C_s1301.png"); tools/art/slice-picks.json holds them.
         /// </summary>
+        /// <summary>The generic boss marker is retired: an old pick of it is never imported.</summary>
+        public const string RetiredBossMarker = "slice-markers/boss";
+
         public static List<ArtImportItem> PlanSlice(string assetsRoot, IDictionary<string, string> picks)
         {
             var items = new List<ArtImportItem>();
@@ -195,6 +198,7 @@ namespace RogueStars.Client.Editor
             {
                 var parts = kv.Key.Split('/');
                 if (parts.Length != 2 || !SliceDest.TryGetValue(parts[0], out var dest) || string.IsNullOrEmpty(kv.Value)) continue;
+                if (kv.Key == RetiredBossMarker) continue; // the boss gate shows the run's own boss sprite (IsoArt.BossMarker)
                 items.Add(new ArtImportItem
                 {
                     Kind = ArtKind.Slice, Id = kv.Key, Source = Path.Combine(assetsRoot, parts[0], parts[1], kv.Value),
