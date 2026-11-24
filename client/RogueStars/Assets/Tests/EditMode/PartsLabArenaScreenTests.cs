@@ -337,11 +337,11 @@ namespace RogueStars.Client.Tests
             var screen = (LaboratoryScreen)_f.App.Router.Current;
             foreach (var id in new[] { "pkg_combo", "pkg_ice", "pkg_lightning", "pkg_counter", "pkg_alien" })
                 Assert.That(FindButton(screen.Root, "LabNode:" + id), Is.Not.Null, id);
-            Assert.That(screen.PackageLine(C.LabNode("pkg_ice")), Is.EqualTo("Chill + 7 skills"));
-            Assert.That(FindButton(screen.Root, "LabNode:pkg_ice").GetComponentInChildren<Text>().text, Does.Contain("Chill + 7 skills"));
+            Assert.That(screen.PackageLine(C.LabNode("pkg_ice")), Is.EqualTo("Chill + 8 skills"));
+            Assert.That(FindButton(screen.Root, "LabNode:pkg_ice").GetComponentInChildren<Text>().text, Does.Contain("Chill + 8 skills"));
             screen.NodeModal("pkg_ice");
             bool listed = false;
-            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.name == "PackageSkills" && t.text.Contains("Frostbite")) listed = true;
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.name == "PackageSkills" && t.text.Contains("Permafrost")) listed = true;
             Assert.That(listed, Is.True, "the modal lists the run skills the package unlocks");
         }
 

@@ -1268,12 +1268,30 @@ namespace RogueStars.Client.Screens
                 {
                     int index = i;
                     var o = ev.Options[i];
+                    // Resonance (skill redesign): an option per offered signature, named and explained; a missing one is hidden
+                    var sigFx = o.Outcomes.Count > 0 ? o.Outcomes[0].Effects.Find(fx => fx.Kind == RunEffectKind.GainSignature) : null;
+                    SkillDef offeredSig = null;
+                    if (sigFx != null)
+                    {
+                        int.TryParse(sigFx.Param, out var si);
+                        if (si < 0 || si >= run.SignatureChoice.Count) continue;
+                        offeredSig = Content.Skill(run.SignatureChoice[si]);
+                    }
                     string cost = (o.CoinCost > 0 ? " [" + o.CoinCost + " coins]" : "") + (o.ShardCost > 0 ? " [" + o.ShardCost + " shards]" : "");
                     bool affordable = run.Coins >= o.CoinCost && run.Shards >= o.ShardCost;
                     bool def = i == ev.DefaultOption;
                     var btn = Ui.CardButton(box, "Button:" + o.Text + cost, Theme.Hex(0x262C5C), def ? Theme.Premium : Theme.Gold,
                         () => { modal.Close(); Run(new RunChooseEventOption { Index = index }); }, out var card, 36, 24, 10);
                     btn.interactable = affordable;
+                    if (offeredSig != null)
+                    {
+                        card.name = "Signature:" + offeredSig.Id;
+                        UiShapes.Outline(card, SignaturePick.SignatureColor, 16, 4);
+                        Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(offeredSig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
+                        Ui.Label(card, "Attune: " + offeredSig.Name, Theme.FontNormal, Theme.Text).fontStyle = FontStyle.Bold;
+                        Ui.Label(card, SliceCards.Keywords(SignaturePick.Body(Content, offeredSig)), 24, Theme.Hex(0xD7DBFA));
+                        continue;
+                    }
                     Ui.Label(card, o.Text, Theme.FontNormal, Theme.Text).fontStyle = FontStyle.Bold; // the cost is a chip below
                     var tags = OptionTags(o);
                     if (tags.Count > 0)
@@ -1518,19 +1536,28 @@ namespace RogueStars.Client.Screens
                 var fam = sk?.Family ?? SkillFamily.None;
                 var rarity = sk?.Rarity ?? Rarity.Common;
                 int ownedLevel = RunDraft.Level(run, sid);
-                string full = ownedLevel > 0 && sk != null ? SkillText.UpgradeFull(Content, sk, ownedLevel, ownedLevel + 1) : Fmt.SkillFull(sk);
+                string full = Fmt.SkillCard(Content, sk, ownedLevel);
                 if (sk?.UpgradesFrom != null && ownedLevel == 0) full += " Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom) + ".";
+                bool signature = sk != null && sk.Signature;
+                if (signature) full = SignaturePick.Body(Content, sk);
                 var spec = new SkillCardSpec
                 {
-                    Id = sid, Tier = RunTuning.RunTier(rarity).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = fam,
+                    Id = sid, Tier = signature ? "Signature" : RunTuning.RunTier(rarity).ToString(), TierColor = signature ? SignaturePick.SignatureColor : RunPresentation.SkillColor(sk), Family = fam,
                     IconArt = ArtCatalog.SkillIcon(sid),
                     Title = ownedLevel > 0 && sk != null ? SkillText.Title(sk, ownedLevel + 1) : sk?.Name ?? sid,
                     Body = full,
                 };
-                if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
+                if (signature)
+                {
+                    // a miniboss offers a new signature in a Mythic's place (skill redesign: several signatures per run)
+                    int have = RunDraft.FamilyCount(Content, run, fam);
+                    spec.Chip = "NEW SIGNATURE" + (have >= Content.RunTuning.SignatureAwakenAt[0] ? " · AWAKENS NOW" : "");
+                    spec.ChipName = "SignatureChip"; spec.ChipColor = SignaturePick.SignatureColor;
+                }
+                else if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
                 else if (sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
                 else if (fam != SkillFamily.None && owned.Contains(fam)) { spec.Chip = "SYNERGY"; spec.ChipName = "SynergyChip"; spec.ChipColor = Theme.Gold; }
-                string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + SkillText.FamilyName(fam) : "") + "): " + full + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
+                string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + SkillText.FamilyName(fam) : "") + "): " + SkillText.StripMarks(full) + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
                 SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info));
                 y += step;
             }
@@ -1565,7 +1592,7 @@ namespace RogueStars.Client.Screens
                     : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
                     : o.Stat != null ? SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
                 int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.UpgradeFull(Content, sk, ownedLv, ownedLv + 1) : Fmt.SkillFull(sk))
+                string detail = skill ? Fmt.SkillCard(Content, sk, ownedLv)
                     : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
                     : "Raises the stat for the rest of this run.";
                 var spec = new SkillCardSpec
@@ -1647,10 +1674,11 @@ namespace RogueStars.Client.Screens
             {
                 var ids = RunSystem.ActiveSkillIds(run);
                 if (ids.Count == 0) Note(b, "No skills yet: level up on the board to draft some.");
-                // the signature first: the run's identity, its awakening and how far the next one is
-                var sig = run.SignatureId != null ? Content.Skill(run.SignatureId) : null;
-                if (sig != null && ids.Remove(sig.Id))
+                // the signatures first (the run's identity; several can be found): each with its awakening and how far the next one is
+                foreach (var sigId in RunSystem.Signatures(run))
                 {
+                    var sig = Content.Skill(sigId);
+                    if (sig == null || !ids.Remove(sig.Id)) continue;
                     int slv = RunDraft.Level(run, sig.Id);
                     var scol = Theme.FamilyColor(sig.Family);
                     var card = Card(b, Theme.Tint(scol, 0.3f), 6);
@@ -1659,7 +1687,7 @@ namespace RogueStars.Client.Screens
                     Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(sig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
                     Ui.Label(card, SkillText.Title(Content, sig, slv), Theme.FontNormal, Color.Lerp(scol, Color.white, 0.6f));
                     Ui.Label(card, Fmt.SkillFull(SkillLeveling.At(Content, sig, slv)), Theme.FontSmall, Theme.Text);
-                    int next = RunSystem.NextAwakeningAt(Content, run);
+                    int next = RunSystem.NextAwakeningAt(Content, run, sig.Id);
                     Ui.Label(card, next > 0 ? "Awakens at " + next + " " + SkillText.FamilyName(sig.Family) + " skills (have " + RunDraft.FamilyCount(Content, run, sig.Family) + ")." : "Fully awakened.",
                         20, Theme.TextDim);
                 }

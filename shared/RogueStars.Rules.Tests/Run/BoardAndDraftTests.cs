@@ -221,27 +221,27 @@ public class DraftTests
         var c = ContentDb.Default;
         var empty = Run();
         Assert.Null(c.Skill("fire_ember_2"));                                         // no upgrade chains: one skill, levels
-        Assert.False(RunDraft.IsEligible(c, empty, c.Skill("fire_flare")));         // family gate 2
+        Assert.False(RunDraft.IsEligible(c, empty, c.Skill("fire_flashpoint")));    // family gate 2
         Assert.True(RunDraft.IsEligible(c, empty, c.Skill("fire_ember")));
         Assert.False(RunDraft.IsEligible(c, empty, c.Skill("lab_second_wind")));    // lab skill not toggled on
         Assert.False(RunDraft.IsEligible(c, empty, c.Skill("enemy_rend")));         // not draftable
 
         var two = Run("fire_ember", "fire_kindle");
-        Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_flare")));
+        Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_flashpoint")));
         Assert.True(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));            // owned Common: offered as a level-up
         two.SkillLevels["fire_ember"] = 3;
         Assert.False(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));           // Lv 3/3
 
         // Mythics are never in the normal draft: one ungated pool for miniboss choices
-        var four = Run("fire_ember", "fire_kindle", "fire_flare", "fire_inferno");
-        Assert.False(RunDraft.IsEligible(c, four, c.Skill("fire_phoenix")));
-        Assert.True(RunDraft.IsMythicEligible(c, empty, c.Skill("fire_phoenix")));
+        var four = Run("fire_ember", "fire_kindle", "fire_flashpoint", "fire_controlled");
+        Assert.False(RunDraft.IsEligible(c, four, c.Skill("fire_heat_siphon")));
+        Assert.True(RunDraft.IsMythicEligible(c, empty, c.Skill("fire_heat_siphon")));
 
         // the synergy lock: a package synergy's run skills only once researched (UnlockedFamilies; empty = an old run: all)
         var locked = Run();
         locked.Loadout.UnlockedFamilies.AddRange(c.RunTuning.StarterSynergies);
         Assert.False(RunDraft.IsEligible(c, locked, c.Skill("ice_shard")));
-        Assert.False(RunDraft.IsMythicEligible(c, locked, c.Skill("ice_absolute_zero")));
+        Assert.False(RunDraft.IsMythicEligible(c, locked, c.Skill("mythic_winters_grip")));
         Assert.True(RunDraft.IsEligible(c, locked, c.Skill("bleed_serrated")));
         Assert.True(RunDraft.IsEligible(c, locked, c.Skill("crit_keen")));        // generic (the former Crit picks)
         locked.Loadout.UnlockedFamilies.Add(SkillFamily.Ice);

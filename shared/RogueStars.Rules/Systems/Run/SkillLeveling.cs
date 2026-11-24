@@ -101,8 +101,9 @@ namespace RogueStars.Rules.Systems
                 {
                     When = tr.When, Chance = tr.Chance, Effect = tr.Effect, Target = tr.Target, Value = tr.Value, Status = tr.Status,
                     Stacks = tr.Stacks, Duration = tr.Duration, Param = tr.Param, CooldownRounds = tr.CooldownRounds, Stat = tr.Stat,
+                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow,
                 };
-                if (tr.Effect == EffectKind.ApplyStatus || tr.Effect == EffectKind.AllyAction || tr.Target == TargetKind.OtherEnemies)
+                if (tr.Effect == EffectKind.ApplyStatus || tr.Effect == EffectKind.AllyAction || tr.Effect == EffectKind.Echo || tr.Target == TargetKind.OtherEnemies)
                     c.Stacks = Math.Max(1, tr.Stacks) * level;
                 else if (tr.Chance > 0 && tr.Chance < 100) c.Chance = Math.Min(100, tr.Chance * (1 + 0.5 * (level - 1)));
                 else c.Value = tr.Value * level;
@@ -121,20 +122,31 @@ namespace RogueStars.Rules.Systems
             {
                 Id = d.Id, Name = d.Name, Description = d.Description, Family = d.Family, Rarity = d.Rarity, Source = d.Source,
                 UpgradesFrom = d.UpgradesFrom, RequiresFamilyCount = d.RequiresFamilyCount, Draftable = d.Draftable, Signature = d.Signature,
+                Needs = d.Needs, Text = d.Text,
             };
             s.Requires.AddRange(d.Requires);
-            for (int i = 0; i < d.Stats.Count; i++) s.Stats.Add(Grow(d.Stats[i], prev.Stats[i], f));
+            // costs (negative stats: Overclocked Core's −15% max HP) never scale: only the upside grows
+            for (int i = 0; i < d.Stats.Count; i++) s.Stats.Add(IsCost(d.Stats[i]) ? d.Stats[i] : Grow(d.Stats[i], prev.Stats[i], f));
             for (int i = 0; i < d.Triggers.Count; i++)
             {
                 SkillTrigger tr = d.Triggers[i], p = prev.Triggers[i];
+                bool fixedT = tr.Grow == GrowKind.Fixed || tr.Effect == EffectKind.Rule && tr.Value == 0;
                 var c = new SkillTrigger
                 {
                     When = tr.When, Chance = tr.Chance, Effect = tr.Effect, Target = tr.Target, Value = tr.Value, Status = tr.Status,
                     Stacks = tr.Stacks, Duration = tr.Duration, Param = tr.Param, CooldownRounds = tr.CooldownRounds,
-                    Stat = tr.Stat != null ? Grow(tr.Stat, p.Stat, f) : null,
+                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow,
+                    Stat = tr.Stat != null ? (fixedT || IsCost(tr.Stat) ? tr.Stat : Grow(tr.Stat, p.Stat, f)) : null,
                 };
                 bool grantsSkill = tr.When == TriggerKind.OnRunStart && tr.Param != null && tr.Param != "skip_negative_events";
-                if (!grantsSkill)
+                if (fixedT || grantsSkill) { }
+                else if (tr.Grow == GrowKind.Chance)
+                {
+                    double baseChance = tr.Chance > 0 ? Math.Min(tr.Chance, cap) : cap;
+                    c.Chance = Math.Min(cap, Whole(baseChance * f, p.Chance));
+                }
+                else if (tr.Grow == GrowKind.Value) c.Value = Nice(tr.Value * f, p.Value);
+                else
                 {
                     if (IsCountEffect(tr.Effect)) GrowCount(content, tr, p, c, f, cap);
                     else if (tr.Effect == EffectKind.GainRunCoins) c.Value = Whole(tr.Value * f, p.Value);
@@ -148,7 +160,15 @@ namespace RogueStars.Rules.Systems
         /// <summary>Count effects grow their chance, then (past the cap) their count; value effects grow their value.</summary>
         public static bool IsCountEffect(EffectKind k) =>
             k == EffectKind.ApplyStatus || k == EffectKind.ExtraDice || k == EffectKind.SkipNegativeEvent
-            || k == EffectKind.AllyAction || k == EffectKind.Block;
+            || k == EffectKind.AllyAction || k == EffectKind.Block || k == EffectKind.Rewind;
+
+        /// <summary>A negative stat is a cost (a trade-off's downside): it stays put when the skill levels.</summary>
+        public static bool IsCost(StatMod m)
+        {
+            if (m == null) return false;
+            if (m.Stat == StatId.DamageTaken) return m.Flat > 0 || m.Percent > 0; // more damage taken is the downside
+            return (m.Flat < 0 || m.Percent < 0) && m.Flat <= 0 && m.Percent <= 0;
+        }
 
         private static void GrowCount(ContentDb content, SkillTrigger b, SkillTrigger p, SkillTrigger c, double f, double cap)
         {
@@ -161,7 +181,7 @@ namespace RogueStars.Rules.Systems
             }
             c.Chance = cap;
             bool prevCapped = p.Chance >= cap - 1e-9;
-            if (b.Effect == EffectKind.AllyAction || b.Effect == EffectKind.Block)
+            if (b.Effect == EffectKind.AllyAction || b.Effect == EffectKind.Block || b.Effect == EffectKind.Rewind)
             {
                 // sidekick actions / guarded hits: the count grows
                 int kn = Math.Max(Math.Max(1, b.Stacks), (int)Math.Round(Math.Max(1, b.Stacks) * want / cap, MidpointRounding.AwayFromZero));

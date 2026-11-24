@@ -90,11 +90,23 @@ namespace RogueStars.Rules.Systems
         public static bool FamilyUnlocked(ActiveRun run, SkillFamily family) =>
             family == SkillFamily.None || run.Loadout.UnlockedFamilies.Count == 0 || run.Loadout.UnlockedFamilies.Contains(family);
 
-        /// <summary>The synergy of the run's signature (None without one).</summary>
+        /// <summary>The synergy of the run's first signature (None without one).</summary>
         public static SkillFamily SignatureFamily(ContentDb content, ActiveRun run)
         {
-            var s = run.SignatureId != null ? content.Skill(run.SignatureId) : null;
-            return s != null && run.Skills.Contains(s.Id) ? s.Family : SkillFamily.None;
+            var f = SignatureFamilies(content, run);
+            return f.Count > 0 ? f[0] : SkillFamily.None;
+        }
+
+        /// <summary>The synergies of all the run's signatures, in the order found (several signatures per run).</summary>
+        public static List<SkillFamily> SignatureFamilies(ContentDb content, ActiveRun run)
+        {
+            var list = new List<SkillFamily>();
+            foreach (var id in RunSystem.Signatures(run))
+            {
+                var s = content.Skill(id);
+                if (s != null && !list.Contains(s.Family)) list.Add(s.Family);
+            }
+            return list;
         }
 
         /// <summary>
@@ -106,6 +118,7 @@ namespace RogueStars.Rules.Systems
             if (!InPool(run, s) || s.Rarity == Rarity.Mythic) return false; // Mythics come only from miniboss choices (GenerateMythic)
             if (run.Skills.Contains(s.Id)) return CanLevelUp(content, run, s);
             if (run.ReplacedSkills.Contains(s.Id)) return false;
+            if (!HasSource(content, run, s.Needs)) return false;
             if (s.UpgradesFrom != null && !run.Skills.Contains(s.UpgradesFrom)) return false;
             foreach (var r in s.Requires) if (!run.Skills.Contains(r)) return false;
             if (s.RequiresFamilyCount > 0 && FamilyCount(content, run, s.Family) < s.RequiresFamilyCount) return false;
@@ -121,15 +134,60 @@ namespace RogueStars.Rules.Systems
             if (!InPool(run, s) || s.Rarity != Rarity.Mythic) return false;
             if (run.Skills.Contains(s.Id)) return CanLevelUp(content, run, s);
             if (run.ReplacedSkills.Contains(s.Id)) return false;
+            if (!HasSource(content, run, s.Needs)) return false;
             return s.UpgradesFrom == null || run.Skills.Contains(s.UpgradesFrom);
+        }
+
+        /// <summary>
+        /// Offer gate (skill redesign, SkillDef.Needs): true if the run owns a source for the skill. Sources are read from every active
+        /// skill (run skills incl. signatures, meta skills: hero, parts, mount, buildings) and the squad's alien skills: "arc" (an Arc
+        /// jump), "applies:Status" / "freeze", "consume:Status", "echo", "shield" (a shield effect or a mount's battle-start shield),
+        /// "aliens" (a squad or a sidekick summon), "blocks" (a Block effect: a guarding alien or Bodyguard). Null: always.
+        /// </summary>
+        public static bool HasSource(ContentDb content, ActiveRun run, string needs)
+        {
+            if (string.IsNullOrEmpty(needs)) return true;
+            var lo = run.Loadout;
+            if (needs == "aliens" && lo != null && lo.Aliens.Count > 0) return true;
+            if (needs == "shield" && lo != null && (!string.IsNullOrEmpty(lo.MountId) || lo.MountStats.Value(StatId.Hp) > 0)) return true;
+            string kind = needs, arg = null;
+            int colon = needs.IndexOf(':');
+            if (colon >= 0) { kind = needs.Substring(0, colon); arg = needs.Substring(colon + 1); }
+            if (kind == "freeze") { kind = "applies"; arg = "Freeze"; }
+            StatusId st = StatusId.None;
+            if (arg != null) Enum.TryParse(arg, out st);
+            bool Provides(SkillDef d)
+            {
+                if (d == null) return false;
+                foreach (var t in d.Triggers)
+                {
+                    switch (kind)
+                    {
+                        case "arc": if (t.Effect == EffectKind.Damage && t.Target == TargetKind.OtherEnemies) return true; break;
+                        case "applies": if (t.Effect == EffectKind.ApplyStatus && t.Status == st) return true; break;
+                        case "consume": if (t.Effect == EffectKind.ConsumeStatus && t.Status == st) return true; break;
+                        case "echo": if (t.Effect == EffectKind.Echo) return true; break;
+                        case "shield": if (t.Effect == EffectKind.Shield) return true; break;
+                        case "aliens": if (t.Effect == EffectKind.Summon && content.Sidekick(t.Param) != null) return true; break;
+                        case "blocks": if (t.Effect == EffectKind.Block) return true; break;
+                    }
+                }
+                return false;
+            }
+            foreach (var id in run.Skills) if (Provides(content.Skill(id))) return true;
+            if (lo != null)
+            {
+                foreach (var id in lo.MetaSkillIds) if (Provides(content.Skill(id))) return true;
+                foreach (var a in lo.Aliens) foreach (var id in a.SkillIds) if (Provides(content.Skill(id))) return true;
+            }
+            return false;
         }
 
         /// <summary>Offer weight of a skill: its rarity weight, lower for a level-up of an owned skill.</summary>
         public static double OfferWeight(ContentDb content, ActiveRun run, SkillDef s, double rarityWeight)
         {
             double w = run.Skills.Contains(s.Id) ? rarityWeight * content.RunTuning.LevelUpOfferWeight : rarityWeight;
-            var sig = SignatureFamily(content, run);
-            return sig != SkillFamily.None && s.Family == sig ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around the signature
+            return s.Family != SkillFamily.None && SignatureFamilies(content, run).Contains(s.Family) ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around every signature
         }
 
         /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured). Empty if no mythic is left.</summary>
@@ -188,14 +246,27 @@ namespace RogueStars.Rules.Systems
                 if (pick != null) offer.Add(pick.Id);
             }
 
-            // Synergy slot: favour families the worm already owns.
+            // Synergy slot: favour families the worm already owns. With several signatures the slot cycles between their synergies
+            // (draft by draft); a signature synergy is offered there from the first draft.
             {
+                var sigFams = SignatureFamilies(content, run);
+                SkillFamily cycled = SkillFamily.None;
+                if (sigFams.Count > 1)
+                {
+                    int drafts = 0;
+                    foreach (var g in run.Gains) if (g.Source == "draft") drafts++;
+                    cycled = sigFams[drafts % sigFams.Count];
+                    bool any = false;
+                    foreach (var s in pool) if (s.Family == cycled && !offer.Contains(s.Id)) { any = true; break; }
+                    if (!any) cycled = SkillFamily.None;
+                }
                 var cands = new List<SkillDef>(); var w = new List<double>();
                 foreach (var s in pool)
                 {
                     if (offer.Contains(s.Id)) continue;
+                    if (cycled != SkillFamily.None && s.Family != cycled) continue;
                     int owned = FamilyCount(content, run, s.Family);
-                    if (owned <= 0 && (s.Family == SkillFamily.None || s.Family != SignatureFamily(content, run))) continue;
+                    if (owned <= 0 && (s.Family == SkillFamily.None || !sigFams.Contains(s.Family))) continue;
                     cands.Add(s);
                     w.Add(OfferWeight(content, run, s, RarityWeight(content, s.Rarity)) * (1 + t.SynergyWeightPerOwned * owned));
                 }
@@ -230,7 +301,8 @@ namespace RogueStars.Rules.Systems
         public static double PickScore(ContentDb content, ActiveRun run, SkillDef s)
         {
             if (s == null) return double.MinValue;
-            double score = (int)s.Rarity * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
+            // a found signature (a miniboss offer) is worth a Mythic
+            double score = (s.Signature ? (int)Rarity.Mythic : (int)s.Rarity) * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
             if (run.Skills.Contains(s.Id)) score -= 2 + Level(run, s.Id);
             return score;
         }

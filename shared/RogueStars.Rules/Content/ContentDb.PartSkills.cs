@@ -77,7 +77,7 @@ namespace RogueStars.Rules.Content
             {
                 case SkillFamily.Crit: s.Stats.Add(new StatMod(StatId.CritChance, R(2 * p))); s.Stats.Add(new StatMod(StatId.CritDamage, R(6 * p))); break;
                 case SkillFamily.Combo: s.Stats.Add(new StatMod(StatId.ComboChance, R(2 * p))); break;
-                case SkillFamily.Counter: s.Stats.Add(new StatMod(StatId.CounterChance, R(2 * p))); s.Stats.Add(new StatMod(StatId.ParryChance, R(1 * p))); break;
+                case SkillFamily.Counter: s.Stats.Add(new StatMod(StatId.CounterChance, R(3 * p))); break; // parry removed: its points went to counter chance
                 case SkillFamily.AlienSynergy: s.Stats.Add(new StatMod(StatId.AlienPower, R(5 * p))); break;
                 default: s.Stats.Add(new StatMod(PartFamilyElementStat(f), R(5 * p))); break;
             }
@@ -240,7 +240,7 @@ namespace RogueStars.Rules.Content
             {
                 case SkillFamily.Crit: syn.Triggers.Add(Cond("vs_low_hp", 22)); syn.Stats.Add(new StatMod(StatId.CritDamage, 15)); syn.Description = "+{22}% damage vs enemies under 40% HP, +{15} crit damage."; break;
                 case SkillFamily.Combo: syn.Triggers.Add(Cond("combo", 28)); syn.Stats.Add(new StatMod(StatId.ComboChance, 4)); syn.Description = "Combos deal +{28}%; +{4} combo chance."; break;
-                case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.ParryChance, 5)); syn.Description = "Counters deal +{32}%; +{5} parry."; break;
+                case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.CounterChance, 5)); syn.Description = "Counters deal +{32}%; +{5} counter chance."; break;
                 case SkillFamily.AlienSynergy:
                     syn.Stats.Add(new StatMod(StatId.AlienPower, 18));
                     syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnSidekickAct, Effect = EffectKind.GainRage, Target = TargetKind.Worm, Value = 10 });
@@ -305,8 +305,9 @@ namespace RogueStars.Rules.Content
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Atk, 0, 3) });
                     ult.Description = "Each combo: +{12} rage and +{3}% ATK for the battle."; break;
                 case SkillFamily.Counter:
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnParry, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 110 });
-                    ult.Stats.Add(new StatMod(StatId.ParryChance, 10)); ult.Description = "Parries reflect {110}% ATK true damage; +{10} parry."; break;
+                    // parry removed (skill redesign): the reflect moved onto counterattacks
+                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 80 });
+                    ult.Stats.Add(new StatMod(StatId.CounterChance, 10)); ult.Description = "Counters add an {80}% ATK true-damage strike; +{10} counter chance."; break;
                 default:
                     // the squad opens every battle: two sidekick actions (sidekick pass; was squad rage, which sidekicks do not use)
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = 2 });

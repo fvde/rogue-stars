@@ -24,7 +24,9 @@ public class DeadEffectsTests
     {
         EffectKind.Damage, EffectKind.TrueDamage, EffectKind.ApplyStatus, EffectKind.Heal, EffectKind.Shield, EffectKind.GainRage,
         EffectKind.BuffStat, EffectKind.Summon, EffectKind.RemoveStatus, EffectKind.ConsumeStatus, EffectKind.Strike, EffectKind.AllyAction,
-        EffectKind.Block,
+        EffectKind.Block, EffectKind.BlockStatus, EffectKind.Rule, EffectKind.ForceSupernova, EffectKind.MultiplyStatus, EffectKind.TransferStatus,
+        EffectKind.TickStatus, EffectKind.Execute, EffectKind.Reflect, EffectKind.CheatDeath, EffectKind.FreeRageAttack, EffectKind.Charge,
+        EffectKind.LoseHp, EffectKind.StackAll, EffectKind.Sacrifice, EffectKind.Echo, EffectKind.Rewind, EffectKind.Loop,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>
@@ -145,7 +147,7 @@ public class DeadEffectsTests
             if (ActsInBattle(s))
             {
                 battle++;
-                var ctx = s.Source == SkillSource.Mount ? MountContext(c, s.Id) : null;
+                var ctx = s.Source == SkillSource.Mount ? MountContext(c, s.Id) : SkillTuningTests.Context(c, s);
                 foreach (bool brawl in new[] { false, true })
                     for (int seed = 0; seed < 8 && !changed; seed++)
                         changed = Sig(Fight(c, s.Id, seed, brawl, ctx))
@@ -171,6 +173,7 @@ public class DeadEffectsTests
         for (int seed = 0; seed < 8; seed++)
             Assert.Equal(Sig(Fight(c, null, seed, false)), Sig(Fight(c, "dead_probe", seed, false)));
         var rc = new ContentDb();
+        rc.Skills.Remove("gen_scholar"); // a drafted Scholar gives the XP stat a base, so the probe would not be dead
         rc.AddSkill(new SkillDef { Id = "dead_xp", Name = "Dead XP", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.XpGain, 0, 50) } });
         rc.AddSkill(new SkillDef { Id = "live_xp", Name = "Live XP", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.XpGain, 50) } });
         string baseline = RunSignature(null, 3, rc);

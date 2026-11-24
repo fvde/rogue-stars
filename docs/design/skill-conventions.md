@@ -25,7 +25,7 @@ Stats are percent points for chance-type stats (25 = 25%). `StatMod.Percent` is 
 | `OnAttack` | before each of the owner's attacks (basic/rage/combo/counter) | the attacked fighter |
 | `OnHit` / `OnCrit` | after the owner's attack lands (not dodged) | the hit fighter |
 | `OnCombo` / `OnCounter` / `OnRageAttack` | after a combo / counter / rage attack | its target |
-| `OnDodge` / `OnParry` | owner dodged / parried | the attacker |
+| `OnDodge` | owner dodged (`OnParry` is legacy: parry was removed, it never fires) | the attacker |
 | `OnDamaged` | owner took attack or skill damage | the attacker |
 | `OnKill` | owner killed a fighter | – |
 | `OnLowHp` | once per battle when HP drops below `Combat.LowHpTriggerPct` (30%) | the attacker |
@@ -33,9 +33,17 @@ Stats are percent points for chance-type stats (25 = 25%). `StatMod.Percent` is 
 | `OnBattleWon` | after victory (battle effects like Heal apply to the HP carried on; see run triggers) | – |
 | `OnAct` | a **sidekick's** action (its charge is full, or an extra action): its one ability | front enemy |
 | `OnSidekickAct` | on the side's worm and mount, right after one of its sidekicks acted | front enemy |
+| `OnEnemyDeath` | any fighter of the other side died (its statuses stay readable) | the dead fighter |
+| `OnArcJump` | one of the owner's Arc jumps struck (on the worm also for its aliens' jumps) | the struck enemy |
+| `OnShieldHit` | the owner's shield absorbed (part of) an attack; amount = absorbed | the attacker |
+| `OnFatal` | a hit would kill the owner (CheatDeath / Sacrifice / Loop can save it) | the attacker |
+| `OnBlock` | one of the owner's sidekicks intercepted a hit on it | the attacker |
+| `OnStackThreshold` | a status the owner applied reached `Param = "Status:N"` stacks (crossing from below) | that fighter |
+| `OnStatusConsumed` | the owner consumed stacks (`Param` = status filter); amount = stacks | that fighter |
+| `OnTurnEnd` | end of the owner's own turn (after its attacks) | front enemy |
 
 Effects in battle: `Damage` / `TrueDamage` (Value = % of owner ATK; skill hits can crit, cannot be dodged or
-parried, get the family's element bonus: Fire→FireDamage…), `ApplyStatus` (Status, Stacks, Duration 0 =
+blocked, get the family's element bonus: Fire→FireDamage…), `ApplyStatus` (Status, Stacks, Duration 0 =
 status default; trigger Chance × (1 + StatusChance/100), then target StatusResist roll), `Heal` / `Shield`
 (Value = % of target max HP, × HealPower / ShieldPower; `Param = "overheal_shield"` turns overheal into shield),
 `GainRage` (flat), `BuffStat` (`Stat` for `Duration` rounds, 0 = rest of battle; negative values debuff),
@@ -62,8 +70,67 @@ battle-start shield on the worm (the mount absorbs damage). Shock / Freeze (elem
 Lightning / Ice damage scales their damage-taken bonus. `LootLuck` = % chance of a bonus item on every run loot roll
 (tile, event and completion rolls; 100 = always one more); `XpGain` = % more run XP.
 
-**Untargetable fighters** (aliens, mount) are never hit: their HP, DEF, Speed, dodge, parry, counter and regen do nothing
+**Untargetable fighters** (aliens, mount) are never hit: their HP, DEF, Speed, dodge, counter and regen do nothing
 in battle. Alien / mount skills that should help defensively buff the worm (`BuffStat` with `Target = Worm`).
+
+## Skill redesign (owner-approved proposal rev 2): engine primitives
+
+**Trigger fields.** `If` gates a trigger (and a `cond:` bonus) on a condition of the context fighter / the owner
+(`BattleConditions`): `has:Status[:N]`, `lacks:Status`, `max:Status` (at the cap its applier's rules give), `unblocked:Status`,
+`hp_below:P`, `boss`, `not_boss`, `statuses:N`, `self_hp_below:P`, `self_shielded`, `sidekicks`, `one_enemy`, `first_turn`,
+`first_hit`, `first_hit_taken` (first hit taken this round), `combo_strikes:N`; terms joined with `&`; unknown terms fail content
+validation. `EveryN` fires on every Nth unit (stacks applied for `OnStatusApplied`, else events), counted before the chance roll.
+`MaxPerBattle` limits a trigger ("once per battle"). `Grow` picks the number a level grows (`Auto`, `Chance`: Ice Shard's proc,
+`Value`, `Fixed`: a part that stays, Frost Armor's chill). Negative stats are costs and never scale with level.
+
+**Skill fields.** `Needs` is an offer gate: drafts, shops and Mythic choices offer the skill only once the run owns the source
+(`RunDraft.HasSource`: `arc`, `applies:Status` / `freeze`, `consume:Status`, `echo`, `shield` (a shield effect or a mount),
+`aliens` (a squad or a sidekick summon), `blocks`), read from run skills (any signature), meta skills and the squad's skills.
+`Text` is the card template: `|` between lines, `!` marks a cost (the client shows it in the warning colour), `{vN}` `{cN}` `{sN}`
+`{dN}` `{bN}` (trigger N's value / chance / stacks / duration / buff stat) and `{pN}` (stat N) take the leveled numbers.
+Card texts stay at most ~20 words at every level (`SkillRedesignContentTests`).
+
+**Conditional bonuses.** `cond:per_stack:Status` (Value % per stack on the target), `cond:status_count` (per different status),
+`cond:arc` (Arc jumps), `cond:if` (only the `If` gate). Any `cond:` may carry an `If`.
+
+**Rules (R6, `EffectKind.Rule`, Passive).** `Param = "name[:fixed arg]"`, `Value` = the growing number. Status rules (with `Status`)
+live on the applier and are read from `StatusInst.Source` (a sidekick's / mount's statuses use its worm's): `max` (+Value cap),
+`burst_at:N` (Supernova threshold; Heat's cap rises with it), `no_recoil`, `keeps_shields`, `dot_crit`, `dot` (+Value % tick),
+`consume_heal` (+Value % consume heals), `no_expire[:N]` (at N+ stacks), `no_cool` (Chill), `shutdown` (Chill: carriers can't
+crit, combo or counter), `double_vs_chill` (Shock). Owner rules: `arc_seek_chill`, `arc_loop` (Value %), `basic_aoe` (Value %),
+`combo_no_decay`, `combo_falloff` (Value %), `combo_cap:N`, `proc_cap:N`, `combo_as_counter`, `counter_combo`, `no_turn_attack`
+(rage attacks still fire), `counter_all`, `hivemind`, `symbiote`, `overkill`, `last_light:P`, `echo_strongest`, `extra_turn`,
+`lose_turn_every:N`, `dot_ticks:N`, `decay:N`.
+
+**Effects (R2, R7, R13, R14).** `BlockStatus` (no Status for Duration rounds, the per-target re-apply cooldown `StatusCd`),
+`ForceSupernova` (+Value %), `MultiplyStatus` (× Value/100, `Param "cap:N"`), `TransferStatus` (Value % of a dead fighter's
+stacks), `TickStatus` (now, at Value %, once per target per round), `Execute` (non-bosses below Value % HP), `Reflect` (Value % of
+the trigger's amount), `CheatDeath` (`Param "counter_window"`: counter every hit until your next turn), `FreeRageAttack`, `Charge`
+(next counter +Value %), `LoseHp` (never below 1), `StackAll` (+Stacks of each multi-stack status, once per target per round),
+`Sacrifice`, `Echo` (repeat the last / strongest attack Stacks times, × (1 + Echo damage %)), `Rewind` (undo the last Stacks hits),
+`Loop` (every fighter back to the start of the round before last; logged per fighter), `StartRage` (board: the next battle).
+`ConsumeStatus` Param tokens: `take:N` (partial), `dmg:X`, `heal:X`, `buff:Stat:X` (per stack, rest of the battle), `cap:X`,
+`refund_max:X` (rage when the stacks were at their cap); `$` = Value (the growing number); the old form (`heal:N`, Value = damage
+per stack) still reads. `ApplyStatus` Param tokens: `per_status` (× different statuses on the target), `per_unit` (× the trigger's
+amount: Fallout Wounds' stacks consumed). `BuffStat` Param tokens: `until_turn` (ends when the holder's next turn starts),
+`next_turn` (lasts through the holder's next turn), `reset_no_combo`. `Shield` `of_amount`: a share of the trigger's amount.
+`AllyAction` `Param "all"`: every sidekick acts. A worm's `Block` (Bodyguard) is held by its sidekicks.
+
+**New statuses.** `Exposed` (+1% damage taken per stack, permanent), `Stagger` (the next rage attack is lost; Thermal Shock on
+bosses), `Delay` (skips the next turn, no re-apply cooldown). A status applied to a fighter during its own turn does not count
+down at that turn's end (a counter's stun, Decoy's charm). Stats `ArcDamage`, `EchoDamage`, `DamageTaken` (a cost),
+`HealReceived`. New log actions: `StatusBlocked`, `Execute`, `CheatDeath`, `Echo`, `Loop`, `Staggered`, `Sacrifice`.
+
+**Parry is removed.** No roll, no content; `StatId.ParryChance` / `ParryReduction`, `TriggerKind.OnParry` and the log flag stay
+for old saves (an old save's parry chance counts as counter chance). Lab Bulwark Protocol refreshes its shield on counters.
+
+**Several signatures.** A run holds up to `RunTuning.MaxSignatures` (3): the start pick, a miniboss Mythic choice (25%: one Mythic
+replaced by an unowned signature of an unlocked synergy, owned synergies preferred) and the rare Resonance event (1 of 2, or
+coins). Never in shops. Each awakens on its own synergy count; every owned signature's synergy gets the draft weight and the synergy
+slot cycles between them; none is ever lost. Hivemind tunes each alien to one signature (round-robin in the order found).
+
+**Ladders.** Common ×1, ×5/3, ×8/3 (15 → 25 → 40); Legendary ×1, ×8/5 (25 → 40); Mythics never level. The list with every
+level's text: [run-skill-levels.md](run-skill-levels.md).
 
 ## Sidekicks (sidekick pass)
 
@@ -85,6 +152,7 @@ Summons → Worm) and each of its turns adds **Speed × (1 + the worm's `Sidekic
 - **Block:** a guard on the worm intercepts the next attack hit (basic / rage / combo / counter): nothing lands, no on-hit or
   when-hit triggers; `BattleAction.Guard` (guard raised) and `BattleAction.Block` (Actor = blocker, Amount = damage stopped).
 - **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions.
+- **Symbiote** stops every sidekick's own turns (aliens and drones); Bodyguard / Decoy work with any guard (Pebblehorn's too).
 - Alien combat traits: Tough (+15% HP), Fierce (+15% ATK), Armored (+30% DEF) → power; Swift (+15% Speed) → frequency;
   Lucky / Vampiric / Pyromaniac / Stormborn for damage / Heat / Shock abilities.
 

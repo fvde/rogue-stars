@@ -58,9 +58,9 @@ namespace RogueStars.Client.Tests
         public void MinibossDraft_ShowsAsMythicChoice_AndLevelUpsAreMarked()
         {
             var run = StartRun();
-            run.Skills.Add("mythic_deadeye");
+            run.Skills.Add("mythic_last_light");
             run.Phase = RunPhase.Draft; run.MythicDraft = true;
-            run.DraftOffer.AddRange(new[] { "mythic_deadeye", "mythic_titan_blood", "mythic_reaper" });
+            run.DraftOffer.AddRange(new[] { "mythic_last_light", "mythic_catalyst", "mythic_overkill" });
             Open();
             var sheet = FindNamed(_f.App.ModalLayer, "MythicTitle");
             Assert.That(sheet, Is.Not.Null, "MYTHIC banner");
@@ -69,11 +69,11 @@ namespace RogueStars.Client.Tests
             Assert.That(Texts(_f.App.ModalLayer), Does.Contain("LEVEL 1 → 2"));
             Button pick = null;
             foreach (var b in _f.App.ModalLayer.GetComponentsInChildren<Button>(true))
-                if (b.name == "Button:Pick" && FindNamed(b.transform, "Draft:mythic_titan_blood") != null) pick = b;
+                if (b.name == "Button:Pick" && FindNamed(b.transform, "Draft:mythic_catalyst") != null) pick = b;
             Assert.That(pick, Is.Not.Null);
             pick.onClick.Invoke();
-            Assert.That(S.Run.Active.Skills, Does.Contain("mythic_titan_blood"));
-            Assert.That(S.Run.Active.Gains.Exists(g => g.Source == "mythic" && g.SkillId == "mythic_titan_blood"), Is.True);
+            Assert.That(S.Run.Active.Skills, Does.Contain("mythic_catalyst"));
+            Assert.That(S.Run.Active.Gains.Exists(g => g.Source == "mythic" && g.SkillId == "mythic_catalyst"), Is.True);
         }
 
         /// <summary>Skill tuning pass: an owned skill offered again shows the target level and its upgrade inline ("+15% → +25%").</summary>
@@ -139,7 +139,7 @@ namespace RogueStars.Client.Tests
         {
             S.Run.LastSummary = new RunSummary { RunId = "x", LevelId = C.MainLevel(1).Id, Won = true, Rolls = 31, Level = 10, Minibosses = 3, ShopBuys = 12 };
             S.Run.LastSummary.Gains.Add(new RunGain("draft", "fire_ember", 1));
-            S.Run.LastSummary.Gains.Add(new RunGain("mythic", "mythic_sunheart", 1));
+            S.Run.LastSummary.Gains.Add(new RunGain("mythic", "mythic_thermal_shock", 1));
             S.Run.LastSummary.Gains.Add(new RunGain("shop", "fire_ember", 2));
             S.Run.LastSummary.Gains.Add(new RunGain { Source = "shop", Stat = new StatMod(StatId.Atk, 0, 8) });
             _f.App.Router.Push(new RunResultScreen());
@@ -148,7 +148,7 @@ namespace RogueStars.Client.Tests
             Assert.That(list, Is.Not.Null);
             string texts = Texts(list);
             Assert.That(texts, Does.Contain("Ember Strikes · draft"));
-            Assert.That(texts, Does.Contain("Sunheart Core · MYTHIC"));
+            Assert.That(texts, Does.Contain("Thermal Shock · MYTHIC"));
             Assert.That(texts, Does.Contain("Ember Strikes Lv 2 · shop"));
             Assert.That(texts, Does.Contain("+8% ATK · shop"));
             Assert.That(Texts(root), Does.Contain("Skills 4"));

@@ -653,12 +653,12 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void Tree_Has36NodesInFourBranches_MixingStatsAndSkills_PlusFivePackages()
+    public void Tree_Has36NodesInFourBranches_MixingStatsAndSkills_PlusSixPackages()
     {
         var c = ContentDb.Default;
-        Assert.Equal(41, c.LabResearch.Count);
+        Assert.Equal(42, c.LabResearch.Count);
         var packages = c.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).ToList();
-        Assert.Equal(5, packages.Count);
+        Assert.Equal(6, packages.Count); // Time (skill redesign) after Alien
         Assert.All(packages, p => Assert.Equal("packages", p.Branch));
         Assert.Equal(36, c.LabResearch.Values.Count(d => d.Branch != "packages"));
         foreach (var branch in new[] { "offense", "defense", "elements", "command" })

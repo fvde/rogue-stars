@@ -102,6 +102,11 @@ namespace RogueStars.Rules.Content
             b.Statuses[StatusId.Stun] = new StatusDef { Id = StatusId.Stun, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, ApplyCooldownRounds = 3 };
             b.Statuses[StatusId.Shock] = new StatusDef { Id = StatusId.Shock, MaxStacks = 5, DefaultDuration = 2, DamageTakenPctPerStack = 6, HasElement = true, ElementStat = StatId.LightningDamage };
             b.Statuses[StatusId.Charm] = new StatusDef { Id = StatusId.Charm, MaxStacks = 1, DefaultDuration = 1, Charms = true, ApplyCooldownRounds = 4 };
+            // skill redesign: Exposed (+1% damage taken per stack, permanent; Critical Mass), Stagger (a boss loses its next rage
+            // attack; Thermal Shock), Delay (loses its next turn, no re-apply cooldown; Time)
+            b.Statuses[StatusId.Exposed] = new StatusDef { Id = StatusId.Exposed, MaxStacks = 100, Permanent = true, DamageTakenPctPerStack = 1 };
+            b.Statuses[StatusId.Stagger] = new StatusDef { Id = StatusId.Stagger, MaxStacks = 1, DefaultDuration = 1 };
+            b.Statuses[StatusId.Delay] = new StatusDef { Id = StatusId.Delay, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true };
         }
 
         private void RunBuildRunTuning()
@@ -377,6 +382,11 @@ namespace RogueStars.Rules.Content
 
         private void RunBuildEvents()
         {
+            // skill redesign: a rare chance to find another signature (RunSystem.ResonanceEvent; never sold in shops)
+            RunEvent("resonance", "Resonance", "Two signals hum in the dark. Attune to one and your worm learns its signature.", 0, 0.6,
+                RunOpt("Attune to the first signal", "Gain the first signature.", RunOut(1, "A new signature awakens in you.", RunFx(RunEffectKind.GainSignature, 1, "0"))),
+                RunOpt("Attune to the second signal", "Gain the second signature.", RunOut(1, "A new signature awakens in you.", RunFx(RunEffectKind.GainSignature, 1, "1"))),
+                RunOpt("Harvest the signals", "Take " + RunTuning.ResonanceCoins + " coins.", RunOut(1, "The signals fade into coins.", RunFx(RunEffectKind.Coins, RunTuning.ResonanceCoins))));
             RunEvent("unstable_reactor", "Unstable Reactor", "A humming reactor offers raw power, but the boss feeds on the surge.", 1, 3,
                 RunOpt("Absorb the surge", "Gain a skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Common), RunFx(RunEffectKind.BossStatPct, 15))),
                 RunOpt("Walk away", "Nothing happens.", RunNothing));

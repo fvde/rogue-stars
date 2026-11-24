@@ -86,7 +86,7 @@ public class SignatureTests
         }
         Assert.Contains("sig_combo", seen);
         Assert.Equal(4, seen.Count);
-        Assert.Equal("Combo package: Flurry + 7 skills.", C.LabNode("pkg_combo")!.Description);
+        Assert.Equal("Combo package: Flurry + 8 skills.", C.LabNode("pkg_combo")!.Description);
     }
 
     [Fact]
@@ -134,15 +134,15 @@ public class SignatureTests
         Draft(e, ref s, "fire_ember"); Draft(e, ref s, "fire_kindle");
         Draft(e, ref s, "fire_ember"); // a level-up is no new skill
         Assert.Equal(1, Lv());
-        Draft(e, ref s, "fire_flare");
+        Draft(e, ref s, "fire_flashpoint");
         Assert.Equal(2, Lv());
         Assert.Equal(1, s.Counter("run_signature_awakened"));
-        Draft(e, ref s, "fire_inferno");
+        Draft(e, ref s, "fire_controlled");
         var run = s.Run.Active!;
-        run.Skills.Add("fire_phoenix"); // 5 Fire skills (a Mythic from a miniboss choice counts too)
+        run.Skills.Add("fire_heat_siphon"); // 5 Fire skills (a Mythic from a miniboss choice counts too)
         Draft(e, ref s, "gen_power"); // any gain re-reads the awakening
         Assert.Equal(2, Lv());
-        s.Run.Active!.Skills.Add("mythic_sunheart");
+        s.Run.Active!.Skills.Add("mythic_thermal_shock");
         Draft(e, ref s, "gen_guard");
         Assert.Equal(3, Lv());
         Assert.Equal(0, RunSystem.NextAwakeningAt(C, s.Run.Active!));
@@ -163,7 +163,7 @@ public class SignatureTests
         Assert.Equal("On hit: apply Radiation to the enemy.", T("sig_radiation"));
         Assert.Equal("On hit: apply Bleed to the enemy.", T("sig_bleed"));
         Assert.Equal("On hit: apply Chill to the enemy.", T("sig_ice"));
-        Assert.Equal("On hit: jump to 1 other enemy for 50% ATK damage.", T("sig_lightning"));
+        Assert.Equal("On hit: Arc to 1 other enemy for 50% ATK damage.", T("sig_lightning"));
         Assert.Equal("Each round: one of your sidekicks takes an extra action.", T("sig_alien"));
         Assert.Equal("When hit: 30% chance to counterattack.", T("sig_counter"));
         Assert.Equal("On hit: 30% chance to strike again.", T("sig_combo"));
@@ -212,7 +212,7 @@ public class SignatureTests
         Assert.DoesNotContain(RunDraft.Eligible(C, run), x => x.Rarity == Rarity.Mythic);
         var pool = C.Skills.Values.Where(x => RunDraft.IsMythicEligible(C, run, x)).ToList();
         Assert.All(pool, x => Assert.True(x.Family is SkillFamily.None or SkillFamily.Fire or SkillFamily.Poison or SkillFamily.Bleed, x.Id));
-        Assert.True(pool.Count >= 15, pool.Count.ToString());
+        Assert.True(pool.Count >= 11, pool.Count.ToString()); // Mythics needing a source the run lacks (consumed Bleed …) wait for it
     }
 
     // ---- the mechanics ------------------------------------------------------------------------------------------------

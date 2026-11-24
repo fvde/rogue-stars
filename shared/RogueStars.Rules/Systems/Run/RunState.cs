@@ -196,6 +196,15 @@ namespace RogueStars.Rules.Systems
         public List<string> Skills = new List<string>();
         /// <summary>The run's signature skill (also in Skills; null for runs saved before the signatures pass).</summary>
         public string SignatureId;
+        /// <summary>
+        /// Every signature the run holds, in the order found (skill redesign: the start pick, then minibosses and Resonance events;
+        /// at most RunTuning.MaxSignatures). Empty for runs saved before: <see cref="RunSystem.Signatures"/> falls back to SignatureId.
+        /// </summary>
+        public List<string> SignatureIds = new List<string>();
+        /// <summary>The unowned signatures a Resonance event offers (its options "first" / "second" pick from this list).</summary>
+        public List<string> SignatureChoice = new List<string>();
+        /// <summary>Rage the next battle starts with (Ambush Instinct, set when landing on an enemy tile; cleared by the battle).</summary>
+        public double PendingStartRage;
         /// <summary>Level of an owned run skill when above 1 (a skill drafted / bought again levels up, RunTuning.MaxSkillLevel).</summary>
         public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
         /// <summary>Every skill, skill level and stat perk gained in this run, in order (result screen, HUD build size).</summary>

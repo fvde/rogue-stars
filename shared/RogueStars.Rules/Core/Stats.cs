@@ -8,6 +8,8 @@ namespace RogueStars.Rules.Core
         Hp, Atk, Def, Speed,
         CritChance, CritDamage, CritResist,
         Dodge, DodgeIgnore,
+        // ParryChance / ParryReduction: parry was removed (skill redesign); the values stay so saves load. In battle, leftover
+        // parry chance counts as counter chance (BattleSim); no content gives them any more.
         ComboChance, CounterChance, ParryChance, ParryReduction,
         DamageReduction, LifeSteal, Regen, RageGain,
         ShieldPower, HealPower, StatusChance, StatusResist,
@@ -17,6 +19,15 @@ namespace RogueStars.Rules.Core
         SupernovaDamage, SupernovaGuard,
         /// <summary>On the worm: % faster charge for every sidekick of its side (they act more often).</summary>
         SidekickHaste,
+        // ---- skill redesign (appended; points) ----
+        /// <summary>% more damage of Arc jumps (Conductor Coil).</summary>
+        ArcDamage,
+        /// <summary>% more damage of Echo repeats (Time).</summary>
+        EchoDamage,
+        /// <summary>% more damage taken from everything (a cost: Mirror Carapace).</summary>
+        DamageTaken,
+        /// <summary>% more healing received (negative = less: Chain Fission's cost).</summary>
+        HealReceived,
     }
 
     /// <summary>A flat + percent modification of one stat. Percent is additive within a block (10 = +10%).</summary>

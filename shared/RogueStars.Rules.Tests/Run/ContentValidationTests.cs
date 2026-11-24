@@ -61,4 +61,29 @@ public class ContentValidationTests
             .Select(x => x.Path + ": " + x.Mod.Stat + " " + x.Mod.Percent + "%").Distinct().ToList();
         Assert.True(bad.Count == 0, bad.Count + " percent bonuses on point stats:\n" + string.Join("\n", bad.Take(200)));
     }
+
+    /// <summary>
+    /// Skill redesign: parry is gone as a mechanic. No stat package anywhere gives parry chance / parry reduction, no trigger waits
+    /// for a parry, and no skill text mentions it (the enum values stay so old saves and battle logs load).
+    /// </summary>
+    [Fact]
+    public void NoContent_UsesParry()
+    {
+        var bad = AllStatMods(C).Where(x => x.Mod.Stat is StatId.ParryChance or StatId.ParryReduction).Select(x => x.Path).ToList();
+        Assert.True(bad.Count == 0, string.Join("\n", bad));
+        foreach (var s in C.Skills.Values)
+        {
+            Assert.DoesNotContain(s.Triggers, t => t.When == TriggerKind.OnParry);
+            Assert.DoesNotContain("parr", (SkillText.Full(s) + " " + s.Name + " " + s.Description).ToLowerInvariant());
+        }
+    }
+
+    /// <summary>Every trigger gate (SkillTrigger.If) and conditional bonus gate in the content parses (BattleConditions).</summary>
+    [Fact]
+    public void EveryTriggerCondition_Parses()
+    {
+        foreach (var s in C.Skills.Values)
+            foreach (var t in s.Triggers)
+                if (!string.IsNullOrWhiteSpace(t.If)) Assert.True(BattleConditions.IsValid(t.If), s.Id + ": " + t.If);
+    }
 }

@@ -43,7 +43,7 @@ namespace RogueStars.Rules.Content
             Game("saucer_landing", "Saucer Landing", MinigameInput.Drag, "Drag the saucer gently onto the pad — mind the solar wind.");
             Game("clock_stopper", "Clock Stopper", MinigameInput.Tap, "Tap to stop the hand on the glowing time.");
             Game("wormhole_dash", "Wormhole Dash", MinigameInput.Tap, "Tap to switch lanes. Dodge rocks, grab coins.");
-            Game("shield_parry", "Shield Parry", MinigameInput.Tap, "Tap the shield of the same colour as the shot hits.");
+            Game("shield_parry", "Shield Block", MinigameInput.Tap, "Tap the shield of the same colour as the shot hits.");
             Game("slingshot_spore", "Slingshot Spore", MinigameInput.Drag, "Pull back and release to fling spores at the aliens.");
             Game("asteroid_slice", "Asteroid Slice", MinigameInput.Swipe, "Swipe to slice rocks. Spare the friendly aliens!");
             Game("jelly_stack", "Jelly Stack", MinigameInput.Tap, "Tap to drop each jelly block onto the tower.");

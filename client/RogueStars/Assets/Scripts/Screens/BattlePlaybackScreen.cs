@@ -688,6 +688,9 @@ namespace RogueStars.Client.Screens
                 case StatusId.Stun: return Theme.TextDim;
                 case StatusId.Shock: return Theme.Hex(0xFFE03D);
                 case StatusId.Charm: return Theme.Hex(0xFF9FD2);
+                case StatusId.Exposed: return Theme.Hex(0xE0506E);
+                case StatusId.Stagger: return Theme.Hex(0xD9A066);
+                case StatusId.Delay: return Theme.Hex(0x7FE0D0);
                 default: return Theme.Purple;
             }
         }
@@ -754,13 +757,13 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Counter:
                 case BattleAction.Skill:
                 case BattleAction.Rage:
+                case BattleAction.Execute:
                 case BattleAction.StatusTick:
                     if (target == null) break;
                     if (e.Dodge) { Popup(target, "DODGE", Theme.Premium, animate, 40); if (animate) Dodge(target); break; }
                     if (animate) Hit(target, e.Crit);
                     if (e.Crit) Popup(target, Fmt.Num(e.Amount) + "!", Theme.Gold, animate, 76, "CRIT");
                     else Popup(target, "-" + Fmt.Num(e.Amount), e.Action == BattleAction.StatusTick ? StatusColor(e.Status) : target.Info.Side == BattleSide.Player ? Theme.Hex(0xFF9B3D) : Theme.Hex(0x5EEAF2), animate, 60);
-                    if (e.Parry) Popup(target, "PARRY", Theme.TextDim, animate, 30);
                     break;
                 case BattleAction.Heal:
                 case BattleAction.Regen:
@@ -775,7 +778,31 @@ namespace RogueStars.Client.Screens
                 case BattleAction.StatusApplied:
                     if (target == null) break;
                     target.Statuses[e.Status] = Math.Max(1, e.Stacks);
-                    Popup(target, SkillText.StatusName(e.Status).ToUpperInvariant(), StatusColor(e.Status), animate, 34);
+                    // a conversion (Fallout Wounds: consumed Bleed becomes Radiation) reads as one
+                    if (e.SkillId == "mythic_fallout_wounds") Popup(target, "BLEED → RADIATION", StatusColor(e.Status), animate, 36);
+                    else Popup(target, SkillText.StatusName(e.Status).ToUpperInvariant(), StatusColor(e.Status), animate, 34);
+                    break;
+                case BattleAction.StatusBlocked:
+                    if (target != null) Popup(target, SkillText.StatusName(e.Status).ToUpperInvariant() + " LOCKED", StatusColor(e.Status), animate, 32, e.Stacks + " turns");
+                    break;
+                case BattleAction.CheatDeath:
+                    if (target != null) Popup(target, "LAST WORD", Theme.Gold, animate, 52, "1 HP");
+                    break;
+                case BattleAction.Echo:
+                    if (actor != null) Popup(actor, "ECHO", Theme.Hex(0xB89CFF), animate, 40);
+                    break;
+                case BattleAction.Staggered:
+                    if (actor != null) Popup(actor, "STAGGERED", StatusColor(StatusId.Stagger), animate, 40, "rage attack lost");
+                    break;
+                case BattleAction.Sacrifice:
+                    if (actor != null) { Die(actor, animate); Popup(actor, "SACRIFICE", Theme.Gold, animate, 40); }
+                    break;
+                case BattleAction.Loop:
+                    if (target == null) break;
+                    if (e.Actor == e.Target) { Popup(target, "LOOP", Theme.Hex(0xB89CFF), animate, 56, "rewind to round " + e.Amount); break; }
+                    if (e.Stacks > 0 && !target.Visible) { target.Visible = true; target.Root.gameObject.SetActive(true); target.Group.alpha = 1; }
+                    target.Statuses.Clear();
+                    Popup(target, "REWIND", Theme.Hex(0xB89CFF), animate, 30);
                     break;
                 case BattleAction.StatusRemoved:
                     if (target == null) break;
@@ -827,7 +854,8 @@ namespace RogueStars.Client.Screens
                     Popup(target, "BLOCKED", Theme.Premium, animate, 56, Fmt.Num(e.Amount) + " stopped");
                     break;
                 case BattleAction.SkipTurn:
-                    if (actor != null) Popup(actor, "STUNNED", Theme.TextDim, animate, 32);
+                    if (actor != null)
+                        Popup(actor, actor.Statuses.ContainsKey(StatusId.Delay) ? "DELAYED" : actor.Statuses.ContainsKey(StatusId.Freeze) ? "FROZEN" : "STUNNED", Theme.TextDim, animate, 32);
                     break;
                 case BattleAction.Summon:
                     if (target != null && !target.Visible)
@@ -1157,8 +1185,15 @@ namespace RogueStars.Client.Screens
                 case BattleAction.StatusTick: what = SkillText.StatusName(e.Status) + " deals " + Fmt.Num(e.Amount) + " to " + (target?.Info.Name ?? ""); break;
                 case BattleAction.StatusRemoved: what = SkillText.StatusName(e.Status) + " −" + e.Amount + " on " + (target?.Info.Name ?? ""); break;
                 case BattleAction.Supernova:
-                    what = e.Amount == 0 && e.Actor == e.Target ? (target?.Info.Name ?? "") + " goes SUPERNOVA" : "Supernova hits " + (target?.Info.Name ?? "") + " for " + Fmt.Num(e.Amount);
+                    what = e.Amount == 0 && e.Actor == e.Target ? (target?.Info.Name ?? "") + " goes SUPERNOVA" + (e.SkillId != null ? " [" + (Content.Skill(e.SkillId)?.Name ?? e.SkillId) + "]" : "") : "Supernova hits " + (target?.Info.Name ?? "") + " for " + Fmt.Num(e.Amount);
                     break;
+                case BattleAction.StatusBlocked: what = (target?.Info.Name ?? "") + " can't gain " + SkillText.StatusName(e.Status) + " for " + e.Stacks + " turns"; break;
+                case BattleAction.Execute: what = who + " executes " + tgt; break;
+                case BattleAction.CheatDeath: what = who + " survives a fatal hit at 1 HP"; break;
+                case BattleAction.Echo: what = who + " echoes its attack"; break;
+                case BattleAction.Staggered: what = who + " is staggered and loses its rage attack"; break;
+                case BattleAction.Sacrifice: what = who + " takes the fatal hit for " + tgt; break;
+                case BattleAction.Loop: if (e.Actor != e.Target) return; what = who + " loops time back to round " + e.Amount; break;
                 case BattleAction.Heal: case BattleAction.Regen: case BattleAction.LifeSteal: what = (target ?? actor)?.Info.Name + " heals " + Fmt.Num(e.Amount); break;
                 case BattleAction.Shield: what = (target ?? actor)?.Info.Name + " gains " + Fmt.Num(e.Amount) + " shield"; break;
                 case BattleAction.GainRage: case BattleAction.StatusExpired: return;
@@ -1167,7 +1202,7 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Block: what = who + " blocks a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " stopped)"; break;
                 default:
                     what = who + " " + e.Action.ToString().ToLowerInvariant() + (tgt.Length > 0 ? " → " + tgt : "")
-                           + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "") + (e.Parry ? " parried" : "")
+                           + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "")
                            + (e.SkillId != null ? " [" + (Content.Skill(e.SkillId)?.Name ?? e.SkillId) + "]" : "");
                     break;
             }

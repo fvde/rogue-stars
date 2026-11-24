@@ -35,6 +35,8 @@ namespace RogueStars.Rules.Content
             LabPackage("pkg_counter", "Counter Package", SkillFamily.Counter, "sig_counter", 4, new[] { new LabPrereq("pkg_lightning", 1), new LabPrereq("lab_def_1", 2) });
             LabPackage("pkg_alien", "Alien Package", SkillFamily.AlienSynergy, "sig_alien", 5, new[] { new LabPrereq("pkg_counter", 1), new LabPrereq("lab_alien_power_1", 2) })
                 .RequiresFeature = Features.Aliens;
+            // skill redesign (R13): Time comes last in the chain (after Alien), with a defense stat node at level 2
+            LabPackage("pkg_time", "Time Package", SkillFamily.Time, "sig_time", 6, new[] { new LabPrereq("pkg_alien", 1), new LabPrereq("lab_def_1", 2) });
 
             // ---- offense ----
             RunLab("res_eagle_eye", "Eagle Eye", true, SkillFamily.None, Rarity.Rare, Off, 1, null, false, (b, lv) =>
@@ -61,8 +63,8 @@ namespace RogueStars.Rules.Content
                 b.Desc("+counter chance, counters may stun.").Stat(StatId.CounterChance, 5 + 5 * lv).Status(TriggerKind.OnCounter, 10 * lv, StatusId.Stun));
             LabStat("lab_def_1", "Chitin Plating", Def, 2, StatId.Def, true, 1, Any("res_second_wind", "lab_hp_1"), false);
             RunLab("res_bulwark", "Bulwark Protocol", false, SkillFamily.Counter, Rarity.Epic, Def, 3, Pkg("pkg_counter"), true, (b, lv) =>
-                b.Desc("Battle start: a shield; parries may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
-                 .On(TriggerKind.OnParry, EffectKind.Shield, 2 * lv, TargetKind.Self, 50));
+                b.Desc("Battle start: a shield; counters may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
+                 .On(TriggerKind.OnCounter, EffectKind.Shield, 2 * lv, TargetKind.Self, 50)); // parry removed: was on parry
             LabStat("lab_dodge", "Blink Glands", Def, 3, StatId.Dodge, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_counter", "Spring Joints", Def, 3, StatId.CounterChance, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_shield_power", "Barrier Theory", Def, 3, StatId.ShieldPower, false, 2, Any("res_retaliation", "lab_def_1"), false);
