@@ -57,14 +57,17 @@ public class GachaTests
     }
 
     [Fact]
-    public void PartPulls_GrantPartsAndRunes_AlienPulls_GrantAliensOrHeroShards()
+    public void PartPulls_GrantPartsAndRunes_AlienPulls_GrantAliensOrHeroSupplies()
     {
         var e = Engine(); var s = Rich(e);
+        s.Flags.Add(Features.DevUnlockAllFlag);
         var res = Pull(e, ref s, GachaType.Part, 10);
         Assert.Equal(10, s.Parts.Items.Count + s.Parts.Runes.Count);
         Assert.Equal(10, res.Items.Count);
         for (int i = 0; i < 5; i++) Pull(e, ref s, GachaType.Alien, 10);
-        Assert.Contains(s.Wallet.Balances.Keys, k => k.StartsWith("shards_hero_"));
+        // Heroes come from summon events: the Alien Signal's old hero-shard share is Grain and hero summon tickets now.
+        Assert.DoesNotContain(s.Wallet.Balances.Keys, k => k.StartsWith("shards_hero_"));
+        Assert.True(s.Wallet.Get(Currencies.Grain) + s.Wallet.Get(Currencies.HeroTickets) > 0);
         Assert.NotEmpty(s.Aliens.Owned);
     }
 
@@ -77,21 +80,29 @@ public class GachaTests
             Assert.Contains(bp.Tiers[(int)d.Rarity].Pool, en => en.Kind == RewardKinds.Blueprint && en.Id == d.Id);
         foreach (var d in C.AlienTypes.Values)
             Assert.Contains(al.Tiers[(int)d.Rarity].Pool, en => en.Kind == RewardKinds.Alien && en.Id == d.Id);
-        foreach (var t in bp.Tiers) foreach (var en in t.Pool)
-            if (en.Kind == RewardKinds.Blueprint) Assert.NotNull(C.Blueprint(en.Id));
-            else { Assert.Equal(RewardKinds.Mount, en.Kind); Assert.True(C.MountConfig.Defs.ContainsKey(en.Id)); } // mount copies (balance pass)
-        // Mount shards are about a quarter of Blueprint Signal outcomes in every tier.
-        foreach (var t in bp.Tiers)
+        // Summon events are the way to get heroes and mounts: no mount copies or hero shards in the Signals. Their old share
+        // (~25% of Blueprint, ~40% of Alien outcomes) is supplies: Ore / Grain, summon tickets from Epic up.
+        void Supplies(GachaTypeDef def, string low, string ticket, double min, double max)
         {
-            double mount = t.Pool.Where(en => en.Kind == RewardKinds.Mount).Sum(en => en.Weight), all = t.Pool.Sum(en => en.Weight);
-            Assert.InRange(mount / all, 0.2, 0.3);
+            foreach (var t in def.Tiers)
+            {
+                var sup = t.Pool.Where(en => en.Kind == RewardKinds.Currency).ToList();
+                Assert.Single(sup);
+                Assert.Equal(t.Tier < Rarity.Epic ? low : ticket, sup[0].Id);
+                Assert.InRange(sup[0].Weight / t.Pool.Sum(en => en.Weight), min, max);
+            }
         }
+        Supplies(bp, Currencies.Ore, Currencies.MountTickets, 0.2, 0.3);
+        Supplies(al, Currencies.Grain, Currencies.HeroTickets, 0.35, 0.45);
+        foreach (var t in bp.Tiers) foreach (var en in t.Pool)
+            if (en.Kind != RewardKinds.Currency) { Assert.Equal(RewardKinds.Blueprint, en.Kind); Assert.NotNull(C.Blueprint(en.Id)); }
         foreach (var t in al.Tiers) foreach (var en in t.Pool)
-            if (en.Kind == RewardKinds.Alien) Assert.NotNull(C.AlienType(en.Id));
+            if (en.Kind != RewardKinds.Currency) { Assert.Equal(RewardKinds.Alien, en.Kind); Assert.NotNull(C.AlienType(en.Id)); }
         foreach (var r in C.GachaConfig.Rotations) foreach (var th in r.Themes)
         {
+            Assert.NotEqual(RewardKinds.Mount, th.FeaturedKind);
+            Assert.NotEqual(RewardKinds.HeroShards, th.FeaturedKind);
             if (th.FeaturedKind == RewardKinds.Blueprint) Assert.Equal(Rarity.Mythic, C.Blueprint(th.FeaturedId)!.Rarity);
-            if (th.FeaturedKind == RewardKinds.Mount) Assert.True(C.MountConfig.Defs.ContainsKey(th.FeaturedId));
             if (th.FeaturedKind == RewardKinds.Alien) Assert.Equal(Rarity.Mythic, C.AlienType(th.FeaturedId)!.Rarity);
         }
     }
@@ -108,16 +119,16 @@ public class GachaTests
         int bpItems = 0;
         foreach (var it in bpRes.Items)
             if (it.Kind == RewardKinds.Blueprint) { Assert.NotNull(CitySystem.Owned(s, it.Id)); bpItems++; }
-            else { Assert.Equal(RewardKinds.Mount, it.Kind); Assert.NotNull(MountSystem.Get(s, it.Id)); } // mount copies
+            else Assert.Equal(RewardKinds.Currency, it.Kind); // Ore / mount summon tickets
         Assert.Equal(s.City.Blueprints.Count, s.Counter("blueprints_obtained"));
         Assert.Equal(copiesBefore + bpItems, s.Counter("blueprints_obtained") + s.Counter("blueprint_duplicates"));
 
-        // Alien Signal → City's alien granter (rolled genes/traits) or Progression's hero shards.
+        // Alien Signal → City's alien granter (rolled genes/traits) or supplies (Grain / hero summon tickets).
         var alRes = Pull(e, ref s, GachaType.Alien, 10);
         foreach (var it in alRes.Items)
         {
             if (it.Kind == RewardKinds.Alien) Assert.NotNull(AlienSystem.Owned(s, it.Id));
-            else Assert.True(s.Wallet.Get(Currencies.HeroShards(it.Id)) > 0);
+            else Assert.True(s.Wallet.Get(it.Id) > 0);
         }
 
         // Part Signal → Progression's part/rune granters.

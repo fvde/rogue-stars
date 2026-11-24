@@ -456,6 +456,9 @@ namespace RogueStars.Rules.Systems
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;
+            int felled = 0; // enemies knocked out (summons excluded): summon event tasks
+            foreach (var f in result.Fighters) if (f.Side == BattleSide.Enemy && f.SummonedBy < 0 && !f.Alive) felled++;
+            if (felled > 0) ctx.State.Count("run_enemies_defeated", felled);
             int novas = 0;
             foreach (var le in result.Log) if (le.Action == BattleAction.Supernova && le.Amount == 0 && le.Actor == le.Target) novas++;
             ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString(),

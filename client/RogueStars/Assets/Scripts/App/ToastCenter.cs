@@ -31,6 +31,7 @@ namespace RogueStars.Client.App
                 case "squad_set":
                 case "ad_watched":
                 case "gacha_pull":
+                case "summon_pull": // the draw result shows every pull
                 case "mail_expired":
                 case "run_negative_skipped":
                 case "reward_stashed": // no use yet: nothing to show (GDD §13 rewards follow use)
@@ -61,6 +62,7 @@ namespace RogueStars.Client.App
                 case "mount_unlocked": return "New mount: " + Mount(0) + "!";
                 case "mount_star": return Mount(0) + " → " + A(1) + "★";
                 case "mount_awaken": return Mount(0) + " awakened (" + A(1) + ")";
+                case "summon_event_joined": return A(0) == "mount" ? "A new mount summon event has begun" : "A new hero summon event has begun";
                 case "part_equipped": return Part(1) + " equipped (" + Fmt.SplitWords(A(0)) + ")";
                 case "part_merged": return Part(0) + " merged to " + (int.TryParse(A(1), out var rar) && c != null ? c.PartsConfig.RarityDef(rar).Name : "the next rarity");
                 case "part_awakened": return "Awakened: " + Part(0) + "!";

@@ -276,16 +276,9 @@ namespace RogueStars.Sim
             }
         }
 
-        /// <summary>Whales chase the target hero's banner when it is up; otherwise the least-pulled unlocked type.</summary>
+        /// <summary>The least-pulled unlocked type (heroes and mounts come from summon events: SimPlayer.Summons).</summary>
         private GachaType PickDiamondPullType()
         {
-            if (Spend.MonthlyBudgetCents > 0)
-            {
-                var ab = GachaSystem.ActiveBanner(C, GachaType.Alien, Now);
-                if (ab != null && ab.Theme.FeaturedId == TargetHero && Unlocked(Features.AlienPulls)) return GachaType.Alien;
-                var mb = PullTypes.Select(t => GachaSystem.ActiveBanner(C, t, Now)).FirstOrDefault(b => b != null && b.Theme.FeaturedKind == RewardKinds.Mount);
-                if (mb != null && Unlocked(GachaSystem.FeatureFor(mb.Type))) return mb.Type;
-            }
             return PullTypes.Where(t => Unlocked(GachaSystem.FeatureFor(t)))
                 .OrderBy(t => S.Counter("pulls_" + t.ToString().ToLowerInvariant())).FirstOrDefault();
         }

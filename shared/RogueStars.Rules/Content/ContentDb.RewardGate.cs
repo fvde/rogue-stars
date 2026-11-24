@@ -105,6 +105,10 @@ namespace RogueStars.Rules.Content
             Cur(Currencies.AlienTokens, "Alien Signal pulls", 30, F(Features.AlienPulls));
             Cur(Currencies.BlueprintTokens, "Blueprint Signal pulls", 30, F(Features.Blueprints));
             Cur(Currencies.MountCores, "Mount awakening", -1, F(Features.Mounts));
+            Cur(Currencies.HeroTickets, "Hero summon event pulls", 30, F(Features.Heroes));
+            Cur(Currencies.MountTickets, "Mount summon event pulls", 30, F(Features.Mounts));
+            Cur(Currencies.HeroSigils, "Hero summon exchange shop", -1, F(Features.Heroes));
+            Cur(Currencies.MountBolts, "Mount summon exchange shop", -1, F(Features.Mounts));
             Cur(Currencies.ArenaTickets, "Arena fights", RegenCap(Currencies.ArenaTickets, Arena.StartTickets), F(Features.Arena));
             Cur(Currencies.ArenaMedals, "Arena shop", -1, F(Features.Arena));
             Cur(Currencies.BurrowKeys, "Burrow runs", RegenCap(Currencies.BurrowKeys, 2), F(Features.Burrow));
@@ -120,13 +124,14 @@ namespace RogueStars.Rules.Content
             Item(RewardKinds.Blueprint, "City buildings", -1, F(Features.BiomassFarm));
             Item(RewardKinds.Alien, "Squad and building staff", -1, F(Features.Aliens));
             Item(RewardKinds.HeroShards, "Heroes", -1, F(Features.Heroes));
+            Item(RewardKinds.Hero, "Heroes (a copy: unlock or +1 star)", -1, F(Features.Heroes));
             Item(RewardKinds.Mount, "Mounts", -1, F(Features.Mounts));
             Item(RewardKinds.Skin, "Cosmetic", -1);
 
             GateConfig.KeepAllCommands.AddRange(new[]
             {
                 "PurchaseComplete", "ShopClaimDaily", "ShopBuyItem", "SeasonPassClaim", "SeasonPassClaimAll", "FundClaim",
-                "MailClaim", "MailClaimAll", "GachaPull",
+                "MailClaim", "MailClaimAll", "GachaPull", "SummonPull", "SummonExchangeBuy", "SummonPassClaim", "SummonPassClaimAll",
             });
         }
     }

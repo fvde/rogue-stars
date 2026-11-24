@@ -186,6 +186,7 @@ namespace RogueStars.Client.Services
             mountIds.Sort(string.CompareOrdinal);
             if (mountIds.Count > 0) rewards.Add(new Reward(RewardKinds.Mount, mountIds[0], 1));
             foreach (var cur in new[] { Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens }) rewards.Add(Reward.Cur(cur, 20));
+            foreach (var cur in new[] { Currencies.HeroTickets, Currencies.MountTickets }) rewards.Add(Reward.Cur(cur, 20));
             rewards.Add(Reward.Cur(Currencies.GearCores, 2000));
             rewards.Add(Reward.Cur(Currencies.Fuel, 5000));
             rewards.Add(Reward.Cur(Currencies.HeroXp, 5000));
