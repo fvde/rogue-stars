@@ -153,31 +153,34 @@ namespace RogueStars.Client.Tests
 
             // a one-finger drag: the board follows the finger exactly
             var c = holder / 2;
-            screen.MoveView(c, c + new Vector2(120, -60), 1);
+            screen.MoveView(c, c + new Vector2(120, 60), 1);  // towards the path ahead (up the screen)
             float perUnit = holder.x / baseW;
             Assert.That(screen.CameraManual, Is.True);
-            Assert.That(Vector2.Distance(screen.CameraCentre, follow + new Vector2(-120, -60) / perUnit), Is.LessThan(1e-3f), "the dragged point stays under the finger");
+            Assert.That(Vector2.Distance(screen.CameraCentre, follow + new Vector2(-120, 60) / perUnit), Is.LessThan(1e-3f), "the dragged point stays under the finger");
             // the view stays put while the player looks (no drift back)
             for (int i = 0; i < 300; i++) screen.Frame(1f / 60);
-            Assert.That(Vector2.Distance(screen.CameraCentre, follow + new Vector2(-120, -60) / perUnit), Is.LessThan(1e-3f), "no drift while looking around");
+            Assert.That(Vector2.Distance(screen.CameraCentre, follow + new Vector2(-120, 60) / perUnit), Is.LessThan(1e-3f), "no drift while looking around");
 
             // zoom out about a point: the point under the fingers stays put, the width clamps at MaxZoom
             var anchor = new Vector2(holder.x * 0.3f, holder.y * 0.4f);
             screen.MoveView(anchor, anchor, 0.8f);
-            Assert.That(screen.CameraWidth, Is.EqualTo(baseW / 0.8f).Within(1e-3f), "pinched out");
+            Assert.That(screen.CameraWidth, Is.GreaterThan(baseW).And.LessThanOrEqualTo(baseW / 0.8f + 1e-3f), "pinched out (up to what the drawn board allows)");
             for (int i = 0; i < 20; i++) screen.MoveView(anchor, anchor, 0.5f);
-            Assert.That(screen.CameraWidth, Is.EqualTo(baseW * RunScreen.MaxZoom).Within(1e-3f), "zoom clamps at the widest view");
+            Assert.That(screen.CameraWidth, Is.LessThanOrEqualTo(baseW * RunScreen.MaxZoom + 1e-3f), "zoom clamps at the widest view");
+            AssertViewInsideDrawn(screen, holder, baseW, "zoomed out");
             for (int i = 0; i < 20; i++) screen.MoveView(anchor, anchor, 2f);
             Assert.That(screen.CameraWidth, Is.EqualTo(baseW * RunScreen.MinZoom).Within(1e-3f), "and at the closest");
 
             // a far drag never loses the board: the centre stays within the drawn path (plus a margin)
             for (int i = 0; i < 40; i++) screen.MoveView(c, c + new Vector2(-900, 900), 1);
-            var b = screen.World.PathBounds;
-            Assert.That(screen.CameraCentre.x, Is.InRange(Mathf.Min(b.xMin, follow.x) - 1.6f, Mathf.Max(b.xMax, follow.x) + 1.6f), "within the path");
-            Assert.That(screen.CameraCentre.y, Is.InRange(Mathf.Min(b.yMin, follow.y) - 1.6f, Mathf.Max(b.yMax, follow.y) + 1.6f), "within the path");
+            AssertViewInsideDrawn(screen, holder, baseW, "far drag");
+            for (int i = 0; i < 20; i++) screen.MoveView(c, c, 0.5f);
+            for (int i = 0; i < 40; i++) screen.MoveView(c, c + new Vector2(900, -900), 1);
+            AssertViewInsideDrawn(screen, holder, baseW, "zoomed out and dragged the other way");
 
             // a roll: the view eases back (no snap at the roll), reaching the follow framing at the default width in ~0.4 s
             var before = screen.CameraCentre;
+            float widthBefore = screen.CameraWidth;
             Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True);
             while (_f.App.Router.Current is BattlePlaybackScreen bp) { bp.PlayAll(); _f.App.Router.Pop(); }
             Assert.That(screen.CameraManual, Is.False);
@@ -185,12 +188,41 @@ namespace RogueStars.Client.Tests
             Assert.That(Vector2.Distance(screen.CameraCentre, before), Is.LessThan(1e-3f), "no snap at the roll");
             screen.Frame(RunScreen.ReturnSeconds * 0.5f);
             Assert.That(screen.CameraCentre, Is.Not.EqualTo(before), "halfway back");
-            Assert.That(screen.CameraWidth, Is.GreaterThan(baseW * RunScreen.MinZoom).And.LessThan(baseW), "the zoom eases back too");
+            Assert.That(screen.CameraWidth, Is.GreaterThan(Mathf.Min(baseW, widthBefore)).And.LessThan(Mathf.Max(baseW, widthBefore)), "the zoom eases back too");
             screen.Frame(RunScreen.ReturnSeconds * 0.55f);
             Assert.That(screen.CameraReturning, Is.False);
             Assert.That(screen.CameraWidth, Is.EqualTo(baseW).Within(1e-4f), "back at the default zoom");
             var token = (Vector2)screen.World.Token.localPosition - new Vector2(0, 0.02f);
             Assert.That(Vector2.Distance(screen.CameraCentre, RunScreen.FollowCentre(token, holder, baseW)), Is.LessThan(0.05f), "back on the worm");
+        }
+
+        /// <summary>The view's top and bottom edges lie inside the drawn path's vertical extent (inset), or the follow framing;
+        /// sideways the centre stays within the path plus a margin.</summary>
+        private static void AssertViewInsideDrawn(RunScreen screen, Vector2 holder, float baseW, string what)
+        {
+            var b = screen.World.PathBounds;
+            float aspect = holder.y / holder.x, hh = screen.CameraWidth * aspect / 2;
+            var token = (Vector2)screen.World.Token.localPosition - new Vector2(0, 0.02f);
+            var f = RunScreen.FollowCentre(token, holder, baseW);
+            float i = RunScreen.ViewInset, e = 1e-3f;
+            Assert.That(screen.CameraCentre.y - hh, Is.GreaterThanOrEqualTo(Mathf.Min(b.yMin + i, f.y - baseW * aspect / 2) - e), what + ": bottom edge");
+            Assert.That(screen.CameraCentre.y + hh, Is.LessThanOrEqualTo(Mathf.Max(b.yMax - i, f.y + baseW * aspect / 2) + e), what + ": top edge");
+            Assert.That(screen.CameraCentre.x, Is.InRange(Mathf.Min(b.xMin, f.x) - 1.5f - e, Mathf.Max(b.xMax, f.x) + 1.5f + e), what + ": sideways");
+        }
+
+        [Test]
+        public void ClampView_KeepsTheViewInsideTheDrawnBoard()
+        {
+            var drawn = Rect.MinMaxRect(-5, -20, 5, 20);
+            float w = 30;
+            var c = RunScreen.ClampView(drawn, Vector2.zero, new Vector2(50, 50), ref w, 2f, 9f);
+            Assert.That(w, Is.EqualTo(19.5f).Within(1e-4f), "zoom-out stops where the view gets taller than the drawn board (39 / 2)");
+            Assert.That(c.y + w, Is.LessThanOrEqualTo(19.5f + 1e-4f), "top edge inside");
+            Assert.That(c.x, Is.EqualTo(6.5f).Within(1e-4f), "sideways: path plus 1.5");
+            float w2 = 9;
+            var c2 = RunScreen.ClampView(Rect.MinMaxRect(-1, -1, 1, 1), new Vector2(3, 4), new Vector2(3, 40), ref w2, 2f, 9f);
+            Assert.That(w2, Is.EqualTo(9f), "a tiny drawn board keeps the default width");
+            Assert.That(c2.y, Is.EqualTo(4f).Within(1e-4f), "and the follow framing");
         }
 
         [Test]
@@ -250,8 +282,8 @@ namespace RogueStars.Client.Tests
             var start = a.anchoredPosition;
             var state = FindNamed(screen.Root, "BoardOverlay").GetComponent<BoardGestures>().State;
             state.Pointers.Clear();
-            state.Moved(7, c, c + new Vector2(80, 50));
-            Assert.That(Vector2.Distance(a.anchoredPosition, start + new Vector2(80, -50)), Is.LessThan(0.5f), "the target stays pinned on its tile");
+            state.Moved(7, c, c + new Vector2(80, 0));  // sideways: this tiny test board leaves no room up or down
+            Assert.That(Vector2.Distance(a.anchoredPosition, start + new Vector2(80, 0)), Is.LessThan(0.5f), "the target stays pinned on its tile");
             Assert.That(Vector2.Distance(a.anchoredPosition, screen.OverlayPoint(WorldBoard.TopOf(run.Tiles[6]) + new Vector2(0, 0.2f))), Is.LessThan(0.5f));
             // a tap still picks
             FindNamed(screen.Root, "BranchPick:B").GetComponent<Button>().onClick.Invoke();

@@ -692,7 +692,7 @@ namespace RogueStars.Client.Screens
         /// The player moves the view (the gestures; tests call it directly): the world point under <paramref name="from"/>
         /// (holder px from the top-left) ends up under <paramref name="to"/>, the view <paramref name="zoom"/> times closer
         /// (pinch: &gt; 1 = fingers apart). The width stays within <see cref="MinZoom"/>..<see cref="MaxZoom"/> of the
-        /// default, the centre within the drawn path (plus a margin), so the board is never lost.
+        /// default and the whole view inside the drawn tile window (ClampView), so the player never sees where it ends.
         /// </summary>
         public void MoveView(Vector2 from, Vector2 to, float zoom)
         {
@@ -702,16 +702,36 @@ namespace RogueStars.Client.Screens
             var anchor = WorldAt(from, _cam, width);
             float perUnit = _holderSize.x / newW;
             var centre = anchor - new Vector2((to.x - _holderSize.x / 2) / perUnit, -(to.y - _holderSize.y / 2) / perUnit);
-            // bounds: the drawn path and the follow framing, plus a margin
-            var b = _world.PathBounds;
+            // bounds: the whole view stays inside the drawn tile window (only tiles near the worm are drawn), so the
+            // player never sees where the drawn board ends; zooming out stops where the view would outgrow it
             var follow = CameraTarget();
-            float xMin = Mathf.Min(b.xMin, follow.x) - 1.5f, xMax = Mathf.Max(b.xMax, follow.x) + 1.5f;
-            float yMin = Mathf.Min(b.yMin, follow.y) - 1.5f, yMax = Mathf.Max(b.yMax, follow.y) + 1.5f;
-            _cam = new Vector2(Mathf.Clamp(centre.x, xMin, xMax), Mathf.Clamp(centre.y, yMin, yMax));
+            _cam = ClampView(_world.PathBounds, follow, centre, ref newW, _holderSize.y / _holderSize.x, baseW);
             _camWidth = newW;
             _camManual = true;
             _camReturn = -1;
             ApplyCamera();
+        }
+
+        /// <summary>Inset (world units) of the drawn path's vertical extent the view must stay inside.</summary>
+        public const float ViewInset = 0.5f;
+
+        /// <summary>
+        /// Clamps a looked-around view (centre, width). Only tiles within a depth window around the worm are drawn, and on the
+        /// iso board depth runs up/down the screen: so the view's top and bottom edges stay inside the drawn path's vertical
+        /// extent (inset by <see cref="ViewInset"/>) and zooming out stops where the view would get taller than it (never
+        /// below the default <paramref name="baseW"/>). Sideways the island and its dark surround frame the board, so the
+        /// centre only stays within the path plus a margin. The follow framing is always allowed (pure; tested).
+        /// </summary>
+        public static Vector2 ClampView(Rect drawn, Vector2 follow, Vector2 centre, ref float width, float aspect, float baseW)
+        {
+            aspect = Mathf.Max(0.01f, aspect);
+            float yLo = Mathf.Min(drawn.yMin + ViewInset, follow.y - baseW * aspect / 2);
+            float yHi = Mathf.Max(drawn.yMax - ViewInset, follow.y + baseW * aspect / 2);
+            width = Mathf.Min(width, Mathf.Max(baseW, (yHi - yLo) / aspect));
+            float hh = width * aspect / 2;
+            float y = yHi - yLo >= 2 * hh ? Mathf.Clamp(centre.y, yLo + hh, yHi - hh) : follow.y;
+            float x = Mathf.Clamp(centre.x, Mathf.Min(drawn.xMin, follow.x) - 1.5f, Mathf.Max(drawn.xMax, follow.x) + 1.5f);
+            return new Vector2(x, y);
         }
 
         // ---- HUD ----------------------------------------------------------------------------------
