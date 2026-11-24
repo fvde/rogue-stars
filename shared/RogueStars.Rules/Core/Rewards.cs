@@ -12,7 +12,8 @@ namespace RogueStars.Rules.Core
         public const string Blueprint = "blueprint";   // Id = blueprint def id
         public const string Alien = "alien";           // Id = alien type id
         public const string HeroShards = "hero_shards";// Id = hero id
-        public const string Mount = "mount";           // Id = mount id
+        public const string Mount = "mount";           // Id = mount id, Amount = copies (first unlocks, every further copy is a star / awakening step)
+        public const string Hero = "hero";             // Id = hero id, Amount = copies (first unlocks at 1★, every further copy +1★)
         public const string Skin = "skin";             // cosmetic
     }
 

@@ -141,3 +141,14 @@ Meta content now reads the keys the owning workstreams actually write:
 - `run_minigames_gold` — run mini-games finished with a Gold medal — Run
 - `run_signature_<skillId>` — runs started with that signature (e.g. `run_signature_sig_fire`) — Run
 - `run_signature_awakened` — signature awakenings (level 2 or 3 reached in a run) — Run
+## Summon events (Meta/SummonEventSystem; docs/design/summon-events.md)
+- `run_enemies_defeated` — enemies knocked out in run battles (summons excluded; won and lost battles) — Run (summon event tasks)
+- `run_minigames_won` — run mini-games finished with a medal (Bronze or better) — Run (summon event tasks)
+- `summon_pulls_hero`, `summon_pulls_mount` — summon event pulls per type (a 10-pull counts 10) — Meta/SummonEvents
+- `summon_pulls_total` — summon event pulls of both types — Meta/SummonEvents
+- `summon_tasks_claimed` — summon event task targets claimed — Meta/SummonEvents
+- `summon_exchange_buys` — summon exchange shop purchases — Meta/SummonEvents
+- `hero_copies` — hero copies received (RewardKinds.Hero: unlock, +1★ or overflow) — Progression/Heroes
+- `mount_copies` — mount copies received (RewardKinds.Mount: unlock, +1★, awakening shards or overflow) — Progression/Mounts
+- (summon events) `heroes_unlocked`, `hero_stars`, `hero_stars_max` also count unlocks / stars from hero copies; `mount_stars` counts
+  stars from mount copies; `mounts_unlocked` also counts MountUnlock (30 shards).

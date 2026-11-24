@@ -96,13 +96,38 @@ public class MountTests
     private const string M = "mount_magma_barge";
 
     [Fact]
-    public void Granter_FirstCopyUnlocks_DuplicatesBecomeShards()
+    public void Unlock_WithShards_LikeHeroes()
     {
         var e = Engine(); var s = Player(e);
-        Grant(e, s, new Reward(RewardKinds.Mount, M, 3));
+        var cfg = C.MountConfig;
+        SetBalance(s, Currencies.MountShards(M), cfg.UnlockShards - 1);
+        Assert.Contains("not enough", Fail(e, ref s, new MountUnlock { MountId = M }));
+        SetBalance(s, Currencies.MountShards(M), cfg.UnlockShards);
+        Ok(e, ref s, new MountUnlock { MountId = M });
         Assert.Equal(1, s.Mounts.Owned[M].Stars);
         Assert.Equal(M, s.Mounts.Active);
-        Assert.Equal(2 * C.MountConfig.DupeShards, s.Wallet.Get(Currencies.MountShards(M)));
+        Assert.Equal(0, s.Wallet.Get(Currencies.MountShards(M)));
+        Assert.Contains("already", Fail(e, ref s, new MountUnlock { MountId = M }));
+    }
+
+    [Fact]
+    public void Granter_FirstCopyUnlocks_CopiesRaiseStars_ThenAwakeningShards_ThenOverflow()
+    {
+        var e = Engine(); var s = Player(e);
+        var cfg = C.MountConfig;
+        Grant(e, s, new Reward(RewardKinds.Mount, M, 3));
+        Assert.Equal(3, s.Mounts.Owned[M].Stars); // 1 unlocks, 2 copies = 2 stars
+        Assert.Equal(M, s.Mounts.Active);
+        Assert.Equal(0, s.Wallet.Get(Currencies.MountShards(M)));
+        Grant(e, s, new Reward(RewardKinds.Mount, M, 2));
+        Assert.Equal(cfg.MaxStars, s.Mounts.Owned[M].Stars);
+        Assert.Equal("awaken", MountSystem.CopyEffect(s, C, M));
+        Grant(e, s, new Reward(RewardKinds.Mount, M, 1)); // at 5★: the shards of the next awakening level
+        Assert.Equal(cfg.AwakenShardCosts[1], s.Wallet.Get(Currencies.MountShards(M)));
+        s.Mounts.Owned[M].Awaken = cfg.MaxAwaken;
+        Assert.Equal("overflow", MountSystem.CopyEffect(s, C, M));
+        Grant(e, s, new Reward(RewardKinds.Mount, M, 1));
+        Assert.Equal(cfg.CopyOverflow.Amount, s.Wallet.Get(cfg.CopyOverflow.Id));
     }
 
     [Fact]

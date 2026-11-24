@@ -28,6 +28,8 @@ namespace RogueStars.Rules.Systems
         public Dictionary<string, int> RollingTaken = new Dictionary<string, int>();
         /// <summary>Shop item id → purchases in the current limit period.</summary>
         public Dictionary<string, PeriodCount> ItemBuys = new Dictionary<string, PeriodCount>();
+        /// <summary>Products with a daily limit (ProductDef.DailyLimit) → purchases on the reset day stored in Period.</summary>
+        public Dictionary<string, PeriodCount> ProductDailyBuys = new Dictionary<string, PeriodCount>();
         public long AdDay = -1;
         public Dictionary<string, int> AdViews = new Dictionary<string, int>();
 

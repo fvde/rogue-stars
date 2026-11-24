@@ -154,7 +154,8 @@ namespace RogueStars.Rules.Systems
             return CommandResult.Success(result);
         }
 
-        private static GachaTierDef RollTier(GachaTypeDef def, GachaPityState pity, Rng rng, bool forceMin)
+        /// <summary>One tier roll with the hidden pity (also used by summon events, whose Mythic pity is the visible Luck).</summary>
+        internal static GachaTierDef RollTier(GachaTypeDef def, GachaPityState pity, Rng rng, bool forceMin)
         {
             pity.TotalPulls++;
             GachaTierDef chosen = null;

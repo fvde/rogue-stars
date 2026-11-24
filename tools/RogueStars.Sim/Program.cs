@@ -13,6 +13,19 @@ if (opts.Has("reward-table"))
     Console.WriteLine(Endless.RewardTable(rc, 100, 250, 500, 1000, 2000));
     return;
 }
+if (opts.Has("counter-rates"))
+{
+    // Median daily counter deltas per profile (summon event task thresholds, docs/design/summon-events.md).
+    Console.WriteLine(CounterRates.Markdown(opts.Int("days", 60), opts.Int("seeds", 3), opts.Str("profiles", "Casual:F2P,Active:F2P,Hardcore:Whale")));
+    return;
+}
+if (opts.Has("summon"))
+{
+    // Summon events: pulls per event, heroes / mounts collected and stars at day 30/60/120 (docs/design/summon-events.md).
+    Console.WriteLine(SummonReport.Markdown(opts.Int("days", 120), opts.Int("seeds", 3),
+        opts.Str("profiles", "Casual:F2P,Active:F2P,Hardcore:F2P,Active:Dolphin,Active:Whale"), new[] { 30, 60, 120, 365 }));
+    return;
+}
 if (opts.Has("age-jump"))
 {
     // Dev tools' "jump to account day N" (docs/server.md): wall time per profile on one thread (server content, ads disabled).

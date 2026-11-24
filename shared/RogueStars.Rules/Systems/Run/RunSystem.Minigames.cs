@@ -87,6 +87,7 @@ namespace RogueStars.Rules.Systems
             m.Tile = -1;
             ctx.State.Count("run_minigames_played");
             if (tier == MinigameTier.Gold) ctx.State.Count("run_minigames_gold");
+            if (tier >= MinigameTier.Bronze) ctx.State.Count("run_minigames_won"); // a medal (summon event tasks)
             ctx.Emit("run_minigame_finish", m.GameId, tier.ToString(), m.Reward.ToString());
 
             before.Diff(c, run, outcome.Lines);

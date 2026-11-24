@@ -24,9 +24,14 @@ namespace RogueStars.Rules.Content
     {
         public Dictionary<string, MountDef> Defs = new Dictionary<string, MountDef>();
         public int MaxStars = 5;
+        /// <summary>Mount shards that unlock a mount at 1★ without a copy (MountUnlock; summon events pay featured shards).</summary>
+        public long UnlockShards = 30;
         public int MaxAwaken = 5;
-        /// <summary>Mount shards per duplicate copy.</summary>
-        public long DupeShards = 10;
+        /// <summary>
+        /// What a mount copy (RewardKinds.Mount) beyond the first is worth: +1★ up to MaxStars, then the mount shards of the
+        /// next awakening level (Mount Cores still needed), and once fully awakened this (summon event exchange tokens).
+        /// </summary>
+        public Reward CopyOverflow;
         /// <summary>StarShardCosts[s] = mount shards to reach star s (2..5).</summary>
         public List<long> StarShardCosts = new List<long>();
         /// <summary>AwakenShardCosts[a] / AwakenCoreCosts[a] = cost to reach awakening a (1..5).</summary>
@@ -52,7 +57,8 @@ namespace RogueStars.Rules.Content
         partial void BuildMounts()
         {
             var m = MountConfig;
-            m.MaxStars = 5; m.MaxAwaken = 5; m.DupeShards = 10;
+            m.MaxStars = 5; m.MaxAwaken = 5; m.UnlockShards = 30;
+            m.CopyOverflow = Reward.Cur(Currencies.MountBolts, 300);
             m.StarShardCosts.AddRange(new long[] { 0, 0, 20, 50, 100, 180 });
             m.AwakenShardCosts.AddRange(new long[] { 0, 100, 150, 200, 260, 330 });
             m.AwakenCoreCosts.AddRange(new long[] { 0, 100, 200, 400, 700, 1100 });

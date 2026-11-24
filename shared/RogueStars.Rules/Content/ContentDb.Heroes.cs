@@ -34,6 +34,8 @@ namespace RogueStars.Rules.Content
         public List<long> LevelXpCosts = new List<long>();
         /// <summary>Permanent worm stats per star of every unlocked hero (collection bonus).</summary>
         public List<StatMod> CollectionPerStar = new List<StatMod>();
+        /// <summary>What a hero copy (RewardKinds.Hero) at max stars becomes (summon event exchange tokens).</summary>
+        public Reward CopyOverflow;
 
         public int MaxLevel(int stars) => Math.Min(LevelXpCosts.Count, MaxLevelBase + MaxLevelPerStar * stars);
     }
@@ -54,6 +56,7 @@ namespace RogueStars.Rules.Content
             for (int l = 1; l < h.MaxLevelBase + h.MaxLevelPerStar * h.MaxStars; l++) h.LevelXpCosts.Add((long)Math.Round(40 * Math.Pow(l, 1.6)));
             h.CollectionPerStar.Add(new StatMod(StatId.Hp, 0, 0.3));
             h.CollectionPerStar.Add(new StatMod(StatId.Atk, 0, 0.3));
+            h.CopyOverflow = Reward.Cur(Currencies.HeroSigils, 300);
 
             AddHeroDef("hero_star_knight", "Star Knight Worm", SkillFamily.Counter, SkillFamily.Crit, "Starlight Riposte", "Knight's Oath");
             AddHeroDef("hero_chef", "Chef Worm", SkillFamily.Fire, SkillFamily.Poison, "Spicy Ladle", "Five-Course Feast");

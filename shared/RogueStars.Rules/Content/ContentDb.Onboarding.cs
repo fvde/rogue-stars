@@ -171,10 +171,10 @@ namespace RogueStars.Rules.Content
             // Week 2: the colony grows.
             F(Features.AlienSquad, "Housing (Squad Slot 1)", 8, 20, 30, null, "Build Housing to open your first squad slot: an alien fights beside the worm.");
             F(Features.Blueprints, "Blueprint Signal", 9, 22, 50, null, "Pull new building blueprints for the City.");
-            F(Features.Heroes, "Heroes", 10, 24, 50, "equip_hero", "Choose a hero persona: traits and a signature weapon for every run.");
+            F(Features.Heroes, "Heroes", 10, 24, 50, "equip_hero", "Choose a hero persona: traits and a signature weapon for every run. Summon events bring more heroes.");
             F(Features.OreMine, "Ore Mine", 11, 26, 20, null, "Ore powers part merges, the Replicator and upgrades.");
             F(Features.Runes, "Runes", 11, 26, 30, null, "Socket runes into parts for extra stats.", group: Features.OreMine);
-            F(Features.Mounts, "Mounts", 12, 28, 50, null, "Ride into battle: mounts add stats, a shield and their own attacks.");
+            F(Features.Mounts, "Mounts", 12, 28, 50, null, "Ride into battle: mounts add stats, a shield and their own attacks. Summon events bring more mounts.");
             F(Features.Funds, "Funds", 13, 29, 0, null, "Growth funds pay out Diamonds as you clear main levels.");
             F(Features.Breeding, "Breeding Pen", 14, 30, 50, null, "Breed two aliens for a child with better genes.");
             F(Features.SeasonPass, "Season Pass", 14, 30, 0, null, "Earn pass points from daily goals for a track of rewards every season.", group: Features.Breeding);
@@ -214,6 +214,8 @@ namespace RogueStars.Rules.Content
             G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, "bp_housing_pod", 1));
             G(Features.OreMine, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
             G(Features.Heroes, new Reward(RewardKinds.HeroShards, "hero_star_knight", 40)); // enough to unlock the first hero
+            G(Features.Heroes, Reward.Cur(Currencies.HeroTickets, 10)); // the first hero summon event's 10× pull
+            G(Features.Mounts, Reward.Cur(Currencies.MountTickets, 10)); // the first mount summon event's 10× pull
             G(Features.Runes, new Reward(RewardKinds.Rune, "rune_vigor", 1, 0));
             G(Features.Mounts, new Reward(RewardKinds.Mount, "mount_scout_saucer", 1));
             G(Features.Breeding, new Reward(RewardKinds.Blueprint, "bp_breeding_pen", 1));

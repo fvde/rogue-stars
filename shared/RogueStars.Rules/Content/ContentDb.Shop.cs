@@ -5,7 +5,7 @@ using RogueStars.Rules.Systems;
 
 namespace RogueStars.Rules.Content
 {
-    public enum ProductKind { DiamondPack, StarterPack, RollingOffer, FlashOffer, GiftPack, Permanent, MonthlyPass, SeasonPass, Fund }
+    public enum ProductKind { DiamondPack, StarterPack, RollingOffer, FlashOffer, GiftPack, Permanent, MonthlyPass, SeasonPass, Fund, SummonPack, SummonPass }
 
     /// <summary>
     /// A real-money product (or a free step of a rolling chain when <see cref="PriceUsdCents"/> is 0).
@@ -43,6 +43,13 @@ namespace RogueStars.Rules.Content
         public RequirementSet Requires = new RequirementSet();
         /// <summary>Funds: fund track unlocked by this product.</summary>
         public string FundId;
+        /// <summary>
+        /// Summon event packs and pass (ProductKind.SummonPack / SummonPass): sold only while an event of this type runs for
+        /// the player (SummonEventSystem.ProductBlockReason); the pass unlocks that event's premium track.
+        /// </summary>
+        public SummonEventType? SummonEvent;
+        /// <summary>Purchases per reset day (0 = no daily limit).</summary>
+        public int DailyLimit;
     }
 
     [Serializable]
