@@ -13,6 +13,7 @@ Existing outputs are skipped, so it can run after each package and again at the 
 import argparse, os
 from PIL import Image, ImageDraw
 from rembg import remove, new_session
+from PIL import ImageDraw, ImageFilter, ImageChops
 
 ap = argparse.ArgumentParser()
 ap.add_argument("folder")
@@ -40,9 +41,26 @@ for f in sorted(os.listdir(folder)):
         print("asset", dst)
     elif not os.path.exists(dst):
         os.makedirs(dst_dir, exist_ok=True)
-        im = remove(Image.open(os.path.join(folder, f)).convert("RGBA"), session=session)
+        src = Image.open(os.path.join(folder, f)).convert("RGBA")
+        im = remove(src, session=session)
+        # rembg alone makes white/pale/glossy parts of an object see-through (e.g. white icons, highlights). The
+        # prompts ask for a plain white background, so the real background is the near-white area CONNECTED TO THE
+        # BORDER: flood-fill it from the edges; everything else is the object and stays opaque. rembg's alpha is only
+        # used inside that background area, to keep soft anti-aliased edges.
+        fill = src.convert("RGB")
+        w, h = fill.size
+        for xy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1), (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)):
+            if fill.getpixel(xy) != (255, 0, 255) and min(fill.getpixel(xy)) > 200:
+                ImageDraw.floodfill(fill, xy, (255, 0, 255), thresh=40)
+        px = fill.load(); m = Image.new("L", (w, h), 255); mp = m.load()
+        for y in range(h):
+            for x in range(w):
+                if px[x, y] == (255, 0, 255): mp[x, y] = 0
+        m = m.filter(ImageFilter.MaxFilter(3))
+        alpha = ImageChops.lighter(m, im.getchannel("A"))
         # Drop faint halo pixels left by the white background.
-        alpha = im.getchannel("A").point(lambda v: 0 if v < 24 else v)
+        alpha = alpha.point(lambda v: 0 if v < 24 else v)
+        im = src.copy()
         im.putalpha(alpha)
         box = im.getbbox()
         if box is None:

@@ -1,0 +1,15 @@
+{
+  "name": "pkg-requeue-1",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6601,
+    6602
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text",
+  "negative": "scenery, multiple objects, text, watermark, blurry, photo",
+  "subjects": {
+    "chest_mythic": "a big closed treasure chest in the same simple cartoon style as a wooden chest, purple wood with gold bands and a small glowing purple gem lock"
+  }
+}

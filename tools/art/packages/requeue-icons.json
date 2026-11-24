@@ -1,0 +1,15 @@
+{
+  "name": "pkg-requeue-icons",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6611,
+    6612
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon.json",
+  "suffix": ", game reward icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "reroll": "two thick curved arrows forming a circle, bright purple"
+  }
+}
