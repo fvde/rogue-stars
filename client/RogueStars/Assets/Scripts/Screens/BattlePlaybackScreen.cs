@@ -1289,7 +1289,7 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// The hero's kit HUD: a counter "Starfall 2/4" / "Stillness 1/3" / "Bank 60/100", a timer "Feast in 2" (the skill's
+        /// The hero's kit HUD: a counter "Starfall 2/4" / "Stillness 1/5" / "Bank 60/100", a timer "Feast in 2" (the skill's
         /// ability_every / ability_turns rule says it is a timer).
         /// </summary>
         public string KitCounterText(BattleLogEntry e)
@@ -1304,7 +1304,7 @@ namespace RogueStars.Client.Screens
                     if (t.Param.StartsWith("ability_every") || t.Param.StartsWith("ability_turns")) timer = true;
                     if (t.Param.StartsWith("rage_bank")) bank = true;
                 }
-            if (!timer && !bank && e.Stacks == 3 && sk != null && sk.Triggers.Exists(t => t.Effect == EffectKind.SpreadStatus)) still = true;
+            if (!timer && !bank && sk != null && sk.Triggers.Exists(t => t.Effect == EffectKind.SpreadStatus)) still = true;
             if (timer) return name + (e.Amount <= 1 ? " next turn" : " in " + e.Amount);
             if (bank) return "Bank " + e.Amount + "/" + e.Stacks;
             return (still ? "Stillness" : name) + " " + e.Amount + "/" + e.Stacks;

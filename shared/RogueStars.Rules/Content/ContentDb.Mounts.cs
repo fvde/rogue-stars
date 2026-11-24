@@ -195,22 +195,23 @@ namespace RogueStars.Rules.Content
 
             // ---- Star Lancer: Lance Sight + Impale ----------------------------------------------------------------------------
             d = NewMount("mount_star_lancer", "Star Lancer", "Crit hunter: worm crits charge the lance; Impale always crits and pierces the line.");
-            int[] charge = { 20, 25, 30, 35, 40 }, chargeCap = { 100, 125, 150, 175, 200 }, lance = { 120, 140, 160, 180, 200 };
+            // a slow heavy lance: every 3 rounds at every step (A3 / A5 keep the reload; tuned to ~20% / ~30% of the side's damage at 5★ / A5)
+            int[] charge = { 15, 20, 25, 30, 35 }, chargeCap = { 30, 40, 50, 60, 70 }, lance = { 120, 125, 130, 140, 140 }, lanceReload = { 3, 3, 3, 3, 3 };
             string[] sightText =
             {
-                "Each worm crit charges the lance: the next Impale deals +20% per crit (max +100%).",
-                "Each worm crit charges the lance: the next Impale deals +25% per crit (max +125%).",
-                "Each crit charges +30% (max +150%). Crits on enemies below 30% HP charge double.",
-                "Each crit charges +35% (max +175%). Crits on enemies below 30% HP charge double.",
-                "Each crit charges +40% (max +200%). An Impale kill reloads the Lancer at once.",
+                "Each worm crit charges the lance: the next Impale deals +15% per crit (max +30%).",
+                "Each worm crit charges the lance: the next Impale deals +20% per crit (max +40%).",
+                "Each crit charges +25% (max +50%). Crits on enemies below 30% HP charge double.",
+                "Each crit charges +30% (max +60%). Crits on enemies below 30% HP charge double.",
+                "Each crit charges +35% (max +70%). An Impale kill reloads the Lancer at once.",
             };
             string[] impaleText =
             {
                 "Every 3 rounds: lance the front enemy, 120% ATK. This hit always crits.",
-                "Every 3 rounds: lance the front enemy, 140% ATK. Always crits.",
-                "Every 3 rounds: 160% ATK, always crits, and pierces the enemy behind for half.",
-                "Every 2 rounds: 180% ATK, always crits, pierces the enemy behind for half.",
-                "Every 2 rounds: 200% ATK, always crits, pierces the whole line for half.",
+                "Every 3 rounds: lance the front enemy, 125% ATK. Always crits.",
+                "Every 3 rounds: 130% ATK, always crits, and pierces the enemy behind for half.",
+                "Every 3 rounds: 140% ATK, always crits, pierces the enemy behind for half.",
+                "Every 3 rounds: 140% ATK, always crits, pierces the whole line for half.",
             };
             for (int k = 0; k < 5; k++)
             {
@@ -220,9 +221,9 @@ namespace RogueStars.Rules.Content
                 };
                 if (k == 4) pt.Add(K(TriggerKind.OnKill, EffectKind.AdvanceTimer, 0, Self(), "reload", cooldown: 1));
                 MountStep(d, k, P, "Lance Sight", sightText[k], pt.ToArray());
-                var at = new List<SkillTrigger> { KRule("reload:" + reload[k]), K(V, EffectKind.Damage, lance[k], Front, "crit") };
-                if (k == 2 || k == 3) at.Add(K(V, EffectKind.Damage, lance[k] / 2, TargetKind.SecondEnemy, "crit"));
-                if (k == 4) at.Add(K(V, EffectKind.Damage, lance[k] / 2, TargetKind.AllOtherEnemies, "crit"));
+                var at = new List<SkillTrigger> { KRule("reload:" + lanceReload[k]), K(V, EffectKind.Damage, lance[k], Front, "crit") };
+                if (k == 2 || k == 3) at.Add(K(V, EffectKind.Damage, lance[k] / 2.0, TargetKind.SecondEnemy, "crit"));
+                if (k == 4) at.Add(K(V, EffectKind.Damage, lance[k] / 2.0, TargetKind.AllOtherEnemies, "crit"));
                 MountStep(d, k, A, "Impale", impaleText[k], at.ToArray());
             }
 
@@ -261,7 +262,7 @@ namespace RogueStars.Rules.Content
 
             // ---- Rift Racer (new): Slipstream + Rift Dash ---------------------------------------------------------------------
             d = NewMount("mount_rift_racer", "Rift Racer", "Tempo racer: the worm opens every battle, dashes for extra attacks, and kills speed up every clock.");
-            int[] slip = { 0, 30, 40, 50, 60 }, dash = { 60, 70, 80, 90, 100 }, dashes = { 1, 1, 1, 1, 2 };
+            int[] slip = { 0, 30, 40, 50, 60 }, dash = { 60, 70, 80, 90, 70 }, dashes = { 1, 1, 1, 1, 2 };
             string[] slipText =
             {
                 "Round 1: the worm acts before every enemy.",
@@ -276,7 +277,7 @@ namespace RogueStars.Rules.Content
                 "Every 3 rounds: the worm makes an extra attack at 70% damage.",
                 "Every 3 rounds: the worm makes an extra attack at 80%. It can combo.",
                 "Every 2 rounds: the worm makes an extra attack at 90%. It can combo.",
-                "Every 2 rounds: the worm makes two extra attacks at 100%. They can combo.",
+                "Every 2 rounds: the worm makes two extra attacks at 70%. They can combo.",
             };
             for (int k = 0; k < 5; k++)
             {
@@ -289,7 +290,7 @@ namespace RogueStars.Rules.Content
 
             // ---- Aegis Walker (new): Payback Coil + Payback Cannon -----------------------------------------------------------
             d = NewMount("mount_aegis_walker", "Aegis Walker", "Payback walker: banks the damage the worm takes, then fires it back.");
-            int[] coil = { 20, 25, 30, 35, 40 }, coilCap = { 300, 300, 400, 450, 500 }, cannon = { 60, 80, 100, 120, 140 };
+            int[] coil = { 20, 25, 30, 35, 40 }, coilCap = { 300, 300, 400, 450, 500 }, cannon = { 60, 80, 100, 100, 100 };
             string[] coilText =
             {
                 "Stores 20% of the damage the worm takes, shielded hits included (max 300% ATK).",
@@ -303,8 +304,8 @@ namespace RogueStars.Rules.Content
                 "Every 3 rounds: hit the last attacker for 60% ATK plus all stored damage. Empties the coil.",
                 "Every 3 rounds: last attacker, 80% ATK plus stored damage. Empties the coil.",
                 "Every 3 rounds: 100% ATK + stored damage on the last attacker, with your signatures' on-hit twice.",
-                "Every 2 rounds: 120% ATK + stored damage, signatures' on-hit twice.",
-                "Every 2 rounds: 140% ATK + stored damage on every enemy that hit the worm since the last shot.",
+                "Every 2 rounds: 100% ATK + stored damage, signatures' on-hit twice.",
+                "Every 2 rounds: 100% ATK on every enemy that hit the worm since the last shot, sharing the stored damage.",
             };
             for (int k = 0; k < 5; k++)
             {
@@ -313,7 +314,7 @@ namespace RogueStars.Rules.Content
                 if (k == 4) pt.Add(KRule("coil_window"));
                 MountStep(d, k, P, "Payback Coil", coilText[k], pt.ToArray());
                 var tgt = k == 4 ? TargetKind.Attackers : TargetKind.LastAttacker;
-                var at = new List<SkillTrigger> { KRule("reload:" + reload[k]), K(V, EffectKind.Damage, cannon[k], tgt, "coil") };
+                var at = new List<SkillTrigger> { KRule("reload:" + reload[k]), K(V, EffectKind.Damage, cannon[k], tgt, k == 4 ? "coil;coil_split" : "coil") };
                 if (k >= 2) at.Add(K(V, EffectKind.CarrySignatures, 0, tgt, stacks: 2));
                 MountStep(d, k, A, "Payback Cannon", cannonText[k], at.ToArray());
             }

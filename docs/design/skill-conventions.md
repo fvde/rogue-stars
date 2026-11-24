@@ -232,16 +232,17 @@ data), texts from `HeroDef.Kit` / `MountDef.Kit` (≤ 20 words, whole numbers, d
   (`KitMigration`); hero / mount ids, stars, awakening and levels are unchanged.
 - **Mount = vehicle on a reload (X-list R-M1/2/3, X6).** No stats: `AtkOf(mount)` = the worm's ATK × (1 + mount damage %); its
   "X% ATK" is X% of a full-strength hit (like a sidekick's). It never attacks or is attacked; on its turn the timer counts down and
-  at 0 it fires its `OnVolley` triggers (rounds 1, 1 + Reload, …; rule `reload:N`; `needs_attack`: held until the worm attacked).
+  at 0 it fires its `OnVolley` triggers (rounds 1, 1 + Reload, …; rule `reload:N`; `needs_attack`: held until the worm attacked). The reload is set before
+  the shot, so a kill during it can bring the next one sooner (Lance Sight A5, Slipstream, Patience).
   `BattleAction.Volley` marks a shot (Amount 1 = an extra shot: Short Circuit, Whistle; at most one per side per round).
   Rider link: its statuses are applied with the worm as source; its crits roll the worm's crit chance, deal the base crit damage
   and fire the worm's `OnCrit` triggers. `SkillTrigger.Rider` = a mount trigger that listens to its worm's events (status
   applications, crits, rage attacks, extra hits, fatal hits, damage taken, status damage); its `If` reads the worm.
 - **Hero abilities (X4, X9).** Rules on the worm: `ability_every:N` (round timer, ticks at the worm's turn even when skipped),
   `ability_turns:N` (its acting turns), `ability_shield_hits:N` (hits its shields absorb; `heals_count:P`: every P% max HP healed
-  counts one), `ability_stillness:N` (rounds without HP loss), `rage_bank:N` (rage above 100 banked; a full bank fires the rage
+  counts one), `ability_stillness:N` (enemy attacks on the worm, dodged or blocked ones too), `rage_bank:N` (rage above 100 banked; a full bank fires the rage
   attack twice, once per round). `OnAbility` triggers are the ability; `BattleAction.Ability` marks it, `BattleAction.KitCounter`
-  (Amount / Stacks = value / max) feeds the HUD ("Starfall 2/4", Stillness 1/3, the bank, the coil, the lance charge).
+  (Amount / Stacks = value / max) feeds the HUD ("Starfall 2/4", Stillness 1/5, the bank, the coil, the lance charge).
   `AdvanceTimer` (`ability`, `mount`, `all`, `reload`) moves a timer 1 round sooner, each timer at most once per round.
 - **New triggers.** `OnAbility`, `OnVolley`, `OnMountFire` (worm), `OnStatusLost` (X1: any stacks an enemy loses — consumed,
   Supernova, Freeze reset, cooled, expired; amount = stacks), `OnExtraHit` (X3: combo strike, counter, Echo, mount-made attack),
@@ -251,7 +252,7 @@ data), texts from `HeroDef.Kit` / `MountDef.Kit` (≤ 20 words, whole numbers, d
   %), `RiderAttack` (the worm attacks at Value %, `combo`, `echo`, `as_echo`; credited to the mount), `Whistle`, `SpreadStatus`
   (Mirror Palm: Value % of the largest status, `cap:N`, `dmg_per`, `dmg_cap`), `ChargeAllies`, in-battle `GainRunCoins` (Plunder;
   `BattleResult.RunCoins`, the battle's last kill still pays). Targets `SecondEnemy`, `LastAttacker`, `Attackers`, `FastestNonBoss`.
-- **Param tokens.** Damage `crit` (always crits), `oncrit` (fires the owner's `OnCrit`), `coil` (+ the stored coil), `wide_siphon`;
+- **Param tokens.** Damage `crit` (always crits), `oncrit` (fires the owner's `OnCrit`), `coil` (+ the stored coil), `coil_split` (the targets share it), `wide_siphon`;
   ApplyStatus `owned` (X10: a random status the side applies, never crowd control / Stagger), `boss_rage:N` (a boss loses rage
   instead); Heal `of_amount`, `per_unit`, `round_cap:N`, `siphon`; GainRage `round_cap:N`, `fill`, `bosses`, `debt` (rage below 0);
   Shield `wall:N`, `wall_all` (Ice Wall burst); RemoveStatus / ConsumeStatus `largest` (X2), `to_front`, `splash:N`; CheatDeath

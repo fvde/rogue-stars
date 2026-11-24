@@ -18,7 +18,8 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
   the unlock** (`hero@welcome`): it features the hero / mount of the occurrence running at the unlock and lasts until the
   end of the global occurrence that contains *unlock + 4 days* (mounts: 2 days) — so 4–10 days (mounts 2–5); then the
   player is in the global rotation from the start of the next occurrence. The unlocks also grant 10 tickets of the type
-  (the first 10× draw), next to the existing first-hero shards / first mount.
+  (the first 10× draw). There is **no starter hero** (heroes only come from the events; the tutorial step is "Pull in the
+  hero summon event"); the Mounts unlock still gives the first mount (a Scout Saucer copy).
 - **Task progress counts from the event start:** the settler joins the event (a fresh `SummonEventProgress` with the task
   counters as baselines) on the first command after it starts; counters only change through commands, so the baseline
   equals the counters at the start.
@@ -75,6 +76,9 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
   5 / 6 / 6 / 8 + featured shards ×40 on day 6 (**$9.99**, `summon_pass_hero`); mounts free 1 / 1 / 2, premium 4 / 5 / 7 +
   featured shards ×20 on day 3 (**$4.99**, `summon_pass_mount`). The premium track is bought for the current event only and
   is retroactive for its unlocked days.
+- **Event end:** unclaimed rewards do not lapse. When the next event of the type starts (on the player's first command in
+  it), every reached but unclaimed task target and every unclaimed pass day of the ended event (free, and premium when bought)
+  is mailed ("Hero Summon: unclaimed rewards", merged per reward, 30-day mail). Pull milestones are not mailed.
 - **Packs** (`ProductKind.SummonPack`, sold only while an event of the type runs, `ProductDef.DailyLimit`): heroes $2.99 (5
   tickets + 300 Diamonds, 3/day), $7.99 (14 + 800, 3/day), $19.99 (38 + 2 000, 2/day); mounts $1.99 (4 + 200), $5.99
   (12 + 600), $14.99 (32 + 1 500). Plus the **ad ticket**: one free ticket a day per type (`summon_ad_hero` /
@@ -120,7 +124,6 @@ Pulls per complete event — Casual F2P 28 hero / 13 mount, Active F2P 47 / 27, 
   `spotlight`.
 
 ## Open questions
-- Should unclaimed task / pass rewards of an ended event be mailed? (Now they lapse, like the reference.)
 - Featured copies are uniformly spread over heroes by the shared Luck; a "pick your featured" or a wish list could come later.
 - The whale maxes all eight heroes in ~4–5 months; if that is too fast, the premium pass / packs ticket amounts are the lever.
 - Hero / mount redesign in progress: the rotation lists today's ids; new ids need adding to `Rotation` (a test checks every

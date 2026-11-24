@@ -366,6 +366,60 @@ public class SummonEventTests
         Assert.Null(ShopSystem.PurchaseBlockReason(s, e.Content, e.Content.Product(def.PassProductId), next.StartMs));
     }
 
+    /// <summary>An ended event's unclaimed task and pass rewards are mailed when the player joins the next event (no lapse).</summary>
+    [Fact]
+    public void EventEnd_MailsTheUnclaimedTaskAndPassRewards()
+    {
+        var (e, s) = Unlocked(devReceipts: true);
+        var def = e.Content.SummonType(Mount)!;
+        var ev = SummonEventSystem.NextEvent(s, e.Content, Mount, TestHelpers.T0)!;
+        long day1 = ev.StartMs + H;
+        e.Settle(s, day1);
+        var line = def.Tasks.First(t => t.CounterKey == "run_enemies_defeated");
+        s.Count(line.CounterKey, line.Targets[1]);                                             // two targets reached ...
+        Ok(e, ref s, new SummonTaskClaim { EventType = Mount, LineId = line.Id, Index = 0 }, day1); // ... one claimed
+        Ok(e, ref s, new SummonPassClaim { EventType = Mount, Day = 1 }, day1);                   // free day 1 claimed
+        Ok(e, ref s, new PurchaseStart { ProductId = def.PassProductId }, day1);
+        Ok(e, ref s, new PurchaseComplete { ProductId = def.PassProductId, ReceiptId = "dev:pass" }, day1);
+        // (the event running at T0 ended on joining this one: its unclaimed free pass days are in the mailbox already)
+        long tickets = Bal(s, def.TicketCurrency) + s.Mail.Inbox.Where(MailSystem.HasUnclaimed).SelectMany(m => m.Rewards).Where(x => x.Id == def.TicketCurrency).Sum(x => x.Amount);
+        int inbox = s.Mail.Inbox.Count;
+
+        // The player comes back after the event: the first command joins the next event and mails what the last one owed.
+        var next = SummonEventSystem.NextEvent(s, e.Content, Mount, day1)!;
+        var r = Ok(e, ref s, new MailClaimAll(), next.StartMs + H);
+        Assert.Contains(r.Events, x => x.Type == "summon_event_mailed" && x.Args[1] == ev.Id);
+        Assert.Equal(next.Id, s.Summons.Events[Mount].EventId);
+        Assert.Equal(inbox + 1, s.Mail.Inbox.Count);
+        var mail = s.Mail.Inbox[^1];
+        Assert.Contains("Mount Summon", mail.Title);
+        Assert.True(mail.Claimed); // MailClaimAll claimed it in the same command
+        // the reached unclaimed target, free days 2–3 and premium days 1–3 (merged); the featured shards of the ended event
+        long expTickets = line.Reward.Amount + def.Pass.Skip(1).Sum(d => d.Free.Where(x => x.Id == def.TicketCurrency).Sum(x => x.Amount))
+            + def.Pass.Sum(d => d.Premium.Where(x => x.Id == def.TicketCurrency).Sum(x => x.Amount));
+        Assert.Equal(expTickets, mail.Rewards.Single(x => x.Id == def.TicketCurrency).Amount);
+        Assert.Equal(tickets + expTickets, Bal(s, def.TicketCurrency));
+        long shards = def.Pass.Sum(d => d.Premium.Where(x => x.Id != def.TicketCurrency).Sum(x => x.Amount));
+        Assert.Equal(shards, Bal(s, Currencies.MountShards(ev.FeaturedId)));
+
+        // The second event's free pass days unlocked and were never claimed: they are mailed when the third starts.
+        var third = SummonEventSystem.NextEvent(s, e.Content, Mount, next.StartMs + H)!;
+        var r3 = Ok(e, ref s, new MailRead { MailId = mail.Id }, third.StartMs + H);
+        Assert.Equal(third.Id, s.Summons.Events[Mount].EventId);
+        Assert.Contains(r3.Events, x => x.Type == "summon_event_mailed" && x.Args[1] == next.Id);
+        Assert.Equal(def.Pass.Sum(d => d.Free.Sum(x => x.Amount)), s.Mail.Inbox[^1].Rewards.Single().Amount);
+        // Everything claimed (and no task reached): no mail when the third ends.
+        long lastDay = third.StartMs + (def.Pass.Count - 1) * D + H;
+        Ok(e, ref s, new SummonPassClaimAll { EventType = Mount }, lastDay);
+        Assert.Empty(SummonEventSystem.Unclaimed(s, e.Content, def, s.Summons.Events[Mount]));
+        int count = s.Mail.Inbox.Count;
+        var fourth = SummonEventSystem.NextEvent(s, e.Content, Mount, lastDay)!;
+        var r4 = Ok(e, ref s, new MailClaimAll(), fourth.StartMs + H);
+        Assert.Equal(fourth.Id, s.Summons.Events[Mount].EventId);
+        Assert.DoesNotContain(r4.Events, x => x.Type == "summon_event_mailed");
+        Assert.Equal(count, s.Mail.Inbox.Count);
+    }
+
     [Fact]
     public void Packs_AreSoldDuringEvents_WithDailyLimits_AndTheAdTicketIsInstantWhileAdsAreDisabled()
     {

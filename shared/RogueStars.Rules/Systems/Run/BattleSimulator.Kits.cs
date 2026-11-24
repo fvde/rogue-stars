@@ -79,7 +79,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>An attack made outside the normal turn flow (Echo, Rift Dash, Echo Shot, Alpha Howl) is an extra hit.</summary>
         public int ExtraDepth;
         public int ExtraHitsTurn, PileTarget = -1, PileCount;
-        public bool HpLostRound, SkipNextTurn, FatalSaved, LastHitCrit;
+        public bool SkipNextTurn, FatalSaved, LastHitCrit;
         /// <summary>Mount charges: Star Lancer's lance (+% on the next shot), Aegis Walker's coil (stored damage).</summary>
         public double ShotCharge, Coil, ShotBasePct;
         public bool CoilUsed;
@@ -201,7 +201,9 @@ namespace RogueStars.Rules.Systems
             if (m.Rules.Reload <= 0) return;
             m.MountLeft--;
             if (m.MountLeft > 0) return;
-            m.MountLeft = Volley(m, false) ? m.Rules.Reload : 1; // a held shot (Echo Shot before the worm attacked) stays ready
+            // reload first, so a kill during the shot can bring the next one sooner (Lance Sight A5, Slipstream, Patience)
+            m.MountLeft = m.Rules.Reload;
+            if (!Volley(m, false)) m.MountLeft = 1; // a held shot (Echo Shot before the worm attacked) stays ready
         }
 
         /// <summary>The mount fires its active (OnVolley); false when it holds the shot (nothing to repeat yet).</summary>
@@ -285,20 +287,10 @@ namespace RogueStars.Rules.Systems
             if (e != null) { e.Stacks = (int)Math.Round(CoilCap(m)); e.SkillId = m.Rules.PassiveSkill; }
         }
 
-        /// <summary>Stillness: the end of a round without HP loss adds one (max 3); at the max Mirror Palm fires and it resets.</summary>
-        private void RoundEndKits()
+        /// <summary>Stillness: every enemy attack on the worm adds one, dodged or blocked too; at the max Mirror Palm fires and it resets.</summary>
+        private void StillnessHit(Fighter def)
         {
-            foreach (var w in F)
-            {
-                if (w.Role != CombatRole.Worm || !w.Alive || Over) continue;
-                int max = w.Rules.AbilityStillness;
-                if (max > 0 && !w.HpLostRound) AbilityCount(w, 1, max);
-            }
-        }
-
-        private void RoundStartKits()
-        {
-            foreach (var f in F) f.HpLostRound = false;
+            if (def.Role == CombatRole.Worm && def.Rules.AbilityStillness > 0 && !Over && def.Alive) AbilityCount(def, 1, def.Rules.AbilityStillness);
         }
 
         /// <summary>Patience, Slipstream, Lance Sight: a timer comes 1 round sooner (each timer at most once per round).</summary>

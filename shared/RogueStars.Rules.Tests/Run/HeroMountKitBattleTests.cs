@@ -25,6 +25,7 @@ public class HeroMountKitBattleTests
         P("probe_bigshield", new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 100 });
         c.AddSkill(new SkillDef { Id = "probe_sharp", Name = "Sharp", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.CritChance, 100) } });
         c.AddSkill(new SkillDef { Id = "probe_combo", Name = "Combo", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.ComboChance, 95) } });
+        c.AddSkill(new SkillDef { Id = "probe_dodge", Name = "Dodge", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Dodge, 50) } });
         c.AddSkill(new SkillDef { Id = "probe_fury", Name = "Fury", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.RageGain, 300) } });
         return c;
     }
@@ -168,7 +169,7 @@ public class HeroMountKitBattleTests
         Assert.Equal(new[] { 3, 6 }, r.Log.Where(e => e.Action == BattleAction.Ability).Select(e => e.Round));
         // the HUD's timer: turns left 3 (start), 2, 1, then 3 again after the knot
         Assert.Equal(new long[] { 3, 2, 1, 3 }, r.Log.Where(e => e.Action == BattleAction.KitCounter).Take(4).Select(e => e.Amount));
-        Assert.Equal(new long[] { 45, 45 }, r.Log.Where(e => e.Action == BattleAction.Buff && e.SkillId == "hero_noodle_ninja_ability_3").Take(2).Select(e => e.Amount));
+        Assert.Equal(new long[] { 40, 40 }, r.Log.Where(e => e.Action == BattleAction.Buff && e.SkillId == "hero_noodle_ninja_ability_3").Take(2).Select(e => e.Amount));
     }
 
     [Fact]
@@ -250,19 +251,30 @@ public class HeroMountKitBattleTests
     }
 
     [Fact]
-    public void MirrorPalm_AtThreeStillness_CopiesHalfTheLargestStatus_Capped()
+    public void MirrorPalm_AtFiveStillness_EveryEnemyAttackOnTheWormCounts_CopiesHalfTheLargestStatus_Capped()
     {
         var enemies = new[] { Unit("e1", 900000, 1), Unit("e2", 900000, 1), Unit("e3", 900000, 1) };
         var r = Fight(Hero("hero_glacier_monk", 1).Append("probe_rad5").Append("probe_bigshield").Append("probe_combo"), rounds: 3, enemies: enemies);
         int w = Worm(r);
-        Assert.Equal(new long[] { 1, 2, 3 }, r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w && e.Round > 0).Take(3).Select(e => e.Amount));
-        var palm = r.Log.Single(e => e.Action == BattleAction.Ability);
-        Assert.Equal(3, palm.Round);
+        Assert.Contains(r.Log, e => e.Round == 0 && e.Action == BattleAction.KitCounter && e.Actor == w && e.Amount == 0 && e.Stacks == 5); // HUD 0/5
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5, 0 }, r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w && e.Round > 0).Take(6).Select(e => e.Amount));
+        var palm = r.Log.First(e => e.Action == BattleAction.Ability);
+        Assert.Equal(2, palm.Round); // three attackers: three Stillness in round 1, the 5th attack in round 2
+        static int AttacksBefore(BattleResult b, BattleLogEntry until) => b.Log.TakeWhile(e => e != until).Count(e => e.Target == Worm(b)
+            && b.Fighters[e.Actor].Side == BattleSide.Enemy && e.Action is BattleAction.Basic or BattleAction.Rage or BattleAction.Combo or BattleAction.Counter);
+        Assert.Equal(5, AttacksBefore(r, palm));
         var front = r.Fighters.First(f => f.Id == "e1").Index;
         long rad = r.Log.TakeWhile(e => e != palm).Last(e => e.Action == BattleAction.StatusApplied && e.Target == front && e.Status == StatusId.Poison).Stacks;
-        var copies = r.Log.SkipWhile(e => e != palm).Where(e => e.Action == BattleAction.StatusApplied && e.SkillId == "hero_glacier_monk_ability").ToList();
+        var copies = r.Log.SkipWhile(e => e != palm).Skip(1).TakeWhile(e => e.Action != BattleAction.Ability).Where(e => e.Action == BattleAction.StatusApplied && e.SkillId == "hero_glacier_monk_ability").ToList();
         Assert.Equal(2, copies.Count);
         Assert.All(copies, e => Assert.Equal(Math.Min(20, rad / 2), e.Stacks));                       // half, max 20 (copied-stack cap)
+        // a lone attacker: Mirror Palm on its 5th and 10th attack, whether the hits land on HP, a shield or are dodged
+        var lone = Fight(Hero("hero_glacier_monk", 1).Append("probe_bigshield"), rounds: 10, enemies: new[] { Unit("e1", 900000, 1) });
+        Assert.Equal(new[] { 5, 10 }, lone.Log.Where(e => e.Action == BattleAction.Ability).Take(2).Select(p => AttacksBefore(lone, p)));
+        var dodgy = Fight(Hero("hero_glacier_monk", 1).Append("probe_dodge"), rounds: 8, enemies: new[] { Unit("e1", 900000, 1) });
+        var dpalm = dodgy.Log.First(e => e.Action == BattleAction.Ability);
+        Assert.Contains(dodgy.Log.TakeWhile(e => e != dpalm), e => e.Dodge && e.Target == Worm(dodgy));
+        Assert.Equal(5, AttacksBefore(dodgy, dpalm));
     }
 
     [Fact]
@@ -317,7 +329,7 @@ public class HeroMountKitBattleTests
         var save = r.Log.First(e => e.Action == BattleAction.CheatDeath);
         Assert.Equal("hero_star_knight_c10", save.SkillId);
         var star = r.Log.SkipWhile(e => e != save).First(e => e.Action == BattleAction.Skill && e.SkillId == "hero_star_knight_ability_3");
-        Assert.Equal(180, star.Amount); // 90% × 2
+        Assert.Equal(120, star.Amount); // 60% × 2
     }
 
     [Fact]
@@ -389,10 +401,19 @@ public class HeroMountKitBattleTests
         var r = Fight(Mount("mount_star_lancer", 1).Append("probe_sharp"), "mount_star_lancer", rounds: 5, enemies: new[] { Unit("e1", 900000, 1) });
         int m = MountIx(r);
         var charges = r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == m).Select(e => e.Amount).ToList();
-        Assert.Contains(20L, charges);
-        Assert.All(charges, x => Assert.InRange(x, 20, 100));
+        Assert.Contains(15L, charges);
+        Assert.All(charges, x => Assert.InRange(x, 15, 30)); // +15% per crit, max +30% at 1★
         var shots = r.Log.Where(e => e.Actor == m && e.Action == BattleAction.Skill).Select(e => e.Amount).ToList();
         Assert.True(shots[1] > shots[0]); // the round-4 Impale carries the charge of rounds 1–3
+    }
+
+    /// <summary>A kill during a shot can bring the next one sooner: the reload is set before the shot fires (A5 Lance Sight).</summary>
+    [Fact]
+    public void LanceSight_A5_AnImpaleKillReloadsTheLancerAtOnce()
+    {
+        var foes = new[] { Unit("w1", 150, 1, 1), Unit("tank", 900000, 1, 1) };
+        var r = Fight(Mount("mount_star_lancer", 5, 5), "mount_star_lancer", foes, rounds: 5);
+        Assert.Equal(new[] { 1, 2, 5 }, Volleys(r)); // round 1 kills w1: fires again in round 2, then every 3 rounds
     }
 
     [Fact]
@@ -455,6 +476,20 @@ public class HeroMountKitBattleTests
         Assert.Equal(4, shot.Round);
         Assert.Equal(60 + 300, shot.Amount);                    // 60% ATK + the full coil
         Assert.Equal(0, coil.Last().Amount);
+    }
+
+    [Fact]
+    public void PaybackCannon_A5_HitsEveryAttacker_WhoShareTheStoredDamage()
+    {
+        var foes = new[] { Unit("e1", 900000, 300, 200), Unit("e2", 900000, 300, 200) };
+        var r = Fight(Mount("mount_aegis_walker", 5, 5), "mount_aegis_walker", foes, rounds: 3);
+        int m = MountIx(r);
+        var volley = r.Log.Where(e => e.Action == BattleAction.Volley && e.Actor == m).ElementAt(1); // round 3 (reload 2)
+        long coil = r.Log.TakeWhile(e => e != volley).Last(e => e.Action == BattleAction.KitCounter && e.Actor == m).Amount;
+        Assert.True(coil > 0);
+        var shots = r.Log.SkipWhile(e => e != volley).Where(e => e.Actor == m && e.Action == BattleAction.Skill).Take(2).ToList();
+        Assert.Equal(2, shots.Select(e => e.Target).Distinct().Count());   // both attackers
+        Assert.All(shots, e => Assert.InRange(e.Amount, 100 + coil / 2 - 1, 100 + coil / 2 + 1)); // 100% ATK + half the coil each
     }
 
     [Fact]
