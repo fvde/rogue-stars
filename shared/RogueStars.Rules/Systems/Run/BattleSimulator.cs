@@ -401,7 +401,7 @@ namespace RogueStars.Rules.Systems
             {
                 var st = f.Statuses[i];
                 if (!T.Statuses.TryGetValue(st.Id, out var def) || def.DotAtkPct <= 0) continue;
-                double dmg = st.Power * st.Stacks * CombatMath.DamageReductionFactor(f.S(StatId.DamageReduction), T) * TakenMultiplier(f);
+                double dmg = st.Power * def.DotAtkPct / 100.0 * st.Stacks * CombatMath.DamageReductionFactor(f.S(StatId.DamageReduction), T) * TakenMultiplier(f);
                 Fighter src = st.Source >= 0 && st.Source < F.Count ? F[st.Source] : null;
                 DealDamage(src, f, dmg, def.IgnoresShield, BattleAction.StatusTick, false, false, st.Id, null);
                 if (!f.Alive || Over) return;
@@ -465,6 +465,7 @@ namespace RogueStars.Rules.Systems
             for (int i = f.Statuses.Count - 1; i >= 0; i--)
             {
                 var st = f.Statuses[i];
+                if (T.Statuses.TryGetValue(st.Id, out var sdef) && sdef.Permanent) continue; // Heat, Radiation, Bleed stay
                 st.Turns--;
                 if (st.Turns <= 0)
                 {
@@ -589,8 +590,21 @@ namespace RogueStars.Rules.Systems
         {
             double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + att.S(StatId.CritDamage), def.S(StatId.CritResist));
             return CombatMath.HitDamage(att.S(StatId.Atk), atkPct, bonusPct, def.S(StatId.Def), def.S(StatId.DamageReduction), trueDamage,
-                crit, critMult, CondMultiplier(att, def, kind), TakenMultiplier(def), T);
+                crit, critMult, CondMultiplier(att, def, kind), TakenMultiplier(def), T) * DealtMultiplier(att);
         }
+
+        /// <summary>Damage the fighter deals, from its statuses (Chill: −3% per stack, scaled by the chiller's ice damage).</summary>
+        private double DealtMultiplier(Fighter att)
+        {
+            double sum = 0;
+            foreach (var st in att.Statuses)
+                if (T.Statuses.TryGetValue(st.Id, out var sd) && sd.DamageDealtPctPerStack != 0)
+                    sum += sd.DamageDealtPctPerStack * st.Stacks * (AtkBased(sd) || st.Power <= 0 ? 1 : st.Power);
+            return Math.Max(0, 1 + sum / 100.0);
+        }
+
+        /// <summary>Statuses whose power is the applier's element-scaled ATK (DoTs, Supernova); others store an element multiplier.</summary>
+        private static bool AtkBased(StatusDef d) => d.DotAtkPct > 0 || d.BurstAtStacks > 0;
 
         private double CondMultiplier(Fighter att, Fighter def, AttackKind kind)
         {
@@ -625,7 +639,7 @@ namespace RogueStars.Rules.Systems
             double sum = 0;
             foreach (var st in def.Statuses)
                 if (T.Statuses.TryGetValue(st.Id, out var sd) && sd.DamageTakenPctPerStack != 0)
-                    sum += sd.DamageTakenPctPerStack * st.Stacks * (sd.DotAtkPct <= 0 && sd.HasElement && st.Power > 0 ? st.Power : 1);
+                    sum += sd.DamageTakenPctPerStack * st.Stacks * (!AtkBased(sd) && sd.HasElement && st.Power > 0 ? st.Power : 1);
             return Math.Max(0, 1 + sum / 100.0);
         }
 
@@ -696,6 +710,10 @@ namespace RogueStars.Rules.Systems
                 case EffectKind.GainRage:
                 case EffectKind.BuffStat:
                 case EffectKind.Summon:
+                case EffectKind.RemoveStatus:
+                case EffectKind.ConsumeStatus:
+                case EffectKind.Strike:
+                case EffectKind.AllyAction:
                     return true;
                 default:
                     return false;
@@ -731,7 +749,7 @@ namespace RogueStars.Rules.Systems
             finally { _depth--; }
         }
 
-        private List<Fighter> Targets(Fighter owner, TargetKind kind, Fighter ctx)
+        private List<Fighter> Targets(Fighter owner, TargetKind kind, Fighter ctx, int count = 1)
         {
             var list = new List<Fighter>();
             switch (kind)
@@ -770,6 +788,18 @@ namespace RogueStars.Rules.Systems
                 case TargetKind.AllAllies:
                     foreach (var o in F) if (o.Side == owner.Side && o.Alive) list.Add(o);
                     break;
+                case TargetKind.OtherEnemies:
+                {
+                    var opts = new List<Fighter>();
+                    foreach (var o in F) if (o.Side != owner.Side && o.Alive && o.Targetable && o != ctx) opts.Add(o);
+                    for (int n = Math.Max(1, count); n > 0 && opts.Count > 0; n--)
+                    {
+                        int k = R.Range(0, opts.Count);
+                        list.Add(opts[k]);
+                        opts.RemoveAt(k);
+                    }
+                    break;
+                }
             }
             return list;
         }
@@ -789,7 +819,7 @@ namespace RogueStars.Rules.Systems
 
         private void Execute(Fighter owner, SkillDef skill, SkillTrigger t, Fighter ctx)
         {
-            var targets = Targets(owner, t.Target, ctx);
+            var targets = Targets(owner, t.Target, ctx, t.Stacks);
             switch (t.Effect)
             {
                 case EffectKind.Damage:
@@ -851,7 +881,116 @@ namespace RogueStars.Rules.Systems
                 case EffectKind.Summon:
                     Summon(owner, skill, t);
                     break;
+                case EffectKind.RemoveStatus:
+                    foreach (var tg in targets) RemoveStacks(owner, tg, t.Status, t.Stacks, skill.Id);
+                    break;
+                case EffectKind.ConsumeStatus:
+                    foreach (var tg in targets) { if (Over || !owner.Alive) break; Consume(owner, skill, t, tg); }
+                    break;
+                case EffectKind.Strike:
+                {
+                    var tg = targets.Count > 0 ? targets[0] : null;
+                    if (tg == null || !tg.Targetable) tg = DefaultTarget(owner);
+                    if (tg == null) break;
+                    bool counter = t.Param == "counter";
+                    var e = Log(BattleAction.Buff, owner, owner, 0); // marks the extra strike as the skill's
+                    if (e != null) e.SkillId = skill.Id;
+                    Attack(owner, tg, counter ? AttackKind.Counter : AttackKind.Combo, counter ? 1 : 0);
+                    Fire(owner, counter ? TriggerKind.OnCounter : TriggerKind.OnCombo, tg);
+                    break;
+                }
+                case EffectKind.AllyAction:
+                {
+                    var aliens = new List<Fighter>();
+                    foreach (var o in F) if (o.Side == owner.Side && o.Alive && o.Role == CombatRole.Alien) aliens.Add(o);
+                    if (aliens.Count == 0) break;
+                    int start = Round % aliens.Count;
+                    for (int n = 0; n < Math.Min(Math.Max(1, t.Stacks), aliens.Count); n++)
+                    {
+                        if (Over || !owner.Alive) break;
+                        var a = aliens[(start + n) % aliens.Count];
+                        var tg = DefaultTarget(a);
+                        if (tg == null || !a.Alive) continue;
+                        var e = Log(BattleAction.Buff, owner, a, 0); // the extra action, credited to the skill
+                        if (e != null) e.SkillId = skill.Id;
+                        Attack(a, tg, AttackKind.Basic, 0);
+                    }
+                    break;
+                }
             }
+        }
+
+        /// <summary>Removes up to <paramref name="stacks"/> (0 = all) stacks of a status (cooling, cleansing). Returns the stacks removed.</summary>
+        private int RemoveStacks(Fighter src, Fighter tg, StatusId id, int stacks, string skillId)
+        {
+            var st = tg.Status(id);
+            if (st == null || !tg.Alive) return 0;
+            int n = stacks <= 0 ? st.Stacks : Math.Min(stacks, st.Stacks);
+            st.Stacks -= n;
+            if (st.Stacks <= 0) tg.Statuses.Remove(st);
+            var e = Log(BattleAction.StatusRemoved, src, tg, n);
+            if (e != null) { e.Status = id; e.Stacks = Math.Max(0, st.Stacks); e.SkillId = skillId; }
+            return n;
+        }
+
+        /// <summary>
+        /// Consumes every stack of a status on the target: Value % ATK skill damage per stack (element bonus of the skill's family),
+        /// and Param "heal:N" heals the owner's worm for N% of the damage dealt (Bleed's lifesteal).
+        /// </summary>
+        private void Consume(Fighter owner, SkillDef skill, SkillTrigger t, Fighter tg)
+        {
+            if (!tg.Alive || tg.Side == owner.Side) return;
+            int n = RemoveStacks(owner, tg, t.Status, 0, skill.Id);
+            if (n <= 0) return;
+            var el = ElementStat(skill.Family);
+            bool crit = R.Chance(CombatMath.CritProbability(owner.S(StatId.CritChance), T));
+            double dmg = ComputeDamage(owner, tg, t.Value * n, el == StatId.Atk ? 0 : owner.S(el), crit, AttackKind.Skill, false);
+            double dealt = DealDamage(owner, tg, dmg, false, BattleAction.Skill, crit, false, StatusId.None, skill.Id);
+            var worm = owner.Targetable ? owner : FirstWorm(owner.Side);
+            double healPct = ConsumeHealPct(t);
+            if (healPct > 0 && dealt > 0 && worm != null && worm.Alive) Heal(owner, worm, dealt * healPct / 100.0, BattleAction.Heal, skill.Id, false);
+        }
+
+        /// <summary>The "heal:N" part of a consume trigger's Param (0 when absent).</summary>
+        internal static double ConsumeHealPct(SkillTrigger t)
+        {
+            double v = 0;
+            if (t.Param != null && t.Param.StartsWith("heal:", StringComparison.Ordinal))
+                double.TryParse(t.Param.Substring(5), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v);
+            return v;
+        }
+
+        /// <summary>
+        /// Supernova (Heat at its threshold): the fighter explodes. Every targetable fighter of its side (itself included) takes
+        /// BurstAtkPct % of the heater's element-scaled ATK × (1 + heater's SupernovaDamage %), DR and damage-taken statuses apply;
+        /// the heater's side's worm takes BurstRecoilPct % of its max HP × (1 − SupernovaGuard %); the Heat is gone. The heater's
+        /// OnSupernova triggers fire last.
+        /// </summary>
+        private void Supernova(Fighter x, StatusInst st, StatusDef def)
+        {
+            x.Statuses.Remove(st);
+            Fighter heater = st.Source >= 0 && st.Source < F.Count ? F[st.Source] : null;
+            var mark = Log(BattleAction.Supernova, x, x, 0);
+            if (mark != null) { mark.Status = StatusId.Heat; mark.Stacks = st.Stacks; }
+            double dmg = st.Power * def.BurstAtkPct / 100.0 * (1 + (heater != null ? Math.Max(0, heater.S(StatId.SupernovaDamage)) : 0) / 100.0);
+            var hit = new List<Fighter>();
+            foreach (var o in F) if (o.Side == x.Side && o.Alive && o.Targetable) hit.Add(o);
+            foreach (var o in hit)
+            {
+                if (Over) return;
+                double d = dmg * CombatMath.DamageReductionFactor(o.S(StatId.DamageReduction), T) * TakenMultiplier(o);
+                DealDamage(heater, o, d, false, BattleAction.Supernova, false, false, StatusId.Heat, null);
+            }
+            if (Over) return;
+            var side = heater != null ? heater.Side : (x.Side == BattleSide.Player ? BattleSide.Enemy : BattleSide.Player);
+            var worm = FirstWorm(side);
+            if (worm != null && worm.Alive && worm.Side != x.Side)
+            {
+                double guard = CombatMath.Clamp(worm.S(StatId.SupernovaGuard), 0, 100) / 100.0;
+                double recoil = worm.MaxHp * def.BurstRecoilPct / 100.0 * (1 - guard);
+                if (recoil > 0) DealDamage(x, worm, recoil, false, BattleAction.Supernova, false, false, StatusId.Heat, null);
+            }
+            if (!Over && heater != null && heater.Alive) Fire(heater, TriggerKind.OnSupernova, x);
         }
 
         private void ApplyStatus(Fighter src, Fighter tg, StatusId id, int stacks, int duration, string skillId)
@@ -868,10 +1007,10 @@ namespace RogueStars.Rules.Systems
             }
             int dur = duration > 0 ? duration : def.DefaultDuration;
             double power = 0;
-            if (def.DotAtkPct > 0)
+            if (AtkBased(def))
             {
                 double elem = def.HasElement ? src.S(def.ElementStat) : 0;
-                power = src.S(StatId.Atk) * def.DotAtkPct / 100.0 * (1 + elem / 100.0);
+                power = src.S(StatId.Atk) * (1 + elem / 100.0);
             }
             // element statuses without a DoT (Shock, Freeze): the applier's element damage amplifies their damage-taken bonus
             // (Lightning / Ice damage did nothing for a fighter that only shocks or freezes)
@@ -892,6 +1031,8 @@ namespace RogueStars.Rules.Systems
             if (def.ApplyCooldownRounds > 0) tg.StatusCd[(int)id] = Round + def.ApplyCooldownRounds;
             var e = Log(BattleAction.StatusApplied, src, tg, st.Stacks);
             if (e != null) { e.Status = id; e.Stacks = st.Stacks; e.SkillId = skillId; }
+            if (def.Cools != StatusId.None) RemoveStacks(src, tg, def.Cools, stacks, skillId); // Chill cools Heat
+            if (def.BurstAtStacks > 0 && st.Stacks >= def.BurstAtStacks && tg.Statuses.Contains(st)) Supernova(tg, st, def);
             Fire(src, TriggerKind.OnStatusApplied, tg, id);
         }
 

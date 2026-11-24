@@ -202,7 +202,7 @@ namespace RogueStars.Client.Screens
                 var tags = Ui.ChipRow(b, 46, 8);
                 Ui.Chip(tags, RarityName(Content, p.Rarity).ToUpperInvariant(), rc, Theme.TextOn(rc), 22, 44, null, "Rarity");
                 Ui.Chip(tags, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · " + def.Style.ToString().ToUpperInvariant() : ""), null, Theme.Text, 22, 44);
-                Ui.Chip(tags, Fmt.Words(def.Family.ToString()).ToUpperInvariant(), null, Theme.TextDim, 22, 44);
+                Ui.Chip(tags, SkillText.FamilyName(def.Family).ToUpperInvariant(), null, Theme.TextDim, 22, 44);
                 if (slot.HasValue) Ui.Chip(tags, "ON " + GearGuide.SlotName(slot.Value).ToUpperInvariant(), Theme.Good, Theme.OnAccent, 22, 44, null, "EquippedChip");
                 if (p.Awaken > 0) Note(b, "Awakened (" + def.Name + ")");
 

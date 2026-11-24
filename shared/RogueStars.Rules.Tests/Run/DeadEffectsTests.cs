@@ -23,7 +23,7 @@ public class DeadEffectsTests
     private static readonly HashSet<EffectKind> BattleEffects = new()
     {
         EffectKind.Damage, EffectKind.TrueDamage, EffectKind.ApplyStatus, EffectKind.Heal, EffectKind.Shield, EffectKind.GainRage,
-        EffectKind.BuffStat, EffectKind.Summon,
+        EffectKind.BuffStat, EffectKind.Summon, EffectKind.RemoveStatus, EffectKind.ConsumeStatus, EffectKind.Strike, EffectKind.AllyAction,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>

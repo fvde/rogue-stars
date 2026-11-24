@@ -610,7 +610,7 @@ namespace RogueStars.Client.Screens
                 StaminaModal.Show(this, App);
                 return;
             }
-            Run(new RunStart { PortalId = portal.Id, LevelId = level.Id, Mode = mode }, r => { if (r.Ok) App.Router.Push(new RunScreen()); });
+            SignaturePick.StartRun(App, new RunStart { PortalId = portal.Id, LevelId = level.Id, Mode = mode }, r => { if (r.Ok) App.Router.Push(new RunScreen()); });
         }
     }
 

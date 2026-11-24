@@ -88,6 +88,26 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void TheBossGate_ShowsTheRunsBoss_WithItsBattleSprite_Large()
+        {
+            var fake = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            var c = RogueStars.Rules.Content.ContentDb.Default;
+            string bossId = null;
+            foreach (var kv in c.RunBosses) { bossId = kv.Key; break; }
+            string enemy = c.RunBosses[bossId].EnemyId;
+            ArtCatalog.Loader = p => p == ArtCatalog.EnemyFolder + "/" + enemy || p == "Art/Slice/Markers/boss" ? fake : null;
+            IsoArt.ClearCache();
+            try
+            {
+                Assert.That(IsoArt.BossMarker(c, bossId), Is.SameAs(fake), "the boss's own (battle) sprite");
+                Assert.That(IsoArt.Marker("boss"), Is.Not.SameAs(fake), "no generic slice boss marker");
+                Assert.That(IsoArt.MarkerHeight("boss") * 1.25f / IsoArt.MarkerHeight("enemy"), Is.InRange(2f, 2.6f), "2–2.5× a normal marker on its gate");
+                Assert.That(IsoArt.BossMarkerWidth, Is.GreaterThan(Iso.TileW * 1.5f));
+            }
+            finally { ArtCatalog.Loader = null; IsoArt.ClearCache(); }
+        }
+
+        [Test]
         public void SliceArt_ReplacesThePlaceholders_ThroughArtCatalog()
         {
             var fake = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));

@@ -6,12 +6,20 @@ namespace RogueStars.Rules.Core
     public enum Rarity { Common = 0, Rare = 1, Epic = 2, Legendary = 3, Mythic = 4 }
 
     /// <summary>Build archetypes. Loose coupling: parts, heroes and aliens boost families without locking others out.</summary>
+    /// <remarks>
+    /// <c>Poison</c> is the internal id of the Radiation synergy (renamed player-facing in the signatures pass; ids are kept so
+    /// saves and content keep working). Display names: <see cref="SkillText.FamilyName"/>.
+    /// </remarks>
     public enum SkillFamily { None, Fire, Ice, Lightning, Poison, Bleed, AlienSynergy, Counter, Combo, Crit }
 
     /// <summary>Where a skill comes from. Same format for all sources.</summary>
     public enum SkillSource { Run, Laboratory, Hero, Mount, Alien, Building, Part }
 
-    public enum StatusId { None, Burn, Freeze, Poison, Bleed, Stun, Shock, Charm }
+    /// <summary>
+    /// Battle statuses. <c>Burn</c> is legacy (Heat replaced it as Fire's status; the value stays so old saved battle logs load and
+    /// have no content), <c>Poison</c> is shown as "Radiation" (SkillText.StatusName). New values are appended (saves store ints).
+    /// </summary>
+    public enum StatusId { None, Burn, Freeze, Poison, Bleed, Stun, Shock, Charm, Heat, Chill }
 
     public enum TriggerKind
     {
@@ -21,6 +29,8 @@ namespace RogueStars.Rules.Core
         OnDamaged, OnKill, OnLowHp, OnRageAttack, OnStatusApplied,
         OnRunStart, OnRoll, OnTileLand, OnTilePass, OnLevelUp, OnBossAwaken,
         OnBattleWon,
+        /// <summary>A Heat-stacked fighter the owner heated went Supernova (context = the exploding fighter).</summary>
+        OnSupernova,
     }
 
     public enum EffectKind
@@ -39,9 +49,14 @@ namespace RogueStars.Rules.Core
         SlowAwakening,     // Value = meter points removed
         Summon,            // enemy skills only: Param = enemy def id (bosses calling their guard)
         SkipNegativeEvent, // Value = number of negative event outcomes skipped this run (city boon buildings)
+        RemoveStatus,      // Status, Stacks (0 = all): remove stacks from the target (cooling removes Heat)
+        ConsumeStatus,     // Status: remove all its stacks from the target; Value = % ATK damage per stack; Param "heal:N" heals N% of it
+        Strike,            // the owner attacks the context target again (Param "counter" = a counterattack, else a combo strike)
+        AllyAction,        // Stacks = number of the owner's aliens that take an extra action (attack)
     }
 
-    public enum TargetKind { Self, Enemy, AllEnemies, RandomEnemy, LowestHpEnemy, Worm, AllAllies }
+    /// <summary>OtherEnemies: up to Stacks random enemies other than the context target (Arc's jumps).</summary>
+    public enum TargetKind { Self, Enemy, AllEnemies, RandomEnemy, LowestHpEnemy, Worm, AllAllies, OtherEnemies }
 
     [Serializable]
     public sealed class SkillTrigger
@@ -82,5 +97,10 @@ namespace RogueStars.Rules.Core
         public List<string> Requires = new List<string>();
         /// <summary>If false the skill never appears in the run draft pool (e.g. hero traits).</summary>
         public bool Draftable = true;
+        /// <summary>
+        /// Signature skill (one per synergy): never drafted, bought or levelled by drafts; the run starts with one (picked from
+        /// 3) and it awakens at 3 / 6 owned skills of its synergy (SignatureSystem).
+        /// </summary>
+        public bool Signature;
     }
 }

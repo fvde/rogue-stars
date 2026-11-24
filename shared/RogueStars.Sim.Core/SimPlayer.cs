@@ -108,6 +108,9 @@ namespace RogueStars.Sim
                 foreach (var kv in S.Onboarding.Unlocked)
                     if (!Unlocks.ContainsKey(kv.Key))
                         Unlocks[kv.Key] = ((int)Requirements.AccountAgeDays(S, C, kv.Value) + 1, S.Counter(Requirements.MainLevelCounter));
+            foreach (var kv in S.Lab.Entries) // synergy packages researched (signatures pass): recorded like feature unlocks
+                if (kv.Value.Level > 0 && !Unlocks.ContainsKey(kv.Key) && C.LabNode(kv.Key)?.Kind == LabNodeKind.Package)
+                    Unlocks[kv.Key] = (DayIndex + 1, S.Counter(Requirements.MainLevelCounter));
             for (int i = 0; i < Tracked.Length; i++)
             {
                 long d = S.Wallet.Get(Tracked[i]) - _before[i];
@@ -357,6 +360,10 @@ namespace RogueStars.Sim
         /// <summary>Skills and perks the run added to the build: every new skill or skill level, every stat perk bought.</summary>
         public int BuildGains => SkillsGained + SkillLevels + ShopPerks;
         public RunMode Mode;
+        /// <summary>The run's signature (signatures pass), battle damage dealt / taken over the run, battle rounds, Supernovas.</summary>
+        public string Signature;
+        public long DamageDealt, DamageTaken;
+        public int BattleRounds, Supernovas;
         public bool Won, BossReached;
         public long PeakCoins;
         public double Minutes;

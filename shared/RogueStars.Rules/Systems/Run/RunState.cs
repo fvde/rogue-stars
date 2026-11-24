@@ -48,6 +48,8 @@ namespace RogueStars.Rules.Systems
         public ProgressArchive MainArchive = new ProgressArchive();
         public ProgressArchive DarkArchive = new ProgressArchive();
         public long RunsStarted;
+        /// <summary>Seed of the run-start signature offers (set once for a new player from its seed; 0 for older saves).</summary>
+        public ulong SignatureSeed;
         /// <summary>Daily Biomass surge: reset-day of the counter and won portal runs that used the bonus that day.</summary>
         public long BiomassBonusDay = -1;
         public int BiomassBonusRuns;
@@ -192,6 +194,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>The open draft is a mythic choice (from a miniboss), not a level-up draft.</summary>
         public bool MythicDraft;
         public List<string> Skills = new List<string>();
+        /// <summary>The run's signature skill (also in Skills; null for runs saved before the signatures pass).</summary>
+        public string SignatureId;
         /// <summary>Level of an owned run skill when above 1 (a skill drafted / bought again levels up, RunTuning.MaxSkillLevel).</summary>
         public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
         /// <summary>Every skill, skill level and stat perk gained in this run, in order (result screen, HUD build size).</summary>

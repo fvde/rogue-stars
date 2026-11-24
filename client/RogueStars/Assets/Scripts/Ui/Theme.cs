@@ -165,7 +165,6 @@ namespace RogueStars.Client.UiKit
                 case SkillFamily.AlienSynergy: return Hex(0xC77DFF);
                 case SkillFamily.Counter: return Hex(0x4FD3C4);
                 case SkillFamily.Combo: return Hex(0xFF9FD2);
-                case SkillFamily.Crit: return Hex(0xB58CFF);
                 default: return Hex(0xB8AEA6);
             }
         }

@@ -27,7 +27,7 @@ public class SkillTextTests(ITestOutputHelper output)
         s.Stats.Add(new StatMod(StatId.Atk, 0, 12));
         s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.ApplyStatus, Status = StatusId.Bleed, Stacks = 2, Chance = 100 });
         s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.Damage, Value = 30, Chance = 25, Target = TargetKind.AllEnemies });
-        s.Triggers.Add(new SkillTrigger { When = TriggerKind.Passive, Effect = EffectKind.BuffStat, Param = "cond:vs_status:Burn", Value = 15 });
-        Assert.Equal("+8% crit chance. +12% ATK. On rage attack: apply Bleed ×2 to the enemy. On hit: 25% chance to deal 30% ATK damage to all enemies. +15% damage against enemies with Burn.", SkillText.Full(s));
+        s.Triggers.Add(new SkillTrigger { When = TriggerKind.Passive, Effect = EffectKind.BuffStat, Param = "cond:vs_status:Heat", Value = 15 });
+        Assert.Equal("+8% crit chance. +12% ATK. On rage attack: apply Bleed ×2 to the enemy. On hit: 25% chance to deal 30% ATK damage to all enemies. +15% damage against enemies with Heat.", SkillText.Full(s));
     }
 }

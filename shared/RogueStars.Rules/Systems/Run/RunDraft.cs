@@ -43,7 +43,7 @@ namespace RogueStars.Rules.Systems
         {
             if (family == SkillFamily.None) return 0;
             int n = 0;
-            foreach (var id in run.Skills) { var s = content.Skill(id); if (s != null && s.Family == family) n++; }
+            foreach (var id in run.Skills) { var s = content.Skill(id); if (s != null && s.Family == family && !s.Signature) n++; } // the signature itself does not count
             return n;
         }
 
@@ -57,7 +57,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>True if the owned skill can be offered again as a level-up: below the max level and not the lower tier of an upgrade chain (its next tier is the upgrade).</summary>
         public static bool CanLevelUp(ContentDb content, ActiveRun run, SkillDef s)
         {
-            if (s == null || !run.Skills.Contains(s.Id)) return false;
+            if (s == null || !run.Skills.Contains(s.Id) || s.Signature) return false; // a signature levels by awakening only
             return Level(run, s.Id) < content.RunTuning.MaxSkillLevelOf(s.Rarity) && !HasUpgrade(content, s.Id) && SkillLeveling.Grows(content, s);
         }
 
@@ -79,7 +79,23 @@ namespace RogueStars.Rules.Systems
             new System.Runtime.CompilerServices.ConditionalWeakTable<ContentDb, UpgradedSet>();
 
         private static bool InPool(ActiveRun run, SkillDef s) =>
-            s != null && s.Draftable && (s.Source == SkillSource.Run || run.Loadout.DraftPoolSkillIds.Contains(s.Id));
+            s != null && s.Draftable && !s.Signature
+            && (s.Source == SkillSource.Run ? FamilyUnlocked(run, s.Family) : run.Loadout.DraftPoolSkillIds.Contains(s.Id));
+
+        /// <summary>
+        /// The run pool's synergy lock (signatures pass): run skills of a synergy are in the pool only when it is a starter synergy or
+        /// its Laboratory package is researched (CombatLoadout.UnlockedFamilies; generic skills always; an old run without the list: all).
+        /// Laboratory skills are gated by their research instead.
+        /// </summary>
+        public static bool FamilyUnlocked(ActiveRun run, SkillFamily family) =>
+            family == SkillFamily.None || run.Loadout.UnlockedFamilies.Count == 0 || run.Loadout.UnlockedFamilies.Contains(family);
+
+        /// <summary>The synergy of the run's signature (None without one).</summary>
+        public static SkillFamily SignatureFamily(ContentDb content, ActiveRun run)
+        {
+            var s = run.SignatureId != null ? content.Skill(run.SignatureId) : null;
+            return s != null && run.Skills.Contains(s.Id) ? s.Family : SkillFamily.None;
+        }
 
         /// <summary>
         /// True if the skill may currently be offered to this run: a new skill whose chain, prerequisites and family gate are
@@ -87,7 +103,7 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         public static bool IsEligible(ContentDb content, ActiveRun run, SkillDef s)
         {
-            if (!InPool(run, s)) return false;
+            if (!InPool(run, s) || s.Rarity == Rarity.Mythic) return false; // Mythics come only from miniboss choices (GenerateMythic)
             if (run.Skills.Contains(s.Id)) return CanLevelUp(content, run, s);
             if (run.ReplacedSkills.Contains(s.Id)) return false;
             if (s.UpgradesFrom != null && !run.Skills.Contains(s.UpgradesFrom)) return false;
@@ -109,8 +125,12 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Offer weight of a skill: its rarity weight, lower for a level-up of an owned skill.</summary>
-        public static double OfferWeight(ContentDb content, ActiveRun run, SkillDef s, double rarityWeight) =>
-            run.Skills.Contains(s.Id) ? rarityWeight * content.RunTuning.LevelUpOfferWeight : rarityWeight;
+        public static double OfferWeight(ContentDb content, ActiveRun run, SkillDef s, double rarityWeight)
+        {
+            double w = run.Skills.Contains(s.Id) ? rarityWeight * content.RunTuning.LevelUpOfferWeight : rarityWeight;
+            var sig = SignatureFamily(content, run);
+            return sig != SkillFamily.None && s.Family == sig ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around the signature
+        }
 
         /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured). Empty if no mythic is left.</summary>
         public static List<string> GenerateMythic(ContentDb content, ActiveRun run, Rng rng)
@@ -175,7 +195,7 @@ namespace RogueStars.Rules.Systems
                 {
                     if (offer.Contains(s.Id)) continue;
                     int owned = FamilyCount(content, run, s.Family);
-                    if (owned <= 0) continue;
+                    if (owned <= 0 && (s.Family == SkillFamily.None || s.Family != SignatureFamily(content, run))) continue;
                     cands.Add(s);
                     w.Add(OfferWeight(content, run, s, RarityWeight(content, s.Rarity)) * (1 + t.SynergyWeightPerOwned * owned));
                 }

@@ -36,6 +36,7 @@ namespace RogueStars.Rules.Systems
 
             e.RegisterNewPlayer(ctx =>
             {
+                ctx.State.Run.SignatureSeed = ctx.Rng.Fork("signature").NextULong(); // a fork: the player stream is not consumed
                 foreach (var cur in new[] { Currencies.BurrowKeys }) // stamina: Progression's starting wallet
                 {
                     var rule = ctx.Content.Regen(cur);
@@ -166,12 +167,14 @@ namespace RogueStars.Rules.Systems
                 Rng = ctx.Rng.Fork("run:" + s.Run.RunsStarted + ":" + level.Id),
                 Loadout = ctx.Engine.BuildLoadout(s, ctx.NowMs),
             };
+            var signatures = SignatureOffer(s, c, run.Loadout); // before RunsStarted moves on: the offer the client showed
             s.Run.RunsStarted++;
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
             SetupLevel(c, run, level);
             run.Coins = StartCoins(c, level); // enough for a purchase at the first shop
             s.Run.Active = run;
+            GrantSignature(ctx, run, cmd.SignatureId, signatures);
             RefreshMaxHp(c, run);
 
             RunTriggers(ctx, run, TriggerKind.OnRunStart, null);

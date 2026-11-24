@@ -55,7 +55,7 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        private static string Status(StatusId s) => s == StatusId.None ? "Status" : s.ToString();
+        private static string Status(StatusId s) => s == StatusId.None ? "Status" : SkillText.StatusName(s);
 
         /// <summary>Every skill firing of the battle, in log order.</summary>
         public static List<SkillFire> Fires(BattleResult battle, ContentDb c)

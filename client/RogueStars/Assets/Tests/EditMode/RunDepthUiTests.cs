@@ -101,8 +101,8 @@ namespace RogueStars.Client.Tests
             var screen = Open();
             var chip = FindNamed(screen.Root, "SkillCount");
             Assert.That(chip, Is.Not.Null);
-            Assert.That(chip.GetComponent<Text>().text, Is.EqualTo("2"), "the skills book's badge");
-            Assert.That(screen.HudText, Does.Contain("SKILLS 2"));
+            Assert.That(chip.GetComponent<Text>().text, Is.EqualTo("3"), "the skills book's badge: the signature + 2");
+            Assert.That(screen.HudText, Does.Contain("SKILLS 3"));
         }
 
         [Test]

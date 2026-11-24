@@ -32,6 +32,17 @@ public static class Unlocks
             }
             sb.AppendLine();
         }
+        foreach (var p in content.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).OrderBy(d => d.Tier))
+        {
+            sb.Append("| Lab: ").Append(p.Name).Append(" | research |");
+            foreach (var g in groups)
+            {
+                var hits = g.Where(r => r.Unlocks.ContainsKey(p.Id)).Select(r => r.Unlocks[p.Id]).ToList();
+                if (hits.Count * 2 <= g.Count()) { sb.Append(" – |"); continue; }
+                sb.Append(" D").Append(Output.F(Output.Median(hits.Select(h => (double)h.day)))).Append(" L").Append(Output.F(Output.Median(hits.Select(h => (double)h.level)))).Append(" |");
+            }
+            sb.AppendLine();
+        }
         sb.AppendLine();
         sb.AppendLine("Main level at the end of each day (median):");
         sb.AppendLine();

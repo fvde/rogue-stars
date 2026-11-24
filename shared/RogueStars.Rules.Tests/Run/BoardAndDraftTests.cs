@@ -232,10 +232,21 @@ public class DraftTests
         two.SkillLevels["fire_ember"] = 3;
         Assert.False(RunDraft.IsEligible(c, two, c.Skill("fire_ember")));           // Lv 3/3
 
-        var four = Run("fire_ember", "fire_kindle", "fire_flare", "ice_shard");
-        Assert.False(RunDraft.IsEligible(c, four, c.Skill("fire_phoenix")));        // requires fire_inferno + family 4
-        four.Skills.Add("fire_inferno");
-        Assert.True(RunDraft.IsEligible(c, four, c.Skill("fire_phoenix")));
+        // Mythics are never in the normal draft: one ungated pool for miniboss choices
+        var four = Run("fire_ember", "fire_kindle", "fire_flare", "fire_inferno");
+        Assert.False(RunDraft.IsEligible(c, four, c.Skill("fire_phoenix")));
+        Assert.True(RunDraft.IsMythicEligible(c, empty, c.Skill("fire_phoenix")));
+
+        // the synergy lock: a package synergy's run skills only once researched (UnlockedFamilies; empty = an old run: all)
+        var locked = Run();
+        locked.Loadout.UnlockedFamilies.AddRange(c.RunTuning.StarterSynergies);
+        Assert.False(RunDraft.IsEligible(c, locked, c.Skill("ice_shard")));
+        Assert.False(RunDraft.IsMythicEligible(c, locked, c.Skill("ice_absolute_zero")));
+        Assert.True(RunDraft.IsEligible(c, locked, c.Skill("bleed_serrated")));
+        Assert.True(RunDraft.IsEligible(c, locked, c.Skill("crit_keen")));        // generic (the former Crit picks)
+        locked.Loadout.UnlockedFamilies.Add(SkillFamily.Ice);
+        Assert.True(RunDraft.IsEligible(c, locked, c.Skill("ice_shard")));
+        Assert.False(RunDraft.IsEligible(c, locked, c.Skill("sig_ice")));         // signatures are never drafted
 
         var lab = Run();
         lab.Loadout.DraftPoolSkillIds.Add("lab_second_wind");
@@ -311,10 +322,11 @@ public class ContentTests
         var run = c.Skills.Values.Where(s => s.Source == SkillSource.Run && s.Draftable).ToList();
         Assert.True(run.Count >= 70, "run skills: " + run.Count);
         foreach (SkillFamily f in Enum.GetValues(typeof(SkillFamily)))
-            if (f != SkillFamily.None) Assert.True(run.Count(s => s.Family == f) >= 5, f.ToString());
+            if (f != SkillFamily.None && f != SkillFamily.Crit) Assert.True(run.Count(s => s.Family == f) >= 6, f.ToString()); // 2 Common + 2 Legendary + 2–3 Mythics
+        Assert.DoesNotContain(run, s => s.Family == SkillFamily.Crit); // Crit is no synergy any more: its picks are generic
         foreach (Rarity r in new[] { Rarity.Common, Rarity.Legendary, Rarity.Mythic }) Assert.Contains(run, s => s.Rarity == r); // the three run tiers
         Assert.DoesNotContain(run, s => s.UpgradesFrom != null);
-        Assert.Contains(run, s => s.Requires.Count > 0);
+        Assert.DoesNotContain(run, s => s.Rarity == Rarity.Mythic && (s.Requires.Count > 0 || s.RequiresFamilyCount > 0)); // one ungated Mythic pool
         Assert.Contains(run, s => s.RequiresFamilyCount > 0);
         foreach (var s in c.Skills.Values)
         {

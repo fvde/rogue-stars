@@ -72,6 +72,38 @@ public static class RunLength
                 + $"{main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Manual, 1)):0.0}, auto ×1 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Auto, 1)):0.0}, "
                 + $"auto ×2 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Auto, 2)):0.0}, at the player's speed {main.Average(r => r.Minutes):0.0}, farming ×2 {main.Average(r => RunClock.Minutes(r.Tally, RunPlayStyle.Farming, 2)):0.0}.");
         }
+        sb.AppendLine();
+        sb.AppendLine(SignatureBreakdown(runs));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Per chosen signature (signatures pass): runs, win rate overall and in the losable bands (main 11+, overcharged, dark side),
+    /// damage per battle round relative to the run's band average (1.00 = average; bands differ by orders of magnitude, so raw
+    /// damage is compared within a band), damage taken likewise, Supernovas per run and minutes.
+    /// </summary>
+    public static string SignatureBreakdown(List<RunRecord> runs)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Per signature (damage per battle round and damage taken relative to the band's average over all signatures):");
+        sb.AppendLine();
+        sb.AppendLine("| Signature | runs | won | won (main 11+, OC, dark) | dmg / round (rel.) | taken / round (rel.) | Supernovas / run | skills | min |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|");
+        var withRounds = runs.Where(r => r.BattleRounds > 0 && r.Mode != RunMode.Burrow).ToList();
+        var bandDealt = withRounds.GroupBy(BandOf).ToDictionary(g => g.Key, g => g.Average(r => (double)r.DamageDealt / r.BattleRounds));
+        var bandTaken = withRounds.GroupBy(BandOf).ToDictionary(g => g.Key, g => g.Average(r => (double)r.DamageTaken / r.BattleRounds));
+        bool Losable(RunRecord r) => r.Mode != RunMode.Burrow && (r.Mode != RunMode.Normal || r.Level >= 11);
+        foreach (var g in runs.Where(r => r.Mode != RunMode.Burrow).GroupBy(r => r.Signature ?? "(none)").OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var l = g.ToList();
+            var lr = l.Where(r => r.BattleRounds > 0).ToList();
+            var hard = l.Where(Losable).ToList();
+            double Rel(Func<RunRecord, double> f, Dictionary<string, double> band) =>
+                lr.Count == 0 ? double.NaN : lr.Average(r => band[BandOf(r)] > 0 ? f(r) / band[BandOf(r)] : 1);
+            sb.AppendLine($"| {g.Key} | {l.Count} | {100.0 * l.Count(r => r.Won) / l.Count:0}% | {(hard.Count > 0 ? 100.0 * hard.Count(r => r.Won) / hard.Count : double.NaN):0}% ({hard.Count}) | "
+                + $"{Rel(r => (double)r.DamageDealt / r.BattleRounds, bandDealt):0.00} | {Rel(r => (double)r.DamageTaken / r.BattleRounds, bandTaken):0.00} | "
+                + $"{l.Average(r => r.Supernovas):0.0} | {l.Average(r => r.BuildGains):0.0} | {l.Average(r => r.Minutes):0.0} |");
+        }
         return sb.ToString();
     }
 }

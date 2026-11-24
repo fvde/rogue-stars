@@ -173,7 +173,9 @@ namespace RogueStars.Sim
             minutes = 0;
             var r = Exec(new RunStart { LevelId = levelId, Mode = mode });
             if (!r.Ok) return null;
-            int rolls = 0, drafts = 0, battles = 0, levelUps = 0, minigames = 0;
+            int rolls = 0, drafts = 0, battles = 0, levelUps = 0, minigames = 0, battleRounds = 0, novas = 0;
+            long dealt = 0, taken = 0;
+            string signature = S.Run.Active?.SignatureId;
             bool bossReached = false;
             int dice = S.Run.Active?.Dice ?? 1, lootSeen = 0;
             long coinsSeen = 0, coinsNow = 0, coinsEarned = 0, coinsSpent = 0; // starting coins (boons) count as earned
@@ -203,6 +205,8 @@ namespace RogueStars.Sim
                         case "run_battle":
                             battles++; tally.Battles++;
                             if (ev.Args.Count > 3) tally.BattleLogEntries += int.Parse(ev.Args[3]);
+                            battleRounds += int.Parse(ev.Args[2]);
+                            if (ev.Args.Count > 6) { dealt += long.Parse(ev.Args[4]); taken += long.Parse(ev.Args[5]); novas += int.Parse(ev.Args[6]); }
                             if ((ev.Args[0] == "miniboss" || ev.Args[0] == "ambush") && ev.Args[1] == "Player") minibosses++;
                             break;
                         case "run_level_up": levelUps++; break;
@@ -266,6 +270,7 @@ namespace RogueStars.Sim
                     Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted), Tally = tally,
                     CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,
                     MythicPicks = mythicPicks, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
+                    Signature = signature, DamageDealt = dealt, DamageTaken = taken, BattleRounds = battleRounds, Supernovas = novas,
                 });
             return S.Run.LastSummary;
         }

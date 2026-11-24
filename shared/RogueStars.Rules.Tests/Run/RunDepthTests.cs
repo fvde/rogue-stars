@@ -75,7 +75,7 @@ public class RunDepthTests(ITestOutputHelper output)
         var c = ContentDb.Default;
         var mythics = c.Skills.Values.Where(x => x.Rarity == Rarity.Mythic && x.Draftable && x.Source == SkillSource.Run).ToList();
         Assert.True(mythics.Count >= 27, "mythics: " + mythics.Count);
-        foreach (var f in Enum.GetValues<SkillFamily>())
+        foreach (var f in Enum.GetValues<SkillFamily>().Where(f => f != SkillFamily.Crit)) // Crit is no synergy: its Mythics are generic
             Assert.True(mythics.Count(m => m.Family == f) >= 2, f + " has at least two mythics");
         Assert.All(mythics, m => Assert.False(string.IsNullOrWhiteSpace(SkillText.Full(m)), m.Id));
         // ungated mythics: a run can take one from its first miniboss
@@ -131,7 +131,7 @@ public class RunDepthTests(ITestOutputHelper output)
             run.Phase = RunPhase.Draft; run.DraftOffer.Clear(); run.DraftOffer.AddRange(offer); run.PendingDrafts = 1;
             Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = RunDraft.BestPick(c, run) }).Ok);
         }
-        Assert.Equal(60, s.Run.Active!.Gains.Count);
+        Assert.Equal(61, s.Run.Active!.Gains.Count); // the signature + 60 picks (Fire, Radiation, Bleed and generic skills only)
         Assert.True(s.Run.Active.SkillLevels.Count > 0, "duplicates levelled up");
     }
 

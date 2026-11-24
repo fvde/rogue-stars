@@ -43,7 +43,7 @@ namespace RogueStars.Client.Screens
         public static readonly Color Purple = new Color32(0xB8, 0x78, 0xF2, 255);
 
         private static readonly Regex Numbers = new Regex(@"([+\-−]?\d+(?:[.,]\d+)?\s?(?:%|×|x\b)?)", RegexOptions.Compiled);
-        private static readonly Regex Keys = new Regex(@"\b(Burn|Freeze|Frozen|Chill|Poison|Bleed|Stun|Shock|Shield|Heal|HP|ATK|DEF|Crit|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|Parry|SPD|Speed)\b", RegexOptions.Compiled);
+        private static readonly Regex Keys = new Regex(@"\b(Heat|Supernova|Radiation|Burn|Freeze|Frozen|Chill|Poison|Bleed|Stun|Shock|Shield|Heal|HP|ATK|DEF|Crit|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|Parry|SPD|Speed)\b", RegexOptions.Compiled);
 
         /// <summary>Rich text with the keywords coloured: numbers (and %) green, statuses / stats blue (pure; tested).</summary>
         public static string Keywords(string text)
@@ -188,7 +188,7 @@ namespace RogueStars.Client.Screens
             }
             else
             {
-                var glyph = SliceKit.Chunky(icon.transform, spec.Family == SkillFamily.None ? "★" : spec.Family.ToString().Substring(0, 1), (int)(110 * s * k), FamilyGlyph(spec.Family), TextAnchor.MiddleCenter, "Glyph");
+                var glyph = SliceKit.Chunky(icon.transform, spec.Family == SkillFamily.None ? "★" : SkillText.FamilyName(spec.Family).Substring(0, 1), (int)(110 * s * k), FamilyGlyph(spec.Family), TextAnchor.MiddleCenter, "Glyph");
                 Ui.Stretch(glyph.rectTransform);
             }
             var tag = Ui.RoundPanel(c, new Color32(0x4A, 0x4E, 0x78, 255), 12 * s, "TierTag");

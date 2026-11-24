@@ -559,6 +559,21 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 ```
 (`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
+## Signatures pass
+- **Signature pick** (`Screens/SignaturePick.cs`): every run start (portal START RUN, the result screen's next level / again)
+  opens "CHOOSE YOUR SIGNATURE" in the slice card family (violet ribbon, tier tag "Signature", the synergy as a chip, the
+  effect and "Awakens at 3 / 6 … skills"); the offer is `RunSystem.SignatureOffer` (what the server validates) and the pick is
+  sent as `RunStart.SignatureId`. The skills book lists the signature first (`Signature:<id>`: awakening level, next threshold).
+- **Battle statuses**: Heat (orange; red, outlined and pulsing at 8+ = 80% of the Supernova threshold,
+  `BattlePlaybackScreen.HeatDangerAt`), Radiation (green), Bleed (red), Chill (ice blue) icons with stack counts under the HP
+  bars; `StatusRemoved` updates them ("COOLED"); a **Supernova** plays a flash and an expanding fire ring with a white core
+  on the exploding enemy ("SUPERNOVA!") and a NOVA / RECOIL damage number on every hit fighter, the worm included.
+- **Laboratory**: a first "Packages" tab with one node per synergy package ("SYNERGY PACKAGE · Ice Package · Chill + 7 skills",
+  gold frame once researched); the node modal lists the run skills it unlocks.
+- **Boss gate marker**: the iso board shows the run's own boss on the boss gate (`IsoArt.BossMarker`: the battle's sprite through
+  `ArtCatalog.EnemyOrFamily`, ~2.5× an enemy marker); the generic `Art/Slice/Markers/boss` is retired (not generated, never imported).
+- Screenshots: `SignatureShowcaseTests` (explicit PlayMode).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

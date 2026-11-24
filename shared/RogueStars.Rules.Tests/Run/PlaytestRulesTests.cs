@@ -268,10 +268,10 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(8 / 3.0, SkillLeveling.Factor(c, Rarity.Common, 3), 6);
         Assert.Equal(1.6, SkillLeveling.Factor(c, Rarity.Legendary, 2), 6);
         // trigger-only status skill: the chance grows (stacks stay while the chance is below 100%)
-        var ember = c.Skill("fire_ember")!;                                           // On hit: 30% chance Burn ×1
+        var ember = c.Skill("fire_ember")!;                                           // On hit: 30% chance Heat ×2
         var e3 = SkillLeveling.At(c, ember, 3);
         Assert.Equal(80, e3.Triggers[0].Chance, 6);
-        Assert.Equal(1, e3.Triggers[0].Stacks);
+        Assert.Equal(2, e3.Triggers[0].Stacks);
         // damage + chance: the damage grows, the proc chance stays; a status trigger's chance grows
         var shard = c.Skill("ice_shard")!;                                            // On attack: 35% chance 36% ATK; 6% Freeze
         var s3 = SkillLeveling.At(c, shard, 3);
@@ -280,7 +280,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(16, s3.Triggers[1].Chance, 6);
         // past 100% the chance is capped and the stacks grow instead
         var hot = new SkillDef { Id = "x", Name = "X" };
-        hot.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Chance = 80 });
+        hot.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Chance = 80 });
         var hot2 = SkillLeveling.At(c, hot, 2); var hot3 = SkillLeveling.At(c, hot, 3);
         Assert.Equal(100, hot2.Triggers[0].Chance, 6);
         Assert.Equal(1, hot2.Triggers[0].Stacks);
@@ -298,7 +298,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(40, r3.Triggers[0].Stat.Percent, 6);
         Assert.Equal(3, r3.Triggers[0].Duration);
         // passive stat skill: its own package grows
-        Assert.Equal(40, SkillLeveling.At(c, c.Skill("fire_kindle")!, 3).Stats[0].Flat, 6);
+        Assert.Equal(40, SkillLeveling.At(c, c.Skill("bleed_razor")!, 3).Stats[0].Flat, 6);
         // the content def is never mutated
         Assert.Equal(24, c.Skill("counter_spiked")!.Triggers[0].Value);
         // the run clock skill grows too now (Calm Mind: the boss awakens 9% → 15% → 24% slower)

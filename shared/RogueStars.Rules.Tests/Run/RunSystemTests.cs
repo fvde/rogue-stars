@@ -522,7 +522,7 @@ public class LaboratoryTests
         Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }).Ok);
         Assert.Equal(5000 - tuning.DataCost(0), s.Wallet.Get(Currencies.Data));
         Assert.Equal(1, LaboratorySystem.ResearchIndex(s, e.Content));
-        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_frost_nova" }).Error); // one slot
+        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "pkg_combo" }).Error); // one slot
         Assert.False(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }).Ok); // not ready
         long ready = LaboratorySystem.ReadyAtMs(s, "res_burning_soul");
         Assert.Equal(TestHelpers.T0 + (long)Math.Round(tuning.Hours(0) * 3_600_000), ready);
@@ -653,10 +653,14 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void Tree_Has36NodesInFourBranches_MixingStatsAndSkills()
+    public void Tree_Has36NodesInFourBranches_MixingStatsAndSkills_PlusFivePackages()
     {
         var c = ContentDb.Default;
-        Assert.Equal(36, c.LabResearch.Count);
+        Assert.Equal(41, c.LabResearch.Count);
+        var packages = c.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).ToList();
+        Assert.Equal(5, packages.Count);
+        Assert.All(packages, p => Assert.Equal("packages", p.Branch));
+        Assert.Equal(36, c.LabResearch.Values.Count(d => d.Branch != "packages"));
         foreach (var branch in new[] { "offense", "defense", "elements", "command" })
         {
             var nodes = c.LabResearch.Values.Where(d => d.Branch == branch).ToList();

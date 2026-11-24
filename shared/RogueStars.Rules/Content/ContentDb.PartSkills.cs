@@ -36,7 +36,7 @@ namespace RogueStars.Rules.Content
         {
             switch (f)
             {
-                case SkillFamily.Fire: return StatusId.Burn;
+                case SkillFamily.Fire: return StatusId.Heat;
                 case SkillFamily.Ice: return StatusId.Freeze;
                 case SkillFamily.Lightning: return StatusId.Shock;
                 case SkillFamily.Poison: return StatusId.Poison;
@@ -90,7 +90,7 @@ namespace RogueStars.Rules.Content
             SkillTrigger T(EffectKind e) { var t = new SkillTrigger { When = when, Chance = Math.Min(100, Math.Round(chance)), Effect = e, Target = target, CooldownRounds = cooldown }; list.Add(t); return t; }
             switch (f)
             {
-                case SkillFamily.Fire: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Burn; t.Stacks = 1 + (int)(p / 1.2); t.Duration = 3; break; }
+                case SkillFamily.Fire: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Heat; t.Stacks = 1 + (int)(p / 1.2); t.Duration = 3; break; }
                 case SkillFamily.Ice:
                 {
                     var d = T(EffectKind.Damage); d.Value = R(20 * p);
@@ -165,7 +165,7 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Fire: return "Ember";
                 case SkillFamily.Ice: return "Frost";
                 case SkillFamily.Lightning: return "Storm";
-                case SkillFamily.Poison: return "Venom";
+                case SkillFamily.Poison: return "Isotope";
                 case SkillFamily.Bleed: return "Razor";
                 case SkillFamily.Crit: return "Precision";
                 case SkillFamily.Combo: return "Flurry";
@@ -194,7 +194,7 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Fire: return "set enemies on fire";
                 case SkillFamily.Ice: return "strike with frost and may freeze";
                 case SkillFamily.Lightning: return "arc lightning and shock";
-                case SkillFamily.Poison: return "poison";
+                case SkillFamily.Poison: return "irradiate";
                 case SkillFamily.Bleed: return "cause bleeding";
                 case SkillFamily.Crit: return "sharpen your crits and build rage";
                 case SkillFamily.Combo: return "strike again and raise combo chance";
@@ -281,9 +281,9 @@ namespace RogueStars.Rules.Content
             switch (f)
             {
                 case SkillFamily.Fire:
-                    ult.Triggers.Add(St(TriggerKind.OnKill, 100, StatusId.Burn, 4, TargetKind.AllEnemies, 3));
+                    ult.Triggers.Add(St(TriggerKind.OnKill, 100, StatusId.Heat, 4, TargetKind.AllEnemies, 3));
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnKill, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 6 });
-                    ult.Stats.Add(new StatMod(StatId.FireDamage, 25)); ult.Description = "Kills spread 4 Burn to all enemies and heal {6}%; +{25}% fire damage."; break;
+                    ult.Stats.Add(new StatMod(StatId.FireDamage, 25)); ult.Description = "Kills spread 4 Heat to all enemies and heal {6}%; +{25}% fire damage."; break;
                 case SkillFamily.Ice:
                     ult.Triggers.Add(St(TriggerKind.OnBattleStart, 100, StatusId.Freeze, 1, TargetKind.AllEnemies, 1));
                     ult.Triggers.Add(Cond("vs_status:Freeze", 30)); ult.Description = "Battle start: freeze every enemy; +{30}% damage vs frozen."; break;
@@ -293,7 +293,7 @@ namespace RogueStars.Rules.Content
                     ult.Description = "Every round: {25}% ATK lightning on all enemies, 25% chance to stun one."; break;
                 case SkillFamily.Poison:
                     ult.Triggers.Add(St(TriggerKind.OnRoundEnd, 100, StatusId.Poison, 2, TargetKind.AllEnemies, 4));
-                    ult.Stats.Add(new StatMod(StatId.Regen, 2)); ult.Description = "Every round end: 2 Poison on all enemies; regenerate {2}% per turn."; break;
+                    ult.Stats.Add(new StatMod(StatId.Regen, 2)); ult.Description = "Every round end: 2 Radiation on all enemies; regenerate {2}% per turn."; break;
                 case SkillFamily.Bleed:
                     ult.Triggers.Add(St(TriggerKind.OnCrit, 100, StatusId.Bleed, 2, TargetKind.AllEnemies, 3));
                     ult.Stats.Add(new StatMod(StatId.LifeSteal, 8)); ult.Description = "Crits make every enemy bleed; +{8}% lifesteal."; break;

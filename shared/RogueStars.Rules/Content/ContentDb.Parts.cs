@@ -332,7 +332,7 @@ namespace RogueStars.Rules.Content
             {
                 case SkillFamily.Fire:
                     s.Stats.Add(new StatMod(StatId.FireDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(15 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Stacks = 1 + (int)(v / 1.5), Duration = 3 });
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(15 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 1 + (int)(v / 1.5), Duration = 3 });
                     s.Description = "Hits can set the enemy on fire.";
                     break;
                 case SkillFamily.Ice:
@@ -348,7 +348,7 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Poison:
                     s.Stats.Add(new StatMod(StatId.PoisonDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(20 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 1 + (int)v, Duration = 4 });
-                    s.Description = "Hits can poison the enemy.";
+                    s.Description = "Hits can irradiate the enemy.";
                     break;
                 case SkillFamily.Bleed:
                     s.Stats.Add(new StatMod(StatId.BleedDamage, Math.Round(5 * v, 1)));

@@ -284,8 +284,8 @@ namespace RogueStars.Rules.Content
                 v => CityTrig(TriggerKind.OnRunStart, EffectKind.SlowAwakening, v), 5, 8, 11, 14, 18);
 
             // Extremely rare Epic+ start-skill buildings: 1–3 skills at run start.
-            AddSkill(CityBuildingSkill("bsk_ember_crown", "Ember Crown", "Attacks have a 25% chance to Burn.", Rarity.Epic, SkillFamily.Fire,
-                new SkillTrigger { When = TriggerKind.OnAttack, Chance = 25, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Stacks = 1, Duration = 3 }));
+            AddSkill(CityBuildingSkill("bsk_ember_crown", "Ember Crown", "Attacks have a 25% chance to add Heat.", Rarity.Epic, SkillFamily.Fire,
+                new SkillTrigger { When = TriggerKind.OnAttack, Chance = 25, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 1, Duration = 3 }));
             AddSkill(CityBuildingSkill("bsk_frost_sigil", "Frost Sigil", "Getting hit has a 15% chance to Freeze the attacker.", Rarity.Legendary, SkillFamily.Ice,
                 new SkillTrigger { When = TriggerKind.OnDamaged, Chance = 15, Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze, Stacks = 1, Duration = 1 }));
             AddSkill(CityBuildingSkill("bsk_storm_mantle", "Storm Mantle", "Crits deal 40% ATK lightning damage.", Rarity.Legendary, SkillFamily.Lightning,

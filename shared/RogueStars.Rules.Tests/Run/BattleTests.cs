@@ -220,19 +220,19 @@ public class BattleSimulatorTests
     public void Statuses_StackToCap_AndDealDamage()
     {
         var c = new ContentDb();
-        c.AddSkill(RunTestKit.Skill("t_burn", new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Stacks = 4 }));
+        c.AddSkill(RunTestKit.Skill("t_bleed", new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Bleed, Stacks = 4 }));
         var worm = Unit("worm", CombatRole.Worm, 10_000, 100, 0, 200);
-        worm.SkillIds.Add("t_burn");
+        worm.SkillIds.Add("t_bleed");
         var res = BattleSimulator.Simulate(Duel(worm, Unit("foe", CombatRole.Enemy, 1e7, 0, 0, 1), 8), c, new Rng(4));
-        var applied = res.Log.Where(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Burn).Select(e => e.Stacks).ToList();
+        var applied = res.Log.Where(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Bleed).Select(e => e.Stacks).ToList();
         Assert.Equal(new[] { 4, 8, 10, 10 }, applied.Take(4));
-        Assert.All(applied, s => Assert.True(s <= c.Combat.Statuses[StatusId.Burn].MaxStacks));
+        Assert.All(applied, s => Assert.True(s <= c.Combat.Statuses[StatusId.Bleed].MaxStacks));
         var ticks = res.Log.Where(e => e.Action == BattleAction.StatusTick).ToList();
         Assert.NotEmpty(ticks);
-        // Burn tick = stacks × 4% ATK, no DEF (target has 0 DR)
-        Assert.Contains(ticks, t => t.Amount == 40);
-        // reapplying at max stacks refreshes the duration: burn never expires while hits keep landing
-        Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.StatusExpired && e.Status == StatusId.Burn);
+        // Bleed tick = stacks × 6% ATK, no DEF (target has 0 DR); capped at 10 stacks
+        Assert.Contains(ticks, t => t.Amount == 60);
+        // Bleed is permanent: it never expires
+        Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.StatusExpired && e.Status == StatusId.Bleed);
     }
 
     [Fact]
