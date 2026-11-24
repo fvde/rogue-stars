@@ -270,8 +270,8 @@ public class SkillMechanicTests
     {
         var c = Kit();
         Assert.Empty(Amounts(Fight(c, Worm("sig_lightning"), 2), BattleAction.Skill, "sig_lightning"));
-        Assert.Equal(new long[] { 63, 63 }, Amounts(Fight(c, Worm("sig_lightning", "light_ground_loop"), 2), BattleAction.Skill, "sig_lightning"));
-        Assert.Equal(70, Amounts(Fight(c, Leveled(Worm("sig_lightning", "light_ground_loop"), "light_ground_loop", 2), 1), BattleAction.Skill, "sig_lightning")[0]);
+        Assert.Equal(new long[] { 75, 75 }, Amounts(Fight(c, Worm("sig_lightning", "light_ground_loop"), 2), BattleAction.Skill, "sig_lightning")); // 50 × 1.5 (tuned from +25%)
+        Assert.Equal(90, Amounts(Fight(c, Leveled(Worm("sig_lightning", "light_ground_loop"), "light_ground_loop", 2), 1), BattleAction.Skill, "sig_lightning")[0]); // × 1.8
     }
 
     [Fact]
@@ -383,7 +383,7 @@ public class SkillMechanicTests
     {
         var w = With(Worm("counter_grudge"), StatId.CounterChance, 95);
         var r = Fight(Kit(), w, 1, Hitter());
-        Assert.Equal(88, r.Log.First(e => e.Action == BattleAction.Counter && e.Actor == 0).Amount); // 70 × 1.25 = 87.5
+        Assert.Equal(98, r.Log.First(e => e.Action == BattleAction.Counter && e.Actor == 0).Amount); // 70 × 1.4 (tuned from +25%)
     }
 
     [Fact]
@@ -391,7 +391,7 @@ public class SkillMechanicTests
     {
         var w = With(Worm("counter_rebound"), StatId.CounterChance, 95);
         var r = Fight(Kit(), w, 1, Hitter());
-        Assert.Equal(new long[] { 18 }, Amounts(r, BattleAction.Shield, "counter_rebound")); // 25% of a 70 counter
+        Assert.Equal(new long[] { 28 }, Amounts(r, BattleAction.Shield, "counter_rebound")); // 40% of a 70 counter (tuned from 25%)
     }
 
     [Fact]

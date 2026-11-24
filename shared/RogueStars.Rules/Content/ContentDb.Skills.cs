@@ -204,8 +204,8 @@ namespace RogueStars.Rules.Content
             RunSkill("light_overclock", "Overclock", SkillFamily.Lightning, Rarity.Common).Needs("arc").Desc("Fully shocked enemies arc again.")
                 .Add(Tg(Hit, EffectKind.Damage, 50, TargetKind.OtherEnemies, "max:Shock", chance: 30, grow: GrowKind.Chance))
                 .Text("Hitting an enemy at max Shock: {c0}% chance to Arc one extra time.");
-            RunSkill("light_ground_loop", "Ground Loop", SkillFamily.Lightning, Rarity.Legendary).FamilyGate(2).Needs("arc").Desc("Arcs find the last enemy.")
-                .Add(Tg(Passive, Rule, 25, TargetKind.Self, param: "arc_loop"))
+            RunSkill("light_ground_loop", "Ground Loop", SkillFamily.Lightning, Rarity.Legendary).Needs("arc").Desc("Arcs find the last enemy.")
+                .Add(Tg(Passive, Rule, 50, TargetKind.Self, param: "arc_loop"))
                 .Text("Last enemy standing: your Arc jumps strike it instead, with +{v0}% damage.");
             RunSkill("light_thunderclap", "Thunderclap", SkillFamily.Lightning, Rarity.Legendary).FamilyGate(2).Needs("arc").Desc("Arcs build a storm.")
                 .Add(Tg(TriggerKind.OnArcJump, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Shock, stacks: 2, everyN: 8, grow: GrowKind.Fixed))
@@ -234,14 +234,14 @@ namespace RogueStars.Rules.Content
                 .Add(Tg(TriggerKind.OnShieldHit, EffectKind.Reflect, 30))
                 .Text("When your shield absorbs a hit, reflect {v0}% of the absorbed damage.");
             RunSkill("counter_brace", "Brace", SkillFamily.Counter, Rarity.Common).Desc("Countering steadies you.")
-                .Add(Tg(TriggerKind.OnCounter, EffectKind.BuffStat, target: TargetKind.Self, param: "until_turn", stat: new StatMod(StatId.DamageReduction, 9)))
+                .Add(Tg(TriggerKind.OnCounter, EffectKind.BuffStat, target: TargetKind.Self, param: "until_turn", stat: new StatMod(StatId.DamageReduction, 12)))
                 .Text("After you counter, take {b0}% less damage until your next turn.");
             RunSkill("counter_grudge", "Grudge", SkillFamily.Counter, Rarity.Legendary).FamilyGate(2).Desc("Every blow feeds the answer.")
-                .Add(Tg(TriggerKind.OnDamaged, EffectKind.Charge, 25, TargetKind.Self))
+                .Add(Tg(TriggerKind.OnDamaged, EffectKind.Charge, 40, TargetKind.Self))
                 .Text("Each hit you take adds +{v0}% to your next counter. Stacks.");
             // parry removed (skill redesign): Parry Stance → Rebound Plating
             RunSkill("counter_rebound", "Rebound Plating", SkillFamily.Counter, Rarity.Legendary).FamilyGate(2).Desc("Counters build a shield.")
-                .Add(Tg(TriggerKind.OnCounter, EffectKind.Shield, 25, TargetKind.Self, param: "of_amount"))
+                .Add(Tg(TriggerKind.OnCounter, EffectKind.Shield, 40, TargetKind.Self, param: "of_amount"))
                 .Text("Your counterattacks grant a shield of {v0}% of the damage they deal.");
 
             // ---- Alien Synergy (package): sidekicks act at their own speed with one ability; owner: all four Commons stay ----
