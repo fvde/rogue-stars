@@ -272,7 +272,10 @@ namespace RogueStars.Rules.Systems
             return ids;
         }
 
-        /// <summary>Collection bonus: every owned blueprint gives CollectionPctPerStar × stars percent of its stat.</summary>
+        /// <summary>
+        /// Collection bonus: every owned blueprint gives CollectionPctPerStar × stars percent of its stat (points of a point stat:
+        /// "+2% crit chance", "+2% alien power" — a percent of their zero base would be nothing).
+        /// </summary>
         public static List<StatMod> CollectionBonus(GameState state, ContentDb content)
         {
             var mods = new List<StatMod>();
@@ -280,7 +283,7 @@ namespace RogueStars.Rules.Systems
             {
                 var def = content.Blueprint(b.Id);
                 if (def == null || def.CollectionPctPerStar <= 0) continue;
-                mods.Add(new StatMod(def.CollectionStat, 0, def.CollectionPctPerStar * b.Stars));
+                mods.Add(StatMod.Bonus(def.CollectionStat, def.CollectionPctPerStar * b.Stars));
             }
             return mods;
         }

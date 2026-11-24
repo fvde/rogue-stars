@@ -37,8 +37,8 @@ parried, get the family's element bonus: Fire→FireDamage…), `ApplyStatus` (S
 status default; trigger Chance × (1 + StatusChance/100), then target StatusResist roll), `Heal` / `Shield`
 (Value = % of target max HP, × HealPower / ShieldPower; `Param = "overheal_shield"` turns overheal into shield),
 `GainRage` (flat), `BuffStat` (`Stat` for `Duration` rounds, 0 = rest of battle; negative values debuff),
-`Summon` (`Param` = enemy def id → copy on the owner's threat scale; otherwise an untargetable drone with
-Value % (default 50) of the owner's HP/ATK; enemy bosses and part skills only — no draftable run / lab skill summons). `CooldownRounds` blocks the trigger for N rounds after it fired.
+`Summon` (enemy skills only: `Param` = enemy def id → a copy on the owner's threat scale, e.g. the Storm Hive's spark
+drones; on the player side it does nothing — player drones were removed in the dead-effects pass). `CooldownRounds` blocks the trigger for N rounds after it fired.
 Recursion is capped at depth 4.
 
 **Conditional damage bonuses:** a `Passive` trigger with `Param = "cond:<condition>"` and `Value = +%`.
@@ -51,8 +51,14 @@ stat vs bosses) are summed and applied as one multiplier.
 `Worm` = own side's worm; `AllAllies` = every living fighter of the owner's side.
 
 **Other stat semantics:** `Regen` = % max HP healed at the start of each own turn; `LifeSteal` = % of damage
-dealt; `AlienPower` / `MountPower` on the worm add % ATK (and HP for aliens) to aliens / the mount; the mount's
-HP stat becomes a battle-start shield on the worm (the mount absorbs damage).
+dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` / `MountPower` on the worm add % ATK (and HP for
+aliens) to aliens / the mount (`AlienPower` on the mount counts too: Hive Carrier weapons); the mount's HP stat becomes a
+battle-start shield on the worm (the mount absorbs damage). Shock / Freeze (element statuses without a DoT): the applier's
+Lightning / Ice damage scales their damage-taken bonus. `LootLuck` = % chance of a bonus item on every run loot roll
+(tile, event and completion rolls; 100 = always one more); `XpGain` = % more run XP.
+
+**Untargetable fighters** (aliens, mount) are never hit: their HP, DEF, Speed, dodge, parry, counter and regen do nothing
+in battle. Alien / mount skills that should help defensively buff the worm (`BuffStat` with `Target = Worm`).
 
 ## Run (board) triggers (RunSystem)
 
@@ -75,7 +81,6 @@ limits `OnTileLand` / `OnTilePass` to that tile category (e.g. `"tile:Campfire"`
 | `GainRunCoins` | Value run coins |
 | `HealOnTile` (or `Heal` on `OnRoll`/`OnTileLand`/`OnTilePass`/`OnLevelUp`) | heal Value % of max HP (`Heal` on `OnBattleWon` is applied inside the battle) |
 | `SlowAwakening` | `OnRunStart`: all meter gains −Value % (max 90); any other trigger: drain Value meter points |
-| `ExtraLoot` | +Value % to pending loot amounts paid on completion (stacks additively) |
 | `SkipNegativeEvent` | **preferred form**: `OnRunStart`, Value = N → skip the next N negative events this run |
 
 ### Param conventions on `OnRunStart`
@@ -110,13 +115,22 @@ awakening +, boss buffs, battles, strengthening enemies). Deliberate trades (cos
   stacks; the duration of single-stack statuses such as Freeze / Stun / Charm; dice). Values round to whole numbers from 10
   (halves below; coins and counts whole) and always move past the previous level, so every level reads differently.
 - **Authoring:** a typical Common gives +15% at Lv1 (proc chances 30%), a Legendary ~+25%; pick Lv1 numbers that are
-  multiples of 3 (Common) or 5 (Legendary) so levels read as whole numbers. Point stats (crit, dodge, element damage,
-  alien power, status chance …) are **flat** (`Stat(StatId.FireDamage, 15)`): a `Percent` on them multiplies a zero base and
-  does nothing (`SkillTuningTests.PointStats_AreFlat…`).
+  multiples of 3 (Common) or 5 (Legendary) so levels read as whole numbers. Point stats (everything but HP / ATK / DEF /
+  Speed: crit, dodge, element damage, alien / mount power, rage gain, status chance, loot luck, run XP …) are **flat**
+  (`Stat(StatId.FireDamage, 15)`) everywhere in the content: a `Percent` on them multiplies a zero base and does nothing.
+  `ContentValidationTests` walks the whole `ContentDb` and fails on any; values built at runtime (run tiles and events,
+  building collection bonuses) go through `StatMod.Bonus(stat, value)` (percent of a core stat, points of a point stat).
 - **Every draftable skill must change an outcome** (`SkillTuningTests`): battle skills change a seeded battle at every
   level and each trigger lands its effect; board skills have their own run tests. Removed for doing (almost) nothing:
   drone summons (Mothership Link → replaced by the Overmind capstone, Swarm Beacon, lab Drone Bay) and loot % (Hoarder,
   lab Treasure Sense: it only touched the ~1 account-loot item a run carries). Saved states with removed ids keep working
   (unknown ids are skipped; `LaboratorySystem.StopRemovedResearch` stops research running on a removed node).
+- **Every skill of every source must change an outcome** (`DeadEffectsTests.EverySkill_OfEverySource…`): run, lab, hero,
+  mount (judged with the mount's other weapons of that step), alien, building, part and enemy skills each change a seeded
+  battle, or a seeded auto-played run for board-only skills. The dead-effects pass removed the last drones (part opener /
+  Hive Apex summons → an opening barrage / a squad rage opener; the Hive Carrier's "Drone Bay" weapon is the Spore Cannon)
+  and the `ExtraLoot` effect (Salvage Yard now gives Loot Luck), and fixed alien support skills that sat on the alien
+  (Snap Back's counter chance: aliens are never attacked) and dead alien traits (Tough → Brawler, Armored → Giant Slayer,
+  Swift → dodge ignore; ids kept).
 - **Text:** `SkillText.Upgrade(content, skill, from, to)` renders the upgrade inline ("+15% → +25% crit chance"); offers of
   an owned skill show it with the target level as title (`SkillText.Title(skill, level)` = "Keen Eye Lv 2").

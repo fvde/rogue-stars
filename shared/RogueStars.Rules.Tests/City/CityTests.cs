@@ -355,7 +355,9 @@ public class CityTests
         CitySystem.Owned(s, Farm).Stars = 10;
         var l = e.BuildLoadout(s, T0);            // not even placed: collection counts ownership
         Assert.Equal(3.0, l.WormStats.Percent[StatId.Hp], 6);
-        Assert.Equal(0.8, l.WormStats.Percent[StatId.CritChance], 6);
+        // a point stat is added as points (+0.8% crit chance), never as a percent of its zero-ish base
+        Assert.False(l.WormStats.Percent.ContainsKey(StatId.CritChance));
+        Assert.Contains(CitySystem.CollectionBonus(s, e.Content), m => m.Stat == StatId.CritChance && Math.Abs(m.Flat - 0.8) < 1e-9 && m.Percent == 0);
     }
 
     // ---- boons ----

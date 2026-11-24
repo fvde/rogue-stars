@@ -9,7 +9,7 @@ namespace RogueStars.Rules.Content
     /// Mythic S and Mythic SS, and five awakened redesigns with the same unlock pattern. Skills are built from the part's
     /// family (element status, crit, combo, counter, alien squad) and its kind (head = precision, body = defence,
     /// tail = momentum, legs = evasion, arm = attack style). Awakened skills pair the family with a "twin" family and
-    /// use different triggers (status chains, turn-start pulses, summons, overheal shields, last stands) so an
+    /// use different triggers (status chains, turn-start pulses, opening barrages, overheal shields, last stands) so an
     /// awakened part can open a new build. Roles: docs/design/parts.md.
     /// </summary>
     public sealed partial class ContentDb
@@ -65,8 +65,8 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Crit: return new StatMod(StatId.CritDamage, 12);
                 case SkillFamily.Combo: return new StatMod(StatId.ComboChance, 3);
                 case SkillFamily.Counter: return new StatMod(StatId.CounterChance, 3);
-                case SkillFamily.AlienSynergy: return new StatMod(StatId.AlienPower, 0, 8);
-                default: return new StatMod(PartFamilyElementStat(f), 0, 8);
+                case SkillFamily.AlienSynergy: return new StatMod(StatId.AlienPower, 8);
+                default: return new StatMod(PartFamilyElementStat(f), 8);
             }
         }
 
@@ -78,8 +78,8 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Crit: s.Stats.Add(new StatMod(StatId.CritChance, R(2 * p))); s.Stats.Add(new StatMod(StatId.CritDamage, R(6 * p))); break;
                 case SkillFamily.Combo: s.Stats.Add(new StatMod(StatId.ComboChance, R(2 * p))); break;
                 case SkillFamily.Counter: s.Stats.Add(new StatMod(StatId.CounterChance, R(2 * p))); s.Stats.Add(new StatMod(StatId.ParryChance, R(1 * p))); break;
-                case SkillFamily.AlienSynergy: s.Stats.Add(new StatMod(StatId.AlienPower, 0, R(5 * p))); break;
-                default: s.Stats.Add(new StatMod(PartFamilyElementStat(f), 0, R(5 * p))); break;
+                case SkillFamily.AlienSynergy: s.Stats.Add(new StatMod(StatId.AlienPower, R(5 * p))); break;
+                default: s.Stats.Add(new StatMod(PartFamilyElementStat(f), R(5 * p))); break;
             }
         }
 
@@ -242,7 +242,7 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Combo: syn.Triggers.Add(Cond("combo", 28)); syn.Stats.Add(new StatMod(StatId.ComboChance, 4)); syn.Description = "Combos deal +{28}%; +{4} combo chance."; break;
                 case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.ParryChance, 5)); syn.Description = "Counters deal +{32}%; +{5} parry."; break;
                 case SkillFamily.AlienSynergy:
-                    syn.Stats.Add(new StatMod(StatId.AlienPower, 0, 18));
+                    syn.Stats.Add(new StatMod(StatId.AlienPower, 18));
                     syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.GainRage, Target = TargetKind.AllAllies, Value = 8 });
                     syn.Description = "Aliens +{18}% power; the squad gains {8} rage every round."; break;
                 default:
@@ -283,7 +283,7 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Fire:
                     ult.Triggers.Add(St(TriggerKind.OnKill, 100, StatusId.Burn, 4, TargetKind.AllEnemies, 3));
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnKill, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 6 });
-                    ult.Stats.Add(new StatMod(StatId.FireDamage, 0, 25)); ult.Description = "Kills spread 4 Burn to all enemies and heal {6}%; +{25}% fire damage."; break;
+                    ult.Stats.Add(new StatMod(StatId.FireDamage, 25)); ult.Description = "Kills spread 4 Burn to all enemies and heal {6}%; +{25}% fire damage."; break;
                 case SkillFamily.Ice:
                     ult.Triggers.Add(St(TriggerKind.OnBattleStart, 100, StatusId.Freeze, 1, TargetKind.AllEnemies, 1));
                     ult.Triggers.Add(Cond("vs_status:Freeze", 30)); ult.Description = "Battle start: freeze every enemy; +{30}% damage vs frozen."; break;
@@ -308,8 +308,9 @@ namespace RogueStars.Rules.Content
                     ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnParry, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 110 });
                     ult.Stats.Add(new StatMod(StatId.ParryChance, 10)); ult.Description = "Parries reflect {110}% ATK true damage; +{10} parry."; break;
                 default:
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Summon, Target = TargetKind.Self, Value = 55, Param = "drone" });
-                    ult.Stats.Add(new StatMod(StatId.AlienPower, 0, 25)); ult.Description = "Battle start: summon a combat drone (55%); aliens +{25}% power."; break;
+                    // (was a drone summon: drones are gone) the squad opens every battle with rage
+                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.GainRage, Target = TargetKind.AllAllies, Value = 40 });
+                    ult.Stats.Add(new StatMod(StatId.AlienPower, 25)); ult.Description = "Battle start: the squad gains {40} rage; aliens +{25}% power."; break;
             }
 
             BuildAwakenedPartSkills(d, twin);
@@ -326,7 +327,6 @@ namespace RogueStars.Rules.Content
             foreach (var m in s.Stats) { m.Flat = R(m.Flat * k); m.Percent = R(m.Percent * k); }
             foreach (var t in s.Triggers)
             {
-                if (t.Effect == EffectKind.Summon) continue;
                 t.Value = R(t.Value * k);
                 if (t.Stat != null) { t.Stat.Flat = R(t.Stat.Flat * k); t.Stat.Percent = R(t.Stat.Percent * k); }
             }
@@ -370,7 +370,7 @@ namespace RogueStars.Rules.Content
                 syn.Description = "Skill damage +{30}%; +{15} rage gain.";
             }
 
-            // 4A signature: a new battle opener — summons, overheal shields or evasive counters by kind.
+            // 4A signature: a new battle opener — barrages, overheal shields or evasive counters by kind.
             var sig = NewPartSkill(d, 3, true, "Awakened " + kw, Rarity.Mythic, f, "");
             PartFamilyStats(sig, twin, 1.4);
             switch (d.Kind)
@@ -389,9 +389,10 @@ namespace RogueStars.Rules.Content
                     sig.Triggers.AddRange(PartPayload(twin, TriggerKind.OnRoundStart, 100, 1.2, TargetKind.AllEnemies, 1));
                     sig.Description = "Gain speed every round; every other round " + FamilyEffectText(twin) + " on all enemies."; break;
                 default:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Summon, Target = TargetKind.Self, Value = 45, Param = "drone" });
+                    // (was a drone summon: drones are gone) an opening barrage on every enemy
+                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 45 });
                     sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnBattleStart, 100, 1.8, TargetKind.AllEnemies));
-                    sig.Description = "Battle start: summon a " + fw.ToLowerInvariant() + " drone (45%) and " + FamilyEffectText(f) + " on every enemy."; break;
+                    sig.Description = "Battle start: a {45}% ATK " + fw.ToLowerInvariant() + " barrage that " + FamilyEffectText(f) + " on every enemy."; break;
             }
 
             // 5A ultimate: a last stand that turns a losing battle (once, below 30% HP) plus a permanent skill-damage hook.

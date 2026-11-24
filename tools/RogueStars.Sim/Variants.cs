@@ -25,7 +25,6 @@ public static class Variants
                     foreach (var m in s.Stats) { m.Flat *= k; m.Percent *= k; }
                     foreach (var t in s.Triggers)
                     {
-                        if (t.Effect == EffectKind.Summon) continue;
                         t.Value *= k;
                         if (t.Stat != null) { t.Stat.Flat *= k; t.Stat.Percent *= k; }
                         if (t.Effect == EffectKind.ApplyStatus) t.Chance *= k;

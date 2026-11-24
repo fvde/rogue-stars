@@ -184,7 +184,6 @@ public class RunSystemTests
         c.AddSkill(RunTestKit.Skill("b_dice", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.ExtraDice, Value = 1 }));
         c.AddSkill(RunTestKit.Skill("b_roll_dice", new SkillTrigger { When = TriggerKind.OnRoll, Effect = EffectKind.ExtraDice, Value = 1 }));
         c.AddSkill(RunTestKit.Skill("b_slow", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.SlowAwakening, Value = 50 }));
-        c.AddSkill(RunTestKit.Skill("b_loot", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.ExtraLoot, Value = 25 }));
         c.AddSkill(RunTestKit.Skill("b_coins", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.GainRunCoins, Value = 40 }));
         c.AddSkill(RunTestKit.Skill("b_start_skill", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.GainRunCoins, Param = "fire_kindle" }));
         c.AddSkill(RunTestKit.Skill("b_start_skill2", new SkillTrigger { When = TriggerKind.OnRunStart, Param = "skill:crit_keen" }));
@@ -193,13 +192,12 @@ public class RunSystemTests
         c.AddSkill(RunTestKit.Skill("b_skip_param", new SkillTrigger { When = TriggerKind.OnRunStart, Param = "skip_negative_events", Value = 1 }));
         c.AddSkill(RunTestKit.Skill("b_growth", new SkillTrigger { When = TriggerKind.OnRunStart, Effect = EffectKind.RunStatGrowth, Stat = new StatMod(StatId.Hp, 0, 10) }));
         var worm = new RunTestKit.WormSetup();
-        worm.Meta.AddRange(new[] { "b_dice", "b_roll_dice", "b_slow", "b_loot", "b_coins", "b_start_skill", "b_start_skill2", "b_random_skill", "b_skip", "b_skip_param", "b_growth" });
+        worm.Meta.AddRange(new[] { "b_dice", "b_roll_dice", "b_slow", "b_coins", "b_start_skill", "b_start_skill2", "b_random_skill", "b_skip", "b_skip_param", "b_growth" });
         var e = RunTestKit.Engine(worm, c);
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
         Assert.Equal(1, run.ExtraDicePermanent);
         Assert.Equal(50 + (run.Skills.Contains("gen_calm_mind") ? 9 : 0), run.AwakeningReductionPct); // the random start skill may be Calm Mind
-        Assert.Equal(25, run.ExtraLootPct);
         Assert.Equal(40 + RunSystem.StartCoins(c, c.RunLevel(run.LevelId)), run.Coins); // the boon's 40 on top of the start coins
         Assert.Contains("fire_kindle", run.Skills);
         Assert.Contains("crit_keen", run.Skills);

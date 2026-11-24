@@ -208,7 +208,6 @@ namespace RogueStars.Rules.Systems
         public int Danger;
         /// <summary>Account-loot opportunities offered so far (events / guarded caches that pay meta loot; RunTuning.MaxAccountLootOffersPerRun).</summary>
         public int AccountLootOffers;
-        public double ExtraLootPct;
         public int SkipNegativeEvents;
 
         // decisions

@@ -331,27 +331,27 @@ namespace RogueStars.Rules.Content
             switch (family)
             {
                 case SkillFamily.Fire:
-                    s.Stats.Add(new StatMod(StatId.FireDamage, 0, Math.Round(5 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.FireDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(15 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Stacks = 1 + (int)(v / 1.5), Duration = 3 });
                     s.Description = "Hits can set the enemy on fire.";
                     break;
                 case SkillFamily.Ice:
-                    s.Stats.Add(new StatMod(StatId.IceDamage, 0, Math.Round(5 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.IceDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(10 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze, Stacks = 1, Duration = 1 + (int)(v / 2) });
                     s.Description = "Hits can freeze the enemy.";
                     break;
                 case SkillFamily.Lightning:
-                    s.Stats.Add(new StatMod(StatId.LightningDamage, 0, Math.Round(5 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.LightningDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnAttack, Chance = Math.Min(100, Math.Round(20 * v)), Effect = EffectKind.Damage, Target = TargetKind.RandomEnemy, Value = Math.Round(30 * v) });
                     s.Description = "Attacks can arc lightning to a random enemy.";
                     break;
                 case SkillFamily.Poison:
-                    s.Stats.Add(new StatMod(StatId.PoisonDamage, 0, Math.Round(5 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.PoisonDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(20 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 1 + (int)v, Duration = 4 });
                     s.Description = "Hits can poison the enemy.";
                     break;
                 case SkillFamily.Bleed:
-                    s.Stats.Add(new StatMod(StatId.BleedDamage, 0, Math.Round(5 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.BleedDamage, Math.Round(5 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCrit, Chance = Math.Min(100, Math.Round(40 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Bleed, Stacks = 1 + (int)v, Duration = 3 });
                     s.Description = "Critical hits make the enemy bleed.";
                     break;
@@ -366,13 +366,19 @@ namespace RogueStars.Rules.Content
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Chance = Math.Min(100, Math.Round(25 * v)), Effect = EffectKind.Damage, Value = Math.Round(25 * v) });
                     s.Description = "More combos; combos hit harder.";
                     break;
+                case SkillFamily.Counter when source == SkillSource.Mount:
+                    // the mount is never attacked, so it never counters: it shields the worm and sharpens the worm's counters
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.Worm, Stat = new StatMod(StatId.CounterChance, Math.Round(3 * v, 1)) });
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Worm, Value = Math.Round(3 * v, 1) });
+                    s.Description = "The worm counters more; rounds may start with a shield on the worm.";
+                    break;
                 case SkillFamily.Counter:
                     s.Stats.Add(new StatMod(StatId.CounterChance, Math.Round(3 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Self, Value = Math.Round(3 * v, 1) });
                     s.Description = "More counters; counters grant a shield.";
                     break;
                 case SkillFamily.AlienSynergy:
-                    s.Stats.Add(new StatMod(StatId.AlienPower, 0, Math.Round(6 * v, 1)));
+                    s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.AllAllies, Stat = new StatMod(StatId.Atk, 0, Math.Round(5 * v, 1)), Duration = 3 });
                     s.Description = "Aliens are stronger and start battles empowered.";
                     break;

@@ -155,7 +155,7 @@ namespace RogueStars.Rules.Core
         }
 
         /// <summary>Stats stored in percent points (flat 25 = 25%); the rest (HP, ATK, DEF, Speed) are plain numbers.</summary>
-        public static bool IsPointStat(StatId s) => s != StatId.Hp && s != StatId.Atk && s != StatId.Def && s != StatId.Speed;
+        public static bool IsPointStat(StatId s) => StatMod.IsPointStat(s);
 
         public static string StatName(StatId s) => s switch
         {
@@ -186,7 +186,7 @@ namespace RogueStars.Rules.Core
             StatId.BleedDamage => "bleed damage",
             StatId.AlienPower => "alien power",
             StatId.MountPower => "mount power",
-            StatId.LootLuck => "loot luck",
+            StatId.LootLuck => "bonus loot chance",
             StatId.XpGain => "run XP",
             _ => Words(s.ToString()),
         };
@@ -251,7 +251,6 @@ namespace RogueStars.Rules.Core
                 case EffectKind.HealOnTile: return "heal " + Num(t.Value) + "% of max HP";
                 case EffectKind.SlowAwakening:
                     return t.When == TriggerKind.OnRunStart ? "the boss awakens " + Num(t.Value) + "% slower" : "drain " + Num(t.Value) + " from the boss's awakening";
-                case EffectKind.ExtraLoot: return "+" + Num(t.Value) + "% loot";
                 case EffectKind.Summon: return "summon " + Words(t.Param ?? "an ally");
                 case EffectKind.SkipNegativeEvent: return "skip " + Num(t.Value) + " bad event " + (t.Value == 1 ? "outcome" : "outcomes") + " per run";
                 default: return Words(t.Effect.ToString());

@@ -37,8 +37,7 @@ namespace RogueStars.Rules.Core
         ExtraDice,         // Value = extra dice for the next roll
         HealOnTile,        // Value = % max HP
         SlowAwakening,     // Value = meter points removed
-        ExtraLoot,         // Value = % more pending loot
-        Summon,            // Param = enemy/alien def id
+        Summon,            // enemy skills only: Param = enemy def id (bosses calling their guard)
         SkipNegativeEvent, // Value = number of negative event outcomes skipped this run (city boon buildings)
     }
 

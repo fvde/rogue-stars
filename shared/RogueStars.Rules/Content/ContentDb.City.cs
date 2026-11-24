@@ -244,7 +244,7 @@ namespace RogueStars.Rules.Content
                 "Charts the stars: more XP in runs and +2% production everywhere.");
             obs.Boons.Add(new BuildingBoon { Kind = BoonKind.ProductionPct, Base = 2, PerLevel = 0.25 });
             CityRunSkillTiers(obs, "Star Charts", "+{0}% XP in runs.", Rarity.Rare,
-                v => new SkillDef { Stats = { new StatMod(StatId.XpGain, 0, v) } }, 5, 8, 12, 16, 20);
+                v => new SkillDef { Stats = { new StatMod(StatId.XpGain, v) } }, 5, 8, 12, 16, 20);
 
             // ---- boons ----
             var well = CityDef("bp_stamina_well", "Stamina Well", Rarity.Rare, BuildingCategory.Boon, 1, 1, StatId.Hp,
@@ -264,9 +264,11 @@ namespace RogueStars.Rules.Content
             CityRunSkillTiers(scout, "Forewarned", "Skip {0} negative event outcome(s) per run.", Rarity.Rare,
                 v => CityTrig(TriggerKind.OnRunStart, EffectKind.SkipNegativeEvent, v), 1, 1, 2, 2, 3);
             var salvage = CityDef("bp_salvage_yard", "Salvage Yard", Rarity.Rare, BuildingCategory.Boon, 2, 1, StatId.LootLuck,
-                "More pending loot in runs.");
-            CityRunSkillTiers(salvage, "Salvage Rights", "+{0}% run loot.", Rarity.Rare,
-                v => CityTrig(TriggerKind.OnRunStart, EffectKind.ExtraLoot, v), 5, 8, 12, 16, 20);
+                "Loot luck: a chance of a bonus item on every run loot roll.");
+            // (was "+% run loot": it only scaled the ~1 tile-loot item a run carries) Loot Luck rolls a bonus item on every loot
+            // roll, completion rolls included
+            CityRunSkillTiers(salvage, "Salvage Rights", "{0}% chance of a bonus item on every run loot roll.", Rarity.Rare,
+                v => new SkillDef { Stats = { new StatMod(StatId.LootLuck, v) } }, 10, 15, 20, 25, 30);
             var academy = CityDef("bp_war_academy", "War Academy", Rarity.Rare, BuildingCategory.Boon, 2, 1, StatId.Atk,
                 "Extra draft rerolls every run.");
             academy.Boons.Add(new BuildingBoon { Kind = BoonKind.DraftRerolls, Base = 1 });

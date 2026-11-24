@@ -107,7 +107,7 @@ public class SkillTuningTests
         Assert.Null(C.LabNode("res_drone_bay"));
         Assert.Null(C.LabNode("res_treasure_sense"));
         foreach (var s in Pool(C))
-            Assert.DoesNotContain(s.Triggers, t => t.Effect == EffectKind.Summon || t.Effect == EffectKind.ExtraLoot);
+            Assert.DoesNotContain(s.Triggers, t => t.Effect == EffectKind.Summon);
     }
 
     /// <summary>Each family keeps its gated Mythic capstone (4 family skills + the family's Legendary).</summary>
@@ -178,13 +178,13 @@ public class SkillTuningTests
     /// <summary>Board skills: proven by their own run tests below; every other draftable skill acts in battle.</summary>
     private static readonly HashSet<string> BoardSkills = new() { "gen_wealth", "gen_pathfinder", "gen_camper", "gen_growth", "gen_calm_mind", "gen_scholar" };
 
-    private static bool IsBoardSkill(SkillDef s) => BoardSkills.Contains(s.Id) || s.Id.StartsWith("lab_lucky_dice", StringComparison.Ordinal);
+    internal static bool IsBoardSkill(SkillDef s) => BoardSkills.Contains(s.Id) || s.Id.StartsWith("lab_lucky_dice", StringComparison.Ordinal);
 
     /// <summary>
     /// A test kit on the worm so that element / status stats have something to boost: one family-tagged skill per element
     /// (its statuses carry the element's DoT; Ice and Lightning also hit with element damage).
     /// </summary>
-    private static ContentDb KitContent()
+    internal static ContentDb KitContent()
     {
         var c = new ContentDb();
         void Kit(string id, SkillFamily fam, params SkillTrigger[] t)
@@ -207,7 +207,7 @@ public class SkillTuningTests
         return c;
     }
 
-    private static readonly string[] KitIds = { "kit_fire", "kit_ice", "kit_light", "kit_poison", "kit_bleed" };
+    internal static readonly string[] KitIds = { "kit_fire", "kit_ice", "kit_light", "kit_poison", "kit_bleed" };
 
     /// <summary>A worm with a squad and a mount, base crit / combo / counter / parry / dodge, against a shielded slug, a dodging wraith and a boss.</summary>
     private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, int level = 1)
@@ -238,11 +238,11 @@ public class SkillTuningTests
         return BattleSimulator.Simulate(setup, c, new Rng((ulong)(1000 + seed)));
     }
 
-    private static string Signature(BattleResult r) =>
+    internal static string Signature(BattleResult r) =>
         r.Winner + "|" + r.Rounds + "|" + r.PlayerDamageDealt + "|" + r.PlayerDamageTaken + "|" + Math.Round(r.WormHpLeft)
         + "|" + string.Join(",", r.Fighters.Select(f => f.DamageDealt + ":" + f.EndHp + ":" + f.EndRage));
 
-    private static bool LandsEffect(BattleResult r, string skillId, SkillTrigger t)
+    internal static bool LandsEffect(BattleResult r, string skillId, SkillTrigger t)
     {
         foreach (var e in r.Log)
         {
