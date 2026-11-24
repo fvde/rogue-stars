@@ -72,8 +72,8 @@ Playable prototype (placeholder UI), offline and online.
 - **Client:** every screen, battle playback from the logged HP/shield/rage, offline + online services, playthrough
   screenshots in [docs/client-screenshots](docs/client-screenshots), Firebase Auth (Google Play Games sign-in, anonymous fallback +
   linking), Unity IAP (Google Play Billing), AppLovin MAX gateway (disabled for now), signed AAB + APK builds.
-- **Tests:** .NET 320 (rules 238, server 63, simulator guard 19) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
-  Unity EditMode 55 + PlayMode playthrough 1; APK ≈ 30 MB.
+- **Tests:** .NET 686 (rules 567, server 91, simulator guard 28) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
+  Unity EditMode 262 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
 - **Open:** console setup for Play Games sign-in (docs/setup.md step 3), AppLovin + mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).
