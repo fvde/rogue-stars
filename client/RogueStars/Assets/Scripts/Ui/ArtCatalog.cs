@@ -246,6 +246,33 @@ namespace RogueStars.Client.UiKit
         public static Sprite SliceMount(string mountId) => (string.IsNullOrEmpty(mountId) ? null : Load(SliceMounts + "/" + mountId)) ?? Load(SliceMounts + "/mount");
         public static Sprite SkillIcon(string skillId) => string.IsNullOrEmpty(skillId) ? null : Load(SkillFolder + "/" + skillId);
 
+        // ---- screens pass (rest, events, chest, shop, home, run result) ------------------------------------------------
+        // Art queue packages run-characters, run-props, run-icons, hub-planet, hub-scene, hub-icons and the result package.
+        // Every key falls back to a code-drawn placeholder (World/ScreenArt) while it has no file.
+
+        /// <summary>Run NPCs (busts): <c>Art/Run/Characters/&lt;id&gt;</c> (shopkeeper, cursed_vendor, black_marketeer, camp_cook).</summary>
+        public const string RunCharacters = "Art/Run/Characters";
+        /// <summary>Run scene props: <c>Art/Run/Props/&lt;id&gt;</c> (chest_common, chest_mythic, chest_signature, abandoned_cart, campfire_big, event_shrine, event_wreck).</summary>
+        public const string RunProps = "Art/Run/Props";
+        /// <summary>Run reward / option icons: <c>Art/Run/Icons/&lt;id&gt;</c> (coins_small, coins_big, heal, max_hp, skill_book, upgrade, reroll, curse, blessing, sale_tag).</summary>
+        public const string RunIcons = "Art/Run/Icons";
+        /// <summary>The home planet by growth stage: <c>Art/Hub/Planet/planet_stage1</c> … <c>planet_stage5</c>.</summary>
+        public const string HubPlanet = "Art/Hub/Planet";
+        /// <summary>Home backdrops: <c>Art/Hub/Scene/&lt;id&gt;</c> (sky = the default sky; sky_stage1…5 per planet stage when present).</summary>
+        public const string HubScene = "Art/Hub/Scene";
+        /// <summary>Home icons: <c>Art/Hub/Icons/&lt;id&gt;</c> (tab_worm, tab_city, tab_planet, tab_signals, tab_arena, shop, offer, pass, mail, more, quests, observatory, invasion, event, map, chapter_rewards, patrol, challenges, settings).</summary>
+        public const string HubIcons = "Art/Hub/Icons";
+        /// <summary>Run result art: <c>Art/Result/&lt;id&gt;</c> (crown = victory crest, crest_broken = defeat crest, banner = the hanging pennant).</summary>
+        public const string ResultArt = "Art/Result";
+
+        public static Sprite RunCharacter(string id) => string.IsNullOrEmpty(id) ? null : Load(RunCharacters + "/" + id);
+        public static Sprite RunProp(string id) => string.IsNullOrEmpty(id) ? null : Load(RunProps + "/" + id);
+        public static Sprite RunIcon(string id) => string.IsNullOrEmpty(id) ? null : Load(RunIcons + "/" + id);
+        public static Sprite Planet(int stage) => Load(HubPlanet + "/planet_stage" + Mathf.Clamp(stage, 1, 5));
+        public static Sprite HubSceneArt(string id) => string.IsNullOrEmpty(id) ? null : Load(HubScene + "/" + id);
+        public static Sprite HubIcon(string id) => string.IsNullOrEmpty(id) ? null : Load(HubIcons + "/" + id);
+        public static Sprite Result(string id) => string.IsNullOrEmpty(id) ? null : Load(ResultArt + "/" + id);
+
         /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the drawn critter in its synergy's colour, HudArt.AlienCritter).</summary>
         public static Sprite Alien(string alienTypeId) => string.IsNullOrEmpty(alienTypeId) ? null : Load(AlienKey(alienTypeId));
 

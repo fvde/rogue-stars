@@ -335,6 +335,9 @@ namespace RogueStars.Client.PlayTests
         /// </summary>
         private void Decide(ActiveRun a)
         {
+            // a chest (Mythic choice, signature offer) opens with a tap first
+            var chest = ModalButton(b => b.name == "ChestTap");
+            if (chest != null) { chest.onClick.Invoke(); return; }
             Button pick = null;
             switch (a.Phase)
             {
