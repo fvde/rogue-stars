@@ -76,8 +76,8 @@ public static class KitShare
             }
             sb.AppendLine();
         }
-        // the starter pair with the starter signatures (page: Star Knight × Scout Saucer with Fire / Radiation / Bleed)
-        sb.AppendLine("Starter pair (Star Knight 1★ + Scout Saucer 1★) vs alone, win % · dmg rel.:");
+        // the page's reference pair with the starter signatures (Star Knight × Scout Saucer with Fire / Radiation / Bleed; no hero is given at the start)
+        sb.AppendLine("Reference pair (Star Knight 1★ + Scout Saucer 1★) vs alone, win % · dmg rel.:");
         sb.AppendLine();
         foreach (var sig in new[] { "sig_fire", "sig_radiation", "sig_bleed" })
         {

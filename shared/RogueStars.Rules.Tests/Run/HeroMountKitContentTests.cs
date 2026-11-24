@@ -129,10 +129,10 @@ public class HeroMountKitContentTests
         Assert.Equal(TriggerKind.OnShieldHit, T(h + "_trait", EffectKind.GainRage).When);
         Assert.Equal(5, T(h + "_trait", EffectKind.GainRage).Value);          // 5 rage per absorbed hit
         Assert.Equal(4, RuleArg(h + "_ability", "ability_shield_hits"));      // every 4th absorbed hit
-        Assert.Equal(60, T(h + "_ability", EffectKind.Damage).Value);         // 1★ 60% ATK to every enemy
+        Assert.Equal(50, T(h + "_ability", EffectKind.Damage).Value);         // 1★ 50% ATK to every enemy (kit tuning: was 60)
         Assert.Equal(TargetKind.AllEnemies, T(h + "_ability", EffectKind.Damage).Target);
         Assert.Equal(6, T(h + "_ability", EffectKind.Shield).Value);          // shields you 6%
-        Assert.Equal(90, T(h + "_ability_3", EffectKind.Damage).Value);       // 3★ 90%
+        Assert.Equal(60, T(h + "_ability_3", EffectKind.Damage).Value);       // 3★ 60% (kit tuning: was 90)
         Assert.Equal(TargetKind.AllEnemies, T(h + "_c5", EffectKind.CarrySignatures).Target); // 5★ carries on-hit to every enemy hit
         Assert.Equal(10, RuleArg(h + "_c7", "heals_count"));                  // 7★ every 10% max HP healed = 1 hit
         var c10 = T(h + "_c10", EffectKind.CheatDeath);                     // 10★ once per battle, Starfall at double damage
@@ -165,9 +165,9 @@ public class HeroMountKitContentTests
         const string h = "hero_void_pirate";
         Assert.True(HasRule(h + "_trait", "status_crit"));
         Assert.Equal(4, RuleArg(h + "_ability", "ability_every"));
-        Assert.Equal(50, T(h + "_ability", EffectKind.Damage).Value);
+        Assert.Equal(40, T(h + "_ability", EffectKind.Damage).Value);         // kit tuning: was 50
         Assert.Contains("crit", T(h + "_ability", EffectKind.Damage).Param!.Split(';'));
-        Assert.Equal(75, T(h + "_ability_3", EffectKind.Damage).Value);
+        Assert.Equal(50, T(h + "_ability_3", EffectKind.Damage).Value);       // kit tuning: was 75
         Assert.Equal(TriggerKind.OnCrit, T(h + "_c5", EffectKind.CarrySignatures).When);
         var plunder = T(h + "_c7", EffectKind.GainRunCoins);
         Assert.Equal(2, plunder.Value);
@@ -182,8 +182,8 @@ public class HeroMountKitContentTests
         Assert.True(HasRule(h + "_trait", "double_tap"));
         Assert.Equal(3, RuleArg(h + "_ability", "ability_turns"));
         Assert.Equal(new double[] { 30, 30 }, S(h + "_ability").Triggers.Where(t => t.Effect == EffectKind.BuffStat).Select(t => t.Stat!.Flat));
-        Assert.Equal(new double[] { 45, 45 }, S(h + "_ability_3").Triggers.Where(t => t.Effect == EffectKind.BuffStat).Select(t => t.Stat!.Flat));
-        Assert.Equal(20, Rule(h + "_c5", "extra_crit"));
+        Assert.Equal(new double[] { 40, 40 }, S(h + "_ability_3").Triggers.Where(t => t.Effect == EffectKind.BuffStat).Select(t => t.Stat!.Flat));
+        Assert.Equal(15, Rule(h + "_c5", "extra_crit"));
         Assert.Equal(6, Rule(h + "_c7", "pile_on"));
         Assert.Equal(48, RuleArg(h + "_c7", "pile_on"));
         var fin = T(h + "_c10", EffectKind.Damage);
@@ -225,12 +225,12 @@ public class HeroMountKitContentTests
     {
         const string h = "hero_beast_tamer";
         Assert.Equal(new[] { TriggerKind.OnSidekickAct, TriggerKind.OnMountFire }, S(h + "_trait").Triggers.Select(t => t.When));
-        Assert.All(S(h + "_trait").Triggers, t => Assert.Equal((2.0, "stack:15"), (t.Stat!.Percent, t.Param))); // +2% ATK, max +30%
+        Assert.All(S(h + "_trait").Triggers, t => Assert.Equal((1.0, "stack:15"), (t.Stat!.Percent, t.Param))); // +1% ATK, max +15%
         Assert.Equal(4, RuleArg(h + "_ability", "ability_every"));
         Assert.Equal(3, RuleArg(h + "_ability_3", "ability_every"));
         Assert.Equal(TriggerKind.OnSidekickHit, T(h + "_c5", EffectKind.CarrySignatures).When);
         Assert.Equal(3, T(h + "_ability_7", EffectKind.Whistle).Value);
-        Assert.Equal(30, P(h + "_ability_10", EffectKind.Whistle, "follow"));
+        Assert.Equal(20, P(h + "_ability_10", EffectKind.Whistle, "follow"));
         Assert.Equal(3, T(h + "_ability_10", EffectKind.Whistle).Value);
     }
 
@@ -238,7 +238,7 @@ public class HeroMountKitContentTests
     public void NebulaMonk_Stillness_MirrorPalm_OpenPalm_InnerCalm_NebulaMind()
     {
         const string h = "hero_glacier_monk";
-        Assert.Equal(3, RuleArg(h + "_trait", "ability_stillness"));
+        Assert.Equal(5, RuleArg(h + "_trait", "ability_stillness")); // every enemy attack on the worm (dodged / blocked too) adds one
         Assert.Equal(50, T(h + "_ability", EffectKind.SpreadStatus).Value);  // half its largest status
         Assert.Equal(20, P(h + "_ability", EffectKind.SpreadStatus, "cap"));
         Assert.Equal(30, P(h + "_ability_3", EffectKind.SpreadStatus, "cap"));
@@ -266,8 +266,9 @@ public class HeroMountKitContentTests
     [Fact]
     public void Mounts_ReloadPerStep()
     {
-        foreach (var id in Mounts.Where(m => m != "mount_chrono_skiff"))
+        foreach (var id in Mounts.Where(m => m != "mount_chrono_skiff" && m != "mount_star_lancer"))
             Assert.Equal(new[] { 3, 3, 3, 2, 2 }, C.MountConfig.Defs[id].Reloads);
+        Assert.Equal(new[] { 3, 3, 3, 3, 3 }, C.MountConfig.Defs["mount_star_lancer"].Reloads); // a slow heavy lance (kit tuning)
         Assert.Equal(new[] { 4, 4, 3, 3, 3 }, C.MountConfig.Defs["mount_chrono_skiff"].Reloads); // 3 from 5★
     }
 
@@ -313,13 +314,13 @@ public class HeroMountKitContentTests
     public void StarLancer_LanceSight_Impale()
     {
         var p = Steps("mount_star_lancer", "passive"); var a = Steps("mount_star_lancer", "active");
-        Assert.Equal(new double[] { 20, 25, 30, 35, 40 }, Each(p, id => T(id, EffectKind.Charge).Value));
-        Assert.Equal(new double[] { 100, 125, 150, 175, 200 }, Each(p, id => P(id, EffectKind.Charge, "cap")));
+        Assert.Equal(new double[] { 15, 20, 25, 30, 35 }, Each(p, id => T(id, EffectKind.Charge).Value));
+        Assert.Equal(new double[] { 30, 40, 50, 60, 70 }, Each(p, id => P(id, EffectKind.Charge, "cap")));
         Assert.Equal(new double[] { 0, 0, 30, 30, 30 }, Each(p, id => P(id, EffectKind.Charge, "double_below")));
         Assert.Equal(new[] { false, false, false, false, true }, p.Select(id => S(id).Triggers.Any(t => t.Effect == EffectKind.AdvanceTimer && t.Param == "reload")));
-        Assert.Equal(new double[] { 120, 140, 160, 180, 200 }, Each(a, id => T(id, EffectKind.Damage).Value));
+        Assert.Equal(new double[] { 120, 125, 130, 140, 140 }, Each(a, id => T(id, EffectKind.Damage).Value));
         Assert.All(a, id => Assert.All(S(id).Triggers.Where(t => t.Effect == EffectKind.Damage), t => Assert.Equal("crit", t.Param)));
-        Assert.Equal(new double[] { 0, 0, 80, 90, 100 }, Each(a, id => S(id).Triggers.Count(t => t.Effect == EffectKind.Damage) > 1 ? T(id, EffectKind.Damage, 1).Value : 0));
+        Assert.Equal(new double[] { 0, 0, 65, 70, 70 }, Each(a, id => S(id).Triggers.Count(t => t.Effect == EffectKind.Damage) > 1 ? T(id, EffectKind.Damage, 1).Value : 0));
         Assert.Equal(TargetKind.SecondEnemy, T(a[2], EffectKind.Damage, 1).Target);
         Assert.Equal(TargetKind.AllOtherEnemies, T(a[4], EffectKind.Damage, 1).Target);
     }
@@ -346,7 +347,7 @@ public class HeroMountKitContentTests
         var p = Steps("mount_rift_racer", "passive"); var a = Steps("mount_rift_racer", "active");
         Assert.Equal(new double[] { 0, 30, 40, 50, 60 }, Each(p, id => Rule(id, "slipstream")));
         Assert.Equal(new[] { "", "", "mount", "mount", "all" }, p.Select(id => S(id).Triggers.FirstOrDefault(t => t.Effect == EffectKind.AdvanceTimer)?.Param ?? ""));
-        Assert.Equal(new double[] { 60, 70, 80, 90, 100 }, Each(a, id => T(id, EffectKind.RiderAttack).Value));
+        Assert.Equal(new double[] { 60, 70, 80, 90, 70 }, Each(a, id => T(id, EffectKind.RiderAttack).Value)); // A5: two at 70% (kit tuning: was 100%)
         Assert.Equal(new double[] { 1, 1, 1, 1, 2 }, Each(a, id => T(id, EffectKind.RiderAttack).Stacks));
         Assert.Equal(new[] { false, false, true, true, true }, a.Select(id => T(id, EffectKind.RiderAttack).Param == "combo"));
     }
@@ -359,8 +360,8 @@ public class HeroMountKitContentTests
         Assert.Equal(new double[] { 300, 300, 400, 450, 500 }, Each(p, id => Rule(id, "coil_cap")));
         Assert.Equal(new[] { false, false, true, true, true }, p.Select(id => HasRule(id, "coil_recoil") && Rule(id, "coil_counter") == 50));
         Assert.Equal(new[] { false, false, false, false, true }, p.Select(id => HasRule(id, "coil_window")));
-        Assert.Equal(new double[] { 60, 80, 100, 120, 140 }, Each(a, id => T(id, EffectKind.Damage).Value));
-        Assert.All(a, id => Assert.Equal("coil", T(id, EffectKind.Damage).Param));
+        Assert.Equal(new double[] { 60, 80, 100, 100, 100 }, Each(a, id => T(id, EffectKind.Damage).Value));
+        Assert.Equal(new[] { "coil", "coil", "coil", "coil", "coil;coil_split" }, a.Select(id => T(id, EffectKind.Damage).Param)); // A5: the attackers share the coil
         Assert.Equal(new double[] { 0, 0, 2, 2, 2 }, Each(a, id => S(id).Triggers.FirstOrDefault(t => t.Effect == EffectKind.CarrySignatures)?.Stacks ?? 0));
         Assert.Equal(TargetKind.LastAttacker, T(a[0], EffectKind.Damage).Target);
         Assert.Equal(TargetKind.Attackers, T(a[4], EffectKind.Damage).Target);

@@ -129,7 +129,7 @@ public class DeadEffectsTests
         if (Has(t => (t.If ?? "").Contains("extra_hits"))) { ctx.Add("kit_combo"); ctx.Add("sig_combo"); }            // many extra hits in a turn
         if (Has(t => (t.If ?? "").Contains("self_hp_below")) && !fatal) ctx.Add("kit_frail");                         // low-HP clauses
         if (Has(t => t.Effect is EffectKind.MountFire or EffectKind.Whistle || t.When == TriggerKind.OnMountFire)) ctx.Add("mount_magma_barge_active_1");
-        if (Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("ability_stillness"))) ctx.Add("kit_bigshield"); // rounds without HP loss
+        if (Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("ability_stillness"))) ctx.Add("kit_bigshield"); // Stillness: a safe fight with enough enemy attacks for Mirror Palm
         if (Has(t => t.When == TriggerKind.OnAbility && t.Effect == EffectKind.Heal)) ctx.Add("kit_wounded"); // Inner Calm: a worm hurt in an earlier battle
         if (Has(t => t.Effect == EffectKind.SpreadStatus)) { ctx.Add("kit_flood"); if (!ctx.Contains("kit_combo")) ctx.Add("kit_combo"); } // a big stack to copy
         return ctx;

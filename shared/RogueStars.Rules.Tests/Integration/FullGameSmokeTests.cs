@@ -168,8 +168,11 @@ public class FullGameSmokeTests
         string child = (string)p.Do(new BreedCollect { JobId = job }).Payload!;
         p.Do(new BreedResolve { ChildId = child, Keep = BreedKeep.Replace });
 
-        // Hero and mount from the unlock grants.
-        p.Do(new HeroUnlock { HeroId = "hero_star_knight" });
+        // No starter hero: heroes come only from the summon events (the unlock's 10 tickets are the first 10× draw); the
+        // first mount comes with the Mounts unlock.
+        Assert.Empty(p.S.Heroes.Owned);
+        var pull = (SummonPullResult)p.Do(new SummonPull { EventType = SummonEventType.Hero, Count = 10, Payment = SummonPayment.Tickets }).Payload!;
+        Assert.Equal(10, pull.Items.Count);
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
 
         // Quests: login, part pull, ad (No-token ad fails, a real token works).
@@ -184,7 +187,7 @@ public class FullGameSmokeTests
 
         // Combat loadout: hero, mount, squad aliens, parts, building boons; power counts everything.
         var loadout = p.E.BuildLoadout(p.S, p.Now);
-        Assert.Equal("hero_star_knight", loadout.HeroId);
+        Assert.Equal(p.S.Heroes.Equipped ?? "", loadout.HeroId ?? ""); // a hero only when the draw brought one
         Assert.Equal("mount_scout_saucer", loadout.MountId);
         Assert.Single(loadout.Aliens);
         Assert.Equal(aliens[0], loadout.Aliens[0].AlienTypeId);
@@ -217,7 +220,10 @@ public class FullGameSmokeTests
         p.Build("bp_biomass_farm", 4, 4);
         p.Build("bp_housing_pod", 5, 4);
         p.Do(new AlienSetSquad { AlienTypeIds = { "alien_blorp" } });
-        p.Do(new HeroUnlock { HeroId = "hero_star_knight" });
+        p.Do(new SummonPull { EventType = SummonEventType.Hero, Count = 10, Payment = SummonPayment.Tickets });
+        // a hero copy (heroes only come from the summon events; here a server mail stands in for a lucky draw)
+        string heroMail = (string)p.Do(new MailPush { Title = "Hero", Body = "", Rewards = { new Reward(RewardKinds.Hero, "hero_star_knight", 1) } }).Payload!;
+        p.Do(new MailClaim { MailId = heroMail });
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
         p.Do(new LoginClaim());
         p.Do(new FeatureCelebrate { FeatureId = Features.Aliens });

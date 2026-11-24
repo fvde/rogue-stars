@@ -70,16 +70,16 @@ namespace RogueStars.Rules.Content
             const TriggerKind Ab = TriggerKind.OnAbility;
             const TargetKind Self = TargetKind.Self, All = TargetKind.AllEnemies, Front = TargetKind.Enemy;
 
-            // ---- Star Knight (starter; counter: hits on your shields) -------------------------------------------------------
+            // ---- Star Knight (counter: hits on your shields) -------------------------------------------------------
             var d = NewHero("hero_star_knight", "Star Knight Worm", "Guardian: a shield from the first second; every 4th hit it absorbs calls down Starfall.",
                 "Counter: hits on your shields");
             HeroSkill(d, 1, "Trait", "Starguard", "trait", "Battle start: shield of 12% max HP. Each hit your shield absorbs gives 5 rage.",
                 K(TriggerKind.OnBattleStart, EffectKind.Shield, 12, Self), K(TriggerKind.OnShieldHit, EffectKind.GainRage, 5, Self));
-            HeroSkill(d, 1, "Ability", "Starfall", "ability", "Every 4th hit your shields absorb: Starfall hits every enemy for 60% ATK and shields you 6% max HP.",
+            HeroSkill(d, 1, "Ability", "Starfall", "ability", "Every 4th hit your shields absorb: Starfall hits every enemy for 50% ATK and shields you 6% max HP.",
+                KRule("ability_shield_hits:4"), K(Ab, EffectKind.Damage, 50, All), K(Ab, EffectKind.Shield, 6, Self));
+            HeroUpgrade(d, 3, "Number", "Starfall", "Starfall: 50% → 60% ATK.", "ability_3", "ability",
+                "Every 4th hit your shields absorb: Starfall hits every enemy for 60% ATK and shields you 6% max HP.",
                 KRule("ability_shield_hits:4"), K(Ab, EffectKind.Damage, 60, All), K(Ab, EffectKind.Shield, 6, Self));
-            HeroUpgrade(d, 3, "Number", "Starfall", "Starfall: 60% → 90% ATK.", "ability_3", "ability",
-                "Every 4th hit your shields absorb: Starfall hits every enemy for 90% ATK and shields you 6% max HP.",
-                KRule("ability_shield_hits:4"), K(Ab, EffectKind.Damage, 90, All), K(Ab, EffectKind.Shield, 6, Self));
             HeroSkill(d, 5, "Clause", "Starlight", "c5", "Starfall carries each of your signatures' on-hit to every enemy it hits.",
                 K(Ab, EffectKind.CarrySignatures, 0, All));
             HeroSkill(d, 7, "Clause", "Guiding Star", "c7", "Healing counts too: every 10% max HP you heal counts as one absorbed hit.",
@@ -110,11 +110,11 @@ namespace RogueStars.Rules.Content
                 "Timer: every 4th round");
             HeroSkill(d, 1, "Trait", "Dead Reckoning", "trait", "Your status damage can crit: ticks, Supernovas, consumes and discharges.",
                 KRule("status_crit"));
-            HeroSkill(d, 1, "Ability", "Broadside", "ability", "Every 4th round: Broadside hits every enemy for 50% ATK. These hits always crit.",
+            HeroSkill(d, 1, "Ability", "Broadside", "ability", "Every 4th round: Broadside hits every enemy for 40% ATK. These hits always crit.",
+                KRule("ability_every:4"), K(Ab, EffectKind.Damage, 40, All, "crit;oncrit"));
+            HeroUpgrade(d, 3, "Number", "Broadside", "Broadside: 40% → 50% ATK.", "ability_3", "ability",
+                "Every 4th round: Broadside hits every enemy for 50% ATK. These hits always crit.",
                 KRule("ability_every:4"), K(Ab, EffectKind.Damage, 50, All, "crit;oncrit"));
-            HeroUpgrade(d, 3, "Number", "Broadside", "Broadside: 50% → 75% ATK.", "ability_3", "ability",
-                "Every 4th round: Broadside hits every enemy for 75% ATK. These hits always crit.",
-                KRule("ability_every:4"), K(Ab, EffectKind.Damage, 75, All, "crit;oncrit"));
             HeroSkill(d, 5, "Clause", "Black Flag", "c5", "Your crits apply your signatures' on-hit once more.",
                 K(TriggerKind.OnCrit, EffectKind.CarrySignatures, 0, Front));
             HeroSkill(d, 7, "Clause", "Plunder", "c7", "Crit kills pay 2 run coins (max 20 per battle).",
@@ -131,13 +131,13 @@ namespace RogueStars.Rules.Content
                 KRule("ability_turns:3"),
                 K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.ComboChance, 30)),
                 K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.CounterChance, 30)));
-            HeroUpgrade(d, 3, "Number", "Noodle Knot", "Noodle Knot: +30% → +45% combo and counter chance.", "ability_3", "ability",
-                "Every 3rd turn: +45% combo chance and +45% counter chance until your next turn.",
+            HeroUpgrade(d, 3, "Number", "Noodle Knot", "Noodle Knot: +30% → +40% combo and counter chance.", "ability_3", "ability",
+                "Every 3rd turn: +40% combo chance and +40% counter chance until your next turn.",
                 KRule("ability_turns:3"),
-                K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.ComboChance, 45)),
-                K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.CounterChance, 45)));
-            HeroSkill(d, 5, "Clause", "Sharp Noodle", "c5", "Your extra hits get +20% crit chance.",
-                KRule("extra_crit", 20));
+                K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.ComboChance, 40)),
+                K(Ab, EffectKind.BuffStat, 0, Self, "until_turn", stat: new StatMod(StatId.CounterChance, 40)));
+            HeroSkill(d, 5, "Clause", "Sharp Noodle", "c5", "Your extra hits get +15% crit chance.",
+                KRule("extra_crit", 15));
             HeroSkill(d, 7, "Clause", "Pile-On", "c7", "Each hit on the same enemy in one turn deals +6% more than the last (max +48%).",
                 KRule("pile_on:48", 6));
             HeroSkill(d, 10, "Capstone", "Thousand Noodles", "c10", "Once per battle, a turn with 5+ extra hits ends with a strike on every enemy for 150% ATK.",
@@ -181,9 +181,9 @@ namespace RogueStars.Rules.Content
             // ---- Beast Tamer (timer: every 4th round) ---------------------------------------------------------------------------
             d = NewHero("hero_beast_tamer", "Beast Tamer Worm", "Pack leader: sidekicks and the mount buff the worm, and a whistle sends everyone at once.",
                 "Timer: every 4th round");
-            HeroSkill(d, 1, "Trait", "Pack Spirit", "trait", "Each time a sidekick acts or your mount fires: +2% ATK this battle (max +30%).",
-                K(TriggerKind.OnSidekickAct, EffectKind.BuffStat, 0, Self, "stack:15", stat: new StatMod(StatId.Atk, 0, 2)),
-                K(TriggerKind.OnMountFire, EffectKind.BuffStat, 0, Self, "stack:15", stat: new StatMod(StatId.Atk, 0, 2)));
+            HeroSkill(d, 1, "Trait", "Pack Spirit", "trait", "Each time a sidekick acts or your mount fires: +1% ATK this battle (max +15%).",
+                K(TriggerKind.OnSidekickAct, EffectKind.BuffStat, 0, Self, "stack:15", stat: new StatMod(StatId.Atk, 0, 1)),
+                K(TriggerKind.OnMountFire, EffectKind.BuffStat, 0, Self, "stack:15", stat: new StatMod(StatId.Atk, 0, 1)));
             HeroSkill(d, 1, "Ability", "Whistle", "ability", "Every 4th round: every sidekick acts, fastest first, then your mount fires.",
                 KRule("ability_every:4"), K(Ab, EffectKind.Whistle, 0, Self));
             HeroUpgrade(d, 3, "Number", "Whistle", "Whistle: every 4th → 3rd round.", "ability_3", "ability",
@@ -194,26 +194,26 @@ namespace RogueStars.Rules.Content
             HeroUpgrade(d, 7, "Clause", "Pack Guard", "Whistle shields the worm for 3% max HP per ally that acted.", "ability_7", "ability_3",
                 "Every 3rd round: every sidekick acts, fastest first, then your mount fires. Shield 3% max HP per ally.",
                 KRule("ability_every:3"), K(Ab, EffectKind.Whistle, 3, Self));
-            HeroUpgrade(d, 10, "Capstone", "Alpha Howl", "During Whistle, the worm follows each ally with a 30% ATK extra hit.", "ability_10", "ability_7",
-                "Every 3rd round: all sidekicks act, then your mount fires; shield 3% per ally; you follow each with 30% ATK.",
-                KRule("ability_every:3"), K(Ab, EffectKind.Whistle, 3, Self, "follow:30"));
+            HeroUpgrade(d, 10, "Capstone", "Alpha Howl", "During Whistle, the worm follows each ally with a 20% ATK extra hit.", "ability_10", "ability_7",
+                "Every 3rd round: all sidekicks act, then your mount fires; shield 3% per ally; you follow each with 20% ATK.",
+                KRule("ability_every:3"), K(Ab, EffectKind.Whistle, 3, Self, "follow:20"));
 
             // ---- Nebula Monk (was Glacier Monk; counter: rounds without HP loss) -----------------------------------------------------
-            d = NewHero("hero_glacier_monk", "Nebula Monk Worm", "Calm centre: rounds without HP loss build Stillness; Mirror Palm spreads the biggest status down the line.",
-                "Counter: rounds without HP loss");
-            HeroSkill(d, 1, "Trait", "Stillness", "trait", "End of a round without HP loss: +1 Stillness (max 3). Shields, dodges and guards count.",
-                KRule("ability_stillness:3"));
-            HeroSkill(d, 1, "Ability", "Mirror Palm", "ability", "At 3 Stillness: strike the front enemy; every other enemy gets half its largest status (max 20 stacks).",
+            d = NewHero("hero_glacier_monk", "Nebula Monk Worm", "Calm centre: every attack on you builds Stillness; Mirror Palm spreads the biggest status down the line.",
+                "Counter: attacks on you");
+            HeroSkill(d, 1, "Trait", "Stillness", "trait", "Each enemy attack on you gives 1 Stillness, even dodged or blocked ones (max 5).",
+                KRule("ability_stillness:5"));
+            HeroSkill(d, 1, "Ability", "Mirror Palm", "ability", "At 5 Stillness: strike the front enemy; every other enemy gets half its largest status (max 20 stacks).",
                 K(Ab, EffectKind.Damage, 100, Front), K(Ab, EffectKind.SpreadStatus, 50, Front, "cap:20"));
             HeroUpgrade(d, 3, "Number", "Mirror Palm", "Mirror Palm: max 20 → 30 stacks.", "ability_3", "ability",
-                "At 3 Stillness: strike the front enemy; every other enemy gets half its largest status (max 30 stacks).",
+                "At 5 Stillness: strike the front enemy; every other enemy gets half its largest status (max 30 stacks).",
                 K(Ab, EffectKind.Damage, 100, Front), K(Ab, EffectKind.SpreadStatus, 50, Front, "cap:30"));
             HeroSkill(d, 5, "Clause", "Open Palm", "c5", "Mirror Palm also applies your signatures' on-hit to every enemy.",
                 K(Ab, EffectKind.CarrySignatures, 0, All));
             HeroSkill(d, 7, "Clause", "Inner Calm", "c7", "Mirror Palm heals 10% max HP.",
                 K(Ab, EffectKind.Heal, 10, Self));
             HeroUpgrade(d, 10, "Capstone", "Nebula Mind", "Mirror Palm also hits every enemy for 8% ATK per stack it copied (max 200%).", "ability_10", "ability_3",
-                "At 3 Stillness: strike; others get half the largest status (max 30). Then 8% ATK per stack copied hits all.",
+                "At 5 Stillness: strike; others get half the largest status (max 30). Then 8% ATK per stack copied hits all.",
                 K(Ab, EffectKind.Damage, 100, Front), K(Ab, EffectKind.SpreadStatus, 50, Front, "cap:30;dmg_per:8;dmg_cap:200"));
 
             // ---- Hourglass Hermit (new; timer: every 4th round) -----------------------------------------------------------------

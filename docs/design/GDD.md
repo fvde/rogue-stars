@@ -312,7 +312,8 @@ define Basic/Combo/Counter/Rage attack styles).
   number, 5★ / 7★ clauses, 10★ capstone. Heroes are not tied to a synergy. Stars and hero level raise worm stats from one shared
   budget. Kits per star: docs/design/heroes-mounts.md.
 - Hero level via Hero XP. Heroes come from **summon events** (§12.1): a hero copy unlocks the hero, every further copy is
-  +1★ (at 10★ it becomes exchange tokens); shards (events, exchange) keep unlocking (40) and starring up as before.
+  +1★ (at 10★ it becomes exchange tokens); shards (events, exchange) keep unlocking (40) and starring up as before. There is
+  **no starter hero**: the Heroes unlock gives only the summon events and the first event's 10 tickets.
 
 ### 7.2 Mounts (spaceships)
 - One active mount: a **vehicle on a reload** with **no stats** (no ATK / HP / DR, no shield from mount HP): one passive + one
@@ -514,7 +515,7 @@ catches up one group per day. Pairs ("X + Y") are one group and unlock together.
 | 7 | 18 | Aliens (first alien) + Alien Signal (`aliens`, `alien_pulls`) | Meet your alien |
 | 8 | 20 | Housing → first squad slot (`alien_squad`) | Build housing |
 | 9 | 22 | Blueprint Signal (`blueprints`) | Pull a blueprint |
-| 10 | 24 | Heroes (`heroes`; also the hero summon events, first event + 10 tickets) | Choose a hero |
+| 10 | 24 | Heroes (`heroes`; the hero summon events, first event + 10 tickets; no starter hero) | Pull in the hero event |
 | 11 | 26 | Ore Mine + Runes (`ore_mine`, `runes`) | Build the ore mine |
 | 12 | 28 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
 | 13 | 29 | Funds (`funds`; not in the approved list, fills the free day 13) | See the funds |

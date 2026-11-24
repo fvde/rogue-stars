@@ -619,12 +619,10 @@ namespace RogueStars.Rules.Systems
             {
                 Round++;
                 if (_anyLoop) Snapshot();
-                RoundStartKits();
                 var order = TurnOrder();
                 foreach (var f in order) { if (Over) break; if (f.Alive) Fire(f, TriggerKind.OnRoundStart, null); }
                 foreach (var f in order) { if (Over) break; if (f.Alive) TakeTurn(f); }
                 foreach (var f in order) { if (Over) break; if (f.Alive) Fire(f, TriggerKind.OnRoundEnd, null); }
-                if (!Over) RoundEndKits();
                 TickBuffs();
             }
             if (!Over)
@@ -1149,6 +1147,7 @@ namespace RogueStars.Rules.Systems
                 var b = Log(BattleAction.Block, blocker, def, stopped);
                 if (b != null) { b.Crit = crit; b.Stacks = def.Guards.Count; }
                 Fire(def, TriggerKind.OnBlock, att, StatusId.None, stopped);
+                StillnessHit(def);
                 return 0;
             }
             double dodgeP = CombatMath.DodgeProbability(def.S(StatId.Dodge), att.S(StatId.DodgeIgnore), def.ConsecutiveDodges, T);
@@ -1158,6 +1157,7 @@ namespace RogueStars.Rules.Systems
                 var e = Log(ActionFor(kind), att, def, 0);
                 if (e != null) e.Dodge = true;
                 Fire(def, TriggerKind.OnDodge, att);
+                StillnessHit(def);
                 return 0;
             }
             def.ConsecutiveDodges = 0;
@@ -1241,6 +1241,7 @@ namespace RogueStars.Rules.Systems
                 Fire(def, TriggerKind.OnShieldHit, att, StatusId.None, absorbed);
                 if (def.Rules.AbilityShieldHits > 0 && !Over && def.Alive) AbilityCount(def, 1, def.Rules.AbilityShieldHits); // Starfall's count
             }
+            StillnessHit(def); // Mirror Palm's count: every enemy attack on the worm
             Fire(def, TriggerKind.OnDamaged, att, StatusId.None, dealt);
 
             if (Over || !def.Alive || !att.Alive || counterDepth >= T.MaxChain) return dealt;
@@ -1355,7 +1356,6 @@ namespace RogueStars.Rules.Systems
             double hpLoss = Math.Min(target.Hp, amount - absorbed);
             double hpBefore = target.Hp;
             target.Hp -= hpLoss;
-            if (hpLoss > 0) target.HpLostRound = true;
             double dealt = absorbed + hpLoss;
             if (src != null) src.LastHitCrit = crit;
             if (src != null) src.DamageDealt += dealt;
@@ -1816,13 +1816,21 @@ namespace RogueStars.Rules.Systems
                         if (others.Count > 0) targets.Add(others[R.Range(0, others.Count)]);
                         else targets.Add(null);
                     }
+                    // Payback Cannon A5 ("coil_split"): the targets share the stored damage
+                    double coilEach = coil ? owner.Coil : 0;
+                    if (coil && HasToken(t.Param, "coil_split"))
+                    {
+                        int n = 0;
+                        foreach (var tg in targets) if (tg != null && tg.Alive && tg.Side != owner.Side) n++;
+                        if (n > 1) coilEach /= n;
+                    }
                     for (int ti = 0; ti < targets.Count; ti++)
                     {
                         var tg = targets[ti];
                         if (Over || !owner.Alive) break;
                         if (tg == null || !tg.Alive || tg.Side == owner.Side) continue;
                         double wide = owner.Sidekick && owner.Wide && ti == targets.Count - 1 && t.Target != TargetKind.AllEnemies ? C.AlienTuning.WidePct / 100.0 : 1;
-                        SkillHit(owner, skill, tg, t.Value, bonus, isTrue, arc, (1 + extra / 100.0) * wide * _abilityMult, ro, forceCrit, onCrit, coil ? owner.Coil : 0);
+                        SkillHit(owner, skill, tg, t.Value, bonus, isTrue, arc, (1 + extra / 100.0) * wide * _abilityMult, ro, forceCrit, onCrit, coilEach);
                     }
                     if (coil && owner.Coil > 0) owner.CoilUsed = true; // Payback Cannon empties the coil after the shot
                     // Zip Strike (aliens pass, Param "combo"): the sidekick's strike rolls the worm's combo chance for more strikes
@@ -2194,7 +2202,6 @@ namespace RogueStars.Rules.Systems
                     double loss = Math.Min(owner.Hp - 1, owner.MaxHp * t.Value / 100.0);
                     if (loss <= 0) break;
                     owner.Hp -= loss;
-                    owner.HpLostRound = true;
                     var e = Log(BattleAction.Skill, owner, owner, loss);
                     if (e != null) e.SkillId = skill.Id;
                     break;

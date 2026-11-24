@@ -13,7 +13,8 @@ namespace RogueStars.Rules.Systems
     /// featured copy), carried to the next event of the type; copies of a hero / mount raise its stars (granters in
     /// HeroSystem / MountSystem). Per event: task lines counted from the event start, pull-count milestones, an exchange
     /// shop with event limits, a free + premium day pass, packs (products) and a daily ad ticket.
-    /// Events: "summon_pull"(type, count, eventId), "summon_event_joined"(type, eventId).
+    /// When an event ends, its unclaimed task and pass rewards are mailed (on joining the next event of the type).
+    /// Events: "summon_pull"(type, count, eventId), "summon_event_joined"(type, eventId), "summon_event_mailed"(type, eventId).
     /// </summary>
     public static class SummonEventSystem
     {
@@ -246,12 +247,58 @@ namespace RogueStars.Rules.Systems
             var s = ctx.State; var c = ctx.Content;
             var ev = CurrentEvent(s, c, type, ctx.NowMs);
             if (ev == null) return;
-            if (s.Summons.Events.TryGetValue(type, out var cur) && cur.EventId == ev.Id) return;
             var def = c.SummonType(type);
+            if (s.Summons.Events.TryGetValue(type, out var cur))
+            {
+                if (cur.EventId == ev.Id) return;
+                MailUnclaimed(ctx, def, cur); // the previous event ended: its unclaimed task and pass rewards go to the mailbox
+            }
             var p = new SummonEventProgress { EventId = ev.Id, FeaturedId = ev.FeaturedId, StartMs = ev.StartMs, EndMs = ev.EndMs, JoinedMs = ctx.NowMs };
             foreach (var line in def.Tasks) p.Baseline[line.CounterKey] = s.Counter(line.CounterKey);
             s.Summons.Events[type] = p;
             ctx.Emit("summon_event_joined", Key(type), ev.Id);
+        }
+
+        /// <summary>
+        /// The rewards an ended event still owes: every reached, unclaimed task target and every unclaimed pass day (all its days
+        /// unlocked by the end; the premium track when it was bought), merged by reward. Milestones are not included.
+        /// </summary>
+        public static List<Reward> Unclaimed(GameState s, ContentDb c, SummonEventTypeDef def, SummonEventProgress p)
+        {
+            var list = new List<Reward>();
+            if (def == null || p == null) return list;
+            foreach (var line in def.Tasks)
+            {
+                long prog = TaskProgress(s, p, line);
+                for (int i = 0; i < line.Targets.Count; i++)
+                    if (prog >= line.Targets[i] && !p.Claimed.Contains(TaskKey(line.Id, i))) Add(list, Resolve(line.Reward, p.FeaturedId));
+            }
+            int days = Math.Max(0, Math.Min(def.Pass.Count, EventDay(c, p.StartMs, p.EndMs - 1)));
+            for (int d = 1; d <= days; d++)
+            {
+                if (!p.Claimed.Contains(PassKey(d, false))) foreach (var r in Resolve(def.Pass[d - 1].Free, p.FeaturedId)) Add(list, r);
+                if (p.PassPremium && !p.Claimed.Contains(PassKey(d, true))) foreach (var r in Resolve(def.Pass[d - 1].Premium, p.FeaturedId)) Add(list, r);
+            }
+            return list;
+        }
+
+        private static void Add(List<Reward> list, Reward r)
+        {
+            if (r == null || r.Amount <= 0) return;
+            foreach (var x in list)
+                if (x.Kind == r.Kind && x.Id == r.Id && x.Rarity == r.Rarity) { x.Amount += r.Amount; return; }
+            list.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
+        }
+
+        /// <summary>An event ended (the player joins the next one): mail its unclaimed task and pass rewards instead of letting them lapse.</summary>
+        private static void MailUnclaimed(CommandContext ctx, SummonEventTypeDef def, SummonEventProgress p)
+        {
+            var rewards = Unclaimed(ctx.State, ctx.Content, def, p);
+            if (rewards.Count == 0) return;
+            string id = MailSystem.Push(ctx.State, ctx.Content, ctx.NowMs, def.Name + ": unclaimed rewards",
+                "The event has ended. Here are the task and pass rewards you had not claimed yet.", rewards);
+            ctx.Emit("mail", id);
+            ctx.Emit("summon_event_mailed", Key(def.Type), p.EventId);
         }
 
         /// <summary>

@@ -201,10 +201,17 @@ public class CrossSystemTests
         Assert.Equal(0, s.Counter("alien_duplicates"));
         Assert.Equal(0, s.Counter("blueprint_duplicates"));
 
-        // Heroes (day 10, level 24) grant exactly the shards to unlock the first hero.
+        // Heroes (day 10, level 24): no starter hero, only the hero summon events and the first event's 10 tickets.
         s.Counters[Requirements.MainLevelCounter] = 24;
         PlayDays(e, ref s, 9, 10);
-        Ok(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, Day(10) + 3000);
+        Assert.Contains(Features.Heroes, s.Onboarding.Unlocked.Keys);
+        Assert.Empty(s.Heroes.Owned);
+        Assert.All(e.Content.HeroConfig.Defs.Keys, h => Assert.Equal(0, s.Wallet.Get(Currencies.HeroShards(h))));
+        Assert.Equal(10, s.Wallet.Get(Currencies.HeroTickets));
+        Assert.NotNull(SummonEventSystem.CurrentEvent(s, e.Content, SummonEventType.Hero, Day(10) + 3000));
+        Assert.NotEqual("feature locked", Fail(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, Day(10) + 3000)); // no shards to unlock one
+        Assert.DoesNotContain(e.Content.FeatureDefs[Features.Heroes].UnlockGrants, g => g.Kind is RewardKinds.Hero or RewardKinds.HeroShards);
+        Assert.Equal("hero_summon", e.Content.FeatureDefs[Features.Heroes].TutorialStep);
     }
 
     // ---- ads --------------------------------------------------------------------------------------

@@ -51,10 +51,10 @@ namespace RogueStars.Client.Tests
             var screen = new MountsScreen();
             _f.App.Router.Push(screen);
             var card = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Mount:mount_star_lancer");
-            Assert.That(Text(card, "Kit:Passive:A3").text, Does.Contain("+35%"));
-            Assert.That(Text(card, "Kit:Active:A3").text, Does.Contain("Every 2 rounds: 180% ATK"));
+            Assert.That(Text(card, "Kit:Passive:A3").text, Does.Contain("+30%")); // Lance Sight A3 (kit tuning)
+            Assert.That(Text(card, "Kit:Active:A3").text, Does.Contain("Every 3 rounds: 140% ATK"));
             Assert.That(Text(card, "KitNext:Active").text, Does.Contain("Next A5"));
-            Assert.That(card.GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("Reload 2") && t.text.Contains("+30% dmg")), Is.True); // 2★ 4★ A1 A2 + 10 levels
+            Assert.That(card.GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("Reload 3") && t.text.Contains("+30% dmg")), Is.True); // 2★ 4★ A1 A2 + 10 levels
         }
 
         [Test]
