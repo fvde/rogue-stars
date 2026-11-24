@@ -22,7 +22,7 @@ public static class SummonReport
 
     private sealed class Snap
     {
-        public int Heroes, HeroStars, HeroBest, Mounts, MountStars, MountAwaken, MountBest;
+        public int Heroes, HeroStars, HeroBest, Mounts, MountStars, MountBest;
         public long HeroPulls, MountPulls, HeroCopies, MountCopies;
     }
 
@@ -65,14 +65,14 @@ public static class SummonReport
             sb.AppendLine($"| {g.Key} | {PerEvent(SummonEventType.Hero):0} | {PerEvent(SummonEventType.Mount):0} | {Med(g.Select(r => r.SpentCents / 100.0 / days * 30)):0} |");
         }
         sb.AppendLine();
-        sb.AppendLine("| Profile | Day | Heroes owned | Hero stars (sum / best) | Hero pulls | Hero copies | Mounts owned | Mount stars (sum / best) | Mount awakening (sum) | Mount pulls | Mount copies |");
-        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
+        sb.AppendLine("| Profile | Day | Heroes owned | Hero stars (sum / best) | Hero pulls | Hero batches | Mounts owned | Mount stars (sum / best) | Mount pulls | Mount batches |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
         foreach (var g in runs.GroupBy(r => r.Profile).OrderBy(g => g.Key))
             foreach (var day in checkpoints.Where(c => c <= days))
             {
                 int Med(Func<Snap, double> f) { var l = g.Select(r => f(r.At[day])).OrderBy(x => x).ToList(); return (int)Math.Round(l[l.Count / 2]); }
                 sb.AppendLine($"| {g.Key} | {day} | {Med(s => s.Heroes)} | {Med(s => s.HeroStars)} / {Med(s => s.HeroBest)} | {Med(s => s.HeroPulls)} | {Med(s => s.HeroCopies)} | "
-                    + $"{Med(s => s.Mounts)} | {Med(s => s.MountStars)} / {Med(s => s.MountBest)} | {Med(s => s.MountAwaken)} | {Med(s => s.MountPulls)} | {Med(s => s.MountCopies)} |");
+                    + $"{Med(s => s.Mounts)} | {Med(s => s.MountStars)} / {Med(s => s.MountBest)} | {Med(s => s.MountPulls)} | {Med(s => s.MountCopies)} |");
             }
         return sb.ToString();
     }
@@ -90,7 +90,7 @@ public static class SummonReport
             Mounts = s.Mounts.Owned.Count,
             MountStars = s.Mounts.Owned.Values.Sum(m => m.Stars),
             MountBest = s.Mounts.Owned.Values.Select(m => m.Stars).DefaultIfEmpty(0).Max(),
-            MountAwaken = s.Mounts.Owned.Values.Sum(m => m.Awaken),
+
             HeroPulls = s.Counter("summon_pulls_hero"), MountPulls = s.Counter("summon_pulls_mount"),
             HeroCopies = s.Counter("hero_copies"), MountCopies = s.Counter("mount_copies"),
         };

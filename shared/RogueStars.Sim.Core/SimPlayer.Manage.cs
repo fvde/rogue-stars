@@ -50,6 +50,7 @@ namespace RogueStars.Sim
 
             Breeding();
             Aliens();
+            Reactor();
         }
 
         private bool UnlockNextArea()
@@ -108,6 +109,7 @@ namespace RogueStars.Sim
                 if (want.Count > 0 && !want.SequenceEqual(AlienSystem.ActiveSquad(S, C))) Exec(new AlienSetSquad { AlienTypeIds = want });
             }
             StaffAnnex();
+            StaffReactor();
             // Workers: best work power first into production buildings with free slots.
             foreach (var a in S.Aliens.Owned.Values.Where(a => string.IsNullOrEmpty(a.WorkBuildingId))
                          .OrderByDescending(a => AlienSystem.WorkPower(C, a)).ThenBy(a => a.TypeId, StringComparer.Ordinal).ToList())
