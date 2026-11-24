@@ -64,9 +64,19 @@ namespace RogueStars.Client.Screens
             var edge = Ui.RoundPanel(parent, PillEdge, h * scale / 2, name);
             edge.raycastTarget = false;
             Place(edge.rectTransform, scale, x, y, w, h, fromBottom);
-            var face = Ui.RoundPanel(edge.transform, fill, h * scale / 2 - 3, "Face");
+            float t = Mathf.Max(4, 6 * scale);
+            var face = Ui.RoundPanel(edge.transform, fill, h * scale / 2 - t, "Face");
             face.raycastTarget = false;
-            Ui.Stretch(face.rectTransform, 4, 4, 4, 4);
+            Ui.Stretch(face.rectTransform, t, t, t, t);
+            // inner bevel: a dark lip along the bottom, a soft gloss over the top half
+            var lip = Ui.RoundPanel(face.transform, new Color(0, 0, 0, 0.22f), h * scale / 2 - t, "Lip");
+            lip.raycastTarget = false;
+            Ui.Stretch(lip.rectTransform);
+            lip.rectTransform.anchorMax = new Vector2(1, 0.3f);
+            var gloss = Ui.RoundPanel(face.transform, new Color(1, 1, 1, 0.12f), h * scale / 3, "Gloss");
+            gloss.raycastTarget = false;
+            gloss.rectTransform.anchorMin = new Vector2(0, 0.52f); gloss.rectTransform.anchorMax = new Vector2(1, 0.92f);
+            gloss.rectTransform.offsetMin = new Vector2(h * scale * 0.3f, 0); gloss.rectTransform.offsetMax = new Vector2(-h * scale * 0.3f, 0);
             return edge;
         }
     }
@@ -104,7 +114,7 @@ namespace RogueStars.Client.Screens
             h.Root = root;
 
             // level: EXP hexagon over a dark pill with the XP fill
-            var lvl = SliceKit.Pill(root, s, 138, 208, 150, 58, SliceKit.PillDark, "RunLevel");
+            var lvl = SliceKit.Pill(root, s, 140, 208, 156, 64, SliceKit.PillDark, "RunLevel");
             var xpTrack = Ui.Rect(lvl.transform.Find("Face"), "XpTrack");
             Ui.Stretch(xpTrack);
             var xp = Ui.RoundPanel(xpTrack, new Color32(0x6E, 0xD2, 0xF6, 255), 22 * s, "XpFill");
@@ -114,7 +124,7 @@ namespace RogueStars.Client.Screens
             xp.fillOrigin = 0;
             Ui.Stretch(xp.rectTransform);
             h.XpFill = xp;
-            var lvText = SliceKit.Chunky(lvl.transform, "Lv. 1", (int)(40 * s), Color.white, TextAnchor.MiddleLeft, "LvNumber");
+            var lvText = SliceKit.Chunky(lvl.transform, "Lv. 1", (int)(46 * s), Color.white, TextAnchor.MiddleLeft, "LvNumber");
             Ui.Stretch(lvText.rectTransform, 46 * s, 0, 6, 2);
             h.Level = lvText;
             var lvBtn = lvl.gameObject.AddComponent<Button>();
@@ -125,7 +135,7 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(expCap.rectTransform);
 
             // HP pill: red fill with the heart
-            var hp = SliceKit.Pill(root, s, 418, 208, 336, 58, new Color32(0x4A, 0x16, 0x22, 255), "HpBar");
+            var hp = SliceKit.Pill(root, s, 420, 208, 340, 64, new Color32(0x4A, 0x16, 0x22, 255), "HpBar");
             var hpFill = Ui.RoundPanel(hp.transform.Find("Face"), new Color32(0xEE, 0x3E, 0x4E, 255), 22 * s, "HpFill");
             hpFill.raycastTarget = false;
             hpFill.type = Image.Type.Filled;
@@ -136,17 +146,17 @@ namespace RogueStars.Client.Screens
             shine.raycastTarget = false;
             shine.rectTransform.anchorMin = new Vector2(0, 0.55f); shine.rectTransform.anchorMax = new Vector2(1, 0.9f);
             shine.rectTransform.offsetMin = new Vector2(14 * s, 0); shine.rectTransform.offsetMax = new Vector2(-14 * s, 0);
-            h.HpText = SliceKit.Chunky(hp.transform, "", (int)(38 * s), Color.white, TextAnchor.MiddleCenter, "HpText");
+            h.HpText = SliceKit.Chunky(hp.transform, "", (int)(44 * s), Color.white, TextAnchor.MiddleCenter, "HpText");
             Ui.Stretch(h.HpText.rectTransform, 40 * s, 0, 6, 2);
             SliceKit.Icon(root, "heart", s, 250, 204, 78, false, "HeartIcon");
 
             // ATK / DEF pills
-            h.AtkPill = SliceKit.Pill(root, s, 710, 208, 148, 54, SliceKit.PillDark, "AtkPill").rectTransform;
-            h.Atk = SliceKit.Chunky(h.AtkPill, "", (int)(34 * s), Color.white, TextAnchor.MiddleCenter, "AtkChip");
+            h.AtkPill = SliceKit.Pill(root, s, 712, 208, 152, 60, SliceKit.PillDark, "AtkPill").rectTransform;
+            h.Atk = SliceKit.Chunky(h.AtkPill, "", (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "AtkChip");
             Ui.Stretch(h.Atk.rectTransform, 24 * s, 0, 4, 2);
             SliceKit.Icon(root, "sword", s, 624, 204, 72, false, "SwordIcon");
-            h.DefPill = SliceKit.Pill(root, s, 902, 208, 140, 54, SliceKit.PillDark, "DefPill").rectTransform;
-            h.Def = SliceKit.Chunky(h.DefPill, "", (int)(34 * s), Color.white, TextAnchor.MiddleCenter, "DefChip");
+            h.DefPill = SliceKit.Pill(root, s, 902, 208, 144, 60, SliceKit.PillDark, "DefPill").rectTransform;
+            h.Def = SliceKit.Chunky(h.DefPill, "", (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "DefChip");
             Ui.Stretch(h.Def.rectTransform, 24 * s, 0, 4, 2);
             SliceKit.Icon(root, "shield", s, 826, 204, 64, false, "ShieldIcon");
 
@@ -161,9 +171,9 @@ namespace RogueStars.Client.Screens
 
             if (coins)
             {
-                var chip = SliceKit.Pill(root, s, 154, 296, 176, 60, SliceKit.PillDark, "CoinsChip");
+                var chip = SliceKit.Pill(root, s, 156, 296, 180, 66, SliceKit.PillDark, "CoinsChip");
                 h.CoinsChip = chip.rectTransform;
-                h.Coins = SliceKit.Chunky(chip.transform, "-", (int)(42 * s), Color.white, TextAnchor.MiddleCenter, "Coins");
+                h.Coins = SliceKit.Chunky(chip.transform, "-", (int)(48 * s), Color.white, TextAnchor.MiddleCenter, "Coins");
                 Ui.Stretch(h.Coins.rectTransform, 50 * s, 0, 4, 2);
                 SliceKit.Icon(root, "coin", s, 62, 296, 70, false, "CoinIcon");
             }
@@ -201,21 +211,38 @@ namespace RogueStars.Client.Screens
             var root = Ui.Rect(parent, "BossClock");
             Ui.Stretch(root);
             float top = 800, bottom = 1240, x = 74;
-            var track = SliceKit.Pill(root, s, x, (top + bottom) / 2, 40, bottom - top + 30, new Color32(0x14, 0x12, 0x22, 240), "ClockTrack");
+            var track = SliceKit.Pill(root, s, x, (top + bottom) / 2, 56, bottom - top + 40, new Color32(0x14, 0x12, 0x22, 245), "ClockTrack");
             var face = (RectTransform)track.transform.Find("Face");
             if (info.Fill > 0.001f)
             {
-                var fill = Ui.RoundPanel(face, Color.Lerp(new Color32(0x5C, 0xC8, 0xF4, 255), new Color32(0xF0, 0x4A, 0x52, 255), info.Fill), 14 * s, "ClockFill");
+                // the fill: a gradient from calm blue at the bottom to the awakening's colour at its top
+                var hot = Color.Lerp(new Color32(0x5C, 0xC8, 0xF4, 255), new Color32(0xF0, 0x4A, 0x52, 255), info.Fill);
+                var holder = Ui.Rect(face, "ClockFillHolder");
+                holder.anchorMin = Vector2.zero; holder.anchorMax = new Vector2(1, Mathf.Max(info.Fill, 0.08f));
+                holder.offsetMin = holder.offsetMax = Vector2.zero;
+                var fill = Ui.RoundPanel(holder, Color.white, 18 * s, "ClockFill");
                 fill.raycastTarget = false;
-                var frt = fill.rectTransform;
-                frt.anchorMin = Vector2.zero; frt.anchorMax = new Vector2(1, Mathf.Max(info.Fill, 0.06f));
-                frt.offsetMin = frt.offsetMax = Vector2.zero;
+                Ui.Stretch(fill.rectTransform);
+                var grad = Ui.Panel(fill.transform, Color.white, "ClockGradient");
+                grad.sprite = HudArt.Gradient(new Color32(0x3C, 0x9C, 0xE8, 255), hot);
+                grad.raycastTarget = false;
+                Ui.Stretch(grad.rectTransform, 3 * s, 3 * s, 3 * s, 3 * s);
+                var shine = Ui.Panel(fill.transform, new Color(1, 1, 1, 0.25f), "Shine");
+                shine.raycastTarget = false;
+                shine.rectTransform.anchorMin = new Vector2(0.2f, 0.04f); shine.rectTransform.anchorMax = new Vector2(0.38f, 0.96f);
+                shine.rectTransform.offsetMin = shine.rectTransform.offsetMax = Vector2.zero;
             }
             for (int i = 0; i < info.Markers.Count; i++)
             {
                 var m = info.Markers[i];
                 float y = bottom - (bottom - top) * m.At;
-                var pip = SliceKit.Icon(root, "skull", s, x, y, 58, false, "MinibossMarker:" + i);
+                // a framed pip: dark ring, then the skull
+                var frame = Ui.Dot(root, SliceKit.PillEdge, 66 * s, "MinibossFrame:" + i);
+                var fle = frame.GetComponent<LayoutElement>(); if (fle != null) fle.ignoreLayout = true;
+                frame.raycastTarget = false;
+                SliceKit.Place(frame.rectTransform, s, x, y, 66, 66);
+                UiShapes.Outline(frame.rectTransform, m.Passed ? (Color)new Color32(0xF0, 0xCC, 0x6A, 255) : new Color32(0x6A, 0x64, 0x80, 255), 33 * s, 4);
+                var pip = SliceKit.Icon(root, "skull", s, x, y - 2, 54, false, "MinibossMarker:" + i);
                 pip.color = m.Passed ? Color.white : new Color(1, 1, 1, 0.5f);
             }
             SliceKit.Icon(root, "boss_rail_top", s, x, top - 36, 88, false, "BossSkull");

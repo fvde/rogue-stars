@@ -37,7 +37,7 @@ namespace RogueStars.Client.World
     {
         public int Id;
         public GameObject Go;
-        public SpriteRenderer Base, Top, Marker;
+        public SpriteRenderer Base, Top, Marker, MarkerShadow;
         public Color Accent;
         public Vector2 TopCentre;
         public string MarkerId;
@@ -46,7 +46,11 @@ namespace RogueStars.Client.World
         public void ApplyLanded(bool cleared)
         {
             if (Top != null) Top.color = WorldBoard.LandedTint(Accent);
-            if (Marker != null && cleared && WorldBoard.ClearsOnWin(MarkerId)) Marker.gameObject.SetActive(false);
+            if (Marker != null && cleared && WorldBoard.ClearsOnWin(MarkerId))
+            {
+                Marker.gameObject.SetActive(false);
+                if (MarkerShadow != null) MarkerShadow.gameObject.SetActive(false);
+            }
         }
     }
 
@@ -61,12 +65,12 @@ namespace RogueStars.Client.World
     {
         /// <summary>Render layer of every board object (only the board camera draws it).</summary>
         public const int Layer = 30;
-        /// <summary>Width of the view in world units (1080 px of the reference screen).</summary>
-        public const float ViewWidth = 10.8f;
+        /// <summary>Width of the view in world units (1080 px of the reference screen: ~5.4 tiles across, 1 unit = 120 px).</summary>
+        public const float ViewWidth = 9.0f;
         /// <summary>Depth window drawn around the worm (grid x + y behind / ahead).</summary>
         public const int Behind = 22, Ahead = 46;
         /// <summary>Worm height on the board (world units) and how far ahead "!" marks special tiles.</summary>
-        public const float WormHeight = 1.35f;
+        public const float WormHeight = 1.8f;
         public const int ExclaimReach = 40, ExclaimMax = 3;
 
         private static int _instances;
@@ -81,6 +85,7 @@ namespace RogueStars.Client.World
         public Transform TokenBody { get; private set; }
         public Transform TokenShadow { get; private set; }
         private SpriteRenderer _tokenSprite;
+        private SpriteRenderer _vignette;
         /// <summary>Set pieces / scatter props placed by the last build (tests).</summary>
         public readonly List<string> SetPiecesDrawn = new List<string>();
         public int ScatterCount { get; private set; }
@@ -107,6 +112,13 @@ namespace RogueStars.Client.World
             Cam.allowHDR = false;
             Cam.allowMSAA = false;
             Cam.orthographicSize = ViewWidth;
+            // a slight vignette over the whole view (frames the diorama; sized in EnsureTarget)
+            var vig = new GameObject("Vignette") { layer = Layer };
+            vig.transform.SetParent(camGo.transform, false);
+            vig.transform.localPosition = new Vector3(0, 0, 10);
+            _vignette = vig.AddComponent<SpriteRenderer>();
+            _vignette.sprite = IsoArt.Vignette();
+            _vignette.sortingOrder = 32700;
             // renders only in play mode on a real graphics device (edit-mode tests and -nographics runs draw nothing)
             Cam.enabled = Application.isPlaying && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
         }
@@ -119,12 +131,17 @@ namespace RogueStars.Client.World
             if (Target == null || Target.width != w || Target.height != h)
             {
                 if (Target != null) { Cam.targetTexture = null; Target.Release(); UnityEngine.Object.DestroyImmediate(Target); }
-                Target = new RenderTexture(w, h, 16, RenderTextureFormat.ARGB32) { name = "BoardRT", antiAliasing = 1 };
+                Target = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "BoardRT", antiAliasing = 1 };
                 Target.Create();
                 Cam.targetTexture = Target;
             }
             Cam.aspect = (float)w / h;
             Cam.orthographicSize = ViewWidth / Cam.aspect / 2;
+            if (_vignette != null && _vignette.sprite != null)
+            {
+                var vb = _vignette.sprite.bounds.size;
+                _vignette.transform.localScale = new Vector3(ViewWidth / vb.x, ViewHeight / vb.y, 1);
+            }
             return Target;
         }
 
@@ -166,7 +183,12 @@ namespace RogueStars.Client.World
         // ---- look rules (pure) ---------------------------------------------------------------------------------------
 
         /// <summary>The landed tile's top tint (multiplied over the face colour).</summary>
-        public static Color LandedTint(Color accent) => Color.Lerp(Color.white, accent, 0.55f);
+        public static Color LandedTint(Color accent)
+        {
+            // a soft, desaturated wash: landed tiles read as visited without turning the path into a patchwork
+            float g = accent.r * 0.3f + accent.g * 0.59f + accent.b * 0.11f;
+            return Color.Lerp(Color.white, Color.Lerp(accent, new Color(g, g, g), 0.45f), 0.24f);
+        }
 
         /// <summary>Markers that leave the board once their tile is resolved (a beaten enemy, a taken pickup / chest).</summary>
         public static bool ClearsOnWin(string markerId) =>
@@ -251,84 +273,84 @@ namespace RogueStars.Client.World
             int cd = Depth(centre);
             var visible = new List<RunTile>();
             foreach (var t in run.Tiles) if (InWindow(run, t, cd)) visible.Add(t);
-            var occupied = new HashSet<Vector2Int>();
-            float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
-            foreach (var t in visible)
-            {
-                occupied.Add(CellOf(t));
-                var p = TopOf(t);
-                minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x); minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
-            }
-            if (visible.Count == 0) { minX = maxX = minY = maxY = 0; }
 
-            // ground: a tiled meadow under everything
-            var ground = NewSprite("Ground", IsoArt.Ground(), new Vector2((minX + maxX) / 2, (minY + maxY) / 2), -32000);
-            ground.drawMode = SpriteDrawMode.Tiled;
-            ground.size = new Vector2(maxX - minX + 30, maxY - minY + 30);
-
-            // set-piece slots: a platform floor and the set piece
-            var slotCells = new HashSet<Vector2Int>();
+            // the plinth: path cells and set-piece floors (cell → height); its walls run on where neighbours share a height
+            var plinth = new Dictionary<Vector2Int, int>();
+            foreach (var t in visible) plinth[CellOf(t)] = t.Segment >= 0 ? t.Height : 0;
+            var slots = new List<KeyValuePair<int, RunSetPiece>>();
             for (int i = 0; i < run.SetPieces.Count; i++)
             {
                 var s = run.SetPieces[i];
                 int sd = s.X + s.Y;
                 if (sd + s.W + s.H < cd - Behind || sd > cd + Ahead) continue;
                 if (run.BossGateTile >= 0) continue;
+                slots.Add(new KeyValuePair<int, RunSetPiece>(i, s));
                 for (int x = s.X; x < s.X + s.W; x++)
                     for (int y = s.Y; y < s.Y + s.H; y++)
-                    {
-                        var cell = new Vector2Int(x, y);
-                        slotCells.Add(cell);
-                        NewSprite("Floor", IsoArt.Block(TileFace.Floor, s.Height), Iso.Cell(x, y, s.Height) - new Vector2(0, Iso.Slab), Iso.Order(x, y));
-                    }
-                string id = SetPieceFor(s, i);
+                        plinth[new Vector2Int(x, y)] = s.Height;
+            }
+            int Mask(int x, int y, int h) => IsoArt.PlinthMask((a, b) => plinth.TryGetValue(new Vector2Int(a, b), out int hh) && hh == h, x, y);
+
+            // the island the diorama stands on (ground, cliff edge) over the dark surround; its distance field places scatter
+            var field = Surround(plinth.Keys, seed);
+
+            // set-piece slots: floors flush with the plinth and the set piece filling the slot
+            foreach (var kv in slots)
+            {
+                var s = kv.Value;
+                for (int x = s.X; x < s.X + s.W; x++)
+                    for (int y = s.Y; y < s.Y + s.H; y++)
+                        NewSprite("Floor", IsoArt.Block(TileFace.Floor, s.Height, Mask(x, y, s.Height)), Iso.Cell(x, y, s.Height) - new Vector2(0, Iso.Slab), Iso.Order(x, y));
+                string id = SetPieceFor(s, kv.Key);
                 var sprite = IsoArt.SetPiece(id);
                 var foot = Iso.Cell(s.X + (s.W - 1) / 2f, s.Y + (s.H - 1) / 2f, s.Height) - new Vector2(0, Iso.Slab);
-                float fpW = (s.W + s.H) * Iso.StepX, fpH = (s.W + s.H) * Iso.StepY;
+                float fpW = (s.W + s.H) * Iso.StepX;
                 var go = new GameObject("SetPiece:" + id) { layer = Layer };
                 go.transform.SetParent(_content.transform, false);
                 go.transform.localPosition = foot;
                 if (IsoArt.IsFlat(id) && ArtCatalog.SliceSetPiece(id) == null)
                 {
-                    // a flat piece fills the circle inscribed in the slot (never over the path around it)
-                    float d = Mathf.Min(s.W, s.H) * 1.414f * 1.04f;
+                    // a flat piece fills the circle inscribed in the slot (its rim meets the path around it)
+                    float d = Mathf.Min(s.W, s.H) * 1.414f * 1.1f;
                     Fit(go, sprite, d * Iso.StepX, d * Iso.StepY * 1.12f, Iso.Order(s.X, s.Y) + 4, false);
                 }
                 else
-                    Fit(go, sprite, fpW * 0.78f, Mathf.Min(2.6f, 0.9f + (s.W + s.H) * 0.32f), Iso.Order(s.X, s.Y) + 4, true);
+                {
+                    Shadow(go, fpW * 0.62f, Iso.Order(s.X, s.Y) + 3);
+                    Fit(go, sprite, fpW * 0.9f, Mathf.Min(3.0f, 1.1f + (s.W + s.H) * 0.4f), Iso.Order(s.X, s.Y) + 4, true);
+                }
                 SetPiecesDrawn.Add(id);
             }
 
-            // scatter props on free cells along the path (and a few further out)
-            foreach (var t in visible)
+            // scatter on the island around the plinth: dense ground cover along its edges, mid props further out, a few large
+            // background pieces at the island's rim (never in front of the path)
+            foreach (var cell in field.Cells())
             {
-                var c = CellOf(t);
-                for (int dx = -4; dx <= 4; dx++)
-                    for (int dy = -4; dy <= 4; dy++)
-                    {
-                        var cell = new Vector2Int(c.x + dx, c.y + dy);
-                        if (occupied.Contains(cell) || slotCells.Contains(cell)) continue;
-                        int ring = Math.Max(Math.Abs(dx), Math.Abs(dy));
-                        bool near = ring <= 1;
-                        float chance = near ? 0.15f : ring == 2 ? 0.08f : 0.05f;
-                        // only one tile decides a cell (the first in the window that sees it)
-                        if (!occupied.Add(cell)) continue;
-                        if (Hash(seed, cell.x, cell.y, 1) >= chance) continue;
-                        string sid = IsoArt.ScatterIds[(int)(Hash(seed, cell.x, cell.y, 2) * IsoArt.ScatterIds.Length) % IsoArt.ScatterIds.Length];
-                        var off = new Vector2(Hash(seed, cell.x, cell.y, 3) - 0.5f, Hash(seed, cell.x, cell.y, 4) - 0.5f) * 0.5f;
-                        var pos = Iso.Cell(cell.x + off.x, cell.y + off.y, 0) - new Vector2(0, Iso.Slab + Iso.Wall);
-                        var go = new GameObject("Scatter:" + sid) { layer = Layer };
-                        go.transform.SetParent(_content.transform, false);
-                        go.transform.localPosition = pos;
-                        float size = near ? 0.55f : ring == 2 ? 0.75f : 0.95f;
-                        Fit(go, IsoArt.Scatter(sid), size * 1.4f, size, Iso.Order(cell.x + off.x, cell.y + off.y) + 3, true, Hash(seed, cell.x, cell.y, 5) < 0.5f);
-                        ScatterCount++;
-                    }
+                float d = field.Dist(cell.x, cell.y);
+                if (d < 0.5f || d > 4.2f || field.Alpha(cell.x, cell.y) < (d >= 2.5f ? 0.5f : 0.95f)) continue;
+                float roll = Hash(seed, cell.x, cell.y, 1), pick = Hash(seed, cell.x, cell.y, 2);
+                string sid;
+                if (d < 1.5f) { if (roll >= 0.36f) continue; sid = pick < 0.82f ? Pick(SmallScatter, Hash(seed, cell.x, cell.y, 6)) : Pick(MidScatter, Hash(seed, cell.x, cell.y, 6)); }
+                else if (d < 2.5f) { if (roll >= 0.16f) continue; sid = pick < 0.5f ? Pick(SmallScatter, Hash(seed, cell.x, cell.y, 6)) : Pick(MidScatter, Hash(seed, cell.x, cell.y, 6)); }
+                else
+                {
+                    if (roll >= 0.13f) continue;
+                    sid = pick < 0.6f && !PathBehind(plinth, cell) ? Pick(LargeScatter, Hash(seed, cell.x, cell.y, 6)) : Pick(MidScatter, Hash(seed, cell.x, cell.y, 6));
+                }
+                var off = new Vector2(Hash(seed, cell.x, cell.y, 3) - 0.5f, Hash(seed, cell.x, cell.y, 4) - 0.5f) * 0.45f;
+                var pos = Iso.Cell(cell.x + off.x, cell.y + off.y, 0) - new Vector2(0, Iso.Slab + Iso.Wall);
+                var go = new GameObject("Scatter:" + sid) { layer = Layer };
+                go.transform.SetParent(_content.transform, false);
+                go.transform.localPosition = pos;
+                float size = IsoArt.ScatterHeight(sid) * (0.85f + 0.3f * Hash(seed, cell.x, cell.y, 7));
+                int order = Iso.Order(cell.x + off.x, cell.y + off.y) + 3;
+                var sr = Fit(go, IsoArt.Scatter(sid), size * (IsoArt.IsLargeScatter(sid) ? 0.9f : 1.7f), size, order, true, Hash(seed, cell.x, cell.y, 5) < 0.5f);
+                if (sr.sprite != null) Shadow(go, Mathf.Min(1.4f, sr.bounds.size.x * 0.9f), order - 1);
+                ScatterCount++;
             }
 
             // tiles
             int exclaims = 0;
-            var ahead = new HashSet<int>(RunBoard.Ahead(run.Tiles, run.Position, ExclaimReach));
             var exclaimOrder = RunBoard.Ahead(run.Tiles, run.Position, ExclaimReach);
             var exclaimed = new HashSet<int>();
             foreach (var id in exclaimOrder)
@@ -353,7 +375,7 @@ namespace RogueStars.Client.World
                 go.transform.SetParent(_content.transform, false);
                 go.transform.localPosition = top;
                 var view = new TileView { Id = t.Id, Go = go, Accent = look.Accent, TopCentre = top };
-                view.Base = Child(go, "Block", IsoArt.Block(face, h), Vector2.zero, order);
+                view.Base = Child(go, "Block", IsoArt.Block(face, h, Mask(cell.x, cell.y, h)), Vector2.zero, order);
                 view.Top = Child(go, "Top", IsoArt.Top(face, t.Segment >= 0 ? RunBoard.Heading(t) : 0), Vector2.zero, order + 1);
                 bool landed = look.Landed && t.Id != landingId;
                 if (landed) view.Top.color = LandedTint(look.Accent);
@@ -371,14 +393,15 @@ namespace RogueStars.Client.World
                     var mgo = new GameObject("Marker:" + marker) { layer = Layer };
                     mgo.transform.SetParent(go.transform, false);
                     mgo.transform.localPosition = new Vector2(0, -0.02f);
-                    view.Marker = Fit(mgo, IsoArt.Marker(marker), Iso.TileW * 0.95f, IsoArt.MarkerHeight(marker), order + 3, true);
+                    view.Marker = Fit(mgo, IsoArt.Marker(marker), Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true);
+                    view.MarkerShadow = Shadow(mgo, Mathf.Min(Iso.TileW * 0.7f, view.Marker.bounds.size.x * 0.85f), order + 2);
                     if (look.Gate) mgo.transform.localScale = Vector3.one * 1.25f;
                 }
                 if (exclaimed.Contains(t.Id))
                 {
                     float mh = marker != null ? IsoArt.MarkerHeight(marker) : 0.3f;
                     var ex = Child(go, "Exclaim", IsoArt.Exclaim(), new Vector2(0, mh + 0.25f), order + 9);
-                    ex.transform.localScale = Vector3.one * 0.85f;
+                    ex.transform.localScale = Vector3.one * 0.95f;
                     var bob = ex.gameObject.AddComponent<WorldBob>();
                     bob.Amplitude = 0.08f; bob.Phase = t.Id * 0.37f;
                     ExclaimCount++;
@@ -390,9 +413,8 @@ namespace RogueStars.Client.World
             var tokenGo = new GameObject("Token") { layer = Layer };
             tokenGo.transform.SetParent(_content.transform, false);
             Token = tokenGo.transform;
-            var shadow = Child(tokenGo, "TokenShadow", UiShapes.Circle, Vector2.zero, 0);
-            shadow.color = new Color(0, 0, 0, 0.35f);
-            shadow.transform.localScale = new Vector3(1.1f, 0.45f, 1);
+            var shadow = Child(tokenGo, "TokenShadow", IsoArt.SoftShadow(), Vector2.zero, 0);
+            shadow.transform.localScale = new Vector3(1.05f, 1.05f, 1);
             TokenShadow = shadow.transform;
             var body = new GameObject("Body") { layer = Layer };
             body.transform.SetParent(tokenGo.transform, false);
@@ -400,9 +422,159 @@ namespace RogueStars.Client.World
             var hero = ArtCatalog.Hero();
             var wormGo = new GameObject("Worm") { layer = Layer };
             wormGo.transform.SetParent(body.transform, false);
-            _tokenSprite = hero != null ? Fit(wormGo, hero, 1.6f, WormHeight, 0, true) : Fit(wormGo, IsoArt.Marker("portal"), 1.2f, 0.9f, 0, true);
+            _tokenSprite = hero != null ? Fit(wormGo, hero, 2.4f, WormHeight, 0, true) : Fit(wormGo, IsoArt.Marker("portal"), 1.6f, 1.2f, 0, true);
             if (Application.isPlaying) { var bob = wormGo.AddComponent<WorldBob>(); bob.Amplitude = 0.035f; bob.Period = 1.6f; }
             PlaceToken(TopOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), CellOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), Vector2.one);
+        }
+
+        // ---- the island and its surround ---------------------------------------------------------------------------------
+
+        /// <summary>Ground-cover scatter (along the plinth), mid props, and large background pieces (the island's rim).</summary>
+        public static readonly string[] SmallScatter = { "fern", "flowers", "pebble_glow", "mushrooms", "rock_small", "fern" };
+        public static readonly string[] MidScatter = { "bush", "rock_pile", "barrel", "bones", "crystal_small", "rock_small" };
+        public static readonly string[] LargeScatter = { "stump", "antenna" };
+        /// <summary>Island radius in grid cells around the plinth (before the organic wobble).</summary>
+        public const float IslandRadius = 2.6f;
+
+        private static string Pick(string[] ids, float h) => ids[Mathf.Clamp((int)(h * ids.Length), 0, ids.Length - 1)];
+
+        /// <summary>Whether a tall prop on <paramref name="c"/> would stand in front of the path (plinth cells behind it on screen).</summary>
+        private static bool PathBehind(Dictionary<Vector2Int, int> plinth, Vector2Int c)
+        {
+            for (int k = 1; k <= 3; k++)
+                for (int s = -1; s <= 1; s++)
+                    if (plinth.ContainsKey(new Vector2Int(c.x + k + (s > 0 ? 1 : 0), c.y + k + (s < 0 ? 1 : 0)))) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// A chamfer distance field (grid cells) from the plinth over its bounding box (+6), and the island's alpha: ground
+        /// within <see cref="IslandRadius"/> of the plinth, wobbled by noise into an organic outline.
+        /// </summary>
+        public sealed class IslandField
+        {
+            private readonly int _x0, _y0, _w, _h, _seed;
+            private readonly float[] _d;
+
+            public IslandField(ICollection<Vector2Int> cells, int seed)
+            {
+                _seed = seed;
+                int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
+                foreach (var c in cells) { x0 = Math.Min(x0, c.x); y0 = Math.Min(y0, c.y); x1 = Math.Max(x1, c.x); y1 = Math.Max(y1, c.y); }
+                if (cells.Count == 0) { x0 = y0 = 0; x1 = y1 = 0; }
+                _x0 = x0 - 6; _y0 = y0 - 6; _w = x1 - x0 + 13; _h = y1 - y0 + 13;
+                _d = new float[_w * _h];
+                for (int i = 0; i < _d.Length; i++) _d[i] = 99;
+                foreach (var c in cells) _d[(c.y - _y0) * _w + (c.x - _x0)] = 0;
+                const float D = 1.414f;
+                for (int y = 0; y < _h; y++)
+                    for (int x = 0; x < _w; x++)
+                    {
+                        float v = _d[y * _w + x];
+                        if (x > 0) v = Math.Min(v, _d[y * _w + x - 1] + 1);
+                        if (y > 0) v = Math.Min(v, _d[(y - 1) * _w + x] + 1);
+                        if (x > 0 && y > 0) v = Math.Min(v, _d[(y - 1) * _w + x - 1] + D);
+                        if (x < _w - 1 && y > 0) v = Math.Min(v, _d[(y - 1) * _w + x + 1] + D);
+                        _d[y * _w + x] = v;
+                    }
+                for (int y = _h - 1; y >= 0; y--)
+                    for (int x = _w - 1; x >= 0; x--)
+                    {
+                        float v = _d[y * _w + x];
+                        if (x < _w - 1) v = Math.Min(v, _d[y * _w + x + 1] + 1);
+                        if (y < _h - 1) v = Math.Min(v, _d[(y + 1) * _w + x] + 1);
+                        if (x < _w - 1 && y < _h - 1) v = Math.Min(v, _d[(y + 1) * _w + x + 1] + D);
+                        if (x > 0 && y < _h - 1) v = Math.Min(v, _d[(y + 1) * _w + x - 1] + D);
+                        _d[y * _w + x] = v;
+                    }
+            }
+
+            public int X0 => _x0;
+            public int Y0 => _y0;
+            public int X1 => _x0 + _w - 1;
+            public int Y1 => _y0 + _h - 1;
+
+            public IEnumerable<Vector2Int> Cells()
+            {
+                for (int y = _y0; y < _y0 + _h; y++)
+                    for (int x = _x0; x < _x0 + _w; x++)
+                        yield return new Vector2Int(x, y);
+            }
+
+            /// <summary>Distance (cells) from the plinth at a grid cell (99 outside the field).</summary>
+            public float Dist(int x, int y)
+            {
+                x -= _x0; y -= _y0;
+                return x < 0 || y < 0 || x >= _w || y >= _h ? 99 : _d[y * _w + x];
+            }
+
+            /// <summary>Bilinear distance at a fractional grid point.</summary>
+            public float Dist(float gx, float gy)
+            {
+                int ix = Mathf.FloorToInt(gx), iy = Mathf.FloorToInt(gy);
+                float fx = gx - ix, fy = gy - iy;
+                float a = Dist(ix, iy), b = Dist(ix + 1, iy), c = Dist(ix, iy + 1), d = Dist(ix + 1, iy + 1);
+                return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
+            }
+
+            /// <summary>Island alpha (0..1) at a fractional ground point in grid coordinates.</summary>
+            public float Alpha(float gx, float gy)
+            {
+                float r = IslandRadius + 1.3f * (Mathf.PerlinNoise(gx * 0.27f + (_seed & 255) * 0.37f, gy * 0.27f + 11.3f) - 0.5f) * 2
+                          + 0.35f * (Mathf.PerlinNoise(gx * 0.9f + 4.1f, gy * 0.9f + (_seed & 127) * 0.21f) - 0.5f);
+                return Mathf.Clamp01((r - Dist(gx, gy)) / 0.16f + 0.5f);
+            }
+        }
+
+        /// <summary>
+        /// The island under the diorama and the dark surround framing it: the tiled backdrop (deep water / rock), a soft drop
+        /// shadow and a two-band cliff below the island's front edges, and the tiled ground clipped to the island by a sprite
+        /// mask. Returns the distance field (scatter).
+        /// </summary>
+        private IslandField Surround(ICollection<Vector2Int> cells, int seed)
+        {
+            var field = new IslandField(cells, seed);
+            float drop = Iso.Slab + Iso.Wall;
+            // the ground-plane rect of the field's grid box
+            float xMin = (field.X0 - field.Y1) * Iso.StepX, xMax = (field.X1 - field.Y0) * Iso.StepX;
+            float yMin = (field.X0 + field.Y0) * Iso.StepY - drop, yMax = (field.X1 + field.Y1) * Iso.StepY - drop;
+            var rect = new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
+            var backdrop = NewSprite("Backdrop", IsoArt.Backdrop(), rect.center, -32000);
+            backdrop.drawMode = SpriteDrawMode.Tiled;
+            backdrop.size = rect.size + new Vector2(40, 40);
+            var mask = IsoArt.IslandMask(rect, field.Alpha);
+            var shadow = NewSprite("IslandShadow", mask, rect.min + new Vector2(0.18f, -1.05f), -31998);
+            shadow.color = new Color(0.02f, 0.06f, 0.1f, 0.45f);
+            var cliffLow = NewSprite("CliffLow", mask, rect.min + new Vector2(0, -0.85f), -31997);
+            cliffLow.color = new Color32(0x25, 0x4A, 0x52, 255);
+            var cliff = NewSprite("Cliff", mask, rect.min + new Vector2(0, -0.42f), -31996);
+            cliff.color = new Color32(0x3E, 0x72, 0x6E, 255);
+            var ground = NewSprite("Ground", IsoArt.Ground(), rect.center, -31990);
+            ground.drawMode = SpriteDrawMode.Tiled;
+            ground.size = rect.size;
+            ground.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
+            var maskGo = new GameObject("IslandMask") { layer = Layer };
+            maskGo.transform.SetParent(_content.transform, false);
+            maskGo.transform.localPosition = rect.min;
+            var sm = maskGo.AddComponent<SpriteMask>();
+            sm.sprite = mask;
+            sm.alphaCutoff = 0.5f;
+            sm.isCustomRangeActive = true;
+            sm.backSortingOrder = -31991;
+            sm.frontSortingOrder = -31990;
+            // a lit rim along the island's edge (the mask, nudged up, under the ground)
+            var rim = NewSprite("IslandRim", mask, rect.min + new Vector2(0, -0.06f), -31995);
+            rim.color = new Color32(0x9C, 0xCC, 0xA4, 255);
+            return field;
+        }
+
+        /// <summary>A soft contact shadow under a prop (child of <paramref name="holder"/>), <paramref name="width"/> world units wide.</summary>
+        private static SpriteRenderer Shadow(GameObject holder, float width, int order)
+        {
+            var sr = Child(holder, "Shadow", IsoArt.SoftShadow(), new Vector2(0.04f, 0.02f), order);
+            float k = width / Mathf.Max(0.01f, IsoArt.SoftShadow().bounds.size.x);
+            sr.transform.localScale = new Vector3(k, k, 1);
+            return sr;
         }
 
         /// <summary>Moves the worm (board-local top-face point, fractional grid cell for its draw order, squash scale).</summary>

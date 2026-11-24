@@ -34,10 +34,11 @@ namespace RogueStars.Client.World
         // ---- palette ---------------------------------------------------------------------------------------------------
 
         public static readonly Color Ink = new Color32(0x2B, 0x22, 0x33, 255);
-        public static readonly Color Gap = new Color32(0x26, 0x24, 0x3C, 255);
-        public static readonly Color WallLight = new Color32(0xE6, 0xC4, 0x84, 255);
-        public static readonly Color WallDark = new Color32(0xC0, 0x95, 0x55, 255);
-        public static readonly Color WallBand = new Color32(0x8E, 0x64, 0x34, 255);
+        /// <summary>The plinth top between the slabs (thin grout lines).</summary>
+        public static readonly Color Gap = new Color32(0x3A, 0x3C, 0x50, 255);
+        public static readonly Color WallLight = new Color32(0xDC, 0xBC, 0x80, 255);
+        public static readonly Color WallDark = new Color32(0xB4, 0x8E, 0x56, 255);
+        public static readonly Color WallBand = new Color32(0x7E, 0x58, 0x30, 255);
         public static readonly Color Bone = new Color32(0xF4, 0xE2, 0xA0, 255);
         public static readonly Color BoneShade = new Color32(0xD2, 0xB4, 0x6A, 255);
 
@@ -46,14 +47,15 @@ namespace RogueStars.Client.World
         {
             switch (f)
             {
-                case TileFace.Boost: return new Color32(0xE8, 0x8E, 0x82, 255);
-                case TileFace.Event: return new Color32(0x86, 0xD2, 0xC2, 255);
-                case TileFace.Special: return new Color32(0x94, 0xC8, 0xEE, 255);
-                case TileFace.Hazard: return new Color32(0xA8, 0x66, 0x52, 255);
-                case TileFace.Curse: return new Color32(0x96, 0x78, 0xC4, 255);
-                case TileFace.Boss: return new Color32(0xC8, 0x48, 0x54, 255);
-                case TileFace.Floor: return new Color32(0x84, 0xC9, 0xB4, 255);
-                default: return new Color32(0x63, 0x66, 0x8E, 255);
+                // colour is used sparingly: slate stone by default, soft accents only on special tiles
+                case TileFace.Boost: return new Color32(0xD6, 0x8E, 0x84, 255);
+                case TileFace.Event: return new Color32(0x8C, 0xC0, 0xB6, 255);
+                case TileFace.Special: return new Color32(0x9C, 0xB2, 0xC2, 255);
+                case TileFace.Hazard: return new Color32(0x8A, 0x70, 0x66, 255);
+                case TileFace.Curse: return new Color32(0x86, 0x7C, 0x9C, 255);
+                case TileFace.Boss: return new Color32(0x8C, 0x5A, 0x62, 255);
+                case TileFace.Floor: return new Color32(0x86, 0xA8, 0xA2, 255);
+                default: return new Color32(0x72, 0x76, 0x96, 255);
             }
         }
 
@@ -81,7 +83,8 @@ namespace RogueStars.Client.World
                 case TileCategory.Enemy: return "enemy";
                 case TileCategory.Elite: return "elite";
                 case TileCategory.Miniboss: return "miniboss";
-                case TileCategory.BossTile: case TileCategory.BossGate: return "boss";
+                case TileCategory.BossGate: return "boss";
+                case TileCategory.BossTile: return "omen";
                 case TileCategory.Event: return "event";
                 case TileCategory.Pickup: return "mystery";
                 case TileCategory.Treasure: return "chest";
@@ -94,23 +97,27 @@ namespace RogueStars.Client.World
             }
         }
 
-        /// <summary>Height a marker is drawn at (world units), matched to the worm (~1.3).</summary>
+        /// <summary>
+        /// Height a marker is drawn at (world units; the code-drawn placeholders are cropped tight, so this is the visible
+        /// height). The common enemy skull is small and uniform; elites, minibosses and the boss step up clearly.
+        /// </summary>
         public static float MarkerHeight(string id)
         {
             switch (id)
             {
-                case "rest": return 1.4f;
-                case "shop": return 1.35f;
-                case "boss": return 1.35f;
-                case "miniboss": return 1.15f;
-                case "portal": return 1.35f;
-                case "chest": return 0.92f;
-                case "elite": return 0.95f;
-                case "event": return 0.9f;
-                case "mystery": return 0.9f;
+                case "rest": return 1.35f;
+                case "shop": return 1.4f;
+                case "boss": return 1.5f;
+                case "miniboss": return 1.22f;
+                case "elite": return 1.0f;
+                case "omen": return 0.82f;
+                case "portal": return 1.4f;
+                case "chest": return 0.82f;
+                case "event": return 0.85f;
+                case "mystery": return 0.88f;
                 case "minigame": return 0.95f;
                 case "reward": return 0.85f;
-                default: return 0.8f;
+                default: return 0.74f;
             }
         }
 
@@ -118,53 +125,112 @@ namespace RogueStars.Client.World
 
         private const float SX = Iso.StepX * Iso.Ppu, SY = Iso.StepY * Iso.Ppu;
         private const float SlabPx = Iso.Slab * Iso.Ppu, WallPx = Iso.Wall * Iso.Ppu, RisePx = Iso.Rise * Iso.Ppu;
-        private const float Inset = 5;
+        private const float Inset = 3;
+
+        /// <summary>Neighbour bits of a plinth cell (a neighbour on the same height): the walls run on / are covered there.</summary>
+        public const int NbBackLeft = 1, NbBackRight = 2, NbFrontLeft = 4, NbFrontRight = 8;
+
+        /// <summary>Ground shadow under the plinth's walls (px below the wall foot).</summary>
+        private const float ShadowPx = 22;
 
         /// <summary>
-        /// The block under a tile (pivot = the centre of its top face): the platform's top in the gaps, the slab's two front
-        /// faces in the kind's colour, and the platform wall down to the ground with its decorated band (taller per height).
-        /// <paramref name="face"/> Floor = a platform cell without a slab (set-piece slots).
+        /// The neighbour mask of plinth cell (x, y) (<see cref="NbBackLeft"/> …): which side neighbours stand on the same
+        /// continuous plinth (path tiles and set-piece floors of one height).
         /// </summary>
-        public static Sprite Block(TileFace face, int height)
+        public static int PlinthMask(Func<int, int, bool> same, int x, int y) =>
+            (same(x, y + 1) ? NbBackLeft : 0) | (same(x + 1, y) ? NbBackRight : 0) | (same(x - 1, y) ? NbFrontLeft : 0) | (same(x, y - 1) ? NbFrontRight : 0);
+
+        /// <summary>
+        /// The block under a tile (pivot = the centre of its top face): one cell of the continuous plinth the path sits on —
+        /// its top in the grout lines between slabs, the inset slab's two front faces in the kind's colour, the plinth walls
+        /// down to the ground with the carved glyph band, the base ledge and a soft contact shadow on the ground. The
+        /// <paramref name="mask"/> (<see cref="PlinthMask"/>) drops the corner seams where the plinth runs on, so a path reads
+        /// as one raised platform, not as separate blocks. <paramref name="face"/> Floor = a plinth cell without a slab
+        /// (set-piece slots, flush with the plinth).
+        /// </summary>
+        public static Sprite Block(TileFace face, int height, int mask = 0)
         {
-            return Get("block:" + face + ":" + height, () =>
+            return Get("block:" + face + ":" + height + ":" + mask, () =>
             {
                 float wall = WallPx + height * RisePx;
                 bool slab = face != TileFace.Floor;
                 float slabPx = slab ? SlabPx : 0;
-                int w = Mathf.CeilToInt(2 * SX + 8), h = Mathf.CeilToInt(2 * SY + slabPx + wall + 10);
+                int w = Mathf.CeilToInt(2 * SX + 8), h = Mathf.CeilToInt(2 * SY + slabPx + wall + 10 + ShadowPx);
                 var p = new IsoPaint(w, h);
                 float cx = w / 2f, cy = h - 5 - SY;
-                // platform (full diamond) below the slab
+                // plinth (full diamond) below the slab
                 float py = cy - slabPx;
                 var L = V(cx - SX, py); var B = V(cx, py - SY); var R = V(cx + SX, py); var T = V(cx, py + SY);
                 var Ld = V(L.x, L.y - wall); var Bd = V(B.x, B.y - wall); var Rd = V(R.x, R.y - wall);
+                bool leftOpen = (mask & NbFrontLeft) == 0, rightOpen = (mask & NbFrontRight) == 0;
+                // contact shadow on the ground under the open walls (light from the top left: deeper on the right)
+                if (leftOpen) GroundShadow(p, Ld, Bd, ShadowPx * 0.55f, 0.3f);
+                if (rightOpen) GroundShadow(p, Bd, Rd, ShadowPx, 0.42f);
                 WallFace(p, L, B, wall, WallLight, true);
                 WallFace(p, B, R, wall, WallDark, false);
-                p.Line(Ld, Bd, 3, Ink); p.Line(Bd, Rd, 3, Ink); p.Line(B, Bd, 2.5f, new Color(Ink.r, Ink.g, Ink.b, 0.6f));
-                p.Line(L, Ld, 2.5f, Ink); p.Line(R, Rd, 2.5f, Ink);
+                var ink = new Color(Ink.r, Ink.g, Ink.b, 0.85f);
+                if (leftOpen) p.Line(Ld, Bd, 3, Ink);
+                if (rightOpen) p.Line(Bd, Rd, 3, Ink);
+                // corner seams only where the plinth turns (a convex corner) or ends
+                if (leftOpen && rightOpen) p.Line(B, Bd, 2.5f, ink);
+                if ((mask & NbBackLeft) == 0 && leftOpen) p.Line(L, Ld, 2.5f, Ink);
+                if ((mask & NbBackRight) == 0 && rightOpen) p.Line(R, Rd, 2.5f, Ink);
                 p.Poly(new[] { L, B, R, T }, slab ? Gap : FaceColor(TileFace.Floor));
+                // the plinth's top rim catches the light along its open front edges
+                if (leftOpen) p.Line(L + V(2, -1), B + V(0, 1.5f), 2.5f, Shade(Gap, 0.25f));
+                if (rightOpen) p.Line(B + V(0, 1.5f), R + V(-2, -1), 2.5f, Shade(Gap, 0.12f));
                 if (!slab)
                 {
-                    // the floor of a set-piece slot: mossy stone with faint engraved arcs
+                    // the floor of a set-piece slot: carved stone flush with the plinth, faint engraved arcs and joints
                     var fc = FaceColor(TileFace.Floor);
-                    p.Poly(new[] { L, B, R, T }, Radial(Shade(fc, 0.12f), Shade(fc, -0.1f), cx, py, SX));
-                    p.Stroke(new[] { L, B, R, T }, 2, Shade(fc, -0.35f));
-                    p.Line(V(cx - SX * 0.45f, py - SY * 0.1f), V(cx + SX * 0.1f, py + SY * 0.35f), 2, Shade(fc, -0.22f));
-                    return p.ToSprite("rs_floor_" + height, V(cx, cy));
+                    p.Poly(new[] { L, B, R, T }, (x, y) =>
+                    {
+                        float lit = Mathf.Clamp01((y - B.y) / (T.y - B.y));
+                        return Color.Lerp(Shade(fc, -0.1f), Shade(fc, 0.06f), lit);
+                    });
+                    var seam = Shade(fc, -0.24f);
+                    p.Line(Vector2.Lerp(L, T, 0.5f), Vector2.Lerp(B, R, 0.5f), 2, seam);
+                    p.Line(Vector2.Lerp(L, B, 0.5f), Vector2.Lerp(T, R, 0.5f), 2, seam);
+                    var arc = new List<Vector2>();
+                    for (int i = 0; i <= 8; i++) { float a = Mathf.Lerp(200, 340, i / 8f) * Mathf.Deg2Rad; arc.Add(V(cx + Mathf.Cos(a) * SX * 0.5f, py + SY * 0.2f + Mathf.Sin(a) * SY * 0.5f)); }
+                    p.Stroke(arc, 2.5f, Shade(fc, -0.18f), false);
+                    if (leftOpen) p.Line(L, B, 2.5f, ink);
+                    if (rightOpen) p.Line(B, R, 2.5f, ink);
+                    return p.ToSprite("rs_floor_" + height + "_" + mask, V(cx, cy));
                 }
-                // the slab's front faces (inset: the gap shows between tiles)
+                // the inset slab's front faces (the grout shows between slabs)
                 var col = FaceColor(face);
                 float k = 1 - Inset / SX;
                 var l = V(cx - SX * k, cy); var b = V(cx, cy - SY * k); var r = V(cx + SX * k, cy);
-                p.Poly(new[] { l, b, V(b.x, b.y - slabPx), V(l.x, l.y - slabPx) }, Shade(col, -0.28f));
-                p.Poly(new[] { b, r, V(r.x, r.y - slabPx), V(b.x, b.y - slabPx) }, Shade(col, -0.45f));
-                p.Stroke(new[] { l, V(l.x, l.y - slabPx), V(b.x, b.y - slabPx), V(r.x, r.y - slabPx), r }, 2.5f, Ink, false);
-                return p.ToSprite("rs_block_" + face + "_" + height, V(cx, cy));
+                p.Poly(new[] { l, b, V(b.x, b.y - slabPx), V(l.x, l.y - slabPx) }, Shade(col, -0.26f));
+                p.Poly(new[] { b, r, V(r.x, r.y - slabPx), V(b.x, b.y - slabPx) }, Shade(col, -0.42f));
+                p.Line(V(l.x + 2, l.y - 2), V(b.x, b.y - 2), 2, Shade(col, -0.1f));
+                p.Stroke(new[] { l, V(l.x, l.y - slabPx), V(b.x, b.y - slabPx), V(r.x, r.y - slabPx), r }, 2.5f, ink, false);
+                p.Line(b, V(b.x, b.y - slabPx), 2, new Color(Ink.r, Ink.g, Ink.b, 0.5f));
+                return p.ToSprite("rs_block_" + face + "_" + height + "_" + mask, V(cx, cy));
             });
         }
 
-        /// <summary>One platform wall face from edge a→b straight down <paramref name="depth"/> px, with the trim band.</summary>
+        /// <summary>A soft shadow on the ground below a wall's foot edge a→b, fading over <paramref name="depth"/> px.</summary>
+        private static void GroundShadow(IsoPaint p, Vector2 a, Vector2 b, float depth, float alpha)
+        {
+            var e = b - a;
+            p.Poly(new[] { a, b, V(b.x, b.y - depth), V(a.x, a.y - depth) }, (x, y) =>
+            {
+                float edge = a.y + e.y * Mathf.Clamp01((x - a.x) / e.x);
+                float t = Mathf.Clamp01((edge - y) / depth);
+                return new Color(0.04f, 0.1f, 0.12f, alpha * (1 - t) * (1 - t));
+            });
+        }
+
+        /// <summary>The carved band's glyph: a hooked spiral key, 7 × 5 cells of 4 px (rows top → bottom), repeating along the wall.</summary>
+        private static readonly string[] KeyRows = { "######.", "#....#.", "#.##.#.", "#..#.#.", "####.##" };
+
+        /// <summary>
+        /// One plinth wall face from edge a→b straight down <paramref name="depth"/> px: a lit cap, the carved band of hooked
+        /// spiral keys between two rails, plain stone, the base ledge and ambient occlusion where it meets the ground. The key
+        /// repeats every 28 px of screen x (3 per cell), so neighbouring walls continue it seamlessly.
+        /// </summary>
         private static void WallFace(IsoPaint p, Vector2 a, Vector2 b, float depth, Color baseCol, bool left)
         {
             var e = b - a;
@@ -172,22 +238,23 @@ namespace RogueStars.Client.World
             {
                 float u = (x - a.x) / e.x;               // 0..1 along the edge
                 float v = a.y + e.y * u - y;             // px below the top edge
-                float along = u * e.magnitude;
-                float band0 = 14, band1 = 38;
+                float along = x - a.x;
+                const float band0 = 12, band1 = 32;
                 var c = baseCol;
-                if (v < 5) c = Shade(baseCol, 0.25f);                  // lit lip
-                else if (v > depth - 6) c = Shade(baseCol, -0.18f);    // foot
-                else if (v >= band0 && v <= band1)
+                if (v < 4) c = Shade(baseCol, 0.3f);                                    // lit cap
+                else if (v < 7) c = Shade(baseCol, -0.22f);                             // under the cap
+                else if (v >= band0 - 3 && v < band0 - 1) c = Shade(baseCol, -0.3f);    // upper rail
+                else if (v >= band0 && v < band1)
                 {
-                    // alien glyph band: a stepped hook every 24 px between two rails
-                    float bx = along % 24, by = v - band0;
-                    bool rail = by < 2.5f || by > band1 - band0 - 2.5f;
-                    bool glyph = (bx > 3 && bx < 6 && by > 5 && by < 19) || (by > 5 && by < 8 && bx > 3 && bx < 17)
-                                 || (bx > 14 && bx < 17 && by > 5 && by < 14) || (by > 11 && by < 14 && bx > 9 && bx < 17)
-                                 || (bx > 9 && bx < 12 && by > 11 && by < 19);
-                    c = rail || glyph ? WallBand : Shade(baseCol, -0.06f);
+                    int col = Mathf.FloorToInt(((along % 28) + 28) % 28 / 4f), row = Mathf.FloorToInt((v - band0) / 4f);
+                    bool key = row >= 0 && row < 5 && col >= 0 && col < 7 && KeyRows[row][col] == '#';
+                    c = key ? WallBand : Shade(baseCol, -0.05f);
                 }
-                if (!left) c = Shade(c, -0.08f);
+                else if (v >= band1 + 1 && v < band1 + 3) c = Shade(baseCol, -0.3f);   // lower rail
+                else if (v > depth - 13 && v <= depth - 10) c = Shade(baseCol, 0.22f);  // base ledge
+                else if (v > depth - 10) c = Shade(baseCol, -0.2f - 0.2f * Mathf.Clamp01((v - (depth - 10)) / 10f)); // base + occlusion
+                else c = Shade(baseCol, -0.04f + 0.05f * Mathf.PerlinNoise(x * 0.11f, y * 0.13f));
+                if (!left) c = Shade(c, -0.1f);
                 return c;
             });
         }
@@ -221,7 +288,7 @@ namespace RogueStars.Client.World
                     if (texPx != null)
                     {
                         var s = texPx[Mathf.Clamp((int)(y / h * th), 0, th - 1) * tw + Mathf.Clamp((int)(x / w * tw), 0, tw - 1)];
-                        c = new Color(c.r * (0.55f + 0.45f * s.r * 1.4f), c.g * (0.55f + 0.45f * s.g * 1.4f), c.b * (0.55f + 0.45f * s.b * 1.4f), 1);
+                        c = new Color(c.r * (0.74f + 0.26f * s.r * 1.4f), c.g * (0.74f + 0.26f * s.g * 1.4f), c.b * (0.74f + 0.26f * s.b * 1.4f), 1);
                     }
                     return c;
                 });
@@ -293,9 +360,10 @@ namespace RogueStars.Client.World
         {
             switch (id)
             {
-                case "elite": return Skull("elite", Bone, true, false, 1f);
-                case "miniboss": return Skull("miniboss", new Color32(0xF2, 0x9A, 0x6A, 255), true, true, 1.1f);
-                case "boss": return Skull("boss", new Color32(0xE8, 0x55, 0x5E, 255), true, true, 1.25f);
+                case "elite": return Skull("elite", SkullGold, true, false, 1f);
+                case "miniboss": return Skull("miniboss", new Color32(0xF0, 0xA4, 0x6C, 255), true, true, 1.1f);
+                case "boss": return Skull("boss", new Color32(0xE0, 0x5A, 0x60, 255), true, true, 1.2f);
+                case "omen": return Omen();
                 case "event": return EventScroll();
                 case "mystery": return MysteryStone();
                 case "chest": return Chest();
@@ -304,63 +372,86 @@ namespace RogueStars.Client.World
                 case "minigame": return Arcade();
                 case "portal": return PortalRing();
                 case "reward": return Crystals("reward", new Color32(0x72, 0xE6, 0xFF, 255), 3, 120, 120);
-                default: return Skull("enemy", Bone, false, false, 1f);
+                default: return Skull("enemy", SkullGold, false, false, 1f);
             }
         }
 
-        /// <summary>An alien skull (big cranium, glowing eyes, little antennae); horns for elites, a crown for bosses.</summary>
+        /// <summary>The warm gold of the enemy skulls.</summary>
+        public static readonly Color SkullGold = new Color32(0xF0, 0xCC, 0x6A, 255);
+
+        /// <summary>
+        /// An alien skull (big cranium, glowing eyes, two antenna nubs), cropped tight: the common enemy is a small plain gold
+        /// skull; elites get curled horns, minibosses and the boss a crown over the horns (bigger through MarkerHeight).
+        /// </summary>
         private static Sprite Skull(string name, Color bone, bool horns, bool crown, float scale)
         {
-            int w = (int)(150 * scale), h = (int)(150 * scale);
+            float s = scale;
+            float halfW = (horns ? 66 : 48) * s;
+            int w = Mathf.CeilToInt(halfW * 2 + 8), h = Mathf.CeilToInt(((crown ? 132 : horns ? 132 : 116)) * s + 6);
             var p = new IsoPaint(w, h);
-            float s = scale, cx = w / 2f;
-            var shade = Shade(bone, -0.25f);
-            p.Ellipse(cx, 8 * s, 34 * s, 9 * s, new Color(0, 0, 0, 0.28f));
+            float cx = w / 2f, y0 = 2;
+            var shade = Shade(bone, -0.32f);
+            var light = Shade(bone, 0.35f);
             if (horns)
             {
-                var horn = crown ? new Color32(0x7B, 0x2B, 0x3A, 255) : new Color32(0xA9, 0x78, 0xE8, 255);
+                var horn = crown ? (Color)new Color32(0x6E, 0x2A, 0x38, 255) : (Color)new Color32(0xE8, 0xD6, 0xA8, 255);
                 foreach (int side in new[] { -1, 1 })
                 {
-                    var pts = new[] { V(cx + side * 22 * s, 82 * s), V(cx + side * 46 * s, 84 * s), V(cx + side * 62 * s, 108 * s), V(cx + side * 58 * s, 138 * s), V(cx + side * 50 * s, 112 * s), V(cx + side * 34 * s, 100 * s) };
-                    p.Shape(pts, horn, Ink, 4 * s);
+                    var pts = new[] { V(cx + side * 24 * s, y0 + 74 * s), V(cx + side * 48 * s, y0 + 76 * s), V(cx + side * 64 * s, y0 + 100 * s), V(cx + side * 58 * s, y0 + 128 * s), V(cx + side * 50 * s, y0 + 104 * s), V(cx + side * 34 * s, y0 + 94 * s) };
+                    p.Shape(pts, VGrad(Shade(horn, -0.3f), Shade(horn, 0.15f), y0 + 74 * s, y0 + 128 * s), Ink, 4.5f * s);
                 }
             }
-            // antennae (alien)
+            // antenna nubs (alien)
             foreach (int side in new[] { -1, 1 })
             {
-                p.Line(V(cx + side * 10 * s, 96 * s), V(cx + side * 18 * s, 122 * s), 5 * s, Ink);
-                p.Line(V(cx + side * 10 * s, 96 * s), V(cx + side * 18 * s, 122 * s), 2.5f * s, shade);
-                p.Blob(cx + side * 18 * s, 124 * s, 6 * s, 6 * s, crown ? (Color)new Color32(0xFF, 0x6A, 0x5A, 255) : (Color)new Color32(0x9C, 0xF0, 0x8A, 255), Ink, 3 * s);
+                p.Line(V(cx + side * 12 * s, y0 + 88 * s), V(cx + side * 20 * s, y0 + 106 * s), 6 * s, Ink);
+                p.Line(V(cx + side * 12 * s, y0 + 88 * s), V(cx + side * 20 * s, y0 + 106 * s), 3 * s, shade);
+                p.Blob(cx + side * 20 * s, y0 + 108 * s, 6 * s, 6 * s, crown ? (Color)new Color32(0xFF, 0x6A, 0x5A, 255) : light, Ink, 3.5f * s);
             }
-            // jaw, then cranium over it
-            var jaw = RoundRect(cx - 21 * s, 14 * s, 42 * s, 30 * s, 10 * s);
-            p.Shape(jaw, VGrad(shade, bone, 14 * s, 44 * s), Ink, 4 * s);
-            for (int i = -1; i <= 1; i++) p.Line(V(cx + i * 10 * s, 17 * s), V(cx + i * 10 * s, 29 * s), 2.5f * s, Ink);
-            p.Blob(cx, 64 * s, 42 * s, 36 * s, IsoPaint.Radial(Shade(bone, 0.25f), shade, cx - 12 * s, 76 * s, 52 * s), Ink, 4.5f * s);
+            // jaw, then the cranium over it
+            var jaw = RoundRect(cx - 22 * s, y0 + 4 * s, 44 * s, 30 * s, 10 * s);
+            p.Shape(jaw, VGrad(shade, bone, y0 + 4 * s, y0 + 34 * s), Ink, 5 * s);
+            for (int i = -1; i <= 1; i++) p.Line(V(cx + i * 10 * s, y0 + 7 * s), V(cx + i * 10 * s, y0 + 19 * s), 3 * s, Ink);
+            p.Blob(cx, y0 + 56 * s, 44 * s, 38 * s, IsoPaint.Radial(light, shade, cx - 14 * s, y0 + 70 * s, 56 * s), Ink, 5.5f * s);
+            // a gloss on the cranium (light from the top left)
+            p.Ellipse(cx - 18 * s, y0 + 76 * s, 11 * s, 7 * s, new Color(1, 1, 1, 0.55f));
             // eyes: big dark sockets with glowing pupils
             foreach (int side in new[] { -1, 1 })
             {
-                p.Ellipse(cx + side * 16 * s, 60 * s, 12 * s, 13 * s, Ink);
-                p.Ellipse(cx + side * 15 * s, 59 * s, 5 * s, 5.5f * s, crown ? new Color32(0xFF, 0xE0, 0x5A, 255) : new Color32(0xFF, 0x4A, 0x3A, 255));
-                p.Ellipse(cx + side * 13.5f * s, 61 * s, 2 * s, 2 * s, Color.white);
+                p.Ellipse(cx + side * 17 * s, y0 + 50 * s, 13 * s, 13 * s, Ink);
+                p.Ellipse(cx + side * 16 * s, y0 + 49 * s, 5.5f * s, 6 * s, crown ? new Color32(0xFF, 0xE0, 0x5A, 255) : new Color32(0xF0, 0x3A, 0x30, 255));
+                p.Ellipse(cx + side * 14.5f * s, y0 + 51 * s, 2 * s, 2 * s, Color.white);
             }
-            p.Shape(new[] { V(cx - 4 * s, 42 * s), V(cx + 4 * s, 42 * s), V(cx, 48 * s) }, Ink, Ink, 1);
-            // a little cranium seam
-            p.Line(V(cx - 6 * s, 92 * s), V(cx + 2 * s, 84 * s), 2.5f * s, shade);
+            p.Shape(new[] { V(cx - 4 * s, y0 + 32 * s), V(cx + 4 * s, y0 + 32 * s), V(cx, y0 + 39 * s) }, Ink, Ink, 1);
             if (crown)
             {
                 var gold = new Color32(0xFF, 0xC8, 0x3C, 255);
-                var c = new[] { V(cx - 26 * s, 92 * s), V(cx - 30 * s, 118 * s), V(cx - 14 * s, 104 * s), V(cx, 126 * s), V(cx + 14 * s, 104 * s), V(cx + 30 * s, 118 * s), V(cx + 26 * s, 92 * s) };
-                p.Shape(c, gold, Ink, 4 * s);
+                var c = new[] { V(cx - 27 * s, y0 + 84 * s), V(cx - 31 * s, y0 + 112 * s), V(cx - 14 * s, y0 + 98 * s), V(cx, y0 + 124 * s), V(cx + 14 * s, y0 + 98 * s), V(cx + 31 * s, y0 + 112 * s), V(cx + 27 * s, y0 + 84 * s) };
+                p.Shape(c, VGrad(Shade(gold, -0.2f), Shade(gold, 0.25f), y0 + 84 * s, y0 + 124 * s), Ink, 4.5f * s);
+                p.Circle(cx, y0 + 92 * s, 5 * s, new Color32(0xE8, 0x3A, 0x5A, 255));
             }
-            return p.ToSprite("rs_marker_" + name, V(cx, 8 * s));
+            return p.ToSprite("rs_marker_" + name, V(cx, y0));
+        }
+
+        /// <summary>A boss-omen tile (it feeds or calms the boss): a small dark obelisk with a glowing skull rune.</summary>
+        private static Sprite Omen()
+        {
+            var p = new IsoPaint(96, 130);
+            float cx = 48;
+            var stone = (Color)new Color32(0x5A, 0x4A, 0x62, 255);
+            p.Shape(new[] { V(cx - 30, 4), V(cx + 30, 4), V(cx + 22, 92), V(cx, 124), V(cx - 22, 92) }, VGrad(Shade(stone, -0.3f), Shade(stone, 0.2f), 4, 124), Ink, 5);
+            p.Line(V(cx - 14, 12), V(cx - 10, 96), 4, new Color(1, 1, 1, 0.18f));
+            var glow = (Color)new Color32(0xFF, 0x6A, 0x6A, 255);
+            p.Blob(cx, 60, 14, 13, glow, Shade(glow, -0.5f), 3);
+            p.Ellipse(cx - 5, 60, 3.5f, 4, Ink); p.Ellipse(cx + 5, 60, 3.5f, 4, Ink);
+            p.Shape(RoundRect(cx - 34, 2, 68, 14, 6), Shade(stone, -0.15f), Ink, 4);
+            return p.ToSprite("rs_marker_omen", V(cx, 2));
         }
 
         private static Sprite EventScroll()
         {
             var p = new IsoPaint(150, 130);
             float cx = 75;
-            p.Ellipse(cx, 10, 40, 9, new Color(0, 0, 0, 0.28f));
             var paper = (Color)new Color32(0xF6, 0xE8, 0xC4, 255);
             // a tilted data scroll: sheet with rolled ends, teal glyph lines
             var sheet = new[] { V(30, 34), V(108, 18), V(124, 92), V(46, 108) };
@@ -384,7 +475,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(130, 140);
             float cx = 65;
-            p.Ellipse(cx, 10, 40, 9, new Color(0, 0, 0, 0.28f));
             var stone = (Color)new Color32(0xA3, 0xAD, 0xC4, 255);
             var pts = new[] { V(22, 14), V(108, 14), V(116, 70), V(96, 124), V(36, 128), V(14, 72) };
             p.Shape(pts, IsoPaint.Radial(Shade(stone, 0.22f), Shade(stone, -0.25f), 50, 96, 110), Ink, 5);
@@ -397,7 +487,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(150, 130);
             float cx = 75;
-            p.Ellipse(cx, 10, 50, 10, new Color(0, 0, 0, 0.28f));
             var body = (Color)new Color32(0x7E, 0x58, 0xD0, 255);
             var gold = (Color)new Color32(0xFF, 0xC8, 0x48, 255);
             p.Shape(RoundRect(22, 12, 106, 62, 10), VGrad(Shade(body, -0.25f), body, 12, 74), Ink, 5);
@@ -416,7 +505,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(190, 200);
             float cx = 95;
-            p.Ellipse(cx, 30, 82, 30, new Color(0, 0, 0, 0.25f));
             var stone = (Color)new Color32(0x8C, 0x90, 0xA6, 255);
             // a ring of stones around a dark pit
             p.Blob(cx, 34, 74, 28, Shade(stone, -0.2f), Ink, 5);
@@ -443,7 +531,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(200, 190);
             float cx = 100;
-            p.Ellipse(cx, 14, 80, 13, new Color(0, 0, 0, 0.28f));
             var wood = (Color)new Color32(0xC0, 0x84, 0x4E, 255);
             // goods
             var goods = new Color32[] { new Color32(0xFF, 0x6A, 0x8A, 255), new Color32(0x6C, 0xD8, 0xFF, 255), new Color32(0xFF, 0xD0, 0x48, 255), new Color32(0x9C, 0xF0, 0x8A, 255), new Color32(0xB8, 0x8C, 0xFF, 255) };
@@ -470,7 +557,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(140, 140);
             float cx = 70;
-            p.Ellipse(cx, 10, 46, 10, new Color(0, 0, 0, 0.28f));
             var body = (Color)new Color32(0x3E, 0xC8, 0xB0, 255);
             p.Shape(RoundRect(24, 12, 92, 52, 14), VGrad(Shade(body, -0.3f), body, 12, 64), Ink, 5);
             p.Line(V(cx, 60), V(cx - 8, 104), 10, Ink); p.Line(V(cx, 60), V(cx - 8, 104), 5, new Color32(0xD8, 0xD8, 0xE8, 255));
@@ -485,7 +571,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(170, 200);
             float cx = 85;
-            p.Ellipse(cx, 14, 60, 12, new Color(0, 0, 0, 0.28f));
             var stone = (Color)new Color32(0x8C, 0x7C, 0xB8, 255);
             p.Blob(cx, 100, 66, 84, stone, Ink, 6);
             p.Ellipse(cx, 100, 48, 66, IsoPaint.Radial(new Color32(0xFF, 0x9C, 0xF0, 255), new Color32(0x3A, 0x1C, 0x6A, 255), cx, 100, 60));
@@ -503,7 +588,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(w, h);
             float cx = w / 2f;
-            p.Ellipse(cx, 10, w * 0.32f, 9, new Color(0, 0, 0, 0.28f));
             for (int i = 0; i < n; i++)
             {
                 float off = (i - (n - 1) / 2f) * w * 0.2f;
@@ -597,7 +681,6 @@ namespace RogueStars.Client.World
             int w = 280, h = 320;
             var p = new IsoPaint(w, h);
             float cx = w / 2f;
-            p.Ellipse(cx, 22, 100, 20, new Color(0, 0, 0, 0.28f));
             var stem = (Color)new Color32(0xF2, 0xE6, 0xC8, 255);
             p.Shape(new[] { V(cx - 34, 20), V(cx + 34, 20), V(cx + 26, 170), V(cx - 26, 170) }, VGrad(Shade(stem, -0.2f), stem, 20, 170), Ink, 6);
             var cap = (Color)new Color32(0xC8, 0x5C, 0xE0, 255);
@@ -615,7 +698,6 @@ namespace RogueStars.Client.World
             int w = 320, h = 260;
             var p = new IsoPaint(w, h);
             float cx = w / 2f;
-            p.Ellipse(cx, 30, 130, 26, new Color(0, 0, 0, 0.3f));
             // a crater of dirt and the tilted saucer stuck in it
             p.Blob(cx, 34, 128, 30, new Color32(0x8A, 0x70, 0x5A, 255), Ink, 5);
             var metal = (Color)new Color32(0xB8, 0xC0, 0xD8, 255);
@@ -639,7 +721,6 @@ namespace RogueStars.Client.World
             int w = 280, h = 340;
             var p = new IsoPaint(w, h);
             float cx = w / 2f;
-            p.Ellipse(cx, 22, 90, 18, new Color(0, 0, 0, 0.28f));
             var bark = (Color)new Color32(0x7A, 0x52, 0x7E, 255);
             p.Shape(new[] { V(cx - 34, 18), V(cx + 30, 18), V(cx + 14, 120), V(cx + 40, 200), V(cx + 10, 210), V(cx - 6, 150), V(cx - 40, 200), V(cx - 56, 190), V(cx - 18, 120) }, VGrad(Shade(bark, -0.3f), bark, 18, 210), Ink, 6);
             var leaf = (Color)new Color32(0x4C, 0xD6, 0xB0, 255);
@@ -657,20 +738,154 @@ namespace RogueStars.Client.World
         {
             switch (id)
             {
-                case "rock_pile": case "barrel": return Rocks(3);
-                case "bush": case "stump": return Bush();
-                case "flowers": case "mushrooms": case "pebble_glow": return Bulbs();
-                case "fern": case "antenna": return Weed();
-                case "crystal_small": case "bones": return Crystals("crystal_small", new Color32(0x9E, 0x8C, 0xFF, 255), 3, 90, 90);
+                case "rock_pile": return Rocks(3);
+                case "barrel": return Urn();
+                case "bush": return Bush();
+                case "stump": return BrokenPillar();
+                case "flowers": return Bulbs();
+                case "mushrooms": return Mushrooms();
+                case "pebble_glow": return GlowPebbles();
+                case "fern": return Weed();
+                case "antenna": return Pylon();
+                case "bones": return Ribs();
+                case "crystal_small": return Crystals("crystal_small", new Color32(0x9E, 0x8C, 0xFF, 255), 3, 90, 90);
                 default: return Rocks(1);
             }
+        }
+
+        /// <summary>How big a scatter prop stands (world units tall): ground cover, mid props, or a large background piece.</summary>
+        public static float ScatterHeight(string id)
+        {
+            switch (id)
+            {
+                case "stump": return 2.1f;
+                case "antenna": return 2.3f;
+                case "fern": return 0.85f;
+                case "bush": case "barrel": case "bones": case "rock_pile": return 0.75f;
+                case "crystal_small": return 0.7f;
+                case "flowers": case "mushrooms": return 0.5f;
+                case "pebble_glow": return 0.28f;
+                default: return 0.45f;
+            }
+        }
+
+        /// <summary>Large background pieces (placed further out from the path, at the edges of the view).</summary>
+        public static bool IsLargeScatter(string id) => id == "stump" || id == "antenna";
+
+        /// <summary>A broken alien pillar (ruin): a fluted column snapped at the top, moss, a fallen chunk at its foot.</summary>
+        private static Sprite BrokenPillar()
+        {
+            int w = 170, h = 300;
+            var p = new IsoPaint(w, h);
+            float cx = 76;
+            var stone = (Color)new Color32(0x86, 0xB0, 0xB2, 255);
+            // base plinth
+            p.Shape(new[] { V(cx - 58, 6), V(cx + 58, 6), V(cx + 52, 40), V(cx - 52, 40) }, VGrad(Shade(stone, -0.3f), Shade(stone, -0.05f), 6, 40), Ink, 5);
+            // the shaft with a jagged break at the top
+            var shaft = new[] { V(cx - 40, 38), V(cx + 40, 38), V(cx + 38, 236), V(cx + 22, 262), V(cx + 8, 244), V(cx - 6, 276), V(cx - 24, 250), V(cx - 38, 258) };
+            p.Shape(shaft, (x, y) => Color.Lerp(Shade(stone, 0.18f), Shade(stone, -0.28f), Mathf.Clamp01((x - (cx - 40)) / 80f)), Ink, 5);
+            for (int i = -1; i <= 1; i++) p.Line(V(cx + i * 20, 46), V(cx + i * 20 - 1, 236 - Mathf.Abs(i) * 8), 4, Shade(stone, -0.34f));
+            // a carved glyph ring and moss
+            p.Line(V(cx - 39, 160), V(cx + 38, 160), 5, Shade(stone, -0.4f));
+            p.Line(V(cx - 39, 176), V(cx + 38, 176), 3, Shade(stone, -0.3f));
+            var moss = (Color)new Color32(0x5C, 0xA8, 0x5A, 255);
+            p.Blob(cx - 30, 110, 14, 30, moss, new Color32(0x2E, 0x62, 0x34, 255), 3);
+            p.Blob(cx + 24, 230, 16, 10, moss, new Color32(0x2E, 0x62, 0x34, 255), 3);
+            p.Blob(cx - 50, 40, 20, 10, moss, new Color32(0x2E, 0x62, 0x34, 255), 3);
+            // a fallen chunk
+            p.Shape(new[] { V(cx + 62, 6), V(cx + 92, 6), V(cx + 98, 30), V(cx + 70, 38) }, Shade(stone, -0.12f), Ink, 4);
+            return p.ToSprite("rs_scatter_pillar", V(cx, 6));
+        }
+
+        /// <summary>An alien antenna pylon: a leaning mast with a cracked dish and a glowing tip.</summary>
+        private static Sprite Pylon()
+        {
+            int w = 180, h = 300;
+            var p = new IsoPaint(w, h);
+            float cx = 80;
+            var metal = (Color)new Color32(0x9A, 0xA6, 0xBE, 255);
+            p.Shape(new[] { V(cx - 46, 4), V(cx + 46, 4), V(cx + 30, 30), V(cx - 30, 30) }, VGrad(Shade(metal, -0.4f), Shade(metal, -0.1f), 4, 30), Ink, 5);
+            p.Line(V(cx, 28), V(cx + 16, 232), 18, Ink);
+            p.Line(V(cx, 28), V(cx + 16, 232), 10, Shade(metal, -0.05f));
+            p.Line(V(cx - 3, 30), V(cx + 12, 228), 3, new Color(1, 1, 1, 0.4f));
+            // the dish
+            var dish = new List<Vector2>();
+            for (int i = 0; i <= 14; i++) { float a = Mathf.Lerp(200, 340, i / 14f) * Mathf.Deg2Rad; dish.Add(V(cx + 30 + Mathf.Cos(a) * 58, 200 + Mathf.Sin(a) * 40)); }
+            dish.Add(V(cx + 30 + 54, 220)); dish.Add(V(cx + 30 - 54, 220));
+            p.Shape(dish, VGrad(Shade(metal, -0.3f), Shade(metal, 0.2f), 160, 220), Ink, 5);
+            p.Line(V(cx + 30, 196), V(cx + 30, 250), 6, Ink);
+            p.Blob(cx + 30, 258, 13, 13, IsoPaint.Radial(new Color32(0xE8, 0xFF, 0xF6, 255), new Color32(0x3C, 0xE0, 0xB0, 255), cx + 26, 262, 16), Ink, 4);
+            // cables / weeds at its foot
+            p.Line(V(cx - 30, 10), V(cx - 50, 60), 7, new Color32(0x1E, 0x4A, 0x2E, 255));
+            p.Line(V(cx - 30, 10), V(cx - 50, 60), 3.5f, new Color32(0x5C, 0xC8, 0x8E, 255));
+            return p.ToSprite("rs_scatter_pylon", V(cx, 4));
+        }
+
+        /// <summary>A tipped clay urn spilling glowing beads.</summary>
+        private static Sprite Urn()
+        {
+            var p = new IsoPaint(170, 110);
+            var clay = (Color)new Color32(0xB8, 0x6A, 0x52, 255);
+            var body = new List<Vector2>();
+            for (int i = 0; i < 24; i++) { float a = i / 24f * Mathf.PI * 2; body.Add(V(78 + Mathf.Cos(a) * 54, 44 + Mathf.Sin(a) * 36)); }
+            p.Shape(body, IsoPaint.Radial(Shade(clay, 0.3f), Shade(clay, -0.3f), 60, 64, 70), Ink, 5);
+            p.Shape(new[] { V(124, 28), V(156, 24), V(160, 70), V(126, 66) }, Shade(clay, -0.15f), Ink, 5);
+            p.Ellipse(150, 47, 8, 16, new Color32(0x3A, 0x22, 0x26, 255));
+            p.Line(V(40, 30), V(110, 22), 4, Shade(clay, -0.35f));
+            foreach (var d in new[] { V(160, 10), V(146, 8), V(166, 20) }) p.Blob(d.x, d.y + 4, 6, 5, new Color32(0x9C, 0xF0, 0xE0, 255), Ink, 2.5f);
+            return p.ToSprite("rs_scatter_urn", V(78, 8));
+        }
+
+        /// <summary>Half-buried rib bones of some huge creature.</summary>
+        private static Sprite Ribs()
+        {
+            var p = new IsoPaint(170, 120);
+            var bone = (Color)new Color32(0xEE, 0xE2, 0xC4, 255);
+            for (int i = 0; i < 4; i++)
+            {
+                var pts = new List<Vector2>();
+                float x0 = 26 + i * 36;
+                for (int j = 0; j <= 8; j++) { float t = j / 8f; pts.Add(V(x0 + t * 20, 8 + Mathf.Sin(t * Mathf.PI) * (80 - i * 12))); }
+                p.Stroke(pts, 15, Ink, false);
+                p.Stroke(pts, 8, Shade(bone, -i * 0.06f), false);
+            }
+            p.Blob(30, 10, 22, 8, Shade(bone, -0.2f), Ink, 3);
+            return p.ToSprite("rs_scatter_ribs", V(85, 6));
+        }
+
+        /// <summary>A cluster of small glowing mushrooms.</summary>
+        private static Sprite Mushrooms()
+        {
+            var p = new IsoPaint(120, 90);
+            var caps = new Color32[] { new Color32(0xE8, 0x6A, 0xC8, 255), new Color32(0xB0, 0x7C, 0xF0, 255), new Color32(0xE8, 0x6A, 0xC8, 255) };
+            var spots = new[] { new Vector3(36, 40, 22), new Vector3(74, 58, 28), new Vector3(96, 30, 16) };
+            for (int i = 0; i < 3; i++)
+            {
+                var sp = spots[i];
+                p.Shape(RoundRect(sp.x - sp.z * 0.3f, 6, sp.z * 0.6f, sp.y - 8, 4), new Color32(0xF2, 0xE8, 0xD0, 255), Ink, 3);
+                var cap = new List<Vector2>();
+                for (int j = 0; j <= 12; j++) { float a = Mathf.PI * j / 12; cap.Add(V(sp.x - Mathf.Cos(a) * sp.z, sp.y + Mathf.Sin(a) * sp.z * 0.8f)); }
+                p.Shape(cap, IsoPaint.Radial(Shade(caps[i], 0.35f), Shade(caps[i], -0.2f), sp.x - 6, sp.y + 10, sp.z * 1.4f), Ink, 3.5f);
+                p.Circle(sp.x - sp.z * 0.3f, sp.y + sp.z * 0.4f, 3, new Color(1, 1, 1, 0.8f));
+            }
+            return p.ToSprite("rs_scatter_mushrooms", V(60, 6));
+        }
+
+        /// <summary>A few half-buried pebbles, one glowing.</summary>
+        private static Sprite GlowPebbles()
+        {
+            var p = new IsoPaint(120, 50);
+            var rock = (Color)new Color32(0x9A, 0xA8, 0xBC, 255);
+            p.Blob(34, 18, 20, 11, IsoPaint.Radial(Shade(rock, 0.3f), Shade(rock, -0.2f), 28, 24, 24), Ink, 3);
+            p.Blob(66, 14, 14, 8, IsoPaint.Radial(Shade(rock, 0.3f), Shade(rock, -0.2f), 62, 18, 18), Ink, 3);
+            p.Blob(92, 20, 12, 9, IsoPaint.Radial(new Color32(0xE0, 0xFF, 0xF4, 255), new Color32(0x3C, 0xD8, 0xB0, 255), 90, 24, 14), Ink, 3);
+            return p.ToSprite("rs_scatter_pebbles", V(60, 6));
         }
 
         private static Sprite Rocks(int n)
         {
             var p = new IsoPaint(150, 100);
             var rock = (Color)new Color32(0x86, 0x9A, 0xB4, 255);
-            p.Ellipse(75, 14, 60, 12, new Color(0, 0, 0, 0.22f));
             var spots = n == 1 ? new[] { new Vector4(75, 40, 42, 30) } : new[] { new Vector4(56, 38, 36, 26), new Vector4(100, 32, 28, 20), new Vector4(80, 62, 26, 22) };
             foreach (var s in spots)
             {
@@ -684,7 +899,6 @@ namespace RogueStars.Client.World
         {
             var p = new IsoPaint(150, 120);
             var leaf = (Color)new Color32(0x56, 0xB8, 0x6A, 255);
-            p.Ellipse(75, 14, 56, 12, new Color(0, 0, 0, 0.22f));
             foreach (var b in new[] { new Vector4(48, 46, 34, 30), new Vector4(100, 44, 32, 28), new Vector4(74, 70, 38, 34) })
                 p.Blob(b.x, b.y, b.z, b.w, IsoPaint.Radial(Shade(leaf, 0.3f), Shade(leaf, -0.25f), b.x - 10, b.y + 14, b.z * 1.5f), new Color32(0x1E, 0x4A, 0x2E, 255), 4);
             foreach (var d in new[] { V(60, 80), V(96, 56), V(78, 46) }) p.Circle(d.x, d.y, 5, new Color32(0xFF, 0x9C, 0xD8, 255));
@@ -694,7 +908,6 @@ namespace RogueStars.Client.World
         private static Sprite Bulbs()
         {
             var p = new IsoPaint(120, 110);
-            p.Ellipse(60, 12, 44, 10, new Color(0, 0, 0, 0.2f));
             var stem = (Color)new Color32(0x4E, 0xA8, 0x5E, 255);
             var cols = new Color32[] { new Color32(0x6C, 0xE8, 0xFF, 255), new Color32(0xFF, 0x8C, 0xD0, 255), new Color32(0xFF, 0xE0, 0x6A, 255) };
             for (int i = 0; i < 3; i++)
@@ -710,7 +923,6 @@ namespace RogueStars.Client.World
         private static Sprite Weed()
         {
             var p = new IsoPaint(110, 140);
-            p.Ellipse(55, 12, 36, 9, new Color(0, 0, 0, 0.2f));
             var c = (Color)new Color32(0x5C, 0xC8, 0x8E, 255);
             for (int i = 0; i < 4; i++)
             {
@@ -723,43 +935,153 @@ namespace RogueStars.Client.World
             return p.ToSprite("rs_scatter_weed", V(55, 12));
         }
 
-        // ---- ground ----------------------------------------------------------------------------------------------------
+        // ---- ground, surround, shadows -----------------------------------------------------------------------------------
 
-        /// <summary>The tileable meadow ground under the board (slice-texture "ground_meadow", else drawn).</summary>
+        /// <summary>Seamless 0..1 noise on a torus of <paramref name="n"/> px (tileable textures).</summary>
+        private static float TorusNoise(float x, float y, int n, float scale, float ox)
+        {
+            float a = x / n * Mathf.PI * 2, b = y / n * Mathf.PI * 2;
+            return Mathf.PerlinNoise(ox + Mathf.Cos(a) * scale, Mathf.Sin(a) * scale + Mathf.Cos(b) * scale * 0.7f + ox) * 0.5f
+                   + Mathf.PerlinNoise(ox * 2 + Mathf.Sin(b) * scale, Mathf.Cos(b) * scale + Mathf.Sin(a) * scale * 0.7f) * 0.5f;
+        }
+
+        /// <summary>
+        /// The tileable meadow ground of the island the path sits on (slice-texture "ground_meadow", else drawn): layered
+        /// tonal patches, grass tufts, pebbles and little shells.
+        /// </summary>
         public static Sprite Ground() => ArtCatalog.SliceTexture("ground_meadow") ?? Get("ground", () =>
         {
             const int n = 512;
             var p = new IsoPaint(n, n);
-            var light = (Color)new Color32(0x6A, 0xBE, 0xA2, 255);
-            var dark = (Color)new Color32(0x58, 0xA8, 0x90, 255);
-            // seamless soft patches: noise sampled on a torus
-            float Noise(float x, float y, float scale, float ox)
-            {
-                float a = x / n * Mathf.PI * 2, b = y / n * Mathf.PI * 2;
-                return Mathf.PerlinNoise(ox + Mathf.Cos(a) * scale, Mathf.Sin(a) * scale + Mathf.Cos(b) * scale * 0.7f + ox) * 0.5f
-                       + Mathf.PerlinNoise(ox * 2 + Mathf.Sin(b) * scale, Mathf.Cos(b) * scale + Mathf.Sin(a) * scale * 0.7f) * 0.5f;
-            }
+            var mid = (Color)new Color32(0x70, 0xBC, 0xA2, 255);
+            var dark = (Color)new Color32(0x54, 0x9E, 0x8C, 255);
+            var light = (Color)new Color32(0x8E, 0xCA, 0x9E, 255);
             p.Poly(new[] { V(0, 0), V(n, 0), V(n, n), V(0, n) }, (x, y) =>
             {
-                float v = Noise(x, y, 1.4f, 3.3f);
-                return Color.Lerp(dark, light, Mathf.SmoothStep(0.42f, 0.58f, v));
+                float big = TorusNoise(x, y, n, 1.3f, 3.3f), small = TorusNoise(x, y, n, 4.2f, 9.1f);
+                var c = Color.Lerp(dark, mid, Mathf.SmoothStep(0.36f, 0.5f, big));
+                c = Color.Lerp(c, light, Mathf.SmoothStep(0.56f, 0.68f, big) * 0.8f);
+                return Shade(c, (small - 0.5f) * 0.12f);
             });
             var rnd = new System.Random(7);
-            for (int i = 0; i < 9; i++)
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            var tuftDark = (Color)new Color32(0x3E, 0x84, 0x66, 255);
+            var tuftLight = (Color)new Color32(0x9C, 0xD6, 0x8E, 255);
+            for (int i = 0; i < 46; i++)
             {
-                float x = (float)rnd.NextDouble() * (n - 60) + 30, y = (float)rnd.NextDouble() * (n - 60) + 30;
-                float r = 4 + (float)rnd.NextDouble() * 6;
-                p.Blob(x, y, r * 1.5f, r, new Color32(0x8E, 0xCF, 0xB8, 255), Shade(dark, -0.2f), 2.5f);
+                float x = R(24, n - 24), y = R(24, n - 24), k = R(0.7f, 1.3f);
+                for (int j = -1; j <= 1; j++)
+                {
+                    var root = V(x + j * 4 * k, y);
+                    var tip = root + V(j * 6 * k + R(-2, 2), R(10, 16) * k);
+                    p.Line(root, tip, 3.2f * k, tuftDark);
+                    p.Line(root + V(0, 2), tip, 1.4f * k, tuftLight);
+                }
             }
-            for (int i = 0; i < 7; i++)
+            var pebble = (Color)new Color32(0x9A, 0xB0, 0xB4, 255);
+            for (int i = 0; i < 26; i++)
             {
-                float x = (float)rnd.NextDouble() * (n - 60) + 30, y = (float)rnd.NextDouble() * (n - 60) + 30;
-                p.Line(V(x, y), V(x + 3, y + 10), 2.5f, Shade(dark, -0.15f));
-                p.Line(V(x + 6, y), V(x + 11, y + 8), 2.5f, Shade(dark, -0.15f));
+                float x = R(20, n - 20), y = R(20, n - 20), r = R(3, 8);
+                p.Ellipse(x + 1, y - 2, r * 1.4f, r, new Color(0.1f, 0.25f, 0.2f, 0.35f));
+                p.Ellipse(x, y, r * 1.4f, r, IsoPaint.Radial(Shade(pebble, 0.3f), Shade(pebble, -0.15f), x - r * 0.5f, y + r * 0.5f, r * 2));
+            }
+            var shell = (Color)new Color32(0xF2, 0xE4, 0xD0, 255);
+            for (int i = 0; i < 6; i++)
+            {
+                float x = R(40, n - 40), y = R(40, n - 40), r = R(7, 11);
+                var fan = new List<Vector2> { V(x, y - r * 0.6f) };
+                for (int j = 0; j <= 8; j++) { float a = Mathf.Lerp(20, 160, j / 8f) * Mathf.Deg2Rad; fan.Add(V(x + Mathf.Cos(a) * r, y - r * 0.6f + Mathf.Sin(a) * r)); }
+                p.Shape(fan, shell, Shade(shell, -0.45f), 1.5f);
+                for (int j = 1; j < 4; j++) { float a = Mathf.Lerp(20, 160, j / 4f) * Mathf.Deg2Rad; p.Line(V(x, y - r * 0.6f), V(x + Mathf.Cos(a) * r * 0.9f, y - r * 0.6f + Mathf.Sin(a) * r * 0.9f), 1.2f, Shade(shell, -0.3f)); }
             }
             var s = p.ToSprite("rs_ground", V(n / 2f, n / 2f));
             s.texture.wrapMode = TextureWrapMode.Repeat;
             return s;
         });
+
+        /// <summary>
+        /// The dark surround outside the island (slice-texture "backdrop_deep", else drawn, tileable): deep blue-teal water
+        /// with darker rock columns and faint caustics — low saturation so the lit diorama pops.
+        /// </summary>
+        public static Sprite Backdrop() => ArtCatalog.SliceTexture("backdrop_deep") ?? Get("backdrop", () =>
+        {
+            const int n = 256;
+            var p = new IsoPaint(n, n);
+            var deep = (Color)new Color32(0x17, 0x34, 0x4A, 255);
+            var mid = (Color)new Color32(0x20, 0x46, 0x5C, 255);
+            var col = (Color)new Color32(0x12, 0x2A, 0x3E, 255);
+            p.Poly(new[] { V(0, 0), V(n, 0), V(n, n), V(0, n) }, (x, y) =>
+            {
+                float big = TorusNoise(x, y, n, 1.6f, 5.7f);
+                // vertical rock columns: a tileable stripe pattern bent by noise
+                float stripe = Mathf.Sin((x / n * 3 + (TorusNoise(x, y, n, 2.2f, 1.9f) - 0.5f) * 0.6f) * Mathf.PI * 2);
+                var c = Color.Lerp(deep, mid, Mathf.SmoothStep(0.4f, 0.62f, big));
+                c = Color.Lerp(c, col, Mathf.SmoothStep(0.55f, 0.85f, stripe) * 0.8f);
+                return Shade(c, (TorusNoise(x, y, n, 6f, 2.4f) - 0.5f) * 0.1f);
+            });
+            var s = p.ToSprite("rs_backdrop", V(n / 2f, n / 2f));
+            s.texture.wrapMode = TextureWrapMode.Repeat;
+            return s;
+        });
+
+        /// <summary>A soft round contact shadow (pivot: centre) put under every prop, marker and the worm.</summary>
+        public static Sprite SoftShadow() => Get("softshadow", () =>
+        {
+            var p = new IsoPaint(128, 64);
+            p.Ellipse(64, 32, 63, 31, (x, y) =>
+            {
+                float dx = (x - 64) / 63f, dy = (y - 32) / 31f;
+                float r = Mathf.Clamp01(Mathf.Sqrt(dx * dx + dy * dy));
+                return new Color(0.02f, 0.08f, 0.1f, 0.6f * (1 - r * r));
+            });
+            return p.ToSprite("rs_softshadow", V(64, 32));
+        });
+
+        /// <summary>A screen vignette (pivot: centre): clear in the middle, darkening the corners and edges.</summary>
+        public static Sprite Vignette() => Get("vignette", () =>
+        {
+            const int w = 128, h = 256;
+            var p = new IsoPaint(w, h);
+            p.Poly(new[] { V(0, 0), V(w, 0), V(w, h), V(0, h) }, (x, y) =>
+            {
+                float dx = (x - w / 2f) / (w / 2f), dy = (y - h / 2f) / (h / 2f);
+                float r = Mathf.Sqrt(dx * dx * 0.9f + dy * dy * 0.75f);
+                return new Color(0.03f, 0.06f, 0.1f, 0.5f * Mathf.SmoothStep(0.62f, 1.25f, r));
+            });
+            return p.ToSprite("rs_vignette", V(w / 2f, h / 2f));
+        });
+
+        /// <summary>Pixels per world unit of the island mask (the ground's outline).</summary>
+        public const float IslandPpu = 16;
+
+        /// <summary>
+        /// The island's soft mask over a world rect (pivot: bottom-left): alpha 1 on the ground the path's diorama stands on,
+        /// fading to 0 at its organic edge. <paramref name="alpha"/> is the island alpha at a ground point given in grid
+        /// coordinates (gx, gy).
+        /// </summary>
+        public static Sprite IslandMask(Rect world, Func<float, float, float> alpha)
+        {
+            int w = Mathf.Clamp(Mathf.CeilToInt(world.width * IslandPpu), 8, 2048), h = Mathf.Clamp(Mathf.CeilToInt(world.height * IslandPpu), 8, 4096);
+            var px = new Color32[w * h];
+            float groundDrop = Iso.Slab + Iso.Wall;
+            for (int j = 0; j < h; j++)
+            {
+                float wy = world.yMin + (j + 0.5f) / h * world.height;
+                float b = (wy + groundDrop) / Iso.StepY;
+                for (int i = 0; i < w; i++)
+                {
+                    float wx = world.xMin + (i + 0.5f) / w * world.width;
+                    float a = wx / Iso.StepX;
+                    byte v = (byte)Mathf.RoundToInt(255 * Mathf.Clamp01(alpha((a + b) / 2, (b - a) / 2)));
+                    px[j * w + i] = new Color32(255, 255, 255, v);
+                }
+            }
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "rs_island", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+            var s = Sprite.Create(tex, new Rect(0, 0, w, h), Vector2.zero, w / world.width, 0, SpriteMeshType.FullRect);
+            s.name = "rs_island";
+            return s;
+        }
     }
 }

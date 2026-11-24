@@ -83,7 +83,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Hop arc height in world units.</summary>
         public const float HopArc = 0.55f;
         /// <summary>Where the worm sits in the view: this fraction of the view height below its centre (the path climbs).</summary>
-        public const float CameraLead = 0.035f;
+        public const float CameraLead = 0.09f;
 
         public override string Title
         {
@@ -372,7 +372,7 @@ namespace RogueStars.Client.Screens
         {
             var vals = new List<int>(values);
             float secs = RunFx.DiceSeconds(_auto);
-            if (secs <= 0 || _holder == null) { _footerDice?.Pose(1, vals); return; }
+            if (secs <= 0 || _holder == null) { _footerDice?.Pose(1, PrintedDice(vals)); return; }
             var stage = Ui.Rect(_holder, "DiceStage");
             Ui.Stretch(stage);
             var shade = Ui.Panel(stage, new Color(0, 0, 0, 0.25f), "Shade");
@@ -388,7 +388,7 @@ namespace RogueStars.Client.Screens
             _anim.Then(secs, t =>
             {
                 view.Pose(t, vals);
-                _footerDice?.Pose(Mathf.Min(1, t * 1.05f), vals);
+                _footerDice?.Pose(Mathf.Min(1, t * 1.05f), PrintedDice(vals));
             });
             // the dice rest for a beat, then fade while the worm starts hopping
             _anim.Then(_auto ? 0.12f : 0.25f, null, () =>
@@ -708,6 +708,18 @@ namespace RogueStars.Client.Screens
             }
         }
 
+        /// <summary>
+        /// The dice printed on the roll button: always (at least) two, like a pair of dice — a one-die roll shows its die and
+        /// the face opposite it beside it.
+        /// </summary>
+        public static List<int> PrintedDice(IList<int> rolled)
+        {
+            var list = new List<int>(rolled);
+            if (list.Count == 1) list.Add(7 - Mathf.Clamp(list[0], 1, 6));
+            if (list.Count == 0) { list.Add(3); list.Add(5); }
+            return list;
+        }
+
         // ---- bottom controls -------------------------------------------------------------------------
 
         /// <summary>
@@ -737,24 +749,31 @@ namespace RogueStars.Client.Screens
             btn.targetGraphic = face;
             btn.transition = Selectable.Transition.ColorTint;
             btn.interactable = live;
-            // the last roll's dice printed on the button (a 3 before the first roll); a roll's tumbling dice land on them
-            int diceN = Math.Max(1, run.LastDice.Count);
-            float dieSize = (diceN == 1 ? 140 : 116) * s;
-            var dice = new DiceView(btnRt, diceN, dieSize, "FooterDice");
-            dice.Root.anchorMin = dice.Root.anchorMax = new Vector2(0.4f, 0.62f);
+            // two dice printed on the button's top (white on red, laid into the top plane: the plane squashes, the dice turn
+            // 45° in it); after a roll they show the last roll's dice, which the tumbling dice land on
+            var shown = PrintedDice(run.LastDice.Count > 0 ? run.LastDice : new List<int> { 3, 5 });
+            int diceN = shown.Count;
+            float dieSize = (diceN == 1 ? 150 : diceN == 2 ? 128 : Mathf.Max(70, 300f / diceN)) * s;
+            var plane = Ui.Rect(btnRt, "DicePrint");
+            plane.anchorMin = plane.anchorMax = new Vector2(0.47f, 0.6f);
+            plane.sizeDelta = new Vector2(10, 10);
+            plane.anchoredPosition = Vector2.zero;
+            plane.localScale = new Vector3(1, 0.74f, 1);
+            var dice = new DiceView(plane, diceN, dieSize, "FooterDice", new Color(1, 0.96f, 0.94f, 0.95f), new Color32(0xD8, 0x3A, 0x34, 255));
+            dice.Root.anchorMin = dice.Root.anchorMax = new Vector2(0.5f, 0.5f);
             dice.Root.sizeDelta = new Vector2(diceN * dieSize * 1.3f, dieSize * 1.2f);
             dice.Root.anchoredPosition = Vector2.zero;
-            dice.Root.localRotation = Quaternion.Euler(0, 0, 14);
-            dice.Pose(1, run.LastDice.Count > 0 ? run.LastDice : new List<int> { 3 });
+            dice.Root.localRotation = Quaternion.Euler(0, 0, 45);
+            dice.Pose(1, shown);
             _footerDice = dice;
             // the caption is engraved into the button (dark red, a light lip under it)
-            var caption = Ui.Display(btnRt, DiceCaption(run, _auto, AutoPaused), (int)(58 * s), live ? (Color)new Color32(0xA8, 0x22, 0x2C, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
+            var caption = Ui.Display(btnRt, DiceCaption(run, _auto, AutoPaused), (int)(54 * s), live ? (Color)new Color32(0xA8, 0x22, 0x2C, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
             caption.raycastTarget = false;
             caption.horizontalOverflow = HorizontalWrapMode.Overflow;
             var lip = caption.gameObject.AddComponent<Shadow>();
             lip.effectColor = new Color(1, 0.72f, 0.66f, 0.75f);
             lip.effectDistance = new Vector2(1.5f, -3f);
-            caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = new Vector2(0.6f, 0.4f);
+            caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = new Vector2(0.6f, 0.45f);
             caption.rectTransform.sizeDelta = new Vector2(420 * s, 80 * s);
             caption.rectTransform.localRotation = Quaternion.Euler(0, 0, 33);
             var hold = btnRt.gameObject.AddComponent<HoldButton>();

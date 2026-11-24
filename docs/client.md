@@ -265,31 +265,49 @@ design A (the board, tray and footer described in *Screens* above are superseded
 
 - **Rules grid** (`RunBoard.GridLayout`): every tile sits on an iso grid cell (`RunTile.PosX/PosY` whole numbers, `Dir`
   0/90/180/−90 = the heading it is entered with, `Height` 0/1 = raised sections; neighbours differ by ≤ 1 = a step).
-  Shapes: straight runs with right-angle turns, hairpins (out 3, across 3, back 3, on 2) and forks as rectangles whose
+  Shapes: straight runs with right-angle turns, hairpins (wide: out 3, across 3, back 3, on 2; tight: 2, 2, 2, 2 for the
+  short trunk stretches between forks; right after a fork only along its exit heading) and forks as rectangles whose
   arms run around the box from the fork tile to the join on the opposite corner (arm lengths share parity, so the
   rules nudge arm A by one toward arm B when they differ). Loops and hairpins leave **set-piece slots**
   (`ActiveRun.SetPieces`: `RunSetPiece` X/Y/W/H, `Shape` loop/hairpin) that no tile ever takes. Invariant: the open end
   is the only tile in its up-quadrant {x ≥ head.x, y ≥ head.y}, every shape stays inside it, so cells never repeat even
   across appended segments. Screen band: `RunTuning.GridBand` (8) on `PosX − PosY`. Tests: `GridLayoutTests`.
 - **World board** (`World/WorldBoard`): SpriteRenderers on layer 30, far from the scene origin, an orthographic
-  `BoardCamera` rendering into a RenderTexture shown by the `BoardView` RawImage under the HUD (renders only in play mode
-  on a real GPU). `Iso` = projection (step 0.84 × 0.58 world units, a ~1.45 : 1 dimetric matching the references;
-  1 unit = 100 px of a 1080-px-wide screen) and painter's order (`Iso.Order`: larger x + y first). Drawn: tiles in a depth
+  `BoardCamera` rendering into a RenderTexture (24-bit depth: the island's sprite mask needs the stencil) shown by the
+  `BoardView` RawImage under the HUD (renders only in play mode on a real GPU). `Iso` = projection (step 0.84 × 0.58 world
+  units, a ~1.45 : 1 dimetric matching the references) and painter's order (`Iso.Order`: larger x + y first); the view is
+  `WorldBoard.ViewWidth` = 9 units wide (~5.4 tiles across a 1080-px screen, 120 px per unit) with a slight vignette.
+  The path stands on one continuous **plinth**: `IsoArt.Block(face, height, mask)` takes the neighbour mask
+  (`IsoArt.PlinthMask`, path cells and set-piece floors of one height), so corner seams appear only where the plinth turns
+  or ends; walls carry a lit cap, a carved band of hooked spiral keys (repeats every 28 px of screen x, seamless across
+  cells), the base ledge, ambient occlusion and a soft contact shadow on the ground; slabs are inset with thin grout.
+  Palette: slate stone by default, soft accents only on special tiles (salmon boost, teal event, pale special).
+  The **island**: `WorldBoard.IslandField` (chamfer distance from the plinth, radius `IslandRadius` wobbled by noise)
+  → `IsoArt.IslandMask` → the tiled ground clipped by a `SpriteMask`, a two-band cliff and a drop shadow under its front
+  edges, over the tiled dark surround (`IsoArt.Backdrop`, deep water / rock columns). Scatter is placed by that distance:
+  dense ground cover along the plinth, mid props further out, large pieces (broken pillar, antenna pylon) at the rim
+  where they never stand in front of the path; every prop, marker and the worm gets a soft shadow
+  (`IsoArt.SoftShadow`). Drawn: tiles in a depth
   window around the worm (22 behind, 46 ahead; only trail + arena once the arena opens), each a `Block` (slab sides +
   platform wall with the glyph trim, taller when raised) and a `Top` (face colour per kind, engraving: boost chevrons,
   event "?", hazard spikes, curse chevrons backwards), the kind's **marker** prop standing on it (`IsoArt.MarkerOf`:
   enemy, elite, miniboss, boss, event, mystery = item, chest, rest = campfire, shop, minigame, portal = start, reward =
   loot/shard; hidden under the worm; beaten enemies / taken pickups leave on landing), set pieces on slot floors
   (`WorldBoard.SetPieceFor`: loops get the portal well / spire / mushroom, hairpins the standing ones), scatter props on
-  free cells up to 4 cells out, "!" over the next 3 notable tiles ahead, the worm (hero sprite, 1.35 units tall).
+  the island (see above), "!" over the next 3 notable tiles ahead, the worm (hero sprite, `WormHeight` 1.8 units tall).
+  Markers are cropped tight (`IsoArt.MarkerHeight` = visible height): the common enemy is a small uniform gold skull,
+  elites (horns), minibosses and the boss gate (crowns) step up; boss tiles (`TileCategory.BossTile`) show a small omen
+  obelisk.
   Landed tiles: the top takes `WorldBoard.LandedTint(accent)` (landed-only colouring kept). Hops, dice, landing pop,
   popups and the follow camera (2D now, `RunFx.CameraStep` per axis, `CameraLead`) are ported; fork tap targets
   (`BranchPick:A/B`, `BranchOption:A/B`) and rings are uGUI pins kept over their tiles every frame.
 - **HUD** (`Screens/SliceHud`): EXP hexagon + level pill with the XP fill, HP pill (heart), ATK (sword) and DEF (shield)
-  pills, cog = pause (pending loot is in the pause sheet), coin chip; the boss rail down the left edge (boss skull, a
-  skull pip per clock miniboss, fill blue → red with the awakening, dice icon and "n/N"). Bottom: the dice button on its
-  pedestal (`RollButton`: tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption`; the last
-  roll's dice printed on it), `SpeedChip` (board animations ×1/×2/×3, `RunScreen.BoardSpeed`), `AutoPickToggle`, the
+  pills (thick dark outline, inner lip and gloss), cog = pause (pending loot is in the pause sheet), coin chip; the boss
+  rail down the left edge (a thick capsule, boss skull, a framed skull pip per clock miniboss, a gradient fill blue → the
+  awakening's colour, dice icon and "n/N"). Bottom: the glossy dice button on its carved stone pedestal (`RollButton`:
+  tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption`; two white dice printed into its
+  top plane, `DicePrint` → `FooterDice`: the last roll, a one-die roll beside its opposite face, `RunScreen.PrintedDice`),
+  `SpeedChip` (board animations ×1/×2/×3, `RunScreen.BoardSpeed`), `AutoPickToggle`, the
   skills book (`SkillsButton`, count badge `SkillCount`). No skill tray, no footer, no Loot / AUTO buttons. Chunky text:
   `SliceKit.Chunky` (Fredoka, white, double dark outline + drop).
 - **Cards** (`Screens/SliceCards`): the draft is a full-screen overlay over the dimmed board: hero, gold "LEVEL UP!"
@@ -297,18 +315,25 @@ design A (the board, tray and footer described in *Screens* above are superseded
   the tier colour, name ribbon, cream panel with `SliceCards.Keywords` colouring numbers green and statuses / stats blue,
   a chip for LEVEL n → n+1 / UPGRADE / SYNERGY, "?" = full text toast), purple "Reroll (n)". The shop uses the same cards
   (blue "SHOP" ribbon, price button per card, Reroll / Leave).
-- **Battle** (`BattlePlaybackScreen`): top ~62% the arena (3/4 top-down floor `HudArt.Arena`, or the slice-battle art)
-  with big fighters (worm 390, enemies 300 px), HP / shield / rage bars under each, status icons with stack counts, the
-  slice HUD with the worm's live HP, "Round n/N", `SkipButton`; huge outlined damage numbers; EXP gems and coins burst
-  from a beaten enemy to the HUD. Bottom: a 5-column grid of tier-framed skill icons without labels (`Slot:<id>`, 15
-  tiles, then "+N"); fires pop their tile as before (`SkillFireQueue`). Speed chips `Speed1..3`, `ContinueButton`, `Log`.
+- **Battle** (`BattlePlaybackScreen`): top ~62% the arena (3/4 top-down floor `HudArt.Arena`: sand, a dark reef band at
+  the back, cracked slabs, rocks and kelp at the edges — or the slice-battle art). The hero group (the worm, 380 px, seated
+  on its mount: `SeatOnMount`, ArtCatalog `Art/Slice/Mounts/<mount id>` or `/mount`, else the drawn hover saucer
+  `HudArt.Mount`) takes about half the arena left of centre (`StagePosition`: the player side's last fighter = the worm);
+  companions line up small along the left edge (`CompanionPosition`; the mount's own slot shows nothing); enemies (330 px)
+  stand right. HP / shield / rage bars under each, status icons with stack counts, the slice HUD with the worm's live HP
+  and live ATK / DEF (Buff entries on the worm, resolved through the skill's BuffStat effect and its duration),
+  "Round n/N", `SkipButton`; huge outlined damage numbers; EXP gems and coins burst from a beaten enemy to the HUD; a
+  firing skill's label floats in the arena over the worm. Bottom (a dark gradient panel): a 5-column grid of tier-framed
+  skill icons without labels right under the arena (`Slot:<id>`, 15 tiles, then "+N"); fires pop their tile
+  (`SkillFireQueue`). One speed pill bottom-left with the segments `Speed1..3`, `ContinueButton`, `Log` bottom-right.
 - **Art keys** (`ArtCatalog`, every one falls back to a code-drawn placeholder in `World/IsoArt` / `World/HudArt`):
-  `Art/Slice/Markers/<id>` (enemy, elite, miniboss, boss, event, mystery, chest, rest, shop, minigame, portal, reward),
+  `Art/Slice/Markers/<id>` (enemy, elite, miniboss, boss, omen, event, mystery, chest, rest, shop, minigame, portal, reward),
   `Art/Slice/SetPieces/<id>` (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound,
   time_clock, alien_tree), `Art/Slice/Scatter/<id>` (rock_small, rock_pile, bush, flowers, fern, pebble_glow, stump,
   crystal_small, mushrooms, barrel, antenna, bones), `Art/Slice/Hud/<id>` (dice, pedestal, heart, sword, shield, coin,
   exp, cog, skull, book, speed, reroll, boss_rail_top), `Art/Slice/Textures/<id>` (tile_top_moss — multiplied into tile
-  tops, imported readable; tile_side_rock; ground_meadow = the tiled ground), `Art/Slice/Battle/<id>` (battle_meadow;
+  tops, imported readable; tile_side_rock; ground_meadow = the tiled island ground; backdrop_deep = the tiled dark
+  surround), `Art/Slice/Mounts/<mount id>` (or `mount`: the battle mount under the worm), `Art/Slice/Battle/<id>` (battle_meadow;
   battle_meadow_ruins), `Art/Skills/<skill id>` (draft cards, battle grid). Import: put the owner's picks in
   `tools/art/slice-picks.json` (`{"slice-markers/enemy": "C_s1301.png", …}`, files under `~/AI/assets/<category>/<id>/`)
   and run `Tools/Art/Import Generated Art` / `ArtImporter.ImportCli` (`ArtImportRules.PlanSlice`; props and icons are

@@ -270,10 +270,16 @@ namespace RogueStars.Client.UiKit
         public readonly List<RectTransform> Dice = new List<RectTransform>();
         private readonly List<int> _faces = new List<int>();
         private readonly float _size;
+        private readonly Color? _pipColor;
 
-        public DiceView(RectTransform parent, int count, float size, string name = "DiceRoll")
+        /// <summary>
+        /// <paramref name="faceColor"/> / <paramref name="pipColor"/>: a printed look (the dice on the roll button), else
+        /// cream dice with dark pips.
+        /// </summary>
+        public DiceView(RectTransform parent, int count, float size, string name = "DiceRoll", Color? faceColor = null, Color? pipColor = null)
         {
             _size = size;
+            _pipColor = pipColor;
             Root = Ui.Rect(parent, name);
             var h = Root.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.spacing = size * 0.3f;
@@ -284,10 +290,10 @@ namespace RogueStars.Client.UiKit
             {
                 var holder = Ui.Rect(Root, "Die" + i);
                 holder.sizeDelta = new Vector2(size, size);
-                var face = Ui.RoundPanel(holder, Theme.Cream, size * 0.2f, "Face");
+                var face = Ui.RoundPanel(holder, faceColor ?? Theme.Cream, size * 0.2f, "Face");
                 face.raycastTarget = false;
                 Ui.Stretch(face.rectTransform);
-                UiShapes.Outline(face.rectTransform, Theme.Shade(Theme.Cream, 0.62f), size * 0.2f, Mathf.Max(3, size * 0.05f));
+                UiShapes.Outline(face.rectTransform, faceColor.HasValue ? new Color(0.55f, 0.12f, 0.1f, 0.55f) : Theme.Shade(Theme.Cream, 0.62f), size * 0.2f, Mathf.Max(3, size * 0.05f));
                 Dice.Add(face.rectTransform);
                 _faces.Add(0);
                 Set(i, 1);
@@ -307,7 +313,7 @@ namespace RogueStars.Client.UiKit
             float pip = _size * 0.19f;
             foreach (var p in RunFx.Pips(value))
             {
-                var dot = Ui.Dot(face, value == 1 ? Theme.Bad : Theme.OnAccent, pip, "Pip");
+                var dot = Ui.Dot(face, _pipColor ?? (value == 1 ? Theme.Bad : Theme.OnAccent), pip, "Pip");
                 var rt = dot.rectTransform;
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.sizeDelta = new Vector2(pip, pip);
