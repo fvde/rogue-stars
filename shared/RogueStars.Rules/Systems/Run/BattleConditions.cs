@@ -16,7 +16,8 @@ namespace RogueStars.Rules.Systems
     /// <item><c>self_hp_below:P</c>, <c>self_shielded</c>, <c>sidekicks</c> (the owner's side has a living sidekick),
     /// <c>one_enemy</c> (one enemy left);</item>
     /// <item><c>first_turn</c> (the owner's first turn), <c>first_hit</c> (the owner's first landed hit of the battle),
-    /// <c>first_hit_taken</c> (the first hit the owner takes this round), <c>combo_strikes:N</c> (exactly N combo strikes this turn).</item>
+    /// <c>first_hit_taken</c> (the first hit the owner takes this round), <c>combo_strikes:N</c> (exactly N combo strikes this turn),
+    /// <c>rage_crit</c> (the owner's latest rage attack landed as a crit; for OnRageAttack triggers: lab Frost Nova).</item>
     /// </list>
     /// Parsed once per string and cached; unknown terms are false (content validation rejects them).
     /// </summary>
@@ -25,7 +26,7 @@ namespace RogueStars.Rules.Systems
         public enum Kind
         {
             Has, Lacks, Max, Unblocked, HpBelow, Boss, NotBoss, Statuses, SelfHpBelow, SelfShielded, Sidekicks, OneEnemy,
-            FirstTurn, FirstHit, FirstHitTaken, ComboStrikes, Unknown,
+            FirstTurn, FirstHit, FirstHitTaken, ComboStrikes, RageCrit, Unknown,
         }
 
         public sealed class Term
@@ -85,6 +86,7 @@ namespace RogueStars.Rules.Systems
                 case "first_hit": t.Kind = Kind.FirstHit; break;
                 case "first_hit_taken": t.Kind = Kind.FirstHitTaken; break;
                 case "combo_strikes": t.Kind = Kind.ComboStrikes; t.N = Math.Max(1, Num(1, 1)); break;
+                case "rage_crit": t.Kind = Kind.RageCrit; break;
             }
             return t;
         }
@@ -126,6 +128,7 @@ namespace RogueStars.Rules.Systems
                 case Kind.FirstHit: return "your first hit";
                 case Kind.FirstHitTaken: return "the first hit you take each round";
                 case Kind.ComboStrikes: return Num(t.N) + " combo strikes this turn";
+                case Kind.RageCrit: return "your rage attack crits";
                 default: return t.Source;
             }
         }

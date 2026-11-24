@@ -28,7 +28,7 @@ namespace RogueStars.Rules.Content
             // 2 Legendary run skills and its Mythics. Fire, Radiation and Bleed are open from the start. Paced as a chain over the
             // onboarding journey (Laboratory opens on day 5): Combo at once, each next one needs the previous package and a stat
             // node at level 2; the Alien package also needs the Aliens feature (Command needs a squad). That synergy's lab skill
-            // nodes (Chain Strikes, Frost Nova, Overload, Retaliation, Bulwark, Pack Tactics) need its package.
+            // nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) need its package.
             LabPackage("pkg_combo", "Combo Package", SkillFamily.Combo, "sig_combo", 1, null);
             LabPackage("pkg_ice", "Ice Package", SkillFamily.Ice, "sig_ice", 2, new[] { new LabPrereq("pkg_combo", 1), new LabPrereq("lab_atk_1", 2) });
             LabPackage("pkg_lightning", "Lightning Package", SkillFamily.Lightning, "sig_lightning", 3, new[] { new LabPrereq("pkg_ice", 1), new LabPrereq("lab_hp_1", 2) });
@@ -59,8 +59,12 @@ namespace RogueStars.Rules.Content
             RunLab("res_second_wind", "Second Wind", true, SkillFamily.None, Rarity.Rare, Def, 1, null, false, (b, lv) =>
                 b.Desc("Below 30% HP: heal (overheal becomes a shield).").On(TriggerKind.OnLowHp, EffectKind.Heal, 20 + 5 * lv, TargetKind.Self, 100, 0, "overheal_shield"));
             LabStat("lab_hp_1", "Dense Tissue", Def, 1, StatId.Hp, true, 1, null, false);
-            RunLab("res_retaliation", "Retaliation", false, SkillFamily.Counter, Rarity.Rare, Def, 2, Pkg("pkg_counter"), true, (b, lv) =>
-                b.Desc("+counter chance, counters may stun.").Stat(StatId.CounterChance, 5 + 5 * lv).Status(TriggerKind.OnCounter, 10 * lv, StatusId.Stun));
+            // CC pass (owner): Retaliation → Knockout (ids kept): only the stun, 10% → 15% → 20% in-run at research I, research V
+            // 14% → 21% → 28%; one of the two Commons allowed to crowd-control (ContentValidationTests)
+            RunLab("res_retaliation", "Knockout", false, SkillFamily.Counter, Rarity.Rare, Def, 2, Pkg("pkg_counter"), true, (b, lv) =>
+                b.Desc("Counterattacks may stun.")
+                 .Add(Tg(TriggerKind.OnCounter, EffectKind.ApplyStatus, status: StatusId.Stun, chance: 9 + lv, step: (9 + lv) / 2.0))
+                 .Text("Counterattacks: {c0}% chance to stun."));
             LabStat("lab_def_1", "Chitin Plating", Def, 2, StatId.Def, true, 1, Any("res_second_wind", "lab_hp_1"), false);
             RunLab("res_bulwark", "Bulwark Protocol", false, SkillFamily.Counter, Rarity.Epic, Def, 3, Pkg("pkg_counter"), true, (b, lv) =>
                 b.Desc("Battle start: a shield; counters may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
@@ -76,8 +80,12 @@ namespace RogueStars.Rules.Content
             // ---- elements ----
             RunLab("res_burning_soul", "Burning Soul", false, SkillFamily.Fire, Rarity.Epic, Ele, 1, null, false, (b, lv) =>
                 b.Desc("Battle start: heat all enemies.").Status(TriggerKind.OnBattleStart, 100, StatusId.Heat, 1 + lv, TargetKind.AllEnemies));
+            // CC pass (owner): a critical rage attack casts Frost Nova; research and in-run levels raise its damage, never the freeze
             RunLab("res_frost_nova", "Frost Nova", false, SkillFamily.Ice, Rarity.Epic, Ele, 1, Pkg("pkg_ice"), true, (b, lv) =>
-                b.Desc("Rage attacks may freeze all enemies.").Status(TriggerKind.OnRageAttack, 25 + 15 * lv, StatusId.Freeze, 1, TargetKind.AllEnemies));
+                b.Desc("A critical rage attack casts Frost Nova.")
+                 .Add(Tg(TriggerKind.OnRageAttack, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, @if: "rage_crit", status: StatusId.Freeze, grow: GrowKind.Fixed))
+                 .Add(Tg(TriggerKind.OnRageAttack, EffectKind.Damage, 50 + 10 * lv, TargetKind.AllEnemies, "rage_crit"))
+                 .Text("If your rage attack crits, cast Frost Nova: Freeze all enemies and deal {v1}% ATK to each."));
             RunLab("res_overload", "Overload", false, SkillFamily.Lightning, Rarity.Epic, Ele, 2, Pkg("pkg_lightning"), true, (b, lv) =>
                 b.Desc("Crits shock all enemies.").Status(TriggerKind.OnCrit, 40 + 10 * lv, StatusId.Shock, 1, TargetKind.AllEnemies));
             LabElementStat("lab_thermal_mastery", "Thermal Mastery", 2, new[] { StatId.FireDamage, StatId.IceDamage }, Any("res_burning_soul", "res_frost_nova"));

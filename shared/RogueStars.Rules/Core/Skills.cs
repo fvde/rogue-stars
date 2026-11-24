@@ -141,6 +141,11 @@ namespace RogueStars.Rules.Core
         public int MaxPerBattle;
         /// <summary>Which number grows with the skill's level (default: the SkillLeveling rule).</summary>
         public GrowKind Grow;
+        /// <summary>
+        /// Linear level growth (CC pass, owner-set ladders such as Knockout's 10% → 15% → 20% stun): when &gt; 0 the growing number
+        /// (the chance of a count effect / Grow = Chance, else the value) rises by Step per level instead of the ladder factor.
+        /// </summary>
+        public double Step;
     }
 
     /// <summary>

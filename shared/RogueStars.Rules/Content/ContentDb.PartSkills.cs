@@ -37,7 +37,7 @@ namespace RogueStars.Rules.Content
             switch (f)
             {
                 case SkillFamily.Fire: return StatusId.Heat;
-                case SkillFamily.Ice: return StatusId.Freeze;
+                case SkillFamily.Ice: return StatusId.Chill; // CC pass: Ice parts chill, only the Ice Apex freezes
                 case SkillFamily.Lightning: return StatusId.Shock;
                 case SkillFamily.Poison: return StatusId.Poison;
                 case SkillFamily.Bleed: return StatusId.Bleed;
@@ -93,8 +93,9 @@ namespace RogueStars.Rules.Content
                 case SkillFamily.Fire: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Heat; t.Stacks = 1 + (int)(p / 1.2); t.Duration = 3; break; }
                 case SkillFamily.Ice:
                 {
+                    // CC pass (owner): part skills no longer freeze, they chill (was Freeze at half the chance)
                     var d = T(EffectKind.Damage); d.Value = R(20 * p);
-                    var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Freeze; t.Stacks = 1; t.Duration = 1; t.Chance = Math.Min(100, Math.Round(chance * 0.5));
+                    var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Chill; t.Stacks = 1 + (int)(p / 1.2);
                     break;
                 }
                 case SkillFamily.Lightning:
@@ -192,7 +193,7 @@ namespace RogueStars.Rules.Content
             switch (f)
             {
                 case SkillFamily.Fire: return "set enemies on fire";
-                case SkillFamily.Ice: return "strike with frost and may freeze";
+                case SkillFamily.Ice: return "strike with frost and chill";
                 case SkillFamily.Lightning: return "arc lightning and shock";
                 case SkillFamily.Poison: return "irradiate";
                 case SkillFamily.Bleed: return "cause bleeding";

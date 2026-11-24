@@ -17,6 +17,7 @@ namespace RogueStars.Rules.Systems
     /// what would go past it grows the count instead: status stacks (multi-stack statuses), status duration (single-stack
     /// statuses such as Freeze / Stun / Charm), dice / events.</item>
     /// </list>
+    /// A trigger with <see cref="SkillTrigger.Step"/> grows linearly instead (+Step per level: the owner's crowd-control ladders).
     /// Numbers are rounded to readable steps (whole numbers from 10, halves below; counts and coins whole) and every level
     /// changes at least one number of every trigger, so each level reads differently (SkillText.Upgrade shows "+15% → +25%").
     /// Skill grants (OnRunStart "skill:" params) never scale. A skill without any growing number never levels (<see cref="Grows"/>).
@@ -101,7 +102,7 @@ namespace RogueStars.Rules.Systems
                 {
                     When = tr.When, Chance = tr.Chance, Effect = tr.Effect, Target = tr.Target, Value = tr.Value, Status = tr.Status,
                     Stacks = tr.Stacks, Duration = tr.Duration, Param = tr.Param, CooldownRounds = tr.CooldownRounds, Stat = tr.Stat,
-                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow,
+                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow, Step = tr.Step,
                 };
                 if (tr.Effect == EffectKind.ApplyStatus || tr.Effect == EffectKind.AllyAction || tr.Effect == EffectKind.Echo || tr.Target == TargetKind.OtherEnemies)
                     c.Stacks = Math.Max(1, tr.Stacks) * level;
@@ -135,11 +136,19 @@ namespace RogueStars.Rules.Systems
                 {
                     When = tr.When, Chance = tr.Chance, Effect = tr.Effect, Target = tr.Target, Value = tr.Value, Status = tr.Status,
                     Stacks = tr.Stacks, Duration = tr.Duration, Param = tr.Param, CooldownRounds = tr.CooldownRounds,
-                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow,
+                    If = tr.If, EveryN = tr.EveryN, MaxPerBattle = tr.MaxPerBattle, Grow = tr.Grow, Step = tr.Step,
                     Stat = tr.Stat != null ? (fixedT || IsCost(tr.Stat) ? tr.Stat : Grow(tr.Stat, p.Stat, f)) : null,
                 };
                 bool grantsSkill = tr.When == TriggerKind.OnRunStart && tr.Param != null && tr.Param != "skip_negative_events";
                 if (fixedT || grantsSkill) { }
+                else if (tr.Step > 0)
+                {
+                    // linear growth (owner-set CC ladders: Knockout 10% → 15% → 20%, Head Start 30% → 40% → 50%)
+                    double add = tr.Step * (level - 1);
+                    if (IsCountEffect(tr.Effect) || tr.Grow == GrowKind.Chance)
+                        c.Chance = Math.Min(cap, Math.Round((tr.Chance > 0 ? tr.Chance : cap) + add, MidpointRounding.AwayFromZero));
+                    else c.Value = Nice(tr.Value + add, p.Value);
+                }
                 else if (tr.Grow == GrowKind.Chance)
                 {
                     double baseChance = tr.Chance > 0 ? Math.Min(tr.Chance, cap) : cap;

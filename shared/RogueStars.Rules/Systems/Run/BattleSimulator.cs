@@ -365,6 +365,8 @@ namespace RogueStars.Rules.Systems
         public AttackKind LastKind, BestKind;
         public int LastTarget = -1, BestTarget = -1;
         public bool Attacked;
+        /// <summary>The owner's latest rage attack landed as a crit (condition rage_crit: lab Frost Nova).</summary>
+        public bool RageCrit;
         public double BestDealt;
         /// <summary>Damage of the last few attack hits taken (Rewind).</summary>
         public readonly List<double> HitHistory = new List<double>();
@@ -1047,6 +1049,7 @@ namespace RogueStars.Rules.Systems
             att.Strikes++;
 
             bool crit = RollCrit(att);
+            if (kind == AttackKind.Rage) att.RageCrit = false; // set once the rage attack lands
             if (def.Guards.Count > 0)
             {
                 // a blocking sidekick intercepts the hit: nothing lands, no on-hit or when-hit triggers
@@ -1074,6 +1077,7 @@ namespace RogueStars.Rules.Systems
             double dealt = DealDamage(att, def, dmg, false, ActionFor(kind), crit, StatusId.None, null);
             double absorbed = _lastAbsorbed;
             att.LastKind = kind; att.LastTarget = def.Index; att.Attacked = true;
+            if (kind == AttackKind.Rage) att.RageCrit = crit;
             if (dealt > att.BestDealt) { att.BestDealt = dealt; att.BestKind = kind; att.BestTarget = def.Index; }
             double ls = att.S(StatId.LifeSteal);
             // untargetable fighters (aliens, mount) are never hurt: their lifesteal feeds the side's worm (Vampiric aliens)
@@ -1373,6 +1377,7 @@ namespace RogueStars.Rules.Systems
                     case BattleConditions.Kind.FirstHit: ok = owner.HitsLanded == 1; break;
                     case BattleConditions.Kind.FirstHitTaken: ok = owner.HitsTakenRoundNo == Round && owner.HitsTakenRound == 1; break;
                     case BattleConditions.Kind.ComboStrikes: ok = owner.ComboStrikes == (int)t.N; break;
+                    case BattleConditions.Kind.RageCrit: ok = owner.RageCrit; break;
                     default: ok = false; break;
                 }
                 if (!ok) return false;
@@ -1996,6 +2001,7 @@ namespace RogueStars.Rules.Systems
             if (tg == _acting) st.Fresh = true;
             var e = Log(BattleAction.StatusApplied, src, tg, st.Stacks);
             if (e != null) { e.Status = id; e.Stacks = st.Stacks; e.SkillId = skillId; }
+            if (def.Clears != StatusId.None) RemoveStacks(src, tg, def.Clears, 0, skillId); // CC pass: any Freeze resets the target's Chill to 0
             if (def.Cools != StatusId.None && !sr.NoCool) RemoveStacks(src, tg, def.Cools, stacks, skillId); // Chill cools Heat (Cold Fusion: not)
             int now = st.Stacks;
             if (now > prev && tg.Statuses.Contains(st))

@@ -261,7 +261,8 @@ namespace RogueStars.Rules.Content
                 {
                     s.Name = "Rime Bite"; s.Description = "May freeze the front enemy.";
                     var t = ActStatus(Act, StatusId.Freeze, TargetKind.Enemy, 1);
-                    t.Chance = Math.Min(100, Math.Round(AlienPick(tier, 50, 60, 70, 80, 95) * k)); t.Duration = 1;
+                    // CC pass (owner): 5% at the lowest star tier → 20% at the highest, no rarity boost on the chance
+                    t.Chance = AlienPick(tier, 5, 9, 13, 16, 20); t.Duration = 1;
                     break;
                 }
                 case "shocker": s.Name = "Static Wings"; s.Description = "Shocks the front enemy."; ActStatus(Act, StatusId.Shock, TargetKind.Enemy, AlienPickInt(tier, 1, 2, 2, 3, 3)); break;

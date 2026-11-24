@@ -46,7 +46,10 @@ public class SkillTuningTests
         Assert.Equal("When hit: apply Radiation ×2 → ×3 to the attacker.", SkillText.UpgradeFull(C, C.Skill("poison_spit"), 1, 2));
         Assert.Equal("Rage attack consumes the target's Bleed: 25% → 40% ATK per stack, heal 50% of it. At max stacks, refund 50 rage.", SkillText.UpgradeFull(C, C.Skill("bleed_frenzy"), 1, 2));
         Assert.Equal("Supernova needs 12 Heat, but never hurts you and deals +25% → +40% damage.", SkillText.UpgradeFull(C, C.Skill("fire_controlled"), 1, 2));
-        Assert.Equal("On rage attack: apply Freeze for 1 round → 2 rounds to all enemies.", SkillText.UpgradeFull(C, C.Skill("lab_frost_nova_5"), 1, 2));
+        Assert.Equal("If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 100% → 160% ATK to each.", SkillText.UpgradeFull(C, C.Skill("lab_frost_nova_5"), 1, 2));
+        Assert.Equal("Counterattacks: 10% → 15% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation"), 1, 2));
+        Assert.Equal("Counterattacks: 15% → 20% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation"), 2, 3));
+        Assert.Equal("Counterattacks: 21% → 28% chance to stun.", SkillText.UpgradeFull(C, C.Skill("lab_retaliation_5"), 2, 3));
         Assert.Equal("Run start: the boss awakens 9% → 15% slower.", SkillText.UpgradeFull(C, C.Skill("gen_calm_mind"), 1, 2));
         Assert.StartsWith("Level up: its numbers climb +15% → +25% → +40% (Legendary +25% → +40%)", SkillText.LevelUpRule(C));
     }
@@ -131,7 +134,7 @@ public class SkillTuningTests
             var run = Pool(C).Where(s => s.Family == f && s.Source == SkillSource.Run).ToList();
             bool alien = f == SkillFamily.AlienSynergy;
             Assert.Equal(alien ? 4 : 3, run.Count(s => s.Rarity == Rarity.Common));
-            Assert.Equal(2, run.Count(s => s.Rarity == Rarity.Legendary));
+            Assert.Equal(f == SkillFamily.Ice ? 3 : 2, run.Count(s => s.Rarity == Rarity.Legendary)); // CC pass: Deep Freeze, Ice's own Freeze
             Assert.Equal(alien ? 4 : 3, run.Count(s => s.Rarity == Rarity.Mythic));
             Assert.Single(C.Skills.Values, s => s.Signature && s.Family == f);
         }
@@ -220,6 +223,8 @@ public class SkillTuningTests
         // a squad that guards every round: block-hooked skills (Decoy) are judged where blocks happen
         c.AddSkill(new SkillDef { Id = "kit_guards", Name = "Guards", Source = SkillSource.Building, Draftable = false,
             Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Block, Stacks = 1, Target = TargetKind.Self } } });
+        // a sharp eye: skills gated on a critical rage attack (lab Frost Nova) are judged where rage attacks crit
+        c.AddSkill(new SkillDef { Id = "kit_keen", Name = "Keen", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.CritChance, 60) } });
         // heavy stackers: skills gated on many stacks (20 Radiation, max Bleed / Shock) are judged where those stacks happen
         foreach (var st in new[] { StatusId.Poison, StatusId.Bleed, StatusId.Shock })
             c.AddSkill(new SkillDef { Id = "kit_heavy_" + st, Name = "Heavy " + st, Source = SkillSource.Building, Draftable = false,
@@ -259,6 +264,7 @@ public class SkillTuningTests
                 || (t.Effect == EffectKind.Rule && t.Status == st && t.Param == "max"));
             if (many) Add("kit_heavy_" + n);
         }
+        if (s.Triggers.Any(t => (t.If ?? "").Contains("rage_crit"))) Add("kit_keen");
         bool rescue = s.Triggers.Any(t => t.When == TriggerKind.OnFatal || t.Effect == EffectKind.Rewind || t.Param == "last_light:30" || t.Effect == EffectKind.LoseHp);
         if (rescue) Add("kit_frail");
         return ctx;

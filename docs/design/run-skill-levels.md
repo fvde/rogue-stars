@@ -111,6 +111,8 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 3 | Hitting a chilled enemy: 50% → 80% chance to fire a shard for 50% ATK. |
 | Cold Snap | `ice_cold_snap` | Legendary | Run · Ice | 1 | When you Freeze an enemy, every other enemy gains Chill ×3. |
 | | | | | 2 | When you Freeze an enemy, every other enemy gains Chill ×3 → ×5. |
+| Deep Freeze | `ice_deep_freeze` | Legendary | Run · Ice | 1 | When an enemy reaches 5 Chill, freeze it; its Chill resets. +25% damage to frozen enemies. |
+| | | | | 2 | When an enemy reaches 5 Chill, freeze it; its Chill resets. +25% → +40% damage to frozen enemies. |
 | Permafrost | `ice_permafrost` | Legendary | Run · Ice | 1 | Chill no longer wears off on enemies with 5+ stacks. +25% ice damage. |
 | | | | | 2 | Chill no longer wears off on enemies with 5+ stacks. +25% → +40% ice damage. |
 | Cold Fusion | `mythic_cold_fusion` | Mythic | Run · Ice | 1 | Chill stops cooling Heat. Enemies with both Heat and Chill take +40% damage from you. |
@@ -176,8 +178,8 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Squad Bond | `alien_bond` | Common | Run · Alien | 1 | +45% alien power. |
 | | | | | 2 | +45% → +75% alien power. |
 | | | | | 3 | +75% → +120% alien power. |
-| Decoy | `alien_decoy` | Legendary | Run · Alien | 1 | When an alien blocks a hit: 25% chance to Charm the attacker. |
-| | | | | 2 | When an alien blocks a hit: 25% → 40% chance to Charm the attacker. |
+| Decoy | `alien_decoy` | Legendary | Run · Alien | 1 | When an alien blocks a hit: 20% chance to Charm the attacker. |
+| | | | | 2 | When an alien blocks a hit: 20% → 30% chance to Charm the attacker. |
 | Hivemind | `alien_hivemind` | Legendary | Run · Alien | 1 | Each alien is tuned to one of your signatures; its ability also triggers it once. +25% alien power. |
 | | | | | 2 | Each alien is tuned to one of your signatures; its ability also triggers it once. +25% → +40% alien power. |
 | Sacrifice Protocol | `mythic_sacrifice` | Mythic | Run · Alien | 1 | Once per battle, an alien takes a fatal hit for you. It leaves the battle; you heal 30%. |
@@ -220,8 +222,8 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | Echoes deal +15% → +25% damage. |
 | | | | | 3 | Echoes deal +25% → +40% damage. |
 | Head Start | `time_head_start` | Common | Run · Time | 1 | Battle start: 30% chance to delay every enemy's first turn. |
-| | | | | 2 | Battle start: 30% → 50% chance to delay every enemy's first turn. |
-| | | | | 3 | Battle start: 50% → 80% chance to delay every enemy's first turn. |
+| | | | | 2 | Battle start: 30% → 40% chance to delay every enemy's first turn. |
+| | | | | 3 | Battle start: 40% → 50% chance to delay every enemy's first turn. |
 | Rewind Shell | `time_rewind_shell` | Common | Run · Time | 1 | Once per battle below 30% HP: undo the damage of your last 1 hit(s) taken. |
 | | | | | 2 | Once per battle below 30% HP: undo the damage of your last 1 → 2 hit(s) taken. |
 | | | | | 3 | Once per battle below 30% HP: undo the damage of your last 2 → 3 hit(s) taken. |
@@ -292,16 +294,16 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | Battle start: apply Heat ×5 → ×8 to all enemies. |
 | Burning Soul V | `lab_burning_soul_5` | Legendary | Laboratory · Fire | 1 | Battle start: apply Heat ×6 to all enemies. |
 | | | | | 2 | Battle start: apply Heat ×6 → ×10 to all enemies. |
-| Frost Nova | `lab_frost_nova` | Legendary | Laboratory · Ice | 1 | On rage attack: 40% chance to apply Freeze to all enemies. |
-| | | | | 2 | On rage attack: 40% → 64% chance to apply Freeze to all enemies. |
-| Frost Nova II | `lab_frost_nova_2` | Legendary | Laboratory · Ice | 1 | On rage attack: 55% chance to apply Freeze to all enemies. |
-| | | | | 2 | On rage attack: 55% → 88% chance to apply Freeze to all enemies. |
-| Frost Nova III | `lab_frost_nova_3` | Legendary | Laboratory · Ice | 1 | On rage attack: 70% chance to apply Freeze to all enemies. |
-| | | | | 2 | On rage attack: 70% → 100% chance to apply Freeze to all enemies. |
-| Frost Nova IV | `lab_frost_nova_4` | Legendary | Laboratory · Ice | 1 | On rage attack: 85% chance to apply Freeze to all enemies. |
-| | | | | 2 | On rage attack: 85% → 100% chance to apply Freeze to all enemies. |
-| Frost Nova V | `lab_frost_nova_5` | Legendary | Laboratory · Ice | 1 | On rage attack: apply Freeze to all enemies. |
-| | | | | 2 | On rage attack: apply Freeze for 1 round → 2 rounds to all enemies. |
+| Frost Nova | `lab_frost_nova` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 60% ATK to each. |
+| | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 60% → 96% ATK to each. |
+| Frost Nova II | `lab_frost_nova_2` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 70% ATK to each. |
+| | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 70% → 112% ATK to each. |
+| Frost Nova III | `lab_frost_nova_3` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 80% ATK to each. |
+| | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 80% → 128% ATK to each. |
+| Frost Nova IV | `lab_frost_nova_4` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 90% ATK to each. |
+| | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 90% → 144% ATK to each. |
+| Frost Nova V | `lab_frost_nova_5` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 100% ATK to each. |
+| | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 100% → 160% ATK to each. |
 | Overload | `lab_overload` | Legendary | Laboratory · Lightning | 1 | On crit: 50% chance to apply Shock to all enemies. |
 | | | | | 2 | On crit: 50% → 80% chance to apply Shock to all enemies. |
 | Overload II | `lab_overload_2` | Legendary | Laboratory · Lightning | 1 | On crit: 60% chance to apply Shock to all enemies. |
@@ -352,21 +354,21 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | +60% → +96% alien power. When an alien acts: the worm gain 25 → 40 rage. |
 | Pack Tactics V | `lab_pack_tactics_5` | Legendary | Laboratory · Alien | 1 | +75% alien power. When an alien acts: the worm gain 30 rage. |
 | | | | | 2 | +75% → +120% alien power. When an alien acts: the worm gain 30 → 48 rage. |
-| Retaliation | `lab_retaliation` | Common | Laboratory · Counter | 1 | +10% counter chance. On counter: 10% chance to apply Stun to the enemy. |
-| | | | | 2 | +10% → +17% counter chance. On counter: 10% → 17% chance to apply Stun to the enemy. |
-| | | | | 3 | +17% → +27% counter chance. On counter: 17% → 27% chance to apply Stun to the enemy. |
-| Retaliation II | `lab_retaliation_2` | Common | Laboratory · Counter | 1 | +15% counter chance. On counter: 20% chance to apply Stun to the enemy. |
-| | | | | 2 | +15% → +25% counter chance. On counter: 20% → 33% chance to apply Stun to the enemy. |
-| | | | | 3 | +25% → +40% counter chance. On counter: 33% → 53% chance to apply Stun to the enemy. |
-| Retaliation III | `lab_retaliation_3` | Common | Laboratory · Counter | 1 | +20% counter chance. On counter: 30% chance to apply Stun to the enemy. |
-| | | | | 2 | +20% → +33% counter chance. On counter: 30% → 50% chance to apply Stun to the enemy. |
-| | | | | 3 | +33% → +53% counter chance. On counter: 50% → 80% chance to apply Stun to the enemy. |
-| Retaliation IV | `lab_retaliation_4` | Common | Laboratory · Counter | 1 | +25% counter chance. On counter: 40% chance to apply Stun to the enemy. |
-| | | | | 2 | +25% → +42% counter chance. On counter: 40% → 67% chance to apply Stun to the enemy. |
-| | | | | 3 | +42% → +67% counter chance. On counter: 67% → 100% chance to apply Stun to the enemy. |
-| Retaliation V | `lab_retaliation_5` | Common | Laboratory · Counter | 1 | +30% counter chance. On counter: 50% chance to apply Stun to the enemy. |
-| | | | | 2 | +30% → +50% counter chance. On counter: 50% → 83% chance to apply Stun to the enemy. |
-| | | | | 3 | +50% → +80% counter chance. On counter: 83% → 100% chance to apply Stun to the enemy. |
+| Knockout | `lab_retaliation` | Common | Laboratory · Counter | 1 | Counterattacks: 10% chance to stun. |
+| | | | | 2 | Counterattacks: 10% → 15% chance to stun. |
+| | | | | 3 | Counterattacks: 15% → 20% chance to stun. |
+| Knockout II | `lab_retaliation_2` | Common | Laboratory · Counter | 1 | Counterattacks: 11% chance to stun. |
+| | | | | 2 | Counterattacks: 11% → 17% chance to stun. |
+| | | | | 3 | Counterattacks: 17% → 22% chance to stun. |
+| Knockout III | `lab_retaliation_3` | Common | Laboratory · Counter | 1 | Counterattacks: 12% chance to stun. |
+| | | | | 2 | Counterattacks: 12% → 18% chance to stun. |
+| | | | | 3 | Counterattacks: 18% → 24% chance to stun. |
+| Knockout IV | `lab_retaliation_4` | Common | Laboratory · Counter | 1 | Counterattacks: 13% chance to stun. |
+| | | | | 2 | Counterattacks: 13% → 20% chance to stun. |
+| | | | | 3 | Counterattacks: 20% → 26% chance to stun. |
+| Knockout V | `lab_retaliation_5` | Common | Laboratory · Counter | 1 | Counterattacks: 14% chance to stun. |
+| | | | | 2 | Counterattacks: 14% → 21% chance to stun. |
+| | | | | 3 | Counterattacks: 21% → 28% chance to stun. |
 | Bulwark Protocol | `lab_bulwark` | Legendary | Laboratory · Counter | 1 | Battle start: gain a shield of 10% of max HP. On counter: 50% chance to gain a shield of 2% of max HP. |
 | | | | | 2 | Battle start: gain a shield of 10% → 16% of max HP. On counter: 50% chance to gain a shield of 2% → 3% of max HP. |
 | Bulwark Protocol II | `lab_bulwark_2` | Legendary | Laboratory · Counter | 1 | Battle start: gain a shield of 14% of max HP. On counter: 50% chance to gain a shield of 4% of max HP. |

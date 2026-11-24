@@ -92,9 +92,14 @@ legs = evasion, arm = attack style):
 |---|---|---|---|
 | 1 | Epic | Core | family stat package + a light family proc on hits |
 | 2 | Legendary | Technique | the kind's trigger fires the family payload (head: crits, body: taking damage, tail: combos, legs: dodges, arms: counters/crits/hits/combos/rage attacks by attack style) + a kind stat |
-| 3 | Mythic | Hunter (build hook) | bonus damage against the family condition (vs Burn/Freeze/…, vs low HP, combo/counter damage) or squad rage/power |
+| 3 | Mythic | Hunter (build hook) | bonus damage against the family condition (vs Heat/Chill/…, vs low HP, combo/counter damage) or squad rage/power |
 | 4 | Mythic S | Signature | kind-shaped battle opener: head = family effect on all enemies at battle start, body = last-stand shield + nova, tail = round sweeps, legs = true-damage dodges, arms = rage attacks that hit everyone |
 | 5 | Mythic SS | Apex | the family's capstone: burn chains on kills, freeze all + vs-frozen damage, round lightning + stuns, poison every round + regen, crits bleed everyone, true-damage crits, combo rage/ATK stacking, parry reflection, a squad rage opener (Hive) |
+
+**Ice parts chill, they never freeze** (crowd-control pass, owner): the Ice payload (core proc, technique, openers, awakened
+skills) deals its frost damage and applies Chill (1 + power/1.2 stacks, the payload's chance), the Ice Hunter / Resonance build on
+Chill. Only the Ice **Apex** (Mythic SS) still freezes every enemy at battle start. The shared family skill of Ice hero traits and
+mount weapons (`ContentDb.ProgFamilySkill`) chills too (25% × power, 1 + power/1.5 stacks). Any Freeze resets the target's Chill.
 
 Amounts are scaled by `PartsConfig.SkillPowerScale` (0.25; awakened 0.3) — the pacing knob; descriptions show the
 scaled numbers.
@@ -117,7 +122,7 @@ can open a new build:
 |---|---|---|
 | 1 | Twin core | stats of both families; the kind trigger now also delivers the twin's payload |
 | 2 | Pulse | every second turn the family and twin payloads hit a random enemy (no hit needed) |
-| 3 | Resonance | status chain: every application of the build status (Burn/Freeze/Shock/Poison/Bleed) strikes again and builds rage (+ damage vs that status); status-less families get skill damage + rage gain |
+| 3 | Resonance | status chain: every application of the build status (Heat/Chill/Shock/Radiation/Bleed) strikes again and builds rage (+ damage vs that status); status-less families get skill damage + rage gain |
 | 4 | Awakened opener | body: heal every turn with overheal → shield; legs: dodges shield and hit all enemies; tail: speed every round + twin sweeps; head/arms: a 45% ATK opening barrage + opening nova |
 | 5 | Ascension | once below 30% HP: heal 30%, true-damage nova, family effect on all; permanent skill-damage bonus |
 

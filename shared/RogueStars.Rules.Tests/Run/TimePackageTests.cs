@@ -67,7 +67,7 @@ public class TimePackageTests
     public void HeadStart_DelaysEveryEnemysFirstTurn()
     {
         var c = new ContentDb();
-        var w = Worm("time_head_start"); w.SkillLevels["time_head_start"] = 3; // 80%
+        var w = Worm("time_head_start"); w.SkillLevels["time_head_start"] = 3; // 50% (CC pass: 30% → 40% → 50%)
         int delayed = 0;
         for (ulong seed = 1; seed <= 20; seed++)
         {
@@ -79,7 +79,8 @@ public class TimePackageTests
             Assert.All(skips, e => Assert.Equal(1, e.Round));
             if (skips.Count == 2) delayed++;
         }
-        Assert.InRange(delayed, 11, 20);
+        Assert.InRange(delayed, 4, 16);
+        Assert.Equal(new double[] { 30, 40, 50 }, new[] { 1, 2, 3 }.Select(lv => SkillLeveling.At(c, c.Skill("time_head_start")!, lv).Triggers[0].Chance));
     }
 
     [Fact]

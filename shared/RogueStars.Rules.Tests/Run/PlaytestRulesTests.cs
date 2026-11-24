@@ -291,10 +291,17 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Equal(2, hot3.Triggers[0].Stacks);                                      // 80% × 8/3 ≈ 2.1 stacks
         // a sure status (100%) grows its stacks at every level: Critical Mass's Exposed ×25 → ×40 (Legendary)
         Assert.Equal(40, SkillLeveling.At(c, c.Skill("poison_critical")!, 2).Triggers[0].Stacks);
-        // a sure single-stack status (Freeze) lasts longer instead: Frost Nova V freezes for 1 → 2 rounds
-        var nova = SkillLeveling.At(c, c.Skill("lab_frost_nova_5")!, 2).Triggers[0];
+        // a sure single-stack status (Freeze, Stun, Charm) lasts longer instead
+        var sure = new SkillDef { Id = "sure", Name = "Sure", Rarity = Rarity.Legendary };
+        sure.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze, Target = TargetKind.AllEnemies });
+        var nova = SkillLeveling.At(c, sure, 2).Triggers[0];
         Assert.Equal(100, nova.Chance, 6);
         Assert.Equal(2, nova.Duration);
+        // CC pass: lab Frost Nova's freeze stays (Fixed), its damage grows (100% → 160% ATK at research V)
+        var nova5 = SkillLeveling.At(c, c.Skill("lab_frost_nova_5")!, 2);
+        Assert.Equal((0, 160.0), (nova5.Triggers[0].Duration, nova5.Triggers[1].Value));
+        // CC pass: linear Step growth (Knockout research V: 14% → 21% → 28% stun)
+        Assert.Equal(new double[] { 14, 21, 28 }, new[] { 1, 2, 3 }.Select(lv => SkillLeveling.At(c, c.Skill("lab_retaliation_5")!, lv).Triggers[0].Chance));
         // buff: the value grows (Battle Rhythm: +2.5% → +4% ATK per combo)
         Assert.Equal(4, SkillLeveling.At(c, c.Skill("combo_rhythm")!, 2).Triggers[0].Stat.Percent, 6);
         // a drone summon grows its power (Mothership Link: 30% → 50% → 80% of ATK); sidekick actions are a count (Awaken: Command 1 → 2 → 3)

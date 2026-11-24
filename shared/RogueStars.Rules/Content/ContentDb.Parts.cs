@@ -337,8 +337,9 @@ namespace RogueStars.Rules.Content
                     break;
                 case SkillFamily.Ice:
                     s.Stats.Add(new StatMod(StatId.IceDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(10 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze, Stacks = 1, Duration = 1 + (int)(v / 2) });
-                    s.Description = "Hits can freeze the enemy.";
+                    // CC pass (owner): Ice gear no longer freezes; it chills (Freeze comes from Ice's own sources)
+                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(25 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Chill, Stacks = 1 + (int)(v / 1.5) });
+                    s.Description = "Hits can chill the enemy.";
                     break;
                 case SkillFamily.Lightning:
                     s.Stats.Add(new StatMod(StatId.LightningDamage, Math.Round(5 * v, 1)));

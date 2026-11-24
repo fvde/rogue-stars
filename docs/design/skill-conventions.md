@@ -78,10 +78,12 @@ in battle. Alien / mount skills that should help defensively buff the worm (`Buf
 **Trigger fields.** `If` gates a trigger (and a `cond:` bonus) on a condition of the context fighter / the owner
 (`BattleConditions`): `has:Status[:N]`, `lacks:Status`, `max:Status` (at the cap its applier's rules give), `unblocked:Status`,
 `hp_below:P`, `boss`, `not_boss`, `statuses:N`, `self_hp_below:P`, `self_shielded`, `sidekicks`, `one_enemy`, `first_turn`,
-`first_hit`, `first_hit_taken` (first hit taken this round), `combo_strikes:N`; terms joined with `&`; unknown terms fail content
+`first_hit`, `first_hit_taken` (first hit taken this round), `combo_strikes:N`, `rage_crit` (the owner's latest rage attack landed as
+a crit: lab Frost Nova); terms joined with `&`; unknown terms fail content
 validation. `EveryN` fires on every Nth unit (stacks applied for `OnStatusApplied`, else events), counted before the chance roll.
 `MaxPerBattle` limits a trigger ("once per battle"). `Grow` picks the number a level grows (`Auto`, `Chance`: Ice Shard's proc,
-`Value`, `Fixed`: a part that stays, Frost Armor's chill). Negative stats are costs and never scale with level.
+`Value`, `Fixed`: a part that stays, Frost Armor's chill). `Step` > 0 grows that number linearly instead (+Step per level: the
+owner's crowd-control ladders, Knockout 10% → 15% → 20%). Negative stats are costs and never scale with level.
 
 **Skill fields.** `Needs` is an offer gate: drafts, shops and Mythic choices offer the skill only once the run owns the source
 (`RunDraft.HasSource`: `arc`, `applies:Status` / `freeze`, `consume:Status`, `echo`, `shield` (a shield effect or a mount),
@@ -131,6 +133,24 @@ slot cycles between them; none is ever lost. Hivemind tunes each alien to one si
 
 **Ladders.** Common ×1, ×5/3, ×8/3 (15 → 25 → 40); Legendary ×1, ×8/5 (25 → 40); Mythics never level. The list with every
 level's text: [run-skill-levels.md](run-skill-levels.md).
+
+## Crowd control (CC pass, owner decisions)
+
+CC = statuses that skip turns or charm (`StatusDef.SkipsTurn` / `Charms`: Stun, Freeze, Delay, Charm).
+
+- **No Common applies crowd control**, in any source (run, lab, part, hero, mount, alien, building), except the two the owner set:
+  lab **Knockout** (every research level; ids `lab_retaliation*`) and **Head Start**. `ContentValidationTests` holds that exact
+  allowlist, so a new Common with CC fails. Rejected by the owner: caps on CC chance, "levels never raise CC chance", CC-immune
+  bosses, "all-enemy CC once per battle".
+- **Any Freeze resets the target's Chill to 0** (`StatusDef.Clears`, whatever the source, also an enemy freezing the worm).
+- Ice has its own Freeze source: **Deep Freeze** (Legendary: an enemy at 5+ Chill is frozen when Chill is applied and Freeze is off
+  its re-apply cooldown; levels raise the damage vs frozen). Cold Snap and Shatter keep `Needs("freeze")`: Deep Freeze, lab Frost
+  Nova, the Ice part Apex and Frost Sigil all satisfy it.
+- Numbers: Knockout (lab Common, was Retaliation: no counter chance any more) stun on counter 10 → 15 → 20% at research I,
+  14 → 21 → 28% at research V; lab Frost Nova casts on a critical rage attack (Freeze + 60% ATK to every enemy at research I,
+  +10% per research level; in-run levels raise the damage, never the freeze); Head Start 30 → 40 → 50%; Decoy 20 → 30%;
+  Frostmite's Rime Bite 5 / 9 / 13 / 16 / 20% by star tier; Ice parts and Ice family skills chill instead of freezing
+  ([parts.md](parts.md)); Stasis Field, Thermal Shock and the Lightning / Ice part Apex are unchanged.
 
 ## Sidekicks (sidekick pass)
 

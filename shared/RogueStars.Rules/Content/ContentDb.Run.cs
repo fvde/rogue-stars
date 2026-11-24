@@ -98,7 +98,7 @@ namespace RogueStars.Rules.Content
             b.Statuses[StatusId.Poison] = new StatusDef { Id = StatusId.Poison, MaxStacks = 9999, Permanent = true, DotAtkPct = 4, HealReductionPct = 30, HasElement = true, ElementStat = StatId.PoisonDamage };
             b.Statuses[StatusId.Bleed] = new StatusDef { Id = StatusId.Bleed, MaxStacks = 10, Permanent = true, DotAtkPct = 6, IgnoresShield = true, HasElement = true, ElementStat = StatId.BleedDamage };
             b.Statuses[StatusId.Chill] = new StatusDef { Id = StatusId.Chill, MaxStacks = 10, DefaultDuration = 3, DamageDealtPctPerStack = -2, Cools = StatusId.Heat, HasElement = true, ElementStat = StatId.IceDamage };
-            b.Statuses[StatusId.Freeze] = new StatusDef { Id = StatusId.Freeze, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, DamageTakenPctPerStack = 20, ApplyCooldownRounds = 3, HasElement = true, ElementStat = StatId.IceDamage };
+            b.Statuses[StatusId.Freeze] = new StatusDef { Id = StatusId.Freeze, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, DamageTakenPctPerStack = 20, ApplyCooldownRounds = 3, HasElement = true, ElementStat = StatId.IceDamage, Clears = StatusId.Chill };
             b.Statuses[StatusId.Stun] = new StatusDef { Id = StatusId.Stun, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, ApplyCooldownRounds = 3 };
             b.Statuses[StatusId.Shock] = new StatusDef { Id = StatusId.Shock, MaxStacks = 5, DefaultDuration = 2, DamageTakenPctPerStack = 6, HasElement = true, ElementStat = StatId.LightningDamage };
             b.Statuses[StatusId.Charm] = new StatusDef { Id = StatusId.Charm, MaxStacks = 1, DefaultDuration = 1, Charms = true, ApplyCooldownRounds = 4 };

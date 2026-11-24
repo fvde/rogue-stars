@@ -104,11 +104,12 @@ namespace RogueStars.Rules.Content
         /// <summary>A trigger for content (named arguments keep the redesign's skills readable).</summary>
         private static SkillTrigger Tg(TriggerKind when, EffectKind effect, double value = 0, TargetKind target = TargetKind.Enemy, string @if = null,
             StatusId status = StatusId.None, int stacks = 1, int duration = 0, string param = null, double chance = 100, int everyN = 0,
-            int maxPerBattle = 0, int cooldown = 0, GrowKind grow = GrowKind.Auto, StatMod stat = null) =>
+            int maxPerBattle = 0, int cooldown = 0, GrowKind grow = GrowKind.Auto, StatMod stat = null, double step = 0) =>
             new SkillTrigger
             {
                 When = when, Effect = effect, Value = value, Target = target, If = @if, Status = status, Stacks = stacks, Duration = duration,
                 Param = param, Chance = chance, EveryN = everyN, MaxPerBattle = maxPerBattle, CooldownRounds = cooldown, Grow = grow, Stat = stat,
+                Step = step,
             };
 
         // Numbers (owner tuning pass): a typical Common skill gives +15% at Lv1 and climbs the level ladder (SkillLeveling:
@@ -194,6 +195,12 @@ namespace RogueStars.Rules.Content
             RunSkill("ice_cold_snap", "Cold Snap", SkillFamily.Ice, Rarity.Legendary).FamilyGate(2).Needs("freeze").Desc("A freeze chills the pack.")
                 .Add(Tg(TriggerKind.OnStatusApplied, EffectKind.ApplyStatus, target: TargetKind.AllOtherEnemies, status: StatusId.Chill, stacks: 3, param: "Freeze"))
                 .Text("When you Freeze an enemy, every other enemy gains Chill ×{s0}.");
+            // CC pass (owner): Ice's own Freeze source. Any Freeze resets the target's Chill to 0 (StatusDef.Clears), so the enemy
+            // has to be chilled up again; the levels raise the damage against frozen enemies, never the freeze.
+            RunSkill("ice_deep_freeze", "Deep Freeze", SkillFamily.Ice, Rarity.Legendary).FamilyGate(2).Needs("applies:Chill").Desc("Deep cold locks an enemy in ice.")
+                .Add(Tg(TriggerKind.OnStatusApplied, EffectKind.ApplyStatus, @if: "has:Chill:5 & unblocked:Freeze", status: StatusId.Freeze, param: "Chill", grow: GrowKind.Fixed))
+                .Cond("vs_status:Freeze", 25)
+                .Text("When an enemy reaches 5 Chill, freeze it; its Chill resets.|+{v1}% damage to frozen enemies.");
 
             // ---- Lightning (package): Arc spreads hits; Shock (max 5, +6% damage taken per stack, 2 turns) ----
             RunSkill("light_conductor", "Conductor Coil", SkillFamily.Lightning, Rarity.Common).Needs("arc").Desc("Stronger Arcs.")
@@ -259,7 +266,7 @@ namespace RogueStars.Rules.Content
                 .Text("Each alien is tuned to one of your signatures; its ability also triggers it once. +{p0}% alien power.");
             // ---- Time (package, R13): Echo repeats attacks; Time bends turn order ----
             RunSkill("time_head_start", "Head Start", SkillFamily.Time, Rarity.Common).Desc("Strike before they move.")
-                .Add(Tg(TriggerKind.OnBattleStart, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Delay, chance: 30))
+                .Add(Tg(TriggerKind.OnBattleStart, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Delay, chance: 30, step: 10))
                 .Text("Battle start: {c0}% chance to delay every enemy's first turn.");
             RunSkill("time_afterimage", "Afterimage", SkillFamily.Time, Rarity.Common).Needs("echo").Desc("Stronger echoes.")
                 .Stat(StatId.EchoDamage, 15).Text("Echoes deal +{p0}% damage.");
@@ -275,7 +282,7 @@ namespace RogueStars.Rules.Content
                 .Text("Echo repeats your strongest attack this battle instead of the last one, at +{p0}% damage.");
 
             RunSkill("alien_decoy", "Decoy", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(2).Needs("blocks").Desc("Blocked attackers lose their way.")
-                .Add(Tg(TriggerKind.OnBlock, EffectKind.ApplyStatus, status: StatusId.Charm, chance: 25))
+                .Add(Tg(TriggerKind.OnBlock, EffectKind.ApplyStatus, status: StatusId.Charm, chance: 20, step: 10))
                 .Text("When an alien blocks a hit: {c0}% chance to Charm the attacker.");
         }
 

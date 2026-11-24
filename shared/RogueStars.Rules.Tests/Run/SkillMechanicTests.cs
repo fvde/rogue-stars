@@ -232,6 +232,57 @@ public class SkillMechanicTests
         Assert.Equal(0, StacksAfter(r, Index(r, "a"), StatusId.Chill, 1));
     }
 
+    /// <summary>CC pass (owner rule): any Freeze, whatever its source, sets the target's Chill to 0, on enemies and on the worm.</summary>
+    [Fact]
+    public void AnyFreeze_ResetsTheTargetsChillToZero()
+    {
+        var c = Kit();
+        var r = Fight(c, Worm("k_Chill3", "k_freeze"), 2);
+        // round 1: Chill 3 lands, then the freeze wipes it; round 2: the freeze is on its re-apply cooldown, the Chill stays
+        Assert.Contains(r.Log, e => e.Action == BattleAction.StatusRemoved && e.Status == StatusId.Chill && e.Target == 1 && e.Amount == 3 && e.Round == 1);
+        Assert.Equal(0, StacksAfter(r, 1, StatusId.Chill, 1));
+        Assert.Equal(3, StacksAfter(r, 1, StatusId.Chill, 2));
+        // an enemy freezing the worm resets the worm's Chill too
+        var foe = Hitter("foe"); foe.SkillIds.AddRange(new[] { "k_Chill3", "k_freeze" });
+        var w = Fight(c, Worm(), 1, foe);
+        Assert.Contains(w.Log, e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Freeze && e.Target == 0);
+        Assert.Contains(w.Log, e => e.Action == BattleAction.StatusRemoved && e.Status == StatusId.Chill && e.Target == 0 && e.Amount == 3);
+        Assert.Equal(0, StacksAfter(w, 0, StatusId.Chill, 1));
+    }
+
+    /// <summary>CC pass: Deep Freeze freezes an enemy at 5 Chill (the freeze resets its Chill, so it has to be chilled up again);
+    /// its levels raise the damage against frozen enemies (+25% → +40%), never the freeze.</summary>
+    [Fact]
+    public void DeepFreeze_FreezesAtFiveChill_ThenTheChillStartsOver_AndFrozenEnemiesTakeMore()
+    {
+        var c = Kit();
+        var r = Fight(c, Worm("k_Chill2", "ice_deep_freeze"), 7);
+        // Chill 2 → 4 → 6: frozen in round 3 (Chill back to 0); 2 → 4 → 6 again: frozen in round 6 (the re-apply cooldown is over)
+        Assert.Equal(new[] { 3, 6 }, r.Log.Where(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Freeze && e.SkillId == "ice_deep_freeze").Select(e => e.Round));
+        Assert.Equal(0, StacksAfter(r, 1, StatusId.Chill, 3));
+        Assert.Equal(4, StacksAfter(r, 1, StatusId.Chill, 5));
+        Assert.DoesNotContain(Fight(c, Worm("k_Chill1", "ice_deep_freeze"), 4).Log, e => e.Status == StatusId.Freeze); // 4 Chill: no
+        // the damage bonus vs frozen grows with the level
+        long Hit(CombatantSpec w) => Amounts(Fight(c, w, 1), BattleAction.Basic)[0];
+        long plain = Hit(Worm("k_freeze_start"));
+        Assert.Equal(plain * 1.25, Hit(Worm("k_freeze_start", "ice_deep_freeze")), 0);
+        Assert.Equal(plain * 1.40, Hit(Leveled(Worm("k_freeze_start", "ice_deep_freeze"), "ice_deep_freeze", 2)), 0);
+        Assert.Equal(0, SkillLeveling.At(c, c.Skill("ice_deep_freeze")!, 2).Triggers[0].Duration); // the freeze stays 1 round
+    }
+
+    /// <summary>CC pass: lab Frost Nova casts only when the rage attack crits: Freeze and damage on every enemy.</summary>
+    [Fact]
+    public void FrostNova_ACriticalRageAttack_FreezesAndDamagesAllEnemies()
+    {
+        var c = Kit();
+        var r = Fight(c, With(Raging("lab_frost_nova"), StatId.CritChance, 100_000), 1, Bag("a"), Bag("b"));
+        Assert.Equal(2, r.Log.Count(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Freeze && e.SkillId == "lab_frost_nova"));
+        Assert.Equal(2, Amounts(r, BattleAction.Skill, "lab_frost_nova").Count(a => a > 0));
+        var plain = Fight(c, Raging("lab_frost_nova"), 1, Bag("a"), Bag("b")); // no crit: no Frost Nova
+        Assert.Contains(plain.Log, e => e.Action == BattleAction.Rage);
+        Assert.DoesNotContain(plain.Log, e => e.SkillId == "lab_frost_nova");
+    }
+
     [Fact]
     public void Shatter_HittingAFrozenEnemy_ThawsIt_AndHitsAllOthersFor150()
     {
@@ -449,7 +500,7 @@ public class SkillMechanicTests
             charms += r.Log.Count(e => e.Action == BattleAction.StatusApplied && e.Status == StatusId.Charm && e.SkillId == "alien_decoy");
             Assert.Contains(r.Log, e => e.Action == BattleAction.Block);
         }
-        Assert.InRange(charms, 4, 16); // 40% of the blocked hits
+        Assert.InRange(charms, 2, 12); // 30% of the blocked hits (CC pass: 20% → 30%)
     }
 
     [Fact]

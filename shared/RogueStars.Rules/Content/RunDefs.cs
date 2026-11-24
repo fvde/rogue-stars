@@ -103,6 +103,8 @@ namespace RogueStars.Rules.Content
         public double DamageDealtPctPerStack;
         /// <summary>Each stack applied removes one stack of this status (Chill cools Heat).</summary>
         public StatusId Cools;
+        /// <summary>Landing this status removes every stack of that status from the target (CC pass: any Freeze resets Chill to 0).</summary>
+        public StatusId Clears;
     }
 
     /// <summary>Enemy combatant definition at threat 0. HP/ATK/DEF scale with ContentDb.ThreatMultiplier.</summary>
