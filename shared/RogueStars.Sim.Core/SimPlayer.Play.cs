@@ -183,7 +183,11 @@ namespace RogueStars.Sim
             var tally = new RunTimeTally();
             int skillsGained = 0, draftPicks = 0, mythicPicks = 0, shopSkills = 0, shopPerks = 0, shopHeals = 0, skillLevels = 0, minibosses = 0;
             bool mythicOpen = false;
-            long wormDmg = 0, kickDmg = 0;
+            long wormDmg = 0, kickDmg = 0, mountDmg = 0;
+            // hero and mount kits: what the run fought with (id and star / kit step)
+            string heroTag = S.Run.Active?.Loadout?.HeroId, mountTag = S.Run.Active?.Loadout?.MountId;
+            if (heroTag != null && HeroSystem.Get(S, heroTag) is HeroEntry he) heroTag += " " + he.Stars + "★";
+            if (mountTag != null && MountSystem.Get(S, mountTag) is MountEntry me) mountTag += " " + (me.Awaken > 0 ? "A" + me.Awaken : me.Stars + "★");
             var alienDmg = new Dictionary<string, long>();
             void Tally(CommandResult res)
             {
@@ -193,6 +197,7 @@ namespace RogueStars.Sim
                     {
                         if (f.Side != BattleSide.Player) continue;
                         if (f.Role == CombatRole.Worm) wormDmg += f.DamageDealt;
+                        else if (f.Role == CombatRole.Mount) mountDmg += f.DamageDealt;
                         else if (f.Role == CombatRole.Alien) { kickDmg += f.DamageDealt; alienDmg[f.Id] = (alienDmg.TryGetValue(f.Id, out var v0) ? v0 : 0) + f.DamageDealt; }
                         else if (f.Role == CombatRole.Summon) { kickDmg += f.DamageDealt; alienDmg["(drones)"] = (alienDmg.TryGetValue("(drones)", out var v1) ? v1 : 0) + f.DamageDealt; }
                     }
@@ -282,7 +287,7 @@ namespace RogueStars.Sim
                     CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,
                     MythicPicks = mythicPicks, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
                     Signature = signature, DamageDealt = dealt, DamageTaken = taken, BattleRounds = battleRounds, Supernovas = novas,
-                    WormDamage = wormDmg, SidekickDamage = kickDmg, AlienDamage = alienDmg,
+                    WormDamage = wormDmg, SidekickDamage = kickDmg, AlienDamage = alienDmg, MountDamage = mountDmg, Hero = heroTag, Mount = mountTag,
                 });
             return S.Run.LastSummary;
         }

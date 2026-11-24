@@ -81,7 +81,7 @@ namespace RogueStars.Rules.Systems
         public int ExtraHitsTurn, PileTarget = -1, PileCount;
         public bool HpLostRound, SkipNextTurn, FatalSaved, LastHitCrit;
         /// <summary>Mount charges: Star Lancer's lance (+% on the next shot), Aegis Walker's coil (stored damage).</summary>
-        public double ShotCharge, Coil;
+        public double ShotCharge, Coil, ShotBasePct;
         public bool CoilUsed;
         /// <summary>Who hit this worm: the last attacker, and every attacker since the mount's last shot.</summary>
         public int LastAttacker = -1;
@@ -211,6 +211,10 @@ namespace RogueStars.Rules.Systems
             var ctx = _mark[(int)m.Side] >= 0 && F[_mark[(int)m.Side]].Alive ? F[_mark[(int)m.Side]] : front;
             var e = Log(BattleAction.Volley, m, ctx, extra ? 1 : 0);
             if (e != null) { e.SkillId = m.Rules.MountSkill; e.Stacks = m.Rules.Reload; }
+            m.ShotBasePct = 0; // the main hit's % ATK (Lance Sight's charge is added to it)
+            foreach (var sk in m.Skills)
+                foreach (var t in sk.Triggers)
+                    if (m.ShotBasePct <= 0 && t.When == TriggerKind.OnVolley && t.Effect == EffectKind.Damage) m.ShotBasePct = t.Value;
             Fire(m, TriggerKind.OnVolley, ctx);
             m.ShotCharge = 0;
             if (m.CoilUsed) { m.CoilUsed = false; m.Coil = 0; CoilLog(m); }

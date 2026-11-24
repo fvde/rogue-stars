@@ -370,6 +370,9 @@ namespace RogueStars.Sim
         /// <summary>Battle damage by the worm and by its sidekicks (aliens + drones), and by alien species / "(drones)" (aliens pass).</summary>
         public long WormDamage, SidekickDamage;
         public Dictionary<string, long> AlienDamage = new Dictionary<string, long>();
+        /// <summary>Hero and mount kits: the run's hero / mount ("id N★" / "id A3"; null = none) and the mount's battle damage.</summary>
+        public string Hero, Mount;
+        public long MountDamage;
         public bool Won, BossReached;
         public long PeakCoins;
         public double Minutes;

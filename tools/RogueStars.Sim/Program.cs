@@ -46,6 +46,12 @@ if (opts.Has("alien-share"))
     Console.WriteLine(AlienShare.Markdown(opts.Int("days", 60), opts.Int("seeds", 5)));
     return;
 }
+if (opts.Has("kit-share"))
+{
+    // Hero and mount kits: win rate and damage per hero / mount × signature next to a day-N bot worm (KitShare).
+    Console.WriteLine(KitShare.Markdown(opts.Int("days", 60), opts.Int("seeds", 8)));
+    return;
+}
 if (opts.Has("run-length"))
 {
     // Run length per level band (awakening clock sizing): bots play --days with every run recorded.

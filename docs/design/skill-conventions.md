@@ -8,7 +8,7 @@ their own skills with `ContentDb.AddSkill` and expose them through the loadout:
 | Where the skill id goes | Who owns the skill | Effect |
 |---|---|---|
 | `CombatLoadout.MetaSkillIds` | worm (hero traits, part effects, building boons) | passive stats + battle triggers on the worm; board triggers in runs |
-| `CombatLoadout.MetaSkillIds` with `Source = Mount` | the mount combatant (if a mount is equipped, else the worm) | mount weapons |
+| `CombatLoadout.MetaSkillIds` with `Source = Mount` | the mount combatant (if a mount is equipped, else the worm) | mount kits (passive + active) |
 | `CombatAlien.SkillIds` | that alien combatant | battle triggers only |
 | `CombatLoadout.DraftPoolSkillIds` | nobody yet — only enters the run draft pool | Laboratory toggles |
 
@@ -64,9 +64,8 @@ stat vs bosses) are summed and applied as one multiplier.
 `Worm` = own side's worm; `AllAllies` = every living fighter of the owner's side.
 
 **Other stat semantics:** `Regen` = % max HP healed at the start of each own turn; `LifeSteal` = % of damage
-dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` on the worm adds that % to its sidekicks' hits, heals and shields (never chances, stacks or buffs), `MountPower` % ATK to
-the mount (`AlienPower` on the mount counts too: Hive Carrier weapons); the mount's HP stat becomes a
-battle-start shield on the worm (the mount absorbs damage). Shock / Freeze (element statuses without a DoT): the applier's
+dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` on the worm adds that % to its sidekicks' hits, heals and shields (never chances, stacks or buffs), `MountPower` = mount damage
+(the worm's plus the mount's own: its steps and Fuel level; the mount has no other stats and gives no shield). Shock / Freeze (element statuses without a DoT): the applier's
 Lightning / Ice damage scales their damage-taken bonus. `LootLuck` = % chance of a bonus item on every run loot roll
 (tile, event and completion rolls; 100 = always one more); `XpGain` = % more run XP.
 
@@ -86,7 +85,7 @@ validation. `EveryN` fires on every Nth unit (stacks applied for `OnStatusApplie
 owner's crowd-control ladders, Knockout 10% → 15% → 20%). Negative stats are costs and never scale with level.
 
 **Skill fields.** `Needs` is an offer gate: drafts, shops and Mythic choices offer the skill only once the run owns the source
-(`RunDraft.HasSource`: `arc`, `applies:Status` / `freeze`, `consume:Status`, `echo`, `shield` (a shield effect or a mount),
+(`RunDraft.HasSource`: `arc`, `applies:Status` / `freeze`, `consume:Status`, `echo`, `shield` (a shield effect: a hero or mount kit counts, a bare mount no longer),
 `aliens` (a squad or a sidekick summon), `blocks`), read from run skills (any signature), meta skills and the squad's skills.
 `Text` is the card template: `|` between lines, `!` marks a cost (the client shows it in the warning colour), `{vN}` `{cN}` `{sN}`
 `{dN}` `{bN}` (trigger N's value / chance / stacks / duration / buff stat) and `{pN}` (stat N) take the leveled numbers.
@@ -220,6 +219,52 @@ Summons → Worm) and each of its turns adds **Speed × (1 + the worm's `Sidekic
 
 Card wording: the full 1★ sentence at every star (the review page abbreviated 3★+); singular for one target / drone ("Arc to 1
 enemy", "Max 1 Drone"). Cards ≤ 20 words, no decimals (`AlienAbilityTests`).
+
+## Hero and mount kits (owner-approved Hero and Mount Mechanics page, rev 2)
+
+Hand-written kits replace the ProgFamilySkill hero traits and mount weapons (ProgFamilySkill stays for parts only). Kit table:
+[heroes-mounts.md](heroes-mounts.md) (generated). Kit skills are `Source = Hero / Mount`, `Family = None`, no tiers (Common in the
+data), texts from `HeroDef.Kit` / `MountDef.Kit` (≤ 20 words, whole numbers, different at every step: `HeroMountKitContentTests`).
+
+- **Ids.** Heroes `hero_x_trait`, `_ability`, `_c5`, `_c7`, `_c10`; a step that changes an element is its own skill replacing it
+  (`_ability_3`, `_trait_3`, `_ability_7`, `_ability_10`). Mounts `mount_x_passive_k` / `mount_x_active_k`, k = 1…5 for 1★ / 3★ / 5★ /
+  A3 / A5, each replacing the step before. Old ids (`_a1 … _b2`, `_w1 … _s2`) in saved loadouts read as the kit at their step
+  (`KitMigration`); hero / mount ids, stars, awakening and levels are unchanged.
+- **Mount = vehicle on a reload (X-list R-M1/2/3, X6).** No stats: `AtkOf(mount)` = the worm's ATK × (1 + mount damage %); its
+  "X% ATK" is X% of a full-strength hit (like a sidekick's). It never attacks or is attacked; on its turn the timer counts down and
+  at 0 it fires its `OnVolley` triggers (rounds 1, 1 + Reload, …; rule `reload:N`; `needs_attack`: held until the worm attacked).
+  `BattleAction.Volley` marks a shot (Amount 1 = an extra shot: Short Circuit, Whistle; at most one per side per round).
+  Rider link: its statuses are applied with the worm as source; its crits roll the worm's crit chance, deal the base crit damage
+  and fire the worm's `OnCrit` triggers. `SkillTrigger.Rider` = a mount trigger that listens to its worm's events (status
+  applications, crits, rage attacks, extra hits, fatal hits, damage taken, status damage); its `If` reads the worm.
+- **Hero abilities (X4, X9).** Rules on the worm: `ability_every:N` (round timer, ticks at the worm's turn even when skipped),
+  `ability_turns:N` (its acting turns), `ability_shield_hits:N` (hits its shields absorb; `heals_count:P`: every P% max HP healed
+  counts one), `ability_stillness:N` (rounds without HP loss), `rage_bank:N` (rage above 100 banked; a full bank fires the rage
+  attack twice, once per round). `OnAbility` triggers are the ability; `BattleAction.Ability` marks it, `BattleAction.KitCounter`
+  (Amount / Stacks = value / max) feeds the HUD ("Starfall 2/4", Stillness 1/3, the bank, the coil, the lance charge).
+  `AdvanceTimer` (`ability`, `mount`, `all`, `reload`) moves a timer 1 round sooner, each timer at most once per round.
+- **New triggers.** `OnAbility`, `OnVolley`, `OnMountFire` (worm), `OnStatusLost` (X1: any stacks an enemy loses — consumed,
+  Supernova, Freeze reset, cooled, expired; amount = stacks), `OnExtraHit` (X3: combo strike, counter, Echo, mount-made attack),
+  `OnStatusDamage` (ticks, Supernovas, consumes), `OnSkipTurn` (an enemy turn skipped), `OnSidekickHit` (a sidekick action hit).
+- **New effects.** `CarrySignatures` (X5: every owned signature's on-hit on the target × Stacks; Flurry / Riposte / Echo strike for
+  HiveStrikePct, Command an extra action; `next_hit`: the worm's next hit carries them), `MountFire`, `FireAbility` (Value = damage
+  %), `RiderAttack` (the worm attacks at Value %, `combo`, `echo`, `as_echo`; credited to the mount), `Whistle`, `SpreadStatus`
+  (Mirror Palm: Value % of the largest status, `cap:N`, `dmg_per`, `dmg_cap`), `ChargeAllies`, in-battle `GainRunCoins` (Plunder;
+  `BattleResult.RunCoins`, the battle's last kill still pays). Targets `SecondEnemy`, `LastAttacker`, `Attackers`, `FastestNonBoss`.
+- **Param tokens.** Damage `crit` (always crits), `oncrit` (fires the owner's `OnCrit`), `coil` (+ the stored coil), `wide_siphon`;
+  ApplyStatus `owned` (X10: a random status the side applies, never crowd control / Stagger), `boss_rage:N` (a boss loses rage
+  instead); Heal `of_amount`, `per_unit`, `round_cap:N`, `siphon`; GainRage `round_cap:N`, `fill`, `bosses`, `debt` (rage below 0);
+  Shield `wall:N`, `wall_all` (Ice Wall burst); RemoveStatus / ConsumeStatus `largest` (X2), `to_front`, `splash:N`; CheatDeath
+  `ability:N`, `undo`, `stasis` (Cryo Pod: skip the next turn, heal Value %); FreeRageAttack `worm`; Rewind `reflect:N`; Summon
+  `nosig`, `carry`, `guard:N`; any trigger `turn_cap:N`. Rules `status_crit` (X7), `double_tap`, `extra_crit`, `pile_on:max`,
+  `element_pool` (X11), `deep_wells:2` (X12: Bleed / Chill / Shock cap ×2 for applying; `max:` conditions read the base cap),
+  `spotlight`, `contagion` (X15), `slipstream`, `coil`, `coil_cap`, `coil_recoil:N`, `coil_counter`, `coil_window` (X16), `siphon_cap`.
+  Conditions `worm_rage:N`, `crit_kill`, `extra_hits:N`, `siphon_full`.
+- **Shared caps.** One fatal-save per battle per fighter across every source (Last Word, Sacrifice Protocol, Loop, Last
+  Constellation, Borrowed Sand, Cryo Pod). Rage per round: Ignition 20, Pressure Valve 30, Barge refunds ≤ 20, the bank doubles at
+  most one rage attack per round. Timer advances once per round per timer; one extra mount shot per side per round; Mirror
+  Palm's copies capped 20 / 30 per enemy. Crowd control: only the Chrono Skiff's single-target Delay (bosses lose rage instead);
+  `ContentValidationTests` allowlists the five Time Debt steps.
 
 ## Run (board) triggers (RunSystem)
 

@@ -76,6 +76,40 @@ public static class RunLength
         sb.AppendLine(SignatureBreakdown(runs));
         sb.AppendLine();
         sb.AppendLine(SidekickBreakdown(runs));
+        sb.AppendLine();
+        sb.AppendLine(KitBreakdown(runs));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Hero and mount kits: per hero and per mount the bots fought with (all stars), runs, win rate overall and in the losable bands,
+    /// damage per battle round relative to the band's average, and the mount's share of the side's damage.
+    /// </summary>
+    public static string KitBreakdown(List<RunRecord> runs)
+    {
+        var sb = new StringBuilder();
+        var l = runs.Where(r => r.Mode != RunMode.Burrow && r.BattleRounds > 0).ToList();
+        var band = l.GroupBy(BandOf).ToDictionary(g => g.Key, g => g.Average(r => (double)r.DamageDealt / r.BattleRounds));
+        bool Hard(RunRecord r) => r.Mode != RunMode.Normal || r.Level >= 11;
+        string Id(string tag) => tag == null ? "(none)" : tag.Split(' ')[0];
+        foreach (var (title, key) in new[] { ("Hero", (Func<RunRecord, string>)(r => Id(r.Hero))), ("Mount", r => Id(r.Mount)) })
+        {
+            sb.AppendLine($"Per {title.ToLowerInvariant()} (hero and mount kits):");
+            sb.AppendLine();
+            sb.AppendLine($"| {title} | runs | won | won (main 11+, OC, dark) | dmg / round (rel.) | mount share of side dmg | stars seen |");
+            sb.AppendLine("|---|---|---|---|---|---|---|");
+            foreach (var g in l.GroupBy(key).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                var xs = g.ToList();
+                var hard = xs.Where(Hard).ToList();
+                double rel = xs.Average(r => band[BandOf(r)] > 0 ? r.DamageDealt / (double)r.BattleRounds / band[BandOf(r)] : 1);
+                double side = xs.Sum(r => (double)(r.WormDamage + r.SidekickDamage + r.MountDamage));
+                string stars = string.Join(" ", xs.Select(r => title == "Hero" ? r.Hero : r.Mount).Where(t => t != null).Select(t => t.Split(' ')[1]).Distinct().OrderBy(x => x));
+                sb.AppendLine($"| {g.Key} | {xs.Count} | {100.0 * xs.Count(r => r.Won) / xs.Count:0}% | {(hard.Count > 0 ? 100.0 * hard.Count(r => r.Won) / hard.Count : double.NaN):0}% ({hard.Count}) | "
+                    + $"{rel:0.00} | {(side > 0 ? 100.0 * xs.Sum(r => (double)r.MountDamage) / side : 0):0.0}% | {stars} |");
+            }
+            sb.AppendLine();
+        }
         return sb.ToString();
     }
 

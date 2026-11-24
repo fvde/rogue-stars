@@ -1268,7 +1268,8 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         private double ComputeDamage(Fighter att, Fighter def, double atkPct, double bonusPct, bool crit, AttackKind kind, bool trueDamage)
         {
-            double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + CritSource(att).S(StatId.CritDamage), def.S(StatId.CritResist));
+            // a mount has no stats: its crits (the worm's crit chance, or always-crit shots) deal the base crit damage only
+            double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + (att.Rider ? 0 : att.S(StatId.CritDamage)), def.S(StatId.CritResist));
             double share = 1;
             if (att.Sidekick || att.Rider) { share = atkPct / 100.0 * att.AtkPct / 100.0; atkPct = 100; } // the mount's "X% ATK" like a sidekick's
             return CombatMath.HitDamage(AtkOf(att), atkPct, bonusPct, def.S(StatId.Def), def.S(StatId.DamageReduction), trueDamage,
@@ -2285,7 +2286,8 @@ namespace RogueStars.Rules.Systems
             bool forceCrit = false, bool onCrit = false, double flat = 0)
         {
             bool crit = forceCrit || RollCrit(owner, tg);
-            if (owner.Rider && owner.ShotCharge > 0) mult *= 1 + owner.ShotCharge / 100.0; // Lance Sight's charge
+            // Lance Sight: the charge adds its % ATK to the shot's main hit (a pierce for half gets half)
+            if (owner.Rider && owner.ShotCharge > 0 && owner.ShotBasePct > 0) mult *= 1 + owner.ShotCharge / owner.ShotBasePct;
             double dmg = ComputeDamage(owner, tg, pct, bonus, crit, arc ? AttackKind.Arc : AttackKind.Skill, isTrue) * mult;
             // Payback Cannon: + the stored damage (through the target's damage reduction)
             if (flat > 0) dmg += flat * CombatMath.DamageReductionFactor(tg.S(StatId.DamageReduction), T) * TakenMultiplier(tg);

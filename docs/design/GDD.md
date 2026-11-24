@@ -229,8 +229,8 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - Combatants: the **Worm** (the only one that is attacked), squad **Aliens** and battle-scoped summons (drones) as
   **sidekicks** (never attacked; they charge by Speed — a Common acts about every 3 worm turns — and then use their one
   ability; they have no stats: hits are a % of the worm's ATK, heals / shields a % of its max HP, statuses are the worm's;
-  Pebblehorn's Guard softens the worm's next hit), the **Mount** (fires mount
-  weapons), enemies. Details: docs/design/skill-conventions.md "Sidekicks".
+  Pebblehorn's Guard softens the worm's next hit), the **Mount** (a vehicle without stats that fires its active every few
+  rounds; never attacks, never attacked), enemies. Details: docs/design/skill-conventions.md "Sidekicks", "Hero and mount kits".
 - Turn order: Mount → Aliens → Worm → enemies. Speed stat decides which side opens (worm side default).
 - Each attacker has Basic, Rage, Combo and Counter attacks. Rage fills per action/hit; a full bar fires
   the Rage attack in addition to the basic attack. Rage may overfill to 125%.
@@ -306,17 +306,22 @@ define Basic/Combo/Counter/Rage attack styles).
 
 ## 7. Heroes, Mounts, Aliens
 ### 7.1 Heroes (traits for the worm)
-- The worm equips one **Hero persona** (e.g. "Star Knight Worm", "Chef Worm"). Heroes give the worm a
-  defining set of traits and attack visuals. Unlock by shards; **stars 1–10** via shards; each star raises
-  stats and at stars 3/5/7/10 upgrades or adds a trait skill (meaningful skill improvements at high stars).
+- The worm equips one **Hero persona** (9: Star Knight, Chef, Void Pirate, Shadow Noodle, Prism Alchemist, Sparkplug, Beast Tamer,
+  Nebula Monk, Hourglass Hermit). Unlock by shards; **stars 1–10** via shards. Each hero has a hand-written **kit** (hero and mount
+  kits, owner-approved page rev 2): 1★ Trait + Ability (a timer or a counter that says what fills it, e.g. "Starfall 2/4"), 3★ one
+  number, 5★ / 7★ clauses, 10★ capstone. Heroes are not tied to a synergy. Stars and hero level raise worm stats from one shared
+  budget. Kits per star: docs/design/heroes-mounts.md.
 - Hero level via Hero XP. Heroes come from **summon events** (§12.1): a hero copy unlocks the hero, every further copy is
   +1★ (at 10★ it becomes exchange tokens); shards (events, exchange) keep unlocking (40) and starring up as before.
 
 ### 7.2 Mounts (spaceships)
-- One active mount; mounts fire weapons in combat and absorb part of the damage. **Stars 1–5**, then
+- One active mount: a **vehicle on a reload** with **no stats** (no ATK / HP / DR, no shield from mount HP): one passive + one
+  active (a shot every N rounds from round 1), both changing at 1★ / 3★ / 5★ / A3 / A5; damage is % of the worm's ATK × (1 + mount
+  damage %: +5% at 2★ / 4★ / A1 / A2 / A4, +1% per Fuel level, collection, lab). Its statuses and crits are the worm's (rider
+  link). 9 mounts (Scout Saucer starter, Magma Barge, Siphon Hauler, Star Lancer, Frost Frigate, Rift Racer, Aegis Walker, Hive
+  Carrier, Chrono Skiff): docs/design/heroes-mounts.md. **Stars 1–5**, then
   **awakening levels 1–5**. Mounts come from **summon events** (§12.1): a copy unlocks the mount (or 30 shards do), every
-  further copy is +1★ up to 5★, then the shards of the next awakening level (awakening also costs Mount Cores). Weapon skill upgrades at stars 2/4/5 and
-  awakening 3/5. Mount level via Fuel.
+  further copy is +1★ up to 5★, then the shards of the next awakening level (awakening also costs Mount Cores). Mount level via Fuel.
 
 ### 7.3 Aliens
 - One alien **per alien type** (species); 20 species (7 Common · 5 Rare · 4 Epic · 2 Legendary · 2 Mythic). Each has one
