@@ -13,6 +13,8 @@ namespace RogueStars.Rules.Core
         ShieldPower, HealPower, StatusChance, StatusResist,
         BossDamage, FireDamage, IceDamage, LightningDamage, PoisonDamage, BleedDamage,
         AlienPower, MountPower, LootLuck, XpGain,
+        /// <summary>% more Supernova damage (Heat source); % less Supernova self-damage on the worm (Fire skills).</summary>
+        SupernovaDamage, SupernovaGuard,
     }
 
     /// <summary>A flat + percent modification of one stat. Percent is additive within a block (10 = +10%).</summary>

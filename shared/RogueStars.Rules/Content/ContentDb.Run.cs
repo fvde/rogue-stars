@@ -91,9 +91,13 @@ namespace RogueStars.Rules.Content
             b.Styles[AttackStyle.Whip] = new AttackStyleDef(90, 80, 65, 190);
             b.Styles[AttackStyle.Cannon] = new AttackStyleDef(110, 45, 50, 250);
 
-            b.Statuses[StatusId.Burn] = new StatusDef { Id = StatusId.Burn, MaxStacks = 10, DefaultDuration = 3, DotAtkPct = 4, HasElement = true, ElementStat = StatId.FireDamage };
-            b.Statuses[StatusId.Poison] = new StatusDef { Id = StatusId.Poison, MaxStacks = 20, DefaultDuration = 4, DotAtkPct = 2.5, HealReductionPct = 30, HasElement = true, ElementStat = StatId.PoisonDamage };
-            b.Statuses[StatusId.Bleed] = new StatusDef { Id = StatusId.Bleed, MaxStacks = 5, DefaultDuration = 3, DotAtkPct = 6, IgnoresShield = true, HasElement = true, ElementStat = StatId.BleedDamage };
+            // Signatures pass: Heat replaced Burn (Fire), Poison is shown as Radiation (unlimited, permanent), Bleed is capped at
+            // 10 permanent stacks that Bleed skills consume for burst and lifesteal, Chill (Ice) weakens and cools Heat.
+            b.Statuses[StatusId.Heat] = new StatusDef { Id = StatusId.Heat, MaxStacks = 10, Permanent = true, BurstAtStacks = 10, BurstAtkPct = 160,
+                BurstRecoilPct = 12, HasElement = true, ElementStat = StatId.FireDamage };
+            b.Statuses[StatusId.Poison] = new StatusDef { Id = StatusId.Poison, MaxStacks = 9999, Permanent = true, DotAtkPct = 2, HealReductionPct = 30, HasElement = true, ElementStat = StatId.PoisonDamage };
+            b.Statuses[StatusId.Bleed] = new StatusDef { Id = StatusId.Bleed, MaxStacks = 10, Permanent = true, DotAtkPct = 4, IgnoresShield = true, HasElement = true, ElementStat = StatId.BleedDamage };
+            b.Statuses[StatusId.Chill] = new StatusDef { Id = StatusId.Chill, MaxStacks = 10, DefaultDuration = 3, DamageDealtPctPerStack = -3, Cools = StatusId.Heat, HasElement = true, ElementStat = StatId.IceDamage };
             b.Statuses[StatusId.Freeze] = new StatusDef { Id = StatusId.Freeze, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, DamageTakenPctPerStack = 20, ApplyCooldownRounds = 3, HasElement = true, ElementStat = StatId.IceDamage };
             b.Statuses[StatusId.Stun] = new StatusDef { Id = StatusId.Stun, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, ApplyCooldownRounds = 3 };
             b.Statuses[StatusId.Shock] = new StatusDef { Id = StatusId.Shock, MaxStacks = 5, DefaultDuration = 2, DamageTakenPctPerStack = 6, HasElement = true, ElementStat = StatId.LightningDamage };
@@ -148,7 +152,7 @@ namespace RogueStars.Rules.Content
 
         private void RunBuildEnemies()
         {
-            RunEnemySkill("enemy_burning_touch", "Burning Touch", new SkillTrigger { When = TriggerKind.OnHit, Chance = 30, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn });
+            RunEnemySkill("enemy_burning_touch", "Burning Touch", new SkillTrigger { When = TriggerKind.OnHit, Chance = 30, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat });
             RunEnemySkill("enemy_chill", "Chilling Grip", new SkillTrigger { When = TriggerKind.OnHit, Chance = 12, Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze });
             RunEnemySkill("enemy_static", "Static Skin", new SkillTrigger { When = TriggerKind.OnHit, Chance = 35, Effect = EffectKind.ApplyStatus, Status = StatusId.Shock });
             RunEnemySkill("enemy_toxic", "Toxic Bite", new SkillTrigger { When = TriggerKind.OnHit, Chance = 40, Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 2 });
@@ -157,7 +161,7 @@ namespace RogueStars.Rules.Content
             RunEnemySkill("enemy_enrage", "Enrage", new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Atk, 0, 40) });
             RunEnemySkill("enemy_stun_slam", "Stunning Slam", new SkillTrigger { When = TriggerKind.OnRageAttack, Chance = 50, Effect = EffectKind.ApplyStatus, Status = StatusId.Stun });
             RunEnemySkill("boss_magma_eruption", "Eruption", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 4, Effect = EffectKind.Damage, Value = 80, Target = TargetKind.AllEnemies },
-                new SkillTrigger { When = TriggerKind.OnHit, Chance = 40, Effect = EffectKind.ApplyStatus, Status = StatusId.Burn, Stacks = 2 });
+                new SkillTrigger { When = TriggerKind.OnHit, Chance = 40, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 2 });
             RunEnemySkill("boss_frost_tide", "Frost Tide", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 5, Effect = EffectKind.ApplyStatus, Status = StatusId.Freeze, Target = TargetKind.AllEnemies },
                 new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 20 });
             RunEnemySkill("boss_hive_swarm", "Swarm Call", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 5, Effect = EffectKind.Summon, Param = "spark_drone" },

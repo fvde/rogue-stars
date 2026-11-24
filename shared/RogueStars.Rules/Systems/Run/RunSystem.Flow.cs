@@ -703,6 +703,7 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             var s = c.Skill(skillId);
             if (s == null || depth > 3) return false;
+            if (s.Signature) return false; // signatures come only from the run-start pick and level only by awakening
             if (run.Skills.Contains(skillId))
             {
                 int lv = RunDraft.Level(run, skillId);
@@ -724,6 +725,7 @@ namespace RogueStars.Rules.Systems
             ctx.Emit("run_skill_gained", skillId);
             foreach (var t in s.Triggers)
                 if (t.When == TriggerKind.OnRunStart) ApplyRunTrigger(ctx, run, t, null, depth + 1);
+            UpdateSignature(ctx, run);
             RefreshMaxHp(c, run);
             return true;
         }
@@ -1020,13 +1022,17 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.GainSpecificSkill: GrantSkill(ctx, run, e.Param, 0, "event"); break;
                     case RunEffectKind.UpgradeSkill: UpgradeRandomSkill(ctx, run); break;
                     case RunEffectKind.LoseRandomSkill:
-                        if (run.Skills.Count > 0)
+                    {
+                        var losable = run.Skills.FindAll(id => id != run.SignatureId); // the signature is the run's identity: never lost
+                        if (losable.Count > 0)
                         {
-                            int k = run.Rng.Range(0, run.Skills.Count);
-                            run.SkillLevels.Remove(run.Skills[k]);
-                            run.Skills.RemoveAt(k);
+                            string lost = losable[run.Rng.Range(0, losable.Count)];
+                            run.SkillLevels.Remove(lost);
+                            run.Skills.Remove(lost);
+                            UpdateSignature(ctx, run);
                         }
                         RefreshMaxHp(c, run);
+                    }
                         break;
                     case RunEffectKind.Loot: AddLoot(c, run, Math.Max(1, (int)e.Value)); break;
                     case RunEffectKind.PendingReward:

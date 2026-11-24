@@ -114,6 +114,7 @@ namespace RogueStars.Rules.Core
         public static string Title(ContentDb content, SkillDef s, int level)
         {
             if (s == null) return "";
+            if (s.Signature) return s.Name + (level > 1 ? " (Awakened " + (level - 1) + ")" : "");
             int max = (content ?? ContentDb.Default).RunTuning.MaxSkillLevelOf(s.Rarity);
             return max <= 1 ? s.Name : s.Name + " Lv " + Math.Max(1, level) + "/" + max;
         }
@@ -154,6 +155,38 @@ namespace RogueStars.Rules.Core
             return sb.ToString();
         }
 
+        /// <summary>Player-facing synergy name ("Radiation" for the internal Poison id, "Alien" for AlienSynergy).</summary>
+        public static string FamilyName(SkillFamily f) => f switch
+        {
+            SkillFamily.Poison => "Radiation",
+            SkillFamily.AlienSynergy => "Alien",
+            SkillFamily.None => "Generic",
+            _ => f.ToString(),
+        };
+
+        /// <summary>Player-facing status name ("Radiation" for the internal Poison id; the legacy Burn reads as Heat).</summary>
+        public static string StatusName(StatusId s) => s switch
+        {
+            StatusId.Poison => "Radiation",
+            StatusId.Burn => "Heat",
+            _ => s.ToString(),
+        };
+
+        /// <summary>
+        /// A signature's awakening lines: "Awakened (3 Fire skills): On hit: apply Heat ×2 to the enemy." for each awakening level
+        /// (RunTuning.SignatureAwakenAt). Empty for other skills.
+        /// </summary>
+        public static List<string> Awakenings(ContentDb content, SkillDef s)
+        {
+            content = content ?? ContentDb.Default;
+            var lines = new List<string>();
+            if (s == null || !s.Signature) return lines;
+            var at = content.RunTuning.SignatureAwakenAt;
+            for (int i = 0; i < at.Length; i++)
+                lines.Add("Awakened (" + at[i] + " " + FamilyName(s.Family) + " skills): " + Full(SkillLeveling.At(content, s, i + 2)));
+            return lines;
+        }
+
         /// <summary>Stats stored in percent points (flat 25 = 25%); the rest (HP, ATK, DEF, Speed) are plain numbers.</summary>
         public static bool IsPointStat(StatId s) => StatMod.IsPointStat(s);
 
@@ -182,7 +215,9 @@ namespace RogueStars.Rules.Core
             StatId.FireDamage => "fire damage",
             StatId.IceDamage => "ice damage",
             StatId.LightningDamage => "lightning damage",
-            StatId.PoisonDamage => "poison damage",
+            StatId.PoisonDamage => "radiation damage",
+            StatId.SupernovaDamage => "Supernova damage",
+            StatId.SupernovaGuard => "Supernova self-damage reduction",
             StatId.BleedDamage => "bleed damage",
             StatId.AlienPower => "alien power",
             StatId.MountPower => "mount power",
@@ -226,10 +261,13 @@ namespace RogueStars.Rules.Core
             string dur = d > 0 ? " for " + d + (d == 1 ? " round" : " rounds") : "";
             switch (t.Effect)
             {
-                case EffectKind.Damage: return "deal " + Num(t.Value) + "% ATK damage to " + target;
+                case EffectKind.Damage:
+                    if (t.Target == TargetKind.OtherEnemies)
+                        return "jump to " + Math.Max(1, t.Stacks) + " other " + (t.Stacks > 1 ? "enemies" : "enemy") + " for " + Num(t.Value) + "% ATK damage";
+                    return "deal " + Num(t.Value) + "% ATK damage to " + target;
                 case EffectKind.TrueDamage: return "deal " + Num(t.Value) + "% ATK true damage (ignores defense) to " + target;
                 case EffectKind.ApplyStatus:
-                    return "apply " + t.Status + (t.Stacks > 1 || (show != null && show.Stacks) ? " ×" + t.Stacks : "") + dur + " to " + target;
+                    return "apply " + StatusName(t.Status) + (t.Stacks > 1 || (show != null && show.Stacks) ? " ×" + t.Stacks : "") + dur + " to " + target;
                 case EffectKind.Heal:
                     return "heal " + (t.Target == TargetKind.Self ? "" : target + " for ") + Num(t.Value) + "% of max HP"
                         + (t.Param == "overheal_shield" ? " (overheal becomes a shield)" : "");
@@ -252,6 +290,17 @@ namespace RogueStars.Rules.Core
                 case EffectKind.SlowAwakening:
                     return t.When == TriggerKind.OnRunStart ? "the boss awakens " + Num(t.Value) + "% slower" : "drain " + Num(t.Value) + " from the boss's awakening";
                 case EffectKind.Summon: return "summon " + Words(t.Param ?? "an ally");
+                case EffectKind.RemoveStatus:
+                    return "remove " + (t.Stacks > 0 ? Num(t.Stacks) + " " : "all ") + StatusName(t.Status) + " from " + target;
+                case EffectKind.ConsumeStatus:
+                {
+                    double heal = BattleSim.ConsumeHealPct(t);
+                    return "consume " + (t.Target == TargetKind.AllEnemies ? "all enemies'" : "the enemy's") + " " + StatusName(t.Status) + ": "
+                        + Num(t.Value) + "% ATK damage per stack" + (heal > 0 ? ", heal " + Num(heal) + "% of it" : "");
+                }
+                case EffectKind.Strike: return t.Param == "counter" ? "counterattack" : "strike again";
+                case EffectKind.AllyAction:
+                    return t.Stacks > 1 ? Num(t.Stacks) + " of your aliens attack again" : "one of your aliens attacks again";
                 case EffectKind.SkipNegativeEvent: return "skip " + Num(t.Value) + " bad event " + (t.Value == 1 ? "outcome" : "outcomes") + " per run";
                 default: return Words(t.Effect.ToString());
             }
@@ -283,6 +332,7 @@ namespace RogueStars.Rules.Core
             TriggerKind.OnLevelUp => "Each run level up",
             TriggerKind.OnBossAwaken => "When the boss awakens",
             TriggerKind.OnBattleWon => "After each won battle",
+            TriggerKind.OnSupernova => "On Supernova",
             _ => Words(k.ToString()),
         };
 
@@ -310,9 +360,11 @@ namespace RogueStars.Rules.Core
             "counter" => "with counterattacks",
             "rage" => "with rage attacks",
             "skill" => "with skill attacks",
-            _ when c.StartsWith("vs_status:", StringComparison.Ordinal) => "against enemies with " + c.Substring(10),
+            _ when c.StartsWith("vs_status:", StringComparison.Ordinal) => "against enemies with " + StatusLabel(c.Substring(10)),
             _ => "when " + Words(c),
         };
+
+        private static string StatusLabel(string id) => Enum.TryParse(id, out StatusId st) ? StatusName(st) : id;
 
         private static string Signed(double v) => (v > 0 ? "+" : "") + Num(v);
         private static string Num(double v) => v.ToString(Math.Abs(v - Math.Round(v)) < 1e-9 ? "0" : "0.#", CultureInfo.InvariantCulture);

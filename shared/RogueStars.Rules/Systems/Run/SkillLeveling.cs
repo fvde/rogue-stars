@@ -83,15 +83,44 @@ namespace RogueStars.Rules.Systems
             return b;
         }
 
+        /// <summary>
+        /// A signature's awakening (level 2 / 3): its one effect grows, nothing else. Counts (status stacks, Arc's jumps, Command's
+        /// aliens) × level; a proc chance below 100% × 1, 1.5, 2 (Riposte, Flurry: 30% → 45% → 60%); otherwise the value × level.
+        /// </summary>
+        private static SkillDef Awaken(SkillDef d, int level)
+        {
+            var s = new SkillDef
+            {
+                Id = d.Id, Name = d.Name, Description = d.Description, Family = d.Family, Rarity = d.Rarity, Source = d.Source,
+                Draftable = d.Draftable, Signature = true,
+            };
+            s.Stats.AddRange(d.Stats);
+            foreach (var tr in d.Triggers)
+            {
+                var c = new SkillTrigger
+                {
+                    When = tr.When, Chance = tr.Chance, Effect = tr.Effect, Target = tr.Target, Value = tr.Value, Status = tr.Status,
+                    Stacks = tr.Stacks, Duration = tr.Duration, Param = tr.Param, CooldownRounds = tr.CooldownRounds, Stat = tr.Stat,
+                };
+                if (tr.Effect == EffectKind.ApplyStatus || tr.Effect == EffectKind.AllyAction || tr.Target == TargetKind.OtherEnemies)
+                    c.Stacks = Math.Max(1, tr.Stacks) * level;
+                else if (tr.Chance > 0 && tr.Chance < 100) c.Chance = Math.Min(100, tr.Chance * (1 + 0.5 * (level - 1)));
+                else c.Value = tr.Value * level;
+                s.Triggers.Add(c);
+            }
+            return s;
+        }
+
         private static SkillDef Scale(ContentDb content, SkillDef d, SkillDef prev, int level)
         {
+            if (d.Signature) return Awaken(d, level);
             var t = content.RunTuning;
             double f = Factor(content, d.Rarity, level);
             double cap = t.SkillLevelChanceCap > 0 ? t.SkillLevelChanceCap : 100;
             var s = new SkillDef
             {
                 Id = d.Id, Name = d.Name, Description = d.Description, Family = d.Family, Rarity = d.Rarity, Source = d.Source,
-                UpgradesFrom = d.UpgradesFrom, RequiresFamilyCount = d.RequiresFamilyCount, Draftable = d.Draftable,
+                UpgradesFrom = d.UpgradesFrom, RequiresFamilyCount = d.RequiresFamilyCount, Draftable = d.Draftable, Signature = d.Signature,
             };
             s.Requires.AddRange(d.Requires);
             for (int i = 0; i < d.Stats.Count; i++) s.Stats.Add(Grow(d.Stats[i], prev.Stats[i], f));

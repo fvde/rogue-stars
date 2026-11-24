@@ -34,6 +34,11 @@ namespace RogueStars.Rules.Core
         public List<string> MetaSkillIds = new List<string>();
         /// <summary>Laboratory-researched skills that are toggled on for the run draft pool.</summary>
         public List<string> DraftPoolSkillIds = new List<string>();
+        /// <summary>
+        /// Synergies whose run skills may be drafted (RunTuning.StarterSynergies + researched Laboratory packages). Empty (a run saved
+        /// before the signatures pass) = every synergy, as it was.
+        /// </summary>
+        public List<SkillFamily> UnlockedFamilies = new List<SkillFamily>();
         /// <summary>Extra draft rerolls per run from talents/buildings.</summary>
         public int DraftRerolls;
         /// <summary>Power score for display and matchmaking.</summary>

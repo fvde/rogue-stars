@@ -192,6 +192,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>The open draft is a mythic choice (from a miniboss), not a level-up draft.</summary>
         public bool MythicDraft;
         public List<string> Skills = new List<string>();
+        /// <summary>The run's signature skill (also in Skills; null for runs saved before the signatures pass).</summary>
+        public string SignatureId;
         /// <summary>Level of an owned run skill when above 1 (a skill drafted / bought again levels up, RunTuning.MaxSkillLevel).</summary>
         public Dictionary<string, int> SkillLevels = new Dictionary<string, int>();
         /// <summary>Every skill, skill level and stat perk gained in this run, in order (result screen, HUD build size).</summary>

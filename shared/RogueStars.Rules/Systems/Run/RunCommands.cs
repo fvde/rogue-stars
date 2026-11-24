@@ -4,7 +4,8 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>Start a run on a portal level. Costs the level's entry cost (Stamina, or Burrow Keys for the Burrow).</summary>
-    [Serializable] public sealed class RunStart : GameCommand { public string PortalId; public string LevelId; public RunMode Mode; }
+    /// <summary>SignatureId: one of RunSystem.SignatureOffer (empty = the first offered: auto mode, bots).</summary>
+    [Serializable] public sealed class RunStart : GameCommand { public string PortalId; public string LevelId; public RunMode Mode; public string SignatureId; }
 
     /// <summary>Roll the dice (count from level + boons) and move. Clean random.</summary>
     [Serializable] public sealed class RunRoll : GameCommand { }

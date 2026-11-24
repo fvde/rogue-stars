@@ -206,10 +206,10 @@ namespace RogueStars.Rules.Content
                     s.Name = "War Chant"; s.Description = "Fills the worm's rage every round.";
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.GainRage, Target = TargetKind.Worm, Value = AlienPick(tier, 6, 8, 10, 13, 17) * k });
                     break;
-                case "burner": s.Name = "Kindle"; s.Description = "Attacks may Burn."; s.Triggers.Add(AlienStatusTrigger(StatusId.Burn, tier, k, 3)); break;
+                case "burner": s.Name = "Kindle"; s.Description = "Attacks may add Heat."; s.Triggers.Add(AlienStatusTrigger(StatusId.Heat, tier, k, 3)); break;
                 case "freezer": s.Name = "Rime Bite"; s.Description = "Attacks may Freeze."; s.Triggers.Add(AlienStatusTrigger(StatusId.Freeze, tier, k * 0.5, 1)); break;
                 case "shocker": s.Name = "Static Wings"; s.Description = "Attacks may Shock."; s.Triggers.Add(AlienStatusTrigger(StatusId.Shock, tier, k * 0.8, 2)); break;
-                case "poisoner": s.Name = "Spore Cloud"; s.Description = "Attacks may Poison."; s.Triggers.Add(AlienStatusTrigger(StatusId.Poison, tier, k, 4)); break;
+                case "poisoner": s.Name = "Spore Cloud"; s.Description = "Attacks may irradiate."; s.Triggers.Add(AlienStatusTrigger(StatusId.Poison, tier, k, 4)); break;
                 case "bleeder": s.Name = "Thorn Lash"; s.Description = "Attacks may cause Bleed."; s.Triggers.Add(AlienStatusTrigger(StatusId.Bleed, tier, k, 3)); break;
                 case "counter":
                     // a stat on the alien itself did nothing (aliens are never attacked, so they never counter): it buffs the worm

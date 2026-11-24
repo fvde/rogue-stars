@@ -40,8 +40,10 @@ public class SkillTuningTests
         Assert.Equal("+15% → +25% crit chance.", SkillText.UpgradeFull(C, keen, 1, 2));
         Assert.Equal("+25% → +40% crit chance.", SkillText.UpgradeFull(C, keen, 2, 3));
         Assert.Equal("Keen Eye Lv 2", SkillText.Title(keen, 2));
-        Assert.Equal("On hit: 30% → 50% chance to apply Burn to the enemy.", SkillText.UpgradeFull(C, C.Skill("fire_ember"), 1, 2));
-        Assert.Equal("End of each round: apply Poison ×2 → ×3 to all enemies.", SkillText.UpgradeFull(C, C.Skill("poison_miasma"), 1, 2));
+        Assert.Equal("On hit: 30% → 50% chance to apply Heat ×2 to the enemy.", SkillText.UpgradeFull(C, C.Skill("fire_ember"), 1, 2));
+        Assert.Equal("End of each round: apply Radiation ×2 → ×3 to all enemies.", SkillText.UpgradeFull(C, C.Skill("poison_miasma"), 1, 2));
+        Assert.Equal("On rage attack: consume the enemy's Bleed: 25% → 40% ATK damage per stack, heal 50% of it.", SkillText.UpgradeFull(C, C.Skill("bleed_frenzy"), 1, 2));
+        Assert.Equal("+25% → +40% Supernova damage. +25% → +40% Supernova self-damage reduction.", SkillText.UpgradeFull(C, C.Skill("fire_inferno"), 1, 2));
         Assert.Equal("On rage attack: apply Freeze for 1 round → 2 rounds to all enemies.", SkillText.UpgradeFull(C, C.Skill("lab_frost_nova_5"), 1, 2));
         Assert.Equal("Run start: the boss awakens 9% → 15% slower.", SkillText.UpgradeFull(C, C.Skill("gen_calm_mind"), 1, 2));
         Assert.StartsWith("Level up: its numbers climb +15% → +25% → +40% (Legendary +25% → +40%)", SkillText.LevelUpRule(C));
@@ -110,21 +112,25 @@ public class SkillTuningTests
             Assert.DoesNotContain(s.Triggers, t => t.Effect == EffectKind.Summon);
     }
 
-    /// <summary>Each family keeps its gated Mythic capstone (4 family skills + the family's Legendary).</summary>
+    /// <summary>
+    /// Owner (signatures pass): one Mythic pool, no gated capstones. Every synergy (starters + packages) has its signature,
+    /// 2 Common + 2 Legendary run skills and 2–3 themed Mythics, none gated by family counts or prerequisites.
+    /// </summary>
     [Fact]
-    public void EveryFamily_KeepsAGatedMythicCapstone()
+    public void EverySynergy_HasASignature_TwoCommonsTwoLegendaries_AndUngatedMythics()
     {
-        foreach (SkillFamily f in Enum.GetValues(typeof(SkillFamily)))
+        var synergies = C.RunTuning.StarterSynergies.Concat(C.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).Select(d => d.Family)).ToList();
+        Assert.Equal(8, synergies.Distinct().Count());
+        Assert.DoesNotContain(SkillFamily.Crit, synergies);
+        foreach (var f in synergies)
         {
-            if (f == SkillFamily.None) continue;
-            var caps = Pool(C).Where(s => s.Family == f && s.Source == SkillSource.Run && s.Rarity == Rarity.Mythic && s.RequiresFamilyCount == 4).ToList();
-            Assert.True(caps.Count == 1, f + ": " + caps.Count);
-            var req = C.Skill(caps[0].Requires.Single())!;
-            Assert.Equal(f, req.Family);
-            Assert.Equal(Rarity.Legendary, req.Rarity);
-            // the family has enough draftable run skills to meet the gate
-            Assert.True(Pool(C).Count(s => s.Family == f && s.Source == SkillSource.Run && s.Rarity != Rarity.Mythic) >= 4, f.ToString());
+            var run = Pool(C).Where(s => s.Family == f && s.Source == SkillSource.Run).ToList();
+            Assert.Equal(2, run.Count(s => s.Rarity == Rarity.Common));
+            Assert.Equal(2, run.Count(s => s.Rarity == Rarity.Legendary));
+            Assert.InRange(run.Count(s => s.Rarity == Rarity.Mythic), 2, 3);
+            Assert.Single(C.Skills.Values, s => s.Signature && s.Family == f);
         }
+        Assert.All(Pool(C).Where(s => s.Rarity == Rarity.Mythic), s => Assert.True(s.RequiresFamilyCount == 0 && s.Requires.Count == 0, s.Id));
     }
 
     /// <summary>
@@ -195,7 +201,7 @@ public class SkillTuningTests
         }
         SkillTrigger St(StatusId st, double chance) => new() { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = st, Chance = chance };
         SkillTrigger Dmg(double chance) => new() { When = TriggerKind.OnAttack, Effect = EffectKind.Damage, Value = 20, Chance = chance };
-        Kit("kit_fire", SkillFamily.Fire, St(StatusId.Burn, 30));
+        Kit("kit_fire", SkillFamily.Fire, St(StatusId.Heat, 100)); // Ignite-like: Supernovas happen, so Heat / Supernova skills have something to change
         Kit("kit_ice", SkillFamily.Ice, St(StatusId.Freeze, 10), Dmg(25));
         Kit("kit_light", SkillFamily.Lightning, St(StatusId.Shock, 30), Dmg(25));
         Kit("kit_poison", SkillFamily.Poison, St(StatusId.Poison, 30));
@@ -255,7 +261,11 @@ public class SkillTuningTests
                 case EffectKind.Heal: if (e.Action == BattleAction.Heal && e.Amount > 0) return true; break;
                 case EffectKind.Shield: if (e.Action == BattleAction.Shield && e.Amount > 0) return true; break;
                 case EffectKind.GainRage: if (e.Action == BattleAction.GainRage && e.Amount > 0) return true; break;
-                case EffectKind.BuffStat: if (e.Action == BattleAction.Buff) return true; break;
+                case EffectKind.BuffStat:
+                case EffectKind.Strike:
+                case EffectKind.AllyAction: if (e.Action == BattleAction.Buff) return true; break;
+                case EffectKind.RemoveStatus:
+                case EffectKind.ConsumeStatus: if (e.Action == BattleAction.StatusRemoved && e.Status == t.Status) return true; break;
             }
         }
         return false;
@@ -311,7 +321,8 @@ public class SkillTuningTests
 
     /// <summary>The statuses the skills apply each change a fight: skipped turns, charm (an enemy hits its own side), damage taken, DoTs.</summary>
     [Theory]
-    [InlineData(StatusId.Burn)]
+    [InlineData(StatusId.Heat)]
+    [InlineData(StatusId.Chill)]
     [InlineData(StatusId.Poison)]
     [InlineData(StatusId.Bleed)]
     [InlineData(StatusId.Shock)]
@@ -322,7 +333,7 @@ public class SkillTuningTests
     {
         var c = new ContentDb();
         var s = new SkillDef { Id = "apply_it", Name = "Apply", Source = SkillSource.Building, Draftable = false };
-        s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = status, Chance = 100 });
+        s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = status, Chance = 100, Stacks = status == StatusId.Heat ? 4 : 1 });
         c.AddSkill(s);
         BattleResult Run(bool with)
         {
@@ -338,7 +349,7 @@ public class SkillTuningTests
         Assert.Contains(with.Log, e => e.Action == BattleAction.StatusApplied && e.Status == status);
         Assert.NotEqual(Signature(without), Signature(with));
         var def = c.Combat.Statuses[status];
-        if (def.SkipsTurn || def.Charms) Assert.True(with.PlayerDamageTaken < without.PlayerDamageTaken, $"{with.PlayerDamageTaken} vs {without.PlayerDamageTaken}");
+        if (def.SkipsTurn || def.Charms || def.DamageDealtPctPerStack < 0) Assert.True(with.PlayerDamageTaken < without.PlayerDamageTaken, $"{with.PlayerDamageTaken} vs {without.PlayerDamageTaken}");
         else Assert.True(with.PlayerDamageDealt > without.PlayerDamageDealt, $"{with.PlayerDamageDealt} vs {without.PlayerDamageDealt}");
         if (def.Charms) // a charmed enemy attacks its own side
             Assert.Contains(with.Log, e => e.Action == BattleAction.Basic && e.Actor >= 0 && e.Target >= 0

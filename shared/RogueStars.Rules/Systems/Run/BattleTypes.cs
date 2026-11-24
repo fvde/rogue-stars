@@ -17,6 +17,10 @@ namespace RogueStars.Rules.Systems
     {
         Basic, Rage, Combo, Counter, Skill, StatusTick, StatusApplied, StatusExpired, StatusResisted,
         Heal, Shield, GainRage, Buff, Summon, SkipTurn, Death, Regen, LifeSteal,
+        /// <summary>Heat burst: a marker (Amount 0, Stacks = the Heat that blew, Actor = Target = the exploding fighter), then one entry per hit (Amount = damage; the worm's recoil too).</summary>
+        Supernova,
+        /// <summary>Stacks removed (cooling, consumption): Stacks = stacks left, Amount = stacks removed.</summary>
+        StatusRemoved,
     }
 
     /// <summary>

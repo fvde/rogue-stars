@@ -76,9 +76,22 @@ namespace RogueStars.Rules.Content
         public int ApplyCooldownRounds;
         /// <summary>Charm: the fighter attacks its own side instead.</summary>
         public bool Charms;
-        /// <summary>Element stat that scales the DoT power (FireDamage for Burn...).</summary>
+        /// <summary>Element stat that scales the DoT power (FireDamage for Heat...).</summary>
         public StatId ElementStat = StatId.Atk;
         public bool HasElement;
+        /// <summary>Never expires by turns (Heat, Radiation, Bleed): only death, a Supernova or a remove / consume effect clears it.</summary>
+        public bool Permanent;
+        /// <summary>
+        /// Supernova (Heat): when the stacks reach this, the fighter explodes for <see cref="BurstAtkPct"/>% of the heater's ATK
+        /// (× its element and Supernova damage) to every targetable fighter of its own side (itself included), the heater's
+        /// side's worm takes <see cref="BurstRecoilPct"/>% of its max HP (less its SupernovaGuard), and the stacks reset. 0 = no burst.
+        /// </summary>
+        public int BurstAtStacks;
+        public double BurstAtkPct, BurstRecoilPct;
+        /// <summary>Damage dealt by the affected fighter per stack (negative = less: Chill).</summary>
+        public double DamageDealtPctPerStack;
+        /// <summary>Each stack applied removes one stack of this status (Chill cools Heat).</summary>
+        public StatusId Cools;
     }
 
     /// <summary>Enemy combatant definition at threat 0. HP/ATK/DEF scale with ContentDb.ThreatMultiplier.</summary>
@@ -430,6 +443,14 @@ namespace RogueStars.Rules.Content
         /// and pays one level per roll, see RunSystem.AddXp.
         /// </summary>
         public int XpBase = 3, XpPerLevel = 1;
+        /// <summary>Synergies every player has from the start (the others come from Laboratory packages). Poison = Radiation.</summary>
+        public List<SkillFamily> StarterSynergies = new List<SkillFamily> { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed };
+        /// <summary>Signatures offered at run start (1 of N).</summary>
+        public int SignatureChoices = 3;
+        /// <summary>Owned skills of the signature's synergy (the signature itself not counted) at which it awakens to level 2, 3.</summary>
+        public int[] SignatureAwakenAt = { 3, 6 };
+        /// <summary>Offer weight × this for skills of the run's signature synergy (drafts, Mythic choices, shops).</summary>
+        public double SignatureFamilyWeight = 1.4;
         public int XpBankLevels = 2;
         /// <summary>Run coins at run start: the level's cheapest shop skill price + this margin (RunSystem.StartCoins), so the first shop always allows a purchase.</summary>
         public long StartCoinsMargin = 30;
@@ -697,7 +718,8 @@ namespace RogueStars.Rules.Content
         public RareDrop(Reward reward, double chancePct) { Reward = reward; ChancePct = chancePct; }
     }
 
-    public enum LabNodeKind { Skill, Stat }
+    /// <summary>Package: unlocks a synergy (its signature + its run skills and Mythics) for every run; one level.</summary>
+    public enum LabNodeKind { Skill, Stat, Package }
 
     /// <summary>One level of a laboratory node: a draft-pool skill (skill nodes) or a stat bonus (stat nodes, total at that level).</summary>
     [Serializable]
@@ -740,6 +762,10 @@ namespace RogueStars.Rules.Content
         public List<LabPrereq> Requires = new List<LabPrereq>();
         /// <summary>True: every prerequisite is needed; false: any one of them.</summary>
         public bool RequireAll;
+        /// <summary>Package nodes: the synergy they unlock (Levels[0].SkillId = its signature).</summary>
+        public SkillFamily Family;
+        /// <summary>Feature that must be unlocked before level 1 can start (the Alien package needs aliens); null = none.</summary>
+        public string RequiresFeature;
     }
 
     /// <summary>
