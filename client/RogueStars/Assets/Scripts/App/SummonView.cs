@@ -32,13 +32,13 @@ namespace RogueStars.Client.App
 
         public static string TypeNoun(SummonEventType type) => type == SummonEventType.Hero ? "hero" : "mount";
 
-        /// <summary>"Luck 23/300".</summary>
+        /// <summary>"Luck 23/100".</summary>
         public static string LuckText(GameState s, ContentDb c, SummonEventType type) =>
             "Luck " + SummonEventSystem.Luck(s, type) + "/" + SummonEventSystem.LuckMax(c, type);
 
         /// <summary>The one-line Luck rule under the meter.</summary>
         public static string LuckRule(SummonEventType type) =>
-            "Guaranteed featured " + TypeNoun(type) + " when Luck is full. Luck is kept until the next " + TypeNoun(type) + " summon event.";
+            "Featured " + TypeNoun(type) + " 1.2% per draw, guaranteed when Luck is full. Luck is kept until the next " + TypeNoun(type) + " summon event.";
 
         /// <summary>"Time left 5d 5h".</summary>
         public static string TimeLeft(long endMs, long nowMs) => "Time left " + Fmt.Duration(System.Math.Max(0, endMs - nowMs));
@@ -64,9 +64,9 @@ namespace RogueStars.Client.App
         public static string GoScreen(SummonTaskLineDef line) =>
             line != null && line.CounterKey.StartsWith("pulls_") ? "signals" : "portals";
 
-        /// <summary>Short amount caption on a reward tile ("×5", "2,000" → "2000", a copy shows nothing).</summary>
+        /// <summary>Short amount caption on a reward tile ("×5", "2,000" → "2000"; a hero / mount batch: "×50" shards).</summary>
         public static string Amount(Reward r) =>
-            r == null || r.Kind == RewardKinds.Hero || r.Kind == RewardKinds.Mount ? "" : "×" + Fmt.Num(r.Amount);
+            r == null ? "" : r.Kind == RewardKinds.Hero || r.Kind == RewardKinds.Mount ? "×" + Fmt.Num(r.Amount * ContentDb.Default.ShardStars.BatchShards) : "×" + Fmt.Num(r.Amount);
 
         /// <summary>Name of a reward tile (featured placeholders resolved by the caller).</summary>
         public static string RewardName(Reward r, ContentDb c)
@@ -74,23 +74,22 @@ namespace RogueStars.Client.App
             if (r == null) return "";
             switch (r.Kind)
             {
-                case RewardKinds.Hero: return FeaturedName(c, SummonEventType.Hero, r.Id);
-                case RewardKinds.Mount: return FeaturedName(c, SummonEventType.Mount, r.Id);
+                case RewardKinds.Hero: return FeaturedName(c, SummonEventType.Hero, r.Id) + " shards";
+                case RewardKinds.Mount: return FeaturedName(c, SummonEventType.Mount, r.Id) + " shards";
                 case RewardKinds.HeroShards: return FeaturedName(c, SummonEventType.Hero, r.Id) + " shards";
                 case RewardKinds.Currency: return Fmt.CurrencyName(r.Id, c);
                 default: return Fmt.Reward(r, c);
             }
         }
 
-        /// <summary>Badge of a pulled copy: "NEW", "★4", "AWAKEN", "+300 Star Sigils".</summary>
+        /// <summary>Badge of a pulled batch: "NEW" (unlocked), "+50 SHARDS", "+300 Star Sigils" (10★).</summary>
         public static string CopyBadge(SummonPullItem it, ContentDb c)
         {
             if (it == null || string.IsNullOrEmpty(it.Note)) return "";
             switch (it.Note)
             {
                 case "new": return "NEW";
-                case "star": return "★" + it.Stars;
-                case "awaken": return "AWAKEN";
+                case "shards": return "+" + Fmt.Num(it.Shards) + " SHARDS";
                 case "overflow":
                     var r = it.Kind == RewardKinds.Hero ? c.HeroConfig.CopyOverflow : c.MountConfig.CopyOverflow;
                     return r == null ? "MAX" : "+" + Fmt.Num(r.Amount) + " " + Fmt.CurrencyName(r.Id, c);

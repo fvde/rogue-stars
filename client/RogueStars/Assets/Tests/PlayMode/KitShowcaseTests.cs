@@ -57,8 +57,8 @@ namespace RogueStars.Client.PlayTests
             s.Heroes.Owned["hero_chef"] = new HeroEntry { Stars = 3, Level = 12 };
             s.Heroes.Owned["hero_hourglass_hermit"] = new HeroEntry { Stars = 1, Level = 1 };
             s.Heroes.Equipped = "hero_star_knight";
-            s.Mounts.Owned["mount_scout_saucer"] = new MountEntry { Stars = 5, Awaken = 0, Level = 18 };
-            s.Mounts.Owned["mount_star_lancer"] = new MountEntry { Stars = 5, Awaken = 3, Level = 40 };
+            s.Mounts.Owned["mount_scout_saucer"] = new MountEntry { Stars = 5, Level = 18 };
+            s.Mounts.Owned["mount_star_lancer"] = new MountEntry { Stars = 8, Level = 40 };
             s.Mounts.Owned["mount_chrono_skiff"] = new MountEntry { Stars = 2, Level = 5 };
             s.Mounts.Active = "mount_scout_saucer";
             _svc.Refresh(_ => { });
@@ -77,7 +77,7 @@ namespace RogueStars.Client.PlayTests
             var lo = new CombatLoadout { DisplayName = "Wiggles", MountId = "mount_scout_saucer", HeroId = "hero_star_knight" };
             lo.WormStats.Add(new StatMod(StatId.Hp, 4000)).Add(new StatMod(StatId.Atk, 160)).Add(new StatMod(StatId.Speed, 100)).Add(new StatMod(StatId.CritChance, 15));
             lo.MetaSkillIds.AddRange(HeroSystem.TraitSkills(c, "hero_star_knight", 5));
-            lo.MetaSkillIds.AddRange(MountSystem.WeaponSkills(c, "mount_scout_saucer", 5, 0));
+            lo.MetaSkillIds.AddRange(MountSystem.WeaponSkills(c, "mount_scout_saucer", 5));
             var setup = new BattleSetup { RoundCap = 12 };
             setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, new[] { "sig_fire" }));
             setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "magma_slug", 3, 0, 300));

@@ -63,7 +63,7 @@ namespace RogueStars.Client.PlayTests
             });
             // Progress since the event start: a few tasks done, a luck meter on its way.
             var s = _svc.State;
-            s.Summons.Luck[SummonEventType.Hero] = new GachaPityState { SinceMythic = 184 };
+            s.Summons.Luck[SummonEventType.Hero] = new GachaPityState { SinceMythic = 64 };
             s.Counters["run_enemies_defeated"] = s.Counter("run_enemies_defeated") + 320;
             s.Counters["runs_completed"] = s.Counter("runs_completed") + 6;
             s.Counters["pulls_part"] = s.Counter("pulls_part") + 18;

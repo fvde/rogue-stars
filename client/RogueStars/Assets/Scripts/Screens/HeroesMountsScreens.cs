@@ -44,7 +44,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(card, 80, 8);
                 if (h == null)
                 {
-                    long need = cfg.StarShardCosts.Count > 1 ? cfg.StarShardCosts[1] : 0;
+                    long need = Content.ShardStars.UnlockShards;
                     Ui.Button(row, "Unlock (" + shards + "/" + need + " shards)", () => Run(new HeroUnlock { HeroId = hid }), Theme.Accent, -1, 80, shards >= need);
                     continue;
                 }
@@ -60,7 +60,7 @@ namespace RogueStars.Client.Screens
     }
 
     /// <summary>
-    /// Spaceship mounts: stars 1–5 then awakening 1–5 (shards + mount cores), Fuel levels, equip. Hero and mount kits: a vehicle on
+    /// Spaceship mounts: stars 1–10 on the shared shard table (6★–10★ also take Mount Cores), Fuel levels, equip. Hero and mount kits: a vehicle on
     /// a reload; each card shows its passive and active at its step, the reload, its mount damage and the next step's lines in grey.
     /// </summary>
     public sealed class MountsScreen : UiScreen
@@ -88,39 +88,30 @@ namespace RogueStars.Client.Screens
                 var card = Card(body, Color.Lerp(Theme.Hex(0x7FB2FF), Theme.Panel, active ? 0.62f : 0.84f));
                 card.name = "Mount:" + mid;
                 var head = Ui.Row(card, 56, 8);
-                Ui.Label(head, def.Name + (m != null ? "  " + Fmt.Stars(m.Stars) + (m.Awaken > 0 ? " A" + m.Awaken : "") : "  (not owned)"), Theme.FontNormal, m != null ? Theme.Text : Theme.TextDim);
-                int k = cfg.KitStep(m != null ? m.Stars : 1, m != null ? m.Awaken : 0);
+                Ui.Label(head, def.Name + (m != null ? "  " + Fmt.Stars(m.Stars) : "  (not owned)"), Theme.FontNormal, m != null ? Theme.Text : Theme.TextDim);
+                int k = cfg.KitStep(m != null ? m.Stars : 1);
                 double dmg = m != null ? MountSystem.MountStats(Content, mid, m).Value(StatId.MountPower) : 0;
                 Ui.Label(head, "Reload " + def.Reloads[k] + (dmg > 0 ? " · +" + Fmt.Num(dmg) + "% dmg" : ""), Theme.FontSmall, Theme.Gold, TextAnchor.MiddleRight);
                 Ui.Label(card, def.Tagline, 22, Theme.TextDim);
-                var now = MountSystem.KitNow(Content, mid, m != null ? m.Stars : 1, m != null ? m.Awaken : 0);
+                var now = MountSystem.KitNow(Content, mid, m != null ? m.Stars : 1);
                 KitView.Lines(card, now, null);
                 if (k + 1 < cfg.KitSteps.Length)
                 {
-                    var step = cfg.KitSteps[k + 1];
-                    foreach (var line in MountSystem.KitNow(Content, mid, step[0], step[1])) KitView.Lines(card, new List<KitText>(), line);
+                    foreach (var line in MountSystem.KitNow(Content, mid, cfg.KitSteps[k + 1])) KitView.Lines(card, new List<KitText>(), line);
                 }
                 if (m == null)
                 {
-                    Ui.Button(card, "Unlock (" + shards + "/" + cfg.UnlockShards + " shards)", () => Run(new MountUnlock { MountId = mid }), Theme.Accent, -1, 80, shards >= cfg.UnlockShards).name = "Unlock:" + mid;
-                    Note(card, "Mounts come from mount summon events: copies and shards.");
+                    long unlock = Content.ShardStars.UnlockShards;
+                    Ui.Button(card, "Unlock (" + shards + "/" + unlock + " shards)", () => Run(new MountUnlock { MountId = mid }), Theme.Accent, -1, 80, shards >= unlock).name = "Unlock:" + mid;
+                    Note(card, "Mounts come from mount summon events: a drop is " + Content.ShardStars.BatchShards + " shards.");
                     continue;
                 }
                 var row = Ui.Row(card, 80, 8);
-                if (m.Stars < cfg.MaxStars)
-                {
-                    long cost = cfg.StarShardCosts[m.Stars + 1];
-                    Ui.Button(row, "Star up\n<size=20>" + shards + "/" + cost + "</size>", () => Run(new MountStarUp { MountId = mid }), Theme.Warn, -1, 80, shards >= cost, 26);
-                }
-                else
-                {
-                    int next = m.Awaken + 1;
-                    bool can = m.Awaken < cfg.MaxAwaken && next < cfg.AwakenShardCosts.Count;
-                    string c = can ? shards + "/" + cfg.AwakenShardCosts[next] + " + " + cfg.AwakenCoreCosts[next] + " cores" : "max";
-                    Ui.Button(row, "Awaken\n<size=20>" + c + "</size>", () => Run(new MountAwaken { MountId = mid }), Theme.Warn, -1, 80,
-                        can && shards >= cfg.AwakenShardCosts[next] && State.Wallet.Get(Currencies.MountCores) >= cfg.AwakenCoreCosts[next], 26);
-                }
-                int max = cfg.MaxLevel(m.Stars, m.Awaken);
+                long star = MountSystem.NextStarCost(State, Content, mid), cores = MountSystem.NextStarCores(State, Content, mid);
+                string need = star < 0 ? "max" : shards + "/" + star + (cores > 0 ? " + " + Fmt.Num(cores) + " cores" : "");
+                Ui.Button(row, (star < 0 ? "Max stars" : "Star up") + "\n<size=20>" + need + "</size>", () => Run(new MountStarUp { MountId = mid }), Theme.Warn, -1, 80,
+                    star >= 0 && shards >= star && State.Wallet.Get(Currencies.MountCores) >= cores, 26);
+                int max = cfg.MaxLevel(m.Stars);
                 bool canLevel = m.Level < max && m.Level < cfg.LevelFuelCosts.Count;
                 long fuel = canLevel ? cfg.LevelFuelCosts[m.Level] : 0;
                 Ui.Button(row, "Lv " + m.Level + "/" + max + "\n<size=20>" + (canLevel ? Fmt.Num(fuel) + " fuel" : "cap") + "</size>", () => Run(new MountLevelUp { MountId = mid }), Theme.Good, -1, 80,

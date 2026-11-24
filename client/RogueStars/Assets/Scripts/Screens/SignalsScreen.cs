@@ -10,7 +10,10 @@ using UnityEngine;
 
 namespace RogueStars.Client.Screens
 {
-    /// <summary>Gacha: Blueprint / Part / Alien Signals, featured mythic banners with countdown, published odds, 1×/10× pulls, ad pull, reveal.</summary>
+    /// <summary>
+    /// Gacha: Blueprint / Part / Alien Signals, featured mythic banners with countdown, the visible fixed pity counters ("Mythic x/100",
+    /// "Legendary x/40") and the 10-pull rule, published odds, 1×/10× pulls, ad pull, reveal (blueprints / aliens: NEW or +50 shards).
+    /// </summary>
     public sealed class SignalsScreen : UiScreen
     {
         private static readonly GachaType[] Types = { GachaType.Part, GachaType.Blueprint, GachaType.Alien };
@@ -49,7 +52,7 @@ namespace RogueStars.Client.Screens
                 Live(Ui.Label(card, "", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter), () => "Ends in " + Fmt.Duration(banner.EndMs - Now));
             }
             else Ui.Label(card, def.Name + " — standard pool", Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter);
-            Note(card, "A 10-pull always contains at least one " + def.TenPullMinTier + " or better.");
+            PityRow(card, type, def);
             Ui.Button(card, "Published odds", () => OddsModal(type, useBanner ? banner.Id : null), Theme.Button, -1, 70);
 
             string bannerId = useBanner ? banner.Id : null;
@@ -71,6 +74,27 @@ namespace RogueStars.Client.Screens
                 }), Theme.Good, -1, Theme.ButtonHeight, left > 0);
             }
         }
+
+        /// <summary>
+        /// The visible, fixed pity of the pull type: "Mythic 37/100" and "Legendary 12/40" (rarity colours), and the 10-pull rule.
+        /// Nothing else changes the odds (docs/design/pull-system.md).
+        /// </summary>
+        public static RectTransform PityRow(Transform parent, GachaType type, GachaTypeDef def, GameState state, ContentDb content)
+        {
+            var pity = GachaSystem.Pity(state, content, type);
+            var row = Ui.Row(parent, 56, 12, null, 0, "Pity");
+            row.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            if (pity.MythicPity > 0)
+                Ui.Label(row, "Mythic " + pity.Mythic + "/" + pity.MythicPity, Theme.FontNormal, Theme.RarityColor(Rarity.Mythic), TextAnchor.MiddleCenter).name = "PityMythic";
+            if (pity.LegendaryPity > 0)
+                Ui.Label(row, "Legendary " + pity.Legendary + "/" + pity.LegendaryPity, Theme.FontNormal, Theme.RarityColor(Rarity.Legendary), TextAnchor.MiddleCenter).name = "PityLegendary";
+            var rule = Ui.Label(parent, "Guaranteed Mythic by pull " + pity.MythicPity + ", Legendary by pull " + pity.LegendaryPity + " (fixed, never changes)."
+                + (def.TenPullGuarantee ? " Every 10× pull has at least one " + def.TenPullMinTier + "." : ""), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
+            rule.name = "PityRule";
+            return row;
+        }
+
+        private void PityRow(Transform parent, GachaType type, GachaTypeDef def) => PityRow(parent, type, def, State, Content);
 
         private void Pull(GachaType type, int count, GachaPayment pay, string bannerId, string adToken = null)
         {
@@ -110,7 +134,9 @@ namespace RogueStars.Client.Screens
                         irt.sizeDelta = new Vector2(96, 96);
                         irt.anchoredPosition = new Vector2(0, -4);
                     }
-                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + "\n<size=18>" + it.Tier + "</size>" + kept, art != null ? 17 : 20, Color.white, art != null ? TextAnchor.LowerCenter : TextAnchor.MiddleCenter);
+                    // a blueprint / alien is a batch of 50 shards: "NEW" when it unlocked the item, else "+50 shards"
+                    string batch = it.Shards > 0 ? "\n<size=18>" + (it.Note == "new" ? "NEW" : "+" + Fmt.Num(it.Shards) + " shards") + "</size>" : "";
+                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + batch + "\n<size=18>" + it.Tier + "</size>" + kept, art != null ? 17 : 20, Color.white, art != null ? TextAnchor.LowerCenter : TextAnchor.MiddleCenter);
                     Ui.Stretch(t.rectTransform, 6, art != null ? 96 : 6, 6, 6);
                     cards.Add(c.rectTransform);
                     if (Application.isPlaying) c.gameObject.SetActive(false);
@@ -135,7 +161,7 @@ namespace RogueStars.Client.Screens
             {
                 foreach (var tier in odds.Tiers)
                 {
-                    Ui.Label(b, tier.Tier + ": " + tier.Percent.ToString("0.###") + "%", Theme.FontNormal, Theme.RarityColor(tier.Tier));
+                    Ui.Label(b, tier.Tier + ": " + tier.Percent.ToString("0.##") + "%", Theme.FontNormal, Theme.RarityColor(tier.Tier));
                     var items = new List<string>();
                     foreach (var it in tier.Items)
                     {
@@ -144,7 +170,10 @@ namespace RogueStars.Client.Screens
                     }
                     Ui.Label(b, string.Join(", ", items), 20, Theme.TextDim);
                 }
-                Note(b, "10-pull guarantee: at least one " + odds.TenPullMinTier + " or better.");
+                Note(b, "Fixed pity: the " + odds.MythicPity + "th pull without a Mythic is a Mythic; the " + odds.LegendaryPity
+                    + "th without a Legendary or better is at least Legendary. No other pity, nothing hidden.");
+                if (odds.TenPullGuarantee) Note(b, "10× pull: at least one " + odds.TenPullMinTier + " or better.");
+                if (odds.BatchShards > 0 && type != GachaType.Part) Note(b, "A blueprint or alien is " + odds.BatchShards + " shards: the first unlocks it.");
             });
         }
     }

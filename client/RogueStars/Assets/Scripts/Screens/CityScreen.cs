@@ -23,6 +23,9 @@ namespace RogueStars.Client.Screens
 
         public override string Title => "City";
 
+        /// <summary>Select a placed building (its detail card), as a tap on it does.</summary>
+        public void Select(string blueprintId) { _selected = blueprintId; _mode = Mode.Select; Rebuild(); }
+
         protected override void Build(RectTransform body)
         {
             Toolbar(body);
@@ -205,6 +208,8 @@ namespace RogueStars.Client.Screens
                     new ModalButton("Store", () => Run(new CityDemolish { BlueprintId = b.Id }, r => { if (r.Ok) { _selected = null; Rebuild(); } }), Theme.Bad)), Theme.Bad, 160, 90, true, 26);
             }
 
+            if (b.Id == ContentDb.ShardReactorId)
+                Ui.Button(card, "Open the Shard Reactor", () => App.Router.Push(new ReactorScreen()), Theme.Purple, -1, 80, CitySystem.IsActive(b), 26).name = "OpenReactor";
             long shards = State.Wallet.Get(Currencies.BlueprintShards(b.Id));
             long need = CitySystem.StarCost(Content, b);
             Ui.Button(card, "Star up (" + shards + "/" + need + " shards)", () => Run(new BlueprintStarUp { BlueprintId = b.Id }), Theme.Warn, -1, 80, b.Stars < CitySystem.MaxStars && shards >= need, 26);

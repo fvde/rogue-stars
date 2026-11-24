@@ -308,11 +308,13 @@ namespace RogueStars.Client.Screens
             var def = Def;
             Modal("Luck", b =>
             {
-                Ui.Label(b, "Every draw adds 1 Luck. When Luck is full, that draw is the featured " + SummonView.TypeNoun(Type)
-                    + ". Luck is kept until the next " + SummonView.TypeNoun(Type) + " summon event, so you can save up across events.", Theme.FontSmall, Theme.Text);
-                Ui.Label(b, "A copy of a " + SummonView.TypeNoun(Type) + (Type == SummonEventType.Hero
-                    ? " you own adds a star (up to 10★)."
-                    : " you own adds a star (up to 5★), then the shards of its next awakening."), Theme.FontSmall, Theme.Text);
+                int max = SummonEventSystem.LuckMax(Content, Type);
+                Ui.Label(b, "Every draw adds 1 Luck. The featured " + SummonView.TypeNoun(Type) + " drops at a flat 1.2% per draw; when Luck reaches "
+                    + max + ", that draw is the featured " + SummonView.TypeNoun(Type) + ". Luck is fixed: nothing else changes the odds. It is kept until the next "
+                    + SummonView.TypeNoun(Type) + " summon event, so you can save up across events.", Theme.FontSmall, Theme.Text).name = "LuckRuleText";
+                long batch = Content.ShardStars.BatchShards;
+                Ui.Label(b, "A drop is " + batch + " shards of the featured " + SummonView.TypeNoun(Type) + ": the first unlocks it, then shards raise its stars (up to "
+                    + Content.ShardStars.MaxStars + "★, " + Fmt.Num(Content.ShardStars.TotalTo(Content.ShardStars.MaxStars)) + " shards in all).", Theme.FontSmall, Theme.Text);
                 if (def == null) return;
                 double total = 0;
                 foreach (var t in def.Gacha.Tiers) total += t.Weight;
@@ -327,7 +329,7 @@ namespace RogueStars.Client.Screens
                     }
                     Ui.Label(b, t.Tier + " " + (t.Weight / total * 100).ToString("0.##") + "%: " + string.Join(", ", names), 22, Theme.RarityColor(t.Tier));
                 }
-                Note(b, "10× Draw: at least one " + def.Gacha.TenPullMinTier + " or better.");
+                if (def.Gacha.TenPullGuarantee) Note(b, "10× Draw: at least one " + def.Gacha.TenPullMinTier + " or better.");
             });
         }
 

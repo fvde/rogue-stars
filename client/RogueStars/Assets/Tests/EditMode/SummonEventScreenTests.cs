@@ -99,17 +99,17 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Reveal_MarksCopies_NewAndStars()
+        public void Reveal_MarksBatches_NewAndShards()
         {
             UnlockAll();
             var screen = Open(new SummonEventScreen());
-            var result = new SummonPullResult { Type = SummonEventType.Hero, Luck = 0, LuckMax = 300, LuckTriggered = true };
-            result.Items.Add(new SummonPullItem { Kind = RewardKinds.Hero, Id = "hero_chef", Amount = 1, Tier = Rarity.Mythic, Featured = true, Note = "star", Stars = 4 });
-            result.Items.Add(new SummonPullItem { Kind = RewardKinds.HeroShards, Id = "hero_chef", Amount = 8, Tier = Rarity.Epic, Featured = true });
+            var result = new SummonPullResult { Type = SummonEventType.Hero, Luck = 0, LuckMax = 100, LuckTriggered = true };
+            result.Items.Add(new SummonPullItem { Kind = RewardKinds.Hero, Id = "hero_chef", Amount = 1, Tier = Rarity.Mythic, Featured = true, Note = "shards", Shards = 50, Stars = 4 });
+            result.Items.Add(new SummonPullItem { Kind = RewardKinds.Currency, Id = Currencies.HeroXp, Amount = 300, Tier = Rarity.Common });
             var modal = screen.Reveal(result);
             var badges = modal.Root.GetComponentsInChildren<Text>(true).Where(t => t.name == "BadgeText").Select(t => t.text).ToList();
-            Assert.That(badges, Does.Contain("★4"));
-            Assert.That(badges, Does.Contain("FEATURED"));
+            Assert.That(badges, Does.Contain("+50 SHARDS"));
+            Assert.That(modal.Root.GetComponentsInChildren<Text>(true).Any(t => t.name == "Amount" && t.text == "×50"), Is.True);
             Assert.That(FindText(modal.Root.transform, "LuckAfter").text, Does.Contain("guaranteed"));
             Assert.That(SummonView.CopyBadge(new SummonPullItem { Kind = RewardKinds.Hero, Note = "new" }, C), Is.EqualTo("NEW"));
             StringAssert.Contains("Star Sigils", SummonView.CopyBadge(new SummonPullItem { Kind = RewardKinds.Hero, Note = "overflow" }, C));
@@ -190,7 +190,7 @@ namespace RogueStars.Client.Tests
         {
             UnlockAll();
             const string id = "mount_frost_frigate";
-            _f.Service.DevGrant(new[] { Reward.Cur(Currencies.MountShards(id), C.MountConfig.UnlockShards) });
+            _f.Service.DevGrant(new[] { Reward.Cur(Currencies.MountShards(id), C.ShardStars.UnlockShards) });
             var screen = Open(new MountsScreen());
             Find(screen.Root, "Unlock:" + id).onClick.Invoke();
             Assert.That(MountSystem.Get(S, id), Is.Not.Null);
