@@ -163,7 +163,7 @@ public class SignatureTests
         Assert.Equal("On hit: apply Radiation to the enemy.", T("sig_radiation"));
         Assert.Equal("On hit: apply Bleed to the enemy.", T("sig_bleed"));
         Assert.Equal("On hit: apply Chill to the enemy.", T("sig_ice"));
-        Assert.Equal("On hit: jump to 1 other enemy for 50% ATK damage.", T("sig_lightning"));
+        Assert.Equal("On hit: Arc to 1 other enemy for 50% ATK damage.", T("sig_lightning"));
         Assert.Equal("Each round: one of your sidekicks takes an extra action.", T("sig_alien"));
         Assert.Equal("When hit: 30% chance to counterattack.", T("sig_counter"));
         Assert.Equal("On hit: 30% chance to strike again.", T("sig_combo"));

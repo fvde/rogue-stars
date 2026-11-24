@@ -86,10 +86,9 @@ public class BattleSimulatorTests
     }
 
     [Fact]
-    public void HitOrder_CritThenDodge_ThenDamage_ThenParry()
+    public void HitOrder_CritThenDodge_ThenDamage_AndParryIsGone()
     {
         var c = new ContentDb();
-        c.Combat.MaxParry = 100;
         c.Combat.MaxDodge = 100;
         // Dodger: every first attack in a streak is dodged (crit was rolled but negated).
         var att = Unit("worm", CombatRole.Worm, 1000, 100, 0, 200);
@@ -104,14 +103,16 @@ public class BattleSimulatorTests
         // consecutive dodges get ×0.8 odds, so some later attacks land
         Assert.Contains(res.Log, e => e.Action == BattleAction.Basic && !e.Dodge && e.Crit);
 
-        // Parrier: crit and parry both apply: dmg = raw × critMult × (1 − parryReduction)
+        // Skill redesign: parry was removed. An old save's parry chance no longer cuts damage; it counts as counter chance.
         var parrier = Unit("foe", CombatRole.Enemy, 100_000, 0, 0, 1);
         parrier.Stats.Add(new StatMod(StatId.ParryChance, 10_000));
         var res2 = BattleSimulator.Simulate(Duel(att, parrier, 1), c, new Rng(3));
         var hit = res2.Log.First(e => e.Action == BattleAction.Basic);
-        Assert.True(hit.Crit && hit.Parry);
-        double expected = 100 * CombatMath.CritMultiplier(c.Combat.BaseCritDamage, 0) * (1 - c.Combat.BaseParryReduction / 100);
-        Assert.Equal((long)Math.Round(expected), hit.Amount);
+        Assert.True(hit.Crit && !hit.Parry);
+        Assert.Equal((long)Math.Round(100 * CombatMath.CritMultiplier(c.Combat.BaseCritDamage, 0)), hit.Amount);
+        Assert.Contains(res2.Log, e => e.Action == BattleAction.Counter && e.Actor == 1);
+        Assert.Equal(10_000, BattleSimulator.FinalStats(parrier, c).Value(StatId.CounterChance));
+        Assert.Equal(0, BattleSimulator.FinalStats(parrier, c).Value(StatId.ParryChance));
     }
 
     [Fact]

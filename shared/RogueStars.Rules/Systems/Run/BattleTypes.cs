@@ -31,6 +31,21 @@ namespace RogueStars.Rules.Systems
         Guard,
         /// <summary>A guard intercepted a hit (Actor = the blocking sidekick, Target = the guarded worm, Amount = the damage stopped, Stacks = guards left).</summary>
         Block,
+        // ---- skill redesign (appended; saved logs store ints) ----
+        /// <summary>The target can't gain Status for Stacks rounds (Thermal Shock's Heat lock).</summary>
+        StatusBlocked,
+        /// <summary>An execute (Cull, Exsanguinate): Amount = the HP it took.</summary>
+        Execute,
+        /// <summary>A fatal hit left the actor at 1 HP (Last Word).</summary>
+        CheatDeath,
+        /// <summary>An Echo repeats the actor's attack on the target (the repeat follows as its own entry).</summary>
+        Echo,
+        /// <summary>Loop: every fighter rewound to the start of round Amount.</summary>
+        Loop,
+        /// <summary>A staggered fighter lost its rage attack.</summary>
+        Staggered,
+        /// <summary>A sidekick (Actor) left the battle in the worm's (Target) place (Sacrifice Protocol).</summary>
+        Sacrifice,
     }
 
     /// <summary>
@@ -60,6 +75,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>Current HP at battle start; &lt; 0 = full. May exceed the HP stat (boss HP pools).</summary>
         public double StartHp = -1;
         public double StartShield;
+        /// <summary>Rage at battle start (Ambush Instinct: landing on an enemy tile).</summary>
+        public double StartRage;
         /// <summary>Threat multiplier used for enemy summons (keeps summons on the same curve).</summary>
         public double ThreatScale = 1;
     }
@@ -107,6 +124,7 @@ namespace RogueStars.Rules.Systems
         public long Amount;
         public bool Crit;
         public bool Dodge;
+        /// <summary>Legacy (parry was removed in the skill redesign): old saved logs may still carry it.</summary>
         public bool Parry;
         public StatusId Status;
         public int Stacks;

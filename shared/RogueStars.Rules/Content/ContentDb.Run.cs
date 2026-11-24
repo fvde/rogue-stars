@@ -102,6 +102,11 @@ namespace RogueStars.Rules.Content
             b.Statuses[StatusId.Stun] = new StatusDef { Id = StatusId.Stun, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true, ApplyCooldownRounds = 3 };
             b.Statuses[StatusId.Shock] = new StatusDef { Id = StatusId.Shock, MaxStacks = 5, DefaultDuration = 2, DamageTakenPctPerStack = 6, HasElement = true, ElementStat = StatId.LightningDamage };
             b.Statuses[StatusId.Charm] = new StatusDef { Id = StatusId.Charm, MaxStacks = 1, DefaultDuration = 1, Charms = true, ApplyCooldownRounds = 4 };
+            // skill redesign: Exposed (+1% damage taken per stack, permanent; Critical Mass), Stagger (a boss loses its next rage
+            // attack; Thermal Shock), Delay (loses its next turn, no re-apply cooldown; Time)
+            b.Statuses[StatusId.Exposed] = new StatusDef { Id = StatusId.Exposed, MaxStacks = 100, Permanent = true, DamageTakenPctPerStack = 1 };
+            b.Statuses[StatusId.Stagger] = new StatusDef { Id = StatusId.Stagger, MaxStacks = 1, DefaultDuration = 1 };
+            b.Statuses[StatusId.Delay] = new StatusDef { Id = StatusId.Delay, MaxStacks = 1, DefaultDuration = 1, SkipsTurn = true };
         }
 
         private void RunBuildRunTuning()
