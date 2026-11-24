@@ -370,6 +370,80 @@ design A (the board, tray and footer described in *Screens* above are superseded
   Tests: `IsoBoardTests` (projection, faces/markers, ArtCatalog swaps, world contents, landing, dice caption), the run /
   battle tests updated to the slice names.
 
+## Screens pass: rest, events, chest, shop, run result, home (branch `screens-pass`)
+
+Six screens rebuilt to owner-supplied layout references (not in the repo; layout and design language only). Where this
+differs from *Screens* and the slice section above, this wins. Geometry is in reference pixels of a 1080 × 2400 frame
+(`RunScenes.Frame`: scaled by min(w/1080, h/2400), centred, top-anchored), so shorter screens keep the layout.
+
+- **Rest (campfire)** (`RunScreen.Decisions.cs` `SceneModal`, `Screens/RunScenes.cs`): an opaque overlay with the
+  **stage** on top (`RunScenes.Stage`: the battle arena art, the worm seated on its mount left of centre, up to three
+  squad aliens down the left edge, the event's prop right on a soft glow, the run HUD (`SliceHud`) and the skills book),
+  the dark **title band** ("A Moment to Rest"), the paper **panel** with the flavour line and two **option tiles**
+  (`RunScenes.OptionTile`: label above, a purple framed icon tile = the button, the outcome under it). **Train** (owner
+  rule) opens `TrainPicker`: one card per `RunSystem.TrainChoices` skill (the card family, "LEVEL n → n+1" chip, the
+  upgrade inline; a chain's lower tier shows its upgrade, "UPGRADE"); picking sends `RunChooseEventOption { SkillId }`.
+  Nothing to train: the tile says "+40 coins" and Train pays them. Buttons: `Button:Rest`, `Option:Rest` / `Option:Train`
+  aliases, `Train:<skill id>`.
+- **Events**: two layouts (`RunScenes.Look(eventId)`, tested for every event): **scene** (as the rest, the prop by event:
+  `abandoned_cart`, `chest_common` for the treasure pod, `event_shrine`, else `event_wreck`; 2–3 tiles) and **vendor**
+  for trades offered by a character (smuggler / black market → `black_marketeer`, cursed relic / unstable reactor →
+  `cursed_vendor`, alien medic → `camp_cook`): stone wall, the NPC behind a counter, the red title ribbon, a speech bubble,
+  two cream cards with the **blessing** half (gains) and the **curse** half (costs; "Gain nothing at all." for a decline)
+  and **Sign** / **Pay** / **Leave** buttons with "OR" between. Option text (`RunScenes.EffectLines` / `OutcomeText`):
+  one line per effect, gains' numbers green, losses' red; a gamble lists each outcome ("65%: +1 account loot, Boss wakes
+  +8"), its tile shows the dice. Buttons keep their names (`Button:<option text>[ cost]`). The **result** sheet
+  (`OutcomeSheet`) is restyled (dimmed board, caption, gold / red ribbon with the title, "You chose", the paper panel
+  with the chance roll and one row per gain / loss, a dark-blue Continue) and keeps its names (`Modal:Outcome`,
+  `ChanceMeter`, `ChanceResult`, `Line:<kind>`, `Icon`, `OutcomeContinue`) and the spin.
+- **Chest** (`ChestIntro` / `BuildChest`): the board dimmed, a ribbon ("You found a Chest!", red for a Mythic, purple
+  for a signal), the big chest on a glow, "Tap anywhere to open!" (`ChestTap`); the tap bursts it and reveals the
+  content in the card family. Used for the **Mythic choice** after a miniboss (`chest_mythic` → the MYTHIC draft), the
+  **signature offer** (Resonance, `chest_signature` → `SignatureReveal`: one card per offered signature + the coins) and
+  **guarded loot** (a treasure result with account loot, `chest_common` → the result sheet). Auto mode opens it after
+  0.8 s; skip mode / EditMode (`ShowChestIntro`) goes straight to the content.
+- **Shop** (`ShopModal`): wooden interior, the run HUD (its coin chip updates on every buy), the **SHOP** sign, the
+  shopkeeper with a speech bubble, the utility offers (heal, stat perks) as small priced tiles, the skill offers as cards
+  (tier tag, framed icon, name + level, coloured keywords, a yellow price button with the coin; **SALE!** with the struck
+  list price when `ShopOffer.ListPrice` > `Price`), "?" = full text, green **Exit** (`Button:Leave`), purple **Reroll**
+  with its price, the skills book; "n bought this run" (`ShopCoins`). Buy buttons sit in their own `OfferSlot:<i>` with
+  the offer's name.
+- **Run result** (`Screens/RunResultScreen.cs`, full screen): the dimmed arena, the crest (`crown`, or `crest_broken` on
+  a defeat) on a halo, the ribbon **VICTORY!** / **DEFEATED** (`Banner`), the pennant (`banner` / `banner_defeat`) with
+  the level tag, "You Survived / N Rolls / Longest Journey: N Rolls" (`RunSummary.LongestRolls`) and the three stars,
+  the full-width **reward strip** (tiles: mark + "x1,250", the name under it; `Reward`), chips (run level, `SkillsChip`,
+  minibosses, shop buys), `GainedSkills` (up to 12 + "+N more"), `DoubleRewards`, **Continue** (`Button:Portals`) and
+  `Again` (Next: Level n / Play again / Try again).
+- **Home** (`HubScreen`): absolute layout over a sky; season bar (once the pass unlocks: tier hexagon, progress,
+  "Completed!", `SeasonBar` opens the shop), left / right **feature columns** (`HubLayout.LeftColumn` + live events,
+  `RightColumn`) as art icons with chunky labels, a red count badge and a timer pill (`Side:<id>`, `Live:<id>`), the
+  `PortalChip`, the next level's title and **"Longest survived: N rolls"**, the **home planet** by stage
+  (`HubScreen.PlanetStage`: main levels < 5 / 20 / 50 / 100 / more → `planet_stage1…5`, drawn placeholder per stage)
+  with the worm on it, the **feature row** once Parts unlock (Portal Map, Chapter Rewards → portals, Farm Patrol → City
+  once the farm unlocks, Dark Side once unlocked; `Feature:<id>`), the guide (NEW unlock, goal, next-unlock teaser), the
+  big yellow **START** (`PlayButton`, `ContinueButton` during a run; `HubNextLevel` above it, stamina cost) with the
+  auto-pick chip (`AutoPickChip`) and **Modes** once a side mode unlocks, and the tab bar (dark tabs, the Planet raised
+  in purple with its label; NEW / ▲ UP badges). Features still appear only as they unlock; locked ones are never shown.
+  The top bar (`ResourceBar`) is restyled for every screen: purple band, the worm's portrait in a gold frame with its
+  level, the name and power, dark currency pills.
+- **Type scale** (owner feedback: text slightly too small, measured against the references at 1080 × 2400): every
+  `Ui.Label` / `Ui.Display` size passes `Theme.Type` (× `TypeScale` 1.15; ≤ 24 × `SmallTypeScale` 1.1); chunky text
+  (`SliceKit.Chunky`) and the rebuilt screens use exact reference sizes; the card body (`SliceCards.BodySize`) 38 → 46,
+  card names (`TitleSize`) 54 → 58, best-fit within the panel. The display font has no "→": chunky text and card bodies
+  show "»".
+- **Art keys** (`ArtCatalog`, every one with a code-drawn fallback in `World/ScreenArt`; nothing imported yet):
+  `Art/Run/Characters/<id>` (shopkeeper, cursed_vendor, black_marketeer, camp_cook), `Art/Run/Props/<id>`
+  (chest_common, chest_mythic, chest_signature, abandoned_cart, campfire_big, event_shrine, event_wreck),
+  `Art/Run/Icons/<id>` (coins_small, coins_big, heal, max_hp, skill_book, upgrade, reroll, curse, blessing, sale_tag;
+  stamina is drawn only), `Art/Hub/Planet/planet_stage1…5`, `Art/Hub/Scene/<id>` (sky, or sky_stage1…5),
+  `Art/Hub/Icons/<id>` (tab_worm, tab_city, tab_planet, tab_signals, tab_arena, shop, offer, pass, mail, more, quests,
+  observatory, invasion, event, map, chapter_rewards, patrol, challenges, settings), `Art/Result/<id>` (crown,
+  crest_broken, banner, banner_defeat).
+- **Captures**: `ScreensShowcaseTests` (**Explicit**) renders `sc_board`, `sc_levelup`, `sc_rest`, `sc_rest_train`,
+  `sc_event`, `sc_event_vendor`, `sc_event_result`, `sc_chest`, `sc_chest_reveal`, `sc_shop`, `sc_result_victory`,
+  `sc_result_defeat`, `sc_home` at 1080 × 2400 (`$ROGUESTARS_SHOT_SIZE`, `$ROGUESTARS_SHOTS_DIR`; `$ROGUESTARS_SHOTS_ONLY`
+  = comma-separated groups: board, levelup, rest, event, chest, shop, result, home). Tests: `ScreensPassTests`.
+
 ## Run mini-games (GDD §3.6)
 A GAME tile (`RunPhase.Minigame`) opens `MinigameHost` as the run screen's decision (`RunScreen.ShowDecision`): it sends
 `RunMinigameStart` (the rules pick the game, seed and reward type), shows the title, the one-line instruction

@@ -23,7 +23,9 @@ namespace RogueStars.Client.Screens
         /// <summary>White chunky display text with a thick dark stroke and a drop (numbers, titles).</summary>
         public static Text Chunky(Transform parent, string text, int size, Color? color = null, TextAnchor align = TextAnchor.MiddleCenter, string name = "Label")
         {
-            var t = Ui.Display(parent, text, size, color ?? Color.white, align, name);
+            var t = Ui.Display(parent, text != null ? text.Replace("→", "»") : text, size, color ?? Color.white, align, name);
+            t.font = Ui.FontFor(t.text);
+            t.fontSize = size; // exact: chunky text is sized against the references (no Theme.Type scaling)
             t.raycastTarget = false;
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
