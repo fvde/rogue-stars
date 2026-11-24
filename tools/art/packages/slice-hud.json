@@ -1,0 +1,15 @@
+{
+  "name": "pkg-slice-hud", "width": 1024, "height": 1024, "seeds": [5401, 5402],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon.json",
+  "suffix": ", game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "dice": "a big chunky white six-sided dice with red pips, 3D tilted",
+    "pedestal": "a round carved stone pedestal button base seen from slightly above",
+    "heart": "a glossy red heart", "sword": "a crossed sword", "shield": "a round blue shield",
+    "coin": "a shiny gold coin with a star", "exp": "a green hexagon gem", "cog": "a grey settings gear",
+    "skull": "a small alien skull", "book": "a thick purple spell book with a gold clasp",
+    "speed": "a double right arrow fast forward symbol", "reroll": "two circular arrows",
+    "boss_rail_top": "an angry alien boss skull with horns"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "pkg-slice-scatter", "width": 1024, "height": 1024, "seeds": [5301],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one small decoration prop for a mossy alien meadow game level, centered, isolated on a plain pure white background, no ground, no text",
+  "negative": "ground, scenery, multiple objects, characters, text, watermark, blurry, photo",
+  "subjects": {
+    "rock_small": "a small mossy boulder", "rock_pile": "a pile of three round rocks",
+    "bush": "a round leafy alien bush", "flowers": "a clump of glowing blue alien flowers",
+    "fern": "a curly alien fern", "pebble_glow": "a few glowing pebbles",
+    "stump": "a mossy tree stump", "crystal_small": "a small cyan crystal shard cluster",
+    "mushrooms": "a cluster of tiny spotted mushrooms", "barrel": "a dented metal fuel barrel",
+    "antenna": "a tiny bent alien antenna mast", "bones": "an old alien rib bone"
+  }
+}

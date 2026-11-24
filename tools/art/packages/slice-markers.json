@@ -1,0 +1,20 @@
+{
+  "name": "pkg-slice-markers", "width": 1024, "height": 1024, "seeds": [5101, 5102],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", a single small board game piece that stands on a square tile, centered, isolated on a plain pure white background, no tile, no ground, no text",
+  "negative": "tile, ground, floor, scenery, multiple objects, text, letters, watermark, blurry, photo, realistic",
+  "subjects": {
+    "enemy": "a cute grumpy alien skull totem with glowing green eyes",
+    "elite": "a big horned alien skull with red glowing eyes",
+    "miniboss": "a crowned alien skull on a small stone plinth, purple glow",
+    "boss": "a giant menacing alien skull with tentacles and a crown, red glow",
+    "event": "a rolled parchment scroll with a wax seal, floating slightly",
+    "mystery": "a rounded teal stone with a big carved question mark",
+    "chest": "a small wooden treasure chest with gold trim, closed",
+    "rest": "a small cozy campfire with logs and a pot",
+    "shop": "a tiny alien merchant cart with a striped awning",
+    "minigame": "a small retro arcade cabinet with a glowing screen",
+    "portal": "a small swirling purple portal ring on a stone base",
+    "reward": "a wrapped gift box with a big ribbon bow"
+  }
+}

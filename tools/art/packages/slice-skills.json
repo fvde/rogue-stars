@@ -1,0 +1,42 @@
+{
+  "name": "pkg-slice-skills",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5501,
+    5502
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon.json",
+  "suffix": ", game skill icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, character, worm, background scenery, watermark, blurry, photo",
+  "subjects": {
+    "fire_kindle": "a burning heart",
+    "fire_flare": "an exploding sun flare",
+    "fire_inferno": "a roaring wildfire",
+    "fire_phoenix": "a fiery coiled serpent bird",
+    "ice_armor": "an ice crystal breastplate",
+    "ice_frostbite": "a frozen fang",
+    "ice_glacier": "a cracked glacier shield",
+    "ice_absolute_zero": "a giant snowflake star",
+    "light_conductor": "a copper coil with sparks",
+    "light_chain": "a chain of lightning bolts",
+    "light_storm": "a crackling storm cloud",
+    "light_thunder_god": "a glowing thunder hammer",
+    "poison_glands": "a dripping green venom sac",
+    "poison_miasma": "a cloud of green toxic gas",
+    "poison_plague": "a sickly skull in green fog",
+    "bleed_razor": "razor sharp scales",
+    "bleed_frenzy": "red claw marks",
+    "counter_spiked": "a spiked shell",
+    "combo_whirlwind": "a spinning whirlwind",
+    "crit_brutal": "a cracking fist impact",
+    "crit_precision": "a target crosshair eye",
+    "gen_regen": "a sprouting green leaf with a plus",
+    "gen_vampire": "a fanged drop of blood",
+    "gen_wealth": "a pickaxe and a gold nugget",
+    "mythic_chrono_shell": "a glowing hourglass inside a shell",
+    "mythic_ball_lightning": "a glowing ball of lightning",
+    "mythic_blade_storm": "a ring of spinning blades",
+    "alien_hivemind": "a glowing alien brain"
+  }
+}

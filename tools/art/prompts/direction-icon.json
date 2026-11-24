@@ -1,0 +1,6 @@
+{
+  "variants": [
+    {"key": "K", "model": "flux", "style": "glossy painted mobile game skill icon, one bold central symbol, thick dark outline, vivid saturated colors, strong rim light, filling the square", "note": "Flux, painted skill icon"},
+    {"key": "L", "model": "flux", "style": "flat cartoon mobile game icon, one simple bold symbol, thick black outline, three or four colors, filling the square", "note": "Flux, flat skill icon"}
+  ]
+}

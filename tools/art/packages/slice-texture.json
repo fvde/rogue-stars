@@ -1,0 +1,23 @@
+{
+  "width": 1024,
+  "height": 1024,
+  "fullframe": true,
+  "negative": "characters, text, letters, watermark, blurry, photo, user interface",
+  "name": "pkg-slice-texture",
+  "seeds": [
+    5601,
+    5602,
+    5603
+  ],
+  "variants": [
+    {
+      "key": "T",
+      "model": "flux",
+      "style": "seamless square game texture, flat top-down view, stylized hand painted cartoon, soft even lighting, no shadows, no perspective, no characters, no text"
+    }
+  ],
+  "subjects": {
+    "tile_top_moss": "short mossy alien grass with tiny pebbles",
+    "tile_side_rock": "layered earthy brown rock strata"
+  }
+}

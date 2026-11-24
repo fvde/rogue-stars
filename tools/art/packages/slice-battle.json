@@ -1,0 +1,22 @@
+{
+  "width": 1024,
+  "height": 1344,
+  "fullframe": true,
+  "negative": "characters, text, letters, watermark, blurry, photo, user interface",
+  "name": "pkg-slice-battle",
+  "seeds": [
+    5701,
+    5702
+  ],
+  "variants": [
+    {
+      "key": "B",
+      "model": "flux",
+      "style": "2D side view mobile game battle background, stylized hand painted cartoon, bright colors, flat ground across the lower third, open empty middle for characters, no characters, no text, no user interface"
+    }
+  ],
+  "subjects": {
+    "battle_meadow": "a mossy alien meadow with glowing mushrooms and crystals under a purple sky with two moons",
+    "battle_meadow_dusk": "a mossy alien meadow at dusk with a crashed saucer in the distance under a teal sky"
+  }
+}
