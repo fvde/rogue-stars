@@ -311,12 +311,12 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Skills_AreColouredByTier_Everywhere()
         {
-            // run skills have three tiers: Common grey, Legendary orange, Mythic red
-            Assert.That(Theme.SkillTierColor(Rarity.Common), Is.EqualTo(Theme.Hex(0xB8AEA6)), "grey");
+            // run skills have three tiers, coloured like every rarity in the game: Common grey, Legendary purple, Mythic rich red
+            Assert.That(Theme.SkillTierColor(Rarity.Common), Is.EqualTo(Theme.Hex(0x9AA0A6)), "grey");
             var leg = Theme.SkillTierColor(Rarity.Legendary);
-            Assert.That(leg.r > leg.g && leg.g > leg.b, Is.True, "orange");
+            Assert.That(leg.b > leg.g && leg.r > leg.g, Is.True, "purple");
             var myth = Theme.SkillTierColor(Rarity.Mythic);
-            Assert.That(myth.r > 0.9f && myth.g < 0.4f && myth.b < 0.4f, Is.True, "red");
+            Assert.That(myth.r > 0.7f && myth.g < 0.2f && myth.b < 0.3f, Is.True, "rich red");
             Assert.That(Theme.SkillTierColor(Rarity.Rare), Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
             Assert.That(Theme.SkillTierColor(Rarity.Epic), Is.EqualTo(leg));
 

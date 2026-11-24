@@ -202,7 +202,7 @@ namespace RogueStars.Client.Tests
             var tray = RunPresentation.Tray(C, run, 7);
             Assert.That(tray.Overflow, Is.EqualTo(0));
             Assert.That(tray.Tiles.Count, Is.EqualTo(3));
-            Assert.That(tray.Tiles[0].Color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)), "orange");
+            Assert.That(tray.Tiles[0].Color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)), "legendary colour");
             Assert.That(tray.Tiles[1].Color, Is.EqualTo(Theme.SkillTierColor(Rarity.Mythic)), "red");
             Assert.That(tray.Tiles[2].Color, Is.EqualTo(Theme.SkillTierColor(Rarity.Common)), "grey");
             Assert.That(tray.Tiles[2].LevelText, Is.EqualTo("Lv 2/" + C.RunTuning.MaxSkillLevelOf(Rarity.Common)));
