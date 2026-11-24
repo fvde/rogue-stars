@@ -90,11 +90,23 @@ namespace RogueStars.Rules.Systems
         public static bool FamilyUnlocked(ActiveRun run, SkillFamily family) =>
             family == SkillFamily.None || run.Loadout.UnlockedFamilies.Count == 0 || run.Loadout.UnlockedFamilies.Contains(family);
 
-        /// <summary>The synergy of the run's signature (None without one).</summary>
+        /// <summary>The synergy of the run's first signature (None without one).</summary>
         public static SkillFamily SignatureFamily(ContentDb content, ActiveRun run)
         {
-            var s = run.SignatureId != null ? content.Skill(run.SignatureId) : null;
-            return s != null && run.Skills.Contains(s.Id) ? s.Family : SkillFamily.None;
+            var f = SignatureFamilies(content, run);
+            return f.Count > 0 ? f[0] : SkillFamily.None;
+        }
+
+        /// <summary>The synergies of all the run's signatures, in the order found (several signatures per run).</summary>
+        public static List<SkillFamily> SignatureFamilies(ContentDb content, ActiveRun run)
+        {
+            var list = new List<SkillFamily>();
+            foreach (var id in RunSystem.Signatures(run))
+            {
+                var s = content.Skill(id);
+                if (s != null && !list.Contains(s.Family)) list.Add(s.Family);
+            }
+            return list;
         }
 
         /// <summary>
@@ -128,8 +140,7 @@ namespace RogueStars.Rules.Systems
         public static double OfferWeight(ContentDb content, ActiveRun run, SkillDef s, double rarityWeight)
         {
             double w = run.Skills.Contains(s.Id) ? rarityWeight * content.RunTuning.LevelUpOfferWeight : rarityWeight;
-            var sig = SignatureFamily(content, run);
-            return sig != SkillFamily.None && s.Family == sig ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around the signature
+            return s.Family != SkillFamily.None && SignatureFamilies(content, run).Contains(s.Family) ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around every signature
         }
 
         /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured). Empty if no mythic is left.</summary>
@@ -188,14 +199,27 @@ namespace RogueStars.Rules.Systems
                 if (pick != null) offer.Add(pick.Id);
             }
 
-            // Synergy slot: favour families the worm already owns.
+            // Synergy slot: favour families the worm already owns. With several signatures the slot cycles between their synergies
+            // (draft by draft); a signature synergy is offered there from the first draft.
             {
+                var sigFams = SignatureFamilies(content, run);
+                SkillFamily cycled = SkillFamily.None;
+                if (sigFams.Count > 1)
+                {
+                    int drafts = 0;
+                    foreach (var g in run.Gains) if (g.Source == "draft") drafts++;
+                    cycled = sigFams[drafts % sigFams.Count];
+                    bool any = false;
+                    foreach (var s in pool) if (s.Family == cycled && !offer.Contains(s.Id)) { any = true; break; }
+                    if (!any) cycled = SkillFamily.None;
+                }
                 var cands = new List<SkillDef>(); var w = new List<double>();
                 foreach (var s in pool)
                 {
                     if (offer.Contains(s.Id)) continue;
+                    if (cycled != SkillFamily.None && s.Family != cycled) continue;
                     int owned = FamilyCount(content, run, s.Family);
-                    if (owned <= 0 && (s.Family == SkillFamily.None || s.Family != SignatureFamily(content, run))) continue;
+                    if (owned <= 0 && (s.Family == SkillFamily.None || !sigFams.Contains(s.Family))) continue;
                     cands.Add(s);
                     w.Add(OfferWeight(content, run, s, RarityWeight(content, s.Rarity)) * (1 + t.SynergyWeightPerOwned * owned));
                 }
@@ -230,7 +254,8 @@ namespace RogueStars.Rules.Systems
         public static double PickScore(ContentDb content, ActiveRun run, SkillDef s)
         {
             if (s == null) return double.MinValue;
-            double score = (int)s.Rarity * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
+            // a found signature (a miniboss offer) is worth a Mythic
+            double score = (s.Signature ? (int)Rarity.Mythic : (int)s.Rarity) * 10 + FamilyCount(content, run, s.Family) * 4 + (s.UpgradesFrom != null ? 6 : 0);
             if (run.Skills.Contains(s.Id)) score -= 2 + Level(run, s.Id);
             return score;
         }

@@ -382,6 +382,11 @@ namespace RogueStars.Rules.Content
 
         private void RunBuildEvents()
         {
+            // skill redesign: a rare chance to find another signature (RunSystem.ResonanceEvent; never sold in shops)
+            RunEvent("resonance", "Resonance", "Two signals hum in the dark. Attune to one and your worm learns its signature.", 0, 0.6,
+                RunOpt("Attune to the first signal", "Gain the first signature.", RunOut(1, "A new signature awakens in you.", RunFx(RunEffectKind.GainSignature, 1, "0"))),
+                RunOpt("Attune to the second signal", "Gain the second signature.", RunOut(1, "A new signature awakens in you.", RunFx(RunEffectKind.GainSignature, 1, "1"))),
+                RunOpt("Harvest the signals", "Take " + RunTuning.ResonanceCoins + " coins.", RunOut(1, "The signals fade into coins.", RunFx(RunEffectKind.Coins, RunTuning.ResonanceCoins))));
             RunEvent("unstable_reactor", "Unstable Reactor", "A humming reactor offers raw power, but the boss feeds on the surge.", 1, 3,
                 RunOpt("Absorb the surge", "Gain a skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Common), RunFx(RunEffectKind.BossStatPct, 15))),
                 RunOpt("Walk away", "Nothing happens.", RunNothing));

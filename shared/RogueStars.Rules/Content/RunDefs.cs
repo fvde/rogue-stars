@@ -315,6 +315,8 @@ namespace RogueStars.Rules.Content
         Loot, PendingReward, BossStatPct, Meter, Battle, Xp, Shards, Danger, StrengthenEnemies,
         /// <summary>The boss awakens Value % faster for the rest of the run (negative: slower).</summary>
         AwakenRatePct,
+        /// <summary>Gain the Resonance event's offered signature number Param ("0" / "1", ActiveRun.SignatureChoice).</summary>
+        GainSignature,
     }
 
     /// <summary>One effect of an event outcome. Param meaning depends on Kind (see skill-conventions.md).</summary>
@@ -462,6 +464,12 @@ namespace RogueStars.Rules.Content
         public int[] SignatureAwakenAt = { 3, 6 };
         /// <summary>Offer weight × this for skills of the run's signature synergy (drafts, Mythic choices, shops).</summary>
         public double SignatureFamilyWeight = 1.4;
+        /// <summary>Signatures a run can hold (the start pick plus ones found at minibosses and Resonance events).</summary>
+        public int MaxSignatures = 3;
+        /// <summary>% chance that a miniboss's Mythic choice offers an unowned signature in place of one Mythic.</summary>
+        public double SignatureMythicChancePct = 25;
+        /// <summary>Run coins the Resonance event pays instead of a signature.</summary>
+        public long ResonanceCoins = 120;
         public int XpBankLevels = 2;
         /// <summary>Run coins at run start: the level's cheapest shop skill price + this margin (RunSystem.StartCoins), so the first shop always allows a purchase.</summary>
         public long StartCoinsMargin = 30;

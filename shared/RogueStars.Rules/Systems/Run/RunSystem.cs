@@ -261,7 +261,8 @@ namespace RogueStars.Rules.Systems
             Require(skillId != null && run.DraftOffer.Contains(skillId), "skill not offered");
             var s = ctx.Content.Skill(skillId);
             bool mythic = run.MythicDraft;
-            GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : run.Minigame.DraftOpen ? "minigame" : "draft");
+            if (s != null && s.Signature) AddSignature(ctx, run, skillId, "mythic"); // a miniboss offered a signature in a Mythic's place
+            else GrantSkill(ctx, run, skillId, 0, mythic ? "mythic" : run.Minigame.DraftOpen ? "minigame" : "draft");
             run.Minigame.DraftOpen = false;
             if (mythic) run.PendingMythicDrafts = Math.Max(0, run.PendingMythicDrafts - 1);
             else
@@ -284,6 +285,7 @@ namespace RogueStars.Rules.Systems
             Require(run.DraftRerolls > 0, "no rerolls left");
             run.DraftRerolls--;
             var offer = run.MythicDraft ? RunDraft.GenerateMythic(ctx.Content, run, run.Rng) : RunDraft.Generate(ctx.Content, run, run.Rng);
+            if (run.MythicDraft) MaybeOfferSignature(ctx, run, offer);
             if (offer.Count > 0) { run.DraftOffer.Clear(); run.DraftOffer.AddRange(offer); }
         }
 

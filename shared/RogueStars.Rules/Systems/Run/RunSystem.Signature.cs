@@ -46,14 +46,103 @@ namespace RogueStars.Rules.Systems
             return lv;
         }
 
-        /// <summary>Owned skills of the signature's synergy needed for its next awakening (0 when fully awake or without a signature).</summary>
+        /// <summary>
+        /// The run's signatures in the order found (skill redesign: several per run, at most RunTuning.MaxSignatures). Runs saved
+        /// before keep their single SignatureId.
+        /// </summary>
+        public static List<string> Signatures(ActiveRun run)
+        {
+            var list = new List<string>();
+            if (run == null) return list;
+            if (run.SignatureIds != null && run.SignatureIds.Count > 0) list.AddRange(run.SignatureIds);
+            else if (!string.IsNullOrEmpty(run.SignatureId)) list.Add(run.SignatureId);
+            list.RemoveAll(id => !run.Skills.Contains(id));
+            return list;
+        }
+
+        /// <summary>Owned skills of the run's first signature's synergy needed for its next awakening (0 when fully awake or none).</summary>
         public static int NextAwakeningAt(ContentDb content, ActiveRun run)
         {
-            var s = run?.SignatureId != null ? content.Skill(run.SignatureId) : null;
+            var sigs = Signatures(run);
+            return sigs.Count == 0 ? 0 : NextAwakeningAt(content, run, sigs[0]);
+        }
+
+        /// <summary>Owned skills of this signature's synergy needed for its next awakening (0 when fully awake).</summary>
+        public static int NextAwakeningAt(ContentDb content, ActiveRun run, string signatureId)
+        {
+            var s = signatureId != null ? content.Skill(signatureId) : null;
             if (s == null) return 0;
             int n = RunDraft.FamilyCount(content, run, s.Family);
             foreach (var at in content.RunTuning.SignatureAwakenAt) if (n < at) return at;
             return 0;
+        }
+
+        /// <summary>
+        /// Unowned signatures the run could still find (unlocked synergies, below the cap), each with its offer weight: synergies the
+        /// run already owns skills in are preferred (1 + SynergyWeightPerOwned × owned skills).
+        /// </summary>
+        public static List<string> FindableSignatures(ContentDb content, ActiveRun run, List<double> weights = null)
+        {
+            var list = new List<string>();
+            if (Signatures(run).Count >= content.RunTuning.MaxSignatures) return list;
+            foreach (var id in RunDraft.SortedSkillIds(content))
+            {
+                var s = content.Skills[id];
+                if (!s.Signature || run.Skills.Contains(id) || !RunDraft.FamilyUnlocked(run, s.Family)) continue;
+                list.Add(id);
+                if (weights != null) weights.Add(1 + content.RunTuning.SynergyWeightPerOwned * RunDraft.FamilyCount(content, run, s.Family));
+            }
+            return list;
+        }
+
+        /// <summary>Up to <paramref name="n"/> findable signatures, drawn by weight with the run's stream.</summary>
+        private static List<string> DrawSignatures(ContentDb content, ActiveRun run, int n)
+        {
+            var w = new List<double>();
+            var pool = FindableSignatures(content, run, w);
+            var res = new List<string>();
+            while (res.Count < n && pool.Count > 0)
+            {
+                int i = run.Rng.PickWeighted(w);
+                if (i < 0) break;
+                res.Add(pool[i]);
+                pool.RemoveAt(i); w.RemoveAt(i);
+            }
+            return res;
+        }
+
+        /// <summary>
+        /// A miniboss's Mythic choice: with RunTuning.SignatureMythicChancePct one Mythic is replaced by an unowned signature (the
+        /// last card), while the run holds fewer than MaxSignatures.
+        /// </summary>
+        private static void MaybeOfferSignature(CommandContext ctx, ActiveRun run, List<string> offer)
+        {
+            var c = ctx.Content;
+            if (FindableSignatures(c, run).Count == 0) return;
+            if (!run.Rng.Chance(c.RunTuning.SignatureMythicChancePct / 100.0)) return;
+            var sig = DrawSignatures(c, run, 1);
+            if (sig.Count == 0) return;
+            if (offer.Count >= c.RunTuning.MythicChoices && offer.Count > 0) offer[offer.Count - 1] = sig[0];
+            else offer.Add(sig[0]);
+        }
+
+        /// <summary>Adds a found signature (miniboss choice, Resonance event): it awakens at once if the run already owns enough of its synergy.</summary>
+        private static void AddSignature(CommandContext ctx, ActiveRun run, string id, string source)
+        {
+            var c = ctx.Content;
+            var s = c.Skill(id);
+            Require(s != null && s.Signature, "not a signature");
+            Require(!run.Skills.Contains(id), "signature already owned");
+            Require(Signatures(run).Count < c.RunTuning.MaxSignatures, "signature cap reached");
+            if (run.SignatureIds.Count == 0 && !string.IsNullOrEmpty(run.SignatureId) && run.Skills.Contains(run.SignatureId)) run.SignatureIds.Add(run.SignatureId);
+            if (string.IsNullOrEmpty(run.SignatureId)) run.SignatureId = id;
+            run.SignatureIds.Add(id);
+            run.Skills.Add(id);
+            run.Gains.Add(new RunGain(source, id, 1));
+            ctx.State.Count("run_signature_" + id);
+            ctx.State.Count("run_signatures_found");
+            ctx.Emit("run_signature", id);
+            UpdateSignature(ctx, run);
         }
 
         private static void GrantSignature(CommandContext ctx, ActiveRun run, string requested, List<string> offer)
@@ -62,6 +151,8 @@ namespace RogueStars.Rules.Systems
             string pick = string.IsNullOrEmpty(requested) ? offer[0] : requested;
             Require(offer.Contains(pick), "signature not offered");
             run.SignatureId = pick;
+            run.SignatureIds.Clear();
+            run.SignatureIds.Add(pick);
             run.Skills.Add(pick);
             run.Gains.Add(new RunGain("signature", pick, 1));
             ctx.State.Count("run_signature_" + pick);
@@ -69,17 +160,20 @@ namespace RogueStars.Rules.Systems
             UpdateSignature(ctx, run);
         }
 
-        /// <summary>Re-reads the signature's awakening level after the build changed (a skill gained or lost).</summary>
+        /// <summary>Re-reads every signature's awakening level (each counts its own synergy) after the build changed.</summary>
         private static void UpdateSignature(CommandContext ctx, ActiveRun run)
         {
             var c = ctx.Content;
-            var s = run.SignatureId != null ? c.Skill(run.SignatureId) : null;
-            if (s == null || !run.Skills.Contains(s.Id)) return;
-            int lv = SignatureLevel(c, RunDraft.FamilyCount(c, run, s.Family));
-            int was = RunDraft.Level(run, s.Id);
-            if (lv == was) return;
-            if (lv > 1) run.SkillLevels[s.Id] = lv; else run.SkillLevels.Remove(s.Id);
-            if (lv > was) { ctx.State.Count("run_signature_awakened"); ctx.Emit("run_signature_awakened", s.Id, lv.ToString()); }
+            foreach (var id in Signatures(run))
+            {
+                var s = c.Skill(id);
+                if (s == null) continue;
+                int lv = SignatureLevel(c, RunDraft.FamilyCount(c, run, s.Family));
+                int was = RunDraft.Level(run, s.Id);
+                if (lv == was) continue;
+                if (lv > 1) run.SkillLevels[s.Id] = lv; else run.SkillLevels.Remove(s.Id);
+                if (lv > was) { ctx.State.Count("run_signature_awakened"); ctx.Emit("run_signature_awakened", s.Id, lv.ToString()); }
+            }
         }
     }
 }

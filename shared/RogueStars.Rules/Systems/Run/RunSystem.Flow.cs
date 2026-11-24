@@ -848,6 +848,7 @@ namespace RogueStars.Rules.Systems
         private static void OpenMythicDraft(CommandContext ctx, ActiveRun run)
         {
             var offer = RunDraft.GenerateMythic(ctx.Content, run, run.Rng);
+            MaybeOfferSignature(ctx, run, offer);
             if (offer.Count == 0)
             {
                 run.PendingMythicDrafts--;
@@ -885,12 +886,17 @@ namespace RogueStars.Rules.Systems
         private static bool IsAccountLootEvent(ContentDb c, string eventId) =>
             eventId != null && c.RunEvents.TryGetValue(eventId, out var ev) && ev.GrantsAccountLoot();
 
+        /// <summary>The rare Resonance event: pick 1 of 2 unowned signatures, or take coins (skill redesign, several signatures).</summary>
+        public const string ResonanceEvent = "resonance";
+
         private static string PickRandomEvent(ContentDb c, ActiveRun run)
         {
             bool lootLeft = AccountLootOfferLeft(c, run);
             var w = new double[c.RandomRunEvents.Count];
+            bool sigLeft = FindableSignatures(c, run).Count > 0;
             for (int i = 0; i < w.Length; i++)
-                w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0 : c.RandomRunEvents[i].Weight;
+                w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0
+                    : !sigLeft && c.RandomRunEvents[i].Id == ResonanceEvent ? 0 : c.RandomRunEvents[i].Weight;
             int idx = run.Rng.PickWeighted(w);
             return idx < 0 ? null : c.RandomRunEvents[idx].Id;
         }
@@ -923,6 +929,13 @@ namespace RogueStars.Rules.Systems
                 run.AccountLootOffers++;
                 if (!AccountLootOfferLeft(c, run)) RetireTreasures(c, run);
             }
+            if (eventId == ResonanceEvent)
+            {
+                // Resonance: two unowned signatures (or coins); without any to find it is an empty site
+                run.SignatureChoice.Clear();
+                run.SignatureChoice.AddRange(DrawSignatures(c, run, 2));
+                if (run.SignatureChoice.Count == 0) { Consume(c, run, tile, TileDefOf(c, tile)); return; }
+            }
             run.Phase = RunPhase.Event;
             run.EventId = eventId;
             run.EventTile = tile.Id;
@@ -939,6 +952,10 @@ namespace RogueStars.Rules.Systems
             Require(index >= 0 && index < ev.Options.Count, "invalid option");
             var opt = ev.Options[index];
             Require(CanAffordOption(run, opt), "cannot afford this option");
+            foreach (var oc in opt.Outcomes)
+                foreach (var fx in oc.Effects)
+                    if (fx.Kind == RunEffectKind.GainSignature)
+                        Require(int.TryParse(fx.Param, out var si) && si >= 0 && si < run.SignatureChoice.Count, "no such signature offered");
             var before = Snap.Of(run);
             run.Coins -= opt.CoinCost;
             run.Shards -= opt.ShardCost;
@@ -1023,10 +1040,19 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.StatPercent: run.RunStats.Add(StatMod.Bonus(e.Stat, e.Value)); RefreshMaxHp(c, run); break;
                     case RunEffectKind.GainSkill: GrantRandomSkill(ctx, run, e.MinRarity, 0, "event"); break;
                     case RunEffectKind.GainSpecificSkill: GrantSkill(ctx, run, e.Param, 0, "event"); break;
+                    case RunEffectKind.GainSignature:
+                    {
+                        int.TryParse(e.Param, out var si);
+                        if (si >= 0 && si < run.SignatureChoice.Count && !run.Skills.Contains(run.SignatureChoice[si])
+                            && Signatures(run).Count < c.RunTuning.MaxSignatures) AddSignature(ctx, run, run.SignatureChoice[si], "event");
+                        run.SignatureChoice.Clear();
+                        break;
+                    }
                     case RunEffectKind.UpgradeSkill: UpgradeRandomSkill(ctx, run); break;
                     case RunEffectKind.LoseRandomSkill:
                     {
-                        var losable = run.Skills.FindAll(id => id != run.SignatureId); // the signature is the run's identity: never lost
+                        var sigs = Signatures(run);
+                        var losable = run.Skills.FindAll(id => !sigs.Contains(id) && (c.Skill(id) == null || !c.Skill(id).Signature)); // signatures are never lost
                         if (losable.Count > 0)
                         {
                             string lost = losable[run.Rng.Range(0, losable.Count)];
