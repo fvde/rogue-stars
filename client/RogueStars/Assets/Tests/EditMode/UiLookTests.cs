@@ -244,7 +244,7 @@ namespace RogueStars.Client.Tests
                 var root = (RectTransform)FindNamed(screen.Root, "Fighter:" + f.Index);
                 var side = f.Side == BattleSide.Player ? players : enemies;
                 Assert.That(root.anchoredPosition, Is.EqualTo(BattlePlaybackScreen.StagePosition(f.Side, side.IndexOf(f), side.Count)), f.Name + " back home");
-                Assert.That(((RectTransform)root.Find("Sprite")).anchoredPosition, Is.EqualTo(new Vector2(0, 46)));
+                Assert.That(((RectTransform)root.Find("Sprite")).anchoredPosition, Is.EqualTo(new Vector2(0, BattlePlaybackScreen.SpriteBase)));
                 if (!f.Alive && f.SummonedBy < 0) Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.LessThan(0.5f), f.Name + " faded out");
             }
             Assert.That(FindNamed(screen.Root, "Popup"), Is.Null);

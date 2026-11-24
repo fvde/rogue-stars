@@ -1298,115 +1298,119 @@ namespace RogueStars.Client.Screens
             return parts.Count == 0 ? "no skills yet" : string.Join(" · ", parts);
         }
 
+        /// <summary>Scale of the modal layer against the 1080-px reference width.</summary>
+        private float ModalScale()
+        {
+            float w = App.ModalLayer is RectTransform rt ? rt.rect.width : 0;
+            return (w > 100 ? w : 1080) / 1080f;
+        }
+
+        /// <summary>
+        /// The level-up draft (reference 2): the board dimmed behind, the hero large at the top, the gold "LEVEL UP!" ribbon
+        /// (red "MYTHIC!" after a miniboss), "Select a Skill to learn!", one card per offered skill (tier tag, framed icon,
+        /// name ribbon, cream panel with coloured keywords, "?" for the full text) and the purple reroll button.
+        /// </summary>
         private UiModal DraftModal(ActiveRun run)
         {
             var owned = new HashSet<SkillFamily>();
             foreach (var id in RunSystem.ActiveSkillIds(run)) owned.Add(Content.Skill(id)?.Family ?? SkillFamily.None);
             bool mythic = run.MythicDraft;
-            var mythicColor = Theme.RarityColor(Rarity.Mythic);
-            return Ui.Sheet(App.ModalLayer, mythic ? "Mythic choice" : "Choose a skill", mythic ? Theme.Hex(0x2A0E12) : Theme.Hex(0x16122E), mythic ? mythicColor : Theme.Hex(0x5A4FB0), (box, modal) =>
+            float s = ModalScale();
+            var root = SliceCards.Overlay(App.ModalLayer, mythic ? "Mythic choice" : "Choose a skill", out var modal);
+            SliceCards.Header(root, s, mythic ? SliceCards.RedRibbon : SliceCards.GoldRibbon, mythic ? "MYTHIC!" : "LEVEL UP!", mythic ? "MythicTitle" : "Title",
+                mythic ? "Miniboss defeated! Take a Mythic skill" : "Select a Skill to learn!");
+            if (mythic) UiPulse.On(root.Find("Ribbon").GetComponent<Image>(), 0.03f, 1.4f, 1f);
+            int n = Math.Max(1, run.DraftOffer.Count);
+            float step = Mathf.Min(287, 900f / n), y = 1050;
+            foreach (var id in run.DraftOffer)
             {
-                if (mythic)
+                string sid = id;
+                var sk = Content.Skill(sid);
+                var fam = sk?.Family ?? SkillFamily.None;
+                var rarity = sk?.Rarity ?? Rarity.Common;
+                int ownedLevel = RunDraft.Level(run, sid);
+                string full = ownedLevel > 0 && sk != null ? SkillText.Full(Content, sk, ownedLevel + 1) : Fmt.SkillFull(sk);
+                if (sk?.UpgradesFrom != null && ownedLevel == 0) full += " Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom) + ".";
+                var spec = new SkillCardSpec
                 {
-                    var banner = Ui.Display(box, "MYTHIC!", 84, mythicColor, TextAnchor.MiddleCenter, "MythicTitle");
-                    UiPulse.On(banner, 0.04f, 1.4f, 0.4f);
-                    Ui.Label(box, "Miniboss defeated — take 1 of " + run.DraftOffer.Count + " Mythic skills · your build: " + BuildSummary(run), Theme.FontSmall, Theme.Hex(0xFFC9C2), TextAnchor.MiddleCenter);
-                }
-                else
-                {
-                    Ui.Display(box, "NEW SKILL!", 76, Theme.Gold, TextAnchor.MiddleCenter, "Title");
-                    Ui.Label(box, "Choose 1 of " + run.DraftOffer.Count + " · your build: " + BuildSummary(run), Theme.FontSmall, Theme.Hex(0xC9C2F5), TextAnchor.MiddleCenter);
-                }
-                foreach (var id in run.DraftOffer)
-                {
-                    string sid = id;
-                    var s = Content.Skill(sid);
-                    var fam = s?.Family ?? SkillFamily.None;
-                    var rarity = s?.Rarity ?? Rarity.Common;
-                    var rarColor = RunPresentation.SkillColor(s); // cards are coloured by rarity; the family is a small tag
-                    var btn = Ui.CardButton(box, "Button:Pick", Theme.Tint(rarColor, 0.22f), rarColor,
-                        () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, out var card, 40, 24, 8);
-                    var row = Ui.Row(card, -1, 22, null, 0, "Draft:" + sid);
-                    row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-                    row.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
-                    var icon = Ui.RoundPanel(row, rarColor, 30, "Icon");
-                    Ui.Size(icon, 130, 130, 0);
-                    var letter = Ui.Display(icon.transform, fam == SkillFamily.None ? "★" : fam.ToString().Substring(0, 1), 64, Theme.TextOn(rarColor), TextAnchor.MiddleCenter);
-                    Ui.Stretch(letter.rectTransform);
-                    FamilyTag(icon.rectTransform, fam);
-                    var text = Ui.Column(row, 4, 0, null, "Text");
-                    Ui.Size(text, -1, -1, 1);
-                    var tags = Ui.ChipRow(text, 40, 8);
-                    var cap = Ui.Label(tags, rarity.ToString().ToUpperInvariant() + (fam == SkillFamily.None ? "" : " · " + fam.ToString().ToUpperInvariant()), 22, Color.Lerp(rarColor, Color.white, 0.35f));
-                    cap.fontStyle = FontStyle.Bold;
-                    Ui.Size(cap, -1, -1, 0);
-                    cap.horizontalOverflow = HorizontalWrapMode.Overflow;
-                    int ownedLevel = RunDraft.Level(run, sid);
-                    if (ownedLevel > 0) Ui.Chip(tags, "LEVEL " + ownedLevel + " → " + (ownedLevel + 1) + "/" + Content.RunTuning.MaxSkillLevelOf(rarity), Theme.Hex(0x9CF0B5), Theme.Hex(0x0B2A16), 18, 34).name = "LevelUpChip";
-                    else if (s?.UpgradesFrom != null) Ui.Chip(tags, "UPGRADE", Theme.Hex(0xD6C2FF), Theme.Hex(0x1D0B33), 18, 34);
-                    else if (fam != SkillFamily.None && owned.Contains(fam)) Ui.Chip(tags, "SYNERGY", Theme.Gold, Theme.OnAccent, 18, 34);
-                    Ui.Chip(tags, rarity.ToString(), Theme.Tint(rarColor, 0.4f), rarColor, 18, 34, rarColor);
-                    Ui.Display(text, s?.Name ?? sid, 40, Theme.Text);
-                    // a level-up offer shows the numbers it will have (the skill's own effect grows)
-                    string full = ownedLevel > 0 && s != null ? SkillText.Full(Content, s, ownedLevel + 1) : Fmt.SkillFull(s);
-                    if (!string.IsNullOrEmpty(full)) Ui.Label(text, full, 24, Color.Lerp(rarColor, Color.white, 0.7f)).name = "SkillText";
-                    if (s?.UpgradesFrom != null && ownedLevel == 0) Ui.Label(text, "Upgrades " + (Content.Skill(s.UpgradesFrom)?.Name ?? s.UpgradesFrom), 22, Theme.Good);
-                    if (ownedLevel > 0) Ui.Label(text, LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
-                }
-                var reroll = Ui.Button(box, "Reroll (" + run.DraftRerolls + " left)", () => Run(new RunDraftReroll()), new Color(0, 0, 0, 0), -1, 84, run.DraftRerolls > 0, 30);
-                UiShapes.Outline((RectTransform)reroll.transform, Theme.Hex(0x5A4FB0), Theme.RadiusButton, 4);
-                reroll.GetComponentInChildren<Text>().color = Theme.Hex(0xE6DBFF);
-            });
+                    Id = sid, Tier = RunTuning.RunTier(rarity).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = fam,
+                    IconArt = ArtCatalog.SkillIcon(sid),
+                    Title = ownedLevel > 0 && sk != null ? SkillText.Title(Content, sk, ownedLevel + 1) : sk?.Name ?? sid,
+                    Body = full,
+                };
+                if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
+                else if (sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
+                else if (fam != SkillFamily.None && owned.Contains(fam)) { spec.Chip = "SYNERGY"; spec.ChipName = "SynergyChip"; spec.ChipColor = Theme.Gold; }
+                string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + fam : "") + "): " + full + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
+                SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info));
+                y += step;
+            }
+            SliceCards.Reroll(root, s, "Reroll (" + run.DraftRerolls + ")", () => Run(new RunDraftReroll()), run.DraftRerolls > 0);
+            UiTween.PopIn(root, 0.15f);
+            return modal;
         }
 
+        /// <summary>
+        /// The shop in the same card family: blue "SHOP" ribbon, the coins line, one compact card per offer (skills by tier,
+        /// heals and stat perks green) with its price button, reroll and leave. Buying keeps it open (<see cref="RefreshShop"/>).
+        /// </summary>
         private UiModal ShopModal(ActiveRun run)
         {
             var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
             long reroll = table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
             _shopButtons.Clear();
-            return Modal("Shop", b =>
+            float s = ModalScale();
+            var root = SliceCards.Overlay(App.ModalLayer, "Shop", out var modal);
+            SliceCards.Header(root, s, SliceCards.BlueRibbon, "SHOP", "Title", null, 0, 300);
+            _shopCoins = SliceKit.Chunky(root, run.Coins + " coins · " + run.ShopBuys + " bought this run", (int)(42 * s), new Color32(0xFF, 0xE0, 0x6A, 255), TextAnchor.MiddleCenter, "ShopCoins");
+            SliceKit.Place(_shopCoins.rectTransform, s, 540, 405, 1000, 60);
+            int n = Math.Max(1, run.Shop.Count);
+            float h = Mathf.Min(200, 1460f / n - 12), y = 470 + h / 2;
+            for (int i = 0; i < run.Shop.Count; i++)
             {
-                _shopCoins = Ui.Label(b, run.Coins + " coins · " + run.ShopBuys + " bought this run", Theme.FontNormal, Theme.Gold, TextAnchor.MiddleCenter, "ShopCoins");
-                for (int i = 0; i < run.Shop.Count; i++)
+                int index = i;
+                var o = run.Shop[i];
+                bool skill = o.Kind == ShopOfferKind.Skill;
+                var sk = skill ? Content.Skill(o.SkillId) : null;
+                string what = skill ? (sk?.Name ?? o.SkillId)
+                    : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
+                    : o.Stat != null ? SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
+                int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
+                string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.Full(Content, sk, ownedLv + 1) : Fmt.SkillFull(sk))
+                    : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
+                    : "Raises the stat for the rest of this run.";
+                var spec = new SkillCardSpec
                 {
-                    int index = i;
-                    var o = run.Shop[i];
-                    bool skill = o.Kind == ShopOfferKind.Skill;
-                    var sk = skill ? Content.Skill(o.SkillId) : null;
-                    string what = skill ? (sk?.Name ?? o.SkillId)
-                        : o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value)
-                        : o.Stat != null ? RogueStars.Rules.Core.SkillText.Stat(o.Stat) ?? "+stat" : "+stat";
-                    var color = skill ? RunPresentation.SkillColor(sk) : Theme.Good; // skills by rarity
-                    var row = Ui.Row(b, -1, 14, o.Sold ? Theme.PanelAlt : Theme.Tint(color, 0.16f), 20, "Offer");
-                    var rl = row.GetComponent<HorizontalLayoutGroup>();
-                    rl.childAlignment = TextAnchor.MiddleLeft; rl.childForceExpandHeight = false;
-                    rl.padding = new RectOffset(20, 20, 16, 16);
-                    UiShapes.Outline(row, o.Sold ? Theme.Border : Theme.Shade(color, 0.8f), Theme.RadiusButton, 3);
-                    var icon = Ui.RoundPanel(row, o.Sold ? Theme.Locked : color, 18, "Icon");
-                    Ui.Size(icon, 64, 64, 0);
-                    if (skill && sk != null) FamilyTag(icon.rectTransform, sk.Family);
-                    var words = Ui.Column(row, 0, 0, null, "Words");
-                    Ui.Size(words, -1, -1, 1);
-                    words.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
-                    // the offer's name is its own text (the tests look the buy button up by the name next to it)
-                    Ui.Label(words, what, Theme.FontNormal, o.Sold ? Theme.TextFaint : Theme.Text).fontStyle = FontStyle.Bold;
-                    if (skill && sk != null) Ui.Label(words, sk.Rarity + (sk.Family != SkillFamily.None ? " · " + sk.Family : ""), 22, RunPresentation.SkillColor(sk)).name = "OfferRarity";
-                    // Full text: what the offer actually does (a skill name alone means nothing to a new player); a level-up
-                    // offer shows its next level's numbers.
-                    int ownedLv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                    string detail = skill ? (ownedLv > 0 && sk != null ? SkillText.Full(Content, sk, ownedLv + 1) : Fmt.SkillFull(sk))
-                        : o.Kind == ShopOfferKind.Heal ? "Restores " + Fmt.Pct(o.Value) + " of your max HP now."
-                        : "Raises the stat for the rest of this run.";
-                    if (!string.IsNullOrEmpty(detail)) Ui.Label(words, detail, 24, o.Sold ? Theme.TextFaint : Color.Lerp(color, Color.white, 0.7f)).name = "OfferText";
-                    int lv = skill ? RunDraft.Level(run, o.SkillId) : 0;
-                    if (lv > 0) Ui.Label(words, "LEVEL " + lv + " → " + (lv + 1) + "/" + Content.RunTuning.MaxSkillLevelOf(sk?.Rarity ?? Rarity.Common) + " · " + LevelUpText(Content), 22, Theme.Good).name = "LevelUpText";
-                    else if (skill && sk?.UpgradesFrom != null) Ui.Label(words, "Upgrades " + (Content.Skill(sk.UpgradesFrom)?.Name ?? sk.UpgradesFrom), 22, Theme.Good);
-                    var buy = Ui.Button(row, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), Theme.Gold, 220, 76, !o.Sold && run.Coins >= o.Price, 28);
-                    _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
-                }
-            },
-            new ModalButton("Reroll (" + reroll + ")", () => Run(new RunShopReroll()), Theme.Button),
-            new ModalButton("Leave", () => Run(new RunShopLeave()), Theme.Accent));
+                    Id = o.SkillId ?? ("perk" + i), Tier = skill ? RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString() : o.Kind == ShopOfferKind.Heal ? "Heal" : "Perk",
+                    TierColor = skill ? RunPresentation.SkillColor(sk) : Theme.Good, Family = sk?.Family ?? SkillFamily.None,
+                    IconArt = skill ? ArtCatalog.SkillIcon(o.SkillId) : HudArt.Icon(o.Kind == ShopOfferKind.Heal ? "heart" : "sword"),
+                    Title = ownedLv > 0 && sk != null ? SkillText.Title(Content, sk, ownedLv + 1) : what, Body = detail, Dim = o.Sold,
+                };
+                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
+                var card = SliceCards.Card(root, s, y, spec, null, null, "Offer", h, "Words");
+                // the offer's name is its own text (the tests look the buy button up by the name next to it)
+                var nameText = card.Find("Words/SkillName")?.GetComponent<Text>();
+                if (nameText != null) nameText.text = spec.Title;
+                var words = card.Find("Words") as RectTransform;
+                var body = words != null ? words.Find("SkillText") as RectTransform : null;
+                if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
+                var buy = Ui.Button(card, o.Sold ? "Sold" : o.Price + " coins", () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), Theme.Gold, 210 * s, 84 * s, !o.Sold && run.Coins >= o.Price, (int)(32 * s));
+                var bt = (RectTransform)buy.transform;
+                bt.anchorMin = bt.anchorMax = new Vector2(1, 0);
+                bt.pivot = new Vector2(1, 0);
+                bt.sizeDelta = new Vector2(210 * s, 84 * s);
+                bt.anchoredPosition = new Vector2(-24 * s, 20 * s);
+                UiShapes.Outline(bt, IsoArt.Ink, Theme.RadiusButton, 4);
+                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
+                y += h + 12;
+            }
+            var rr = SliceCards.Reroll(root, s, "Reroll (" + reroll + ")", () => Run(new RunShopReroll()), true, 2086, "Button:Reroll (" + reroll + ")");
+            ((RectTransform)rr.transform).anchoredPosition = new Vector2(300 * s, ((RectTransform)rr.transform).anchoredPosition.y);
+            var leave = Ui.Button(root, "Leave", () => { modal.Close(); Run(new RunShopLeave()); }, Theme.Accent, 320 * s, 170 * s, true, (int)(58 * s));
+            SliceKit.Place((RectTransform)leave.transform, s, 780, 2086, 320, 170, true);
+            UiShapes.Outline((RectTransform)leave.transform, IsoArt.Ink, Theme.RadiusButton, 6);
+            UiTween.PopIn(root, 0.15f);
+            return modal;
         }
 
         private UiModal ReviveModal(ActiveRun run)

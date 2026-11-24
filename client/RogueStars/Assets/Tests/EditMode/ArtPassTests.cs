@@ -271,6 +271,24 @@ namespace RogueStars.Client.Tests
 
         // ---- ground ----
 
+        [Test]
+        public void Importer_SliceArt_OnlyTheOwnersPicks_ToTheArtCatalogKeys()
+        {
+            var picks = ArtImportRules.ReadPicks("{ \"slice-markers/enemy\": \"C_s1301.png\", \"slice-texture/tile_top_moss\" : \"T_s7.png\", \"slice-skills/fire_kindle\": \"C_s2.png\", \"nope/x\": \"a.png\" }");
+            Assert.That(picks.Count, Is.EqualTo(4));
+            var plan = ArtImportRules.PlanSlice("/assets", picks);
+            Assert.That(plan.Count, Is.EqualTo(3), "unknown categories are ignored");
+            var enemy = plan.Find(i => i.Id == "slice-markers/enemy");
+            Assert.That(enemy.Dest, Is.EqualTo("Art/Slice/Markers/enemy.png"));
+            Assert.That(enemy.Source.Replace('\\', '/'), Is.EqualTo("/assets/slice-markers/enemy/C_s1301.png"));
+            Assert.That(enemy.Trim, Is.True);
+            var tex = plan.Find(i => i.Id == "slice-texture/tile_top_moss");
+            Assert.That(tex.Dest, Is.EqualTo("Art/Slice/Textures/tile_top_moss.png"));
+            Assert.That(tex.Trim, Is.False, "full-frame textures keep their frame");
+            Assert.That(plan.Find(i => i.Id == "slice-skills/fire_kindle").Dest, Is.EqualTo("Art/Skills/fire_kindle.png"));
+            Assert.That(ArtImportRules.PlanSlice("/assets", null), Is.Empty);
+        }
+
         // The board's ground and props are the world board's now (IsoBoardTests).
     }
 }

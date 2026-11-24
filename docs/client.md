@@ -258,6 +258,66 @@ tabs; procedural sprites, wireframe palette) are in `Ui/HubKit.cs`; `UiScreen.He
 screen's fixed bottom bar (`UiScreen.FooterHeight`/`ReserveToastStrip`): the Run screen keeps that strip free between
 the board and its ROLL bar, so toasts never cover the board.
 
+## Vertical slice: iso board, slice HUD, card family, battle (branch `iso-slice`)
+
+The run, the level-up draft and the battle follow three owner-supplied layout references (not in the repo). What replaced
+design A (the board, tray and footer described in *Screens* above are superseded where this section differs):
+
+- **Rules grid** (`RunBoard.GridLayout`): every tile sits on an iso grid cell (`RunTile.PosX/PosY` whole numbers, `Dir`
+  0/90/180/−90 = the heading it is entered with, `Height` 0/1 = raised sections; neighbours differ by ≤ 1 = a step).
+  Shapes: straight runs with right-angle turns, hairpins (out 3, across 3, back 3, on 2) and forks as rectangles whose
+  arms run around the box from the fork tile to the join on the opposite corner (arm lengths share parity, so the
+  rules nudge arm A by one toward arm B when they differ). Loops and hairpins leave **set-piece slots**
+  (`ActiveRun.SetPieces`: `RunSetPiece` X/Y/W/H, `Shape` loop/hairpin) that no tile ever takes. Invariant: the open end
+  is the only tile in its up-quadrant {x ≥ head.x, y ≥ head.y}, every shape stays inside it, so cells never repeat even
+  across appended segments. Screen band: `RunTuning.GridBand` (8) on `PosX − PosY`. Tests: `GridLayoutTests`.
+- **World board** (`World/WorldBoard`): SpriteRenderers on layer 30, far from the scene origin, an orthographic
+  `BoardCamera` rendering into a RenderTexture shown by the `BoardView` RawImage under the HUD (renders only in play mode
+  on a real GPU). `Iso` = projection (step 0.84 × 0.58 world units, a ~1.45 : 1 dimetric matching the references;
+  1 unit = 100 px of a 1080-px-wide screen) and painter's order (`Iso.Order`: larger x + y first). Drawn: tiles in a depth
+  window around the worm (22 behind, 46 ahead; only trail + arena once the arena opens), each a `Block` (slab sides +
+  platform wall with the glyph trim, taller when raised) and a `Top` (face colour per kind, engraving: boost chevrons,
+  event "?", hazard spikes, curse chevrons backwards), the kind's **marker** prop standing on it (`IsoArt.MarkerOf`:
+  enemy, elite, miniboss, boss, event, mystery = item, chest, rest = campfire, shop, minigame, portal = start, reward =
+  loot/shard; hidden under the worm; beaten enemies / taken pickups leave on landing), set pieces on slot floors
+  (`WorldBoard.SetPieceFor`: loops get the portal well / spire / mushroom, hairpins the standing ones), scatter props on
+  free cells up to 4 cells out, "!" over the next 3 notable tiles ahead, the worm (hero sprite, 1.35 units tall).
+  Landed tiles: the top takes `WorldBoard.LandedTint(accent)` (landed-only colouring kept). Hops, dice, landing pop,
+  popups and the follow camera (2D now, `RunFx.CameraStep` per axis, `CameraLead`) are ported; fork tap targets
+  (`BranchPick:A/B`, `BranchOption:A/B`) and rings are uGUI pins kept over their tiles every frame.
+- **HUD** (`Screens/SliceHud`): EXP hexagon + level pill with the XP fill, HP pill (heart), ATK (sword) and DEF (shield)
+  pills, cog = pause (pending loot is in the pause sheet), coin chip; the boss rail down the left edge (boss skull, a
+  skull pip per clock miniboss, fill blue → red with the awakening, dice icon and "n/N"). Bottom: the dice button on its
+  pedestal (`RollButton`: tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption`; the last
+  roll's dice printed on it), `SpeedChip` (board animations ×1/×2/×3, `RunScreen.BoardSpeed`), `AutoPickToggle`, the
+  skills book (`SkillsButton`, count badge `SkillCount`). No skill tray, no footer, no Loot / AUTO buttons. Chunky text:
+  `SliceKit.Chunky` (Fredoka, white, double dark outline + drop).
+- **Cards** (`Screens/SliceCards`): the draft is a full-screen overlay over the dimmed board: hero, gold "LEVEL UP!"
+  ribbon (red "MYTHIC!" after a miniboss), "Select a Skill to learn!", one card per offer (tier tag, framed icon tile in
+  the tier colour, name ribbon, cream panel with `SliceCards.Keywords` colouring numbers green and statuses / stats blue,
+  a chip for LEVEL n → n+1 / UPGRADE / SYNERGY, "?" = full text toast), purple "Reroll (n)". The shop uses the same cards
+  (blue "SHOP" ribbon, price button per card, Reroll / Leave).
+- **Battle** (`BattlePlaybackScreen`): top ~62% the arena (3/4 top-down floor `HudArt.Arena`, or the slice-battle art)
+  with big fighters (worm 390, enemies 300 px), HP / shield / rage bars under each, status icons with stack counts, the
+  slice HUD with the worm's live HP, "Round n/N", `SkipButton`; huge outlined damage numbers; EXP gems and coins burst
+  from a beaten enemy to the HUD. Bottom: a 5-column grid of tier-framed skill icons without labels (`Slot:<id>`, 15
+  tiles, then "+N"); fires pop their tile as before (`SkillFireQueue`). Speed chips `Speed1..3`, `ContinueButton`, `Log`.
+- **Art keys** (`ArtCatalog`, every one falls back to a code-drawn placeholder in `World/IsoArt` / `World/HudArt`):
+  `Art/Slice/Markers/<id>` (enemy, elite, miniboss, boss, event, mystery, chest, rest, shop, minigame, portal, reward),
+  `Art/Slice/SetPieces/<id>` (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound,
+  time_clock, alien_tree), `Art/Slice/Scatter/<id>` (rock_small, rock_pile, bush, flowers, fern, pebble_glow, stump,
+  crystal_small, mushrooms, barrel, antenna, bones), `Art/Slice/Hud/<id>` (dice, pedestal, heart, sword, shield, coin,
+  exp, cog, skull, book, speed, reroll, boss_rail_top), `Art/Slice/Textures/<id>` (tile_top_moss — multiplied into tile
+  tops, imported readable; tile_side_rock; ground_meadow = the tiled ground), `Art/Slice/Battle/<id>` (battle_meadow;
+  battle_meadow_ruins), `Art/Skills/<skill id>` (draft cards, battle grid). Import: put the owner's picks in
+  `tools/art/slice-picks.json` (`{"slice-markers/enemy": "C_s1301.png", …}`, files under `~/AI/assets/<category>/<id>/`)
+  and run `Tools/Art/Import Generated Art` / `ArtImporter.ImportCli` (`ArtImportRules.PlanSlice`; props and icons are
+  trimmed, textures and arenas kept full-frame). Nothing is auto-picked for the slice.
+- **Captures**: `SliceShowcaseTests` (**Explicit**) renders `s1_board_start`, `s1_board_mid`, `s2_levelup`, `s3_battle`,
+  `s3_battle_later` at 1080×2400 into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/slice/`).
+  Tests: `IsoBoardTests` (projection, faces/markers, ArtCatalog swaps, world contents, landing, dice caption), the run /
+  battle tests updated to the slice names.
+
 ## Run mini-games (GDD §3.6)
 A GAME tile (`RunPhase.Minigame`) opens `MinigameHost` as the run screen's decision (`RunScreen.ShowDecision`): it sends
 `RunMinigameStart` (the rules pick the game, seed and reward type), shows the title, the one-line instruction

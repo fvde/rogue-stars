@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -64,8 +65,10 @@ namespace RogueStars.Client.Screens
         private int _popupSeq;
 
         /// <summary>Stage height and fighter card size (canvas units).</summary>
-        public const float StageH = 760;
-        public static readonly Vector2 ViewSize = new Vector2(320, 280);
+        public const float StageH = 1060;
+        public static readonly Vector2 ViewSize = new Vector2(360, 500);
+        /// <summary>Height of a fighter's feet over its card's bottom (the bars and statuses sit under it).</summary>
+        public const float SpriteBase = 96;
 
         /// <summary>Skip mode: no animations, the whole log is applied on the next frame and auto playbacks close at once.</summary>
         public static bool Instant;
@@ -74,7 +77,6 @@ namespace RogueStars.Client.Screens
 
         // ---- design A: top strip + skill strip ----
         private BattleHudContext _ctx;
-        private RunHudStrip _strip;
         private readonly SkillFireQueue _fires = new SkillFireQueue();
         private readonly Dictionary<string, RectTransform> _skillTiles = new Dictionary<string, RectTransform>();
         private readonly Dictionary<string, int> _fireCounts = new Dictionary<string, int>();
@@ -99,7 +101,6 @@ namespace RogueStars.Client.Screens
         /// <summary>No app header: the run's top strip (skip button, worm HP / ATK / DEF / level) is the header (design A).</summary>
         public override float HeaderHeight => 0;
         public override bool CoversResourceBar => true;
-        public override float FooterHeight => FooterPadTop + FooterPadBottom + StripTileSize + 34;
         /// <summary>How often a skill fired so far (tests).</summary>
         public int FireCount(string skillId) => _fireCounts.TryGetValue(skillId, out var n) ? n : 0;
         /// <summary>The skill-fire queue of the strip (tests: what plays / waits on a tile).</summary>
@@ -107,7 +108,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Seconds one skill fire plays on its tile at the current speed.</summary>
         public float FireSeconds => Mathf.Max(0.3f, 0.9f / _speed / Mathf.Max(0.01f, TimeScale));
         /// <summary>The top strip as text (tests).</summary>
-        public string HudText => _strip?.Summary;
+        public string HudText => _hud?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
         /// <summary>Opened by auto mode: pops itself shortly after the fight; otherwise it waits for Continue.</summary>
         public bool AutoClose => _autoClose;
@@ -130,42 +131,30 @@ namespace RogueStars.Client.Screens
             _built = true;
             if (_battle == null) { Note(body, "No battle to show."); return; }
             var bl = body.GetComponent<VerticalLayoutGroup>();
-            if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 24); bl.spacing = 14; }
+            if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 0); bl.spacing = 0; }
             _ctx = _ctx ?? BattleHudContext.FromRun(State?.Run.Active, Content);
-            _strip = RunHudStrip.Build(body, ">>", "SkipButton", Close, null, _ctx.Coins >= 0);
-            if (_strip.Coins != null) _strip.Coins.text = Fmt.Num(_ctx.Coins);
-            body = Ui.Column(body, 14, 0, null, "BattleBody");
-            body.GetComponent<VerticalLayoutGroup>().padding = new RectOffset(24, 24, 0, 0);
-            var top = Ui.Row(body, 84, 10);
-            _round = Ui.Display(top, "Round 1 / " + _battle.Rounds, Theme.FontLarge, Theme.Text);
-            bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
-            for (int s = 1; s <= 3; s++)
-            {
-                int sp = s;
-                bool allowed = s < 3 || x3;
-                var b = Ui.Button(top, "×" + s + (allowed ? "" : "\n<size=18>PASS</size>"), () => { _speed = sp; RecolorSpeed(); }, _speed == s ? Theme.Accent : Theme.Track, 120, 76, allowed, 30);
-                b.name = "Speed" + s;
-                if (!allowed) UiShapes.Outline((RectTransform)b.transform, Theme.Border, Theme.RadiusButton, 3);
-                _speedButtons.Add(b);
-            }
+            float frameH = BodyFrame != null && BodyFrame.rect.height > 100 ? BodyFrame.rect.height : 1920;
+            float frameW = BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width : 1080;
+            float s = frameW / 1080f;
+            _scale = s;
+            var holder = Ui.Rect(body, "BattleHolder");
+            Ui.Size(holder, -1, frameH);
+            _holder = holder;
 
-            // turn order: who acts next
-            _order = Ui.Row(body, 56, 10, null, 0, "TurnOrder");
-            _order.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
-
-            // the stage
-            var frame = Ui.RoundPanel(body, Theme.Hex(0x26121A), 40, "Stage");
-            Ui.Size(frame, -1, StageH);
-            var ground = Ui.RoundPanel(frame.transform, Theme.Hex(0x1A0E0A), 40, "Ground");
-            ground.raycastTarget = false;
-            var grt = ground.rectTransform;
-            grt.anchorMin = Vector2.zero; grt.anchorMax = new Vector2(1, 0.3f);
-            grt.offsetMin = grt.offsetMax = Vector2.zero;
-            var horizon = Ui.Panel(frame.transform, Theme.Hex(0x3A1A14), "Horizon");
-            horizon.raycastTarget = false;
-            horizon.rectTransform.anchorMin = new Vector2(0, 0.3f); horizon.rectTransform.anchorMax = new Vector2(1, 0.3f);
-            horizon.rectTransform.sizeDelta = new Vector2(-40, 6);
-            _stage = Ui.Stretch(Ui.Rect(frame.transform, "Fighters"));
+            // the arena (top ~62%): a 3/4 top-down biome floor, big fighters, enemies right, the worm and its companions left
+            float arenaRefH = 1480;
+            var arena = Ui.Panel(holder, Color.white, "Arena");
+            arena.sprite = ArtCatalog.SliceBattle("battle_meadow") ?? HudArt.Arena();
+            arena.raycastTarget = false;
+            arena.rectTransform.anchorMin = new Vector2(0, 1); arena.rectTransform.anchorMax = new Vector2(1, 1);
+            arena.rectTransform.pivot = new Vector2(0.5f, 1);
+            arena.rectTransform.sizeDelta = new Vector2(0, arenaRefH * s); arena.rectTransform.anchoredPosition = Vector2.zero;
+            _stage = Ui.Rect(holder, "Fighters");
+            _stage.anchorMin = new Vector2(0.5f, 1); _stage.anchorMax = new Vector2(0.5f, 1);
+            _stage.pivot = new Vector2(0.5f, 0.5f);
+            _stage.sizeDelta = new Vector2(1080, StageH);
+            _stage.localScale = Vector3.one * s;
+            _stage.anchoredPosition = new Vector2(0, -(320 + StageH / 2) * s);
             var players = _battle.Fighters.FindAll(f => f.Side == BattleSide.Player);
             var enemies = _battle.Fighters.FindAll(f => f.Side != BattleSide.Player);
             foreach (var f in _battle.Fighters)
@@ -173,80 +162,165 @@ namespace RogueStars.Client.Screens
                 var side = f.Side == BattleSide.Player ? players : enemies;
                 _views.Add(Fighter(f, side.IndexOf(f), side.Count));
             }
-
-            // the worm's panel: rage, shield and statuses (its HP is in the top strip)
             _hero = _views.Find(v => v.Info.Role == CombatRole.Worm) ?? _views.Find(v => v.Info.Side == BattleSide.Player);
-            if (_hero != null)
-            {
-                var panel = Ui.Card(body, Theme.PanelAlt, null, 40, 24, 12, 4, "WormPanel");
-                var rageRow = Ui.Row(panel, 30, 14);
-                Ui.Size(Ui.Label(rageRow, "RAGE", 24, Theme.Text), 80, -1, 0);
-                _heroRage = Ui.Bar(rageRow, Frac(_hero.RageNow, Content.Combat.RageMax), Theme.Accent, null, 20);
-                _heroRageText = Ui.Label(rageRow, "", 24, Theme.AccentLight, TextAnchor.MiddleRight);
-                Ui.Size(_heroRageText, 220, -1, 0);
-                _heroChips = Ui.ChipRow(panel, 44, 8);
-            }
 
-            _banner = Ui.Display(body, "", 110, Theme.Text, TextAnchor.MiddleCenter, "Banner");
+            // the bottom panel: the skill grid
+            var panel = Ui.Panel(holder, new Color32(0x14, 0x1C, 0x24, 255), "SkillPanel");
+            panel.raycastTarget = false;
+            panel.rectTransform.anchorMin = Vector2.zero; panel.rectTransform.anchorMax = Vector2.one;
+            panel.rectTransform.offsetMin = Vector2.zero; panel.rectTransform.offsetMax = new Vector2(0, -(arenaRefH - 8) * s);
+            var edge = Ui.Panel(panel.transform, new Color32(0x0A, 0x0E, 0x14, 255), "Edge");
+            edge.raycastTarget = false;
+            edge.rectTransform.anchorMin = new Vector2(0, 1); edge.rectTransform.anchorMax = Vector2.one; edge.rectTransform.pivot = new Vector2(0.5f, 1);
+            edge.rectTransform.sizeDelta = new Vector2(0, 10 * s); edge.rectTransform.anchoredPosition = Vector2.zero;
+
+            // the HUD over the arena: the run's top HUD with the worm's live HP, "Round n/N", a skip chip
+            _hud = SliceHud.Build(holder, frameW, () => Session.Info("Battle in progress — >> skips it"), null, _ctx.Coins >= 0);
+            if (_hud.Coins != null) _hud.Coins.text = Fmt.Num(_ctx.Coins);
+            var roundPill = SliceKit.Pill(holder, s, 540, 296, 300, 62, new Color32(0x14, 0x12, 0x20, 200), "RoundPill");
+            _round = SliceKit.Chunky(roundPill.transform, "Round 1/" + _battle.Rounds, (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
+            Ui.Stretch(_round.rectTransform);
+            var skip = Ui.Button(holder, "", Close, SliceKit.PillDark, 130 * s, 62 * s, true, 20);
+            skip.name = "SkipButton";
+            SliceKit.Place((RectTransform)skip.transform, s, 990, 296, 130, 62);
+            UiShapes.Outline((RectTransform)skip.transform, SliceKit.PillEdge, 30 * s, 4);
+            var skipIcon = Ui.Panel(skip.transform, Color.white, "SkipIcon");
+            skipIcon.sprite = HudArt.Icon("speed");
+            skipIcon.preserveAspect = true;
+            skipIcon.raycastTarget = false;
+            Ui.Stretch(skipIcon.rectTransform, 30 * s, 10 * s, 30 * s, 10 * s);
+
+            // turn order: who acts next (small pips under the round)
+            _order = Ui.Row(holder, 40 * s, 8 * s, null, 0, "TurnOrder");
+            SliceKit.Place(_order, s, 540, 356, 400, 36);
+            _order.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
+            _order.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+
+            _banner = SliceKit.Chunky(holder, "", (int)(130 * s), Theme.Gold, TextAnchor.MiddleCenter, "Banner");
+            SliceKit.Place(_banner.rectTransform, s, 540, 860, 1000, 180);
             _banner.gameObject.SetActive(false);
-            _endPanel = Ui.Row(body, 120, 12);
-            Ui.Button(_endPanel, "Continue", Close, Theme.Accent, -1, 120, true, Theme.FontTitle);
+
+            // bottom row: speed chips, Continue (at the end), battle log
+            bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
+            for (int sp = 1; sp <= 3; sp++)
+            {
+                int v = sp;
+                bool allowed = sp < 3 || x3;
+                var b = Ui.Button(holder, "", () => { _speed = v; RecolorSpeed(); }, _speed == sp ? Theme.Accent : (Color)new Color32(0x3A, 0x2E, 0x58, 245), 104 * s, 96 * s, allowed, 20);
+                b.name = "Speed" + sp;
+                SliceKit.Place((RectTransform)b.transform, s, 82 + (sp - 1) * 116, 2300, 104, 96, true);
+                UiShapes.Outline((RectTransform)b.transform, SliceKit.PillEdge, 24 * s, 4);
+                var t = SliceKit.Chunky(b.transform, "x" + sp + (allowed ? "" : "\n<size=" + (int)(16 * s) + ">PASS</size>"), (int)(38 * s), Color.white, TextAnchor.MiddleCenter, "SpeedText");
+                Ui.Stretch(t.rectTransform);
+                _speedButtons.Add(b);
+            }
+            _endPanel = Ui.Rect(holder, "EndPanel");
+            SliceKit.Place(_endPanel, s, 660, 2300, 380, 110, true);
+            var cont = Ui.Button(_endPanel, "Continue", Close, Theme.Accent, 380 * s, 110 * s, true, (int)(52 * s));
+            cont.name = "ContinueButton";
+            Ui.Stretch((RectTransform)cont.transform);
+            UiShapes.Outline((RectTransform)cont.transform, IsoArt.Ink, Theme.RadiusButton, 5);
             _endPanel.gameObject.SetActive(false);
-            var logButton = Ui.Button(body, "Battle log", null, new Color(0, 0, 0, 0), -1, 84, true, 28);
+            var logButton = Ui.Button(holder, "Log", null, SliceKit.PillDark, 140 * s, 80 * s, true, (int)(30 * s));
+            logButton.name = "Button:Battle log";
+            SliceKit.Place((RectTransform)logButton.transform, s, 970, 2300, 140, 80, true);
             logButton.GetComponentInChildren<Text>().color = Theme.TextDim;
-            UiShapes.Outline((RectTransform)logButton.transform, Theme.Border, Theme.RadiusButton, 3);
-            _feed = Ui.Card(body, Theme.Panel, null, 30, 20, 4, 0, "Feed");
+            _feed = Ui.Card(holder, Theme.Panel, null, 30, 20, 4, 0, "Feed");
+            SliceKit.Place(_feed, s, 540, 1600, 1000, 900);
             Ui.Caption(_feed, "Battle log", Theme.Gold);
             _feed.gameObject.SetActive(false);
-            logButton.onClick.AddListener(() => _feed.gameObject.SetActive(!_feed.gameObject.activeSelf));
+            logButton.onClick.AddListener(() => { _feed.gameObject.SetActive(!_feed.gameObject.activeSelf); _feed.SetAsLastSibling(); });
             if (_speed == 3 && !x3) _speed = 2;
             RecolorSpeed();
-            SkillStrip();
+            SkillGrid(holder, s, arenaRefH);
             foreach (var v in _views) Refresh(v, Content.Combat.RageMax, false);
             RefreshHero();
             TurnOrder();
         }
 
-        // ---- skill strip (fixed footer): every skill tile flashes when its skill fires ----------------
+        private float _scale = 1;
+        private RectTransform _holder;
+        private SliceHud _hud;
 
-        private void SkillStrip()
+        // ---- the skill grid (reference 3): 5 columns of tier-framed icons, each pops when its skill fires ----------------
+
+        /// <summary>Skill tiles in the grid (the last one is "+N" when there are more).</summary>
+        public const int GridColumns = 5, GridRows = 3;
+        public const float GridTile = 172;
+
+        private void SkillGrid(RectTransform holder, float s, float arenaRefH)
         {
             _skillTiles.Clear();
-            var bar = Footer;
-            if (bar == null) return;
-            var bg = bar.GetComponent<Image>();
-            if (bg != null) bg.color = RunHudStrip.StripBg;
-            var cap = Ui.Label(bar, "SKILLS IN THIS FIGHT", 22, Theme.TextDim, TextAnchor.MiddleCenter, "StripCaption");
-            cap.fontStyle = FontStyle.Bold;
-            Ui.Size(cap, -1, 26);
-            var row = Ui.Row(bar, StripTileSize, 12, null, 0, "SkillStrip");
-            var rl = row.GetComponent<HorizontalLayoutGroup>();
-            rl.childAlignment = TextAnchor.MiddleCenter;
-            rl.childForceExpandHeight = false;
+            var grid = Ui.Rect(holder, "SkillStrip");
+            Ui.Stretch(grid);
             var order = BattleSkillFx.StripOrder(_ctx.Skills, _battle, Content);
             var levels = _ctx.Levels;
-            var tray = RunPresentation.Tray(Content, order, id => levels != null && levels.TryGetValue(id, out var lv) ? lv : 1, StripSlots);
+            int slots = GridColumns * GridRows;
+            var tray = RunPresentation.Tray(Content, order, id => levels != null && levels.TryGetValue(id, out var lv) ? lv : 1, slots);
+            int i = 0;
+            float x0 = 165, step = 187.5f, y0 = arenaRefH + 160;
             foreach (var t in tray.Tiles)
             {
-                var b = RunHudStrip.SkillTileButton(row, t, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, StripTileSize, null);
-                _skillTiles[t.SkillId] = (RectTransform)b.transform;
+                var tile = SkillIconTile(grid, t, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, s);
+                SliceKit.Place(tile, s, x0 + (i % GridColumns) * step, y0 + (i / GridColumns) * step, GridTile, GridTile);
+                _skillTiles[t.SkillId] = tile;
+                i++;
             }
             if (tray.Overflow > 0)
             {
-                var more = Ui.Button(row, "+" + tray.Overflow, null, new Color(1, 1, 1, 0.06f), StripTileSize, StripTileSize, true, 40);
+                var more = Ui.Button(grid, "+" + tray.Overflow, null, new Color32(0x2A, 0x30, 0x48, 255), GridTile * s, GridTile * s, true, (int)(52 * s));
                 more.name = "MoreSkills";
-                more.GetComponentInChildren<Text>().color = Theme.Hex(0xE8DCCB);
-                UiShapes.Outline((RectTransform)more.transform, new Color(1, 1, 1, 0.3f), Theme.RadiusButton, 3);
+                SliceKit.Place((RectTransform)more.transform, s, x0 + (i % GridColumns) * step, y0 + (i / GridColumns) * step, GridTile, GridTile);
+                UiShapes.Outline((RectTransform)more.transform, IsoArt.Ink, 26 * s, 5);
+                more.GetComponentInChildren<Text>().color = Color.white;
                 _skillTiles[MoreKey] = (RectTransform)more.transform;
             }
             if (tray.Tiles.Count == 0 && tray.Overflow == 0)
-                Ui.Label(row, "No skills yet — draft some on the board.", 24, Theme.TextFaint, TextAnchor.MiddleCenter, "NoSkills");
+            {
+                var none = SliceKit.Chunky(grid, "No skills yet — draft some on the board.", (int)(34 * s), Theme.TextDim, TextAnchor.MiddleCenter, "NoSkills");
+                SliceKit.Place(none.rectTransform, s, 540, y0, 1000, 80);
+            }
             // labels rise from the tiles over the stage: their own layer on top of the screen
             _fireLayer = Ui.Rect(Root, "SkillFireLayer");
             Ui.Stretch(_fireLayer);
             _fireLayer.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
             _fires.Started -= PlayFire;
             _fires.Started += PlayFire;
+        }
+
+        /// <summary>
+        /// One skill icon tile (no label): a thick frame in the skill's tier colour, a slate face, the skill's icon art
+        /// (ArtCatalog Art/Skills/&lt;id&gt;) or its family glyph. Named "Slot:" + id, its frame "RarityBorder".
+        /// </summary>
+        public static RectTransform SkillIconTile(Transform parent, SkillTile t, SkillFamily family, float s)
+        {
+            var rt = Ui.Rect(parent, "Slot:" + t.SkillId);
+            var border = Ui.RoundPanel(rt, t.Color, 28 * s, "RarityBorder");
+            border.raycastTarget = false;
+            Ui.Stretch(border.rectTransform);
+            UiShapes.Outline(border.rectTransform, IsoArt.Ink, 28 * s, 4);
+            var face = Ui.RoundPanel(rt, new Color32(0x8C, 0x90, 0xB6, 255), 20 * s, "Face");
+            face.raycastTarget = false;
+            Ui.Stretch(face.rectTransform, 12 * s, 12 * s, 12 * s, 14 * s);
+            var shine = Ui.RoundPanel(face.transform, new Color(1, 1, 1, 0.12f), 16 * s, "Shine");
+            shine.raycastTarget = false;
+            Ui.Stretch(shine.rectTransform, 6 * s, 6 * s, 6 * s, 40 * s);
+            var art = ArtCatalog.SkillIcon(t.SkillId);
+            if (art != null)
+            {
+                var img = Ui.Panel(rt, Color.white, "IconArt");
+                img.sprite = art;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+                Ui.Stretch(img.rectTransform, 18 * s, 18 * s, 18 * s, 18 * s);
+            }
+            else
+            {
+                var col = family == SkillFamily.None ? (Color)new Color32(0xFF, 0xE0, 0x5A, 255) : Color.Lerp(Theme.FamilyColor(family), Color.white, 0.3f);
+                var glyph = SliceKit.Chunky(rt, family == SkillFamily.None ? "★" : family.ToString().Substring(0, 1), (int)(84 * s), col, TextAnchor.MiddleCenter, "Glyph");
+                Ui.Stretch(glyph.rectTransform);
+            }
+            return rt;
         }
 
         /// <summary>A skill of the player's side fired (log entry with its SkillId): count it, queue its tile's flash + label.</summary>
@@ -313,7 +387,8 @@ namespace RogueStars.Client.Screens
             count = Math.Max(1, count);
             float lane = (StageH - 60) / count;
             float y = StageH / 2 - 30 - lane * (index + 0.5f);
-            float x = (side == BattleSide.Player ? -1 : 1) * 235;
+            // 3/4 top-down: the front rank stands further out, the ranks behind step in
+            float x = (side == BattleSide.Player ? -1 : 1) * (count > 1 && index % 2 == 1 ? 210 : 300);
             return new Vector2(x, y);
         }
 
@@ -336,16 +411,19 @@ namespace RogueStars.Client.Screens
             var name = Ui.Label(root, f.Name, 24, Theme.Text, align, "Name");
             name.fontStyle = FontStyle.Bold;
             Pin(name.rectTransform, 0, 34);
+            name.gameObject.SetActive(false); // the arena shows the fighters, not their names
             var hpBg = Ui.Rect(root, "HpHolder");
-            Pin(hpBg, -36, 26);
-            v.Hp = Ui.Bar(hpBg, Frac(f.StartHp, f.MaxHp), player ? Theme.Good : Theme.Bad, Fmt.Num(f.StartHp), 26);
+            PinBottom(hpBg, 54, 34);
+            v.Hp = Ui.Bar(hpBg, Frac(f.StartHp, f.MaxHp), player ? (Color)new Color32(0xF0, 0x4A, 0x52, 255) : (Color)new Color32(0xF0, 0x4A, 0x52, 255), Fmt.Num(f.StartHp), 34);
+            if (v.Hp.Label != null) { v.Hp.Label.font = Ui.DisplayFont; v.Hp.Label.fontSize = 26; var o = v.Hp.Label.gameObject.AddComponent<Outline>(); o.effectColor = SliceKit.Ink; o.effectDistance = new Vector2(2, -2); }
+            UiShapes.Outline(hpBg, SliceKit.Ink, 10, 3);
             Ui.Stretch((RectTransform)v.Hp.Fill.parent);
             var shieldBg = Ui.Rect(root, "ShieldHolder");
-            Pin(shieldBg, -64, 8);
+            PinBottom(shieldBg, 42, 10);
             v.Shield = Ui.Bar(shieldBg, Frac(f.StartShield, f.MaxHp), Theme.Premium, null, 8);
             Ui.Stretch((RectTransform)v.Shield.Fill.parent);
             var rageBg = Ui.Rect(root, "RageHolder");
-            Pin(rageBg, -76, 8);
+            PinBottom(rageBg, 30, 10);
             v.Rage = Ui.Bar(rageBg, Frac(f.StartRage, Content.Combat.RageMax), Theme.Accent, null, 8);
             Ui.Stretch((RectTransform)v.Rage.Fill.parent);
             if (!f.Targetable) { hpBg.gameObject.SetActive(false); shieldBg.gameObject.SetActive(false); rageBg.gameObject.SetActive(false); }
@@ -389,7 +467,7 @@ namespace RogueStars.Client.Screens
             srt.anchorMin = srt.anchorMax = new Vector2(player ? 0.3f : 0.7f, 0);
             srt.pivot = new Vector2(0.5f, 0);
             srt.sizeDelta = size;
-            srt.anchoredPosition = new Vector2(0, 46);
+            srt.anchoredPosition = new Vector2(0, SpriteBase);
             if (hero == null) UiShapes.Outline(srt, f.Role == CombatRole.Worm ? Theme.WormLight : color, radius, 6);
             v.Sprite = srt;
             v.SpriteImage = body;
@@ -407,8 +485,8 @@ namespace RogueStars.Client.Screens
                 eye.rectTransform.sizeDelta = new Vector2(16, 16);
             }
             var chips = Ui.Rect(root, "Status");
-            chips.anchorMin = new Vector2(0, 0); chips.anchorMax = new Vector2(1, 0); chips.pivot = new Vector2(0.5f, 0);
-            chips.sizeDelta = new Vector2(0, 40); chips.anchoredPosition = Vector2.zero;
+            chips.anchorMin = new Vector2(0, 0); chips.anchorMax = new Vector2(1, 0); chips.pivot = new Vector2(0.5f, 1);
+            chips.sizeDelta = new Vector2(0, 52); chips.anchoredPosition = new Vector2(0, 24);
             var h = chips.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.spacing = 6; h.childAlignment = player ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
@@ -418,7 +496,7 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>Drawn size of a regular enemy / alien sprite on the stage (bosses and elites: × the ArtCatalog role scales).</summary>
-        public const float EnemySpriteSize = 150, AlienSpriteSize = 132, WormSpriteSize = 164;
+        public const float EnemySpriteSize = 300, AlienSpriteSize = 220, WormSpriteSize = 390;
 
         /// <summary>
         /// The art of a fighter (pure lookup through ArtCatalog; tests): the worm → the hero sprite, an alien → its sprite by
@@ -441,6 +519,13 @@ namespace RogueStars.Client.Screens
             size = EnemySpriteSize * (f.Role == CombatRole.Boss ? ArtCatalog.BossFamilyScale : f.Role == CombatRole.Elite ? ArtCatalog.EliteFamilyScale : 1);
             if (f.Role == CombatRole.Summon) size = AlienSpriteSize;
             return s;
+        }
+
+        /// <summary>Stretch across the fighter card, a fixed height, <paramref name="y"/> over its bottom (the bars under a fighter).</summary>
+        private static void PinBottom(RectTransform rt, float y, float height)
+        {
+            rt.anchorMin = new Vector2(0.08f, 0); rt.anchorMax = new Vector2(0.92f, 0); rt.pivot = new Vector2(0.5f, 0);
+            rt.sizeDelta = new Vector2(0, height); rt.anchoredPosition = new Vector2(0, y);
         }
 
         /// <summary>Stretch horizontally across the fighter card, a fixed height, top offset <paramref name="y"/>.</summary>
@@ -540,7 +625,7 @@ namespace RogueStars.Client.Screens
         private void Step(bool animate)
         {
             var e = _battle.Log[_next++];
-            if (_round != null) _round.text = "Round " + e.Round + " / " + _battle.Rounds;
+            if (_round != null) _round.text = "Round " + e.Round + "/" + _battle.Rounds;
             var actor = View(e.Actor);
             var target = View(e.Target) ?? actor;
             double rageMax = Content.Combat.RageMax;
@@ -558,7 +643,7 @@ namespace RogueStars.Client.Screens
                     if (e.Dodge) { Popup(target, "DODGE", Theme.Premium, animate, 40); if (animate) Dodge(target); break; }
                     if (animate) Hit(target, e.Crit);
                     if (e.Crit) Popup(target, Fmt.Num(e.Amount) + "!", Theme.Gold, animate, 76, "CRIT");
-                    else Popup(target, "−" + Fmt.Num(e.Amount), e.Action == BattleAction.StatusTick ? StatusColor(e.Status) : target.Info.Side == BattleSide.Player ? Theme.Hex(0xFF9B3D) : Theme.Cream, animate, 48);
+                    else Popup(target, "-" + Fmt.Num(e.Amount), e.Action == BattleAction.StatusTick ? StatusColor(e.Status) : target.Info.Side == BattleSide.Player ? Theme.Hex(0xFF9B3D) : Theme.Hex(0x5EEAF2), animate, 60);
                     if (e.Parry) Popup(target, "PARRY", Theme.TextDim, animate, 30);
                     break;
                 case BattleAction.Heal:
@@ -635,7 +720,7 @@ namespace RogueStars.Client.Screens
             var sprite = v.Sprite;
             var img = v.SpriteImage;
             var baseColor = v.SpriteColor;
-            var home = new Vector2(0, 46);
+            var home = new Vector2(0, SpriteBase);
             float amp = crit ? 18 : 10;
             UiTweens.Play(sprite.gameObject, "hit", Beat * 1.1f, t =>
             {
@@ -649,7 +734,7 @@ namespace RogueStars.Client.Screens
         private void Dodge(FighterView v)
         {
             var sprite = v.Sprite;
-            var home = new Vector2(0, 46);
+            var home = new Vector2(0, SpriteBase);
             float dir = v.Info.Side == BattleSide.Player ? -1 : 1;
             UiTweens.Play(sprite.gameObject, "hit", Beat, t => sprite.anchoredPosition = home + new Vector2(dir * 50 * Mathf.Sin(t * Mathf.PI), 0),
                 () => sprite.anchoredPosition = home);
@@ -657,6 +742,13 @@ namespace RogueStars.Client.Screens
 
         private void Die(FighterView v, bool animate)
         {
+            if (animate && !Instant && Application.isPlaying && v.Info.Side != BattleSide.Player && _fireLayer != null && _hud != null)
+            {
+                // EXP gems and coins burst out of the beaten enemy and fly to the HUD
+                var from = LayerPoint(v.Sprite);
+                RunFx.Burst(_fireLayer, from, LayerPoint(_hud.XpFill.rectTransform), new Color32(0x5C, 0xD0, 0x6A, 255), 8, 30 * _scale);
+                if (_hud.CoinsChip != null) RunFx.Burst(_fireLayer, from, LayerPoint(_hud.CoinsChip), new Color32(0xB8, 0xD8, 0xF6, 255), 6, 30 * _scale, 0.15f);
+            }
             v.Dead = true;
             v.SpriteImage.color = Theme.Locked;
             var g = v.Group;
@@ -664,12 +756,22 @@ namespace RogueStars.Client.Screens
             UiTweens.Play(v.Root.gameObject, "fade", Beat * 1.6f, t => g.alpha = Mathf.Lerp(1, 0.35f, t));
         }
 
+        /// <summary>A rect's centre in the fire layer's top-left anchored coordinates (particles flying to the HUD).</summary>
+        private Vector2 LayerPoint(RectTransform target)
+        {
+            if (_fireLayer == null || target == null) return Vector2.zero;
+            var world = target.TransformPoint(target.rect.center);
+            var local = (Vector2)_fireLayer.InverseTransformPoint(world);
+            return local - new Vector2(_fireLayer.rect.xMin, _fireLayer.rect.yMax);
+        }
+
         private void Popup(FighterView v, string text, Color color, bool animate, int size, string caption = null)
         {
             if (!animate || v == null || Instant || !Application.isPlaying) return;
             var holder = Ui.Rect(_stage, "Popup");
             holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
-            holder.sizeDelta = new Vector2(420, size + (caption != null ? 40 : 0));
+            size = (int)(size * 1.45f);
+            holder.sizeDelta = new Vector2(700, size + (caption != null ? 40 : 0));
             float jitter = ((_popupSeq++ % 3) - 1) * 46;
             // over the sprite's centre (the sprite sits on the card's bottom, 30% / 70% across)
             var s = v.Sprite;
@@ -677,11 +779,9 @@ namespace RogueStars.Client.Screens
             float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y / 2) * v.Root.localScale.y;
             var start = v.Root.anchoredPosition + new Vector2(sx + jitter, sy + (_popupSeq % 2) * 24);
             holder.anchoredPosition = start;
-            var label = Ui.Display(holder, text, size, color, TextAnchor.MiddleCenter);
+            var label = SliceKit.Chunky(holder, text, size, color, TextAnchor.MiddleCenter);
             Ui.Stretch(label.rectTransform, 0, caption != null ? 36 : 0, 0, 0);
-            var outline = label.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.1f, 0.03f, 0.02f, 0.9f);
-            outline.effectDistance = new Vector2(3, -3);
+            var outline = label.GetComponent<Outline>();
             Text cap = null;
             if (caption != null)
             {
@@ -699,7 +799,7 @@ namespace RogueStars.Client.Screens
                 float a = t < 0.7f ? 1 : 1 - (t - 0.7f) / 0.3f;
                 label.color = new Color(color.r, color.g, color.b, a);
                 if (cap != null) cap.color = new Color(color.r, color.g, color.b, a);
-                outline.effectColor = new Color(0.1f, 0.03f, 0.02f, 0.9f * a);
+                if (outline != null) outline.effectColor = new Color(SliceKit.Ink.r, SliceKit.Ink.g, SliceKit.Ink.b, a);
             }, () => Ui.DestroyGo(holder.gameObject));
         }
 
@@ -786,8 +886,16 @@ namespace RogueStars.Client.Screens
             Ui.Clear(v.Chips);
             foreach (var kv in v.Statuses)
             {
+                // a status icon with its stack count (reference 3)
                 var c = StatusColor(kv.Key);
-                Ui.Chip(v.Chips, kv.Key.ToString().ToUpperInvariant() + (kv.Value > 1 ? " " + kv.Value : ""), c, Theme.TextOn(c), 18, 34);
+                var icon = Ui.RoundPanel(v.Chips, c, 12, "Status:" + kv.Key);
+                icon.raycastTarget = false;
+                Ui.Size(icon, 48, 48, 0);
+                UiShapes.Outline(icon.rectTransform, SliceKit.Ink, 12, 3);
+                var g = SliceKit.Chunky(icon.transform, kv.Key.ToString().Substring(0, 1), 30, Color.white, TextAnchor.MiddleCenter, "Glyph");
+                Ui.Stretch(g.rectTransform);
+                var n = SliceKit.Chunky(icon.transform, kv.Value.ToString(), 28, Color.white, TextAnchor.LowerRight, "Stacks");
+                Ui.Stretch(n.rectTransform, 0, 0, -12, -10);
             }
         }
 
@@ -802,13 +910,13 @@ namespace RogueStars.Client.Screens
         private void RefreshHero()
         {
             if (_hero == null) return;
-            if (_strip != null)
+            if (_hud != null)
             {
-                // the top strip: the worm's live HP from the log, its run ATK / DEF / level as the board showed them
+                // the top HUD: the worm's live HP from the log, its run ATK / DEF / level as the board showed them
                 var s = _ctx.Hud;
                 s.Hp = Math.Max(0, _hero.HpNow);
                 s.MaxHp = _hero.Info.MaxHp;
-                _strip.Show(s, _ctx.HasStats ? s.Level : 0, s.XpNeed > 0 ? (float)s.Xp / s.XpNeed : 0, _ctx.SkillCount, _ctx.HasStats);
+                _hud.Show(s, _ctx.HasStats ? s.Level : 0, s.XpNeed > 0 ? (float)s.Xp / s.XpNeed : 0, _ctx.SkillCount, _ctx.HasStats);
             }
             if (_heroRage == null) return;
             double rageMax = Content.Combat.RageMax;

@@ -27,6 +27,8 @@ namespace RogueStars.Client.Editor
             s.spriteAlignment = (int)SpriteAlignment.Center;
             s.spritePixelsPerUnit = 100;
             ti.SetTextureSettings(s);
+            // slice textures are sampled by the code-drawn tile faces (IsoArt.Top), and tile across the ground
+            if (assetPath.Contains("/Art/Slice/Textures/")) { ti.isReadable = true; ti.wrapMode = TextureWrapMode.Repeat; }
         }
     }
 }

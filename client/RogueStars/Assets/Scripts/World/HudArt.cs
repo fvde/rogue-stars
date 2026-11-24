@@ -233,5 +233,62 @@ namespace RogueStars.Client.World
             Cache[key] = s2;
             return s2;
         }
+
+        private static Sprite _arena;
+
+        /// <summary>
+        /// The battle arena floor seen 3/4 top-down (placeholder for ArtCatalog slice-battle "battle_meadow"): a sandy clearing
+        /// with flat cracked slabs, mossy edges, rocks and pebbles, a darker band of rocks and reeds at the back.
+        /// </summary>
+        public static Sprite Arena()
+        {
+            if (_arena != null) return _arena;
+            int w = 540, h = 740;
+            var p = new IsoPaint(w, h);
+            var sand = (Color)new Color32(0xE8, 0xD3, 0x96, 255);
+            var sandDark = (Color)new Color32(0xD2, 0xBA, 0x7A, 255);
+            p.Poly(new[] { V(0, 0), V(w, 0), V(w, h), V(0, h) }, (x, y) =>
+            {
+                float n = Mathf.PerlinNoise(x / 90f + 2, y / 90f + 5);
+                return Color.Lerp(sandDark, sand, Mathf.SmoothStep(0.3f, 0.7f, n));
+            });
+            // the back: a band of blue-green rock and reeds (the far side of the clearing)
+            p.Poly(new[] { V(0, h), V(w, h), V(w, h - 150), V(w * 0.7f, h - 120), V(w * 0.4f, h - 160), V(0, h - 130) }, VGrad(new Color32(0x3E, 0x8C, 0x9C, 255), new Color32(0x2A, 0x5C, 0x7A, 255), h - 160, h));
+            for (int i = 0; i < 7; i++)
+            {
+                float x = 30 + i * 80, y = h - 140 + (i % 3) * 12;
+                p.Blob(x, y, 34, 22, IsoPaint.Radial(new Color32(0x9C, 0xB0, 0xC4, 255), new Color32(0x60, 0x74, 0x8A, 255), x - 10, y + 10, 40), Ink, 3);
+            }
+            for (int i = 0; i < 9; i++)
+            {
+                float x = 20 + i * 62;
+                p.Line(V(x, h - 120), V(x + 8, h - 60), 6, new Color32(0x4E, 0xA8, 0x62, 255));
+                p.Line(V(x + 10, h - 118), V(x + 22, h - 72), 5, new Color32(0x62, 0xC0, 0x74, 255));
+            }
+            // flat cracked slabs in the clearing (blue-grey stone)
+            var slab = (Color)new Color32(0x9C, 0xC4, 0xD2, 255);
+            foreach (var r in new[] { new Vector4(320, 380, 120, 60), new Vector4(410, 300, 90, 46), new Vector4(250, 300, 80, 40), new Vector4(380, 210, 70, 34) })
+            {
+                var pts = new[] { V(r.x - r.z, r.y), V(r.x - r.z * 0.2f, r.y + r.w), V(r.x + r.z, r.y + r.w * 0.3f), V(r.x + r.z * 0.3f, r.y - r.w) };
+                p.Shape(pts, Shade(slab, -0.05f), Shade(slab, -0.35f), 3);
+                p.Line(Vector2.Lerp(pts[0], pts[2], 0.3f), Vector2.Lerp(pts[1], pts[3], 0.6f), 2.5f, Shade(slab, -0.3f));
+            }
+            // mossy edges and pebbles
+            for (int i = 0; i < 6; i++)
+            {
+                float y = 80 + i * 90;
+                p.Blob(8, y, 30, 40, new Color32(0x6C, 0xB8, 0x7A, 255), new Color32(0x3C, 0x7A, 0x4E, 255), 3);
+                p.Blob(w - 8, y + 40, 30, 40, new Color32(0x6C, 0xB8, 0x7A, 255), new Color32(0x3C, 0x7A, 0x4E, 255), 3);
+            }
+            var rnd = new System.Random(3);
+            for (int i = 0; i < 22; i++)
+            {
+                float x = 30 + (float)rnd.NextDouble() * (w - 60), y = 20 + (float)rnd.NextDouble() * (h - 200);
+                float r = 4 + (float)rnd.NextDouble() * 8;
+                p.Blob(x, y, r * 1.4f, r, new Color32(0x9A, 0xA4, 0xB4, 255), Ink, 2);
+            }
+            _arena = p.ToSprite("rs_arena", V(w / 2f, h / 2f));
+            return _arena;
+        }
     }
 }

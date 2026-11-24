@@ -8,7 +8,7 @@ using UnityEngine;
 namespace RogueStars.Client.Editor
 {
     /// <summary>What an imported file is (decides its destination and whether it is trimmed to its opaque pixels).</summary>
-    public enum ArtKind { Alien, Enemy, TileSet, Ground, Background, Decor }
+    public enum ArtKind { Alien, Enemy, TileSet, Ground, Background, Decor, Slice }
 
     /// <summary>One file to copy: generated source → stable path under <c>Assets/Art/Resources/Art/</c>.</summary>
     public sealed class ArtImportItem
@@ -166,6 +166,54 @@ namespace RogueStars.Client.Editor
             items.Sort((a, b) => string.CompareOrdinal(a.Dest, b.Dest));
             return items;
         }
+
+        /// <summary>
+        /// Vertical-slice packages (tools/art/packages/slice-*.json) → their ArtCatalog folder and whether the art is trimmed
+        /// to its opaque pixels (props, icons) or kept full-frame (textures, battle arenas).
+        /// </summary>
+        public static readonly Dictionary<string, (string folder, bool trim)> SliceDest = new Dictionary<string, (string, bool)>
+        {
+            { "slice-markers", ("Art/Slice/Markers", true) },
+            { "slice-setpieces", ("Art/Slice/SetPieces", true) },
+            { "slice-scatter", ("Art/Slice/Scatter", true) },
+            { "slice-hud", ("Art/Slice/Hud", true) },
+            { "slice-skills", ("Art/Skills", true) },
+            { "slice-texture", ("Art/Slice/Textures", false) },
+            { "slice-battle", ("Art/Slice/Battle", false) },
+        };
+
+        /// <summary>
+        /// The slice art the owner picked (no automatic pick: every file is approved by hand). <paramref name="picks"/> maps
+        /// "&lt;category&gt;/&lt;id&gt;" (e.g. "slice-markers/enemy") to the chosen file name in
+        /// <c>~/AI/assets/&lt;category&gt;/&lt;id&gt;/</c> ("C_s1301.png"); tools/art/slice-picks.json holds them.
+        /// </summary>
+        public static List<ArtImportItem> PlanSlice(string assetsRoot, IDictionary<string, string> picks)
+        {
+            var items = new List<ArtImportItem>();
+            if (picks == null) return items;
+            foreach (var kv in picks)
+            {
+                var parts = kv.Key.Split('/');
+                if (parts.Length != 2 || !SliceDest.TryGetValue(parts[0], out var dest) || string.IsNullOrEmpty(kv.Value)) continue;
+                items.Add(new ArtImportItem
+                {
+                    Kind = ArtKind.Slice, Id = kv.Key, Source = Path.Combine(assetsRoot, parts[0], parts[1], kv.Value),
+                    Dest = dest.folder + "/" + parts[1] + ".png", Trim = dest.trim,
+                });
+            }
+            items.Sort((a, b) => string.CompareOrdinal(a.Dest, b.Dest));
+            return items;
+        }
+
+        /// <summary>Reads a picks file: a flat JSON object of string → string (no JSON library needed).</summary>
+        public static Dictionary<string, string> ReadPicks(string json)
+        {
+            var d = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(json)) return d;
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(json, "\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\""))
+                d[m.Groups[1].Value] = m.Groups[2].Value;
+            return d;
+        }
     }
 
     /// <summary>
@@ -209,6 +257,14 @@ namespace RogueStars.Client.Editor
         {
             var log = new List<string>();
             var plan = ArtImportRules.Plan(assetsRoot, boardsRoot, Dirs, Files);
+            // the slice art: only the owner's picks (tools/art/slice-picks.json, env ROGUESTARS_SLICE_PICKS overrides)
+            var picksPath = Environment.GetEnvironmentVariable("ROGUESTARS_SLICE_PICKS") ?? Path.GetFullPath(Path.Combine(Application.dataPath, "../../../tools/art/slice-picks.json"));
+            if (File.Exists(picksPath))
+                foreach (var item in ArtImportRules.PlanSlice(assetsRoot, ArtImportRules.ReadPicks(File.ReadAllText(picksPath))))
+                {
+                    if (File.Exists(item.Source)) plan.Add(item);
+                    else log.Add("missing   " + item.Source);
+                }
             try
             {
                 AssetDatabase.StartAssetEditing();
