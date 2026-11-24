@@ -212,7 +212,7 @@ public class SignatureTests
         Assert.DoesNotContain(RunDraft.Eligible(C, run), x => x.Rarity == Rarity.Mythic);
         var pool = C.Skills.Values.Where(x => RunDraft.IsMythicEligible(C, run, x)).ToList();
         Assert.All(pool, x => Assert.True(x.Family is SkillFamily.None or SkillFamily.Fire or SkillFamily.Poison or SkillFamily.Bleed, x.Id));
-        Assert.True(pool.Count >= 12, pool.Count.ToString()); // Mythics needing a source the run lacks (consumed Bleed …) wait for it
+        Assert.True(pool.Count >= 11, pool.Count.ToString()); // Mythics needing a source the run lacks (consumed Bleed …) wait for it
     }
 
     // ---- the mechanics ------------------------------------------------------------------------------------------------

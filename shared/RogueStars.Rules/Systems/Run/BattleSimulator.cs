@@ -2101,6 +2101,13 @@ namespace RogueStars.Rules.Systems
             if (owner.Hp < 1) owner.Hp = Math.Max(1, owner.Hp);
             var e = Log(BattleAction.Loop, owner, owner, s.Round);
             if (e != null) e.SkillId = skill.Id;
+            // one entry per other fighter with its restored HP / shield / rage, so playback can rewind the board too
+            foreach (var f in F)
+            {
+                if (f == owner || f.Sidekick || f.Role == CombatRole.Mount) continue;
+                var x = Log(BattleAction.Loop, owner, f, s.Round);
+                if (x != null) { x.SkillId = skill.Id; x.Stacks = f.Alive ? 1 : 0; }
+            }
         }
 
         // ---- log ------------------------------------------------------------------------------

@@ -35,6 +35,8 @@ namespace RogueStars.Rules.Content
             LabPackage("pkg_counter", "Counter Package", SkillFamily.Counter, "sig_counter", 4, new[] { new LabPrereq("pkg_lightning", 1), new LabPrereq("lab_def_1", 2) });
             LabPackage("pkg_alien", "Alien Package", SkillFamily.AlienSynergy, "sig_alien", 5, new[] { new LabPrereq("pkg_counter", 1), new LabPrereq("lab_alien_power_1", 2) })
                 .RequiresFeature = Features.Aliens;
+            // skill redesign (R13): Time comes last in the chain (after Alien), with a defense stat node at level 2
+            LabPackage("pkg_time", "Time Package", SkillFamily.Time, "sig_time", 6, new[] { new LabPrereq("pkg_alien", 1), new LabPrereq("lab_def_1", 2) });
 
             // ---- offense ----
             RunLab("res_eagle_eye", "Eagle Eye", true, SkillFamily.None, Rarity.Rare, Off, 1, null, false, (b, lv) =>

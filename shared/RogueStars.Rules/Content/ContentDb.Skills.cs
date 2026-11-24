@@ -257,6 +257,23 @@ namespace RogueStars.Rules.Content
             RunSkill("alien_hivemind", "Hivemind", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(2).Needs("aliens").Desc("Aliens channel your signatures.")
                 .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "hivemind")).Stat(StatId.AlienPower, 25)
                 .Text("Each alien is tuned to one of your signatures; its ability also triggers it once. +{p0}% alien power.");
+            // ---- Time (package, R13): Echo repeats attacks; Time bends turn order ----
+            RunSkill("time_head_start", "Head Start", SkillFamily.Time, Rarity.Common).Desc("Strike before they move.")
+                .Add(Tg(TriggerKind.OnBattleStart, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Delay, chance: 30))
+                .Text("Battle start: {c0}% chance to delay every enemy's first turn.");
+            RunSkill("time_afterimage", "Afterimage", SkillFamily.Time, Rarity.Common).Needs("echo").Desc("Stronger echoes.")
+                .Stat(StatId.EchoDamage, 15).Text("Echoes deal +{p0}% damage.");
+            RunSkill("time_rewind_shell", "Rewind Shell", SkillFamily.Time, Rarity.Common).Desc("Undo the worst of it.")
+                .Add(Tg(TriggerKind.OnDamaged, EffectKind.Rewind, target: TargetKind.Self, @if: "self_hp_below:30", maxPerBattle: 1))
+                .Text("Once per battle below 30% HP: undo the damage of your last {s0} hit(s) taken.");
+            RunSkill("time_stasis", "Stasis Field", SkillFamily.Time, Rarity.Legendary).FamilyGate(2).Desc("Freeze time for everyone else.")
+                .Add(Tg(TriggerKind.OnRoundStart, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Delay, everyN: 4, grow: GrowKind.Fixed))
+                .Add(Tg(TriggerKind.OnRoundStart, EffectKind.BuffStat, target: TargetKind.Self, everyN: 4, duration: 1, stat: new StatMod(StatId.EchoDamage, 25)))
+                .Text("Every 4th round, all enemies lose their turn. Your Echo that round deals +{b1}%.");
+            RunSkill("time_paradox", "Paradox", SkillFamily.Time, Rarity.Legendary).FamilyGate(2).Needs("echo").Desc("Echo your best.")
+                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "echo_strongest")).Stat(StatId.EchoDamage, 25)
+                .Text("Echo repeats your strongest attack this battle instead of the last one, at +{p0}% damage.");
+
             RunSkill("alien_decoy", "Decoy", SkillFamily.AlienSynergy, Rarity.Legendary).FamilyGate(2).Needs("blocks").Desc("Blocked attackers lose their way.")
                 .Add(Tg(TriggerKind.OnBlock, EffectKind.ApplyStatus, status: StatusId.Charm, chance: 25))
                 .Text("When an alien blocks a hit: {c0}% chance to Charm the attacker.");
@@ -287,6 +304,9 @@ namespace RogueStars.Rules.Content
                 .On(TriggerKind.OnDamaged, EffectKind.Strike, 0, TargetKind.Enemy, 30, 0, "counter");
             Sig("sig_combo", "Flurry", SkillFamily.Combo, "Hits may strike again.")
                 .On(TriggerKind.OnHit, EffectKind.Strike, 0, TargetKind.Enemy, 30);
+            // skill redesign (R13): the Time package's signature, kept simple: every 3rd turn, repeat your last attack
+            Sig("sig_time", "Echo", SkillFamily.Time, "Your attacks echo.")
+                .Add(Tg(TriggerKind.OnTurnEnd, EffectKind.Echo, target: TargetKind.Self, everyN: 3));
         }
 
         private void RunBuildGenericSkills()
@@ -447,8 +467,18 @@ namespace RogueStars.Rules.Content
             RunSkill("mythic_catalyst", "Catalyst", SkillFamily.None, Rarity.Mythic).Desc("Afflictions feed each other.")
                 .Add(Tg(Hit, EffectKind.StackAll, @if: "statuses:3"))
                 .Text("Enemies with 3+ different statuses gain 1 stack of each whenever you hit them.");
-            RunSkill("mythic_chrono_shell", "Chrono Shell", SkillFamily.None, Rarity.Mythic).Desc("Time bends around you.")
-                .On(TriggerKind.OnBattleStart, EffectKind.Shield, 30, TargetKind.Self).Stat(StatId.DamageReduction, 10);
+            // Time (R13; Loop replaces Chrono Shell)
+            RunSkill("mythic_borrowed_time", "Borrowed Time", SkillFamily.Time, Rarity.Mythic).Desc("Live faster, pay later.")
+                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "extra_turn"))
+                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "lose_turn_every:4"))
+                .Text("Take an extra turn each round.|!Every 4th round, you lose your turn");
+            RunSkill("mythic_time_dilation", "Time Dilation", SkillFamily.Time, Rarity.Mythic).Desc("Wounds age twice as fast.")
+                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "dot_ticks:2"))
+                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "decay:1"))
+                .Text("Status damage ticks twice per round.|!Permanent stacks decay by 1 each round");
+            RunSkill("mythic_loop", "Loop", SkillFamily.Time, Rarity.Mythic).Desc("Not like this. Again.")
+                .Add(Tg(TriggerKind.OnFatal, EffectKind.Loop, target: TargetKind.Self, maxPerBattle: 1))
+                .Text("Once per battle, when you'd die, rewind yourself and all enemies 2 rounds.");
         }
     }
 }

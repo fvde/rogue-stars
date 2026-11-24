@@ -155,6 +155,36 @@ namespace RogueStars.Rules.Core
         /// <summary>All upgrade lines (<see cref="Upgrade"/>) in one paragraph.</summary>
         public static string UpgradeFull(ContentDb content, SkillDef s, int from, int to) => Join(Upgrade(content, s, from, to));
 
+        /// <summary>Marks around a cost in a marked text (the client shows it in the warning colour; <see cref="StripMarks"/> for plain).</summary>
+        public const char CostStart = '\u0002', CostEnd = '\u0003';
+
+        /// <summary><see cref="Full(ContentDb, SkillDef, int)"/> with its cost lines between <see cref="CostStart"/> / <see cref="CostEnd"/>.</summary>
+        public static string FullMarked(ContentDb content, SkillDef s, int level)
+        {
+            var sb = new StringBuilder();
+            foreach (var l in RichLines(content, s, level))
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                if (l.Cost) sb.Append(CostStart).Append(l.Text).Append('.').Append(CostEnd); else sb.Append(l.Text).Append('.');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary><see cref="UpgradeFull"/> with its cost lines marked (costs never scale, so they read the same).</summary>
+        public static string UpgradeFullMarked(ContentDb content, SkillDef s, int from, int to)
+        {
+            var sb = new StringBuilder();
+            foreach (var l in Upgrade(content, s, from, to))
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                if (IsCostLine(s, l)) sb.Append(CostStart).Append(l).Append('.').Append(CostEnd); else sb.Append(l).Append('.');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>A marked text without its cost marks.</summary>
+        public static string StripMarks(string text) => text == null ? null : text.Replace(CostStart.ToString(), "").Replace(CostEnd.ToString(), "");
+
         private static readonly Regex NumberToken =
             new Regex(@"[+\-×]?\d+(?:\.\d+)?%?(?: rounds?\b| extra di(?:e|ce)\b| bad event outcomes?\b)?", RegexOptions.CultureInvariant);
 

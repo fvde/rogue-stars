@@ -124,7 +124,7 @@ public class SkillTuningTests
     public void EverySynergy_HasASignature_ThreeCommonsTwoLegendaries_ThreeMythics()
     {
         var synergies = C.RunTuning.StarterSynergies.Concat(C.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).Select(d => d.Family)).ToList();
-        Assert.Equal(8, synergies.Distinct().Count());
+        Assert.Equal(9, synergies.Distinct().Count()); // + Time
         Assert.DoesNotContain(SkillFamily.Crit, synergies);
         foreach (var f in synergies)
         {

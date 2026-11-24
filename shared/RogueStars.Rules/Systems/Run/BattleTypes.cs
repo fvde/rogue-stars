@@ -40,7 +40,8 @@ namespace RogueStars.Rules.Systems
         CheatDeath,
         /// <summary>An Echo repeats the actor's attack on the target (the repeat follows as its own entry).</summary>
         Echo,
-        /// <summary>Loop: every fighter rewound to the start of round Amount.</summary>
+        /// <summary>Loop: rewound to the start of round Amount. First the looping fighter, then one entry per other fighter
+        /// (Target = it, TargetHp / TargetShield / TargetRage = restored, Stacks 1 = alive again / still alive, 0 = not there).</summary>
         Loop,
         /// <summary>A staggered fighter lost its rage attack.</summary>
         Staggered,

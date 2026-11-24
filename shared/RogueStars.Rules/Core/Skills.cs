@@ -10,7 +10,8 @@ namespace RogueStars.Rules.Core
     /// <c>Poison</c> is the internal id of the Radiation synergy (renamed player-facing in the signatures pass; ids are kept so
     /// saves and content keep working). Display names: <see cref="SkillText.FamilyName"/>.
     /// </remarks>
-    public enum SkillFamily { None, Fire, Ice, Lightning, Poison, Bleed, AlienSynergy, Counter, Combo, Crit }
+    /// <remarks>Time (skill redesign, R13): the Laboratory package after Alien (Echo signature); appended, saves store ints.</remarks>
+    public enum SkillFamily { None, Fire, Ice, Lightning, Poison, Bleed, AlienSynergy, Counter, Combo, Crit, Time }
 
     /// <summary>Where a skill comes from. Same format for all sources.</summary>
     public enum SkillSource { Run, Laboratory, Hero, Mount, Alien, Building, Part }
