@@ -43,7 +43,7 @@ namespace RogueStars.Client.Screens
         public static readonly Color Purple = new Color32(0xB8, 0x78, 0xF2, 255);
 
         private static readonly Regex Numbers = new Regex(@"([+\-−]?\d+(?:[.,]\d+)?\s?(?:%|×|x\b)?)", RegexOptions.Compiled);
-        private static readonly Regex Keys = new Regex(@"\b(Heat|Supernova|Radiation|Burn|Freeze|Frozen|Chill|Poison|Bleed|Stun|Shock|Shield|Heal|HP|ATK|DEF|Crit|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|Parry|SPD|Speed)\b", RegexOptions.Compiled);
+        private static readonly Regex Keys = new Regex(@"\b(Heat|Supernova|Radiation|Burn|Freeze|Frozen|Chill|Poison|Bleed|Stun|Shock|Shield|Heal|HP|ATK|DEF|Crit|Combo|Counter|Dodge|Rage|Lifesteal|Thorns|SPD|Speed)\b", RegexOptions.Compiled);
 
         /// <summary>Rich text with the keywords coloured: numbers (and %) green, statuses / stats blue (pure; tested).</summary>
         public static string Keywords(string text)

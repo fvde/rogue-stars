@@ -760,7 +760,6 @@ namespace RogueStars.Client.Screens
                     if (animate) Hit(target, e.Crit);
                     if (e.Crit) Popup(target, Fmt.Num(e.Amount) + "!", Theme.Gold, animate, 76, "CRIT");
                     else Popup(target, "-" + Fmt.Num(e.Amount), e.Action == BattleAction.StatusTick ? StatusColor(e.Status) : target.Info.Side == BattleSide.Player ? Theme.Hex(0xFF9B3D) : Theme.Hex(0x5EEAF2), animate, 60);
-                    if (e.Parry) Popup(target, "PARRY", Theme.TextDim, animate, 30);
                     break;
                 case BattleAction.Heal:
                 case BattleAction.Regen:
@@ -1167,7 +1166,7 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Block: what = who + " blocks a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " stopped)"; break;
                 default:
                     what = who + " " + e.Action.ToString().ToLowerInvariant() + (tgt.Length > 0 ? " → " + tgt : "")
-                           + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "") + (e.Parry ? " parried" : "")
+                           + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "")
                            + (e.SkillId != null ? " [" + (Content.Skill(e.SkillId)?.Name ?? e.SkillId) + "]" : "");
                     break;
             }

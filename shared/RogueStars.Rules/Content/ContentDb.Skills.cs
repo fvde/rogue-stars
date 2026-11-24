@@ -178,8 +178,9 @@ namespace RogueStars.Rules.Content
                 b.Desc("Chance to counter-attack.").Stat(StatId.CounterChance, 15));
             RunSkill("counter_spiked", "Spiked Hide", SkillFamily.Counter, Rarity.Rare).Desc("Taking damage hurts the attacker.")
                 .On(TriggerKind.OnDamaged, EffectKind.Damage, 24, TargetKind.Enemy);
-            RunSkill("counter_parry", "Parry Stance", SkillFamily.Counter, Rarity.Epic).FamilyGate(2).Desc("+15 parry, parries block more.")
-                .Stat(StatId.ParryChance, 15).Stat(StatId.ParryReduction, 20);
+            // parry removed (skill redesign): Parry Stance → Rebound Plating
+            RunSkill("counter_rebound", "Rebound Plating", SkillFamily.Counter, Rarity.Legendary).FamilyGate(2).Desc("Counters build a shield.")
+                .On(TriggerKind.OnCounter, EffectKind.Shield, 25, TargetKind.Self, 100, 0, "of_amount");
             RunSkill("counter_vengeance", "Vengeance", SkillFamily.Counter, Rarity.Legendary).FamilyGate(3).Desc("Counters deal +50% and grant rage.")
                 .Cond("counter", 50).On(TriggerKind.OnCounter, EffectKind.GainRage, 20, TargetKind.Self);
 
@@ -308,12 +309,14 @@ namespace RogueStars.Rules.Content
             RunSkill("mythic_swarm_call", "Swarm Beacon", SkillFamily.AlienSynergy, Rarity.Mythic).Desc("Drones answer your call.")
                 .Kick(TriggerKind.OnBattleStart, EffectKind.Summon, 3, 40, "sk_drone");
             // Counter
-            RunSkill("counter_mirror", "Mirror Carapace", SkillFamily.Counter, Rarity.Mythic).Desc("Parries reflect true damage.")
-                .On(TriggerKind.OnParry, EffectKind.TrueDamage, 100, TargetKind.Enemy).Stat(StatId.ParryChance, 10);
+            RunSkill("counter_mirror", "Mirror Carapace", SkillFamily.Counter, Rarity.Mythic).Desc("The first hit each round bounces back to every enemy.")
+                .Stat(StatId.DamageTaken, 20);
+            Skills["counter_mirror"].Triggers.Add(new SkillTrigger { When = TriggerKind.OnDamaged, Effect = EffectKind.Reflect, Value = 100, Target = TargetKind.AllEnemies, If = "first_hit_taken" });
             RunSkill("mythic_thorn_king", "Thorn King", SkillFamily.Counter, Rarity.Mythic).Desc("Touching you hurts.")
                 .Stat(StatId.CounterChance, 20).On(TriggerKind.OnDamaged, EffectKind.Damage, 50, TargetKind.Enemy);
-            RunSkill("mythic_bastion", "Bastion", SkillFamily.Counter, Rarity.Mythic).Desc("Nothing gets through.")
-                .Stat(StatId.ParryChance, 20).Stat(StatId.ParryReduction, 30).On(TriggerKind.OnParry, EffectKind.GainRage, 30, TargetKind.Self);
+            RunSkill("mythic_bastion", "Bastion", SkillFamily.Counter, Rarity.Mythic).Desc("Stand still; answer everything.")
+                .On(TriggerKind.Passive, EffectKind.Rule, 0, TargetKind.Self, 100, 0, "no_turn_attack")
+                .On(TriggerKind.Passive, EffectKind.Rule, 0, TargetKind.Self, 100, 0, "counter_all").Cond("counter", 50);
             // Combo
             RunSkill("combo_endless", "Endless Dance", SkillFamily.Combo, Rarity.Mythic).Desc("+25 combo; combos heal.")
                 .Stat(StatId.ComboChance, 25).On(TriggerKind.OnCombo, EffectKind.Heal, 2, TargetKind.Self);

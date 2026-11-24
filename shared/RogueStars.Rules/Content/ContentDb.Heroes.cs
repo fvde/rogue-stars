@@ -55,7 +55,7 @@ namespace RogueStars.Rules.Content
             h.CollectionPerStar.Add(new StatMod(StatId.Hp, 0, 0.3));
             h.CollectionPerStar.Add(new StatMod(StatId.Atk, 0, 0.3));
 
-            AddHeroDef("hero_star_knight", "Star Knight Worm", SkillFamily.Counter, SkillFamily.Crit, "Starlight Parry", "Knight's Oath");
+            AddHeroDef("hero_star_knight", "Star Knight Worm", SkillFamily.Counter, SkillFamily.Crit, "Starlight Riposte", "Knight's Oath");
             AddHeroDef("hero_chef", "Chef Worm", SkillFamily.Fire, SkillFamily.Poison, "Spicy Ladle", "Five-Course Feast");
             AddHeroDef("hero_void_pirate", "Void Pirate Worm", SkillFamily.Crit, SkillFamily.Bleed, "Plunder Shot", "Black Flag");
             AddHeroDef("hero_glacier_monk", "Glacier Monk Worm", SkillFamily.Ice, SkillFamily.Counter, "Still Water", "Avalanche Mantra");

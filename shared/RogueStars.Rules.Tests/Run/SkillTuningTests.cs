@@ -270,6 +270,23 @@ public class SkillTuningTests
                 case EffectKind.Block: if (e.Action == BattleAction.Guard) return true; break;
                 case EffectKind.RemoveStatus:
                 case EffectKind.ConsumeStatus: if (e.Action == BattleAction.StatusRemoved && e.Status == t.Status) return true; break;
+                // skill redesign effects
+                case EffectKind.BlockStatus: if (e.Action == BattleAction.StatusBlocked && e.Status == t.Status) return true; break;
+                case EffectKind.ForceSupernova: if (e.Action == BattleAction.Supernova) return true; break;
+                case EffectKind.MultiplyStatus:
+                case EffectKind.TransferStatus: if (e.Action == BattleAction.StatusApplied && e.Status == t.Status) return true; break;
+                case EffectKind.StackAll: if (e.Action == BattleAction.StatusApplied) return true; break;
+                case EffectKind.TickStatus: if (e.Action == BattleAction.StatusTick && e.Amount > 0) return true; break;
+                case EffectKind.Execute: if (e.Action == BattleAction.Execute) return true; break;
+                case EffectKind.Reflect:
+                case EffectKind.LoseHp: if (e.Action == BattleAction.Skill && e.Amount > 0) return true; break;
+                case EffectKind.CheatDeath: if (e.Action == BattleAction.CheatDeath) return true; break;
+                case EffectKind.FreeRageAttack:
+                case EffectKind.Charge: if (e.Action == BattleAction.Buff) return true; break;
+                case EffectKind.Sacrifice: if (e.Action == BattleAction.Sacrifice) return true; break;
+                case EffectKind.Echo: if (e.Action == BattleAction.Echo) return true; break;
+                case EffectKind.Rewind: if (e.Action == BattleAction.Heal && e.Amount > 0) return true; break;
+                case EffectKind.Loop: if (e.Action == BattleAction.Loop) return true; break;
             }
         }
         return false;
@@ -307,7 +324,7 @@ public class SkillTuningTests
             for (int i = 0; i < s.Triggers.Count; i++)
             {
                 var t = s.Triggers[i];
-                bool cond = t.When == TriggerKind.Passive && t.Param != null && t.Param.StartsWith("cond:", StringComparison.Ordinal);
+                bool cond = t.When == TriggerKind.Passive && (t.Effect == EffectKind.Rule || t.Param != null && t.Param.StartsWith("cond:", StringComparison.Ordinal));
                 if (!cond && !landed[i]) failures.Add(s.Id + ": trigger " + t.When + " " + t.Effect + " never landed");
             }
             // every level-up changes a battle too (no dead upgrades)

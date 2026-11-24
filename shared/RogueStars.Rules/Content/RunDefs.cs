@@ -28,15 +28,14 @@ namespace RogueStars.Rules.Content
         public int ArenaRoundCap = 30;
         /// <summary>DEF floor: damage is at least this % of the bonus-adjusted attack.</summary>
         public double DefFloorPct = 10;
-        public double DrKnee = 10, DodgeKnee = 10, CritKnee = 15, StatusResistKnee = 10, ParryKnee = 10;
-        public double MaxDamageReduction = 90, MaxDodge = 75, MaxCrit = 100, MaxParry = 60;
+        public double DrKnee = 10, DodgeKnee = 10, CritKnee = 15, StatusResistKnee = 10;
+        public double MaxDamageReduction = 90, MaxDodge = 75, MaxCrit = 100;
         /// <summary>Consecutive dodges multiply the dodge odds by this per previous dodge.</summary>
         public double DodgeDecay = 0.8;
         /// <summary>Combo and counter chains multiply their chance by this per link.</summary>
         public double ChainDecay = 0.5;
         public int MaxChain = 6;
         public double BaseCritDamage = 50;
-        public double BaseParryReduction = 40, MaxParryReduction = 90;
         public double RageMax = 100, RageOverfillMax = 125, RagePerAction = 25, RagePerHitTaken = 10;
         /// <summary>OnLowHp fires once per battle when HP drops below this %.</summary>
         public double LowHpTriggerPct = 30;

@@ -61,8 +61,8 @@ namespace RogueStars.Rules.Content
                 b.Desc("+counter chance, counters may stun.").Stat(StatId.CounterChance, 5 + 5 * lv).Status(TriggerKind.OnCounter, 10 * lv, StatusId.Stun));
             LabStat("lab_def_1", "Chitin Plating", Def, 2, StatId.Def, true, 1, Any("res_second_wind", "lab_hp_1"), false);
             RunLab("res_bulwark", "Bulwark Protocol", false, SkillFamily.Counter, Rarity.Epic, Def, 3, Pkg("pkg_counter"), true, (b, lv) =>
-                b.Desc("Battle start: a shield; parries may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
-                 .On(TriggerKind.OnParry, EffectKind.Shield, 2 * lv, TargetKind.Self, 50));
+                b.Desc("Battle start: a shield; counters may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
+                 .On(TriggerKind.OnCounter, EffectKind.Shield, 2 * lv, TargetKind.Self, 50)); // parry removed: was on parry
             LabStat("lab_dodge", "Blink Glands", Def, 3, StatId.Dodge, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_counter", "Spring Joints", Def, 3, StatId.CounterChance, false, 1, Any("res_retaliation", "lab_def_1"), false);
             LabStat("lab_shield_power", "Barrier Theory", Def, 3, StatId.ShieldPower, false, 2, Any("res_retaliation", "lab_def_1"), false);
