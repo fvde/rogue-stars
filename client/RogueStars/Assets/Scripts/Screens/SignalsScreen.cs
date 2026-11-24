@@ -96,8 +96,22 @@ namespace RogueStars.Client.Screens
                     var pulled = new Reward(it.Kind, it.Id, it.Amount, it.Rarity);
                     // A pull result is always shown (published odds); one without a use yet waits in the reward stash.
                     string kept = RewardGate.HasUse(State, Content, pulled, Now) ? "" : "\n<size=16>kept for later</size>";
-                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + "\n<size=18>" + it.Tier + "</size>" + kept, 20, Color.white, TextAnchor.MiddleCenter);
-                    Ui.Stretch(t.rectTransform, 6, 6, 6, 6);
+                    // an alien shows its sprite (ArtCatalog) over the name
+                    var art = it.Kind == RewardKinds.Alien ? ArtCatalog.Alien(it.Id) : null;
+                    if (art != null)
+                    {
+                        var img = Ui.Panel(c.transform, Color.white, "AlienSprite");
+                        img.sprite = art;
+                        img.preserveAspect = true;
+                        img.raycastTarget = false;
+                        var irt = img.rectTransform;
+                        irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 1);
+                        irt.pivot = new Vector2(0.5f, 1);
+                        irt.sizeDelta = new Vector2(96, 96);
+                        irt.anchoredPosition = new Vector2(0, -4);
+                    }
+                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + "\n<size=18>" + it.Tier + "</size>" + kept, art != null ? 17 : 20, Color.white, art != null ? TextAnchor.LowerCenter : TextAnchor.MiddleCenter);
+                    Ui.Stretch(t.rectTransform, 6, art != null ? 96 : 6, 6, 6);
                     cards.Add(c.rectTransform);
                     if (Application.isPlaying) c.gameObject.SetActive(false);
                 }

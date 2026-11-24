@@ -44,7 +44,16 @@ namespace RogueStars.Client.Screens
             var def = Content.AlienType(a.TypeId);
             var color = Theme.RarityColor(def?.Rarity ?? Rarity.Common);
             var card = Card(body, Color.Lerp(color, Theme.Panel, 0.75f));
-            var head = Ui.Row(card, 60);
+            var art = ArtCatalog.Alien(a.TypeId);
+            var head = Ui.Row(card, art != null ? 104 : 60);
+            if (art != null)
+            {
+                var portrait = Ui.Panel(head, Color.white, "AlienSprite");
+                portrait.sprite = art;
+                portrait.preserveAspect = true;
+                portrait.raycastTarget = false;
+                Ui.Size(portrait, 104, 104, 0, 0);
+            }
             Ui.Label(head, (def?.Name ?? a.TypeId) + "  " + Fmt.Stars(a.Stars), Theme.FontNormal, Color.Lerp(color, Color.white, 0.4f));
             Ui.Label(head, "Lv " + a.Level + "/" + AlienSystem.MaxLevel(Content, a), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
             var stats = AlienSystem.CombatStats(Content, a);

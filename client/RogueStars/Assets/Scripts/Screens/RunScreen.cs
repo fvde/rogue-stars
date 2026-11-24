@@ -41,8 +41,6 @@ namespace RogueStars.Client.Screens
         /// <summary>Tiles in the skill tray (the last one is "+N" when there are more skills).</summary>
         public const int SkillSlots = 7;
         public const float SkillTileSize = 118;
-        /// <summary>The board's ground image scrolls at this fraction of the camera (parallax: it lies deeper than the path).</summary>
-        public const float GroundParallax = 0.55f;
 
         private string _runId;
         private int _trailSeen;
@@ -80,7 +78,10 @@ namespace RogueStars.Client.Screens
         /// <summary>The board's art (ground image, slab palette / sprites) for the current level (ArtCatalog).</summary>
         private BiomeArt _biome = ArtCatalog.Default;
         private RectTransform _ground;
-        private float _groundTileH;
+        private GroundLayer _groundLayer;
+        /// <summary>Decor props of the current run's board (BoardDecor; recomputed only when the board grows or the arena opens).</summary>
+        private List<DecorProp> _decor;
+        private string _decorKey;
         /// <summary>The run's skills and levels as last drawn (the final boss playback has no active run left).</summary>
         private List<string> _lastSkills = new List<string>();
         private Dictionary<string, int> _lastSkillLevels = new Dictionary<string, int>();
@@ -687,12 +688,20 @@ namespace RogueStars.Client.Screens
             if (_board == null || float.IsNaN(_cam)) return;
             float camDraw = _cam - (_x0 / Columns) * BandH - _boardH;
             _board.anchoredPosition = new Vector2(0, -_viewH / 2 - camDraw);
-            // the ground image scrolls with the camera at reduced speed (mirror-repeated, so it never shows a seam)
-            if (_ground != null && _groundTileH > 0) _ground.anchoredPosition = new Vector2(0, RunFx.GroundTop(_cam, GroundParallax, _groundTileH));
+            // the ground is locked to the board (1:1 with the camera, no parallax): tiles and decor sit ON it. Its pattern
+            // repeats every pitch, so it is placed by the camera's phase and never runs out.
+            if (_ground != null && _groundLayer != null && _groundLayer.Pitch > 0)
+                _ground.anchoredPosition = new Vector2(0, GroundLayer.Phase(_cam, _groundLayer.Pitch));
         }
 
-        /// <summary>Ground scroll position (tests): the top of the mirrored ground strip in the viewport.</summary>
+        /// <summary>Ground scroll position (tests): the top of the ground layer in the viewport.</summary>
         public float GroundY => _ground != null ? _ground.anchoredPosition.y : float.NaN;
+        /// <summary>Board scroll position (tests): the board's anchored y in the viewport.</summary>
+        public float BoardY => _board != null ? _board.anchoredPosition.y : float.NaN;
+        /// <summary>The ground layer (tests: upright copies, pitch).</summary>
+        public GroundLayer GroundView => _groundLayer;
+        /// <summary>Decor props of the run's board as placed (tests).</summary>
+        public IReadOnlyList<DecorProp> Decor => _decor;
 
         /// <summary>One camera frame: eases towards the worm (never snaps), unless the player is looking around.</summary>
         public void StepCamera(float dt)
@@ -787,6 +796,18 @@ namespace RogueStars.Client.Screens
             text = sprite ? Theme.Text : lightFace ? Color.Lerp(look.Accent, Theme.OnAccent, 0.62f) : Color.Lerp(look.Accent, Color.white, 0.55f);
         }
 
+        /// <summary>
+        /// Drawn size of a tile sprite on a slab of <paramref name="slab"/>: as wide as the slab plus a little, its height from the
+        /// sprite's aspect (never squashed), capped so neighbouring tiles do not touch.
+        /// </summary>
+        public static Vector2 SpriteSlabSize(Sprite sprite, Vector2 slab)
+        {
+            if (sprite == null || sprite.rect.width <= 0) return slab;
+            float w = slab.x + 8;
+            float h = w * sprite.rect.height / sprite.rect.width;
+            return new Vector2(w, Mathf.Clamp(h, slab.y, slab.y + 22));
+        }
+
         /// <summary>The board's art (ArtCatalog biome of the level) as drawn now (tests).</summary>
         public BiomeArt Biome => _biome;
 
@@ -817,6 +838,10 @@ namespace RogueStars.Client.Screens
             Vector2 P(RunTile t) => DrawPoint(TileCenter(t, x0), boardH);
             var visible = run.Tiles.FindAll(t => InWindow(run, t, x0));
             bool art = _biome != ArtCatalog.Default;
+
+            // decor props beside the path (BoardDecor), under everything else and on the board itself: they belong to the
+            // ground and move exactly with the tiles
+            DrawDecor(board, run, visible, x0, boardH);
 
             // edges first (behind tiles): a dark under-stroke so the path reads on the ground image; walked edges lit
             var walked = new HashSet<long>();
@@ -890,10 +915,11 @@ namespace RogueStars.Client.Screens
                 {
                     img = Ui.Panel(board, fill, "Tile:" + t.Id);
                     img.sprite = sprite;
+                    img.preserveAspect = true;
                 }
                 else img = Ui.RoundPanel(board, fill, 16, "Tile:" + t.Id);
                 img.raycastTarget = false;
-                PlaceAt(img.rectTransform, center, size);
+                PlaceAt(img.rectTransform, center, sprite != null ? SpriteSlabSize(sprite, size) : size);
                 if (sprite == null)
                 {
                     // bevel: a soft highlight along the slab's top edge
@@ -1028,36 +1054,30 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// The ground plane of the biome behind the path (ArtCatalog background): copies of the full-frame image stacked down
-        /// the viewport, every other one mirrored so they meet at matching edges (no seam); <see cref="ApplyCamera"/> scrolls
-        /// it with the camera at <see cref="GroundParallax"/>. No image = the plain dark board.
+        /// The ground plane of the biome behind the path (ArtCatalog.GroundOf): one <see cref="GroundLayer"/> of upright copies
+        /// (never mirrored) — a seamless ground texture edge to edge, a full-frame background with a crossfaded band between
+        /// copies; <see cref="ApplyCamera"/> moves it 1:1 with the board. No image = the plain dark board.
         /// </summary>
         private void Ground(RectTransform holder, float width)
         {
             _ground = null;
-            _groundTileH = 0;
-            var sprite = ArtCatalog.Background(_biome);
+            _groundLayer = null;
+            var art = ArtCatalog.GroundOf(_biome);
+            var sprite = art.Sprite;
             if (sprite == null) return;
             float w = Mathf.Max(BoardWidth, width);
             float tileH = w * sprite.rect.height / Mathf.Max(1, sprite.rect.width);
             var g = Ui.Rect(holder, "BoardGround");
             g.anchorMin = g.anchorMax = new Vector2(0.5f, 1);
             g.pivot = new Vector2(0.5f, 1);
-            int copies = Mathf.CeilToInt((2 * tileH + _viewH) / tileH) + 1;
-            g.sizeDelta = new Vector2(w, copies * tileH);
-            var tint = new Color(_biome.GroundDim, _biome.GroundDim, _biome.GroundDim, 1);
-            for (int i = 0; i < copies; i++)
-            {
-                var img = Ui.Panel(g, tint, "Ground" + i);
-                img.sprite = sprite;
-                img.raycastTarget = false;
-                var rt = img.rectTransform;
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.sizeDelta = new Vector2(w, tileH + 1); // one unit of overlap: no hairline between copies
-                rt.anchoredPosition = new Vector2(0, -tileH * (i + 0.5f));
-                if (i % 2 == 1) rt.localScale = new Vector3(1, -1, 1);
-            }
+            var layer = g.gameObject.AddComponent<GroundLayer>();
+            layer.color = new Color(_biome.GroundDim, _biome.GroundDim, _biome.GroundDim, 1);
+            layer.Setup(sprite, w, tileH, art.Seamless, 1, 1);
+            // enough copies to cover the viewport from any phase (the layer's top sits up to one pitch above the viewport)
+            int rows = Mathf.CeilToInt((layer.Pitch + _viewH) / layer.Pitch) + 1;
+            layer.Setup(sprite, w, tileH, art.Seamless, rows, 1);
+            g.sizeDelta = new Vector2(w, (rows - 1) * layer.Pitch + tileH);
+            _groundLayer = layer;
             // a soft dark falloff at the top and bottom of the viewport frames the board under the strip and over the footer
             foreach (var top in new[] { true, false })
             {
@@ -1068,7 +1088,6 @@ namespace RogueStars.Client.Screens
                 frt.sizeDelta = new Vector2(0, 26); frt.anchoredPosition = Vector2.zero;
             }
             _ground = g;
-            _groundTileH = tileH;
         }
 
         /// <summary>The worm token: the hero sprite on a glowing base (or the drawn pill worm when the sprite is missing).</summary>
@@ -1138,6 +1157,95 @@ namespace RogueStars.Client.Screens
             eye.rectTransform.anchorMin = eye.rectTransform.anchorMax = new Vector2(0.8f, 0.62f);
             eye.rectTransform.sizeDelta = new Vector2(9, 9);
             UiBob.On(pr, 5, 1.6f);
+        }
+
+        /// <summary>
+        /// Decor props of the biome (Art/Decor/&lt;biome&gt;) placed by <see cref="BoardDecor"/> along the drawn part of the path;
+        /// a biome with a ground image but no props yet gets drawn placeholder rocks. Props never cover the boss marker.
+        /// </summary>
+        private void DrawDecor(RectTransform board, ActiveRun run, List<RunTile> visible, int x0, float boardH)
+        {
+            var sprites = ArtCatalog.DecorProps(_biome);
+            bool placeholder = sprites.Count == 0 && ArtCatalog.GroundOf(_biome).Sprite != null;
+            if (sprites.Count == 0 && !placeholder) { _decor = null; _decorKey = null; return; }
+            string key = run.RunId + ":" + run.Tiles.Count + ":" + run.BossGateTile;
+            if (_decor == null || key != _decorKey)
+            {
+                _decor = BoardDecor.Place(run.Tiles, BoardDecor.Seed(run.RunId), run.BossGateTile);
+                _decorKey = key;
+            }
+            Rect boss = default;
+            bool hasBoss = run.BossGateTile >= 0 && visible.Exists(t => t.Id == run.BossGateTile);
+            if (hasBoss)
+            {
+                var c = BossMarkerCenter(visible, run.BossGateTile, new Vector2(BoardWidth, boardH), x0);
+                boss = new Rect(c.x - BossMarkerSize.x / 2, c.y - BossMarkerSize.y / 2, BossMarkerSize.x, BossMarkerSize.y);
+            }
+            float rise = (x0 / Columns) * BandH;
+            foreach (var d in _decor)
+            {
+                var layout = d.Pos - new Vector2(0, rise);
+                if (layout.y < -d.Size || layout.y > boardH + d.Size) continue;
+                if (hasBoss && BoardDecor.CircleRectGap(layout, boss) < BoardDecor.Radius(d.Size)) continue;
+                var at = DrawPoint(layout, boardH);
+                var root = Ui.Rect(board, d.Landmark ? "Decor:Landmark" : "Decor");
+                PlaceAt(root, at, new Vector2(d.Size, d.Size));
+                // a soft contact shadow so the prop stands on the ground
+                var shadow = Ui.Panel(root, new Color(0, 0, 0, 0.32f), "Shadow");
+                shadow.sprite = UiShapes.Circle;
+                shadow.raycastTarget = false;
+                var srt = shadow.rectTransform;
+                srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 0.5f);
+                srt.sizeDelta = new Vector2(d.Size * 0.86f, d.Size * 0.3f);
+                srt.anchoredPosition = new Vector2(0, -d.Size * 0.3f);
+                if (sprites.Count > 0)
+                {
+                    var img = Ui.Panel(root, Color.white, "Prop");
+                    img.sprite = sprites[d.Variant % sprites.Count];
+                    img.preserveAspect = true;
+                    img.raycastTarget = false;
+                    Ui.Stretch(img.rectTransform);
+                    if (d.Flip) img.rectTransform.localScale = new Vector3(-1, 1, 1);
+                }
+                else PlaceholderRock(root, d);
+            }
+        }
+
+        /// <summary>A drawn rock (or a cluster of three for a landmark) in the biome's rock colour: stands in for prop art.</summary>
+        private void PlaceholderRock(RectTransform root, DecorProp d)
+        {
+            var baseCol = _biome.Rock;
+            var dark = Color.Lerp(baseCol, Color.black, 0.45f);
+            var light = Color.Lerp(baseCol, Color.white, 0.28f);
+            float s = d.Size;
+            float f = d.Flip ? -1 : 1;
+            var blobs = d.Landmark
+                ? new[] { new Vector4(-0.2f, -0.06f, 0.56f, 0.5f), new Vector4(0.2f, -0.12f, 0.46f, 0.38f), new Vector4(0.02f, 0.12f, 0.5f, 0.56f) }
+                : (d.Variant % 2 == 0
+                    ? new[] { new Vector4(0, 0, 0.8f, 0.58f) }
+                    : new[] { new Vector4(-0.12f, 0, 0.62f, 0.52f), new Vector4(0.22f, -0.1f, 0.4f, 0.32f) });
+            foreach (var b in blobs)
+            {
+                var pos = new Vector2(b.x * s * f, b.y * s);
+                var size = new Vector2(b.z * s, b.w * s);
+                var side = Ui.Panel(root, dark, "Rock");
+                side.sprite = UiShapes.Circle; side.raycastTarget = false;
+                Place(side.rectTransform, pos + new Vector2(0, -size.y * 0.12f), size);
+                var top = Ui.Panel(root, baseCol, "RockTop");
+                top.sprite = UiShapes.Circle; top.raycastTarget = false;
+                Place(top.rectTransform, pos + new Vector2(0, size.y * 0.04f), size * 0.9f);
+                var hi = Ui.Panel(root, light, "RockLight");
+                hi.sprite = UiShapes.Circle; hi.raycastTarget = false;
+                Place(hi.rectTransform, pos + new Vector2(-size.x * 0.14f * f, size.y * 0.18f), size * 0.36f);
+            }
+
+            void Place(RectTransform rt, Vector2 p, Vector2 sz)
+            {
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = sz;
+                rt.anchoredPosition = p;
+            }
         }
 
         private static void PlaceAt(RectTransform rt, Vector2 anchored, Vector2 size)
