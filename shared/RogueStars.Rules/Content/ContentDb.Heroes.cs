@@ -99,7 +99,7 @@ namespace RogueStars.Rules.Content
             HeroSkill(d, 7, "Clause", "Second Course", "c7", "Feast also eats up to 3 stacks from the enemy behind.",
                 K(Ab, EffectKind.ConsumeStatus, 25, TargetKind.SecondEnemy, "largest;take:3;dmg:25"));
             HeroUpgrade(d, 10, "Capstone", "Banquet", "A full Feast (6 stacks) becomes a Banquet: every enemy takes half its damage.", "ability_10", "ability_3",
-                "Every 3rd round: eat up to 6 stacks of the largest status, 25% ATK each. Six stacks: every enemy takes half.",
+                "Every 3rd round: eat up to 6 of the largest status, 25% ATK each. Six eaten: all enemies take half.",
                 KRule("ability_every:3"), K(Ab, EffectKind.ConsumeStatus, 25, Front, "largest;take:6;dmg:25;splash:50"));
 
             // ---- Void Pirate (timer: every 4th round) ------------------------------------------------------------------------
@@ -192,7 +192,7 @@ namespace RogueStars.Rules.Content
                 "Every 3rd round: every sidekick acts, fastest first, then your mount fires. Shield 3% max HP per ally.",
                 KRule("ability_every:3"), K(Ab, EffectKind.Whistle, 3, Self));
             HeroUpgrade(d, 10, "Capstone", "Alpha Howl", "During Whistle, the worm follows each ally with a 30% ATK extra hit.", "ability_10", "ability_7",
-                "Every 3rd round: every ally acts, then your mount fires; 3% max HP shield each; you follow each for 30% ATK.",
+                "Every 3rd round: all sidekicks act, then your mount fires; shield 3% per ally; you follow each with 30% ATK.",
                 KRule("ability_every:3"), K(Ab, EffectKind.Whistle, 3, Self, "follow:30"));
 
             // ---- Nebula Monk (was Glacier Monk; counter: rounds without HP loss) -----------------------------------------------------

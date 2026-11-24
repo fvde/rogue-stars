@@ -53,9 +53,9 @@ public class DeadEffectsTests
     /// The SkillTuningTests arena (worm + mount + two aliens vs a shielded slug, a dodging wraith and a boss), with the skill where its
     /// source puts it: mount weapons on the mount, alien skills on an alien, enemy skills on the slug, everything else on the worm.
     /// </summary>
-    internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null) => Fight(c, skillId, seed, brawl, context);
+    internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double hpPct = 0) => Fight(c, skillId, seed, brawl, context, hpPct);
 
-    private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null)
+    private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double enemyHpPct = 0)
     {
         var lo = new CombatLoadout { DisplayName = "Worm", MountId = "test_mount" };
         lo.WormStats.AddAll(new[]
@@ -82,9 +82,9 @@ public class DeadEffectsTests
         if (context != null) lo.MetaSkillIds.AddRange(context);
         var setup = new BattleSetup();
         setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, SkillTuningTests.KitIds));
-        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "magma_slug", 1.5));
-        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "ash_wraith", 1.5));
-        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "boss_frost_leviathan", brawl ? 1.2 : 1.0));
+        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "magma_slug", 1.5, 0, enemyHpPct));
+        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "ash_wraith", 1.5, 0, enemyHpPct));
+        setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "boss_frost_leviathan", brawl ? 1.2 : 1.0, 0, enemyHpPct));
         if (enemy) setup.Enemy[0].SkillIds.Add(skillId!);
         return BattleSimulator.Simulate(setup, c, new Rng((ulong)(1000 + seed)));
     }
@@ -110,8 +110,16 @@ public class DeadEffectsTests
         }
         ctx.Remove(step.Replaces ?? "");
         ctx.Add("sig_fire");
-        // the situation the element answers (as SkillTuningTests.Context does for run skills)
-        var all = ctx.Append(skillId).Select(id => c.Skill(id)!).ToList();
+        ctx.AddRange(KitSituation(c, ctx.Append(skillId)));
+        return ctx;
+    }
+
+    /// <summary>The situation kit elements answer (as SkillTuningTests.Context does for run skills): a fight the worm can lose for
+    /// saves, heals for Guiding Star, an element bonus for Conduit, big stacks for Deep Wells, many combo strikes, a mount to fire.</summary>
+    internal static List<string> KitSituation(ContentDb c, IEnumerable<string> ids)
+    {
+        var ctx = new List<string>();
+        var all = ids.Select(id => c.Skill(id)).Where(s => s != null).Select(s => s!).ToList();
         bool Has(Func<SkillTrigger, bool> f) => all.Any(s => s.Triggers.Any(f));
         bool fatal = Has(t => t.When == TriggerKind.OnFatal);
         if (fatal) ctx.Add("kit_doomed");                                                                            // saves need a fight it loses
@@ -122,7 +130,61 @@ public class DeadEffectsTests
         if (Has(t => (t.If ?? "").Contains("self_hp_below")) && !fatal) ctx.Add("kit_frail");                         // low-HP clauses
         if (Has(t => t.Effect is EffectKind.MountFire or EffectKind.Whistle || t.When == TriggerKind.OnMountFire)) ctx.Add("mount_magma_barge_active_1");
         if (Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("ability_stillness"))) ctx.Add("kit_bigshield"); // rounds without HP loss
+        if (Has(t => t.When == TriggerKind.OnAbility && t.Effect == EffectKind.Heal)) ctx.Add("kit_wounded"); // Inner Calm: a worm hurt in an earlier battle
+        if (Has(t => t.Effect == EffectKind.SpreadStatus)) { ctx.Add("kit_flood"); if (!ctx.Contains("kit_combo")) ctx.Add("kit_combo"); } // a big stack to copy
         return ctx;
+    }
+
+    private static readonly string[] AllSignatures =
+        { "sig_fire", "sig_radiation", "sig_bleed", "sig_ice", "sig_lightning", "sig_combo", "sig_counter", "sig_alien", "sig_time" };
+
+    /// <summary>
+    /// Hero and mount kits ("not tied to one synergy"): every kit step changes a seeded battle with at least two different
+    /// signatures. A hero step is the kit at that star against the kit one step before (1★: no hero); a mount step changes the
+    /// passive or the active alone (the other at the same step), against its previous step (1★: without it).
+    /// </summary>
+    [Fact]
+    public void EveryKitStep_ChangesASeededBattle_WithAtLeastTwoSignatures()
+    {
+        var c = SkillTuningTests.KitContent();
+        var cases = new List<(string name, List<string> with, List<string> without)>();
+        foreach (var h in c.HeroConfig.Defs.Values.OrderBy(d => d.Id, StringComparer.Ordinal))
+        {
+            int prev = 0;
+            foreach (int star in c.HeroConfig.KitStars)
+            {
+                cases.Add((h.Id + " " + star + "★", HeroSystem.TraitSkills(c, h.Id, star), prev == 0 ? new List<string>() : HeroSystem.TraitSkills(c, h.Id, prev)));
+                prev = star;
+            }
+        }
+        foreach (var m in c.MountConfig.Defs.Values.OrderBy(d => d.Id, StringComparer.Ordinal))
+            for (int k = 1; k <= 5; k++)
+                foreach (var (slot, other) in new[] { ("passive", "active"), ("active", "passive") })
+                {
+                    var with = new List<string> { m.Id + "_" + slot + "_" + k, m.Id + "_" + other + "_" + k };
+                    var without = new List<string> { m.Id + "_" + other + "_" + k };
+                    if (k > 1) without.Add(m.Id + "_" + slot + "_" + (k - 1));
+                    cases.Add((m.Id + " " + slot + " step " + k, with, without));
+                }
+        var failures = new List<string>();
+        foreach (var (name, with, without) in cases)
+        {
+            var situation = KitSituation(c, with.Concat(without));
+            var changed = new List<string>();
+            foreach (var sig in AllSignatures)
+            {
+                bool diff = false;
+                // the two arenas of the audit and a long fight (enemies with +300% HP: Stillness, stacks to copy, capstones)
+                foreach (var (brawl, hpPct) in new[] { (false, 0.0), (true, 0.0), (false, 300.0) })
+                    for (int seed = 0; seed < 4 && !diff; seed++)
+                        diff = Sig(Fight(c, null, seed, brawl, with.Append(sig).Concat(situation), hpPct))
+                            != Sig(Fight(c, null, seed, brawl, without.Append(sig).Concat(situation), hpPct));
+                if (diff) changed.Add(sig);
+            }
+            if (changed.Count < 2) failures.Add(name + ": changes a battle with " + (changed.Count == 0 ? "no signature" : "only " + changed[0]));
+        }
+        Assert.True(cases.Count == 9 * 5 + 9 * 10, cases.Count + " kit steps");
+        Assert.True(failures.Count == 0, failures.Count + " kit steps:\n" + string.Join("\n", failures));
     }
 
     /// <summary>A whole auto-played run (strong worm, the skill as a meta skill) as a signature without the skill's own id.</summary>

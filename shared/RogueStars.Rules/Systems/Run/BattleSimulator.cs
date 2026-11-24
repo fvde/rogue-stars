@@ -1596,7 +1596,7 @@ namespace RogueStars.Rules.Systems
             if (owner.Role == CombatRole.Worm && !_noRider && owner.Alive)
             {
                 var m = MountOf(owner.Side);
-                if (m != null && m.Alive && (!Over || kind == TriggerKind.OnBattleWon)) FireOn(m, owner, true, kind, ctx, ctxStatus, amount);
+                if (m != null && m.Alive && (!Over || kind == TriggerKind.OnBattleWon || kind == TriggerKind.OnKill)) FireOn(m, owner, true, kind, ctx, ctxStatus, amount);
             }
         }
 
@@ -1605,7 +1605,9 @@ namespace RogueStars.Rules.Systems
         private void FireOn(Fighter owner, Fighter gate, bool rider, TriggerKind kind, Fighter ctx, StatusId ctxStatus, double amount)
         {
             if (!owner.Alive) return;
-            if (Over && kind != TriggerKind.OnBattleWon) return;
+            // the battle's last kill still pays its run coins (Plunder): only GainRunCoins fires after the end
+            bool afterEnd = Over && kind != TriggerKind.OnBattleWon;
+            if (afterEnd && kind != TriggerKind.OnKill) return;
             if (_depth >= 4) return;
             int thrPrev = _thrPrev;
             _depth++;
@@ -1618,6 +1620,7 @@ namespace RogueStars.Rules.Systems
                     {
                         var t = skill.Triggers[ti];
                         if (t.When != kind || !IsBattleEffect(t.Effect) || t.Rider != rider) continue;
+                        if (afterEnd && t.Effect != EffectKind.GainRunCoins) continue;
                         // one fatal-save per battle across every source (Last Word, Sacrifice, Loop, Last Constellation, Borrowed Sand, Cryo Pod)
                         if (kind == TriggerKind.OnFatal && IsSave(t.Effect) && gate.FatalSaved) continue;
                         // the status filter (a status name as the Param's head; kit tokens such as "round_cap:30" are no filter)
@@ -1649,7 +1652,7 @@ namespace RogueStars.Rules.Systems
                         for (int n = 0; n < times; n++)
                         {
                             Execute(owner, skill, t, ctx, amount);
-                            if (!owner.Alive || (Over && kind != TriggerKind.OnBattleWon)) return;
+                            if (!owner.Alive || (Over && kind != TriggerKind.OnBattleWon && !afterEnd)) return;
                         }
                     }
                 }

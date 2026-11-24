@@ -28,7 +28,7 @@ namespace RogueStars.Rules.Systems
         public int Reload;
         public bool NeedsAttack, Slipstream, CoilWindow;
         public double SpotlightPct, ContagionPct, SlipstreamPct, CoilPct, CoilCapPct, CoilRecoilX, CoilCounterPct, SiphonCapPct;
-        public string MountSkill;
+        public string MountSkill, PassiveSkill;
 
         /// <summary>Kit rules (Passive Rule triggers on hero kit skills and mount kit skills).</summary>
         public void AddKitRule(string name, double arg, double value, string skillId)
@@ -48,10 +48,10 @@ namespace RogueStars.Rules.Systems
                 case "element_pool": ElementPoolPct = value; break;
                 case "reload": Reload = (int)arg; MountSkill = skillId; break;
                 case "needs_attack": NeedsAttack = true; break;
-                case "spotlight": SpotlightPct = value; break;
-                case "contagion": ContagionPct = value; break;
+                case "spotlight": SpotlightPct = value; PassiveSkill = skillId; break;
+                case "contagion": ContagionPct = value; PassiveSkill = skillId; break;
                 case "slipstream": Slipstream = true; SlipstreamPct = value; break;
-                case "coil": CoilPct = value; break;
+                case "coil": CoilPct = value; PassiveSkill = skillId; break;
                 case "coil_cap": CoilCapPct = value; break;
                 case "coil_recoil": CoilRecoilX = arg; break;
                 case "coil_counter": CoilCounterPct = value; break;
@@ -273,7 +273,7 @@ namespace RogueStars.Rules.Systems
         private void CoilLog(Fighter m)
         {
             var e = Log(BattleAction.KitCounter, m, m, m.Coil);
-            if (e != null) { e.Stacks = (int)Math.Round(CoilCap(m)); e.SkillId = m.Rules.MountSkill; }
+            if (e != null) { e.Stacks = (int)Math.Round(CoilCap(m)); e.SkillId = m.Rules.PassiveSkill; }
         }
 
         /// <summary>Stillness: the end of a round without HP loss adds one (max 3); at the max Mirror Palm fires and it resets.</summary>
@@ -423,7 +423,7 @@ namespace RogueStars.Rules.Systems
             if (best != null)
             {
                 var e = Log(BattleAction.Mark, mount, best, 0);
-                if (e != null) e.SkillId = mount.Rules.MountSkill;
+                if (e != null) e.SkillId = mount.Rules.PassiveSkill;
             }
         }
 
@@ -445,7 +445,7 @@ namespace RogueStars.Rules.Systems
                     if (Over || !next.Alive) break;
                     if (!OwnableStatus(st.Id)) continue; // never Freeze, Stun, Delay or Charm
                     int n = (int)Math.Floor(st.Stacks * pct / 100.0);
-                    if (n > 0) ApplyStatus(worm, next, st.Id, n, 0, mount.Rules.MountSkill);
+                    if (n > 0) ApplyStatus(worm, next, st.Id, n, 0, mount.Rules.PassiveSkill);
                 }
             }
         }

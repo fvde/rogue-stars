@@ -227,6 +227,10 @@ public class SkillTuningTests
         c.AddSkill(new SkillDef { Id = "kit_shield", Name = "Shield", Source = SkillSource.Building, Draftable = false,
             Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Shield, Value = 4, Target = TargetKind.Self } } });
         // hero and mount kit situations (DeadEffectsTests.KitContext): heals, an element bonus, many combo strikes, a shield that holds
+        c.AddSkill(new SkillDef { Id = "kit_flood", Name = "Flood", Source = SkillSource.Building, Draftable = false, // a big stack to copy (Mirror Palm)
+            Triggers = { new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 10, Chance = 100 } } });
+        c.AddSkill(new SkillDef { Id = "kit_wounded", Name = "Wounded", Source = SkillSource.Building, Draftable = false, // a worm that starts hurt (runs carry HP)
+            Triggers = { new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.LoseHp, Value = 30, Target = TargetKind.Self } } });
         c.AddSkill(new SkillDef { Id = "kit_doomed", Name = "Doomed", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Hp, 0, -90) } });
         c.AddSkill(new SkillDef { Id = "kit_leech", Name = "Leech", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.LifeSteal, 25) } });
         c.AddSkill(new SkillDef { Id = "kit_element", Name = "Element", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.FireDamage, 40) } });
