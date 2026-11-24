@@ -15,7 +15,7 @@ namespace RogueStars.Client.Screens
     /// columns left (daily goals, live events) and right (shop, offer, pass, mail, more) with badges and timers, the frontier
     /// portal, the next level's title and "Longest survived: N rolls", the home planet (art by growth stage, else drawn)
     /// with the worm on it, the feature row (map, chapter rewards, patrol, challenges as they exist), the guide (goal,
-    /// next-unlock teaser), the big START button with its stamina cost and the auto-pick chip, and the bottom tab bar with
+    /// next-unlock teaser), the big START button with its stamina cost, and the bottom tab bar with
     /// the raised active tab. Everything appears as features unlock (HubLayout, Features); locked features are never shown.
     /// Pending unlock celebrations open the full-screen <see cref="UnlockScreen"/>.
     /// </summary>
@@ -405,8 +405,8 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// The big yellow START (CONTINUE during a run) with the next level and its stamina cost, the auto-pick chip at its
-        /// right and "Modes" (the portal map's other modes) once one unlocks.
+        /// The big yellow START (CONTINUE during a run) with the next level and its stamina cost, and "Modes" (the portal
+        /// map's other modes) once one unlocks.
         /// </summary>
         private void BuildStart()
         {
@@ -446,18 +446,6 @@ namespace RogueStars.Client.Screens
                 bolt.rectTransform.anchorMin = bolt.rectTransform.anchorMax = new Vector2(0.5f, 0);
                 bolt.rectTransform.sizeDelta = new Vector2(54 * _s, 54 * _s); bolt.rectTransform.anchoredPosition = new Vector2(-30 * _s, 40 * _s);
             }
-            if (!Session.IsUnlocked(Features.Parts)) return;
-            // the auto-pick chip (farming: the run's choices are made for you)
-            bool on = App.Settings != null && App.Settings.AutoPickDrafts;
-            var chip = Ui.Button(_frame, "", () => { App.Settings?.SetAutoPickDrafts(!on); Rebuild(); }, on ? (Color)new Color32(0x5C, 0xC8, 0x4C, 255) : new Color32(0x3A, 0x30, 0x5A, 255), 110 * _s, 150 * _s, true, 20);
-            chip.name = "AutoPickChip";
-            At((RectTransform)chip.transform, 770, 210 + 112, 110, 150, true);
-            UiShapes.Outline((RectTransform)chip.transform, SliceKit.Ink, 20 * _s, 5);
-            var ot = SliceKit.Chunky(chip.transform, on ? "ON" : "OFF", (int)(36 * _s), Color.white, TextAnchor.UpperCenter, "State");
-            Ui.Stretch(ot.rectTransform, 0, 8 * _s, 0, 0);
-            var ic = Ui.Panel(chip.transform, Color.white, "Icon");
-            ic.sprite = HudArt.Icon("dice"); ic.preserveAspect = true; ic.raycastTarget = false;
-            Ui.Stretch(ic.rectTransform, 14 * _s, 56 * _s, 14 * _s, 14 * _s);
             if (Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide))
             {
                 var modes = Ui.Button(_frame, "", () => App.Open("portals"), new Color32(0x4A, 0x2A, 0x40, 255), 170 * _s, 150 * _s, true, 20);

@@ -12,7 +12,7 @@ namespace RogueStars.Client.Tests
 {
     /// <summary>
     /// Run depth on the run screen: the MYTHIC choice after a miniboss, the skill count in the HUD, a shop that stays open
-    /// while buying, the skills gained listed on the result screen, encounters (miniboss / boss arena) as their own step,
+    /// while buying, the result screen (no skills list, identical rewards summed), encounters (miniboss / boss arena) as their own step,
     /// cleared tiles, no Biomass surge before Biomass has a use, and auto mode never answering a player choice.
     /// </summary>
     public sealed class RunDepthUiTests
@@ -135,23 +135,40 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void ResultScreen_ListsTheSkillsGainedThisRun()
+        public void ResultScreen_ListsNoSkills_AndSumsIdenticalRewardsIntoOneTile([Values(true, false)] bool won)
         {
-            S.Run.LastSummary = new RunSummary { RunId = "x", LevelId = C.MainLevel(1).Id, Won = true, Rolls = 31, Level = 10, Minibosses = 3, ShopBuys = 12 };
+            S.Run.LastSummary = new RunSummary { RunId = "x", LevelId = C.MainLevel(1).Id, Won = won, Rolls = 31, Level = 10, Minibosses = 3, ShopBuys = 12 };
             S.Run.LastSummary.Gains.Add(new RunGain("draft", "fire_ember", 1));
             S.Run.LastSummary.Gains.Add(new RunGain("mythic", "mythic_thermal_shock", 1));
-            S.Run.LastSummary.Gains.Add(new RunGain("shop", "fire_ember", 2));
-            S.Run.LastSummary.Gains.Add(new RunGain { Source = "shop", Stat = new StatMod(StatId.Atk, 0, 8) });
+            foreach (var r in new[] { Reward.Cur(Currencies.Diamonds, 10), Reward.Cur(Currencies.Biomass, 100), Reward.Cur(Currencies.Diamonds, 10), Reward.Cur(Currencies.Diamonds, 10), Reward.Cur(Currencies.Biomass, 50) })
+                S.Run.LastSummary.Granted.Add(r);
             _f.App.Router.Push(new RunResultScreen());
             var root = _f.App.Router.Current.Root;
-            var list = FindNamed(root, "GainedSkills");
-            Assert.That(list, Is.Not.Null);
-            string texts = Texts(list);
-            Assert.That(texts, Does.Contain("Ember Strikes · draft"));
-            Assert.That(texts, Does.Contain("Thermal Shock · MYTHIC"));
-            Assert.That(texts, Does.Contain("Ember Strikes Lv 2 · shop"));
-            Assert.That(texts, Does.Contain("+8% ATK · shop"));
-            Assert.That(Texts(root), Does.Contain("Skills 4"));
+            Assert.That(FindNamed(root, "GainedSkills"), Is.Null, "no list of the run's skills (owner playtest)");
+            Assert.That(Texts(root), Does.Not.Contain("Ember Strikes"));
+            int tiles = 0;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == "Reward") tiles++;
+            Assert.That(tiles, Is.EqualTo(2), "one tile per currency");
+            Assert.That(Texts(root), Does.Contain("x30"));
+            Assert.That(Texts(root), Does.Contain("x150"));
+            Assert.That(Texts(root), Does.Contain("Skills 2"), "the run's chips stay");
+        }
+
+        [Test]
+        public void ResultRewards_Aggregate_ByKindIdAndRarity_InFirstSeenOrder()
+        {
+            var granted = new List<Reward>
+            {
+                Reward.Cur(Currencies.Diamonds, 10), new Reward(RewardKinds.Part, "p1", 1, 2), Reward.Cur(Currencies.Diamonds, 10),
+                new Reward(RewardKinds.Part, "p1", 1, 3), new Reward(RewardKinds.Part, "p1", 2, 2), Reward.Cur(Currencies.Diamonds, 10),
+            };
+            var sum = RunResultScreen.Aggregate(granted);
+            Assert.That(sum.Count, Is.EqualTo(3));
+            Assert.That(sum[0].Id, Is.EqualTo(Currencies.Diamonds)); Assert.That(sum[0].Amount, Is.EqualTo(30));
+            Assert.That(sum[1].Rarity, Is.EqualTo(2)); Assert.That(sum[1].Amount, Is.EqualTo(3));
+            Assert.That(sum[2].Rarity, Is.EqualTo(3)); Assert.That(sum[2].Amount, Is.EqualTo(1));
+            Assert.That(granted[0].Amount, Is.EqualTo(10), "the summary itself is not changed");
+            Assert.That(RunResultScreen.Aggregate(null), Is.Empty);
         }
 
         [Test]
@@ -214,8 +231,6 @@ namespace RogueStars.Client.Tests
             Assert.That(tile.Cleared, Is.True);
             var look = RunScreen.LookOf(a, tile, C);
             Assert.That(look.Cleared && look.Current, Is.True);
-            Assert.That(BattlePlaybackScreen.AutoCloseHold(0.2f), Is.GreaterThanOrEqualTo(BattlePlaybackScreen.MinVisibleSeconds - 0.2f - 1e-4f));
-            Assert.That(BattlePlaybackScreen.AutoCloseHold(10f), Is.EqualTo(0.8f).Within(1e-4f));
         }
     }
 }

@@ -82,7 +82,7 @@ namespace RogueStars.Client.Screens
             var desc = Ui.Input(create, "", "Description (optional)");
             Ui.Button(create, "Create", () => Api.Create(name.text.Trim(), desc.text.Trim(), r =>
             {
-                if (!r.Ok) Session.Error(Fmt.Humanize(r.Error)); else Session.Info("Guild created");
+                if (!r.Ok) Session.Error(Fmt.Humanize(r.Error));
                 Load();
             }), Theme.Accent);
 
@@ -99,7 +99,7 @@ namespace RogueStars.Client.Screens
                 Ui.Label(row, guild.Name + "  Lv " + guild.Level + "\n<size=22>" + guild.Members + "/" + guild.MaxMembers + " · " + guild.Description + "</size>", Theme.FontSmall);
                 Ui.Button(row, "Join", () => Api.Join(guild.Id, r =>
                 {
-                    if (!r.Ok) Session.Error(Fmt.Humanize(r.Error)); else Session.Info("Joined " + guild.Name);
+                    if (!r.Ok) Session.Error(Fmt.Humanize(r.Error));
                     Load();
                 }), Theme.Good, 180, 80);
             }

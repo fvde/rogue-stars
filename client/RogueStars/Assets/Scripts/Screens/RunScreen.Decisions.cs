@@ -19,7 +19,9 @@ namespace RogueStars.Client.Screens
     public sealed partial class RunScreen
     {
         /// <summary>The chest intro plays before a Mythic choice / signature offer / loot (play mode, not in skip mode).</summary>
-        public static bool ShowChestIntro => Application.isPlaying && !InstantOutcomes;
+        public static bool ShowChestIntro => ForceChestIntro || Application.isPlaying && !InstantOutcomes;
+        /// <summary>Tests: build the chest intro outside play mode too.</summary>
+        public static bool ForceChestIntro;
 
         // ---- events ----------------------------------------------------------------------------------------------
 
@@ -175,8 +177,8 @@ namespace RogueStars.Client.Screens
 
         /// <summary>
         /// The chest moment (reference chest): the board dimmed, a gold ribbon, the big glowing chest, "Tap anywhere to
-        /// open!"; a tap bursts it open and <paramref name="reveal"/> builds what was inside (in the card family). Auto mode
-        /// opens it after a short look.
+        /// open!"; a tap bursts it open and <paramref name="reveal"/> builds what was inside (in the card family). It always
+        /// waits for the player's tap (auto mode only rolls).
         /// </summary>
         private UiModal ChestIntro(string prop, string title, Action reveal)
         {
@@ -227,7 +229,6 @@ namespace RogueStars.Client.Screens
                 }, () => { close?.Invoke(); reveal?.Invoke(); });
             }
             b.onClick.AddListener(Open);
-            if (_auto && Application.isPlaying) UiSequence.On(holder.gameObject).Wait(0.8f, Open);
             tap = b;
             return holder;
         }
@@ -364,7 +365,7 @@ namespace RogueStars.Client.Screens
             UiShapes.Outline((RectTransform)cont.transform, SliceKit.Ink, Theme.RadiusButton, 7);
             var ct = SliceKit.Chunky(cont.transform, "Continue", (int)(76 * s), Color.white, TextAnchor.MiddleCenter, "ContinueText");
             Ui.Stretch(ct.rectTransform, 0, 0, 0, 8 * s);
-            var hint = SliceKit.Chunky(frame, _auto ? "Auto continues in a moment." : "Tap Continue.", (int)(32 * s), new Color(1, 1, 1, 0.6f), TextAnchor.MiddleCenter, "Hint");
+            var hint = SliceKit.Chunky(frame, "Tap Continue.", (int)(32 * s), new Color(1, 1, 1, 0.6f), TextAnchor.MiddleCenter, "Hint");
             RunScenes.At(hint.rectTransform, s, 540, 2230, 900, 50);
 
             Action startReveal = () =>

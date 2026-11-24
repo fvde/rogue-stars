@@ -99,7 +99,7 @@ namespace RogueStars.Client.PlayTests
             ctx.Skills = skills;
             ctx.Levels = new Dictionary<string, int>();
             for (int i = 0; i < skills.Count; i++) ctx.Levels[skills[i]] = 1 + i % 3;
-            var playback = new BattlePlaybackScreen(battle, false, ctx);
+            var playback = new BattlePlaybackScreen(battle, ctx);
             _app.Router.Push(playback);
             yield return Wait(1.6f);
             yield return Shot("s3_battle");

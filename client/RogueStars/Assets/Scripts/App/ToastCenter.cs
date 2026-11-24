@@ -7,9 +7,30 @@ using UnityEngine.UI;
 
 namespace RogueStars.Client.App
 {
-    /// <summary>Human-readable text for GameEvents (null = not worth a toast). Never shows internal ids.</summary>
+    /// <summary>
+    /// Human-readable text for GameEvents (null = not worth a toast). Never shows internal ids. Toasts are for what the
+    /// screen does not show already (owner playtest 0.1.200: no debug-style popups): unlocks, rewards granted outside a
+    /// result screen, warnings; the run's own steps (skills gained, levels, purchases, outcomes) are seen on the board,
+    /// its cards and sheets.
+    /// </summary>
     public static class EventText
     {
+        /// <summary>
+        /// The events of one result worth a toast: a run's end (or its doubled rewards) shows its rewards on the result
+        /// screen, so their "reward" events are not toasted too. Pure; tested.
+        /// </summary>
+        public static List<GameEvent> ForToasts(IList<GameEvent> events)
+        {
+            var list = new List<GameEvent>();
+            if (events == null) return list;
+            bool resultScreen = false;
+            foreach (var e in events)
+                if (e.Type == "run_completed" || e.Type == "run_failed" || e.Type == "run_rewards_doubled") resultScreen = true;
+            foreach (var e in events)
+                if (!(resultScreen && e.Type == "reward")) list.Add(e);
+            return list;
+        }
+
         public static string Describe(GameEvent e, ContentDb c, GameState state = null)
         {
             var a = e.Args;
@@ -77,25 +98,25 @@ namespace RogueStars.Client.App
                 case "mail": return "New mail";
                 case "returning_player": return "Welcome back!";
                 case "guild_left": return "You left the guild";
+                case "guild_joined": return "Welcome to the guild!";
                 case "arena_result": return A(0) == "win" ? "Arena win (" + SignedPoints(A(1)) + ")" : "Arena loss (" + SignedPoints(A(1)) + ")";
                 case "arena_week_end": return "Arena week over: rank " + A(0);
                 case "planetary_event": return "Planetary event: " + (c?.PlanetaryEvent(A(0))?.Name ?? "a new event");
                 case "invasion_outcome":
                     return (c?.Invasion(A(0))?.Name ?? "The invasion") + (A(2) == "repelled" ? " repelled!" : " overran the planet");
-                case "run_level_up": return "Run level " + A(0) + "!";
-                case "run_skill_gained": return "Skill: " + (c?.Skill(A(0))?.Name ?? "new skill");
-                case "run_completed": return "Run complete!";
-                case "run_failed": return "Run failed — pending loot lost";
-                case "run_revived": return "Revived!";
-                case "run_rewards_doubled": return "Run rewards doubled!";
-                case "run_burrow_descend": return "Burrow floor " + A(0);
-                case "run_miniboss_coming": return "A miniboss is coming!";
-                case "run_skill_level": return (c?.Skill(A(0))?.Name ?? "Skill") + " reached level " + A(1);
-                case "run_encounter": return A(0) == "boss" ? "The boss arena opens ahead!" : "A miniboss attacks!";
+                case "run_burrow_descend": return "Floor " + A(0);
+                case "run_signature_awakened": return (c?.Skill(A(0))?.Name ?? "Your signature") + " awakened!";
+                case "run_encounter": return A(0) == "boss" ? "The boss arena opens!" : "A miniboss attacks!";
                 case "run_cache_empty": return "Already looted — nothing left here";
                 case "boss_awaken": return "The boss stirs…";
                 case "lab_collected": return (c != null && c.LabResearch.TryGetValue(A(0), out var lr) ? lr.Name : "Research") + " level " + A(1) + " researched";
-                // high-frequency run plumbing is shown on the board instead
+                // the run's own steps are seen on the board, its cards and sheets (owner playtest 0.1.200: no popups
+                // repeating them): level-ups open the draft, gained / levelled skills animate on their card or show on the
+                // result sheet, the end, a revive and doubled rewards have their own screens, the miniboss warning is
+                // followed by its attack, rare drops and milestone chests are on the result strip
+                case "run_level_up": case "run_skill_gained": case "run_skill_level": case "run_completed": case "run_failed":
+                case "run_revived": case "run_rewards_doubled": case "run_miniboss_coming": case "run_tile_outcome":
+                case "run_signature": case "run_milestone": case "run_rare_drop": case "guild_role":
                 case "run_roll": case "run_land": case "run_battle": case "run_draft": case "run_event": case "run_shop":
                 case "run_started": case "run_draft_pick": case "run_shop_buy": case "run_event_outcome": case "run_boss_fight": case "run_outcome":
                 case "lab_research": case "run_defeated": case "run_mythic_draft": case "run_ambush":

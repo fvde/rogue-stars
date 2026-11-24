@@ -247,15 +247,15 @@ namespace RogueStars.Client.PlayTests
         }
 
         /// <summary>
-        /// The manual roll's animation ends either on the board or in a battle playback. A playback opened outside auto
-        /// mode waits for its Continue button (it never closes itself), so it is played to the end and continued here.
+        /// The manual roll's animation ends either on the board or in a battle playback. A playback waits for its Continue
+        /// button (it never closes itself), so it is played to the end and continued here.
         /// </summary>
         private IEnumerator SettleManualRoll(RunScreen run)
         {
             var guard = new ProgressGuard(this, "manual roll");
             while (run.Animating || _app.Router.Current is BattlePlaybackScreen)
             {
-                if (_app.Router.Current is BattlePlaybackScreen b && !b.AutoClose)
+                if (_app.Router.Current is BattlePlaybackScreen b)
                 {
                     b.PlayAll();
                     b.Continue();
@@ -299,8 +299,8 @@ namespace RogueStars.Client.PlayTests
                         battleShot = true;
                     }
                     BattlePlaybackScreen.TimeScale = 12;
-                    // a playback that does not close itself (opened outside auto mode) waits for Continue
-                    if (!b.AutoClose) { b.PlayAll(); b.Continue(); }
+                    // a playback never closes itself (auto mode only rolls): the player taps Continue
+                    b.PlayAll(); b.Continue();
                 }
                 var active = _svc.State.Run.Active;
                 // auto pauses at every real decision (shop, draft, event, chest, campfire, branch, revive): decide here
@@ -311,8 +311,16 @@ namespace RogueStars.Client.PlayTests
                     yield return Wait(shown != null && shown.Chance ? RunScreen.ChanceSpinSeconds + 0.3f : 0.3f);
                     yield return Shot("09b_outcome");
                 }
+                // a result sheet (and the chest of guarded loot) waits for the player's taps; auto stays on meanwhile
+                if (cur is RunScreen withSheet && withSheet.OutcomeOpen)
+                {
+                    Assert.That(withSheet.Auto, Is.True, "auto stays on while a result is shown");
+                    var chestTap = ModalButton(x => x.name == "ChestTap");
+                    if (chestTap != null) chestTap.onClick.Invoke();
+                    else ModalButton(x => x.name == "OutcomeContinue")?.onClick.Invoke();
+                }
                 if (active != null && cur is RunScreen paused && paused.AutoPaused && !paused.Animating && !paused.OutcomeOpen
-                    && (_app.ModalLayer.childCount > 0 || active.Phase == RunPhase.ChooseBranch))
+                    && (_app.ModalLayer.childCount > 0 || active.Phase == RunPhase.ChooseBranch || active.Phase == RunPhase.Encounter))
                 {
                     if (active.Phase == RunPhase.Draft && !draftShot) { draftShot = true; yield return Shot("07_draft"); }
                     else if (active.Phase == RunPhase.Event && !eventShot) { eventShot = true; yield return Shot("08_event"); }
@@ -329,7 +337,8 @@ namespace RogueStars.Client.PlayTests
         }
 
         /// <summary>
-        /// The player's decision at an auto pause, made through the decision modal's buttons: shop → buy the first
+        /// The player's decision at an auto pause, made through the decision modal's buttons (auto only rolls; every other
+        /// tap is the player's): encounter → FIGHT! on the dice; shop → buy the first
         /// affordable skill (once per shop visit), then leave; draft → first card; event / chest / campfire → the default
         /// option (first affordable otherwise); branch → path A's landing tile on the board; defeat → give up (the loop retries the level).
         /// </summary>
@@ -359,6 +368,10 @@ namespace RogueStars.Client.PlayTests
                     foreach (var b in _app.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "BranchPick:A") pick = b;
                     break;
                 case RunPhase.Defeated: pick = ModalButton(b => b.name == "Button:Give up"); break;
+                case RunPhase.Encounter:
+                    // a miniboss / the boss arena waits for the player's FIGHT! tap on the dice (auto only rolls)
+                    foreach (var b in _app.Router.Current.Root.GetComponentsInChildren<HoldButton>(true)) if (b.name == "RollButton") { b.OnTap(); return; }
+                    break;
                 case RunPhase.BurrowChoice: pick = ModalButton(b => b.name == "Button:Cash out"); break;
                 case RunPhase.Event:
                 {
@@ -433,7 +446,7 @@ namespace RogueStars.Client.PlayTests
                 " battles=" + a.BattleCount + " event=" + a.EventId + " draft=[" + string.Join(",", a.DraftOffer) + "] coins=" + a.Coins + " awakening=" + a.Awakening;
             string screen = cur == null ? "none" : cur.GetType().Name;
             if (cur is RunScreen rs) screen += " auto=" + rs.Auto + " paused=" + rs.AutoPaused + " animating=" + rs.Animating;
-            if (cur is BattlePlaybackScreen bp) screen += " finished=" + bp.Finished + " autoClose=" + bp.AutoClose;
+            if (cur is BattlePlaybackScreen bp) screen += " finished=" + bp.Finished;
             return "version=" + _svc.State.Version + " lastResult=" + (last == null ? "none" : last.Ok ? "ok" : "fail:" + last.Error) +
                    " inFlight=" + _app.Session.InFlight + " modals=" + _app.ModalLayer.childCount + " screen=" + screen + " run: " + run;
         }

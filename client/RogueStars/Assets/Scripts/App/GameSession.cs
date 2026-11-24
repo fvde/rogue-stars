@@ -62,6 +62,8 @@ namespace RogueStars.Client.App
         public event Action Changed;
         /// <summary>A game event from a successful command (toasts).</summary>
         public event Action<GameEvent> EventRaised;
+        /// <summary>The events of a result worth a toast (<see cref="EventText.ForToasts"/>), raised after <see cref="EventRaised"/>.</summary>
+        public event Action<GameEvent> ToastRaised;
         public event Action<string> ErrorRaised;
         public event Action<string> InfoRaised;
 
@@ -128,10 +130,17 @@ namespace RogueStars.Client.App
             {
                 InFlight--;
                 LastResult = r;
-                if (r.Ok) foreach (var e in r.Events) EventRaised?.Invoke(e);
+                if (r.Ok) Raise(r.Events);
                 else Error(Fmt.Humanize(r.Error));
                 then?.Invoke(r);
             });
+        }
+
+        /// <summary>Every event of one result, then the ones worth a toast.</summary>
+        private void Raise(List<GameEvent> events)
+        {
+            foreach (var e in events) EventRaised?.Invoke(e);
+            foreach (var e in EventText.ForToasts(events)) ToastRaised?.Invoke(e);
         }
 
         /// <summary>
@@ -174,8 +183,9 @@ namespace RogueStars.Client.App
                 if (r.Ok)
                 {
                     Store.Finish(purchase);
-                    foreach (var e in r.Events) EventRaised?.Invoke(e);
-                    Info((purchase.Delivered ? "Delivered " : "Purchased ") + def.Name);
+                    Raise(r.Events);
+                    // the rules' "purchase" event already toasts "Purchased …": no second toast
+                    if (!r.Events.Exists(e => e.Type == "purchase")) Info((purchase.Delivered ? "Delivered " : "Purchased ") + def.Name);
                 }
                 else if (r.Error == "purchase_pending") Info("Payment pending — " + def.Name + " arrives once it is approved");
                 // Anything else stays unconfirmed: Play refunds unacknowledged purchases after 3 days.
@@ -220,7 +230,7 @@ namespace RogueStars.Client.App
                     {
                         InFlight--;
                         LastResult = r;
-                        if (r.Ok) foreach (var e in r.Events) EventRaised?.Invoke(e);
+                        if (r.Ok) Raise(r.Events);
                         else Error(Fmt.Humanize(r.Error));
                         then?.Invoke(r);
                     });
@@ -233,7 +243,7 @@ namespace RogueStars.Client.App
                 if (!ad.Ok) { if (ad.Error != "ad_cancelled") Error(Fmt.Humanize(ad.Error)); return; }
                 if (IsOnline)
                 {
-                    Info("Ad reward pending server verification…");
+                    Info("Reward pending…");
                     int before = AdViews(placementId);
                     PollReward(placementId, before, AdVerifyTimeoutSeconds, then);
                     return;
@@ -253,8 +263,8 @@ namespace RogueStars.Client.App
             if (!IsReady) return;
             Service.Refresh(r =>
             {
-                if (AdViews(placementId) > before) { Info("Ad reward received"); then?.Invoke(CommandResult.Success()); return; }
-                if (left <= 0) { Info("Ad reward still pending — it will appear shortly"); then?.Invoke(CommandResult.Fail("ad_reward_pending")); return; }
+                if (AdViews(placementId) > before) { Info("Reward received!"); then?.Invoke(CommandResult.Success()); return; } // a refresh raises no reward events
+                if (left <= 0) { Info("Your reward arrives shortly"); then?.Invoke(CommandResult.Fail("ad_reward_pending")); return; }
                 After(AdVerifyPollSeconds, () => PollReward(placementId, before, left - AdVerifyPollSeconds, then));
             });
         }
@@ -262,7 +272,7 @@ namespace RogueStars.Client.App
         public void Refresh(Action<ServiceResult> then = null)
         {
             if (!IsReady) { then?.Invoke(ServiceResult.Fail(ServiceErrors.NotConnected)); return; }
-            Service.Refresh(r => { if (!r.Ok) Error(r.Error); then?.Invoke(r); });
+            Service.Refresh(r => { if (!r.Ok) Error(Fmt.Humanize(r.Error)); then?.Invoke(r); });
         }
 
         public void Error(string message) => ErrorRaised?.Invoke(message);
@@ -314,7 +324,6 @@ namespace RogueStars.Client.App
                     return;
                 }
                 if (direct) { done(ad); return; }
-                _s.Info("Verifying ad…");
                 WaitForCredit(reward, placementId, _s.AdVerifyTimeoutSeconds, done);
             });
         }

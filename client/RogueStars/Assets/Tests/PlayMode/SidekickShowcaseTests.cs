@@ -74,7 +74,7 @@ namespace RogueStars.Client.PlayTests
             Assert.That(guarded, Is.GreaterThan(guard), "the guard softens a hit");
             var ctx = BattleHudContext.FromRun(run, c);
             ctx.Skills = new List<string> { "sig_alien", "alien_bond" };
-            var playback = new BattlePlaybackScreen(battle, false, ctx);
+            var playback = new BattlePlaybackScreen(battle, ctx);
             _app.Router.Push(playback);
             yield return Wait(0.5f);
             yield return Shot("ar0_battle_start");

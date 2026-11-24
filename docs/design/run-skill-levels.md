@@ -33,9 +33,9 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Brutal Force | `crit_brutal` | Common | Run | 1 | +24% crit damage. |
 | | | | | 2 | +24% → +40% crit damage. |
 | | | | | 3 | +40% → +64% crit damage. |
-| Calm Mind | `gen_calm_mind` | Common | Run | 1 | Run start: the boss awakens 9% slower. |
-| | | | | 2 | Run start: the boss awakens 9% → 15% slower. |
-| | | | | 3 | Run start: the boss awakens 15% → 24% slower. |
+| Calm Mind | `gen_calm_mind` | Common | Run | 1 | From now on, the boss awakens 9% slower. |
+| | | | | 2 | From now on, the boss awakens 9% → 15% slower. |
+| | | | | 3 | From now on, the boss awakens 15% → 24% slower. |
 | Camper | `gen_camper` | Common | Run | 1 | Landing on a campfire: heal 15% of max HP. |
 | | | | | 2 | Landing on a campfire: heal 15% → 25% of max HP. |
 | | | | | 3 | Landing on a campfire: heal 25% → 40% of max HP. |
