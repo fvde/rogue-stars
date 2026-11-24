@@ -53,6 +53,8 @@ namespace RogueStars.Rules.Systems
             if (p.Kind == ProductKind.SeasonPass && s.Shop.PremiumSeason == SeasonIndex(content, nowMs)) return "already owned this season";
             if (p.Kind == ProductKind.GiftPack && DailyGrantActive(s, content, p.Id, nowMs)) return "gift pack still active";
             if (p.EntitlementFlag != null && p.Limit > 0 && s.Flags.Contains(p.EntitlementFlag)) return "already owned";
+            if (p.DailyLimit > 0 && DailyPurchaseCount(s, content, p.Id, nowMs) >= p.DailyLimit) return "daily limit reached";
+            if (p.SummonEvent != null) return SummonEventSystem.ProductBlockReason(s, content, p, nowMs);
             return null;
         }
 
@@ -73,6 +75,10 @@ namespace RogueStars.Rules.Systems
             if (!chain.Loop && taken >= chain.Steps.Count) return null;
             return chain.Steps[taken % chain.Steps.Count];
         }
+
+        /// <summary>Purchases of a daily-limited product on the current reset day.</summary>
+        public static int DailyPurchaseCount(GameState s, ContentDb content, string productId, long nowMs) =>
+            s.Shop.ProductDailyBuys.TryGetValue(productId, out var pc) && pc.Period == MetaTime.DayIndex(content, nowMs) ? pc.Count : 0;
 
         private static int OccurrenceCount(GameState s, string productId, long start) =>
             s.Shop.OccurrencePurchases.TryGetValue(productId + "@" + start, out var n) ? n : 0;
@@ -238,6 +244,9 @@ namespace RogueStars.Rules.Systems
                 s.Shop.OccurrencePurchases[p.Id + "@" + start] = OccurrenceCount(s, p.Id, start) + 1;
             if (p.Kind == ProductKind.SeasonPass) s.Shop.PremiumSeason = SeasonIndex(content, ctx.NowMs);
             if (p.FundId != null) s.Shop.FundsOwned.Add(p.FundId);
+            if (p.DailyLimit > 0)
+                s.Shop.ProductDailyBuys[p.Id] = new PeriodCount { Period = today, Count = DailyPurchaseCount(s, content, p.Id, ctx.NowMs) + 1 };
+            if (p.Kind == ProductKind.SummonPass) SummonEventSystem.OnPassPurchased(ctx, p);
             ApplyPassEffects(s, content, ctx.NowMs);
             ctx.Emit("purchase", p.Id);
         }

@@ -121,6 +121,7 @@ namespace RogueStars.Client.Screens
                 {
                     var b = SideIcon(85, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out _);
                     if (e.Id == "quests") badge.text = QuestCount();
+                    else if (e.Id == "summon") { int n = SummonView.HubBadge(State, Content, Now); badge.text = n > 0 ? n.ToString() : ""; }
                 });
             }
             var events = HubLayout.LiveEvents(State, Content, Now);

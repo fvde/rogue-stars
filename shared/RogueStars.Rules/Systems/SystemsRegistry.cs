@@ -30,6 +30,7 @@ namespace RogueStars.Rules.Systems
             OnboardingSystem.Register(e);
             LiveOpsSystem.Register(e);
             QuestSystem.Register(e);
+            SummonEventSystem.Register(e); // after Onboarding (an unlock recorded by this command's settle joins at once)
             ShopSystem.Register(e);
             MailSystem.Register(e);
             ArenaSystem.Register(e);

@@ -39,6 +39,7 @@ namespace RogueStars.Rules.Content
             BuildLiveOps();
             BuildQuests();
             BuildShop();
+            BuildSummonEvents(); // after BuildShop (its pass and packs are products, its ad pack a placement)
             BuildMail();
             BuildArena();
             BuildGuild();
@@ -77,6 +78,7 @@ namespace RogueStars.Rules.Content
         partial void BuildLiveOps();
         partial void BuildQuests();
         partial void BuildShop();
+        partial void BuildSummonEvents();
         partial void BuildMail();
         partial void BuildArena();
         partial void BuildGuild();

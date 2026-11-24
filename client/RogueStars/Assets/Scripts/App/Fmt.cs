@@ -40,6 +40,8 @@ namespace RogueStars.Client.App
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
             { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "Awaken Cores" },
             { Currencies.Data, "Data" }, { Currencies.ArenaMedals, "Arena Medals" },
+            { Currencies.HeroTickets, "Hero Summon Tickets" }, { Currencies.MountTickets, "Mount Summon Tickets" },
+            { Currencies.HeroSigils, "Star Sigils" }, { Currencies.MountBolts, "Hangar Bolts" },
         };
 
         /// <summary>Short labels for the resource bar.</summary>
@@ -89,6 +91,8 @@ namespace RogueStars.Client.App
                     return r.Amount + " " + (content != null && content.HeroConfig.Defs.TryGetValue(r.Id, out var hd) ? hd.Name : r.Id) + " shards";
                 case RewardKinds.Mount:
                     return (r.Amount > 1 ? r.Amount + "× " : "") + "Mount " + (content != null && content.MountConfig.Defs.TryGetValue(r.Id, out var md) ? md.Name : r.Id);
+                case RewardKinds.Hero:
+                    return (r.Amount > 1 ? r.Amount + "× " : "") + "Hero " + (content != null && content.HeroConfig.Defs.TryGetValue(r.Id, out var hc) ? hc.Name : r.Id);
                 default: return r.Amount + "× " + r.Kind + " " + r.Id;
             }
         }
@@ -150,6 +154,7 @@ namespace RogueStars.Client.App
                 case RewardKinds.Blueprint: return "Blueprints";
                 case RewardKinds.Alien: return "Aliens";
                 case RewardKinds.Mount: return "Mounts";
+                case RewardKinds.Hero: return "Heroes";
                 case RewardKinds.HeroShards: return "hero shard packs";
                 default: return kind;
             }

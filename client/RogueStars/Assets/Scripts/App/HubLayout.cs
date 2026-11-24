@@ -42,6 +42,8 @@ namespace RogueStars.Client.App
         {
             var list = new List<Entry>();
             if (Features.IsUnlocked(s, c, Features.Quests)) list.Add(new Entry("quests", "Goals", "!", "quests"));
+            // Summon events (hero / mount): from the Heroes unlock. Badge: SummonView.HubBadge (screens-pass merge: show it).
+            if (Features.IsUnlocked(s, c, Features.Heroes)) list.Add(new Entry("summon", "Summon", "&", "summon"));
             return list;
         }
 
@@ -85,7 +87,7 @@ namespace RogueStars.Client.App
         public static List<ScreenEntry> MoreScreens(GameState s, ContentDb c)
         {
             // parts: its inventory is on the Worm tab (the Runes button opens the screen), so day 1 stays PLAY + Worm.
-            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "mail" };
+            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "mail", "summon" };
             var list = new List<ScreenEntry>();
             foreach (var e in ScreenCatalog.All)
             {
@@ -120,6 +122,7 @@ namespace RogueStars.Client.App
             Currencies.Fuel, Currencies.ArenaTickets, Currencies.ArenaMedals, Currencies.GearCores, Currencies.HeroXp,
             Currencies.PartTokens, Currencies.AlienTokens, Currencies.BlueprintTokens, Currencies.BurrowKeys, Currencies.InvasionAttempts,
             Currencies.GuildMarks, Currencies.MountCores, Currencies.AdvancementPlates, ProgressionCurrencies.PartAwakenCores,
+            Currencies.HeroTickets, Currencies.MountTickets, Currencies.HeroSigils, Currencies.MountBolts,
         };
 
         /// <summary>

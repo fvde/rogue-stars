@@ -8,7 +8,8 @@ namespace RogueStars.Rules.Systems
     /// <summary>
     /// Heroes (worm personas): unlock by shards, stars 1–10 by shards, level by Hero XP (worm stats only, one shared budget), a
     /// hand-written kit (1★ Trait + Ability, 3★ a number, 5★ / 7★ clauses, 10★ capstone), one equipped hero, collection bonus.
-    /// Granter for RewardKinds.HeroShards (duplicates are always shards).
+    /// Granter for RewardKinds.HeroShards and RewardKinds.Hero (a hero copy from summon events: the first unlocks the hero at
+    /// 1★, every further copy raises it one star; at max stars a copy becomes HeroConfig.CopyOverflow).
     /// </summary>
     public static class HeroSystem
     {
@@ -24,6 +25,7 @@ namespace RogueStars.Rules.Systems
                 ctx.State.Wallet.Add(Currencies.HeroShards(r.Id), r.Amount);
                 ctx.State.Count("hero_shards_obtained", r.Amount);
             });
+            e.Rewards.Register(RewardKinds.Hero, GrantCopies);
             e.RegisterLoadoutContributor(Contribute);
         }
 
@@ -95,6 +97,42 @@ namespace RogueStars.Rules.Systems
             l.HeroId = s.Heroes.Equipped;
             l.WormStats.AddBlock(HeroStats(c, s.Heroes.Equipped, h));
             foreach (var sk in TraitSkills(c, s.Heroes.Equipped, h.Stars)) if (!l.MetaSkillIds.Contains(sk)) l.MetaSkillIds.Add(sk);
+        }
+
+        // ---- copies (summon events) ---------------------------------------------------------------
+
+        /// <summary>What the next copy of a hero does: "new", "star" (+1★) or "overflow" (max stars).</summary>
+        public static string CopyEffect(GameState s, ContentDb c, string heroId)
+        {
+            var h = Get(s, heroId);
+            return h == null ? "new" : h.Stars < c.HeroConfig.MaxStars ? "star" : "overflow";
+        }
+
+        private static void GrantCopies(CommandContext ctx, Reward r)
+        {
+            var s = ctx.State; var cfg = ctx.Content.HeroConfig;
+            GameEngine.Require(cfg.Defs.ContainsKey(r.Id), "unknown hero " + r.Id);
+            for (long i = 0; i < r.Amount; i++)
+            {
+                s.Count("hero_copies");
+                var h = Get(s, r.Id);
+                if (h == null)
+                {
+                    s.Heroes.Owned[r.Id] = new HeroEntry();
+                    if (string.IsNullOrEmpty(s.Heroes.Equipped)) s.Heroes.Equipped = r.Id;
+                    s.Count("heroes_unlocked");
+                    ProgressionUtil.CountMax(s, "hero_stars_max", 1);
+                    ctx.Emit("hero_unlocked", r.Id);
+                }
+                else if (h.Stars < cfg.MaxStars)
+                {
+                    h.Stars++;
+                    s.Count("hero_stars");
+                    ProgressionUtil.CountMax(s, "hero_stars_max", h.Stars);
+                    ctx.Emit("hero_star", r.Id, h.Stars.ToString());
+                }
+                else if (cfg.CopyOverflow != null) ctx.Grant(cfg.CopyOverflow);
+            }
         }
 
         // ---- handlers ------------------------------------------------------------------------------

@@ -138,7 +138,7 @@ namespace RogueStars.Sim
                     return S.Run.Active != null ? Mode(S.Run.Active.Mode) : 0;
                 case CityCollect: return 3;
                 case LoginClaim or NewPlayerClaim or QuestClaimAll or QuestClaimChest or SeasonPassClaimAll or MailClaimAll or FundClaim
-                    or FeatureCelebrate or TutorialAdvance: return 4;
+                    or FeatureCelebrate or TutorialAdvance or SummonTaskClaimAll or SummonMilestoneClaim or SummonPassClaimAll: return 4;
                 case ArenaFightResult or RogueStars.Rules.Systems.ArenaWeekEnd: return 5;
                 case LiveOpsApplyOutcome or InvasionRecordDamage: return 6;
                 case ShopBuyItem or GuildShopBuy or ShopClaimDaily or ShopClaimFree or PurchaseComplete or AdWatched: return 7;
@@ -233,6 +233,7 @@ namespace RogueStars.Sim
             City();
             Lab();
             Gacha();
+            Summons();
             UpgradeAll();
             RefreshPower();
 
@@ -245,6 +246,7 @@ namespace RogueStars.Sim
 
             Claims();
             Gacha();
+            Summons();
             UpgradeAll();
             City();
             RefreshPower();
@@ -284,6 +286,7 @@ namespace RogueStars.Sim
                 allowed -= p.PriceUsdCents; _monthBudgetUsed += p.PriceUsdCents;
                 return true;
             }
+            SummonPurchases(TryBuy); // event passes and crates (docs/design/summon-events.md)
             var avail = ShopSystem.AvailableProducts(S, C, Now);
             foreach (var kind in new[] { ProductKind.StarterPack, ProductKind.Fund, ProductKind.FlashOffer, ProductKind.GiftPack, ProductKind.RollingOffer })
                 foreach (var p in avail.Where(x => x.Kind == kind).OrderBy(x => x.PriceUsdCents).ThenBy(x => x.Id, StringComparer.Ordinal))

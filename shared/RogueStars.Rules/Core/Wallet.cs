@@ -27,6 +27,12 @@ namespace RogueStars.Rules.Core
         public const string ArenaMedals = "arena_medals";
         /// <summary>Laboratory research currency: mostly Dark Side runs (grows with the Dark Side level), a trickle from quests.</summary>
         public const string Data = "data";
+        /// <summary>Summon events (docs/design/summon-events.md): persistent pull tickets per event type, kept between events.</summary>
+        public const string HeroTickets = "hero_tickets";
+        public const string MountTickets = "mount_tickets";
+        /// <summary>Summon event exchange tokens (earned per event pull, spent in the event's exchange shop; persistent).</summary>
+        public const string HeroSigils = "hero_sigils";
+        public const string MountBolts = "mount_bolts";
 
         public static string HeroShards(string heroId) => "shards_hero_" + heroId;
         public static string AlienShards(string alienTypeId) => "shards_alien_" + alienTypeId;

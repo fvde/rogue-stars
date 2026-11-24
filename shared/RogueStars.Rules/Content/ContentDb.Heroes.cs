@@ -43,6 +43,8 @@ namespace RogueStars.Rules.Content
         public List<StatMod> CollectionPerStar = new List<StatMod>();
         /// <summary>The kit steps (stars where a hero's kit changes).</summary>
         public int[] KitStars = { 1, 3, 5, 7, 10 };
+        /// <summary>What a hero copy (RewardKinds.Hero) at max stars becomes (summon event exchange tokens).</summary>
+        public Reward CopyOverflow;
 
         public int MaxLevel(int stars) => Math.Min(LevelXpCosts.Count, MaxLevelBase + MaxLevelPerStar * stars);
     }
@@ -63,6 +65,7 @@ namespace RogueStars.Rules.Content
             for (int l = 1; l < h.MaxLevelBase + h.MaxLevelPerStar * h.MaxStars; l++) h.LevelXpCosts.Add((long)Math.Round(40 * Math.Pow(l, 1.6)));
             h.CollectionPerStar.Add(new StatMod(StatId.Hp, 0, 0.3));
             h.CollectionPerStar.Add(new StatMod(StatId.Atk, 0, 0.3));
+            h.CopyOverflow = Reward.Cur(Currencies.HeroSigils, 300);
 
             const TriggerKind Ab = TriggerKind.OnAbility;
             const TargetKind Self = TargetKind.Self, All = TargetKind.AllEnemies, Front = TargetKind.Enemy;

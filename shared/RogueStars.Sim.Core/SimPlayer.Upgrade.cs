@@ -273,8 +273,11 @@ namespace RogueStars.Sim
 
         private void Mounts()
         {
-            if (!Unlocked(Features.Mounts) || S.Mounts.Owned.Count == 0) return;
+            if (!Unlocked(Features.Mounts)) return;
             var cfg = C.MountConfig;
+            foreach (var id in cfg.Defs.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
+                if (MountSystem.Get(S, id) == null && Bal(Currencies.MountShards(id)) >= cfg.UnlockShards) Exec(new MountUnlock { MountId = id });
+            if (S.Mounts.Owned.Count == 0) return;
             foreach (var (id, m) in S.Mounts.Owned.OrderBy(k => k.Key, StringComparer.Ordinal).ToList())
             {
                 while (m.Stars < cfg.MaxStars && Bal(Currencies.MountShards(id)) >= cfg.StarShardCosts[m.Stars + 1] && Ok(new MountStarUp { MountId = id })) { }

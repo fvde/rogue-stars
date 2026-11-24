@@ -7,13 +7,15 @@ namespace RogueStars.Rules.Systems
 {
     /// <summary>
     /// Mounts (spaceships): one active, stars 1–5 then awakening 1–5, level by Fuel. Hero &amp; mount kits: a vehicle on a reload with
-    /// no stats, one passive + one active that change at 1★ / 3★ / 5★ / A3 / A5 (mount damage +5% at the steps between, +1% per level). Granter for RewardKinds.Mount (first copy unlocks at 1★, duplicates
-    /// become mount shards).
+    /// no stats, one passive + one active that change at 1★ / 3★ / 5★ / A3 / A5 (mount damage +5% at the steps between, +1% per level).
+    /// Granter for RewardKinds.Mount (a copy: the first unlocks at 1★, every further copy raises a star up to 5★, then pays the
+    /// mount shards of the next awakening level; fully awakened → MountConfig.CopyOverflow).
     /// </summary>
     public static class MountSystem
     {
         public static void Register(GameEngine e)
         {
+            e.Register<MountUnlock>(HandleUnlock);
             e.Register<MountStarUp>(HandleStarUp);
             e.Register<MountAwaken>(HandleAwaken);
             e.Register<MountLevelUp>(HandleLevelUp);
@@ -81,20 +83,39 @@ namespace RogueStars.Rules.Systems
 
         // ---- granter / handlers -------------------------------------------------------------------
 
+        /// <summary>What the next copy of a mount does: "new", "star" (+1★), "awaken" (shards for the next awakening) or "overflow".</summary>
+        public static string CopyEffect(GameState s, ContentDb c, string mountId)
+        {
+            var m = Get(s, mountId); var cfg = c.MountConfig;
+            if (m == null) return "new";
+            if (m.Stars < cfg.MaxStars) return "star";
+            return m.Awaken < cfg.MaxAwaken ? "awaken" : "overflow";
+        }
+
         private static void GrantMount(CommandContext ctx, Reward r)
         {
             var s = ctx.State; var cfg = ctx.Content.MountConfig;
             GameEngine.Require(cfg.Defs.ContainsKey(r.Id), "unknown mount " + r.Id);
-            long copies = r.Amount;
-            if (Get(s, r.Id) == null)
+            for (long i = 0; i < r.Amount; i++)
             {
-                s.Mounts.Owned[r.Id] = new MountEntry();
-                if (string.IsNullOrEmpty(s.Mounts.Active)) s.Mounts.Active = r.Id;
-                s.Count("mounts_unlocked");
-                ctx.Emit("mount_unlocked", r.Id);
-                copies--;
+                s.Count("mount_copies");
+                var m = Get(s, r.Id);
+                if (m == null)
+                {
+                    s.Mounts.Owned[r.Id] = new MountEntry();
+                    if (string.IsNullOrEmpty(s.Mounts.Active)) s.Mounts.Active = r.Id;
+                    s.Count("mounts_unlocked");
+                    ctx.Emit("mount_unlocked", r.Id);
+                }
+                else if (m.Stars < cfg.MaxStars)
+                {
+                    m.Stars++;
+                    s.Count("mount_stars");
+                    ctx.Emit("mount_star", r.Id, m.Stars.ToString());
+                }
+                else if (m.Awaken < cfg.MaxAwaken) s.Wallet.Add(Currencies.MountShards(r.Id), cfg.AwakenShardCosts[m.Awaken + 1]);
+                else if (cfg.CopyOverflow != null) ctx.Grant(cfg.CopyOverflow);
             }
-            if (copies > 0) s.Wallet.Add(Currencies.MountShards(r.Id), copies * cfg.DupeShards);
         }
 
         private static MountEntry RequireOwned(CommandContext ctx, string id)
@@ -102,6 +123,20 @@ namespace RogueStars.Rules.Systems
             var m = Get(ctx.State, id);
             GameEngine.Require(m != null, "mount not owned");
             return m;
+        }
+
+        private static CommandResult HandleUnlock(MountUnlock cmd, CommandContext ctx)
+        {
+            Features.Require(ctx.State, ctx.Content, Features.Mounts);
+            var s = ctx.State; var cfg = ctx.Content.MountConfig;
+            GameEngine.Require(cmd.MountId != null && cfg.Defs.ContainsKey(cmd.MountId), "unknown mount");
+            GameEngine.Require(Get(s, cmd.MountId) == null, "mount already owned");
+            ProgressionUtil.Spend(s, Currencies.MountShards(cmd.MountId), cfg.UnlockShards);
+            s.Mounts.Owned[cmd.MountId] = new MountEntry();
+            if (string.IsNullOrEmpty(s.Mounts.Active)) s.Mounts.Active = cmd.MountId;
+            s.Count("mounts_unlocked");
+            ctx.Emit("mount_unlocked", cmd.MountId);
+            return CommandResult.Success();
         }
 
         private static CommandResult HandleStarUp(MountStarUp cmd, CommandContext ctx)

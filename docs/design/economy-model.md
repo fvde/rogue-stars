@@ -10,7 +10,7 @@ and are checked by `EconomyLongHaulTests` (shared/RogueStars.Rules.Tests/Progres
 | Diamonds | 300 | quests ~100, Diamond mine ~80, arena/events/login ~120 |
 | Share of Diamonds spent on pulls | 60% → 180/day | rest goes to stamina refills, timers, shop |
 | Free pull tokens, per pull type | 6 | daily/weekly quests, login cycle, free season track, run drops, 1 ad pull |
-| Shards for the hero the player focuses (outside pulls) | 2 | shard shop, events, season track |
+| Hero summon event pulls | ~40 per 6-day event | tasks ~24, free pass 10, ad ticket 6 (`F2pIncomeModel.HeroEventPulls`; simulator `--summon`: 47) |
 
 Diamonds for pulls are spent as 10-pulls (1 350 Diamonds) rotating over the three pull types.
 
@@ -21,18 +21,17 @@ Diamonds for pulls are spent as 10-pulls (1 350 Diamonds) rotating over the thre
   25 pulls without Legendary+, the 40th is Legendary+. Pity is per pull type, shared by all its banners and
   carried over between banners/weeks.
 - Weekly themed banners for every type; the featured Mythic takes 50% of Mythic outcomes.
-- Alien Signal: ~40% of outcomes are hero shards (2/5/10/25/60 shards by tier, spread over all heroes);
-  hero-themed Alien banners feature 80 shards of one hero as the Mythic.
+- Alien Signal: ~40% of outcomes are Grain (Common / Rare) and hero summon tickets (Epic+); Blueprint Signal ~25% Ore and
+  mount summon tickets. Heroes and mounts come from summon events (docs/design/summon-events.md).
 
 ## Results (52-week simulation through the real command handlers)
 | Metric | Value | Target |
 |---|---|---|
 | Pulls per type per week | ~45 (42 from tokens, ~3 from Diamonds) | — |
 | Mythics per type per week | ~1.07 (about half from the hidden pity) | about weekly |
-| Shards to hero 10★ | 3 470 (unlock 40, then 30/60/100/160/250/380/550/800/1 100) | genuinely hard |
-| Focused hero shards per week, F2P | ~37 | — |
-| Weeks to 10★, F2P | ~95 (≈ 22 months) | many months (test band: 9 months – 3 years) |
-| Weeks to 10★, spender (30× Diamonds, saves for the hero banner) | ~11 | clearly faster |
+| Shards to hero 10★ | 3 470 (unlock 40, then 30/60/100/160/250/380/550/800/1 100); a hero copy from a summon event is +1★ | genuinely hard |
+| Weeks to 10★ via summon events, F2P all-in on one hero | ~78 (seeds 50 / 78 / 84) | many months (test band: 9 months – 3 years) |
+| Weeks to 10★, spender (30× Diamonds in that hero's events) | ~9 | clearly faster |
 
 Every hero, mount, blueprint and alien keeps converting duplicates into shards; hero and mount collection
 bonuses (per star of every owned hero / per star+awakening of every owned mount) keep extra pulls valuable
@@ -63,10 +62,10 @@ after the main hero is maxed.
   Level unlocked): before that no surge run is consumed and no surge counter or text is shown. City farms
   (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
   Sinks: worm levels, talents, buildings (no laboratory).
-- Mounts: 5★ costs 350 shards (35 duplicates), awakening 1–5 another 1 040 shards + 2 500 Mount Cores. Mount copies
-  are ~25% of Blueprint Signal outcomes (1/1/2/5/10 copies by tier, first copy unlocks the mount) and a mount banner
-  ("Lancer Shipyard", 15 copies) rotates with the blueprint banners; Mount Cores come from Burrow floors 6+, the Dark
-  Side (1–4 per clear) and the guild shop.
+- Mounts: mount summon events (docs/design/summon-events.md): a copy unlocks a mount (or 30 shards), every further copy is
+  +1★ to 5★ (or 20/50/100/180 shards), then the shards of the next awakening level; awakening 1–5 costs 1 040 shards +
+  2 500 Mount Cores. Mount Cores come from the mount events, Burrow floors 6+, the Dark Side (1–4 per clear) and the guild
+  shop.
 
 ## Endless campaign rewards
 
@@ -176,7 +175,8 @@ the City unlock (`--variant open_blueprint,open_biomass,open_ore` restores 14).
 
 ## Levers
 - Mythic frequency: tokens per day and `MythicHardPity` (mean pulls per Mythic ≈ (1−0.995^pity)/0.005 ≈ 44 at 50).
-- Hero pacing: `HeroConfig.StarShardCosts`, hero-shard share/amounts in the Alien pool, featured hero amount.
+- Hero / mount pacing: summon event Luck max and Mythic weight, featured shard amounts, exchange limits, task targets and pass
+  tickets (`ContentDb.SummonEvents`); `HeroConfig.StarShardCosts`, `MountConfig.StarShardCosts`.
 - Part pacing: `PartMergeRecipe.FodderPoints/SameDefCount/Ore` per rarity; part power: `PartRarityDef.StatMultiplier`,
   `PartsConfig.SkillPowerScale` (0.25; awakened 0.3).
 - Awaken Cores: arena shop price/limit, invasion chances, Burrow rare-drop chances.

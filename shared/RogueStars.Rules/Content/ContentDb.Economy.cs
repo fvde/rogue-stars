@@ -29,8 +29,11 @@ namespace RogueStars.Rules.Content
         public double DiamondShareForPulls = 0.6;
         /// <summary>Free pull tokens per pull type per day (daily/weekly quests, login, season pass free track, runs).</summary>
         public long TokensPerTypePerDay = 6;
-        /// <summary>Hero shards per day for the hero the player focuses, outside pulls (shard shop, events, season track).</summary>
-        public long FocusHeroShardsPerDay = 2;
+        /// <summary>
+        /// Hero summon event pulls per 6-day event (tasks ~24, free pass 10, ad ticket 6; simulator --summon measures it).
+        /// Docs: docs/design/summon-events.md.
+        /// </summary>
+        public long HeroEventPulls = 40;
     }
 
     [Serializable]

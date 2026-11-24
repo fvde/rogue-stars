@@ -119,10 +119,11 @@ namespace RogueStars.Rules.Content
             var g = GachaConfig;
             double[] tierWeights = { 60, 28, 9.5, 2.0, 0.5 };
             int[] partRarityForTier = { (int)PartRarity.Common, (int)PartRarity.Rare, (int)PartRarity.Epic, (int)PartRarity.Legendary, (int)PartRarity.Mythic };
-            long[] heroShardsForTier = { 2, 5, 10, 25, 60 };
-            // Mount copies ride on the Blueprint Signal (ships are built from blueprints): ~25% of outcomes, all mounts.
-            // The first copy unlocks a mount, every further copy is MountConfig.DupeShards shards.
-            long[] mountCopiesForTier = { 1, 1, 2, 5, 10 };
+            // Heroes and mounts are no longer in the Signals: summon events are the way to get them (ContentDb.SummonEvents,
+            // docs/design/summon-events.md). Their old share of the outcomes (mount copies ~25% of the Blueprint Signal, hero
+            // shards ~40% of the Alien Signal) is supplies: Ore / Grain in the low tiers (usable from the Signal's unlock on),
+            // the type's summon tickets from Epic up, so blueprint and alien pacing stay as they were.
+            long[] supplyForTier = { 300, 800, 1, 3, 10 };
 
             var part = NewGachaType(GachaType.Part, "Part Signal", Currencies.PartTokens);
             var bp = NewGachaType(GachaType.Blueprint, "Blueprint Signal", Currencies.BlueprintTokens);
@@ -138,18 +139,13 @@ namespace RogueStars.Rules.Content
                 var bt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
                 var bpIds = GachaIdsOfRarity(Blueprints, d => d.Rarity, (Rarity)t);
                 foreach (var id in bpIds) bt.Pool.Add(new GachaEntry(RewardKinds.Blueprint, id, 1, t, 1));
-                var mounts = GachaSortedKeys(MountConfig.Defs);
-                double mountWeight = Math.Max(1, bpIds.Count) / 3.0 / mounts.Count;
-                foreach (var id in mounts) bt.Pool.Add(new GachaEntry(RewardKinds.Mount, id, mountCopiesForTier[t], t, mountWeight));
+                bt.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Ore : Currencies.MountTickets, supplyForTier[t], t, Math.Max(1, bpIds.Count) / 3.0));
                 bp.Tiers.Add(bt);
 
                 var at = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
                 var alienIds = GachaIdsOfRarity(AlienTypes, d => d.Rarity, (Rarity)t);
                 foreach (var id in alienIds) at.Pool.Add(new GachaEntry(RewardKinds.Alien, id, 1, t, 2));
-                // Hero shards: ~40% of alien-signal outcomes, spread over all heroes.
-                var heroes = GachaSortedKeys(HeroConfig.Defs);
-                double heroWeight = 2.0 * Math.Max(1, alienIds.Count) * (40.0 / 60.0) / heroes.Count;
-                foreach (var id in heroes) at.Pool.Add(new GachaEntry(RewardKinds.HeroShards, id, heroShardsForTier[t], t, heroWeight));
+                at.Pool.Add(new GachaEntry(RewardKinds.Currency, t < 2 ? Currencies.Grain : Currencies.HeroTickets, supplyForTier[t], t, 2.0 * Math.Max(1, alienIds.Count) * (40.0 / 60.0)));
                 alien.Tiers.Add(at);
             }
 
@@ -174,7 +170,6 @@ namespace RogueStars.Rules.Content
                 {
                     GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
                     GachaThemeOf("bp_reliquary_week", "Reliquary Week", RewardKinds.Blueprint, "bp_ancient_reliquary", 1, mythic),
-                    GachaThemeOf("bp_lancer_shipyard", "Lancer Shipyard", RewardKinds.Mount, "mount_star_lancer", 15, mythic),
                 },
             });
             g.Rotations.Add(new BannerRotation
@@ -183,9 +178,7 @@ namespace RogueStars.Rules.Content
                 Themes =
                 {
                     GachaThemeOf("alien_nebula_court", "Nebula Court", RewardKinds.Alien, "alien_nebulisk", 1, mythic),
-                    GachaThemeOf("alien_knights_call", "Knight's Call", RewardKinds.HeroShards, "hero_star_knight", 80, mythic),
-                    GachaThemeOf("alien_chefs_banquet", "Chef's Banquet", RewardKinds.HeroShards, "hero_chef", 80, mythic),
-                    GachaThemeOf("alien_noodle_dojo", "Noodle Dojo", RewardKinds.HeroShards, "hero_noodle_ninja", 80, mythic),
+                    GachaThemeOf("alien_swarm_season", "Swarm Season", RewardKinds.Alien, "alien_swarmheart", 1, mythic),
                 },
             });
         }

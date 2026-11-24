@@ -309,11 +309,13 @@ define Basic/Combo/Counter/Rage attack styles).
 - The worm equips one **Hero persona** (e.g. "Star Knight Worm", "Chef Worm"). Heroes give the worm a
   defining set of traits and attack visuals. Unlock by shards; **stars 1–10** via shards; each star raises
   stats and at stars 3/5/7/10 upgrades or adds a trait skill (meaningful skill improvements at high stars).
-- Hero level via Hero XP. Duplicates always become shards; shards keep value at every star.
+- Hero level via Hero XP. Heroes come from **summon events** (§12.1): a hero copy unlocks the hero, every further copy is
+  +1★ (at 10★ it becomes exchange tokens); shards (events, exchange) keep unlocking (40) and starring up as before.
 
 ### 7.2 Mounts (spaceships)
 - One active mount; mounts fire weapons in combat and absorb part of the damage. **Stars 1–5**, then
-  **awakening levels 1–5** (both via cores from duplicates). Weapon skill upgrades at stars 2/4/5 and
+  **awakening levels 1–5**. Mounts come from **summon events** (§12.1): a copy unlocks the mount (or 30 shards do), every
+  further copy is +1★ up to 5★, then the shards of the next awakening level (awakening also costs Mount Cores). Weapon skill upgrades at stars 2/4/5 and
   awakening 3/5. Mount level via Fuel.
 
 ### 7.3 Aliens
@@ -380,11 +382,22 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 |---|---|---|
 | Blueprint Signal | Blueprint Tokens | Blueprints |
 | Part Signal | Part Tokens | Parts, runes |
-| Alien Signal | Alien Tokens | Aliens, hero shards (hero shards may also come from a hero banner) |
+| Alien Signal | Alien Tokens | Aliens; Grain and hero summon tickets (the old hero-shard share) |
 - Each pull type can always be paid with Diamonds instead.
 - Weighted rarity tiers; **hidden pity** per pull type (shared across banners of that type, carries over);
   10-pull guarantees at least one Epic+. Duplicates convert to shards/stars.
-- **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner).
+- **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner). The Blueprint Signal's
+  old mount share is Ore and mount summon tickets; heroes and mounts are not in the Signals any more.
+
+### 12.1 Summon events (heroes and mounts)
+Heroes and mounts are obtained in **temporary rotating summon events** (docs/design/summon-events.md, all numbers in
+`ContentDb.SummonEvents`): one **hero event (6 days)** and one **mount event (3 days)** at a time, each featuring one hero /
+mount from a global rotation; the player's first event of a type starts at its feature unlock. Pulls cost **persistent
+tickets** (or Diamonds) and pay exchange tokens. A visible **Luck** meter (300 heroes / 200 mounts) guarantees the featured
+copy when full and is **kept until the next event of that type** (the hidden Legendary pity of the Signals applies too).
+Per event: six task lines counted from the event start (enemies, won levels, won mini-games, Alien / Part / Blueprint pulls;
+one ticket per target), pull-count milestones, an exchange shop with event limits, a free + premium day pass, packs with
+daily limits and a daily ad ticket. Duplicates are stars (heroes to 10★, mounts to 5★ then awakening shards).
 - Target: an active F2P player reaches mythic pity at least once a week.
 
 ## 13. Currencies
@@ -401,6 +414,8 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 | Hero XP | Hero levels |
 | Diamonds | Premium; also earnable (city Diamond mine, quests, events) |
 | Blueprint/Part/Alien Tokens | Free pulls |
+| Hero / Mount Summon Tickets | Summon event pulls (kept between events) |
+| Star Sigils / Hangar Bolts | Summon event exchange shops (per pull) |
 | Shards (per hero/alien/blueprint), Mount Cores | Stars |
 | Stamina | Runs (regenerating) |
 | Arena Tickets, Burrow Keys, Invasion Attempts | Mode entry (regenerating / daily) |
@@ -447,12 +462,14 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Data | laboratory research | Laboratory (D5) | 100 |
 | Part / Alien / Blueprint Tokens | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
 | Mount Cores | mount awakening | Mounts | none |
+| Hero / Mount Summon Tickets | summon event pulls | Heroes / Mounts | 30 each |
+| Star Sigils / Hangar Bolts | summon exchange shops | Heroes / Mounts | none |
 | Arena Tickets / Arena Medals | arena fights / arena shop | Arena (D15) | 5 / none |
 | Burrow Keys | Burrow runs | Burrow (D19) | 2 |
 | Invasion Attempts | invasion battles | Invasions (D18) | 3 |
 | Guild Marks | guild shop | Guilds (D17) | none |
 | Hero / Alien / Blueprint / Mount shards | stars (hero unlock, mount awakening) | Heroes / Aliens / City / Mounts | none |
-| Parts, Runes, Blueprints, Aliens, Mounts, hero shard rewards | – | Parts / Runes (D11) / City / Aliens / Mounts / Heroes | Runes 5 (best kept), others none |
+| Parts, Runes, Blueprints, Aliens, Mounts, hero copies, hero shard rewards | – | Parts / Runes (D11) / City / Aliens / Mounts / Heroes | Runes 5 (best kept), others none |
 
 ## 14. Monetization (mainstream RPG model, no A/B, no spend-based pricing)
 - Diamond packs (fixed price ladder), starter packs, rolling and flash offers (same for everyone),
@@ -461,6 +478,7 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
   *Daily Diamonds* (X Diamonds per day forever).
 - **Monthly pass**: daily Diamonds, battle speed ×3, extra patrol/production, stamina cap +.
 - **Season pass** (4 weeks): free + premium track, premium is retroactive.
+- **Summon events:** a premium day pass per event ($9.99 heroes / $4.99 mounts) and ticket packs with daily limits (§12.1).
 - **Funds** (one-time paid reward tracks per system: worm level, hero, mount, city).
 - Rewarded ads in many placements (stamina refill, revive, timer −15%, extra free pull per day, double run
   rewards), each with daily caps; ad-free purchase makes them instant.
@@ -491,9 +509,9 @@ catches up one group per day. Pairs ("X + Y") are one group and unlock together.
 | 7 | 18 | Aliens (first alien) + Alien Signal (`aliens`, `alien_pulls`) | Meet your alien |
 | 8 | 20 | Housing → first squad slot (`alien_squad`) | Build housing |
 | 9 | 22 | Blueprint Signal (`blueprints`) | Pull a blueprint |
-| 10 | 24 | Heroes (`heroes`) | Choose a hero |
+| 10 | 24 | Heroes (`heroes`; also the hero summon events, first event + 10 tickets) | Choose a hero |
 | 11 | 26 | Ore Mine + Runes (`ore_mine`, `runes`) | Build the ore mine |
-| 12 | 28 | Mounts (`mounts`) | Saddle up |
+| 12 | 28 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
 | 13 | 29 | Funds (`funds`; not in the approved list, fills the free day 13) | See the funds |
 | 14 | 30 | Breeding Pen + Season pass (`breeding`, `season_pass`) | Build the pen |
 | 15 | 32 | Arena (`arena`) | Enter the arena |
@@ -514,7 +532,7 @@ currency chips follow use (§13.1): a currency shows once the player can use it,
 Diamonds chips only (Diamonds buy stamina refills).
 
 **Hub:** bottom tabs for daily features appear one by one (Worm, City, Planet in the centre, Signals, Arena); left
-column = daily goals and live events (invasions, planetary/limited events, from the Invasions unlock); right column =
+column = daily goals, summon events (from Heroes) and live events (invasions, planetary/limited events, from the Invasions unlock); right column =
 shop, offer, pass, mail, "More" (laboratory, aliens, heroes, mounts, breeding, guild); the PLAY card (Continue during a
 run) sits above the tabs.
 
