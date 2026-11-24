@@ -374,6 +374,8 @@ namespace RogueStars.Client.Screens
                 if (flash != null) Ui.DestroyGo(flash.gameObject);
             });
             if (_fireLayer == null || !Application.isPlaying) return;
+            // one skill hitting several targets fires once per target: show its label once
+            if (!_liveLabelTexts.Add(label)) return;
             // a pill sized to its text, rising from the tile; labels of tiles firing at once stack in up to three rows
             var holder = Ui.Chip(_fireLayer, label, new Color(0.08f, 0.05f, 0.09f, 0.94f), Theme.Gold, 30, 60, Theme.Shade(Theme.Gold, 0.8f), "SkillFireLabel");
             holder.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -394,10 +396,11 @@ namespace RogueStars.Client.Screens
                 holder.anchoredPosition = start + new Vector2(0, 36 * RunFx.Ease(t));
                 holder.localScale = Vector3.one * (t < 0.12f ? Mathf.Lerp(0.7f, 1.05f, t / 0.12f) : 1);
                 group.alpha = t < 0.75f ? 1 : 1 - (t - 0.75f) / 0.25f;
-            }, () => { _liveLabels = Math.Max(0, _liveLabels - 1); Ui.DestroyGo(holder.gameObject); });
+            }, () => { _liveLabels = Math.Max(0, _liveLabels - 1); _liveLabelTexts.Remove(label); Ui.DestroyGo(holder.gameObject); });
         }
 
         private int _liveLabels;
+        private readonly HashSet<string> _liveLabelTexts = new HashSet<string>();
 
         /// <summary>
         /// Stage position (anchored, from the stage centre) of the n-th of <paramref name="count"/> fighters of a side. The
