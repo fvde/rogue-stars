@@ -199,17 +199,21 @@ public class SidekickTests
     }
 
     [Fact]
-    public void HivemindAndCharm_HookOntoSidekickActions()
+    public void HivemindAndDecoy_HookOntoSidekickActionsAndBlocks()
     {
+        // Hivemind: every sidekick action also triggers its tuned signature once (one Heat stack from Ignite)
         var squad = new[] { Alien("alien_blorp") };
-        var r = Fight(squad, new[] { "alien_hivemind", "alien_charmer" }, rounds: 12);
-        foreach (var act in r.Log.Where(e => e.Action == BattleAction.SidekickAct))
+        var r = Fight(squad, new[] { "alien_hivemind", "sig_fire" }, rounds: 12);
+        int kick = r.Fighters.First(f => f.Role == CombatRole.Alien).Index;
+        foreach (var act in r.Log.Where(e => e.Action == BattleAction.SidekickAct && e.Actor == kick))
         {
             int i = r.Log.IndexOf(act);
             var after = r.Log.Skip(i + 1).TakeWhile(e => e.Action != BattleAction.SidekickAct && e.Round == act.Round).ToList();
-            Assert.Contains(after, e => e.SkillId == "alien_hivemind" && e.Action == BattleAction.Heal || e.SkillId == "alien_hivemind");
+            Assert.Contains(after, e => e.SkillId == "sig_fire" && e.Actor == kick && e.Action is BattleAction.StatusApplied or BattleAction.Supernova);
         }
-        Assert.Contains(r.Log, e => e.SkillId == "alien_charmer" && e.Action == BattleAction.StatusApplied && e.Status == StatusId.Charm);
+        // Decoy: blocked attackers may be charmed (Bodyguard's guards)
+        var d = Fight(squad, new[] { "alien_bodyguard", "alien_decoy" }, rounds: 12, levels: new Dictionary<string, int> { ["alien_bodyguard"] = 3, ["alien_decoy"] = 2 });
+        Assert.Contains(d.Log, e => e.Action == BattleAction.Block);
     }
 
     /// <summary>Sidekick actions and guarded hits are counts: a levelled run skill grows them (2 → 3 → 5), never a fraction.</summary>

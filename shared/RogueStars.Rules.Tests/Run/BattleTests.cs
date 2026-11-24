@@ -273,12 +273,12 @@ public class BattleSimulatorTests
         var resLs = BattleSimulator.Simulate(Duel(hurt, Unit("foe", CombatRole.Enemy, 1e6, 0, 0, 1), 2), c, new Rng(1));
         Assert.Contains(resLs.Log, e => e.Action == BattleAction.LifeSteal && e.Amount == 50);
 
-        // conditional bonus vs boss: Boss Hunter +25% boss damage
+        // conditional bonus: Giant Slayer +18% against enemies above 70% HP
         var hunter = Unit("worm", CombatRole.Worm, 1000, 100, 0, 200);
-        hunter.SkillIds.Add("gen_boss_hunter");
+        hunter.SkillIds.Add("gen_giant_slayer");
         var boss = Unit("boss", CombatRole.Boss, 1e6, 0, 0, 1);
         var r2 = BattleSimulator.Simulate(Duel(hunter, boss, 1), ContentDb.Default, new Rng(1));
-        Assert.Equal(125, r2.Log.First(e => e.Action == BattleAction.Basic).Amount);
+        Assert.Equal(118, r2.Log.First(e => e.Action == BattleAction.Basic).Amount);
     }
 
     [Fact]

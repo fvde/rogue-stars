@@ -195,6 +195,7 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             tile.TimesResolved++;
             ctx.Emit("run_land", tile.Id.ToString(), tile.TileId);
+            run.PendingStartRage = 0;
             RunTriggers(ctx, run, TriggerKind.OnTileLand, def);
             if (IsNegative(def) && TrySkipNegative(ctx, run)) { Consume(c, run, tile, def); return; }
             switch (def.Category)
@@ -446,6 +447,8 @@ namespace RogueStars.Rules.Systems
             var setup = new BattleSetup { RoundCap = kind == "boss" ? c.Combat.BossRoundCap : c.Combat.RoundCap };
             setup.Player.AddRange(BattleSimulator.BuildPlayerSide(run.Loadout, c, run.Skills, WormExtraStats(c, run), run.SkillLevels));
             setup.Player[setup.Player.Count - 1].StartHp = run.WormHp;
+            setup.Player[setup.Player.Count - 1].StartRage = run.PendingStartRage;
+            run.PendingStartRage = 0;
             setup.Enemy.AddRange(enemies);
             var result = BattleSimulator.Simulate(setup, c, run.Rng.Fork("battle:" + run.BattleCount));
             run.BattleCount++;
@@ -793,6 +796,9 @@ namespace RogueStars.Rules.Systems
                     break;
                 case EffectKind.SkipNegativeEvent:
                     run.SkipNegativeEvents += (int)t.Value;
+                    break;
+                case EffectKind.StartRage: // Ambush Instinct: the battle this tile starts begins with rage
+                    run.PendingStartRage = Math.Max(run.PendingStartRage, t.Value);
                     break;
             }
         }

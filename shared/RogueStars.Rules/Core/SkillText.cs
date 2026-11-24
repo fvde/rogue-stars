@@ -60,7 +60,7 @@ namespace RogueStars.Rules.Core
                 {
                     if (raw.Length == 0) continue;
                     bool cost = raw[0] == '!';
-                    lines.Add(new SkillLine(Fill(s, cost ? raw.Substring(1) : raw), cost));
+                    lines.Add(new SkillLine(Fill(s, cost ? raw.Substring(1) : raw).TrimEnd('.', ' '), cost));
                 }
                 return lines;
             }
@@ -466,6 +466,7 @@ namespace RogueStars.Rules.Core
                         if (stat == null) return null;
                         string get = t.Target == TargetKind.Worm || t.Target == TargetKind.Enemy || t.Target == TargetKind.RandomEnemy || t.Target == TargetKind.LowestHpEnemy ? " gets " : " get ";
                         string how = BattleSim.HasToken(t.Param, "until_turn") ? " until your next turn"
+                            : BattleSim.HasToken(t.Param, "next_turn") ? " for your next turn"
                             : BattleSim.HasToken(t.Param, "reset_no_combo") ? " this battle (a turn without a combo resets it)"
                             : t.Duration > 0 ? dur : " for the rest of the battle";
                         return (t.Target == TargetKind.Self ? "" : target + get) + stat + how;

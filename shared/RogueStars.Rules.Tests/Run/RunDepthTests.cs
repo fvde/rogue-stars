@@ -74,13 +74,14 @@ public class RunDepthTests(ITestOutputHelper output)
     {
         var c = ContentDb.Default;
         var mythics = c.Skills.Values.Where(x => x.Rarity == Rarity.Mythic && x.Draftable && x.Source == SkillSource.Run).ToList();
-        Assert.True(mythics.Count >= 27, "mythics: " + mythics.Count);
+        Assert.True(mythics.Count >= 29, "mythics: " + mythics.Count);
         foreach (var f in Enum.GetValues<SkillFamily>().Where(f => f != SkillFamily.Crit)) // Crit is no synergy: its Mythics are generic
             Assert.True(mythics.Count(m => m.Family == f) >= 2, f + " has at least two mythics");
         Assert.All(mythics, m => Assert.False(string.IsNullOrWhiteSpace(SkillText.Full(m)), m.Id));
         // ungated mythics: a run can take one from its first miniboss
         var run = new ActiveRun();
-        Assert.True(mythics.Count(m => RunDraft.IsMythicEligible(c, run, m)) >= 27);
+        // (skill redesign) Mythics that need a source (aliens, Arc, Freeze, Shock, consumed Bleed) wait until the run owns it
+        Assert.True(mythics.Count(m => RunDraft.IsMythicEligible(c, run, m)) >= 20);
     }
 
     [Fact]

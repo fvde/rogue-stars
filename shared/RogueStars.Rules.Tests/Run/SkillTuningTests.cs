@@ -25,7 +25,9 @@ public class SkillTuningTests
         Assert.Equal(new[] { 15.0, 25, 40 }, Enumerable.Range(1, 3).Select(l => SkillLeveling.At(C, C.Skill("crit_keen"), l).Stats[0].Flat));
         Assert.Equal(new[] { 15.0, 25, 40 }, Enumerable.Range(1, 3).Select(l => SkillLeveling.At(C, C.Skill("gen_power"), l).Stats[0].Percent));
         Assert.Equal(new[] { 15.0, 25, 40 }, Enumerable.Range(1, 3).Select(l => SkillLeveling.At(C, C.Skill("gen_vitality"), l).Stats[0].Percent));
-        Assert.Equal(new[] { 25.0, 40 }, Enumerable.Range(1, 2).Select(l => SkillLeveling.At(C, C.Skill("gen_boss_hunter"), l).Stats[0].Flat));
+        Assert.Equal(new[] { 25.0, 40 }, Enumerable.Range(1, 2).Select(l => SkillLeveling.At(C, C.Skill("gen_overclocked"), l).Stats[0].Percent));
+        // a trade-off's cost never scales (Overclocked Core: −15% max HP at every level)
+        Assert.Equal(new[] { -15.0, -15 }, Enumerable.Range(1, 2).Select(l => SkillLeveling.At(C, C.Skill("gen_overclocked"), l).Stats[1].Percent));
         // tier caps and the tier rule are unchanged: Common Lv3, Legendary Lv2, Mythic Lv1
         Assert.Equal(3, C.RunTuning.MaxSkillLevelOf(Rarity.Common));
         Assert.Equal(2, C.RunTuning.MaxSkillLevelOf(Rarity.Legendary));
@@ -40,10 +42,10 @@ public class SkillTuningTests
         Assert.Equal("+15% → +25% crit chance.", SkillText.UpgradeFull(C, keen, 1, 2));
         Assert.Equal("+25% → +40% crit chance.", SkillText.UpgradeFull(C, keen, 2, 3));
         Assert.Equal("Keen Eye Lv 2", SkillText.Title(keen, 2));
-        Assert.Equal("On hit: 30% → 50% chance to apply Heat ×2 to the enemy.", SkillText.UpgradeFull(C, C.Skill("fire_ember"), 1, 2));
-        Assert.Equal("End of each round: apply Radiation ×2 → ×3 to all enemies.", SkillText.UpgradeFull(C, C.Skill("poison_miasma"), 1, 2));
-        Assert.Equal("On rage attack: consume the enemy's Bleed: 25% → 40% ATK damage per stack, heal 50% of it.", SkillText.UpgradeFull(C, C.Skill("bleed_frenzy"), 1, 2));
-        Assert.Equal("+25% → +40% Supernova damage. +25% → +40% Supernova self-damage reduction.", SkillText.UpgradeFull(C, C.Skill("fire_inferno"), 1, 2));
+        Assert.Equal("On crit: 30% → 50% chance to apply Heat ×3.", SkillText.UpgradeFull(C, C.Skill("fire_ember"), 1, 2));
+        Assert.Equal("When hit: apply Radiation ×2 → ×3 to the attacker.", SkillText.UpgradeFull(C, C.Skill("poison_spit"), 1, 2));
+        Assert.Equal("Rage attack consumes the target's Bleed: 25% → 40% ATK per stack, heal 50% of it. At max stacks, refund 50 rage.", SkillText.UpgradeFull(C, C.Skill("bleed_frenzy"), 1, 2));
+        Assert.Equal("Supernova needs 12 Heat, but never hurts you and deals +25% → +40% damage.", SkillText.UpgradeFull(C, C.Skill("fire_controlled"), 1, 2));
         Assert.Equal("On rage attack: apply Freeze for 1 round → 2 rounds to all enemies.", SkillText.UpgradeFull(C, C.Skill("lab_frost_nova_5"), 1, 2));
         Assert.Equal("Run start: the boss awakens 9% → 15% slower.", SkillText.UpgradeFull(C, C.Skill("gen_calm_mind"), 1, 2));
         Assert.StartsWith("Level up: its numbers climb +15% → +25% → +40% (Legendary +25% → +40%)", SkillText.LevelUpRule(C));
@@ -87,7 +89,7 @@ public class SkillTuningTests
                 {
                     SkillTrigger x = a.Triggers[i], y = b.Triggers[i];
                     Assert.True(y.Chance <= 100, s.Id);
-                    if (!SkillLeveling.IsCountEffect(x.Effect)) continue;
+                    if (!SkillLeveling.IsCountEffect(x.Effect) || x.Grow == GrowKind.Fixed) continue; // a Fixed part stays put by design
                     // a count trigger changes its chance, its stacks or its duration at every level
                     Assert.True(x.Chance != y.Chance || x.Stacks != y.Stacks || x.Duration != y.Duration || x.Value != y.Value, $"{s.Id} Lv{lv} trigger {i}");
                 }
@@ -114,11 +116,12 @@ public class SkillTuningTests
     }
 
     /// <summary>
-    /// Owner (signatures pass): one Mythic pool, no gated capstones. Every synergy (starters + packages) has its signature,
-    /// 2 Common + 2 Legendary run skills and 2–3 themed Mythics, none gated by family counts or prerequisites.
+    /// Owner (signatures pass + skill redesign): one Mythic pool, no gated capstones. Every synergy (starters + packages) has its
+    /// signature, 3 Common + 2 Legendary run skills and 3 themed Mythics (Alien: 4 Commons and 4 Mythics, owner decision), none
+    /// gated by family counts or prerequisites.
     /// </summary>
     [Fact]
-    public void EverySynergy_HasASignature_TwoCommonsTwoLegendaries_AndUngatedMythics()
+    public void EverySynergy_HasASignature_ThreeCommonsTwoLegendaries_ThreeMythics()
     {
         var synergies = C.RunTuning.StarterSynergies.Concat(C.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).Select(d => d.Family)).ToList();
         Assert.Equal(8, synergies.Distinct().Count());
@@ -126,9 +129,10 @@ public class SkillTuningTests
         foreach (var f in synergies)
         {
             var run = Pool(C).Where(s => s.Family == f && s.Source == SkillSource.Run).ToList();
-            Assert.Equal(2, run.Count(s => s.Rarity == Rarity.Common));
+            bool alien = f == SkillFamily.AlienSynergy;
+            Assert.Equal(alien ? 4 : 3, run.Count(s => s.Rarity == Rarity.Common));
             Assert.Equal(2, run.Count(s => s.Rarity == Rarity.Legendary));
-            Assert.InRange(run.Count(s => s.Rarity == Rarity.Mythic), 2, 3);
+            Assert.Equal(alien ? 4 : 3, run.Count(s => s.Rarity == Rarity.Mythic));
             Assert.Single(C.Skills.Values, s => s.Signature && s.Family == f);
         }
         Assert.All(Pool(C).Where(s => s.Rarity == Rarity.Mythic), s => Assert.True(s.RequiresFamilyCount == 0 && s.Requires.Count == 0, s.Id));
@@ -183,7 +187,7 @@ public class SkillTuningTests
     // ---- 3. every skill does something --------------------------------------------------------------------------
 
     /// <summary>Board skills: proven by their own run tests below; every other draftable skill acts in battle.</summary>
-    private static readonly HashSet<string> BoardSkills = new() { "gen_wealth", "gen_pathfinder", "gen_camper", "gen_growth", "gen_calm_mind", "gen_scholar" };
+    private static readonly HashSet<string> BoardSkills = new() { "gen_wealth", "gen_pathfinder", "gen_camper", "gen_growth", "gen_calm_mind", "gen_scholar", "gen_ambush" };
 
     internal static bool IsBoardSkill(SkillDef s) => BoardSkills.Contains(s.Id) || s.Id.StartsWith("lab_lucky_dice", StringComparison.Ordinal);
 
@@ -211,13 +215,59 @@ public class SkillTuningTests
         var dead = new SkillDef { Id = "dead_probe", Name = "Dead", Family = SkillFamily.Fire, Source = SkillSource.Building, Draftable = false };
         dead.Stats.Add(new StatMod(StatId.FireDamage, 0, 20));
         c.AddSkill(dead);
+        // a frail worm: rescues (Last Word, Sacrifice Protocol, Rewind Shell, Loop) and low-HP rules need a fight it can lose
+        c.AddSkill(new SkillDef { Id = "kit_frail", Name = "Frail", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Hp, 0, -70) } });
+        // a squad that guards every round: block-hooked skills (Decoy) are judged where blocks happen
+        c.AddSkill(new SkillDef { Id = "kit_guards", Name = "Guards", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Block, Stacks = 1, Target = TargetKind.Self } } });
+        // heavy stackers: skills gated on many stacks (20 Radiation, max Bleed / Shock) are judged where those stacks happen
+        foreach (var st in new[] { StatusId.Poison, StatusId.Bleed, StatusId.Shock })
+            c.AddSkill(new SkillDef { Id = "kit_heavy_" + st, Name = "Heavy " + st, Source = SkillSource.Building, Draftable = false,
+                Triggers = { new SkillTrigger { When = TriggerKind.OnHit, Effect = EffectKind.ApplyStatus, Status = st, Stacks = 3, Chance = 100 } } });
         return c;
+    }
+
+    /// <summary>
+    /// The build a skill is judged in (skill redesign): a run skill sits next to its synergy's signature (every run has one, and
+    /// Arc / Chill / Flurry skills build on it) and the source its offer gate needs (SkillDef.Needs); rescues get a fight they
+    /// can lose. The baseline is the same build without the skill.
+    /// </summary>
+    internal static List<string> Context(ContentDb c, SkillDef s)
+    {
+        var ctx = new List<string>();
+        void Add(string id) { if (id != s.Id && c.Skill(id) != null && !ctx.Contains(id)) ctx.Add(id); }
+        if (s.Source != SkillSource.Run && s.Source != SkillSource.Laboratory) return ctx;
+        if (s.Family != SkillFamily.None)
+        {
+            var sig = c.Skills.Values.Where(x => x.Signature && x.Family == s.Family).OrderBy(x => x.Id, StringComparer.Ordinal).FirstOrDefault();
+            if (sig != null && !s.Signature) Add(sig.Id);
+        }
+        if (s.Family == SkillFamily.Lightning) Add("light_spark");  // Shock for Overclock / Thunderclap / Capacitor
+        if (s.Family == SkillFamily.Combo) Add("combo_flurry");     // combo chains for Whirlwind / Fury Chain
+        switch (s.Needs)
+        {
+            case "arc": Add("sig_lightning"); break;
+            case "applies:Shock": Add("sig_lightning"); Add("light_spark"); break;
+            case "consume:Bleed": Add("sig_bleed"); Add("bleed_frenzy"); break;
+            case "blocks": Add("kit_guards"); break;
+            case "echo": Add("sig_time"); break;
+        }
+        foreach (var st in new[] { StatusId.Poison, StatusId.Bleed, StatusId.Shock })
+        {
+            string n = st.ToString();
+            bool many = s.Triggers.Any(t => (t.If ?? "").Contains("max:" + n) || (t.When == TriggerKind.OnStackThreshold && (t.Param ?? "").StartsWith(n + ":"))
+                || (t.Effect == EffectKind.Rule && t.Status == st && t.Param == "max"));
+            if (many) Add("kit_heavy_" + n);
+        }
+        bool rescue = s.Triggers.Any(t => t.When == TriggerKind.OnFatal || t.Effect == EffectKind.Rewind || t.Param == "last_light:30" || t.Effect == EffectKind.LoseHp);
+        if (rescue) Add("kit_frail");
+        return ctx;
     }
 
     internal static readonly string[] KitIds = { "kit_fire", "kit_ice", "kit_light", "kit_poison", "kit_bleed" };
 
     /// <summary>A worm with a squad and a mount, base crit / combo / counter / parry / dodge, against a shielded slug, a dodging wraith and a boss.</summary>
-    private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, int level = 1)
+    internal static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, int level = 1, IEnumerable<string>? extra = null)
     {
         var lo = new CombatLoadout { DisplayName = "Worm", MountId = "test_mount" };
         lo.WormStats.AddAll(new[]
@@ -235,6 +285,7 @@ public class SkillTuningTests
             lo.Aliens.Add(a);
         }
         var skills = new List<string>(KitIds);
+        if (extra != null) skills.AddRange(extra);
         if (skillId != null) skills.Add(skillId);
         var setup = new BattleSetup();
         var levels = new Dictionary<string, int>();
@@ -308,15 +359,18 @@ public class SkillTuningTests
                 baseline[(seed, brawl)] = Signature(Fight(c, null, seed, brawl));
                 Assert.Equal(baseline[(seed, brawl)], Signature(Fight(c, "dead_probe", seed, brawl))); // the check catches dead skills
             }
+        var ctxBase = new Dictionary<(int, bool, string), string>();
         foreach (var s in Pool(c).Where(s => !IsBoardSkill(s)))
         {
             bool changed = false;
             var landed = new bool[s.Triggers.Count];
+            var ctx = Context(c, s);
+            string key = string.Join(",", ctx);
             foreach (bool brawl in new[] { false, true })
                 for (int seed = 0; seed < 8; seed++)
                 {
-                    if (!baseline.TryGetValue((seed, brawl), out var b)) baseline[(seed, brawl)] = b = Signature(Fight(c, null, seed, brawl));
-                    var r = Fight(c, s.Id, seed, brawl);
+                    if (!ctxBase.TryGetValue((seed, brawl, key), out var b)) ctxBase[(seed, brawl, key)] = b = Signature(Fight(c, null, seed, brawl, 1, ctx));
+                    var r = Fight(c, s.Id, seed, brawl, 1, ctx);
                     if (Signature(r) != b) changed = true;
                     for (int i = 0; i < s.Triggers.Count; i++) if (!landed[i] && LandsEffect(r, s.Id, s.Triggers[i])) landed[i] = true;
                 }
@@ -332,8 +386,8 @@ public class SkillTuningTests
             {
                 bool moved = false;
                 foreach (bool brawl in new[] { false, true })
-                    for (int seed = 0; seed < 16 && !moved; seed++) // chance-on-crit upgrades need a few more seeds
-                        moved = Signature(Fight(c, s.Id, seed, brawl, lv)) != Signature(Fight(c, s.Id, seed, brawl, lv - 1));
+                    for (int seed = 0; seed < 40 && !moved; seed++) // chance-on-crit and first-turn upgrades need more seeds
+                        moved = Signature(Fight(c, s.Id, seed, brawl, lv, ctx)) != Signature(Fight(c, s.Id, seed, brawl, lv - 1, ctx));
                 if (!moved) failures.Add(s.Id + ": Lv" + lv + " changes no battle");
             }
         }
@@ -451,6 +505,16 @@ public class SkillTuningTests
         var with = Roll("gen_calm_mind", "empty", rolls: 3);
         Assert.True(without.Awakening > 0);
         Assert.True(with.Awakening < without.Awakening * 0.95, $"{with.Awakening} vs {without.Awakening}");
+    }
+
+    /// <summary>Ambush Instinct (R14): landing on an enemy tile starts that battle with rage (15 → 25 → 40).</summary>
+    [Fact]
+    public void AmbushInstinct_EnemyTileBattles_StartWithRage()
+    {
+        long Start(ActiveRun r) => r.LastBattle!.Fighters.First(f => f.Role == CombatRole.Worm).StartRage;
+        Assert.Equal(0, Start(Roll(null, "enemy_1")));
+        Assert.Equal(15, Start(Roll("gen_ambush", "enemy_1")));
+        Assert.Equal(new[] { 15.0, 25, 40 }, Enumerable.Range(1, 3).Select(l => SkillLeveling.At(C, C.Skill("gen_ambush"), l).Triggers[0].Value));
     }
 
     [Fact]

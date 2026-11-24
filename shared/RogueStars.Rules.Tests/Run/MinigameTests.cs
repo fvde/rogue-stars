@@ -225,7 +225,7 @@ public class MinigameTests
             var c = ContentWithReward(MinigameReward.SkillRoll);
             var e = RunTestKit.Engine(RunTestKit.Strong(), c);
             double sum = 0; int n = 0;
-            for (long seed = 1; seed <= 40; seed++)
+            for (long seed = 1; seed <= 160; seed++) // a third Common per synergy (skill redesign) dilutes the rare picks: more samples
             {
                 var s = OnGameTile(e, seed);
                 Assert.True(RunTestKit.Exec(e, ref s, new RunMinigameStart()).Ok);

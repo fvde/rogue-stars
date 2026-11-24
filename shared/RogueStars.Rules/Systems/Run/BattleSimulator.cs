@@ -168,8 +168,10 @@ namespace RogueStars.Rules.Systems
         public int Turns;
         public double Power;
         public int Source;
+        /// <summary>Applied during its carrier's own turn: that turn's end does not count down (a counter's stun, Decoy's charm).</summary>
+        public bool Fresh;
 
-        public StatusInst Copy() => new StatusInst { Id = Id, Stacks = Stacks, Turns = Turns, Power = Power, Source = Source };
+        public StatusInst Copy() => new StatusInst { Id = Id, Stacks = Stacks, Turns = Turns, Power = Power, Source = Source, Fresh = Fresh };
     }
 
     internal sealed class BuffInst
@@ -179,8 +181,10 @@ namespace RogueStars.Rules.Systems
         public int Rounds; // -1 = rest of battle
         /// <summary>A sidekick's buff (its index, else -1): the same sidekick's next action refreshes it instead of stacking.</summary>
         public int Sidekick = -1;
-        /// <summary>Ends when its holder's next own turn starts (Brace, Rally Cry).</summary>
+        /// <summary>Ends when its holder's next own turn starts (Brace).</summary>
         public bool UntilTurn;
+        /// <summary>Lasts through its holder's next own turn and ends at its end (Rally Cry: the worm's next attacks).</summary>
+        public bool ThroughTurn;
         /// <summary>Ends at the end of a turn of its holder without a combo (Battle Rhythm).</summary>
         public bool ResetNoCombo;
         public string SkillId;
@@ -408,6 +412,7 @@ namespace RogueStars.Rules.Systems
         private int _depth;
         private double _lastAbsorbed;
         private int _thrPrev;
+        private Fighter _acting;
         private readonly List<BattleSnap> _snaps = new List<BattleSnap>();
         private bool _anyLoop;
 
@@ -680,6 +685,7 @@ namespace RogueStars.Rules.Systems
         private void TakeTurn(Fighter f)
         {
             if (f.Sidekick) { SidekickTurn(f); return; }
+            _acting = f;
             EndTurnScopedEffects(f);
             f.ComboThisTurn = false;
             double regen = f.S(StatId.Regen);
@@ -719,6 +725,7 @@ namespace RogueStars.Rules.Systems
             for (int i = f.Buffs.Count - 1; i >= 0; i--)
             {
                 var b = f.Buffs[i];
+                if (b.ThroughTurn && b.Rounds == -1) b.Rounds = -2; // this is the turn it lasts through
                 if (!b.UntilTurn) continue;
                 RemoveBuff(f, i);
             }
@@ -895,6 +902,7 @@ namespace RogueStars.Rules.Systems
                 if (T.Statuses.TryGetValue(st.Id, out var sdef) && sdef.Permanent) continue; // Heat, Radiation, Bleed stay
                 var r = SRules(st);
                 if (r.NoExpireAt > 0 && st.Stacks >= r.NoExpireAt) continue; // Permafrost, Capacitor
+                if (st.Fresh) { st.Fresh = false; continue; } // applied during this very turn: it lasts into the next one
                 st.Turns--;
                 if (st.Turns <= 0)
                 {
@@ -906,6 +914,9 @@ namespace RogueStars.Rules.Systems
             if (!f.ComboThisTurn) // Battle Rhythm: a turn without a combo resets it
                 for (int i = f.Buffs.Count - 1; i >= 0; i--)
                     if (f.Buffs[i].ResetNoCombo) RemoveBuff(f, i);
+            for (int i = f.Buffs.Count - 1; i >= 0; i--)
+                if (f.Buffs[i].ThroughTurn && f.Buffs[i].Rounds == -2) RemoveBuff(f, i); // the turn it was waiting for is over
+            if (_acting == f) _acting = null;
         }
 
         private void RemoveBuff(Fighter f, int i)
@@ -1593,21 +1604,21 @@ namespace RogueStars.Rules.Systems
                     {
                         if (!tg.Alive) continue;
                         double k = SupportScale(owner);
-                        bool untilTurn = HasToken(t.Param, "until_turn"), reset = HasToken(t.Param, "reset_no_combo");
+                        bool untilTurn = HasToken(t.Param, "until_turn"), reset = HasToken(t.Param, "reset_no_combo"), through = HasToken(t.Param, "next_turn");
                         var b = new BuffInst
                         {
                             Stat = t.Stat.Stat, Flat = t.Stat.Flat * k, Percent = t.Stat.Percent * k, Rounds = t.Duration > 0 ? t.Duration : -1,
-                            Sidekick = owner.Sidekick ? owner.Index : -1, UntilTurn = untilTurn, ResetNoCombo = reset, SkillId = skill.Id,
+                            Sidekick = owner.Sidekick ? owner.Index : -1, UntilTurn = untilTurn, ResetNoCombo = reset, ThroughTurn = through, SkillId = skill.Id,
                         };
-                        if (untilTurn) b.Rounds = -1;
-                        if (owner.Sidekick || untilTurn)
+                        if (untilTurn || through) b.Rounds = -1;
+                        if (owner.Sidekick || untilTurn || through)
                         {
                             // a sidekick's buff, or one that lasts until the next turn, refreshes rather than stacking with itself
                             for (int bi = tg.Buffs.Count - 1; bi >= 0; bi--)
                             {
                                 var old = tg.Buffs[bi];
                                 if (old.Stat != b.Stat) continue;
-                                if (owner.Sidekick ? old.Sidekick != owner.Index : old.SkillId != skill.Id || !old.UntilTurn) continue;
+                                if (owner.Sidekick ? old.Sidekick != owner.Index : old.SkillId != skill.Id || !(old.UntilTurn || old.ThroughTurn)) continue;
                                 RemoveBuff(tg, bi);
                             }
                         }
@@ -1634,6 +1645,7 @@ namespace RogueStars.Rules.Systems
                     if (tg == null) break;
                     bool counter = t.Param == "counter";
                     Mark(owner, owner, skill); // marks the extra strike as the skill's
+                    if (!counter) { owner.ComboStrikes++; owner.ComboThisTurn = true; } // Flurry's strike is a combo strike
                     double dealt = Attack(owner, tg, counter ? AttackKind.Counter : AttackKind.Combo, counter ? 1 : 0);
                     Fire(owner, counter ? TriggerKind.OnCounter : TriggerKind.OnCombo, tg, StatusId.None, dealt);
                     break;
@@ -1981,6 +1993,7 @@ namespace RogueStars.Rules.Systems
                 if (power >= st.Power) { st.Power = power; st.Source = src.Index; }
             }
             if (def.ApplyCooldownRounds > 0) tg.StatusCd[(int)id] = Round + def.ApplyCooldownRounds;
+            if (tg == _acting) st.Fresh = true;
             var e = Log(BattleAction.StatusApplied, src, tg, st.Stacks);
             if (e != null) { e.Status = id; e.Stacks = st.Stacks; e.SkillId = skillId; }
             if (def.Cools != StatusId.None && !sr.NoCool) RemoveStacks(src, tg, def.Cools, stacks, skillId); // Chill cools Heat (Cold Fusion: not)
