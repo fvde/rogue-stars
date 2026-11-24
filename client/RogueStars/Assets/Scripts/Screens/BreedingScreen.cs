@@ -23,6 +23,7 @@ namespace RogueStars.Client.Screens
         public BreedingScreen(string parentA, string parentB = null) { _a = parentA; _b = parentB != parentA ? parentB : null; }
 
         public override string Title => "Breeding Pen";
+        public override string[] IntroFeatures => new[] { Features.Breeding };
 
         /// <summary>The pen's purpose in one line (Grain's only sink).</summary>
         public const string Intro = "Grain is spent only here. Pick two aliens: the baby is one of their two species (50/50). Keep it for its traits, or release it for shards of its species.";

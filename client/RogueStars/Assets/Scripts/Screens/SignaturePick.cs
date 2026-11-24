@@ -64,7 +64,8 @@ namespace RogueStars.Client.Screens
         {
             var session = app.Session;
             var offer = RunSystem.SignatureOffer(session.Engine, session.State, session.NowMs);
-            if (offer.Count == 0) { session.Run(cmd, then); return; }
+            // one offer (before the Signature Choice unlock, GDD §16): the run just gets it, no pick screen
+            if (offer.Count <= 1) { cmd.SignatureId = offer.Count == 1 ? offer[0] : null; session.Run(cmd, then); return; }
             Show(app.ModalLayer, session.Content, offer, sid =>
             {
                 cmd.SignatureId = sid;

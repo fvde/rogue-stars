@@ -11,8 +11,9 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Tests
 {
     /// <summary>
-    /// Owner playtest 0.1.200: auto mode ONLY rolls the dice. Every decision and reveal screen (event, vendor, chest,
-    /// campfire and its Train picker, level-up draft, Mythic choice, signature offer, revive, encounter, result sheet,
+    /// Owner playtest 0.1.200: auto mode rolls the dice (and, since the level unlocks pass, starts the fights it meets).
+    /// Every decision and reveal screen (event, vendor, chest,
+    /// campfire and its Train picker, level-up draft, Mythic choice, signature offer, revive, result sheet,
     /// battle playback) stays open with auto on until the player taps; auto rolls again once it is closed.
     /// </summary>
     public sealed class AutoRollOnlyTests
@@ -140,21 +141,26 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Encounter_WaitsForTheFightTap()
+        public void Encounter_AutoStartsTheFight_ManualPlayKeepsTheTap()
         {
+            // manual: the encounter (a clock miniboss after the move) waits for the Fight! tap
             var run = StartRun();
-            run.MinibossesSpawned = 0;
-            run.Awakening = 24.9; // the next roll crosses 25: a miniboss attacks after the move
-            var screen = OpenWithAuto();
-            screen.Frame(1f); // auto rolls
+            run.Phase = RunPhase.Encounter; run.EncounterKind = "ambush"; run.PendingAmbushes = 1; run.MinibossesSpawned = 1;
+            _f.App.Router.Push(new RunScreen());
+            var screen = (RunScreen)_f.App.Router.Current;
             Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Encounter));
             long version = S.Version;
-            for (int i = 0; i < 30; i++) screen.Frame(1f);
-            Assert.That(S.Version, Is.EqualTo(version), "auto never starts a fight");
-            Assert.That(screen.AutoPaused, Is.True);
+            for (int i = 0; i < 10; i++) screen.Frame(1f);
+            Assert.That(S.Version, Is.EqualTo(version), "without auto the player starts the fight");
             screen.Rebuild();
-            string caption = FindNamed(screen.Root, "RollButton").GetComponentInChildren<Text>().text;
-            Assert.That(caption, Is.EqualTo("Fight!"), "the dice say what the player's tap does");
+            Assert.That(FindNamed(screen.Root, "RollButton").GetComponentInChildren<Text>().text, Is.EqualTo("Fight!"));
+
+            // auto (owner: "actually start battle automatically"): the fight starts on its own, its playback opens
+            screen.StartAuto();
+            Assert.That(screen.AutoPaused, Is.False, "an encounter does not pause auto");
+            for (int i = 0; i < 5 && _f.App.Router.Current == screen; i++) screen.Frame(1f);
+            Assert.That(S.Version, Is.GreaterThan(version), "auto sent the encounter");
+            Assert.That(S.Run.Active == null || S.Run.Active.Phase != RunPhase.Encounter, Is.True, "the miniboss fight was fought");
         }
 
         [Test]

@@ -20,6 +20,7 @@ namespace RogueStars.Client.Screens
         private int _tab;
 
         public override string Title => "Guild";
+        public override string[] IntroFeatures => new[] { Features.Guilds };
         public override bool AutoRebuild => false; // keeps the chat/search inputs; rebuilt on data arrival
 
         private IGuildApi Api => Session.Service?.Guilds;

@@ -18,6 +18,7 @@ namespace RogueStars.Client.Screens
     public sealed class AliensScreen : UiScreen
     {
         public override string Title => "Aliens";
+        public override string[] IntroFeatures => new[] { Features.Aliens, Features.AlienSquad };
 
         private List<OwnedAlien> Sorted()
         {

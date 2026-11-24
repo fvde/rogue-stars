@@ -13,6 +13,7 @@ namespace RogueStars.Client.Screens
         private int _tab;
 
         public override string Title => "Quests";
+        public override string[] IntroFeatures => new[] { Features.Quests };
 
         protected override void Build(RectTransform body)
         {

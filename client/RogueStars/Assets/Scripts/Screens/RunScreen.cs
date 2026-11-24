@@ -19,10 +19,11 @@ namespace RogueStars.Client.Screens
     /// coins, the boss rail) and the bottom controls (the big dice button on its pedestal — tap to roll, hold for auto —,
     /// the speed chip, the skills book). Decision popups (branch on the board, event cards, skill draft, shop,
     /// revive, Burrow), battle playback and auto mode as before.
-    /// Auto mode (hold the dice) ONLY rolls the dice (owner playtest 0.1.200): while it is on and the run waits for a
-    /// roll with nothing open, it sends RunRoll again; a tap anywhere stops it. Everything else — every decision, result,
-    /// chest, battle playback, encounter — waits for the player's tap; auto pauses meanwhile and resumes after it while
-    /// still on (<see cref="AutoPaused"/>).
+    /// Auto mode (hold the dice; a level unlock, Features.AutoRoll) rolls the dice and starts the fights it meets (a clock
+    /// miniboss, the boss arena: RunEncounter): while it is on and nothing is open, it sends RunRoll / RunEncounter; a tap
+    /// anywhere stops it. Everything else — every decision, result, chest, battle playback — waits for the player's tap
+    /// (owner playtest 0.1.200); auto pauses meanwhile and resumes after it while still on (<see cref="AutoPaused"/>).
+    /// The tutorial run (main level 1) shows coach marks: roll, pick a skill on level-up, beat the boss (CoachMarks).
     /// </summary>
     public sealed partial class RunScreen : UiScreen
     {
@@ -64,6 +65,10 @@ namespace RogueStars.Client.Screens
         private SliceHud _hud;
         private int _skillCount;
         private DiceView _footerDice;
+        private RectTransform _rollButton;
+        private GameObject _coach;
+        private string _coachMark;
+        private bool _coachOff;
         private readonly List<KeyValuePair<RectTransform, Vector2>> _pins = new List<KeyValuePair<RectTransform, Vector2>>();
         /// <summary>The board's art (ArtCatalog biome of the level).</summary>
         private BiomeArt _biome = ArtCatalog.Default;
@@ -273,13 +278,13 @@ namespace RogueStars.Client.Screens
         /// The dice button's caption: "Hold for Auto" when a roll is next; what the next tap does otherwise (fight, enter
         /// the arena, pick a path on the board, your decision); auto mode's state.
         /// </summary>
-        public static string DiceCaption(ActiveRun run, bool auto, bool autoPaused)
+        public static string DiceCaption(ActiveRun run, bool auto, bool autoPaused, bool autoUnlocked = true)
         {
             if (run == null) return "";
             if (auto && !autoPaused) return "Auto…";
             switch (run.Phase)
             {
-                case RunPhase.AwaitRoll: return "Hold for Auto";
+                case RunPhase.AwaitRoll: return autoUnlocked ? "Hold for Auto" : "Tap to roll"; // Auto Roll: a level unlock (GDD §16)
                 case RunPhase.Encounter: return run.EncounterKind == "boss" ? "Enter Arena" : "Fight!";
                 case RunPhase.ChooseBranch: return "Pick a path";
                 case RunPhase.Completed: case RunPhase.Failed: return "";
@@ -895,6 +900,7 @@ namespace RogueStars.Client.Screens
             bool deciding = !canRoll && run.Phase != RunPhase.Completed && run.Phase != RunPhase.Failed;
             bool live = canRoll || _auto || deciding;
             var btnRt = Ui.Rect(root, "RollButton");
+            _rollButton = btnRt;
             SliceKit.Place(btnRt, s, 540, standY, DiceStand.FrameW, DiceStand.FrameH, true);
             // the cap pulses / presses about its base on the slab
             var face = Ui.Panel(btnRt, Color.white, "Cap");
@@ -926,7 +932,7 @@ namespace RogueStars.Client.Screens
             dice.Pose(1, shown);
             _footerDice = dice;
             // the caption is engraved into the cap's front wall (dark red, a light lip under it)
-            var caption = Ui.Display(face.transform, DiceCaption(run, _auto, AutoPaused), (int)(Mathf.Min(50, DiceStand.FrontWallHeight * 0.62f) * s), live ? (Color)new Color32(0x9A, 0x1C, 0x26, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
+            var caption = Ui.Display(face.transform, DiceCaption(run, _auto, AutoPaused, Session.IsUnlocked(Features.AutoRoll)), (int)(Mathf.Min(50, DiceStand.FrontWallHeight * 0.62f) * s), live ? (Color)new Color32(0x9A, 0x1C, 0x26, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
             caption.raycastTarget = false;
             caption.horizontalOverflow = HorizontalWrapMode.Overflow;
             var lip = caption.gameObject.AddComponent<Shadow>();
@@ -948,7 +954,7 @@ namespace RogueStars.Client.Screens
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
             };
-            hold.OnHold = StartAuto;
+            hold.OnHold = () => { if (Session.IsUnlocked(Features.AutoRoll)) StartAuto(); }; // Auto Roll unlocks with a level (GDD §16)
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
 
             // speed chip (×1 / ×2 / ×3 board animations)
@@ -1053,6 +1059,7 @@ namespace RogueStars.Client.Screens
                 App.Router.Replace(new RunResultScreen());
                 return;
             }
+            UpdateCoach();
             if (!_auto) return;
             var run = State.Run.Active;
             if (run == null) { StopAuto(); return; }
@@ -1069,15 +1076,53 @@ namespace RogueStars.Client.Screens
             _autoTimer += dt;
             if (_autoTimer < 0.6f) return;
             _autoTimer = 0;
-            Run(new RunRoll(), r => { if (!r.Ok) StopAuto(); });
+            // Auto starts the fights it meets too (owner: "actually start battle automatically"): a miniboss of the clock
+            // and the boss arena. Manual play keeps the Fight! / Enter Arena tap; every decision still waits for the player.
+            if (run.Phase == RunPhase.Encounter) Run(new RunEncounter(), r => { if (!r.Ok) StopAuto(); });
+            else Run(new RunRoll(), r => { if (!r.Ok) StopAuto(); });
         }
 
         /// <summary>
-        /// Auto mode only rolls: it waits while anything but a roll is next (a decision, an encounter, a revive…), or a
-        /// screen is open over the board (a result sheet, a decision sheet, a battle playback, a chest).
+        /// Auto mode rolls and starts the fights it meets (a clock miniboss, the boss arena); it waits while anything else
+        /// is next (a decision, a revive…), or a screen is open over the board (a result sheet, a decision sheet, a battle
+        /// playback, a chest).
         /// </summary>
         private bool WaitsForPlayer(ActiveRun run) =>
-            run.Phase != RunPhase.AwaitRoll || OutcomeOpen || _decision != null && _decision.IsOpen || App.Router.Current != this;
+            run.Phase != RunPhase.AwaitRoll && run.Phase != RunPhase.Encounter || OutcomeOpen || _decision != null && _decision.IsOpen
+            || App.Router.Current != this;
+
+        // ---- tutorial coach marks (level 1) -----------------------------------------------------------------------
+
+        /// <summary>The coach mark showing now (CoachMarks.Roll / Pick / Boss), or null.</summary>
+        public string CoachMark => _coach != null ? _coachMark : null;
+
+        /// <summary>"Skip tips": no more coach marks in this run.</summary>
+        public void SkipCoach() { _coachOff = true; HideCoach(); }
+
+        private void HideCoach()
+        {
+            if (_coach != null) Ui.DestroyGo(_coach);
+            _coach = null;
+            _coachMark = null;
+        }
+
+        /// <summary>Every frame: the mark for the tutorial run's state (roll, pick a skill, beat the boss), never during animations.</summary>
+        public void UpdateCoach()
+        {
+            var run = State?.Run.Active;
+            bool decision = _decision != null && _decision.IsOpen;
+            string mark = _coachOff || App.Router.Current != this || OutcomeOpen ? null
+                : CoachMarks.For(State, Content, decision, Animating || Session.InFlight > 0 || _auto && !AutoPaused);
+            if (mark == _coachMark && (_coach != null) == (mark != null)) return;
+            HideCoach();
+            if (mark == null || run == null) return;
+            RectTransform target = _rollButton;
+            if (mark == CoachMarks.Pick)
+                foreach (var t in App.ModalLayer.GetComponentsInChildren<Button>(true))
+                    if (t.name.StartsWith("Button:Pick")) { target = (RectTransform)t.transform; break; }
+            _coach = CoachMarks.Show(App.CoachLayer, target, mark, SkipCoach);
+            _coachMark = mark;
+        }
 
         public void StartAuto()
         {
@@ -1115,6 +1160,7 @@ namespace RogueStars.Client.Screens
             if (_outcome != null && _outcome.IsOpen) { _outcome.Close(); _outcomeSeen = Math.Max(0, _outcomeSeen - 1); } // shown again on return
             if (_autoOverlay != null) Ui.DestroyGo(_autoOverlay);
             _autoOverlay = null;
+            HideCoach();
         }
 
         /// <summary>Back on screen: reopen a decision that OnHide closed (an open one stays as it is, no close / reopen flicker).</summary>

@@ -106,7 +106,60 @@ namespace RogueStars.Client.App
             }
             BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
+            if (IntroFeatures != null && IntroFeatures.Length > 0)
+            {
+                // "?" top-right: replays the unlock intro of this screen's feature(s) (GDD §16)
+                _help = Ui.Button(Root, "?", ShowIntro, new Color(0.12f, 0.14f, 0.32f, 0.92f), 96, 96, true, 52);
+                _help.name = "HelpButton";
+                var rt = (RectTransform)_help.transform;
+                var le = _help.GetComponent<LayoutElement>(); if (le != null) le.ignoreLayout = true;
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1, 1);
+                rt.sizeDelta = new Vector2(96, 96);
+                rt.anchoredPosition = new Vector2(-24, -16);
+            }
             Rebuild();
+        }
+
+        // ---- feature intro ("?") -------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Features whose intro (FeatureDef.Intro) this screen's "?" button replays; only unlocked ones count, and the button
+        /// shows once one is unlocked. Null = no "?" (GDD §16: every feature screen explains itself again on request).
+        /// </summary>
+        public virtual string[] IntroFeatures => null;
+
+        private Button _help;
+
+        /// <summary>The "?" button (null on screens without intro features).</summary>
+        public Button HelpButton => _help;
+
+        /// <summary>The unlocked intro features of this screen, in content order.</summary>
+        public List<string> UnlockedIntroFeatures()
+        {
+            var list = new List<string>();
+            if (IntroFeatures == null || App?.Session.State == null) return list;
+            foreach (var f in Content.FeatureOrder)
+                if (Array.IndexOf(IntroFeatures, f.Id) >= 0 && Features.IsUnlocked(State, Content, f.Id)) list.Add(f.Id);
+            return list;
+        }
+
+        /// <summary>"?": one feature replays its intro at once; several open a short topic list.</summary>
+        public void ShowIntro()
+        {
+            var ids = UnlockedIntroFeatures();
+            if (ids.Count == 0) return;
+            if (ids.Count == 1) { App.Router.Push(Screens.UnlockScreen.Replay(ids[0])); return; }
+            UiModal modal = null;
+            modal = Ui.Modal(App.ModalLayer, "How it works", body =>
+            {
+                foreach (var id in ids)
+                {
+                    string fid = id;
+                    var b = Ui.Button(body, Content.Feature(fid)?.Name ?? fid, () => { modal?.Close(); App.Router.Push(Screens.UnlockScreen.Replay(fid)); },
+                        Theme.Button, -1, Theme.ButtonHeight);
+                    b.name = "Intro:" + fid;
+                }
+            }, new ModalButton("Close", null));
         }
 
         /// <summary>Footer (fixed bottom bar) layout: spacing between its rows and vertical padding.</summary>
@@ -142,6 +195,11 @@ namespace RogueStars.Client.App
             }
             if (App.Session.State == null) Ui.Label(_body, "Connecting…", Theme.FontLarge, Theme.TextDim, TextAnchor.MiddleCenter);
             else Build(_body);
+            if (_help != null)
+            {
+                _help.gameObject.SetActive(UnlockedIntroFeatures().Count > 0);
+                _help.transform.SetAsLastSibling();
+            }
             if (_scroll != null)
             {
                 Canvas.ForceUpdateCanvases();

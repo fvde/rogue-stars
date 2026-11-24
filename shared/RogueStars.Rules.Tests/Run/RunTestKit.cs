@@ -14,6 +14,8 @@ public static class RunTestKit
         public List<StatMod> Extra = new();
     }
 
+    private static readonly HashSet<ContentDb> Applied = new(ReferenceEqualityComparer.Instance); // before Classic (static init order)
+
     /// <summary>
     /// Content whose first main levels have every run element (campfire, shops, miniboss lair, clock minibosses, forks, the
     /// portal's own tile pool, normal awakening, mini-games from level 2), as before the level unlocks (GDD §16). The run
@@ -25,6 +27,17 @@ public static class RunTestKit
     public static ContentDb ClassicBoards(ContentDb c)
     {
         if (ReferenceEquals(c, ContentDb.Default)) return c;
+        lock (Applied)
+        {
+            if (!Applied.Add(c)) return c; // once per content: shared contents are read by parallel tests
+            ApplyClassic(c);
+        }
+        return c;
+    }
+
+
+    private static void ApplyClassic(ContentDb c)
+    {
         string pool = c.MainLevel(c.Campaign.LevelsPerPortal * 4 + 1)!.TilePoolId; // portal 5: the same family as portal 1
         for (int n = 1; n <= 12; n++)
         {
@@ -52,7 +65,6 @@ public static class RunTestKit
         Ease(2, -55, -40);
         c.BoardTiles["campfire"].MinMainLevel = 0;
         c.MinigameTuning.MinMainLevel = Math.Min(c.MinigameTuning.MinMainLevel, 2);
-        return c;
     }
 
     public static GameEngine Engine(WormSetup? worm = null, ContentDb? content = null)

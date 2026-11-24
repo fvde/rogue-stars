@@ -22,6 +22,7 @@ namespace RogueStars.Client.Screens
         private bool _fighting;
 
         public override string Title => "Arena";
+        public override string[] IntroFeatures => new[] { Features.Arena };
 
         public override void OnShow() => Load();
 

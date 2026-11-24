@@ -15,6 +15,7 @@ namespace RogueStars.Client.Screens
     public sealed class HeroesScreen : UiScreen
     {
         public override string Title => "Heroes";
+        public override string[] IntroFeatures => new[] { Features.Heroes };
 
         protected override void Build(RectTransform body)
         {
@@ -66,6 +67,7 @@ namespace RogueStars.Client.Screens
     public sealed class MountsScreen : UiScreen
     {
         public override string Title => "Mounts";
+        public override string[] IntroFeatures => new[] { Features.Mounts };
 
         protected override void Build(RectTransform body)
         {

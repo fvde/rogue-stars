@@ -18,6 +18,7 @@ namespace RogueStars.Client.Screens
         private bool _standard;
 
         public override string Title => "Signals";
+        public override string[] IntroFeatures => new[] { Features.PartPulls, Features.AlienPulls, Features.Blueprints };
 
         protected override void Build(RectTransform body)
         {

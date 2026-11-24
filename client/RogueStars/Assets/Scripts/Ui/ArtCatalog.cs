@@ -150,13 +150,22 @@ namespace RogueStars.Client.UiKit
             return list;
         }
 
-        /// <summary>A level's portal family: its tile pool without the "pool_" prefix (null for hand-made levels without one).</summary>
+        /// <summary>
+        /// A level's portal family: its tile pool without the "pool_" prefix and without a variant suffix
+        /// ("pool_ember_tutorial" → "ember"; null for hand-made levels without one).
+        /// </summary>
         public static string FamilyOf(LevelDef level)
         {
             var pool = level?.TilePoolId;
             if (string.IsNullOrEmpty(pool)) return null;
-            return pool.StartsWith("pool_") ? pool.Substring(5) : pool;
+            var family = pool.StartsWith("pool_") ? pool.Substring(5) : pool;
+            int cut = family.IndexOf('_');
+            return cut > 0 ? family.Substring(0, cut) : family;
         }
+
+        /// <summary>Feature intro art (unlock screens, "?" replays): <c>Art/Intro/&lt;key&gt;</c>; IntroArt draws a fallback.</summary>
+        public const string IntroFolder = "Art/Intro";
+        public static Sprite Intro(string key) => string.IsNullOrEmpty(key) ? null : Load(IntroFolder + "/" + key);
 
         /// <summary>The biome of a portal family, else <see cref="Default"/>.</summary>
         public static BiomeArt BiomeFor(string family)

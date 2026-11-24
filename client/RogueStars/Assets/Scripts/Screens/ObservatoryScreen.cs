@@ -16,6 +16,7 @@ namespace RogueStars.Client.Screens
         private string _invasionError;
 
         public override string Title => "Observatory";
+        public override string[] IntroFeatures => new[] { Features.Invasions };
 
         public override void OnShow() => LoadInvasions();
 

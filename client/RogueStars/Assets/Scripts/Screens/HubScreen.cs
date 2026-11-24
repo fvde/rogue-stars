@@ -393,14 +393,13 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>"Laboratory — clear level 14", "City: Biomass Farm — unlocks tomorrow".</summary>
+        /// <summary>"Laboratory — clear level 13".</summary>
         public static string TeaserText(NextUnlock n) => n.Name + " — " + n.Text;
 
-        /// <summary>Level progress (2/5) while the level gate is open, else the day it unlocks.</summary>
+        /// <summary>Level progress (2/5) until the level is cleared (level unlocks: no calendar gate).</summary>
         public static string TeaserFigure(NextUnlock n)
         {
             if (!n.LevelMet && n.Level > 0) return n.CurrentLevel + "/" + n.Level;
-            if (n.DaysToWait > 0) return "Day " + (n.CurrentDay + n.DaysToWait);
             return null;
         }
 

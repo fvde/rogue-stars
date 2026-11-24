@@ -22,6 +22,7 @@ namespace RogueStars.Client.Screens
         private string _pending;    // blueprint being placed/moved
 
         public override string Title => "City";
+        public override string[] IntroFeatures => new[] { Features.BiomassFarm, Features.GrainFarm, Features.OreMine, Features.AlienSquad };
 
         protected override void Build(RectTransform body)
         {

@@ -20,6 +20,7 @@ namespace RogueStars.Client.Screens
         public int Tab;
 
         public override string Title => "Parts";
+        public override string[] IntroFeatures => new[] { Features.Parts, Features.Runes, Features.Forge };
 
         public override string Subtitle =>
             "Ore " + Fmt.Num(State.Wallet.Get(Currencies.Ore)) + " · Gear Cores " + Fmt.Num(State.Wallet.Get(Currencies.GearCores))

@@ -4,6 +4,7 @@ using RogueStars.Client.Screens;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
 using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
 
@@ -127,7 +128,10 @@ namespace RogueStars.Client.Tests
         [Test]
         public void WorldBoard_DrawsTilesSetPiecesScatterAndExclaims_AroundTheWorm()
         {
-            var run = StartRun();
+            // level 5: shops and the miniboss lair to exclaim (the tutorial level 1 is plain, GDD §16)
+            for (int n = 1; n <= 4; n++) _f.Service.State.Run.Levels[C.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+            _f.Service.State.Counters[Requirements.MainLevelCounter] = 4;
+            var run = StartRun(5);
             _f.App.Router.Push(new RunScreen());
             var screen = (RunScreen)_f.App.Router.Current;
             var world = screen.World;

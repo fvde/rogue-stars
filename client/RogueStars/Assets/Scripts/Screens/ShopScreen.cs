@@ -17,6 +17,7 @@ namespace RogueStars.Client.Screens
         private int _tab;
 
         public override string Title => "Shop";
+        public override string[] IntroFeatures => new[] { Features.Shop, Features.Funds, Features.SeasonPass };
 
         protected override void Build(RectTransform body)
         {
