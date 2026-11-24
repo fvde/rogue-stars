@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
@@ -17,10 +18,11 @@ using UnityEngine.TestTools;
 namespace RogueStars.Client.PlayTests
 {
     /// <summary>
-    /// Sidekick pass screenshots at the reference resolution (1080×2400): a battle with the squad and a Hive Carrier drone along
-    /// the left edge, a sidekick acting (hop, ability name, effect; sidekick pips in NEXT), a guard intercepting a hit, and the
-    /// aliens screen (ability, power, act frequency). Explicit (<c>-testFilter SidekickShowcaseTests</c>); writes to
-    /// $ROGUESTARS_SHOTS_DIR or client/RogueStars/Screenshots/sidekicks. Needs a graphics device: run WITHOUT -nographics.
+    /// Sidekick + aliens pass screenshots at the reference resolution (1080×2400): a battle with the squad (Pebblehorn's Guard,
+    /// Swarmheart hatching drones, Voidmaw echoing) along the left edge, a sidekick acting, the guard softening a hit, a hatch and
+    /// an echo; the aliens screen (ability of the star, next star, act frequency, traits, genes "coming soon") and the breeding
+    /// screen (Grain's sink). Explicit (<c>-testFilter SidekickShowcaseTests</c>); writes to $ROGUESTARS_SHOTS_DIR or
+    /// client/RogueStars/Screenshots/sidekicks. Needs a graphics device: run WITHOUT -nographics.
     /// </summary>
     [Explicit("renders the sidekick screenshots; run with -testFilter SidekickShowcaseTests")]
     public sealed class SidekickShowcaseTests
@@ -62,75 +64,89 @@ namespace RogueStars.Client.PlayTests
             Assert.That(start.Ok, Is.True, start.Error);
             var run = _svc.State.Run.Active;
 
-            // 1. a battle with sidekicks: Pebblehorn (Block), Emberkit (Kindle), Mossling (heal) and a drone from the Hive Carrier
+            // 1. a battle with the reworked squad: Pebblehorn 5★ (Stone Guard −35%), Swarmheart 7★ (Hatch: drones), Voidmaw 10★ (Void Echo)
             var battle = Battle(c);
-            int act = battle.Log.FindIndex(e => e.Action == BattleAction.SidekickAct && e.Stacks == 0 && battle.Fighters[e.Actor].Id == "alien_emberkit");
-            if (act < 0) act = battle.Log.FindIndex(e => e.Action == BattleAction.SidekickAct);
-            int block = battle.Log.FindIndex(e => e.Action == BattleAction.Block);
-            Assert.That(act, Is.GreaterThanOrEqualTo(0), "a sidekick acts");
-            Assert.That(block, Is.GreaterThan(0), "a guard intercepts a hit");
+            int guard = battle.Log.FindIndex(e => e.Action == BattleAction.Guard && battle.Fighters[e.Actor].Id == "alien_pebblehorn");
+            int guarded = battle.Log.FindIndex(e => e.Action == BattleAction.Guarded);
+            int hatch = battle.Log.FindIndex(e => e.Action == BattleAction.Summon && battle.Fighters[e.Actor].Id == "alien_swarmheart");
+            int echo = battle.Log.FindIndex(e => e.Action == BattleAction.Echo && battle.Fighters[e.Actor].Id == "alien_voidmaw");
+            Assert.That(guard, Is.GreaterThanOrEqualTo(0), "Pebblehorn raises a guard");
+            Assert.That(guarded, Is.GreaterThan(guard), "the guard softens a hit");
             var ctx = BattleHudContext.FromRun(run, c);
-            ctx.Skills = new List<string> { "sig_alien", "alien_hivemind", "alien_bond" };
+            ctx.Skills = new List<string> { "sig_alien", "alien_bond" };
             var playback = new BattlePlaybackScreen(battle, false, ctx);
             _app.Router.Push(playback);
             yield return Wait(0.5f);
-            yield return Shot("sk0_battle_start");
-            playback.PlaySteps(Math.Max(0, act - playback.NextIndex));
-            yield return Wait(playback.StepSeconds * 1.3f); // the act marker plays (hop + name), then its effect
-            yield return Shot("sk1_sidekick_act");
-            yield return Wait(playback.StepSeconds * 0.9f);
-            yield return Shot("sk1b_sidekick_effect");
-            playback.PlaySteps(Math.Max(0, block - playback.NextIndex));
-            yield return Wait(playback.StepSeconds * 0.75f);
-            yield return Shot("sk2_block");
+            yield return Shot("ar0_battle_start");
+            foreach (var (at, name) in new[] { (hatch, "ar1_hatch"), (guard, "ar2_stone_guard_raised"), (guarded, "ar3_guarded_hit"), (echo, "ar4_void_echo") }
+                         .Where(x => x.Item1 >= 0).OrderBy(x => x.Item1))
+            {
+                if (at < playback.NextIndex) continue;
+                playback.PlaySteps(Math.Max(0, at - playback.NextIndex)); // up to the entry; the live playback animates it
+                yield return Wait(playback.StepSeconds * 1.2f);
+                yield return Shot(name);
+            }
             BattlePlaybackScreen.Instant = true;
             yield return Wait(0.2f);
             BattlePlaybackScreen.Instant = false;
             _app.Router.Pop();
             yield return Wait(0.3f);
 
-            // 2. the aliens screen: each alien's ability, ability power and how often it acts
-            foreach (var (id, lv, st) in new[] { ("alien_pebblehorn", 12, 3), ("alien_emberkit", 20, 5), ("alien_nebulisk", 8, 1), ("alien_mossling", 5, 1) })
+            // 2. the aliens screen: ability of the star, next star, how often it acts, traits, genes "coming soon" — no levels
+            _svc.State.Aliens.Owned.Clear();
+            foreach (var (id, st, traits) in new[] { ("alien_swarmheart", 7, new[] { "trait_eager", "trait_wide" }), ("alien_pebblehorn", 5, new[] { "trait_bulwark", "trait_deep_digger" }),
+                         ("alien_shiverpup", 1, new[] { "trait_swift", "trait_twin" }), ("alien_frostmite", 3, new[] { "trait_wide" }), ("alien_thornqueen", 2, new[] { "trait_lingering" }) })
             {
                 var a = AlienSystem.RollNew(new Rng(7), c, c.AlienType(id));
-                a.Level = lv; a.Stars = st;
+                a.Stars = st;
+                a.Traits = new List<string>(traits);
                 _svc.State.Aliens.Owned[id] = a;
             }
+            _svc.State.Wallet.Add(Currencies.AlienShards("alien_pebblehorn"), 12);
+            _svc.State.Aliens.Squad = new List<string> { "alien_shiverpup", "alien_frostmite" };
+            _svc.State.Aliens.LevelGrainRefunded = 18_400;
             _svc.Refresh(_ => { });
             _app.Open("aliens");
             yield return Wait(0.8f);
-            yield return Shot("sk3_aliens_screen");
+            yield return Shot("ar5_aliens_screen");
+
+            // 3. the breeding screen: Grain's sink — two parents, the baby's species odds, the release shards; a newborn waiting
+            _svc.State.Wallet.Add(Currencies.Grain, 12_000);
+            _svc.State.Breeding.Pending.Add(new PendingChild { Id = "breed_demo", TypeId = "alien_pebblehorn", ParentA = "alien_pebblehorn", ParentB = "alien_shiverpup",
+                Traits = new List<string> { "trait_swift", "trait_bulwark" } });
+            _svc.Refresh(_ => { });
+            _app.Router.Push(new BreedingScreen("alien_swarmheart", "alien_shiverpup"));
+            yield return Wait(0.8f);
+            yield return Shot("ar6_breeding_screen");
         }
 
-        private static CombatAlien Alien(ContentDb c, string id)
+        private static CombatAlien Alien(ContentDb c, string id, int star)
         {
             var def = c.AlienType(id);
-            var a = new CombatAlien { AlienTypeId = id, Name = def.Name };
-            a.Stats.Add(new StatMod(StatId.Hp, def.BaseHp)).Add(new StatMod(StatId.Atk, def.BaseAtk)).Add(new StatMod(StatId.Def, def.BaseDef))
-                .Add(new StatMod(StatId.Speed, def.BaseSpeed));
-            a.SkillIds.Add(def.ArchetypeSkills[0].SkillId);
+            var a = new CombatAlien { AlienTypeId = id, Name = def.Name, Stars = star };
+            a.Stats.Add(new StatMod(StatId.Speed, def.BaseSpeed));
+            a.SkillIds.Add(AlienSystem.AbilityAt(c, id, star));
             return a;
         }
 
         private static BattleResult Battle(ContentDb c)
         {
             BattleResult best = null;
-            for (ulong seed = 1; seed <= 20; seed++)
+            for (ulong seed = 1; seed <= 30; seed++)
             {
                 var lo = new CombatLoadout { DisplayName = "Wiggles", MountId = "mount_hive_carrier" };
                 lo.WormStats.Add(new StatMod(StatId.Hp, 6000)).Add(new StatMod(StatId.Atk, 60)).Add(new StatMod(StatId.Def, 10)).Add(new StatMod(StatId.Speed, 100));
                 lo.MountStats.Add(new StatMod(StatId.Atk, 40)).Add(new StatMod(StatId.Hp, 10));
-                lo.MetaSkillIds.Add("mount_hive_carrier_w1");
-                lo.Aliens.Add(Alien(c, "alien_pebblehorn"));
-                lo.Aliens.Add(Alien(c, "alien_emberkit"));
-                lo.Aliens.Add(Alien(c, "alien_mossling"));
+                lo.Aliens.Add(Alien(c, "alien_pebblehorn", 5));
+                lo.Aliens.Add(Alien(c, "alien_swarmheart", 7));
+                lo.Aliens.Add(Alien(c, "alien_voidmaw", 10));
                 var setup = new BattleSetup { RoundCap = 10 };
-                setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, new[] { "sig_alien", "alien_hivemind" }));
+                setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c, new[] { "sig_alien" }));
                 setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "cinder_hound", 2, 0, 600));
                 setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "ember_imp", 2, 0, 600));
                 var r = BattleSimulator.Simulate(setup, c, new Rng(seed));
                 best = r;
-                if (r.Log.Exists(e => e.Action == BattleAction.Block)) break;
+                if (r.Log.Exists(e => e.Action == BattleAction.Guarded) && r.Log.Exists(e => e.Action == BattleAction.Echo)) break;
             }
             return best;
         }

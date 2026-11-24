@@ -48,10 +48,10 @@ status default; trigger Chance × (1 + StatusChance/100), then target StatusResi
 (Value = % of target max HP, × HealPower / ShieldPower; `Param = "overheal_shield"` turns overheal into shield),
 `GainRage` (flat), `BuffStat` (`Stat` for `Duration` rounds, 0 = rest of battle; negative values debuff),
 `Summon` (enemy skills: `Param` = enemy def id → a copy on the owner's threat scale, e.g. the Storm Hive's spark
-drones; player side: `Param` = a `ContentDb.Sidekicks` id → `Stacks` battle-scoped sidekicks whose ability power is `Value` % of
-the summoner's ATK — Hive Carrier's Drone Bay, Swarm Beacon; anything else does nothing), `AllyAction` (`Stacks` extra sidekick
-actions, round-robin over the side's sidekicks), `Block` (on a sidekick: the worm's next `Stacks` hits are intercepted, guards
-stack up to `Combat.MaxGuards` = 3). `CooldownRounds` blocks the trigger for N rounds after it fired.
+drones; player side: `Param` = a `ContentDb.Sidekicks` id [`;max:N`] → `Stacks` battle-scoped sidekicks whose power is `Value` %
+of the worm's ATK — Hive Carrier's Drone Bay, Swarm Beacon, Swarmheart; anything else does nothing), `AllyAction` (`Stacks` extra
+sidekick actions, round-robin over the side's sidekicks; `all`, `others`), `Block` (the worm's next `Stacks` hits are intercepted,
+guards stack up to `Combat.MaxGuards` = 3: Bodyguard), `Guard` (aliens pass: the target's next attack hit deals `Value` % less). `CooldownRounds` blocks the trigger for N rounds after it fired.
 Recursion is capped at depth 4.
 
 **Conditional damage bonuses:** a `Passive` trigger with `Param = "cond:<condition>"` and `Value = +%`.
@@ -64,7 +64,7 @@ stat vs bosses) are summed and applied as one multiplier.
 `Worm` = own side's worm; `AllAllies` = every living fighter of the owner's side.
 
 **Other stat semantics:** `Regen` = % max HP healed at the start of each own turn; `LifeSteal` = % of damage
-dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` on the worm adds % ability power to its sidekicks, `MountPower` % ATK to
+dealt (an untargetable fighter's lifesteal heals the worm); `AlienPower` on the worm adds that % to its sidekicks' hits, heals and shields (never chances, stacks or buffs), `MountPower` % ATK to
 the mount (`AlienPower` on the mount counts too: Hive Carrier weapons); the mount's HP stat becomes a
 battle-start shield on the worm (the mount absorbs damage). Shock / Freeze (element statuses without a DoT): the applier's
 Lightning / Ice damage scales their damage-taken bonus. `LootLuck` = % chance of a bonus item on every run loot roll
@@ -149,10 +149,12 @@ CC = statuses that skip turns or charm (`StatusDef.SkipsTurn` / `Charms`: Stun, 
 - Numbers: Knockout (lab Common, was Retaliation: no counter chance any more) stun on counter 10 → 15 → 20% at research I,
   14 → 21 → 28% at research V; lab Frost Nova casts on a critical rage attack (Freeze + 60% ATK to every enemy at research I,
   +10% per research level; in-run levels raise the damage, never the freeze); Head Start 30 → 40 → 50%; Decoy 20 → 30%;
-  Frostmite's Rime Bite 5 / 9 / 13 / 16 / 20% by star tier; Ice parts and Ice family skills chill instead of freezing
+  Frostmite's Rime Bite (Freeze) and Chronoslug's Slow Ooze (Delay, with a 3-round re-apply cooldown like Freeze's) 5 / 9 / 13 /
+  16 / 20% at tier stars 1 / 3 / 5 / 7 / 10 (held between; traits never raise them); no Common alien applies CC (Shiverpup only
+  Chills), so the allowlist is unchanged; Ice parts and Ice family skills chill instead of freezing
   ([parts.md](parts.md)); Stasis Field, Thermal Shock and the Lightning / Ice part Apex are unchanged.
 
-## Sidekicks (sidekick pass)
+## Sidekicks (aliens pass, owner review rev 4.3)
 
 Aliens and player-side summons (drones) are **sidekicks** (`CombatRole.Alien` / `CombatRole.Summon`, untargetable). Only the
 worm is attacked; a sidekick never attacks, gains no rage and has no statuses. It sits in the turn order (Mount → Aliens →
@@ -161,20 +163,63 @@ Summons → Worm) and each of its turns adds **Speed × (1 + the worm's `Sidekic
 `BattleAction.SidekickAct` log marker (SkillId = the ability, Stacks 1 = an extra action) followed by the ability's effects
 (its `OnAct` triggers), then `OnSidekickAct` on the worm and mount (Hivemind, Alien Charm, Pack Tactics, Hive part skills).
 
-- **Frequency:** alien base Speed by rarity 34 / 37 / 40 / 44 / 50 (Common … Mythic): a Common acts about every 3 worm
-  turns, a Mythic every 2. Speed genes and the Swift trait raise it. Drones: Speed 40.
-- **Ability power** (the sidekick's ATK in battle) = ATK + HP × 0.05 + DEF × 1 (`SidekickHpToPower` / `SidekickDefToPower`;
-  base, genes, level, stars and traits all count), × (1 + alien power %). Damage abilities deal % of it; status abilities
-  carry it as their DoT / Heat power. Heal / Shield / GainRage / BuffStat abilities are × the **support scale** =
-  min(1.5, (power before alien power / 35)^0.2) × (1 + alien power %).
-- **One ability per sidekick**, simple (Mythic Nebulisk: two buffs). A sidekick's buff refreshes on its next action instead of
-  stacking with itself. A sidekick's lifesteal (Vampiric) heals the worm.
-- **Block:** a guard on the worm intercepts the next attack hit (basic / rage / combo / counter): nothing lands, no on-hit or
-  when-hit triggers; `BattleAction.Guard` (guard raised) and `BattleAction.Block` (Actor = blocker, Amount = damage stopped).
-- **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions.
-- **Symbiote** stops every sidekick's own turns (aliens and drones); Bodyguard / Decoy work with any guard (Pebblehorn's too).
-- Alien combat traits: Tough (+15% HP), Fierce (+15% ATK), Armored (+30% DEF) → power; Swift (+15% Speed) → frequency;
-  Lucky / Vampiric / Pyromaniac / Stormborn for damage / Heat / Shock abilities.
+- **No stats.** A sidekick's HP / ATK / DEF are ignored (old snapshots fight the same). Its ATK is its worm's live ATK × (1 +
+  alien power %) (`AtkOf`); **"X% ATK" = X% of the worm's hit through the target's DEF** (`ComputeDamage` computes the full-strength
+  hit, then takes X% — small hits are never floored away by DEF). Drones: their `AtkPct` (the summon's `Value`) multiplies the same.
+  Heals / shields = % of the worm's max HP × (1 + alien power %); Thorn Harvest heals % of ATK per stack. Alien power (Squad Bond,
+  Pack Tactics, Hive parts, mount) is never applied to chances, stacks or buffs.
+- **Shared statuses:** a sidekick's statuses are applied with **the worm as their source** (the worm's power, rules and
+  `OnStatusApplied` / `OnStackThreshold` triggers; DoT ticks are the worm's damage); the log names the sidekick. A sidekick's
+  consume fires the worm's `OnStatusConsumed`.
+- **Frequency:** Speed 34 (Common) … 50 (Mythic), per-species profiles below; Swift +15%. Drones: Speed 40.
+- **Progression:** stars only (no levels). Each star is its own skill `ask_<species>_<star>` (1 … 10). Numbers are whole; owner
+  ranges are exact at 1★ and 10★; wide ranges are interpolated between the tier-star values (rounded half up), small ranges and
+  every count / chance move only at tier stars 1 / 3 / 5 / 7 / 10 and hold in between.
+- **Guard** (`EffectKind.Guard`, Pebblehorn): one guard per fighter, a new one refreshes it; the next attack hit taken deals
+  `Value` % less (cap 75%), the hit still lands so on-hit / when-hit triggers and counters fire. `BattleAction.Guard` (raised,
+  Amount = %, Stacks = hits) and `BattleAction.Guarded` (Actor = the guarding sidekick, Amount = damage prevented). Guards fire
+  `OnBlock` (Decoy). Bodyguard (run skill) keeps the old full `Block` (`BattleAction.Block`).
+- **Traits in battle** (`CombatantSpec.Traits`): Eager acts once at battle start (then starts at 0 charge); Twin +1 stack on every
+  2nd action; Wide: a single-target hit also strikes one random other enemy at 50% (a Wide summoner's drones are Wide); Lingering:
+  a timed buff, Chill or Shock +1 round, a guard +1 hit (never Freeze / Delay); Bulwark guards and shields +20%; Vampiric 10%
+  lifesteal to the worm (also on Void Echo); Swift +15% Speed (a stat).
+- **Extra actions** (Command, Tidal Call, Swarm Link, Symbiote, Hive parts, Hivemind's Command): at most
+  `Combat.MaxExtraSidekickActions` = 6 per round per side.
+- **Drones** zap for their % of the worm's ATK and each action also triggers the worm's **start signature** once (Hivemind: its
+  tuned one): Ignite / Irradiate / Lacerate / Chill one stack, Arc a `HiveArcPct` 25% jump, Flurry / Riposte / Echo a
+  `HiveStrikePct` 30% strike, Command an extra action (once per round).
+- **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions. **Symbiote** stops every
+  sidekick's own turns.
+- **Param tokens** (aliens pass): Damage `combo` (the strike rolls the worm's combo chance for more strikes, decaying like a
+  chain, each firing the worm's `OnCombo`); ApplyStatus `cd:N` (re-apply cooldown); ForceSupernova `at:N` (only from N Heat);
+  BuffStat `stack:N` (stacks up to N, then holds); ConsumeStatus `heal_atk:$`; Summon `;max:N` (alive from this summoner);
+  AllyAction `others`.
+
+| Alien | Rarity | Speed | Ability (card at 1★) | 1★ → 10★ (per star) | Tier-star effect changes |
+|---|---|---|---|---|---|
+| Blorp | C | 34 | Thorn Lash: Hit the front enemy for 15% ATK and apply 1 Bleed | hit 15 16 17 18 19 21 22 23 24 25 | Bleed 1 → 2 (5★) → 3 (10★) |
+| Mossling | C | 34 | Spore Puff: Hit … 15% ATK and apply 2 Radiation | hit 15 → 25 (as Blorp) | Radiation 2 → 3 (5★) → 4 (10★) |
+| Pebblehorn | C | 34 | Stone Guard: Guard the worm: the next hit it takes deals 20% less | guard 20 23 25 30 35 38 40 43 47 50 | — |
+| Zib | C | 37 | Zip Strike: Strike the front enemy for 20% ATK; uses your combo chance | hit 20 21 22 23 24 26 27 28 29 30 | — |
+| Glimmerfly | C | 37 | Static Wings: Zap … 15% ATK and apply 1 Shock | hit 15 → 25 | Shock 1 → 2 (5★) → 3 (10★) |
+| Shiverpup (new) | C | 34 | Frost Bite: Bite … 15% ATK and apply 1 Chill | hit 15 → 25 | Chill 1 → 2 (5★) → 3 (10★) |
+| Emberkit (was R) | C | 34 | Kindle: Hit … 15% ATK and apply 1 Heat | hit 15 → 25 | Heat 1 → 2 (5★) → 3 (10★) |
+| Frostmite | R | 37 | Rime Bite: Bite … 20% ATK. 5% chance to Freeze it | hit 20 → 30 (as Zib) | Freeze 5 / 9 / 13 / 16 / 20% |
+| Sporeling | R | 37 | Spore Cloud: Hit every enemy for 8% ATK and apply 1 Radiation | hit 8 8 9 9 10 10 11 11 11 12 | Radiation 1 → 2 (7★) |
+| Clackclaw | R | 34 | Snap Back: The worm gets +5% counter chance for 3 rounds | 5 5 6 6 7 7 8 8 8 9 | — |
+| Whirrbit | R | 37 | Whirl: +5% combo chance for 3 rounds | 5 → 9 (as Clackclaw) | — |
+| Arcwhisk (new) | R | 41 | Arc Whip: Arc to 1 enemy for 20% ATK. Counts as your Arc jump | hit 20 → 30 | targets 1 → 2 (5★) → 3 (10★) |
+| Voidmaw | E | 40 | Void Echo: Repeat the worm's last attack at 20% damage (an Echo) | 20 23 25 30 35 38 40 43 47 50 | — |
+| Thornqueen | E | 36 | Thorn Harvest: Consume the front enemy's Bleed. Heal the worm 1% of ATK per stack | 1 1 2 2 3 3 4 4 4 5 | — |
+| Gravitoad | E | 36 | Rock Ward: Shield the worm for 5% of max HP | 5 8 10 11 12 14 15 17 18 20 | — |
+| Chronoslug (new) | E | 40 | Slow Ooze: Hit … 20% ATK. 5% chance to Delay it | hit 20 → 30 | Delay 5 / 9 / 13 / 16 / 20% (cooldown 3) |
+| Solarch | L | 44 | Solar Flare: Apply 2 Heat. At 8+ Heat it goes Supernova now, +10% damage | bonus 10 15 20 25 30 33 35 40 45 50 | Heat 2 → 3 (7★) |
+| Tidecaller | L | 44 | Tidal Call: Heal the worm 5% of max HP. Another sidekick acts | 5 5 6 6 7 7 8 8 8 10 | — |
+| Nebulisk | M | 50 | Starlight Eye: a Starlight stack +3% crit chance, +10% crit damage; max 3, lasts the battle | chance 3 3 4 4 5 5 6 6 6 7; damage 10 10 12 12 14 14 17 17 17 20 | — |
+| Swarmheart (new) | M | 50 | Hatch: Hatch a Drone that zaps for 15% ATK. Max 1 Drone | zap 15 → 25 | drones max 1 → 2 (7★) |
+
+Card wording: the full 1★ sentence at every star (the review page abbreviated 3★+); singular for one target / drone ("Arc to 1
+enemy", "Max 1 Drone"). Cards ≤ 20 words, no decimals (`AlienAbilityTests`).
 
 ## Run (board) triggers (RunSystem)
 

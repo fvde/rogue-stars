@@ -224,7 +224,8 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - Battles are turn-based in rounds with a round cap; reaching the cap with enemies alive is a loss.
 - Combatants: the **Worm** (the only one that is attacked), squad **Aliens** and battle-scoped summons (drones) as
   **sidekicks** (never attacked; they charge by Speed — a Common acts about every 3 worm turns — and then use their one
-  ability; HP / ATK / DEF fold into ability power; a Block ability intercepts hits on the worm), the **Mount** (fires mount
+  ability; they have no stats: hits are a % of the worm's ATK, heals / shields a % of its max HP, statuses are the worm's;
+  Pebblehorn's Guard softens the worm's next hit), the **Mount** (fires mount
   weapons), enemies. Details: docs/design/skill-conventions.md "Sidekicks".
 - Turn order: Mount → Aliens → Worm → enemies. Speed stat decides which side opens (worm side default).
 - Each attacker has Basic, Rage, Combo and Counter attacks. Rage fills per action/hit; a full bar fires
@@ -312,14 +313,27 @@ define Basic/Combo/Counter/Rage attack styles).
   awakening 3/5. Mount level via Fuel.
 
 ### 7.3 Aliens
-- One alien **per alien type** (species). Each has: archetype skill (its typical function), stats (combat
-  and work), up to 3 traits (combat or city), rarity, stars 1–10 via duplicates (shards), level via Grain.
-- **Work:** assign to city buildings; work stats boost production.
+- One alien **per alien type** (species); 20 species (7 Common · 5 Rare · 4 Epic · 2 Legendary · 2 Mythic). Each has one
+  ability (aliens pass, owner review rev 4.3), a Speed (34 Common … 50 Mythic), up to 3 traits, rarity and **stars 1–10 via
+  shards** (duplicates and breeding) — **the only progression**; alien levels were removed. **No combat stats:** the ability
+  works in % of the worm's ATK (hits, statuses) or max HP (heals, shields), × alien power. Every star is its own ability
+  step: the main % grows (wide ranges every star, small ranges only at tier stars), tier stars 1/3/5/7/10 also change the
+  effect (stacks, targets, chances). Whole numbers only. Per-alien table: docs/design/skill-conventions.md "Sidekicks".
+- **Traits:** pool per species = Swift *or* Eager (tempo) + effect traits that fit its ability + one work trait. Swift +15%
+  Speed, Eager first action at battle start, Twin +1 stack every 2nd action, Wide also strikes 1 other enemy at half,
+  Lingering buff / Chill / Shock +1 round (a guard +1 hit; never Freeze / Delay), Bulwark guards and shields +20%, Vampiric
+  heals the worm 10% of its damage. Old traits are remapped (Tough / Armored → Bulwark or Lingering, Fierce → Twin or Wide,
+  Lucky → Swift, Pyromaniac / Stormborn → Twin); traits outside a species' pool convert on breeding.
+- **Genes:** stored and still bred, but inactive — shown as "Coming soon".
+- **Work:** assign to city buildings; work power grows +40% per star (plus work traits).
 - **Fight:** squad slots unlocked by progression: 0 at alien unlock, 1 after first housing, 2 and 3 via
-  city upgrades / rare blueprints. Aliens act in turn and cast their skills; they are not targetable by default.
-- **Breeding Pen:** pick two aliens; costs Grain and time (hours by rarity; buildings speed it and improve
-  stat/trait quality). Child inherits a mix of stats/traits with mutation chance. When born the player
-  chooses: replace the current alien of that type, or discard (convert into shards/Grain).
+  city upgrades / rare blueprints. Aliens are sidekicks: never targetable, they act by Speed with their one ability.
+- **Breeding Pen** (Grain's only sink, the targeted shard source): pick two aliens; costs Grain and time (by the higher
+  rarity; buildings speed it and improve quality). The child is randomly one of the two parents' species (genes mixed, traits
+  inherited with mutation chance). When born the player chooses: replace the current alien of that type (new traits; stars
+  kept), or discard it for shards of its species (1/1/2/2/3 by rarity) and 30% of the Grain back.
+- **Save migration:** an old save's alien levels reset to 1 and 100% of the Grain spent on them is refunded (once, by the
+  rarity paid at: Emberkit as a Rare); stars, shards and genes are kept.
 
 ## 8. City and Blueprints (replace the artifact system)
 - The city is a grid on the planet unlocked area by area (early game = unlocking city elements one by one:
@@ -373,7 +387,7 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 | Currency | Use |
 |---|---|
 | Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
-| Grain | Alien levels, breeding, upkeep |
+| Grain | Breeding (its only sink; more uses later) |
 | Ore | Parts level, Mythic+ merges, buildings |
 | Data | Laboratory research (Dark Side clears, daily/weekly chests, arena shop) |
 | Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
@@ -423,7 +437,7 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Gear Cores | part levels 11+ (Uncommon+ parts), Forge | an Uncommon+ part is owned, or Forge (D20) | 200 |
 | Advancement Plates | part level cap raises | a Rare+ part is owned | 20 |
 | Awaken Cores | part awakening | a Mythic+ part is owned | none |
-| Grain | alien levels, breeding | Aliens (D7) or Breeding | 2 000 |
+| Grain | breeding | Aliens (D7) or Breeding | 2 000 |
 | Fuel | mount levels | Mounts (D12) | 4 000 |
 | Hero XP | hero levels | Heroes (D10) | 3 000 |
 | Data | laboratory research | Laboratory (D5) | 100 |

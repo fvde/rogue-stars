@@ -246,8 +246,23 @@ namespace RogueStars.Client.UiKit
         public static Sprite SliceMount(string mountId) => (string.IsNullOrEmpty(mountId) ? null : Load(SliceMounts + "/" + mountId)) ?? Load(SliceMounts + "/mount");
         public static Sprite SkillIcon(string skillId) => string.IsNullOrEmpty(skillId) ? null : Load(SkillFolder + "/" + skillId);
 
-        /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the lettered token).</summary>
-        public static Sprite Alien(string alienTypeId) => string.IsNullOrEmpty(alienTypeId) ? null : Load(AlienFolder + "/" + alienTypeId);
+        /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the drawn critter in its synergy's colour, HudArt.AlienCritter).</summary>
+        public static Sprite Alien(string alienTypeId) => string.IsNullOrEmpty(alienTypeId) ? null : Load(AlienKey(alienTypeId));
+
+        /// <summary>The art key (Resources path) of an alien species' sprite: <c>Art/Aliens/&lt;id&gt;</c>.</summary>
+        public static string AlienKey(string alienTypeId) => AlienFolder + "/" + alienTypeId;
+
+        /// <summary>
+        /// Every alien species' art key (aliens pass: 20 species; the art generator's list). Shiverpup, Arcwhisk, Chronoslug and Swarmheart
+        /// are new: until their art is generated they draw as the critter of their synergy's colour.
+        /// </summary>
+        public static readonly string[] AlienKeys =
+        {
+            "Art/Aliens/alien_blorp", "Art/Aliens/alien_mossling", "Art/Aliens/alien_pebblehorn", "Art/Aliens/alien_zib", "Art/Aliens/alien_glimmerfly",
+            "Art/Aliens/alien_shiverpup", "Art/Aliens/alien_emberkit", "Art/Aliens/alien_frostmite", "Art/Aliens/alien_sporeling", "Art/Aliens/alien_clackclaw",
+            "Art/Aliens/alien_whirrbit", "Art/Aliens/alien_arcwhisk", "Art/Aliens/alien_voidmaw", "Art/Aliens/alien_thornqueen", "Art/Aliens/alien_gravitoad",
+            "Art/Aliens/alien_chronoslug", "Art/Aliens/alien_solarch", "Art/Aliens/alien_tidecaller", "Art/Aliens/alien_nebulisk", "Art/Aliens/alien_swarmheart",
+        };
 
         /// <summary>A summoned sidekick's sprite (sk_drone…), or null (the drawn drone, HudArt.Drone).</summary>
         public static Sprite Sidekick(string sidekickId) => string.IsNullOrEmpty(sidekickId) ? null : Load(SidekickFolder + "/" + sidekickId);

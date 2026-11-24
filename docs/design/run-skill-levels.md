@@ -169,21 +169,21 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Bodyguard | `alien_bodyguard` | Common | Run · Alien | 1 | Your aliens block hits on the worm: the first 1 each battle. |
 | | | | | 2 | Your aliens block hits on the worm: the first 1 → 2 each battle. |
 | | | | | 3 | Your aliens block hits on the worm: the first 2 → 3 each battle. |
-| Mothership Link | `alien_rally` | Common | Run · Alien | 1 | Battle start: launch a Drone sidekick (30% of the summoner's ATK as power). |
-| | | | | 2 | Battle start: launch a Drone sidekick (30% → 50% of the summoner's ATK as power). |
-| | | | | 3 | Battle start: launch a Drone sidekick (50% → 80% of the summoner's ATK as power). |
+| Mothership Link | `alien_rally` | Common | Run · Alien | 1 | Battle start: launch a Drone sidekick (it zaps for 30% of the worm's ATK). |
+| | | | | 2 | Battle start: launch a Drone sidekick (it zaps for 30% → 50% of the worm's ATK). |
+| | | | | 3 | Battle start: launch a Drone sidekick (it zaps for 50% → 80% of the worm's ATK). |
 | Rally Cry | `alien_rally_cry` | Common | Run · Alien | 1 | When an alien uses its ability: the worm gets +6% ATK for its next turn. |
 | | | | | 2 | When an alien uses its ability: the worm gets +6% → +10% ATK for its next turn. |
 | | | | | 3 | When an alien uses its ability: the worm gets +10% → +16% ATK for its next turn. |
 | Squad Bond | `alien_bond` | Common | Run · Alien | 1 | +45% alien power. |
 | | | | | 2 | +45% → +75% alien power. |
 | | | | | 3 | +75% → +120% alien power. |
-| Decoy | `alien_decoy` | Legendary | Run · Alien | 1 | When an alien blocks a hit: 20% chance to Charm the attacker. |
-| | | | | 2 | When an alien blocks a hit: 20% → 30% chance to Charm the attacker. |
+| Decoy | `alien_decoy` | Legendary | Run · Alien | 1 | When an alien blocks or guards a hit: 20% chance to Charm the attacker. |
+| | | | | 2 | When an alien blocks or guards a hit: 20% → 30% chance to Charm the attacker. |
 | Hivemind | `alien_hivemind` | Legendary | Run · Alien | 1 | Each alien is tuned to one of your signatures; its ability also triggers it once. +25% alien power. |
 | | | | | 2 | Each alien is tuned to one of your signatures; its ability also triggers it once. +25% → +40% alien power. |
 | Sacrifice Protocol | `mythic_sacrifice` | Mythic | Run · Alien | 1 | Once per battle, an alien takes a fatal hit for you. It leaves the battle; you heal 30%. |
-| Swarm Beacon | `mythic_swarm_call` | Mythic | Run · Alien | 1 | Battle start: launch 3 Drone sidekicks (40% of the summoner's ATK as power). |
+| Swarm Beacon | `mythic_swarm_call` | Mythic | Run · Alien | 1 | Battle start: launch 3 Drone sidekicks (it zaps for 40% of the worm's ATK). |
 | Swarm Link | `mythic_swarm_link` | Mythic | Run · Alien | 1 | When the worm kills an enemy, every alien acts immediately. |
 | Symbiote | `mythic_symbiote` | Mythic | Run · Alien | 1 | Your aliens stop acting alone. Your rage attack also fires every alien's ability. |
 | Brace | `counter_brace` | Common | Run · Counter | 1 | After you counter, take 12% less damage until your next turn. |

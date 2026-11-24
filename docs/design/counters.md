@@ -17,7 +17,7 @@ Append-only list of `state.Count(...)` keys: `key` — meaning — owner.
 - `diamonds_spent_timers` — Diamonds spent on timer speed-ups — City
 - `aliens_obtained` — distinct alien types owned — City
 - `alien_duplicates` — duplicate alien copies converted to shards — City
-- `alien_level_ups` — alien level increases — City
+- `alien_level_ups` — alien level increases — City (retired: alien levels were removed in the aliens pass; never counted again)
 - `alien_star_ups` — alien star increases — City
 - `alien_assignments` — aliens assigned to work in a building — City
 - `breeds_started` — breeding jobs started — City

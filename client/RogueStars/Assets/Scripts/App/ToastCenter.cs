@@ -48,7 +48,7 @@ namespace RogueStars.Client.App
                 case "area_unlocked": return "City area unlocked";
                 case "alien_new": return "New alien: " + Al(0);
                 case "alien_shards": return "+" + A(1) + " " + Al(0) + " shards";
-                case "alien_level_up": return Al(0) + " reached level " + A(1);
+                case "alien_levels_refunded": return "Alien levels are gone: +" + A(0) + " Grain back for breeding";
                 case "alien_star_up": return Al(0) + " → " + A(1) + "★";
                 case "alien_assigned": return Al(0) + " assigned to " + Bp(1);
                 case "alien_unassigned": return Al(0) + " unassigned";

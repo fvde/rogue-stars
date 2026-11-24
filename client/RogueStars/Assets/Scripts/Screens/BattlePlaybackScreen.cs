@@ -42,8 +42,10 @@ namespace RogueStars.Client.Screens
             public string ChipKey = "";
             public bool Visible = true;
             public bool Dead;
-            /// <summary>Hits this fighter's guards still hold (Block abilities of its sidekicks).</summary>
+            /// <summary>Hits this fighter's guards still hold (Block abilities of its sidekicks, an alien's Guard).</summary>
             public int Guards;
+            /// <summary>An alien Guard's % (aliens pass): the next hit taken deals that much less (0 = a Block's full intercept).</summary>
+            public long GuardPct;
             public bool Sidekick => Info.Side == BattleSide.Player && (Info.Role == CombatRole.Alien || Info.Role == CombatRole.Summon);
         }
 
@@ -843,8 +845,18 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Guard:
                     if (target == null) break;
                     target.Guards = e.Stacks;
-                    Popup(target, "GUARD", Theme.Premium, animate, 34);
+                    target.GuardPct = e.Amount; // an alien's Guard carries its %, a Block 0
+                    Popup(target, "GUARD", Theme.Premium, animate, 34, e.Amount > 0 ? "next hit −" + e.Amount + "%" : null);
                     if (animate && actor != null) Hop(actor);
+                    break;
+                case BattleAction.Guarded:
+                    // aliens pass: the guard softens the hit, which still lands (the hit's own entry follows)
+                    if (target == null) break;
+                    target.Guards = e.Stacks;
+                    if (e.Stacks <= 0) target.GuardPct = 0;
+                    Guardeds++;
+                    if (animate && actor != null && actor != target) Intercept(actor, target);
+                    Popup(target, "GUARDED", Theme.Premium, animate, 44, "−" + Fmt.Num(e.Amount) + " softened");
                     break;
                 case BattleAction.Block:
                     if (target == null) break;
@@ -1010,6 +1022,10 @@ namespace RogueStars.Client.Screens
         /// <summary>Sidekick actions / intercepted hits played so far, and the ability names floated (tests, screenshots).</summary>
         public int SidekickActs { get; private set; }
         public int Blocks { get; private set; }
+        /// <summary>Hits an alien's Guard softened so far (aliens pass; tests, screenshots).</summary>
+        public int Guardeds { get; private set; }
+        /// <summary>The % of the guard on fighter <paramref name="index"/> (0 = none or a Block) (tests).</summary>
+        public long GuardPctOn(int index) => View(index)?.GuardPct ?? 0;
         public readonly List<string> AbilityFloats = new List<string>();
         /// <summary>Actors of the turn-order pips (fighter indices; tests).</summary>
         public readonly List<int> NextActors = new List<int>();
@@ -1198,7 +1214,10 @@ namespace RogueStars.Client.Screens
                 case BattleAction.Shield: what = (target ?? actor)?.Info.Name + " gains " + Fmt.Num(e.Amount) + " shield"; break;
                 case BattleAction.GainRage: case BattleAction.StatusExpired: return;
                 case BattleAction.SidekickAct: what = who + " uses " + AbilityName(e.SkillId, who) + (e.Stacks > 0 ? " (extra action)" : ""); break;
-                case BattleAction.Guard: what = who + " guards " + tgt + " (" + e.Stacks + (e.Stacks == 1 ? " hit)" : " hits)"); break;
+                case BattleAction.Guard:
+                    what = e.Amount > 0 ? who + " guards " + tgt + ": the next hit deals " + e.Amount + "% less" : who + " guards " + tgt + " (" + e.Stacks + (e.Stacks == 1 ? " hit)" : " hits)");
+                    break;
+                case BattleAction.Guarded: what = who + "'s guard softens a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " less)"; break;
                 case BattleAction.Block: what = who + " blocks a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " stopped)"; break;
                 default:
                     what = who + " " + e.Action.ToString().ToLowerInvariant() + (tgt.Length > 0 ? " → " + tgt : "")
@@ -1219,14 +1238,15 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>The worm's guard chip: a shield icon with the hits its blocking sidekicks still intercept.</summary>
-        private static void GuardChip(RectTransform chips, int guards)
+        /// <summary>The guard chip: a shield with the hits a Block holds, or an alien Guard's % ("-20%").</summary>
+        private static void GuardChip(RectTransform chips, int guards, long pct)
         {
             var icon = Ui.Panel(chips, Color.white, "Guard");
             icon.sprite = HudArt.Icon("shield");
             icon.preserveAspect = true;
             icon.raycastTarget = false;
-            Ui.Size(icon, 62, 62, 0);
-            var n = SliceKit.Chunky(icon.transform, guards.ToString(), 34, Color.white, TextAnchor.LowerRight, "Count");
+            Ui.Size(icon, pct > 0 ? 76 : 62, 62, 0);
+            var n = SliceKit.Chunky(icon.transform, pct > 0 ? "-" + pct + "%" : guards.ToString(), pct > 0 ? 26 : 34, Color.white, TextAnchor.LowerRight, "Count");
             Ui.Stretch(n.rectTransform, 0, -10, -8, 0);
         }
 
@@ -1250,12 +1270,12 @@ namespace RogueStars.Client.Screens
             // status chips: rebuilt only when they change
             var parts = new List<string>();
             foreach (var kv in v.Statuses) parts.Add(kv.Key + ":" + kv.Value);
-            parts.Add("guard:" + v.Guards);
+            parts.Add("guard:" + v.Guards + ":" + v.GuardPct);
             string key = string.Join(",", parts);
             if (key == v.ChipKey) return;
             v.ChipKey = key;
             Ui.Clear(v.Chips);
-            if (v.Guards > 0) GuardChip(v.Chips, v.Guards);
+            if (v.Guards > 0) GuardChip(v.Chips, v.Guards, v.GuardPct);
             foreach (var kv in v.Statuses)
             {
                 // a status icon with its stack count (reference 3)
