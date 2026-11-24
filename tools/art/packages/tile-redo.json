@@ -1,0 +1,24 @@
+{
+  "name": "pkg-tile-redo",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    4301,
+    4302
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one single tile, centered, isolated on a plain pure white background, no other objects, no text",
+  "negative": "multiple tiles, background scenery, characters, text, watermark, blurry, photo",
+  "subjects": {
+    "lava": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: volcanic rock floor with glowing lava cracks and obsidian crystals",
+    "toxic_swamp": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: toxic green swamp mud with bubbling pools and glowing reeds",
+    "alien_jungle": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: alien jungle floor with giant leaves, roots and glowing flowers",
+    "space_station": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: space station deck with metal plates, cables and glowing panels",
+    "cloud_islands": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: floating cloud island tops with soft grass and sky gaps at the edges",
+    "prehistoric": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: prehistoric jungle clearing with ferns, eggs and dinosaur bones",
+    "shipwreck": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: graveyard of crashed spaceships on a rusty metal plain",
+    "moon_craters": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: grey moon surface with craters and moon rocks",
+    "ash_wastes": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: ashen volcanic wasteland with smoldering embers",
+    "gas_giant": "a single square floor tile for a board game, seen from above at a slight angle, chunky slab with beveled edges, themed: floating metal platforms above swirling gas giant clouds"
+  }
+}
