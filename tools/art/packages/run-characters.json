@@ -1,0 +1,18 @@
+{
+  "name": "pkg-run-characters",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6201,
+    6202
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single character, upper body and hands visible, friendly mobile game NPC, centered, isolated on a plain white background, no scenery, no text",
+  "negative": "background scenery, multiple characters, text, watermark, blurry, photo, human",
+  "subjects": {
+    "shopkeeper": "a cheerful old alien merchant with a big beret, a bushy white beard and a gem in his hand",
+    "cursed_vendor": "a mysterious hooded alien vendor in purple robes with glowing yellow eyes and skull trinkets",
+    "black_marketeer": "a sly alien smuggler with a long coat, sunglasses and a crate of glowing contraband",
+    "camp_cook": "a sleepy friendly alien camper in a woolly hat holding a mug of hot soup"
+  }
+}

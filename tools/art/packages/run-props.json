@@ -1,0 +1,20 @@
+{
+  "name": "pkg-run-props",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6301
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text",
+  "negative": "scenery, multiple objects, text, watermark, blurry, photo",
+  "subjects": {
+    "chest_common": "a big closed treasure chest with gold bands and a keyhole lock",
+    "chest_mythic": "a glowing ornate purple and gold treasure chest radiating cosmic light",
+    "chest_signature": "a futuristic alien capsule chest with a glowing star emblem",
+    "abandoned_cart": "an abandoned wooden alien cart with a torn tarp and coins spilling out",
+    "campfire_big": "a large cozy campfire with green alien flames inside a stone ring",
+    "event_shrine": "a mysterious glowing alien shrine stone with runes",
+    "event_wreck": "a small crashed space pod smoking on the ground"
+  }
+}
