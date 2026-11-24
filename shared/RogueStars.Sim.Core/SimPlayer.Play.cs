@@ -183,8 +183,19 @@ namespace RogueStars.Sim
             var tally = new RunTimeTally();
             int skillsGained = 0, draftPicks = 0, mythicPicks = 0, shopSkills = 0, shopPerks = 0, shopHeals = 0, skillLevels = 0, minibosses = 0;
             bool mythicOpen = false;
+            long wormDmg = 0, kickDmg = 0;
+            var alienDmg = new Dictionary<string, long>();
             void Tally(CommandResult res)
             {
+                // sidekick damage share (aliens pass): the step's last battle, by fighter role / alien species
+                if (res.Payload is BattleResult br && res.Events.Any(e => e.Type == "run_battle"))
+                    foreach (var f in br.Fighters)
+                    {
+                        if (f.Side != BattleSide.Player) continue;
+                        if (f.Role == CombatRole.Worm) wormDmg += f.DamageDealt;
+                        else if (f.Role == CombatRole.Alien) { kickDmg += f.DamageDealt; alienDmg[f.Id] = (alienDmg.TryGetValue(f.Id, out var v0) ? v0 : 0) + f.DamageDealt; }
+                        else if (f.Role == CombatRole.Summon) { kickDmg += f.DamageDealt; alienDmg["(drones)"] = (alienDmg.TryGetValue("(drones)", out var v1) ? v1 : 0) + f.DamageDealt; }
+                    }
                 foreach (var ev in res.Events)
                     switch (ev.Type)
                     {
@@ -271,6 +282,7 @@ namespace RogueStars.Sim
                     CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,
                     MythicPicks = mythicPicks, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
                     Signature = signature, DamageDealt = dealt, DamageTaken = taken, BattleRounds = battleRounds, Supernovas = novas,
+                    WormDamage = wormDmg, SidekickDamage = kickDmg, AlienDamage = alienDmg,
                 });
             return S.Run.LastSummary;
         }

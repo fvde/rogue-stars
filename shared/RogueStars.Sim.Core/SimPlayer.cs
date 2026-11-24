@@ -364,6 +364,9 @@ namespace RogueStars.Sim
         public string Signature;
         public long DamageDealt, DamageTaken;
         public int BattleRounds, Supernovas;
+        /// <summary>Battle damage by the worm and by its sidekicks (aliens + drones), and by alien species / "(drones)" (aliens pass).</summary>
+        public long WormDamage, SidekickDamage;
+        public Dictionary<string, long> AlienDamage = new Dictionary<string, long>();
         public bool Won, BossReached;
         public long PeakCoins;
         public double Minutes;

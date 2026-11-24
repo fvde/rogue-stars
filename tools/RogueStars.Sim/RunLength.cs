@@ -74,6 +74,31 @@ public static class RunLength
         }
         sb.AppendLine();
         sb.AppendLine(SignatureBreakdown(runs));
+        sb.AppendLine();
+        sb.AppendLine(SidekickBreakdown(runs));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Sidekick damage share (aliens pass): per alien species (and drones), the runs it fought in and its damage as a share of the
+    /// worm's damage in those runs (damage credited to the sidekick; statuses count for their source, an alien's Echo for the alien).
+    /// </summary>
+    public static string SidekickBreakdown(List<RunRecord> runs)
+    {
+        var sb = new StringBuilder();
+        var l = runs.Where(r => r.WormDamage > 0).ToList();
+        sb.AppendLine($"Sidekick damage share (all runs: sidekicks {(l.Count == 0 ? 0 : 100.0 * l.Sum(r => (double)r.SidekickDamage) / l.Sum(r => (double)r.WormDamage)):0.0}% of the worm's damage):");
+        sb.AppendLine();
+        sb.AppendLine("| Sidekick | runs | share of worm dmg | share (main 11+, OC, dark) |");
+        sb.AppendLine("|---|---|---|---|");
+        bool Hard(RunRecord r) => r.Mode != RunMode.Burrow && (r.Mode != RunMode.Normal || r.Level >= 11);
+        foreach (var id in l.SelectMany(r => r.AlienDamage.Keys).Distinct().OrderBy(x => x, StringComparer.Ordinal))
+        {
+            var with = l.Where(r => r.AlienDamage.ContainsKey(id)).ToList();
+            var hard = with.Where(Hard).ToList();
+            double Share(List<RunRecord> xs) => xs.Count == 0 ? double.NaN : 100.0 * xs.Sum(r => (double)r.AlienDamage[id]) / xs.Sum(r => (double)r.WormDamage);
+            sb.AppendLine($"| {id} | {with.Count} | {Share(with):0.0}% | {Share(hard):0.0}% ({hard.Count}) |");
+        }
         return sb.ToString();
     }
 

@@ -21,8 +21,7 @@ public static class SystemEvents
         ("Blueprints", new[] { "blueprint_star_ups", "blueprints_obtained" }),
         ("Buildings", new[] { "city_building_upgrades", "city_buildings_built" }),
         ("Aliens", new[] { "alien_star_ups", "aliens_obtained" }),
-        ("AlienLevels", new[] { "alien_level_ups" }),
-        ("Breeding", new[] { "breeds_kept" }),
+        ("Breeding", new[] { "breeds_kept", "breeds_discarded" }),
         ("Laboratory", new[] { "lab_research_completed" }),
         ("Arena", new[] { "arena_wins" }),
         ("Invasions", new[] { "invasion_battles" }),
@@ -174,9 +173,13 @@ public static class Metrics
         var aliens = s.Aliens.Owned.Values.ToList();
         A("aliens_owned", aliens.Count);
         A("alien_stars_avg", aliens.Count == 0 ? 0 : aliens.Average(a => a.Stars));
-        A("alien_level_avg", aliens.Count == 0 ? 0 : aliens.Average(a => a.Level));
         A("squad_size", AlienSystem.ActiveSquad(s, c).Count);
         A("breeds", s.Counter("breeds_collected"));
+        A("breeds_started", s.Counter("breeds_started"));
+        A("breeds_discarded", s.Counter("breeds_discarded"));
+        A("alien_star_ups", s.Counter("alien_star_ups"));
+        A("alien_stars_best", aliens.Count == 0 ? 0 : aliens.Max(a => a.Stars));
+        A("squad_stars_avg", AlienSystem.ActiveSquad(s, c).Count == 0 ? 0 : AlienSystem.ActiveSquad(s, c).Average(id => s.Aliens.Owned[id].Stars));
         A("lab_research", s.Lab.Entries.Values.Sum(e => e.Level));
         A("lab_research_max", c.LabResearch.Values.Sum(d => d.Levels.Count));
         A("lab_pct", 100.0 * LabDone(s) / Math.Max(1, LabTotal(c)));
