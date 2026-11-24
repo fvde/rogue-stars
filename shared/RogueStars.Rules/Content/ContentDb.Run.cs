@@ -213,7 +213,7 @@ namespace RogueStars.Rules.Content
         {
             e.Elite = true; e.Xp = 14; e.Coins = 25;
             e.Stats.Add(new StatMod(StatId.CritChance, 10));
-            e.Stats.Add(new StatMod(StatId.RageGain, 0, 20));
+            e.Stats.Add(new StatMod(StatId.RageGain, 20)); // points: +20% rage gain (a % of the 0 base was nothing)
         }
 
         private static void RunMakeBoss(EnemyDef e)

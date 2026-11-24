@@ -61,7 +61,7 @@ namespace RogueStars.Rules.Content
             m.MaxLevelBase = 20; m.MaxLevelPerStep = 10;
             m.LevelFuelCosts.Add(0);
             for (int l = 1; l < m.MaxLevelBase + m.MaxLevelPerStep * (m.MaxStars + m.MaxAwaken); l++) m.LevelFuelCosts.Add((long)Math.Round(50 * Math.Pow(l, 1.5)));
-            m.CollectionPerStep.Add(new StatMod(StatId.MountPower, 0, 1));
+            m.CollectionPerStep.Add(new StatMod(StatId.MountPower, 1));
             m.CollectionPerStep.Add(new StatMod(StatId.Hp, 0, 0.2));
 
             AddMountDef("mount_scout_saucer", "Scout Saucer", SkillFamily.Lightning, SkillFamily.Combo, "Zap Turret");
@@ -69,7 +69,7 @@ namespace RogueStars.Rules.Content
             AddMountDef("mount_frost_frigate", "Frost Frigate", SkillFamily.Ice, SkillFamily.Counter, "Cryo Beam");
             AddMountDef("mount_toxic_hauler", "Toxic Hauler", SkillFamily.Poison, SkillFamily.Combo, "Sludge Sprayer");
             AddMountDef("mount_star_lancer", "Star Lancer", SkillFamily.Crit, SkillFamily.Bleed, "Lance Cannon");
-            AddMountDef("mount_hive_carrier", "Hive Carrier", SkillFamily.AlienSynergy, SkillFamily.Crit, "Drone Bay");
+            AddMountDef("mount_hive_carrier", "Hive Carrier", SkillFamily.AlienSynergy, SkillFamily.Crit, "Spore Cannon"); // was "Drone Bay": the name promised drones the weapon never had
         }
 
         /// <summary>

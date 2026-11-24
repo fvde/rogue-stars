@@ -12,7 +12,7 @@ namespace RogueStars.Rules.Systems
     /// × ladder[L] / ladder[1] (×1, ×8/5), a Mythic's × ladder[L+1] / ladder[2]. Every trigger grows exactly one number:
     /// <list type="bullet">
     /// <item>passive stats (flat and %), conditional damage bonuses, the stat of BuffStat / RunStatGrowth triggers and the value
-    /// of value effects (damage, heal, shield, rage, coins, heal-on-tile, awakening slow, loot %, summon power);</item>
+    /// of value effects (damage, heal, shield, rage, coins, heal-on-tile, awakening slow);</item>
     /// <item>count effects (status, extra dice, skipped bad events) grow their chance up to RunTuning.SkillLevelChanceCap (100%);
     /// what would go past it grows the count instead: status stacks (multi-stack statuses), status duration (single-stack
     /// statuses such as Freeze / Stun / Charm), dice / events.</item>

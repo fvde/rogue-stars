@@ -256,12 +256,14 @@ namespace RogueStars.Rules.Systems
         {
             foreach (var s in _setup.Player) MakeFighter(s, BattleSide.Player);
             foreach (var s in _setup.Enemy) MakeFighter(s, BattleSide.Enemy);
-            // Alien/Mount power from the side's worm (GDD §4.1 AlienPower, MountPower).
+            // Alien/Mount power from the side's worm (GDD §4.1 AlienPower, MountPower). The mount's own AlienPower (Hive Carrier
+            // weapons: mount skills sit on the mount) reaches the squad too.
             for (int side = 0; side < 2; side++)
             {
                 Fighter worm = FirstWorm((BattleSide)side);
                 if (worm == null) continue;
                 double ap = worm.S(StatId.AlienPower), mp = worm.S(StatId.MountPower);
+                foreach (var f in F) if ((int)f.Side == side && f.Role == CombatRole.Mount) ap += f.S(StatId.AlienPower);
                 foreach (var f in F)
                 {
                     if ((int)f.Side != side) continue;
@@ -560,7 +562,9 @@ namespace RogueStars.Rules.Systems
             }
             double dealt = DealDamage(att, def, dmg, false, ActionFor(kind), crit, parried, StatusId.None, null);
             double ls = att.S(StatId.LifeSteal);
-            if (dealt > 0 && ls > 0 && att.Alive) Heal(att, att, dealt * ls / 100.0, BattleAction.LifeSteal, null, false);
+            // untargetable fighters (aliens, mount) are never hurt: their lifesteal feeds the side's worm (Vampiric aliens)
+            var leech = att.Targetable ? att : (FirstWorm(att.Side) ?? att);
+            if (dealt > 0 && ls > 0 && att.Alive) Heal(att, leech, dealt * ls / 100.0, BattleAction.LifeSteal, null, false);
             if (def.Alive) GainRage(def, T.RagePerHitTaken);
 
             Fire(att, TriggerKind.OnHit, def);
@@ -620,7 +624,8 @@ namespace RogueStars.Rules.Systems
         {
             double sum = 0;
             foreach (var st in def.Statuses)
-                if (T.Statuses.TryGetValue(st.Id, out var sd) && sd.DamageTakenPctPerStack != 0) sum += sd.DamageTakenPctPerStack * st.Stacks;
+                if (T.Statuses.TryGetValue(st.Id, out var sd) && sd.DamageTakenPctPerStack != 0)
+                    sum += sd.DamageTakenPctPerStack * st.Stacks * (sd.DotAtkPct <= 0 && sd.HasElement && st.Power > 0 ? st.Power : 1);
             return Math.Max(0, 1 + sum / 100.0);
         }
 
@@ -868,6 +873,9 @@ namespace RogueStars.Rules.Systems
                 double elem = def.HasElement ? src.S(def.ElementStat) : 0;
                 power = src.S(StatId.Atk) * def.DotAtkPct / 100.0 * (1 + elem / 100.0);
             }
+            // element statuses without a DoT (Shock, Freeze): the applier's element damage amplifies their damage-taken bonus
+            // (Lightning / Ice damage did nothing for a fighter that only shocks or freezes)
+            else if (def.HasElement) power = 1 + src.S(def.ElementStat) / 100.0;
             var st = tg.Status(id);
             if (st == null)
             {
@@ -887,25 +895,17 @@ namespace RogueStars.Rules.Systems
             Fire(src, TriggerKind.OnStatusApplied, tg, id);
         }
 
+        /// <summary>
+        /// Enemy summons only (bosses calling their guard): Param = enemy def id, built on the owner's threat scale. Player-side
+        /// drones were removed (dead-effects pass); content validation keeps every Summon on an enemy skill with an enemy id.
+        /// </summary>
         private void Summon(Fighter owner, SkillDef skill, SkillTrigger t)
         {
+            if (owner.Side != BattleSide.Enemy || t.Param == null || !C.Enemies.ContainsKey(t.Param)) return;
             int count = 0;
             foreach (var f in F) if (f.Side == owner.Side && f.Alive) count++;
             if (count >= T.MaxFightersPerSide) return;
-            CombatantSpec spec;
-            if (t.Param != null && C.Enemies.ContainsKey(t.Param))
-            {
-                spec = BattleSimulator.BuildEnemy(C, t.Param, owner.Spec.ThreatScale);
-                if (owner.Side == BattleSide.Player) { spec.Role = CombatRole.Summon; spec.Targetable = false; }
-            }
-            else
-            {
-                double pct = t.Value > 0 ? t.Value : 50;
-                spec = new CombatantSpec { Id = t.Param ?? "drone", Name = "Drone", Role = CombatRole.Summon, Targetable = false, Style = AttackStyle.Blaster };
-                spec.Stats.Add(new StatMod(StatId.Hp, owner.MaxHp * pct / 100.0));
-                spec.Stats.Add(new StatMod(StatId.Atk, owner.S(StatId.Atk) * pct / 100.0));
-                spec.Stats.Add(new StatMod(StatId.Speed, owner.S(StatId.Speed)));
-            }
+            var spec = BattleSimulator.BuildEnemy(C, t.Param, owner.Spec.ThreatScale);
             var nf = MakeFighter(spec, owner.Side);
             nf.SummonedBy = owner.Index;
             InitHp(nf);

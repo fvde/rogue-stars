@@ -91,14 +91,16 @@ namespace RogueStars.Rules.Content
             AlienWorkTrait("trait_scholar", "Scholar", 15, 8, Currencies.HeroXp, Currencies.BlueprintTokens, Currencies.AlienTokens);
             AlienWorkTrait("trait_tireless", "Tireless", 10, 10);
             AlienWorkTrait("trait_prodigy", "Prodigy", 18, 3);
-            AlienCombatTrait("trait_tough", "Tough", 12, new StatMod(StatId.Hp, 0, 12));
+            // Aliens are never attacked (untargetable), so HP / DEF traits did nothing in battle: Tough and Armored became
+            // offensive traits (ids kept for saved aliens).
+            AlienCombatTrait("trait_tough", "Brawler", 12, new StatMod(StatId.ComboChance, 12));
             AlienCombatTrait("trait_fierce", "Fierce", 12, new StatMod(StatId.Atk, 0, 12));
-            AlienCombatTrait("trait_armored", "Armored", 10, new StatMod(StatId.Def, 0, 15));
-            AlienCombatTrait("trait_swift", "Swift", 10, new StatMod(StatId.Speed, 0, 15));
+            AlienCombatTrait("trait_armored", "Giant Slayer", 10, new StatMod(StatId.BossDamage, 15));
+            AlienCombatTrait("trait_swift", "Swift", 10, new StatMod(StatId.DodgeIgnore, 15)); // was +15% Speed: an alien's speed orders nothing
             AlienCombatTrait("trait_lucky", "Lucky", 8, new StatMod(StatId.CritChance, 5));
             AlienCombatTrait("trait_vampiric", "Vampiric", 5, new StatMod(StatId.LifeSteal, 5));
-            AlienCombatTrait("trait_pyromaniac", "Pyromaniac", 6, new StatMod(StatId.FireDamage, 0, 15));
-            AlienCombatTrait("trait_stormborn", "Stormborn", 6, new StatMod(StatId.LightningDamage, 0, 15));
+            AlienCombatTrait("trait_pyromaniac", "Pyromaniac", 6, new StatMod(StatId.FireDamage, 15));
+            AlienCombatTrait("trait_stormborn", "Stormborn", 6, new StatMod(StatId.LightningDamage, 15));
 
             // ---- species: id, name, rarity, family, archetype, role ----
             AlienSpecies("alien_blorp", "Blorp", Rarity.Common, SkillFamily.Bleed, "bleeder", "balanced", "trait_tough", "trait_green_thumb", "trait_tireless");
@@ -132,7 +134,7 @@ namespace RogueStars.Rules.Content
 
         private void AlienCombatTrait(string id, string name, double weight, StatMod mod)
         {
-            var t = new AlienTraitDef { Id = id, Name = name, Weight = weight, Description = name + ": " + mod.Stat + (mod.Percent != 0 ? " +" + mod.Percent + "%" : " +" + mod.Flat) };
+            var t = new AlienTraitDef { Id = id, Name = name, Weight = weight, Description = name + ": " + SkillText.Stat(mod) + " in battle." };
             t.CombatStats.Add(mod);
             AlienTraits.Add(id, t);
             AlienTraitOrder.Add(id);
@@ -210,17 +212,18 @@ namespace RogueStars.Rules.Content
                 case "poisoner": s.Name = "Spore Cloud"; s.Description = "Attacks may Poison."; s.Triggers.Add(AlienStatusTrigger(StatusId.Poison, tier, k, 4)); break;
                 case "bleeder": s.Name = "Thorn Lash"; s.Description = "Attacks may cause Bleed."; s.Triggers.Add(AlienStatusTrigger(StatusId.Bleed, tier, k, 3)); break;
                 case "counter":
+                    // a stat on the alien itself did nothing (aliens are never attacked, so they never counter): it buffs the worm
                     s.Name = "Snap Back"; s.Description = "The worm counters more often.";
-                    s.Stats.Add(new StatMod(StatId.CounterChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
+                    s.Triggers.Add(WormBuff(StatId.CounterChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
                     break;
                 case "combo":
                     s.Name = "Whirl"; s.Description = "The worm combos more often.";
-                    s.Stats.Add(new StatMod(StatId.ComboChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
+                    s.Triggers.Add(WormBuff(StatId.ComboChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
                     break;
                 case "crit":
                     s.Name = "Starlight Eye"; s.Description = "The worm crits more often and harder.";
-                    s.Stats.Add(new StatMod(StatId.CritChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
-                    s.Stats.Add(new StatMod(StatId.CritDamage, AlienPick(tier, 10, 15, 20, 28, 40) * k));
+                    s.Triggers.Add(WormBuff(StatId.CritChance, AlienPick(tier, 4, 6, 8, 10, 14) * k));
+                    s.Triggers.Add(WormBuff(StatId.CritDamage, AlienPick(tier, 10, 15, 20, 28, 40) * k));
                     break;
                 default: throw new InvalidOperationException("unknown archetype " + archetype);
             }
@@ -231,6 +234,12 @@ namespace RogueStars.Rules.Content
         {
             When = TriggerKind.OnAttack, Effect = EffectKind.ApplyStatus, Status = status, Duration = duration,
             Chance = AlienPick(tier, 20, 25, 30, 36, 45) * k, Stacks = tier >= 3 ? 2 : 1,
+        };
+
+        /// <summary>Support archetypes (counter / combo / crit) do what their text says: they raise the worm's stat for the battle.</summary>
+        private static SkillTrigger WormBuff(StatId stat, double points) => new SkillTrigger
+        {
+            When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.Worm, Stat = new StatMod(stat, points), Duration = 0,
         };
 
         private static double AlienPick(int tier, params double[] values) => values[Math.Min(tier, values.Length - 1)];

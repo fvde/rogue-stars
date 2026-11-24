@@ -211,7 +211,7 @@ namespace RogueStars.Rules.Systems
                 }
                 case TileCategory.StatBuff:
                 case TileCategory.StatDebuff:
-                    run.RunStats.Add(new StatMod(def.Stat, 0, def.Value));
+                    run.RunStats.Add(StatMod.Bonus(def.Stat, def.Value)); // Sharp Stone's +15% crit is 15 points, not 15% of 5
                     RefreshMaxHp(c, run);
                     Consume(c, run, tile, def);
                     break;
@@ -630,20 +630,39 @@ namespace RogueStars.Rules.Systems
                     run.PendingRare.Add(new Reward(d.Reward.Kind, d.Reward.Id, d.Reward.Amount, d.Reward.Rarity));
         }
 
+        /// <summary>
+        /// One loot roll (tile loot, event loot, completion rolls). Loot Luck (the worm's <see cref="StatId.LootLuck"/>
+        /// points: lab Salvage Algorithms, Salvage Yard, the Salvage Yard / Blueprint Relay collection) is the % chance of a
+        /// bonus roll from the same table (every full 100 points = a sure bonus roll); bonus items never raise Danger.
+        /// </summary>
         private static void RollLoot(ContentDb c, ActiveRun run, bool raisesDanger)
         {
             var level = Level(c, run);
             var table = c.RunLootTable(level.LootTableId);
             if (table == null || table.Entries.Count == 0) return;
+            if (!RollLootEntry(run, table)) return;
+            if (raisesDanger) run.Danger++;
+            double luck = LootLuck(c, run);
+            if (luck <= 0) return; // no RNG draw without luck: unlucky runs keep their streams
+            int bonus = (int)(luck / 100);
+            if (run.Rng.NextDouble() * 100 < luck - bonus * 100) bonus++;
+            for (int i = 0; i < bonus; i++) RollLootEntry(run, table);
+        }
+
+        private static bool RollLootEntry(ActiveRun run, LootTableDef table)
+        {
             var weights = new double[table.Entries.Count];
             for (int i = 0; i < weights.Length; i++) weights[i] = table.Entries[i].Weight;
             int idx = run.Rng.PickWeighted(weights);
-            if (idx < 0) return;
+            if (idx < 0) return false;
             var e = table.Entries[idx];
             long amount = e.Max > e.Min ? e.Min + run.Rng.Range(0, (int)(e.Max - e.Min + 1)) : e.Min;
             run.PendingLoot.Add(new Reward(e.Kind, e.Id, amount, e.Rarity));
-            if (raisesDanger) run.Danger++;
+            return true;
         }
+
+        /// <summary>The worm's Loot Luck points in this run (% chance of a bonus item per loot roll).</summary>
+        public static double LootLuck(ContentDb c, ActiveRun run) => BattleSimulator.FinalStats(WormSpec(c, run), c).Value(StatId.LootLuck);
 
         /// <summary>Adds loot items to the pending loot; each carried item raises Danger.</summary>
         private static void AddLoot(ContentDb c, ActiveRun run, int count)
@@ -767,9 +786,6 @@ namespace RogueStars.Rules.Systems
                     if (t.When == TriggerKind.OnRunStart) run.AwakeningReductionPct += t.Value;
                     else run.Awakening = Math.Max(0, run.Awakening - t.Value);
                     break;
-                case EffectKind.ExtraLoot:
-                    run.ExtraLootPct += t.Value;
-                    break;
                 case EffectKind.SkipNegativeEvent:
                     run.SkipNegativeEvents += (int)t.Value;
                     break;
@@ -800,7 +816,6 @@ namespace RogueStars.Rules.Systems
                 switch (ta.Effect)
                 {
                     case EffectKind.SlowAwakening: run.AwakeningReductionPct += tb.Value - ta.Value; break;
-                    case EffectKind.ExtraLoot: run.ExtraLootPct += tb.Value - ta.Value; break;
                     case EffectKind.GainRunCoins: run.Coins += (long)Math.Round(tb.Value - ta.Value); break;
                     case EffectKind.RunStatGrowth:
                         if (ta.Stat != null) run.RunStats.Add(new StatMod(ta.Stat.Stat, tb.Stat.Flat - ta.Stat.Flat, tb.Stat.Percent - ta.Stat.Percent));
@@ -1000,7 +1015,7 @@ namespace RogueStars.Rules.Systems
                     case RunEffectKind.Coins: run.Coins = Math.Max(0, run.Coins + (long)e.Value); break;
                     case RunEffectKind.HealPct: HealWorm(c, run, e.Value); break;
                     case RunEffectKind.DamagePct: DamageWorm(run, e.Value); break;
-                    case RunEffectKind.StatPercent: run.RunStats.Add(new StatMod(e.Stat, 0, e.Value)); RefreshMaxHp(c, run); break;
+                    case RunEffectKind.StatPercent: run.RunStats.Add(StatMod.Bonus(e.Stat, e.Value)); RefreshMaxHp(c, run); break;
                     case RunEffectKind.GainSkill: GrantRandomSkill(ctx, run, e.MinRarity, 0, "event"); break;
                     case RunEffectKind.GainSpecificSkill: GrantSkill(ctx, run, e.Param, 0, "event"); break;
                     case RunEffectKind.UpgradeSkill: UpgradeRandomSkill(ctx, run); break;
@@ -1137,11 +1152,10 @@ namespace RogueStars.Rules.Systems
             if (won)
             {
                 double modeMult = level.RewardMultiplier * (run.Mode == RunMode.Overcharged ? portal.OverchargedRewardMultiplier : 1);
-                double lootMult = 1 + run.ExtraLootPct / 100.0;
                 double biomassMult = BiomassSurge(ctx, run, summary);
                 var rewards = new List<Reward>();
                 var sources = new List<string>();
-                foreach (var r in run.PendingLoot) { rewards.Add(Scaled(r, modeMult * lootMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.RunLoot); }
+                foreach (var r in run.PendingLoot) { rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.RunLoot); }
                 if (run.Mode != RunMode.Burrow)
                 {
                     RollRareDrops(level, run);

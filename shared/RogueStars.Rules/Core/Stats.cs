@@ -25,6 +25,15 @@ namespace RogueStars.Rules.Core
 
         public StatMod() { }
         public StatMod(StatId stat, double flat, double percent = 0) { Stat = stat; Flat = flat; Percent = percent; }
+
+        /// <summary>
+        /// Point stats (everything but HP / ATK / DEF / Speed) start at 0 (or a few points) on most fighters, so a percent of
+        /// them multiplies (almost) nothing: they are always added as flat points (25 = +25% crit chance).
+        /// </summary>
+        public static bool IsPointStat(StatId s) => s != StatId.Hp && s != StatId.Atk && s != StatId.Def && s != StatId.Speed;
+
+        /// <summary>A "+value%" bonus that always does something: percent of HP / ATK / DEF / Speed, flat points of a point stat.</summary>
+        public static StatMod Bonus(StatId stat, double value) => IsPointStat(stat) ? new StatMod(stat, value) : new StatMod(stat, 0, value);
     }
 
     /// <summary>
