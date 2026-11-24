@@ -10,9 +10,9 @@ public class HeroTests
     private const string H = "hero_star_knight";
 
     [Fact]
-    public void Content_EightHeroes_TraitsAreNonDraftableHeroSkills()
+    public void Content_NineHeroes_KitsAreNonDraftableHeroSkills()
     {
-        Assert.True(C.HeroConfig.Defs.Count >= 8);
+        Assert.Equal(9, C.HeroConfig.Defs.Count);
         foreach (var d in C.HeroConfig.Defs.Values)
             foreach (var t in d.Traits)
             {
@@ -52,20 +52,19 @@ public class HeroTests
     }
 
     [Fact]
-    public void Traits_UpgradeAtStars3_5_7_10()
+    public void Kit_ChangesAtStars3_5_7_10()
     {
-        string a1 = H + "_a1", a2 = H + "_a2", a3 = H + "_a3", b1 = H + "_b1", b2 = H + "_b2";
-        Assert.Equal(new[] { a1 }, HeroSystem.TraitSkills(C, H, 1));
-        Assert.Equal(new[] { a1 }, HeroSystem.TraitSkills(C, H, 2));
-        Assert.Equal(new[] { a2 }, HeroSystem.TraitSkills(C, H, 3));
-        Assert.Equal(new[] { a2, b1 }, HeroSystem.TraitSkills(C, H, 5));
-        Assert.Equal(new[] { a3, b1 }, HeroSystem.TraitSkills(C, H, 7));
-        Assert.Equal(new[] { a3, b1 }, HeroSystem.TraitSkills(C, H, 9));
-        Assert.Equal(new[] { a3, b2 }, HeroSystem.TraitSkills(C, H, 10));
-        // Meaningful: each upgrade is strictly stronger on its headline trigger and stats.
-        double Power(string id) { var sk = C.Skill(id)!; return sk.Triggers.Sum(t => t.Chance + t.Value + t.Stacks) + sk.Stats.Sum(m => m.Flat + m.Percent); }
-        Assert.True(Power(a2) > Power(a1) && Power(a3) > Power(a2) && Power(b2) > Power(b1));
-        Assert.True(C.Skill(b2)!.Triggers.Count > C.Skill(b1)!.Triggers.Count);
+        string trait = H + "_trait", ab = H + "_ability", ab3 = H + "_ability_3", c5 = H + "_c5", c7 = H + "_c7", c10 = H + "_c10";
+        Assert.Equal(new[] { trait, ab }, HeroSystem.TraitSkills(C, H, 1));
+        Assert.Equal(new[] { trait, ab }, HeroSystem.TraitSkills(C, H, 2));
+        Assert.Equal(new[] { trait, ab3 }, HeroSystem.TraitSkills(C, H, 3));
+        Assert.Equal(new[] { trait, ab3, c5 }, HeroSystem.TraitSkills(C, H, 5));
+        Assert.Equal(new[] { trait, ab3, c5, c7 }, HeroSystem.TraitSkills(C, H, 7));
+        Assert.Equal(new[] { trait, ab3, c5, c7 }, HeroSystem.TraitSkills(C, H, 9));
+        Assert.Equal(new[] { trait, ab3, c5, c7, c10 }, HeroSystem.TraitSkills(C, H, 10));
+        Assert.Equal(new[] { "Trait", "Ability" }, HeroSystem.KitAt(C, H, 2).Select(k => k.Slot));
+        Assert.Equal("Starlight", HeroSystem.NextKit(C, H, 3)!.Name);
+        Assert.Null(HeroSystem.NextKit(C, H, 10));
     }
 
     [Fact]
@@ -81,7 +80,7 @@ public class HeroTests
 
         var withHero = e.BuildLoadout(s, TestHelpers.T0);
         Assert.Equal(H, withHero.HeroId);
-        Assert.Contains(H + "_a1", withHero.MetaSkillIds);
+        Assert.Contains(H + "_trait", withHero.MetaSkillIds);
         Ok(e, ref s, new HeroEquip { HeroId = "" });
         var l = e.BuildLoadout(s, TestHelpers.T0);
         Assert.Null(l.HeroId);
@@ -106,15 +105,16 @@ public class MountTests
     }
 
     [Fact]
-    public void Stars1To5_ThenAwakening1To5_WithWeaponUpgradesAtMilestones()
+    public void Stars1To5_ThenAwakening1To5_WithKitStepsAt1_3_5_A3_A5()
     {
         var e = Engine(); var s = Player(e);
         var cfg = C.MountConfig;
         Grant(e, s, new Reward(RewardKinds.Mount, M, 1));
         SetBalance(s, Currencies.MountShards(M), 100_000);
         SetBalance(s, Currencies.MountCores, 100_000);
-        string w1 = M + "_w1", w2 = M + "_w2", w3 = M + "_w3", w4 = M + "_w4", s1 = M + "_s1", s2 = M + "_s2";
-        Assert.Equal(new[] { w1 }, MountSystem.WeaponSkills(C, M, 1, 0));
+        string P(int k) => M + "_passive_" + k;
+        string A(int k) => M + "_active_" + k;
+        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 1, 0));
         Assert.Contains("max stars", Fail(e, ref s, new MountAwaken { MountId = M }));
         for (int star = 2; star <= 5; star++)
         {
@@ -123,9 +123,9 @@ public class MountTests
             Assert.Equal(before - cfg.StarShardCosts[star], s.Wallet.Get(Currencies.MountShards(M)));
         }
         Fail(e, ref s, new MountStarUp { MountId = M });
-        Assert.Equal(new[] { w2 }, MountSystem.WeaponSkills(C, M, 2, 0));
-        Assert.Equal(new[] { w3 }, MountSystem.WeaponSkills(C, M, 4, 0));
-        Assert.Equal(new[] { w3, s1 }, MountSystem.WeaponSkills(C, M, 5, 0));
+        Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 2, 0));
+        Assert.Equal(new[] { P(2), A(2) }, MountSystem.WeaponSkills(C, M, 4, 0));
+        Assert.Equal(new[] { P(3), A(3) }, MountSystem.WeaponSkills(C, M, 5, 0));
         for (int a = 1; a <= 5; a++)
         {
             long cores = s.Wallet.Get(Currencies.MountCores);
@@ -133,15 +133,18 @@ public class MountTests
             Assert.Equal(cores - cfg.AwakenCoreCosts[a], s.Wallet.Get(Currencies.MountCores));
         }
         Assert.Contains("fully", Fail(e, ref s, new MountAwaken { MountId = M }));
-        Assert.Equal(new[] { w3, s1 }, MountSystem.WeaponSkills(C, M, 5, 2));
-        Assert.Equal(new[] { w3, s2 }, MountSystem.WeaponSkills(C, M, 5, 3));
-        Assert.Equal(new[] { w4, s2 }, MountSystem.WeaponSkills(C, M, 5, 5));
+        Assert.Equal(new[] { P(3), A(3) }, MountSystem.WeaponSkills(C, M, 5, 2));
+        Assert.Equal(new[] { P(4), A(4) }, MountSystem.WeaponSkills(C, M, 5, 3));
+        Assert.Equal(new[] { P(5), A(5) }, MountSystem.WeaponSkills(C, M, 5, 5));
         var l = e.BuildLoadout(s, TestHelpers.T0);
         Assert.Equal(M, l.MountId);
-        Assert.Contains(w4, l.MetaSkillIds);
-        Assert.Contains(s2, l.MetaSkillIds);
-        Assert.Equal(30 * (1 + (cfg.StarStatPercent[5] + cfg.AwakenStatPercent[5]) / 100), l.MountStats.Value(StatId.Atk), 6);
-        Assert.Equal(SkillSource.Mount, C.Skill(w4)!.Source);
+        Assert.Contains(P(5), l.MetaSkillIds);
+        Assert.Contains(A(5), l.MetaSkillIds);
+        // no mount stats: 5 in-between steps (2★, 4★, A1, A2, A4) × 5% mount damage, nothing else
+        Assert.Equal(0, l.MountStats.Value(StatId.Atk), 6);
+        Assert.Equal(0, l.MountStats.Value(StatId.Hp), 6);
+        Assert.Equal(25, l.MountStats.Value(StatId.MountPower), 6);
+        Assert.Equal(SkillSource.Mount, C.Skill(A(5))!.Source);
     }
 
     [Fact]
@@ -154,8 +157,8 @@ public class MountTests
         Ok(e, ref s, new MountLevelUp { MountId = M, Levels = cap - 1 });
         Fail(e, ref s, new MountLevelUp { MountId = M });
         Assert.True(C.MountConfig.MaxLevel(5, 5) > cap);
-        double atk = MountSystem.MountStats(C, M, s.Mounts.Owned[M]).Value(StatId.Atk);
-        Assert.Equal(30 + 4 * (cap - 1), atk, 6);
+        // Fuel keeps a sink: +1% mount damage per level above 1
+        Assert.Equal(cap - 1, MountSystem.MountStats(C, M, s.Mounts.Owned[M]).Value(StatId.MountPower), 6);
     }
 }
 
@@ -183,14 +186,13 @@ public class LoadoutTests
         Assert.Equal("hero_chef", l.HeroId);
         Assert.Equal("mount_scout_saucer", l.MountId);
         Assert.Equal(new[] { AttackStyle.Whip, AttackStyle.Drill }, l.ArmStyles);
-        Assert.Contains("hero_chef_a1", l.MetaSkillIds);
-        Assert.Contains("mount_scout_saucer_w1", l.MetaSkillIds);
+        Assert.Contains("hero_chef_trait", l.MetaSkillIds);
+        Assert.Contains("mount_scout_saucer_active_1", l.MetaSkillIds);
         Assert.Contains("arm_tesla_whip_sk3", l.MetaSkillIds);    // Mythic: skills 1-3
         Assert.DoesNotContain("arm_tesla_whip_sk4", l.MetaSkillIds);
         Assert.DoesNotContain("arm_drill_lance_sk1", l.MetaSkillIds); // Common: none
         Assert.True(l.WormStats.Value(StatId.Atk) > bare.WormStats.Value(StatId.Atk));
         Assert.True(l.WormStats.Value(StatId.Def) > bare.WormStats.Value(StatId.Def));
-        Assert.True(l.MountStats.Value(StatId.Atk) > 0);
         Assert.True(l.Power > bare.Power);
         Assert.Equal(WormSystem.ComputePower(l, C), l.Power);
     }

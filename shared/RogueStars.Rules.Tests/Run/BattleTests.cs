@@ -153,9 +153,9 @@ public class BattleSimulatorTests
     [Fact]
     public void TurnOrder_MountAliensWorm_AndOnlyWormIsTargeted()
     {
-        var lo = new CombatLoadout { MountId = "skiff" };
+        var lo = new CombatLoadout { MountId = "mount_magma_barge" };
         lo.WormStats.Add(new StatMod(StatId.Hp, 5000)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 100));
-        lo.MountStats.Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Hp, 200));
+        lo.MetaSkillIds.AddRange(new[] { "mount_magma_barge_passive_1", "mount_magma_barge_active_1" });
         var alien = new CombatAlien { AlienTypeId = "a1", Stats = new StatBlock().Add(new StatMod(StatId.Atk, 20)).Add(new StatMod(StatId.Hp, 100)).Add(new StatMod(StatId.Speed, 50)) };
         alien.SkillIds.Add("ask_voidmaw_1");
         lo.Aliens.Add(alien);
@@ -164,18 +164,20 @@ public class BattleSimulatorTests
         setup.Enemy.Add(Unit("e1", CombatRole.Enemy, 100_000, 40, 0, 50));
         setup.Enemy.Add(Unit("e2", CombatRole.Enemy, 100_000, 40, 0, 50));
         var res = BattleSimulator.Simulate(setup, ContentDb.Default, new Rng(2));
-        // round 1: the mount fires, the alien (a sidekick: start charge 50 + Speed 50) uses its ability, then the worm and the enemies attack
-        var r1 = res.Log.Where(e => e.Round == 1 && (e.Action == BattleAction.Basic || e.Action == BattleAction.SidekickAct)).Select(e => res.Fighters[e.Actor].Role).ToList();
+        // round 1: the mount fires its active (a vehicle on a reload), the alien (a sidekick: start charge 50 + Speed 50) uses its
+        // ability, then the worm and the enemies attack
+        var r1 = res.Log.Where(e => e.Round == 1 && (e.Action == BattleAction.Basic || e.Action == BattleAction.SidekickAct || e.Action == BattleAction.Volley))
+            .Select(e => res.Fighters[e.Actor].Role).ToList();
         Assert.Equal(new[] { CombatRole.Mount, CombatRole.Alien, CombatRole.Worm, CombatRole.Enemy, CombatRole.Enemy }, r1);
         // a sidekick never attacks: it acts every other round at Speed 50 (rounds 1, 3, 5)
         Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Role == CombatRole.Alien);
         Assert.Equal(new[] { 1, 3, 5 }, res.Log.Where(e => e.Action == BattleAction.SidekickAct).Select(e => e.Round).ToArray());
         int worm = res.Fighters.First(f => f.Role == CombatRole.Worm).Index;
         Assert.All(res.Log.Where(e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Side == BattleSide.Enemy), e => Assert.Equal(worm, e.Target));
-        // mount HP becomes a shield on the worm that absorbs first
-        var firstEnemyHit = res.Log.First(e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Side == BattleSide.Enemy);
-        Assert.Equal(5000, firstEnemyHit.TargetHp);
-        Assert.Equal(200 - 40, firstEnemyHit.TargetShield);
+        // the mount never attacks and has no stats (no HP shield on the worm): it fires every 3 rounds (1, 4)
+        Assert.DoesNotContain(res.Log, e => e.Action == BattleAction.Basic && res.Fighters[e.Actor].Role == CombatRole.Mount);
+        Assert.Equal(new[] { 1, 4 }, res.Log.Where(e => e.Action == BattleAction.Volley).Select(e => e.Round).ToArray());
+        Assert.Equal(0, res.Fighters[worm].StartShield);
     }
 
     [Fact]
@@ -201,18 +203,19 @@ public class BattleSimulatorTests
         Assert.Equal(res.Fighters[w].EndRage, res.Log.Last(e => e.Target == w).TargetRage + (long)T.RagePerHitTaken);
         Assert.All(res.Log, e => Assert.InRange(e.ActorRage, 0, (long)T.RageOverfillMax));
 
-        // Mount HP is the worm's battle-start shield; entries carry the shield of actor and target.
-        var lo = new CombatLoadout { MountId = "skiff" };
+        // A shield kit (Star Knight's Starguard: 12% max HP at battle start); entries carry the shield of actor and target.
+        var lo = new CombatLoadout { MountId = "mount_frost_frigate" };
         lo.WormStats.Add(new StatMod(StatId.Hp, 5000)).Add(new StatMod(StatId.Atk, 50)).Add(new StatMod(StatId.Speed, 100));
-        lo.MountStats.Add(new StatMod(StatId.Atk, 30)).Add(new StatMod(StatId.Hp, 200));
+        lo.MetaSkillIds.Add("hero_star_knight_trait");
         var setup = new BattleSetup { RoundCap = 3 };
         setup.Player.AddRange(BattleSimulator.BuildPlayerSide(lo, c));
         setup.Enemy.Add(Unit("e1", CombatRole.Enemy, 100_000, 40, 0, 50));
         var r2 = BattleSimulator.Simulate(setup, c, new Rng(2));
         int w2 = r2.Fighters.First(f => f.Role == CombatRole.Worm).Index;
-        Assert.Equal(200, r2.Fighters[w2].StartShield);
+        Assert.Equal(0, r2.Fighters[w2].StartShield); // the mount adds none
+        Assert.Contains(r2.Log, e => e.Round == 0 && e.Action == BattleAction.Shield && e.Target == w2 && e.Amount == 600);
         var wormActs = r2.Log.First(e => e.Actor == w2 && e.Action == BattleAction.Basic);
-        long shieldBefore = r2.Log.TakeWhile(e => e != wormActs).Where(e => e.Target == w2).Select(e => e.TargetShield).DefaultIfEmpty(200).Last();
+        long shieldBefore = r2.Log.TakeWhile(e => e != wormActs).Where(e => e.Target == w2).Select(e => e.TargetShield).DefaultIfEmpty(600).Last();
         Assert.Equal(shieldBefore, wormActs.ActorShield);
     }
 

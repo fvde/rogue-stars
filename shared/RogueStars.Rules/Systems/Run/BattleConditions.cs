@@ -18,6 +18,8 @@ namespace RogueStars.Rules.Systems
     /// <item><c>first_turn</c> (the owner's first turn), <c>first_hit</c> (the owner's first landed hit of the battle),
     /// <c>first_hit_taken</c> (the first hit the owner takes this round), <c>combo_strikes:N</c> (exactly N combo strikes this turn),
     /// <c>rage_crit</c> (the owner's latest rage attack landed as a crit; for OnRageAttack triggers: lab Frost Nova).</item>
+    /// <item>Hero &amp; mount kits: <c>worm_rage:N</c> (the owner's side's worm has N+ rage), <c>crit_kill</c> (the killing hit was a crit),
+    /// <c>extra_hits:N</c> (N+ extra hits this turn), <c>siphon_full</c> (the worm's siphon shield is full).</item>
     /// </list>
     /// Parsed once per string and cached; unknown terms are false (content validation rejects them).
     /// </summary>
@@ -26,7 +28,7 @@ namespace RogueStars.Rules.Systems
         public enum Kind
         {
             Has, Lacks, Max, Unblocked, HpBelow, Boss, NotBoss, Statuses, SelfHpBelow, SelfShielded, Sidekicks, OneEnemy,
-            FirstTurn, FirstHit, FirstHitTaken, ComboStrikes, RageCrit, Unknown,
+            FirstTurn, FirstHit, FirstHitTaken, ComboStrikes, RageCrit, Unknown, WormRage, CritKill, ExtraHits, SiphonFull,
         }
 
         public sealed class Term
@@ -87,6 +89,10 @@ namespace RogueStars.Rules.Systems
                 case "first_hit_taken": t.Kind = Kind.FirstHitTaken; break;
                 case "combo_strikes": t.Kind = Kind.ComboStrikes; t.N = Math.Max(1, Num(1, 1)); break;
                 case "rage_crit": t.Kind = Kind.RageCrit; break;
+                case "worm_rage": t.Kind = Kind.WormRage; t.N = Num(1, 100); break;
+                case "crit_kill": t.Kind = Kind.CritKill; break;
+                case "extra_hits": t.Kind = Kind.ExtraHits; t.N = Math.Max(1, Num(1, 1)); break;
+                case "siphon_full": t.Kind = Kind.SiphonFull; break;
             }
             return t;
         }
@@ -129,6 +135,10 @@ namespace RogueStars.Rules.Systems
                 case Kind.FirstHitTaken: return "the first hit you take each round";
                 case Kind.ComboStrikes: return Num(t.N) + " combo strikes this turn";
                 case Kind.RageCrit: return "your rage attack crits";
+                case Kind.WormRage: return "the worm has " + Num(t.N) + "+ rage";
+                case Kind.CritKill: return "a critical kill";
+                case Kind.ExtraHits: return Num(t.N) + "+ extra hits this turn";
+                case Kind.SiphonFull: return "the siphon shield is full";
                 default: return t.Source;
             }
         }

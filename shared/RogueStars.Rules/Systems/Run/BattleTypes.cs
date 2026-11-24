@@ -51,6 +51,17 @@ namespace RogueStars.Rules.Systems
         /// <summary>A guard softened a hit on the worm (Actor = the guarding sidekick, Target = the worm, Amount = damage prevented,
         /// Stacks = guarded hits left). The hit itself follows and lands (on-hit triggers and counters fire).</summary>
         Guarded,
+        // ---- hero & mount kits (appended) ----
+        /// <summary>The mount fires its active (Actor = the mount, Target = its mark / the front enemy, SkillId = the active, Stacks = its
+        /// reload in rounds, Amount 1 = an extra shot fired now: Short Circuit, Whistle). The shot's effects follow as their own entries.</summary>
+        Volley,
+        /// <summary>The worm's hero Ability fires (Actor = Target = the worm, SkillId = the ability skill). Its effects follow.</summary>
+        Ability,
+        /// <summary>A kit counter changed (Actor = Target = its owner, SkillId = the skill that owns it, Amount = the value, Stacks = the
+        /// max): "Starfall 2/4" (shield hits), Stillness 0–3, the rage bank 0–100, the Aegis Walker's coil.</summary>
+        KitCounter,
+        /// <summary>The mount marked an enemy (Actor = the mount, Target = the marked enemy; Scout Saucer's Spotlight).</summary>
+        Mark,
     }
 
     /// <summary>
@@ -165,6 +176,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>Worm (first player-side Worm) HP after the battle (after OnBattleWon heals).</summary>
         public double WormHpLeft;
         public double WormMaxHp;
+        /// <summary>Run coins the player side earned in the battle (Void Pirate's Plunder); the run adds them.</summary>
+        public long RunCoins;
 
         public bool PlayerWon() => Winner == BattleSide.Player;
     }

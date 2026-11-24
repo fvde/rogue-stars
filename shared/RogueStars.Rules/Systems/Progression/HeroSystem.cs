@@ -6,8 +6,8 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Heroes (worm personas): unlock by shards, stars 1–10 by shards, level by Hero XP, trait skills that
-    /// upgrade at 3/5/7/10★, one equipped hero, collection bonus from every unlocked hero.
+    /// Heroes (worm personas): unlock by shards, stars 1–10 by shards, level by Hero XP (worm stats only, one shared budget), a
+    /// hand-written kit (1★ Trait + Ability, 3★ a number, 5★ / 7★ clauses, 10★ capstone), one equipped hero, collection bonus.
     /// Granter for RewardKinds.HeroShards (duplicates are always shards).
     /// </summary>
     public static class HeroSystem
@@ -52,6 +52,21 @@ namespace RogueStars.Rules.Systems
         {
             var def = c.HeroConfig.Defs[heroId];
             return ProgressionUtil.ResolveSkillSteps(def.Traits, st => st.Star <= stars);
+        }
+
+        /// <summary>The hero's kit lines unlocked at the given stars (Trait, Ability, then the 3★ number and the clauses).</summary>
+        public static List<KitText> KitAt(ContentDb c, string heroId, int stars)
+        {
+            var list = new List<KitText>();
+            foreach (var line in c.HeroConfig.Defs[heroId].Kit) if (line.Star <= stars) list.Add(line);
+            return list;
+        }
+
+        /// <summary>The next kit line above the given stars (null at the last one).</summary>
+        public static KitText NextKit(ContentDb c, string heroId, int stars)
+        {
+            foreach (var line in c.HeroConfig.Defs[heroId].Kit) if (line.Star > stars) return line;
+            return null;
         }
 
         /// <summary>Worm stats granted by the hero (base × star bonus + level growth).</summary>

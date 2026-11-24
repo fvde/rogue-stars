@@ -63,7 +63,9 @@ namespace RogueStars.Rules.Content
         /// <summary>Power score weights per stat (value * weight).</summary>
         public Dictionary<StatId, double> PowerWeights = new Dictionary<StatId, double>();
         public double PowerPerSkill = 120;
-        public double PowerPerMountStat = 0.5;
+        /// <summary>A mount's power: PowerMountBasePct % of the worm's stat power + PowerPerMountStat × its own mount damage %.</summary>
+        public double PowerPerMountStat = 0.2;
+        public double PowerMountBasePct = 8;
         /// <summary>
         /// Aliens pass: sidekicks have no stats and work in % of the worm's ATK / max HP, so each squad alien adds a share of the worm's
         /// stat power: PowerAlienBasePct + PowerAlienPerRarityPct × rarity + PowerAlienPerStarPct × (stars − 1) percent.

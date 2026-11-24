@@ -149,7 +149,7 @@ namespace RogueStars.Rules.Systems
             if (string.IsNullOrEmpty(needs)) return true;
             var lo = run.Loadout;
             if (needs == "aliens" && lo != null && lo.Aliens.Count > 0) return true;
-            if (needs == "shield" && lo != null && (!string.IsNullOrEmpty(lo.MountId) || lo.MountStats.Value(StatId.Hp) > 0)) return true;
+            // hero & mount kits: a mount no longer shields by itself (its kit's shield effects count like any other)
             string kind = needs, arg = null;
             int colon = needs.IndexOf(':');
             if (colon >= 0) { kind = needs.Substring(0, colon); arg = needs.Substring(colon + 1); }
@@ -177,7 +177,7 @@ namespace RogueStars.Rules.Systems
             foreach (var id in run.Skills) if (Provides(content.Skill(id))) return true;
             if (lo != null)
             {
-                foreach (var id in lo.MetaSkillIds) if (Provides(content.Skill(id))) return true;
+                foreach (var id in KitMigration.MetaSkillIds(content, lo)) if (Provides(content.Skill(id))) return true;
                 foreach (var a in lo.Aliens) foreach (var id in a.SkillIds) if (Provides(content.Skill(id))) return true;
             }
             return false;

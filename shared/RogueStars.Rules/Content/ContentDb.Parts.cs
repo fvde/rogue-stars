@@ -321,8 +321,8 @@ namespace RogueStars.Rules.Content
         }
 
         /// <summary>
-        /// Builds a non-draftable meta skill for a family at a given power (1 = baseline). Shared by part,
-        /// hero and mount content so each family's identity reads the same everywhere.
+        /// Builds a non-draftable meta skill for a family at a given power (1 = baseline). Parts only (hero &amp; mount kits are
+        /// hand-written: ContentDb.Heroes / ContentDb.Mounts); kept until the parts redesign.
         /// </summary>
         internal static SkillDef ProgFamilySkill(string id, string name, SkillFamily family, Rarity rarity, SkillSource source, double power, string upgradesFrom)
         {
@@ -367,23 +367,10 @@ namespace RogueStars.Rules.Content
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Chance = Math.Min(100, Math.Round(25 * v)), Effect = EffectKind.Damage, Value = Math.Round(25 * v) });
                     s.Description = "More combos; combos hit harder.";
                     break;
-                case SkillFamily.Counter when source == SkillSource.Mount:
-                    // the mount is never attacked, so it never counters: it shields the worm and sharpens the worm's counters
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Target = TargetKind.Worm, Stat = new StatMod(StatId.CounterChance, Math.Round(3 * v, 1)) });
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Worm, Value = Math.Round(3 * v, 1) });
-                    s.Description = "The worm counters more; rounds may start with a shield on the worm.";
-                    break;
                 case SkillFamily.Counter:
                     s.Stats.Add(new StatMod(StatId.CounterChance, Math.Round(3 * v, 1)));
                     s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Self, Value = Math.Round(3 * v, 1) });
                     s.Description = "More counters; counters grant a shield.";
-                    break;
-                case SkillFamily.AlienSynergy when source == SkillSource.Mount:
-                    // Hive Carrier (sidekick pass): its bay launches drone sidekicks for the battle (power = % of the mount's ATK)
-                    s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Summon, Target = TargetKind.Self, Param = "sk_drone",
-                        Value = Math.Round(80 * v), Stacks = v >= 3 ? 2 : 1 });
-                    s.Description = v >= 3 ? "Battle start: launch 2 drone sidekicks; sidekicks are stronger." : "Battle start: launch a drone sidekick; sidekicks are stronger.";
                     break;
                 case SkillFamily.AlienSynergy:
                     s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));

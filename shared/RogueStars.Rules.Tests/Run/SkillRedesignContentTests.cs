@@ -71,11 +71,17 @@ public class SkillRedesignContentTests
         Assert.True(RunDraft.HasSource(C, run, "blocks"));
         run.Loadout.MetaSkillIds.Add("lab_frost_nova");                                    // a lab Freeze source counts too
         Assert.True(RunDraft.IsMythicEligible(C, run, C.Skill("mythic_shatter")!));
-        // a drone launcher is an alien source; a mount is a shield source (Spiked Hide)
+        // a drone launcher is an alien source; a shielding kit is a shield source (Spiked Hide), a bare mount no longer (hero and mount kits)
         var drones = new ActiveRun(); drones.Skills.Add("alien_rally");
         Assert.True(RunDraft.HasSource(C, drones, "aliens"));
-        var mount = new ActiveRun(); mount.Loadout.MountId = "m";
-        Assert.True(RunDraft.HasSource(C, mount, "shield"));
+        var mount = new ActiveRun(); mount.Loadout.MountId = "mount_scout_saucer";
+        mount.Loadout.MetaSkillIds.AddRange(new[] { "mount_scout_saucer_passive_1", "mount_scout_saucer_active_1" });
+        Assert.False(RunDraft.HasSource(C, mount, "shield"));
+        var frigate = new ActiveRun(); frigate.Loadout.MountId = "mount_frost_frigate";
+        frigate.Loadout.MetaSkillIds.AddRange(new[] { "mount_frost_frigate_passive_1", "mount_frost_frigate_active_1" });
+        Assert.True(RunDraft.HasSource(C, frigate, "shield"));
+        var knight = new ActiveRun(); knight.Loadout.MetaSkillIds.Add("hero_star_knight_trait");
+        Assert.True(RunDraft.HasSource(C, knight, "shield"));
         Assert.False(RunDraft.HasSource(C, new ActiveRun(), "shield"));
     }
 

@@ -39,7 +39,7 @@ namespace RogueStars.Rules.Systems
             {
                 mount = new CombatantSpec
                 {
-                    Id = string.IsNullOrEmpty(loadout.MountId) ? "mount" : loadout.MountId, Name = "Mount", Role = CombatRole.Mount,
+                    Id = string.IsNullOrEmpty(loadout.MountId) ? "mount" : loadout.MountId, Name = MountName(content, loadout.MountId), Role = CombatRole.Mount,
                     Stats = loadout.MountStats.Clone(), Targetable = false, Style = AttackStyle.Cannon,
                 };
                 list.Add(mount);
@@ -55,7 +55,8 @@ namespace RogueStars.Rules.Systems
                 if (a.Traits != null) s.Traits.AddRange(a.Traits);
                 list.Add(s);
             }
-            foreach (var id in loadout.MetaSkillIds)
+            // old saves: hero / mount step ids from before the kits read as the kit at that step (KitMigration)
+            foreach (var id in KitMigration.MetaSkillIds(content, loadout))
             {
                 var def = content.Skill(id);
                 if (mount != null && def != null && def.Source == SkillSource.Mount) mount.SkillIds.Add(id);
@@ -66,6 +67,9 @@ namespace RogueStars.Rules.Systems
             list.Add(worm);
             return list;
         }
+
+        private static string MountName(ContentDb c, string id) =>
+            id != null && c.MountConfig.Defs.TryGetValue(id, out var d) ? d.Name : "Mount";
 
         /// <summary>Enemy combatant: HP/ATK/DEF × threatScale, then + the given percent bonuses (danger, buffs, modifiers).</summary>
         public static CombatantSpec BuildEnemy(ContentDb content, string enemyId, double threatScale, double atkPct = 0, double hpPct = 0, double defPct = 0)
@@ -190,7 +194,7 @@ namespace RogueStars.Rules.Systems
     /// How a status behaves when its applier owns rule skills (R6: rules live on the applier and are read from StatusInst.Source;
     /// a sidekick's or mount's statuses use its worm's rules).
     /// </summary>
-    internal sealed class StatusRules
+    internal sealed partial class StatusRules
     {
         public double MaxDelta, DotPct, ConsumeHealPct;
         public int BurstAt, NoExpireAt;
@@ -198,7 +202,7 @@ namespace RogueStars.Rules.Systems
     }
 
     /// <summary>A fighter's rule skills (Passive <c>Rule</c> triggers), folded once at battle start.</summary>
-    internal sealed class RuleSet
+    internal sealed partial class RuleSet
     {
         public static readonly StatusRules None = new StatusRules();
         public readonly StatusRules[] S = new StatusRules[32];
@@ -236,6 +240,7 @@ namespace RogueStars.Rules.Systems
                     case "no_cool": r.NoCool = true; break;
                     case "shutdown": r.Shutdown = true; break;
                     case "double_vs_chill": r.DoubleVsChill = true; break;
+                    case "deep_wells": r.CapMult = Math.Max(r.CapMult, arg > 0 ? arg : 2); break;
                 }
                 return;
             }
@@ -261,6 +266,7 @@ namespace RogueStars.Rules.Systems
                 case "lose_turn_every": LoseTurnEvery = (int)arg; break;
                 case "dot_ticks": DotTicks = (int)arg; break;
                 case "decay": Decay = (int)arg; break;
+                default: AddKitRule(name, arg, t.Value, skillId); break;
             }
         }
     }
@@ -269,8 +275,10 @@ namespace RogueStars.Rules.Systems
     internal sealed class ConsumeSpec
     {
         /// <summary>HealAtk (aliens pass, Thorn Harvest): heal the worm this % of ATK per stack consumed.</summary>
-        public double Dmg, Heal, BuffValue, Cap, RefundMax, HealAtk;
+        public double Dmg, Heal, BuffValue, Cap, RefundMax, HealAtk, Splash;
         public int Take;
+        /// <summary>Feast (Param "largest"): eat the target's largest status.</summary>
+        public bool Largest;
         public StatId BuffStat;
         public bool Buff;
 
@@ -293,6 +301,7 @@ namespace RogueStars.Rules.Systems
                 foreach (var raw in t.Param.Split(';'))
                 {
                     var a = raw.Trim().Split(':');
+                    if (a.Length == 1 && a[0] == "largest") c.Largest = true;
                     if (a.Length < 2) continue;
                     switch (a[0])
                     {
@@ -302,6 +311,7 @@ namespace RogueStars.Rules.Systems
                         case "take": c.Take = (int)V(a[1]); break;
                         case "cap": c.Cap = V(a[1]); break;
                         case "refund_max": c.RefundMax = V(a[1]); break;
+                    case "splash": c.Splash = V(a[1]); break;
                         case "buff":
                             if (a.Length >= 3 && Enum.TryParse(a[1], out StatId st)) { c.Buff = true; c.BuffStat = st; c.BuffValue = V(a[2]); }
                             break;
@@ -312,7 +322,7 @@ namespace RogueStars.Rules.Systems
         }
     }
 
-    internal sealed class Fighter
+    internal sealed partial class Fighter
     {
         public static readonly int StatCount = Enum.GetValues(typeof(StatId)).Length;
         public int Index;
@@ -398,7 +408,7 @@ namespace RogueStars.Rules.Systems
         public List<StatusInst>[] Statuses;
     }
 
-    internal sealed class BattleSim
+    internal sealed partial class BattleSim
     {
         private readonly BattleSetup _setup;
         private readonly ContentDb C;
@@ -502,22 +512,16 @@ namespace RogueStars.Rules.Systems
             for (int side = 0; side < 2; side++)
             {
                 Fighter worm = FirstWorm((BattleSide)side);
-                double ap = AlienPowerOf((BattleSide)side), mp = worm != null ? worm.S(StatId.MountPower) : 0;
+                double ap = AlienPowerOf((BattleSide)side);
                 foreach (var f in F)
                 {
                     if ((int)f.Side != side) continue;
                     if (f.Role == CombatRole.Alien || f.Role == CombatRole.Summon) InitSidekick(f, ap);
-                    else if (f.Role == CombatRole.Mount) f.Pct[(int)StatId.Atk] += mp;
+                    else if (f.Role == CombatRole.Mount) InitMount(f, worm); // hero & mount kits: no mount stats, no HP shield
                 }
             }
             foreach (var f in F) InitHp(f);
-            // The mount absorbs part of the damage: its HP stat becomes a battle-start shield on the worm.
-            foreach (var f in F)
-            {
-                if (f.Role != CombatRole.Mount) continue;
-                var worm = FirstWorm(f.Side);
-                if (worm != null && worm.Alive) worm.Shield += Math.Max(0, f.S(StatId.Hp));
-            }
+            SetupKits();
         }
 
         /// <summary>
@@ -535,6 +539,11 @@ namespace RogueStars.Rules.Systems
         /// <summary>A fighter's ATK; a sidekick's is its worm's live ATK × (1 + alien power %) (its hits then take their % of it, ComputeDamage).</summary>
         private double AtkOf(Fighter f)
         {
+            if (f.Rider)
+            {
+                var w = FirstWorm(f.Side);
+                return w == null ? 0 : w.S(StatId.Atk) * Math.Max(0, 1 + f.MountPct / 100.0);
+            }
             if (!f.Sidekick) return f.S(StatId.Atk);
             var worm = FirstWorm(f.Side);
             return worm == null ? 0 : worm.S(StatId.Atk) * Math.Max(0, 1 + f.AlienPower / 100.0);
@@ -575,9 +584,9 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>A status's stack cap with its applier's rules (Hemorrhage +5; Heat at least its Supernova threshold).</summary>
-        private int CapOf(StatusDef def, StatusRules r)
+        private int CapOf(StatusDef def, StatusRules r, bool deep = false)
         {
-            int cap = def.MaxStacks + (int)Math.Round(r.MaxDelta);
+            int cap = (deep && r.CapMult > 1 ? (int)Math.Round(def.MaxStacks * r.CapMult) : def.MaxStacks) + (int)Math.Round(r.MaxDelta);
             int burst = BurstAtOf(def, r);
             if (burst > 0) cap = Math.Max(cap, burst);
             return Math.Max(1, cap);
@@ -610,10 +619,12 @@ namespace RogueStars.Rules.Systems
             {
                 Round++;
                 if (_anyLoop) Snapshot();
+                RoundStartKits();
                 var order = TurnOrder();
                 foreach (var f in order) { if (Over) break; if (f.Alive) Fire(f, TriggerKind.OnRoundStart, null); }
                 foreach (var f in order) { if (Over) break; if (f.Alive) TakeTurn(f); }
                 foreach (var f in order) { if (Over) break; if (f.Alive) Fire(f, TriggerKind.OnRoundEnd, null); }
+                if (!Over) RoundEndKits();
                 TickBuffs();
             }
             if (!Over)
@@ -672,6 +683,13 @@ namespace RogueStars.Rules.Systems
         private List<Fighter> TurnOrder()
         {
             bool playerFirst = SideSpeed(BattleSide.Player) >= SideSpeed(BattleSide.Enemy);
+            // Slipstream (Rift Racer): in round 1 the worm's side acts before every enemy (not crowd control: enemies still act)
+            if (Round <= 1)
+            {
+                var pm = MountOf(BattleSide.Player); var em = MountOf(BattleSide.Enemy);
+                if (pm != null && pm.Rules.Slipstream && !(em != null && em.Rules.Slipstream)) playerFirst = true;
+                else if (em != null && em.Rules.Slipstream && !(pm != null && pm.Rules.Slipstream)) playerFirst = false;
+            }
             var first = playerFirst ? BattleSide.Player : BattleSide.Enemy;
             var order = new List<Fighter>(F.Count);
             AppendSide(order, first);
@@ -704,6 +722,7 @@ namespace RogueStars.Rules.Systems
         private void TakeTurn(Fighter f)
         {
             if (f.Sidekick) { SidekickTurn(f); return; }
+            if (f.Role == CombatRole.Mount) { MountTurn(f); return; }
             _acting = f;
             EndTurnScopedEffects(f);
             f.ComboThisTurn = false;
@@ -711,6 +730,7 @@ namespace RogueStars.Rules.Systems
             if (regen > 0 && f.Hp < f.MaxHp) Heal(f, f, f.MaxHp * regen / 100.0 * (1 + f.S(StatId.HealPower) / 100.0), BattleAction.Regen, null, false);
 
             if (!TickStatuses(f)) return;
+            if (f.Role == CombatRole.Worm) { AbilityTick(f, false); if (Over || !f.Alive) { if (f.Alive) EndTurn(f); return; } }
 
             bool skip = false, charmed = false;
             foreach (var st in f.Statuses)
@@ -720,10 +740,17 @@ namespace RogueStars.Rules.Systems
                 if (def.Charms) charmed = true;
             }
             if (!skip && f.Rules.LoseTurnEvery > 0 && Round % f.Rules.LoseTurnEvery == 0) skip = true; // Borrowed Time's cost
+            if (f.SkipNextTurn) { f.SkipNextTurn = false; skip = true; } // Cryo pod: the saved worm sits out its next turn
             if (skip)
             {
                 Log(BattleAction.SkipTurn, f, f, 0);
-                EndTurn(f);
+                // Time Debt: each enemy turn skipped feeds the other side
+                foreach (var o in F)
+                {
+                    if (Over) break;
+                    if (o.Side != f.Side && o.Alive && (o.Role == CombatRole.Worm || o.Role == CombatRole.Mount)) Fire(o, TriggerKind.OnSkipTurn, f);
+                }
+                if (f.Alive) EndTurn(f);
                 return;
             }
 
@@ -756,8 +783,11 @@ namespace RogueStars.Rules.Systems
             f.Turns++;
             f.ComboStrikes = 0;
             f.Strikes = 0;
+            f.ExtraHitsTurn = 0;
+            f.PileTarget = -1; f.PileCount = 0;
             Fire(f, TriggerKind.OnTurnStart, null);
             if (!f.Alive || Over) return;
+            if (f.Role == CombatRole.Worm) { AbilityTick(f, true); if (!f.Alive || Over) return; }
 
             Fighter target = charmed ? CharmTarget(f) : DefaultTarget(f);
             if (target == null)
@@ -783,6 +813,7 @@ namespace RogueStars.Rules.Systems
             if (f.Rage >= T.RageMax)
             {
                 f.Rage -= T.RageMax;
+                bool twice = TakeBank(f); // Overcharge: a full bank fires this rage attack twice
                 var rt = charmed ? (target.Alive ? target : null) : DefaultTarget(f);
                 var stagger = f.Status(StatusId.Stagger);
                 if (stagger != null)
@@ -794,8 +825,12 @@ namespace RogueStars.Rules.Systems
                 }
                 else if (rt != null)
                 {
-                    double dealt = Attack(f, rt, AttackKind.Rage, 0);
-                    Fire(f, TriggerKind.OnRageAttack, rt, StatusId.None, dealt);
+                    for (int k = 0; k < (twice ? 2 : 1); k++)
+                    {
+                        if (k > 0) { rt = charmed ? (rt.Alive ? rt : null) : DefaultTarget(f); if (rt == null || Over || !f.Alive) break; }
+                        double dealt = Attack(f, rt, AttackKind.Rage, 0);
+                        Fire(f, TriggerKind.OnRageAttack, rt, StatusId.None, dealt);
+                    }
                 }
             }
 
@@ -862,11 +897,18 @@ namespace RogueStars.Rules.Systems
                     if (ability == null && t.When == TriggerKind.OnAct) ability = sk.Id;
             var e = Log(BattleAction.SidekickAct, f, f, 0);
             if (e != null) { e.SkillId = ability; e.Stacks = extra ? 1 : 0; }
+            f.SidekickHitThisAct = false; f.SidekickHitTarget = -1;
             Fire(f, TriggerKind.OnAct, null);
             if (Over) return;
             var worm = FirstWorm(f.Side);
-            // Hivemind: every sidekick is tuned to a signature; a drone (aliens pass) always triggers the start signature once
-            if (worm != null && worm.Alive && (worm.Rules.Hivemind || f.Role == CombatRole.Summon)) HiveSignature(f, worm);
+            // Hivemind: every sidekick is tuned to a signature; a drone (aliens pass) always triggers the start signature once.
+            // Launch Bay drones trigger none (1★–A3) or every owned signature (A5).
+            if (worm != null && worm.Alive && f.CarryOnAct) Carry(f, DefaultTarget(f), 1);
+            else if (worm != null && worm.Alive && !f.NoSig && (worm.Rules.Hivemind || f.Role == CombatRole.Summon)) HiveSignature(f, worm);
+            if (Over) return;
+            // Tamed (Beast Tamer 5★): a sidekick action that hit an enemy carries the signatures (once per action)
+            if (worm != null && worm.Alive && f.SidekickHitThisAct && f.SidekickHitTarget >= 0 && F[f.SidekickHitTarget].Alive)
+                Fire(worm, TriggerKind.OnSidekickHit, F[f.SidekickHitTarget]);
             if (Over) return;
             foreach (var o in F)
             {
@@ -944,6 +986,8 @@ namespace RogueStars.Rules.Systems
                     f.Statuses.RemoveAt(i);
                     var e = Log(BattleAction.StatusExpired, f, f, 0);
                     if (e != null) e.Status = st.Id;
+                    StatusLost(f, st.Id, st.Stacks);
+                    if (Over) return;
                 }
             }
             if (!f.ComboThisTurn) // Battle Rhythm: a turn without a combo resets it
@@ -1028,12 +1072,15 @@ namespace RogueStars.Rules.Systems
             double dmg = st.Power * def.DotAtkPct / 100.0 * st.Stacks * (1 + r.DotPct / 100.0) * scale
                 * CombatMath.DamageReductionFactor(f.S(StatId.DamageReduction), T) * TakenMultiplier(f);
             bool crit = false;
-            if (r.DotCrit && src != null)
+            var srs = RulesOf(src);
+            if ((r.DotCrit || (srs != null && srs.StatusCrit)) && src != null) // Dead Reckoning: every status damage can crit
             {
-                crit = R.Chance(CombatMath.CritProbability(src.S(StatId.CritChance), T));
-                if (crit) dmg *= CombatMath.CritMultiplier(T.BaseCritDamage + src.S(StatId.CritDamage), f.S(StatId.CritResist));
+                var cs = CritSource(src);
+                crit = R.Chance(CombatMath.CritProbability(cs.S(StatId.CritChance), T));
+                if (crit) dmg *= CombatMath.CritMultiplier(T.BaseCritDamage + cs.S(StatId.CritDamage), f.S(StatId.CritResist));
             }
-            DealDamage(src, f, dmg, def.IgnoresShield && !r.KeepsShields, BattleAction.StatusTick, crit, st.Id, skillId);
+            double dealt = DealDamage(src, f, dmg, def.IgnoresShield && !r.KeepsShields, BattleAction.StatusTick, crit, st.Id, skillId);
+            StatusDamage(src, dealt);
         }
 
         // ---- attacks --------------------------------------------------------------------------
@@ -1064,9 +1111,17 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Crit roll (Last Light: below its HP threshold every hit crits; Winter's Grip: a chilled fighter can't crit).</summary>
-        private bool RollCrit(Fighter att)
+        private bool RollCrit(Fighter att, Fighter def = null, bool extra = false)
         {
-            bool crit = R.Chance(CombatMath.CritProbability(att.S(StatId.CritChance), T));
+            var cs = CritSource(att);
+            double chance = cs.S(StatId.CritChance);
+            if (extra && att.Role == CombatRole.Worm) chance += att.Rules.ExtraCritPct; // Sharp Noodle: extra hits crit more
+            if (def != null && (att.Role == CombatRole.Worm || att.Rider) && _mark[(int)att.Side] == def.Index)
+            {
+                var m = MountOf(att.Side);
+                if (m != null) chance += m.Rules.SpotlightPct; // Spotlight: hits on the mark
+            }
+            bool crit = R.Chance(CombatMath.CritProbability(chance, T));
             if (ShutDown(att)) return false;
             var rs = RulesOf(att);
             if (rs != null && rs.LastLightPct > 0 && !att.Sidekick && att.HpPct < rs.LastLightPct) return true;
@@ -1080,8 +1135,10 @@ namespace RogueStars.Rules.Systems
             Fire(att, TriggerKind.OnAttack, def);
             if (!att.Alive || !def.Alive || Over) return 0;
             att.Strikes++;
+            // an extra hit (hero & mount kits): a combo strike, a counter, an Echo, a mount-made attack
+            bool extra = kind == AttackKind.Combo || kind == AttackKind.Counter || att.ExtraDepth > 0;
 
-            bool crit = RollCrit(att);
+            bool crit = RollCrit(att, def, extra);
             if (kind == AttackKind.Rage) att.RageCrit = false; // set once the rage attack lands
             if (def.Guards.Count > 0)
             {
@@ -1107,6 +1164,17 @@ namespace RogueStars.Rules.Systems
 
             double dmg = ComputeDamage(att, def, StylePct(att.Style, kind), 0, crit, kind, false) * mult;
             if (kind == AttackKind.Counter && att.CounterCharge > 0) { dmg *= 1 + att.CounterCharge / 100.0; att.CounterCharge = 0; } // Grudge
+            if (att.Role == CombatRole.Worm)
+            {
+                // Pile-On (Shadow Noodle): each hit on the same enemy in one turn deals more than the last
+                if (att.Rules.PileOnPct > 0 && _acting == att)
+                {
+                    if (att.PileTarget == def.Index) att.PileCount++; else { att.PileTarget = def.Index; att.PileCount = 0; }
+                    dmg *= 1 + Math.Min(att.Rules.PileOnMax > 0 ? att.Rules.PileOnMax : double.MaxValue, att.Rules.PileOnPct * att.PileCount) / 100.0;
+                }
+                // Slipstream (Rift Racer 3★+): the worm's first attack of the battle hits harder
+                if (!att.Attacked) { var sm = MountOf(att.Side); if (sm != null && sm.Rules.SlipstreamPct > 0) dmg *= 1 + sm.Rules.SlipstreamPct / 100.0; }
+            }
             if (def.GuardHits > 0 && def.GuardPct > 0)
             {
                 // a guard (aliens pass) softens the hit; it still lands, so on-hit / when-hit triggers and counters fire
@@ -1119,8 +1187,20 @@ namespace RogueStars.Rules.Systems
                 Fire(def, TriggerKind.OnBlock, att, StatusId.None, prevented);
                 if (Over || !def.Alive || !att.Alive) return 0;
             }
+            else dmg = DroneGuard(def, dmg); // Launch Bay drones (5★+) guard one hit, then break
             double dealt = DealDamage(att, def, dmg, false, ActionFor(kind), crit, StatusId.None, null);
             double absorbed = _lastAbsorbed;
+            if (def.Role == CombatRole.Worm)
+            {
+                def.LastAttacker = att.Index;
+                if (!def.HitBy.Contains(att.Index)) def.HitBy.Add(att.Index);
+            }
+            // Payback Coil (Aegis Walker 5★+): the worm's counterattacks store a share of their damage
+            if (kind == AttackKind.Counter && att.Role == CombatRole.Worm && dealt > 0)
+            {
+                var cm = MountOf(att.Side);
+                if (cm != null && cm.Rules.CoilCounterPct > 0) StoreCoil(att, dealt * cm.Rules.CoilCounterPct / 100.0);
+            }
             att.LastKind = kind; att.LastTarget = def.Index; att.Attacked = true;
             if (kind == AttackKind.Rage) att.RageCrit = crit;
             if (dealt > att.BestDealt) { att.BestDealt = dealt; att.BestKind = kind; att.BestTarget = def.Index; }
@@ -1132,17 +1212,35 @@ namespace RogueStars.Rules.Systems
             if (def.HitsTakenRoundNo != Round) { def.HitsTakenRoundNo = Round; def.HitsTakenRound = 0; }
             def.HitsTakenRound++;
             def.HitHistory.Add(dealt);
-            if (def.HitHistory.Count > 3) def.HitHistory.RemoveAt(0);
+            def.HitFrom.Add(att.Index);
+            if (def.HitHistory.Count > 3) { def.HitHistory.RemoveAt(0); def.HitFrom.RemoveAt(0); }
             att.HitsLanded++;
 
             var ar = RulesOf(att);
             bool procs = ar == null || ar.ProcCap <= 0 || att.Strikes <= ar.ProcCap; // Endless Chain: no on-hit effects past the cap
+            bool wormExtra = extra && att.Role == CombatRole.Worm;
             if (procs)
             {
-                Fire(att, TriggerKind.OnHit, def, StatusId.None, dealt);
-                if (crit) Fire(att, TriggerKind.OnCrit, def, StatusId.None, dealt);
+                if (wormExtra) _extraHitDepth++; // Double Tap: the statuses this extra hit applies count twice
+                try
+                {
+                    Fire(att, TriggerKind.OnHit, def, StatusId.None, dealt);
+                    if (crit) Fire(att, TriggerKind.OnCrit, def, StatusId.None, dealt);
+                }
+                finally { if (wormExtra) _extraHitDepth--; }
+                // Seasoning / Turning Sand: the next hit carries the signatures' on-hit N times
+                if (att.PendingCarry > 0 && def.Alive && !Over) { int pc = att.PendingCarry; att.PendingCarry = 0; Carry(att, def, pc); }
             }
-            if (absorbed > 0) Fire(def, TriggerKind.OnShieldHit, att, StatusId.None, absorbed);
+            if (wormExtra && !Over && att.Alive)
+            {
+                if (_acting == att) att.ExtraHitsTurn++;
+                Fire(att, TriggerKind.OnExtraHit, def, StatusId.None, dealt);
+            }
+            if (absorbed > 0)
+            {
+                Fire(def, TriggerKind.OnShieldHit, att, StatusId.None, absorbed);
+                if (def.Rules.AbilityShieldHits > 0 && !Over && def.Alive) AbilityCount(def, 1, def.Rules.AbilityShieldHits); // Starfall's count
+            }
             Fire(def, TriggerKind.OnDamaged, att, StatusId.None, dealt);
 
             if (Over || !def.Alive || !att.Alive || counterDepth >= T.MaxChain) return dealt;
@@ -1170,9 +1268,9 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         private double ComputeDamage(Fighter att, Fighter def, double atkPct, double bonusPct, bool crit, AttackKind kind, bool trueDamage)
         {
-            double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + att.S(StatId.CritDamage), def.S(StatId.CritResist));
+            double critMult = CombatMath.CritMultiplier(T.BaseCritDamage + CritSource(att).S(StatId.CritDamage), def.S(StatId.CritResist));
             double share = 1;
-            if (att.Sidekick) { share = atkPct / 100.0 * att.AtkPct / 100.0; atkPct = 100; }
+            if (att.Sidekick || att.Rider) { share = atkPct / 100.0 * att.AtkPct / 100.0; atkPct = 100; } // the mount's "X% ATK" like a sidekick's
             return CombatMath.HitDamage(AtkOf(att), atkPct, bonusPct, def.S(StatId.Def), def.S(StatId.DamageReduction), trueDamage,
                 crit, critMult, CondMultiplier(att, def, kind), TakenMultiplier(def), T) * DealtMultiplier(att) * share;
         }
@@ -1254,19 +1352,32 @@ namespace RogueStars.Rules.Systems
             double absorbed = 0;
             if (!ignoreShield && target.Shield > 0) { absorbed = Math.Min(target.Shield, amount); target.Shield -= absorbed; }
             double hpLoss = Math.Min(target.Hp, amount - absorbed);
+            double hpBefore = target.Hp;
             target.Hp -= hpLoss;
+            if (hpLoss > 0) target.HpLostRound = true;
             double dealt = absorbed + hpLoss;
+            if (src != null) src.LastHitCrit = crit;
             if (src != null) src.DamageDealt += dealt;
             if (src != null && src.Side == BattleSide.Player && target.Side == BattleSide.Enemy) Res.PlayerDamageDealt += (long)Math.Round(dealt);
             if (target.Side == BattleSide.Player) Res.PlayerDamageTaken += (long)Math.Round(dealt);
             var e = Log(action, src, target, dealt);
             if (e != null) { e.Crit = crit; e.Status = status; e.SkillId = skillId; }
 
+            // Payback Coil (Aegis Walker): a share of every damage the worm takes, shielded hits included; Supernova recoil counts more
+            if (target.Role == CombatRole.Worm && dealt > 0 && src != null && src.Side != target.Side)
+            {
+                var cm = MountOf(target.Side);
+                if (cm != null && cm.Rules.CoilPct > 0)
+                    StoreCoil(target, dealt * cm.Rules.CoilPct / 100.0 * (action == BattleAction.Supernova && cm.Rules.CoilRecoilX > 0 ? cm.Rules.CoilRecoilX : 1));
+            }
             if (target.Hp < 0.5 && target.HasFatal && !Over)
             {
-                // a fatal hit: OnFatal effects (Last Word, Sacrifice Protocol, Loop) may save the fighter
+                // a fatal hit: OnFatal effects (Last Word, Sacrifice Protocol, Loop, kit saves) may save the fighter — one save per battle
                 target.Hp = 0;
+                double prevFatal = _fatalHpBefore;
+                _fatalHpBefore = hpBefore;
                 Fire(target, TriggerKind.OnFatal, src, StatusId.None, amount);
+                _fatalHpBefore = prevFatal;
             }
             if (target.Hp < 0.5)
             {
@@ -1278,6 +1389,7 @@ namespace RogueStars.Rules.Systems
                 CheckOver();
                 if (src != null && src.Alive) Fire(src, TriggerKind.OnKill, target);
                 foreach (var o in F) if (o.Alive && o.Side != target.Side && !Over) Fire(o, TriggerKind.OnEnemyDeath, target);
+                MarkDied(target); // Spotlight moves on; Contagion carries the statuses over
                 // Overkill: damage past the killed fighter's HP carries over to the next enemy
                 var ors = RulesOf(src);
                 double excess = amount - absorbed - hpLoss;
@@ -1292,11 +1404,12 @@ namespace RogueStars.Rules.Systems
                 target.LowHpFired = true;
                 Fire(target, TriggerKind.OnLowHp, src);
             }
+            if (absorbed > 0) ShieldParts(target, src); // siphon / ice-wall parts of the shield; a broken ice wall bursts
             _lastAbsorbed = absorbed;
             return dealt;
         }
 
-        private void Heal(Fighter src, Fighter target, double amount, BattleAction action, string skillId, bool overhealToShield)
+        private void Heal(Fighter src, Fighter target, double amount, BattleAction action, string skillId, bool overhealToShield, bool siphon = false)
         {
             if (!target.Alive || amount <= 0) return;
             var tr = RulesOf(target);
@@ -1307,7 +1420,30 @@ namespace RogueStars.Rules.Systems
             double healed = Math.Min(Math.Max(0, target.MaxHp - target.Hp), amount);
             target.Hp += healed;
             double extra = overhealToShield ? amount - healed : 0;
+            if (extra > 0 && siphon)
+            {
+                // Siphon Line (5★+): overheal becomes a shield up to the mount's cap (% max HP)
+                var sm = MountOf(target.Side);
+                double cap = sm != null ? sm.Rules.SiphonCapPct / 100.0 * target.MaxHp : 0;
+                extra = Math.Max(0, Math.Min(extra, cap - target.SiphonShield));
+                target.SiphonShield += extra;
+            }
             if (extra > 0) target.Shield += extra;
+            // Guiding Star (Star Knight 7★): every 10% max HP healed counts as one hit absorbed by the shield
+            if (healed > 0 && target.Rules.HealsCountPct > 0 && target.Rules.AbilityShieldHits > 0 && target.MaxHp > 0)
+            {
+                target.HealAcc += healed;
+                double step = target.MaxHp * target.Rules.HealsCountPct / 100.0;
+                int n = 0;
+                while (target.HealAcc >= step) { target.HealAcc -= step; n++; }
+                if (n > 0 && !Over)
+                {
+                    var e0 = Log(action, src, target, healed + extra);
+                    if (e0 != null) e0.SkillId = skillId;
+                    AbilityCount(target, n, target.Rules.AbilityShieldHits);
+                    return;
+                }
+            }
             if (healed > 0 || extra > 0)
             {
                 var e = Log(action, src, target, healed + extra);
@@ -1317,7 +1453,7 @@ namespace RogueStars.Rules.Systems
 
         private void GainRage(Fighter f, double baseAmount)
         {
-            f.Rage = Math.Min(T.RageOverfillMax, f.Rage + baseAmount * (1 + f.S(StatId.RageGain) / 100.0));
+            AddRage(f, baseAmount * (1 + f.S(StatId.RageGain) / 100.0));
         }
 
         // ---- skills ---------------------------------------------------------------------------
@@ -1356,6 +1492,15 @@ namespace RogueStars.Rules.Systems
                 case EffectKind.Rewind:
                 case EffectKind.Loop:
                 case EffectKind.Guard:
+                case EffectKind.CarrySignatures:
+                case EffectKind.AdvanceTimer:
+                case EffectKind.MountFire:
+                case EffectKind.FireAbility:
+                case EffectKind.RiderAttack:
+                case EffectKind.Whistle:
+                case EffectKind.SpreadStatus:
+                case EffectKind.ChargeAllies:
+                case EffectKind.GainRunCoins:
                     return true;
                 default:
                     return false;
@@ -1430,6 +1575,10 @@ namespace RogueStars.Rules.Systems
                     case BattleConditions.Kind.FirstHitTaken: ok = owner.HitsTakenRoundNo == Round && owner.HitsTakenRound == 1; break;
                     case BattleConditions.Kind.ComboStrikes: ok = owner.ComboStrikes == (int)t.N; break;
                     case BattleConditions.Kind.RageCrit: ok = owner.RageCrit; break;
+                    case BattleConditions.Kind.WormRage: { var w = owner.Role == CombatRole.Worm ? owner : FirstWorm(owner.Side); ok = w != null && w.Rage >= t.N - 1e-6; break; }
+                    case BattleConditions.Kind.CritKill: ok = owner.LastHitCrit; break;
+                    case BattleConditions.Kind.ExtraHits: ok = owner.ExtraHitsTurn >= (int)t.N; break;
+                    case BattleConditions.Kind.SiphonFull: { var w = owner.Role == CombatRole.Worm ? owner : FirstWorm(owner.Side); ok = w != null && SiphonFull(w); break; }
                     default: ok = false; break;
                 }
                 if (!ok) return false;
@@ -1437,7 +1586,23 @@ namespace RogueStars.Rules.Systems
             return true;
         }
 
+        /// <summary>
+        /// Fires the owner's triggers of a kind; a worm's events also reach its mount's Rider triggers (hero &amp; mount kits: the mount
+        /// listens to its worm's status applications, crits, rage attacks, fatal hits …; their gates read the worm).
+        /// </summary>
         private void Fire(Fighter owner, TriggerKind kind, Fighter ctx, StatusId ctxStatus = StatusId.None, double amount = 0)
+        {
+            FireOn(owner, owner, false, kind, ctx, ctxStatus, amount);
+            if (owner.Role == CombatRole.Worm && !_noRider && owner.Alive)
+            {
+                var m = MountOf(owner.Side);
+                if (m != null && m.Alive && (!Over || kind == TriggerKind.OnBattleWon)) FireOn(m, owner, true, kind, ctx, ctxStatus, amount);
+            }
+        }
+
+        private static bool IsSave(EffectKind k) => k == EffectKind.CheatDeath || k == EffectKind.Sacrifice || k == EffectKind.Loop;
+
+        private void FireOn(Fighter owner, Fighter gate, bool rider, TriggerKind kind, Fighter ctx, StatusId ctxStatus, double amount)
         {
             if (!owner.Alive) return;
             if (Over && kind != TriggerKind.OnBattleWon) return;
@@ -1452,16 +1617,19 @@ namespace RogueStars.Rules.Systems
                     for (int ti = 0; ti < skill.Triggers.Count; ti++)
                     {
                         var t = skill.Triggers[ti];
-                        if (t.When != kind || !IsBattleEffect(t.Effect)) continue;
+                        if (t.When != kind || !IsBattleEffect(t.Effect) || t.Rider != rider) continue;
+                        // one fatal-save per battle across every source (Last Word, Sacrifice, Loop, Last Constellation, Borrowed Sand, Cryo Pod)
+                        if (kind == TriggerKind.OnFatal && IsSave(t.Effect) && gate.FatalSaved) continue;
+                        // the status filter (a status name as the Param's head; kit tokens such as "round_cap:30" are no filter)
                         if ((kind == TriggerKind.OnStatusApplied || kind == TriggerKind.OnStatusConsumed)
-                            && !string.IsNullOrEmpty(t.Param) && ParamHead(t.Param) != ctxStatus.ToString()) continue;
+                            && !string.IsNullOrEmpty(t.Param) && ParamHead(t.Param).IndexOf(':') < 0 && ParamHead(t.Param) != ctxStatus.ToString()) continue;
                         if (kind == TriggerKind.OnStackThreshold)
                         {
                             if (!ParseThreshold(t.Param, out var ts, out var tn) || ts != ctxStatus || !(thrPrev < tn && amount >= tn)) continue;
                         }
                         if (Round < owner.Ready[si][ti]) continue;
                         if (t.MaxPerBattle > 0 && owner.Fired[si][ti] >= t.MaxPerBattle) continue;
-                        if (!string.IsNullOrEmpty(t.If) && !Check(owner, ctx, t.If)) continue;
+                        if (!string.IsNullOrEmpty(t.If) && !Check(gate, ctx, t.If)) continue;
                         int times = 1;
                         if (t.EveryN > 0)
                         {
@@ -1474,8 +1642,10 @@ namespace RogueStars.Rules.Systems
                         double chance = t.Chance;
                         if (t.Effect == EffectKind.ApplyStatus) chance *= 1 + owner.S(StatId.StatusChance) / 100.0;
                         if (chance < 100 && !R.Chance(chance / 100.0)) continue;
+                        if (!TurnCapOk(owner, skill, ti, t)) continue;
                         if (t.CooldownRounds > 0) owner.Ready[si][ti] = Round + t.CooldownRounds;
                         owner.Fired[si][ti]++;
+                        _firedCount++;
                         for (int n = 0; n < times; n++)
                         {
                             Execute(owner, skill, t, ctx, amount);
@@ -1529,6 +1699,39 @@ namespace RogueStars.Rules.Systems
                 case TargetKind.AllAllies:
                     foreach (var o in F) if (o.Side == owner.Side && o.Alive) list.Add(o);
                     break;
+                case TargetKind.SecondEnemy:
+                {
+                    // the enemy behind the context (or front) enemy
+                    var line = new List<Fighter>();
+                    foreach (var o in F) if (o.Side != owner.Side && o.Alive && o.Targetable) line.Add(o);
+                    var basis = ctx != null && line.Contains(ctx) ? ctx : (line.Count > 0 ? line[0] : null);
+                    int at = basis != null ? line.IndexOf(basis) : -1;
+                    if (at >= 0 && at + 1 < line.Count) list.Add(line[at + 1]);
+                    break;
+                }
+                case TargetKind.LastAttacker:
+                {
+                    var w = FirstWorm(owner.Side);
+                    var la = w != null && w.LastAttacker >= 0 && w.LastAttacker < F.Count ? F[w.LastAttacker] : null;
+                    if (la != null && la.Alive && la.Targetable && la.Side != owner.Side) list.Add(la);
+                    else { var d = DefaultTarget(owner); if (d != null) list.Add(d); }
+                    break;
+                }
+                case TargetKind.Attackers:
+                {
+                    var w = FirstWorm(owner.Side);
+                    if (w != null) foreach (var i in w.HitBy) if (i >= 0 && i < F.Count && F[i].Alive && F[i].Targetable && F[i].Side != owner.Side) list.Add(F[i]);
+                    if (list.Count == 0) { var d = DefaultTarget(owner); if (d != null) list.Add(d); }
+                    break;
+                }
+                case TargetKind.FastestNonBoss:
+                {
+                    Fighter best = null;
+                    foreach (var o in F)
+                        if (o.Side != owner.Side && o.Alive && o.Targetable && o.Role != CombatRole.Boss && (best == null || o.S(StatId.Speed) > best.S(StatId.Speed))) best = o;
+                    if (best != null) list.Add(best);
+                    break;
+                }
                 case TargetKind.OtherEnemies:
                 {
                     var opts = new List<Fighter>();
@@ -1598,6 +1801,9 @@ namespace RogueStars.Rules.Systems
                             extra = ro.Rules.ArcLoopPct;
                         }
                     }
+                    // Drain Hose A5: with a full siphon shield the shot hits every enemy
+                    if (HasToken(t.Param, "wide_siphon")) { var sw = FirstWorm(owner.Side); if (sw != null && SiphonFull(sw)) targets = Targets(owner, TargetKind.AllEnemies, ctx); }
+                    bool forceCrit = HasToken(t.Param, "crit"), onCrit = HasToken(t.Param, "oncrit"), coil = HasToken(t.Param, "coil");
                     // Wide (aliens pass): a sidekick's hit also strikes one random other enemy at WidePct %
                     if (owner.Sidekick && owner.Wide && t.Target != TargetKind.AllEnemies)
                     {
@@ -1612,8 +1818,9 @@ namespace RogueStars.Rules.Systems
                         if (Over || !owner.Alive) break;
                         if (tg == null || !tg.Alive || tg.Side == owner.Side) continue;
                         double wide = owner.Sidekick && owner.Wide && ti == targets.Count - 1 && t.Target != TargetKind.AllEnemies ? C.AlienTuning.WidePct / 100.0 : 1;
-                        SkillHit(owner, skill, tg, t.Value, bonus, isTrue, arc, (1 + extra / 100.0) * wide, ro);
+                        SkillHit(owner, skill, tg, t.Value, bonus, isTrue, arc, (1 + extra / 100.0) * wide * _abilityMult, ro, forceCrit, onCrit, coil ? owner.Coil : 0);
                     }
+                    if (coil && owner.Coil > 0) owner.CoilUsed = true; // Payback Cannon empties the coil after the shot
                     // Zip Strike (aliens pass, Param "combo"): the sidekick's strike rolls the worm's combo chance for more strikes
                     // (decaying like a combo chain) and each fires the worm's combo payoffs
                     if (t.Param == "combo" && owner.Sidekick && !Over)
@@ -1638,6 +1845,15 @@ namespace RogueStars.Rules.Systems
                 {
                     bool perStatus = HasToken(t.Param, "per_status"), perUnit = HasToken(t.Param, "per_unit");
                     int cd = (int)ParamNumber(t.Param, "cd");
+                    var status = t.Status;
+                    if (status == StatusId.None && HasToken(t.Param, "owned"))
+                    {
+                        // a random status the run applies (Flask, Scan Pulse; never crowd control); none owned → nothing
+                        var w = FirstWorm(owner.Side);
+                        if (w == null || w.Owned == null || w.Owned.Count == 0) break;
+                        status = w.Owned[R.Range(0, w.Owned.Count)];
+                    }
+                    double bossRage = ParamNumber(t.Param, "boss_rage");
                     // Twin (aliens pass): +1 stack on every 2nd action of the sidekick
                     int twin = owner.Sidekick && owner.Twin && owner.ActCount > 0 && owner.ActCount % Math.Max(1, C.AlienTuning.TwinEvery) == 0 ? 1 : 0;
                     foreach (var tg in targets)
@@ -1647,41 +1863,75 @@ namespace RogueStars.Rules.Systems
                         if (perStatus) n *= CountStatuses(tg);       // Fallout Aura: per different status the target has
                         if (perUnit) n *= Math.Max(0, (int)Math.Round(amount)); // Fallout Wounds: per stack consumed
                         if (n <= 0) continue;
-                        ApplyStatus(owner, tg, t.Status, n, t.Duration, skill.Id);
+                        if (bossRage > 0 && tg.Role == CombatRole.Boss)
+                        {
+                            // Time Debt: bosses are never skipped, they lose rage instead
+                            AddRage(tg, -bossRage, true);
+                            var be = Log(BattleAction.GainRage, owner, tg, -bossRage);
+                            if (be != null) be.SkillId = skill.Id;
+                            continue;
+                        }
+                        ApplyStatus(owner, tg, status, n, t.Duration, skill.Id);
                         // "cd:N": the target can't get it again for N rounds (Chronoslug's Delay, like Freeze's re-apply cooldown)
-                        if (cd > 0 && tg.Status(t.Status) != null && tg.StatusCd[(int)t.Status] < Round + cd) tg.StatusCd[(int)t.Status] = Round + cd;
+                        if (cd > 0 && tg.Status(status) != null && tg.StatusCd[(int)status] < Round + cd) tg.StatusCd[(int)status] = Round + cd;
                     }
                     break;
                 }
                 case EffectKind.Heal:
+                {
+                    bool ofAmount = HasToken(t.Param, "of_amount"), perUnitHeal = HasToken(t.Param, "per_unit"), siphon = HasToken(t.Param, "siphon");
+                    bool overheal = t.Param == "overheal_shield" || HasToken(t.Param, "overheal_shield");
+                    double roundCap = ParamNumber(t.Param, "round_cap");
+                    var hp = RulesOwner(owner) ?? owner; // a mount heals with its worm's heal power
                     foreach (var tg in targets)
-                        if (!tg.Sidekick) // sidekicks have no HP to heal
-                            Heal(owner, tg, tg.MaxHp * t.Value / 100.0 * SupportScale(owner) * (1 + owner.S(StatId.HealPower) / 100.0), BattleAction.Heal, skill.Id, t.Param == "overheal_shield");
+                    {
+                        if (tg.Sidekick) continue; // sidekicks have no HP to heal
+                        double pct = t.Value * (perUnitHeal ? Math.Max(0, amount) : 1);
+                        if (roundCap > 0) pct = RoundCapped(owner, skill.Id, roundCap, pct); // Taste Test: at most N% max HP per round
+                        if (pct <= 0) continue;
+                        double basis = ofAmount ? Math.Max(0, amount) : tg.MaxHp; // Siphon Line: a share of the status damage
+                        Heal(owner, tg, basis * pct / 100.0 * SupportScale(owner) * (1 + hp.S(StatId.HealPower) / 100.0), BattleAction.Heal, skill.Id, overheal, siphon);
+                    }
                     break;
+                }
                 case EffectKind.Shield:
                     foreach (var tg in targets)
                     {
                         if (!tg.Alive || tg.Sidekick) continue;
                         // "of_amount": a share of the trigger's amount (Rebound Plating: of the counter's damage), else of max HP
                         double basis = HasToken(t.Param, "of_amount") ? Math.Max(0, amount) : tg.MaxHp;
-                        double amt = basis * t.Value / 100.0 * SupportScale(owner) * (1 + owner.S(StatId.ShieldPower) / 100.0)
+                        var sp = owner.Rider ? (RulesOwner(owner) ?? owner) : owner; // a mount shields with its worm's shield power
+                        double amt = basis * t.Value / 100.0 * SupportScale(owner) * (1 + sp.S(StatId.ShieldPower) / 100.0)
                             * (owner.Sidekick && owner.Bulwark ? 1 + C.AlienTuning.BulwarkPct / 100.0 : 1);
                         if (amt <= 0) continue;
                         tg.Shield += amt;
+                        double wall = ParamNumber(t.Param, "wall");
+                        if (wall > 0)
+                        {
+                            // Ice Wall (Frost Frigate 5★+): this part of the shield bursts when it breaks
+                            tg.WallShield += amt; tg.WallPct = wall; tg.WallAll = HasToken(t.Param, "wall_all"); tg.WallOwner = owner.Index; tg.WallSkill = skill.Id;
+                        }
                         var e = Log(BattleAction.Shield, owner, tg, amt);
                         if (e != null) e.SkillId = skill.Id;
                     }
                     break;
                 case EffectKind.GainRage:
+                {
+                    bool fill = HasToken(t.Param, "fill"), bosses = HasToken(t.Param, "bosses"), debt = HasToken(t.Param, "debt");
+                    double roundCap = ParamNumber(t.Param, "round_cap");
                     foreach (var tg in targets)
                     {
-                        if (!tg.Alive || tg.Sidekick) continue; // sidekicks have no rage
-                        double rage = t.Value * SupportScale(owner);
-                        tg.Rage = Math.Min(T.RageOverfillMax, tg.Rage + rage);
+                        if (!tg.Alive || tg.Sidekick || tg.Role == CombatRole.Mount) continue; // sidekicks and mounts have no rage
+                        if (bosses && tg.Role != CombatRole.Boss) continue;
+                        double rage = fill ? Math.Max(0, T.RageMax - tg.Rage) : t.Value * SupportScale(owner);
+                        if (roundCap > 0 && rage > 0) rage = RoundCapped(owner, skill.Id, roundCap, rage); // Ignition, Pressure Valve
+                        if (rage == 0) continue;
+                        AddRage(tg, rage, debt);
                         var e = Log(BattleAction.GainRage, owner, tg, rage);
                         if (e != null) e.SkillId = skill.Id;
                     }
                     break;
+                }
                 case EffectKind.BuffStat:
                     if (t.Stat == null) break;
                     foreach (var tg in targets)
@@ -1726,7 +1976,18 @@ namespace RogueStars.Rules.Systems
                     Summon(owner, skill, t);
                     break;
                 case EffectKind.RemoveStatus:
-                    foreach (var tg in targets) RemoveStacks(owner, tg, t.Status, t.Stacks, skill.Id);
+                    foreach (var tg in targets)
+                    {
+                        var rs = t.Status == StatusId.None && HasToken(t.Param, "largest") ? Largest(tg) : t.Status; // Coolant Loop
+                        if (rs == StatusId.None) continue;
+                        int removed = RemoveStacks(owner, tg, rs, t.Stacks, skill.Id);
+                        if (removed > 0 && HasToken(t.Param, "to_front") && OwnableStatus(rs) && !Over)
+                        {
+                            var front = DefaultTarget(tg); // Coolant Loop A5: the removed stacks go onto the front enemy
+                            var w = FirstWorm(owner.Side);
+                            if (front != null && w != null) ApplyStatus(w, front, rs, removed, 0, skill.Id);
+                        }
+                    }
                     break;
                 case EffectKind.ConsumeStatus:
                     foreach (var tg in targets) { if (Over || !owner.Alive) break; Consume(owner, skill, t, tg); }
@@ -1875,24 +2136,52 @@ namespace RogueStars.Rules.Systems
                     break;
                 }
                 case EffectKind.CheatDeath:
-                    if (owner.Hp < 1) owner.Hp = 1;
+                {
+                    var saved = owner.Rider ? (FirstWorm(owner.Side) ?? owner) : owner; // Cryo Pod (a mount's) saves its worm
+                    if (saved.FatalSaved) break;
+                    saved.FatalSaved = true;
+                    if (HasToken(t.Param, "undo")) saved.Hp = Math.Max(1, Math.Min(saved.MaxHp, _fatalHpBefore)); // Borrowed Sand: the hit is undone
+                    if (saved.Hp < 1) saved.Hp = 1;
                     {
-                        var e = Log(BattleAction.CheatDeath, owner, owner, 0);
+                        var e = Log(BattleAction.CheatDeath, owner, saved, 0);
                         if (e != null) e.SkillId = skill.Id;
                     }
-                    if (HasToken(t.Param, "counter_window")) owner.CounterWindow = true; // Last Word: counter every hit until your next turn
+                    if (HasToken(t.Param, "counter_window")) saved.CounterWindow = true; // Last Word: counter every hit until your next turn
+                    if (HasToken(t.Param, "stasis"))
+                    {
+                        // Cryo Pod: the worm skips its next turn and heals
+                        saved.SkipNextTurn = true;
+                        Heal(owner, saved, saved.MaxHp * t.Value / 100.0, BattleAction.Heal, skill.Id, false);
+                    }
+                    double ab = ParamNumber(t.Param, "ability");
+                    if (ab > 0 && !Over) FireAbility(saved, ab / 100.0); // Last Constellation: Starfall at double damage
                     break;
+                }
                 case EffectKind.FreeRageAttack:
                 {
-                    var tg = targets.Count > 0 ? targets[0] : DefaultTarget(owner);
-                    if (tg == null || !tg.Targetable) tg = DefaultTarget(owner);
+                    var actor = HasToken(t.Param, "worm") ? FirstWorm(owner.Side) : owner; // Eruption A5: the worm attacks
+                    if (actor == null || !actor.Alive) break;
+                    var tg = targets.Count > 0 ? targets[0] : DefaultTarget(actor);
+                    if (tg == null || !tg.Targetable) tg = DefaultTarget(actor);
                     if (tg == null) break;
-                    Mark(owner, owner, skill);
-                    double dealt = Attack(owner, tg, AttackKind.Rage, 0);
-                    Fire(owner, TriggerKind.OnRageAttack, tg, StatusId.None, dealt);
+                    Mark(owner, actor, skill);
+                    double dealt = Attack(actor, tg, AttackKind.Rage, 0);
+                    Fire(actor, TriggerKind.OnRageAttack, tg, StatusId.None, dealt);
                     break;
                 }
                 case EffectKind.Charge:
+                    if (owner.Rider)
+                    {
+                        // Lance Sight: each worm crit charges the next shot (double on enemies below the threshold), capped
+                        double v = t.Value;
+                        double below = ParamNumber(t.Param, "double_below");
+                        if (below > 0 && ctx != null && ctx.HpPct < below) v *= 2;
+                        double cap = ParamNumber(t.Param, "cap");
+                        owner.ShotCharge = cap > 0 ? Math.Min(cap, owner.ShotCharge + v) : owner.ShotCharge + v;
+                        var ce = Log(BattleAction.KitCounter, owner, owner, owner.ShotCharge);
+                        if (ce != null) { ce.SkillId = skill.Id; ce.Stacks = (int)cap; }
+                        break;
+                    }
                     owner.CounterCharge += t.Value;
                     Mark(owner, owner, skill, owner.CounterCharge);
                     break;
@@ -1901,6 +2190,7 @@ namespace RogueStars.Rules.Systems
                     double loss = Math.Min(owner.Hp - 1, owner.MaxHp * t.Value / 100.0);
                     if (loss <= 0) break;
                     owner.Hp -= loss;
+                    owner.HpLostRound = true;
                     var e = Log(BattleAction.Skill, owner, owner, loss);
                     if (e != null) e.SkillId = skill.Id;
                     break;
@@ -1919,7 +2209,8 @@ namespace RogueStars.Rules.Systems
                 {
                     Fighter kick = null;
                     foreach (var o in F) if (o.Side == owner.Side && o.Alive && o.Sidekick) { kick = o; break; }
-                    if (kick == null) break;
+                    if (kick == null || owner.FatalSaved) break;
+                    owner.FatalSaved = true;
                     kick.Alive = false;
                     var e = Log(BattleAction.Sacrifice, kick, owner, 0);
                     if (e != null) e.SkillId = skill.Id;
@@ -1942,7 +2233,9 @@ namespace RogueStars.Rules.Systems
                         if (tg == null) break;
                         var e = Log(BattleAction.Echo, owner, tg, 0);
                         if (e != null) e.SkillId = skill.Id;
-                        Attack(owner, tg, kind == AttackKind.Skill || kind == AttackKind.Arc ? AttackKind.Basic : kind, 0, mult);
+                        owner.ExtraDepth++; // an Echo is an extra hit
+                        try { Attack(owner, tg, kind == AttackKind.Skill || kind == AttackKind.Arc ? AttackKind.Basic : kind, 0, mult); }
+                        finally { owner.ExtraDepth--; }
                     }
                     break;
                 }
@@ -1950,26 +2243,61 @@ namespace RogueStars.Rules.Systems
                 {
                     double sum = 0;
                     int n = Math.Max(1, t.Stacks);
-                    for (int i = owner.HitHistory.Count - 1; i >= 0 && n > 0; i--, n--) sum += owner.HitHistory[i];
+                    var from = new List<int>();
+                    for (int i = owner.HitHistory.Count - 1; i >= 0 && n > 0; i--, n--) { sum += owner.HitHistory[i]; if (i < owner.HitFrom.Count) from.Add(owner.HitFrom[i]); }
                     double back = Math.Min(sum, owner.MaxHp - owner.Hp);
                     if (back <= 0) break;
                     owner.Hp += back;
                     var e = Log(BattleAction.Heal, owner, owner, back);
                     if (e != null) e.SkillId = skill.Id;
+                    // the undone hits leave the history (they can't be undone twice)
+                    int drop = Math.Min(owner.HitHistory.Count, Math.Max(1, t.Stacks));
+                    owner.HitHistory.RemoveRange(owner.HitHistory.Count - drop, drop);
+                    int dropFrom = Math.Min(drop, owner.HitFrom.Count);
+                    owner.HitFrom.RemoveRange(owner.HitFrom.Count - dropFrom, dropFrom);
+                    double reflect = ParamNumber(t.Param, "reflect");
+                    if (reflect > 0) // Hour of Need: each undone hit strikes its attacker back
+                        foreach (var ai in from)
+                        {
+                            if (Over || !owner.Alive) break;
+                            var at = ai >= 0 && ai < F.Count ? F[ai] : null;
+                            if (at == null || !at.Alive || !at.Targetable || at.Side == owner.Side) continue;
+                            SkillHit(owner, skill, at, reflect, 0, false, false, 1, owner);
+                        }
                     break;
                 }
                 case EffectKind.Loop:
+                    if (owner.FatalSaved) break;
+                    owner.FatalSaved = true;
                     Restore(owner, skill);
+                    break;
+                default:
+                    ExecuteKit(owner, skill, t, ctx, amount, targets);
                     break;
             }
         }
 
         /// <summary>A skill's damage hit on one target (Damage / TrueDamage): crit roll, lifesteal (a sidekick's heals its worm), triggers.</summary>
-        private double SkillHit(Fighter owner, SkillDef skill, Fighter tg, double pct, double bonus, bool isTrue, bool arc, double mult, Fighter ro)
+        private double SkillHit(Fighter owner, SkillDef skill, Fighter tg, double pct, double bonus, bool isTrue, bool arc, double mult, Fighter ro,
+            bool forceCrit = false, bool onCrit = false, double flat = 0)
         {
-            bool crit = RollCrit(owner);
+            bool crit = forceCrit || RollCrit(owner, tg);
+            if (owner.Rider && owner.ShotCharge > 0) mult *= 1 + owner.ShotCharge / 100.0; // Lance Sight's charge
             double dmg = ComputeDamage(owner, tg, pct, bonus, crit, arc ? AttackKind.Arc : AttackKind.Skill, isTrue) * mult;
+            // Payback Cannon: + the stored damage (through the target's damage reduction)
+            if (flat > 0) dmg += flat * CombatMath.DamageReductionFactor(tg.S(StatId.DamageReduction), T) * TakenMultiplier(tg);
             double dealt = DealDamage(owner, tg, dmg, false, BattleAction.Skill, crit, StatusId.None, skill.Id);
+            if (owner.Sidekick && dealt > 0) { owner.SidekickHitThisAct = true; owner.SidekickHitTarget = tg.Index; }
+            if (crit && !Over)
+            {
+                // crit link: a mount's crits are its worm's (its on-crit skills fire); Broadside's always-crits fire them too
+                if (owner.Rider)
+                {
+                    var w = FirstWorm(owner.Side);
+                    if (w != null && w.Alive) { _noRider = true; try { Fire(w, TriggerKind.OnCrit, tg, StatusId.None, dealt); } finally { _noRider = false; } }
+                }
+                else if (onCrit && owner.Alive) Fire(owner, TriggerKind.OnCrit, tg, StatusId.None, dealt);
+            }
             // a sidekick's lifesteal (Vampiric) heals its worm: the sidekick itself is never hurt
             double ls = owner.Sidekick ? owner.S(StatId.LifeSteal) : 0;
             var lw = ls > 0 && dealt > 0 ? FirstWorm(owner.Side) : null;
@@ -2026,6 +2354,7 @@ namespace RogueStars.Rules.Systems
             if (st.Stacks <= 0) tg.Statuses.Remove(st);
             var e = Log(BattleAction.StatusRemoved, src, tg, n);
             if (e != null) { e.Status = id; e.Stacks = Math.Max(0, st.Stacks); e.SkillId = skillId; }
+            StatusLost(tg, id, n);
             return n;
         }
 
@@ -2039,28 +2368,40 @@ namespace RogueStars.Rules.Systems
         {
             if (!tg.Alive || tg.Side == owner.Side) return;
             var spec = ConsumeSpec.Of(t);
-            var before = tg.Status(t.Status);
+            var status = t.Status == StatusId.None && spec.Largest ? Largest(tg) : t.Status; // Feast eats the largest status
+            if (status == StatusId.None) return;
+            var before = tg.Status(status);
             if (before == null) return;
-            bool atMax = T.Statuses.TryGetValue(t.Status, out var sdef) && before.Stacks >= CapOf(sdef, SRules(before));
-            int n = RemoveStacks(owner, tg, t.Status, spec.Take, skill.Id);
+            bool atMax = T.Statuses.TryGetValue(status, out var sdef) && before.Stacks >= CapOf(sdef, SRules(before));
+            int n = RemoveStacks(owner, tg, status, spec.Take, skill.Id);
             if (n <= 0) return;
             var worm = owner.Targetable ? owner : FirstWorm(owner.Side);
             if (spec.HealAtk > 0 && worm != null && worm.Alive)
             {
                 // Thorn Harvest (aliens pass): heal the worm HealAtk % of ATK (a sidekick's: its worm's × alien power) per stack consumed
                 var hr = RulesOf(owner);
-                double pct = spec.HealAtk * n * (1 + (hr != null ? hr.Of(t.Status).ConsumeHealPct : 0) / 100.0);
+                double pct = spec.HealAtk * n * (1 + (hr != null ? hr.Of(status).ConsumeHealPct : 0) / 100.0);
                 Heal(owner, worm, AtkOf(owner) * pct / 100.0, BattleAction.Heal, skill.Id, false);
             }
             if (spec.Dmg > 0)
             {
                 var el = ElementStat(skill.Family);
                 bool crit = RollCrit(owner);
-                double dmg = ComputeDamage(owner, tg, spec.Dmg * n, el == StatId.Atk ? 0 : owner.S(el), crit, AttackKind.Skill, false);
+                double dmg = ComputeDamage(owner, tg, spec.Dmg * n, el == StatId.Atk ? 0 : owner.S(el), crit, AttackKind.Skill, false) * _abilityMult;
                 double dealt = DealDamage(owner, tg, dmg, false, BattleAction.Skill, crit, StatusId.None, skill.Id);
                 var rules = RulesOf(owner);
-                double healPct = spec.Heal * (1 + (rules != null ? rules.Of(t.Status).ConsumeHealPct : 0) / 100.0);
+                double healPct = spec.Heal * (1 + (rules != null ? rules.Of(status).ConsumeHealPct : 0) / 100.0);
                 if (healPct > 0 && dealt > 0 && worm != null && worm.Alive) Heal(owner, worm, dealt * healPct / 100.0, BattleAction.Heal, skill.Id, false);
+                // Banquet (Chef 10★): a full Feast splashes every other enemy for a share of its damage
+                if (spec.Splash > 0 && spec.Take > 0 && n >= spec.Take && !Over)
+                    foreach (var o in new List<Fighter>(F))
+                    {
+                        if (Over) break;
+                        if (o == tg || o.Side == owner.Side || !o.Alive || !o.Targetable) continue;
+                        dealt += DealDamage(owner, o, ComputeDamage(owner, o, spec.Dmg * n * spec.Splash / 100.0, el == StatId.Atk ? 0 : owner.S(el), crit, AttackKind.Skill, false) * _abilityMult,
+                            false, BattleAction.Skill, crit, StatusId.None, skill.Id);
+                    }
+                StatusDamage(owner, dealt); // consumes are status damage (Siphon Line)
             }
             if (spec.Buff && spec.BuffValue > 0 && owner.Alive)
             {
@@ -2081,13 +2422,13 @@ namespace RogueStars.Rules.Systems
             }
             if (spec.RefundMax > 0 && atMax && worm != null && worm.Alive)
             {
-                worm.Rage = Math.Min(T.RageOverfillMax, worm.Rage + spec.RefundMax);
+                AddRage(worm, spec.RefundMax);
                 var e = Log(BattleAction.GainRage, owner, worm, spec.RefundMax);
                 if (e != null) e.SkillId = skill.Id;
             }
             // a sidekick's consume counts as its worm's (Fallout Wounds and other consume payoffs fire)
             var consumer = owner.Sidekick && worm != null ? worm : owner;
-            if (!Over && consumer.Alive) Fire(consumer, TriggerKind.OnStatusConsumed, tg, t.Status, n);
+            if (!Over && consumer.Alive) Fire(consumer, TriggerKind.OnStatusConsumed, tg, status, n);
         }
 
         /// <summary>The "heal:N" part of a consume trigger's Param (0 when absent).</summary>
@@ -2106,15 +2447,29 @@ namespace RogueStars.Rules.Systems
             var rules = SRules(st);
             var mark = Log(BattleAction.Supernova, x, x, 0);
             if (mark != null) { mark.Status = StatusId.Heat; mark.Stacks = st.Stacks; mark.SkillId = skillId; }
+            StatusLost(x, StatusId.Heat, st.Stacks);
+            if (Over) return;
             double dmg = st.Power * def.BurstAtkPct / 100.0 * (1 + ((heater != null ? Math.Max(0, heater.S(StatId.SupernovaDamage)) : 0) + bonusPct) / 100.0);
+            var hrs = RulesOf(heater);
+            bool canCrit = hrs != null && hrs.StatusCrit; // Dead Reckoning: Supernovas can crit
             var hit = new List<Fighter>();
             foreach (var o in F) if (o.Side == x.Side && o.Alive && o.Targetable) hit.Add(o);
+            double total = 0;
             foreach (var o in hit)
             {
                 if (Over) return;
                 double d = dmg * CombatMath.DamageReductionFactor(o.S(StatId.DamageReduction), T) * TakenMultiplier(o);
-                DealDamage(heater, o, d, false, BattleAction.Supernova, false, StatusId.Heat, null);
+                bool crit = false;
+                if (canCrit)
+                {
+                    var cs = CritSource(heater);
+                    crit = R.Chance(CombatMath.CritProbability(cs.S(StatId.CritChance), T));
+                    if (crit) d *= CombatMath.CritMultiplier(T.BaseCritDamage + cs.S(StatId.CritDamage), o.S(StatId.CritResist));
+                }
+                total += DealDamage(heater, o, d, false, BattleAction.Supernova, crit, StatusId.Heat, null);
             }
+            if (Over) return;
+            StatusDamage(heater, total);
             if (Over) return;
             var side = heater != null ? heater.Side : (x.Side == BattleSide.Player ? BattleSide.Enemy : BattleSide.Player);
             var worm = FirstWorm(side);
@@ -2135,11 +2490,12 @@ namespace RogueStars.Rules.Systems
             // aliens pass: a sidekick's statuses are the shared ones with its worm as the source (the worm's power and rules, the
             // worm's status triggers); the log still names the sidekick
             var actor = src;
-            if (src != null && src.Sidekick)
+            if (src != null && (src.Sidekick || src.Rider)) // rider link: a mount's statuses are its worm's too
             {
                 var w = FirstWorm(src.Side);
                 if (w != null) src = w;
             }
+            if (_extraHitDepth > 0 && src != null && src.Role == CombatRole.Worm && src.Rules.DoubleTap) stacks *= 2; // Double Tap
             double resist = CombatMath.Clamp(CombatMath.SoftCap(tg.S(StatId.StatusResist), T.StatusResistKnee), 0, 90) / 100.0;
             if (resist > 0 && R.Chance(resist))
             {
@@ -2161,7 +2517,7 @@ namespace RogueStars.Rules.Systems
             else if (def.HasElement) power = 1 + src.S(def.ElementStat) / 100.0;
             var srcRules = RulesOf(src);
             var sr = srcRules != null ? srcRules.Of(id) : RuleSet.None;
-            int cap = CapOf(def, sr);
+            int cap = CapOf(def, sr, true); // Deep Wells doubles the cap for applying; conditions read the base cap
             var st = tg.Status(id);
             int prev = st != null ? st.Stacks : 0;
             if (st == null)
@@ -2247,6 +2603,10 @@ namespace RogueStars.Rules.Systems
                 nf.SummonedBy = owner.Index;
                 InitSidekick(nf, AlienPowerOf(owner.Side));
                 nf.AtkPct = t.Value;
+                // Launch Bay (Hive Carrier): no signature (1★–A3) / every signature (A5), guards one hit (5★+)
+                nf.NoSig = HasToken(t.Param, "nosig");
+                nf.CarryOnAct = HasToken(t.Param, "carry");
+                nf.DroneGuardPct = ParamNumber(t.Param, "guard");
                 InitHp(nf);
                 var e = Log(BattleAction.Summon, owner, nf, 0);
                 if (e != null) e.SkillId = skill.Id;

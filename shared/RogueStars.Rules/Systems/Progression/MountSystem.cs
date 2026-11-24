@@ -6,8 +6,8 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Mounts (spaceships): one active, stars 1–5 then awakening 1–5, level by Fuel, weapon skills upgraded
-    /// at 2/4/5★ and awakening 3/5. Granter for RewardKinds.Mount (first copy unlocks at 1★, duplicates
+    /// Mounts (spaceships): one active, stars 1–5 then awakening 1–5, level by Fuel. Hero &amp; mount kits: a vehicle on a reload with
+    /// no stats, one passive + one active that change at 1★ / 3★ / 5★ / A3 / A5 (mount damage +5% at the steps between, +1% per level). Granter for RewardKinds.Mount (first copy unlocks at 1★, duplicates
     /// become mount shards).
     /// </summary>
     public static class MountSystem
@@ -33,15 +33,33 @@ namespace RogueStars.Rules.Systems
             return ProgressionUtil.ResolveSkillSteps(def.Weapons, st => st.Star <= stars && st.Awaken <= awaken);
         }
 
-        /// <summary>Mount combat stats: (base × (1+star%+awaken%)) + level growth × (1+awaken%).</summary>
+        /// <summary>
+        /// Hero &amp; mount kits: a mount has no stats. Its own bonus is mount damage (StatId.MountPower, % of the worm's ATK it hits
+        /// with): +DamagePctPerStep at each in-between step (2★, 4★, A1, A2, A4) and +DamagePctPerLevel per level above 1 (Fuel).
+        /// </summary>
         public static StatBlock MountStats(ContentDb c, string mountId, MountEntry m)
         {
-            var cfg = c.MountConfig; var def = cfg.Defs[mountId];
-            double star = cfg.StarStatPercent[Math.Min(m.Stars, cfg.StarStatPercent.Count - 1)];
-            double awk = cfg.AwakenStatPercent[Math.Min(m.Awaken, cfg.AwakenStatPercent.Count - 1)];
-            var b = ProgressionUtil.Scaled(def.BaseStats, 1 + (star + awk) / 100.0);
-            b.AddBlock(ProgressionUtil.Scaled(def.StatsPerLevel, (m.Level - 1) * (1 + awk / 100.0)));
+            var cfg = c.MountConfig;
+            var b = new StatBlock();
+            double pct = cfg.BetweenSteps(m.Stars, m.Awaken) * cfg.DamagePctPerStep + Math.Max(0, m.Level - 1) * cfg.DamagePctPerLevel;
+            if (pct > 0) b.Add(new StatMod(StatId.MountPower, pct));
             return b;
+        }
+
+        /// <summary>The mount's kit lines at its step: the passive and the active it has now.</summary>
+        public static List<KitText> KitNow(ContentDb c, string mountId, int stars, int awaken)
+        {
+            var def = c.MountConfig.Defs[mountId];
+            int k = c.MountConfig.KitStep(stars, awaken);
+            var list = new List<KitText>();
+            foreach (var slot in new[] { "Passive", "Active" })
+            {
+                KitText best = null;
+                int i = 0;
+                foreach (var line in def.Kit) if (line.Slot == slot) { if (i <= k) best = line; i++; }
+                if (best != null) list.Add(best);
+            }
+            return list;
         }
 
         public static StatBlock CollectionStats(GameState s, ContentDb c)

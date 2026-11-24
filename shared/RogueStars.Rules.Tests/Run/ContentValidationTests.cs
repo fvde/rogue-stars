@@ -84,9 +84,11 @@ public class ContentValidationTests
     /// two the owner set: lab Knockout (every research level) and Head Start. A new Common with CC fails here.
     /// </summary>
     [Fact]
-    public void NoCommon_AppliesCrowdControl_ExceptKnockoutAndHeadStart()
+    public void NoCommon_AppliesCrowdControl_ExceptKnockoutHeadStartAndTimeDebt()
     {
-        var allowed = new HashSet<string> { "lab_retaliation", "lab_retaliation_2", "lab_retaliation_3", "lab_retaliation_4", "lab_retaliation_5", "time_head_start" };
+        // hero and mount kits have no tiers (Common in the data): their only crowd control is the Chrono Skiff's single-target Delay (Time Debt)
+        var allowed = new HashSet<string> { "lab_retaliation", "lab_retaliation_2", "lab_retaliation_3", "lab_retaliation_4", "lab_retaliation_5", "time_head_start",
+            "mount_chrono_skiff_passive_1", "mount_chrono_skiff_passive_2", "mount_chrono_skiff_passive_3", "mount_chrono_skiff_passive_4", "mount_chrono_skiff_passive_5" };
         var cc = C.Combat.Statuses.Values.Where(d => d.SkipsTurn || d.Charms).Select(d => d.Id).ToHashSet();
         Assert.Superset(new HashSet<StatusId> { StatusId.Stun, StatusId.Freeze, StatusId.Delay, StatusId.Charm }, cc);
         bool AppliesCc(SkillDef s) => s.Triggers.Any(t => t.Effect == EffectKind.ApplyStatus && cc.Contains(t.Status));

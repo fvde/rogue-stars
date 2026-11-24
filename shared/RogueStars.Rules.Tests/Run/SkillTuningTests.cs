@@ -223,6 +223,16 @@ public class SkillTuningTests
         // a squad that guards every round: block-hooked skills (Decoy) are judged where blocks happen
         c.AddSkill(new SkillDef { Id = "kit_guards", Name = "Guards", Source = SkillSource.Building, Draftable = false,
             Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Block, Stacks = 1, Target = TargetKind.Self } } });
+        // a shield source: shield-hooked skills (Spiked Hide) are judged where shields absorb hits (a mount no longer shields by itself)
+        c.AddSkill(new SkillDef { Id = "kit_shield", Name = "Shield", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Shield, Value = 4, Target = TargetKind.Self } } });
+        // hero and mount kit situations (DeadEffectsTests.KitContext): heals, an element bonus, many combo strikes, a shield that holds
+        c.AddSkill(new SkillDef { Id = "kit_doomed", Name = "Doomed", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Hp, 0, -90) } });
+        c.AddSkill(new SkillDef { Id = "kit_leech", Name = "Leech", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.LifeSteal, 25) } });
+        c.AddSkill(new SkillDef { Id = "kit_element", Name = "Element", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.FireDamage, 40) } });
+        c.AddSkill(new SkillDef { Id = "kit_combo", Name = "Combo", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.ComboChance, 80) } });
+        c.AddSkill(new SkillDef { Id = "kit_bigshield", Name = "Big Shield", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Shield, Value = 8, Target = TargetKind.Self } } });
         // a sharp eye: skills gated on a critical rage attack (lab Frost Nova) are judged where rage attacks crit
         c.AddSkill(new SkillDef { Id = "kit_keen", Name = "Keen", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.CritChance, 60) } });
         // heavy stackers: skills gated on many stacks (20 Radiation, max Bleed / Shock) are judged where those stacks happen
@@ -256,6 +266,7 @@ public class SkillTuningTests
             case "consume:Bleed": Add("sig_bleed"); Add("bleed_frenzy"); break;
             case "blocks": Add("kit_guards"); break;
             case "echo": Add("sig_time"); break;
+            case "shield": Add("kit_shield"); break;
         }
         foreach (var st in new[] { StatusId.Poison, StatusId.Bleed, StatusId.Shock })
         {

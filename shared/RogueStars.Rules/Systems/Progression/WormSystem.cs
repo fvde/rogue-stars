@@ -80,7 +80,8 @@ namespace RogueStars.Rules.Systems
             double stats = 0;
             foreach (var kv in w.PowerWeights) stats += l.WormStats.Value(kv.Key) * kv.Value;
             double p = stats + l.MetaSkillIds.Count * w.PowerPerSkill;
-            p += (l.MountStats.Value(StatId.Atk) * 2 + l.MountStats.Value(StatId.Hp) * 0.2) * w.PowerPerMountStat;
+            // hero & mount kits: a mount has no stats; its worth is a share of the worm's stat power, more with its mount damage
+            if (!string.IsNullOrEmpty(l.MountId)) p += stats * (w.PowerMountBasePct + l.MountStats.Value(StatId.MountPower) * w.PowerPerMountStat) / 100.0;
             foreach (var a in l.Aliens)
             {
                 // sidekicks (aliens pass): no stats; a share of the worm's stat power by rarity and stars

@@ -57,6 +57,24 @@ namespace RogueStars.Rules.Core
         OnStatusConsumed,
         /// <summary>End of the owner's own turn (after its attacks).</summary>
         OnTurnEnd,
+        // ---- hero & mount kits (appended, saves store ints) ----
+        /// <summary>The owner's hero Ability fires (its timer ran out or its counter filled; context = the front enemy).</summary>
+        OnAbility,
+        /// <summary>A mount fires its active (every Reload rounds, or fired now; context = its mark or the front enemy).</summary>
+        OnVolley,
+        /// <summary>On the worm: its mount just fired (context = the front enemy).</summary>
+        OnMountFire,
+        /// <summary>A fighter of the other side lost status stacks (consumed, Supernova, Freeze reset, cooled, expired; context = it,
+        /// amount = stacks lost).</summary>
+        OnStatusLost,
+        /// <summary>The owner landed an extra hit: a combo strike, a counter, an Echo or a mount-made attack (context = the hit enemy).</summary>
+        OnExtraHit,
+        /// <summary>The owner's statuses dealt damage: a tick, a Supernova, a consume (amount = damage dealt).</summary>
+        OnStatusDamage,
+        /// <summary>A fighter of the other side skipped its turn (Delay, Freeze, Stun; context = it).</summary>
+        OnSkipTurn,
+        /// <summary>On the worm: one of its sidekicks' actions hit an enemy (once per action; context = the enemy hit).</summary>
+        OnSidekickHit,
     }
 
     public enum EffectKind
@@ -103,6 +121,15 @@ namespace RogueStars.Rules.Core
         StartRage,         // board (OnTileLand tile:Enemy): the next battle starts with Value rage
         // ---- aliens pass (appended) ----
         Guard,             // the target's (the worm's) next attack hit taken deals Value % less; one guard per fighter, a new one refreshes it
+        // ---- hero & mount kits (appended) ----
+        CarrySignatures,   // every owned signature's on-hit runs on the target(s), Stacks times (Param "next_hit": the worm's next hit carries them)
+        AdvanceTimer,      // Param "ability" / "mount" / "all": that timer comes 1 round sooner (each timer at most once per round); "reload": the mount is ready now
+        MountFire,         // the side's mount fires its active now (at most one extra shot per side per round)
+        FireAbility,       // the owner's Ability fires now (Value = its damage %, 0 = normal); its timer or counter is untouched
+        RiderAttack,       // the side's worm makes Stacks extra attacks at Value % damage (Param "combo", "echo" = repeat its last attack, "as_echo")
+        Whistle,           // every sidekick acts (fastest first), then the mount fires; Value = shield % max HP per ally that acted, Param "follow:N"
+        SpreadStatus,      // every other enemy gets Value % of the context enemy's largest status (Param "cap:N", "dmg_per:X", "dmg_cap:Y")
+        ChargeAllies,      // every sidekick of the owner's side gains Value charge
     }
 
     /// <summary>
@@ -114,7 +141,9 @@ namespace RogueStars.Rules.Core
 
     /// <summary>OtherEnemies: up to Stacks random enemies other than the context target (Arc's jumps).</summary>
     /// <remarks>AllOtherEnemies: every enemy other than the context target (Cold Snap, Fission).</remarks>
-    public enum TargetKind { Self, Enemy, AllEnemies, RandomEnemy, LowestHpEnemy, Worm, AllAllies, OtherEnemies, AllOtherEnemies }
+    /// <remarks>Hero &amp; mount kits (appended): SecondEnemy (the enemy behind the context / front enemy), LastAttacker (the enemy that last hit
+    /// the side's worm), Attackers (every enemy that hit it since the mount's last shot), FastestNonBoss.</remarks>
+    public enum TargetKind { Self, Enemy, AllEnemies, RandomEnemy, LowestHpEnemy, Worm, AllAllies, OtherEnemies, AllOtherEnemies, SecondEnemy, LastAttacker, Attackers, FastestNonBoss }
 
     [Serializable]
     public sealed class SkillTrigger
@@ -149,6 +178,11 @@ namespace RogueStars.Rules.Core
         /// (the chance of a count effect / Grow = Chance, else the value) rises by Step per level instead of the ladder factor.
         /// </summary>
         public double Step;
+        /// <summary>
+        /// Rider (hero &amp; mount kits): on a mount, the trigger listens to its worm's events of that kind (the worm's status
+        /// applications, crits, rage attacks, fatal hits …) instead of the mount's own; gates read the worm.
+        /// </summary>
+        public bool Rider;
     }
 
     /// <summary>

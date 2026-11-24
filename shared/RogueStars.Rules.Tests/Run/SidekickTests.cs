@@ -32,7 +32,7 @@ public class SidekickTests
         var c = content ?? C;
         var lo = new CombatLoadout { DisplayName = "Worm", MountId = mountId };
         lo.WormStats.Add(new StatMod(StatId.Hp, 6000)).Add(new StatMod(StatId.Atk, 60)).Add(new StatMod(StatId.Def, 10)).Add(new StatMod(StatId.Speed, 100));
-        if (mountId != null) lo.MountStats.Add(new StatMod(StatId.Atk, 40)).Add(new StatMod(StatId.Hp, 10));
+
         lo.Aliens.AddRange(aliens);
         if (meta != null) lo.MetaSkillIds.AddRange(meta);
         var setup = new BattleSetup { RoundCap = rounds };
@@ -140,8 +140,11 @@ public class SidekickTests
     [Fact]
     public void TheHiveCarrier_LaunchesADroneSidekick_ForTheBattle()
     {
-        var r = Fight(new CombatAlien[0], rounds: 9, mountId: "mount_hive_carrier", meta: new[] { "mount_hive_carrier_w1" });
-        var summon = r.Log.Single(e => e.Action == BattleAction.Summon);
+        // Launch Bay (hero and mount kits): a Drone every 3 rounds from round 1 (max 2), 20% ATK
+        var r = Fight(new CombatAlien[0], rounds: 9, mountId: "mount_hive_carrier", meta: new[] { "mount_hive_carrier_active_1" });
+        var summons = r.Log.Where(e => e.Action == BattleAction.Summon).ToList();
+        Assert.Equal(new[] { 1, 4 }, summons.Select(e => e.Round).ToArray()); // max 2 alive
+        var summon = summons[0];
         var drone = r.Fighters[summon.Target];
         Assert.Equal(CombatRole.Summon, drone.Role);
         Assert.False(drone.Targetable);

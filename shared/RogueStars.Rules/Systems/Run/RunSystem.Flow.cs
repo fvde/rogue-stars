@@ -453,6 +453,7 @@ namespace RogueStars.Rules.Systems
             var result = BattleSimulator.Simulate(setup, c, run.Rng.Fork("battle:" + run.BattleCount));
             run.BattleCount++;
             run.LastBattle = result;
+            if (result.RunCoins > 0) run.Coins += result.RunCoins; // Plunder (Void Pirate): crit kills pay run coins
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;

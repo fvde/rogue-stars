@@ -27,6 +27,9 @@ public class DeadEffectsTests
         EffectKind.Block, EffectKind.BlockStatus, EffectKind.Rule, EffectKind.ForceSupernova, EffectKind.MultiplyStatus, EffectKind.TransferStatus,
         EffectKind.TickStatus, EffectKind.Execute, EffectKind.Reflect, EffectKind.CheatDeath, EffectKind.FreeRageAttack, EffectKind.Charge,
         EffectKind.LoseHp, EffectKind.StackAll, EffectKind.Sacrifice, EffectKind.Echo, EffectKind.Rewind, EffectKind.Loop, EffectKind.Guard,
+        // hero and mount kits
+        EffectKind.CarrySignatures, EffectKind.AdvanceTimer, EffectKind.MountFire, EffectKind.FireAbility, EffectKind.RiderAttack, EffectKind.Whistle,
+        EffectKind.SpreadStatus, EffectKind.ChargeAllies,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>
@@ -42,14 +45,16 @@ public class DeadEffectsTests
     /// SkillTuningTests' battle signature, but the HP left of untargetable fighters (aliens, mount) does not count: they are never hit,
     /// so a bigger HP pool on them changes nothing but a number nobody reads.
     /// </summary>
-    private static string Sig(BattleResult r) =>
-        r.Winner + "|" + r.Rounds + "|" + r.PlayerDamageDealt + "|" + r.PlayerDamageTaken + "|" + Math.Round(r.WormHpLeft)
+    internal static string Sig(BattleResult r) =>
+        r.Winner + "|" + r.Rounds + "|" + r.PlayerDamageDealt + "|" + r.PlayerDamageTaken + "|" + Math.Round(r.WormHpLeft) + "|" + r.RunCoins
         + "|" + string.Join(",", r.Fighters.Select(f => f.DamageDealt + ":" + (f.Targetable ? f.EndHp + "+" + f.EndShield : "0") + ":" + f.EndRage));
 
     /// <summary>
     /// The SkillTuningTests arena (worm + mount + two aliens vs a shielded slug, a dodging wraith and a boss), with the skill where its
     /// source puts it: mount weapons on the mount, alien skills on an alien, enemy skills on the slug, everything else on the worm.
     /// </summary>
+    internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null) => Fight(c, skillId, seed, brawl, context);
+
     private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null)
     {
         var lo = new CombatLoadout { DisplayName = "Worm", MountId = "test_mount" };
@@ -85,26 +90,39 @@ public class DeadEffectsTests
     }
 
     /// <summary>
-    /// A mount skill is judged on its mount as the player has it when the skill unlocks: with the mount's other weapons of that
-    /// star / awakening step (Star Lancer's bleed support fires on the crits its lance weapons give the mount).
+    /// A hero or mount kit skill is judged in its kit as the player has it when the skill unlocks (hero and mount kits): with the
+    /// kit's other skills of that star / awakening step (Starlight carries on the Starfall its ability fires) and a signature to
+    /// carry (Ignite). The skill it replaces is left out, so the baseline is the kit without this element.
     /// </summary>
-    private static List<string> MountContext(ContentDb c, string skillId)
+    internal static List<string> KitContext(ContentDb c, string skillId)
     {
-        foreach (var d in c.MountConfig.Defs.Values)
+        var ctx = new List<string>();
+        List<SkillStep>? steps = null;
+        foreach (var d in c.HeroConfig.Defs.Values) if (d.Traits.Any(w => w.SkillId == skillId)) steps = d.Traits;
+        foreach (var d in c.MountConfig.Defs.Values) if (d.Weapons.Any(w => w.SkillId == skillId)) steps = d.Weapons;
+        if (steps == null) return ctx;
+        var step = steps.First(w => w.SkillId == skillId);
+        foreach (var w in steps)
         {
-            var step = d.Weapons.FirstOrDefault(w => w.SkillId == skillId);
-            if (step == null) continue;
-            var active = new List<string>();
-            foreach (var w in d.Weapons)
-            {
-                if (w.Star > step.Star || (w.Star == step.Star && w.Awaken > step.Awaken) || w.SkillId == skillId) continue;
-                if (w.Replaces != null) active.Remove(w.Replaces);
-                active.Add(w.SkillId);
-            }
-            active.Remove(step.Replaces ?? "");
-            return active;
+            if (w.Star > step.Star || (w.Star == step.Star && w.Awaken > step.Awaken) || w.SkillId == skillId) continue;
+            if (w.Replaces != null) ctx.Remove(w.Replaces);
+            ctx.Add(w.SkillId);
         }
-        return new List<string>();
+        ctx.Remove(step.Replaces ?? "");
+        ctx.Add("sig_fire");
+        // the situation the element answers (as SkillTuningTests.Context does for run skills)
+        var all = ctx.Append(skillId).Select(id => c.Skill(id)!).ToList();
+        bool Has(Func<SkillTrigger, bool> f) => all.Any(s => s.Triggers.Any(f));
+        bool fatal = Has(t => t.When == TriggerKind.OnFatal);
+        if (fatal) ctx.Add("kit_doomed");                                                                            // saves need a fight it loses
+        if (!fatal && Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("heals_count"))) ctx.Add("kit_leech"); // heals to count
+        if (Has(t => t.Effect == EffectKind.Rule && t.Param == "element_pool")) ctx.Add("kit_element");               // an element bonus to pool
+        if (Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("deep_wells"))) { ctx.Add("kit_heavy_Bleed"); ctx.Add("kit_heavy_Shock"); }
+        if (Has(t => (t.If ?? "").Contains("extra_hits"))) { ctx.Add("kit_combo"); ctx.Add("sig_combo"); }            // many extra hits in a turn
+        if (Has(t => (t.If ?? "").Contains("self_hp_below")) && !fatal) ctx.Add("kit_frail");                         // low-HP clauses
+        if (Has(t => t.Effect is EffectKind.MountFire or EffectKind.Whistle || t.When == TriggerKind.OnMountFire)) ctx.Add("mount_magma_barge_active_1");
+        if (Has(t => t.Effect == EffectKind.Rule && (t.Param ?? "").StartsWith("ability_stillness"))) ctx.Add("kit_bigshield"); // rounds without HP loss
+        return ctx;
     }
 
     /// <summary>A whole auto-played run (strong worm, the skill as a meta skill) as a signature without the skill's own id.</summary>
@@ -147,7 +165,7 @@ public class DeadEffectsTests
             if (ActsInBattle(s))
             {
                 battle++;
-                var ctx = s.Source == SkillSource.Mount ? MountContext(c, s.Id) : SkillTuningTests.Context(c, s);
+                var ctx = s.Source is SkillSource.Mount or SkillSource.Hero ? KitContext(c, s.Id) : SkillTuningTests.Context(c, s);
                 foreach (bool brawl in new[] { false, true })
                     for (int seed = 0; seed < 8 && !changed; seed++)
                         changed = Sig(Fight(c, s.Id, seed, brawl, ctx))
@@ -234,7 +252,8 @@ public class DeadEffectsTests
 
     /// <summary>
     /// Every Summon is either an enemy skill calling an enemy (the Storm Hive's spark drones) or a player skill launching a
-    /// battle-scoped sidekick (ContentDb.Sidekicks: Hive Carrier's Drone Bay, Swarm Beacon). Only those mention drones.
+    /// battle-scoped sidekick (ContentDb.Sidekicks: Hive Carrier's Launch Bay, Swarm Beacon). Only those (and the Hive Carrier's
+    /// Wingman, whose strikes its drones fly) mention drones.
     /// </summary>
     [Fact]
     public void Summons_AreEnemyGuards_OrSidekickDrones()
@@ -254,13 +273,14 @@ public class DeadEffectsTests
                 }
             }
             if (enemySkills.Contains(s.Id) || sidekickSummon || C.Sidekicks.Values.Any(k => k.AbilitySkillId == s.Id)) continue;
+            if (s.Id.StartsWith("mount_hive_carrier_", StringComparison.Ordinal)) continue; // Wingman: the Hive Carrier's drones strike
             foreach (var text in new[] { s.Name, s.Description, SkillText.Full(s) })
                 Assert.DoesNotContain("drone", text ?? "", StringComparison.OrdinalIgnoreCase);
         }
         Assert.Contains(C.Skills.Values, s => enemySkills.Contains(s.Id) && s.Triggers.Any(t => t.Effect == EffectKind.Summon)); // the boss summons still work
-        var bay = C.Skill("mount_hive_carrier_w1")!;
-        Assert.Equal("Drone Bay", bay.Name);
-        Assert.Contains(bay.Triggers, t => t.Effect == EffectKind.Summon && t.Param == "sk_drone");
+        var bay = C.Skill("mount_hive_carrier_active_1")!;
+        Assert.Equal("Launch Bay", bay.Name);
+        Assert.Contains(bay.Triggers, t => t.Effect == EffectKind.Summon && ContentDb.SummonId(t.Param) == "sk_drone");
     }
 
     [Fact]
