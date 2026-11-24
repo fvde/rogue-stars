@@ -21,6 +21,11 @@ public sealed class TestCampfire : GameCommand
     public List<string> SkillIds = new();
 }
 
+/// <summary>Client command (tests): opens every feature, adds Diamonds / Grain and builds a staffed Shard Reactor with spare Blorp shards.</summary>
+public sealed class TestReactorSetup : GameCommand
+{
+}
+
 public static class TestCommands
 {
     public static void Register(GameEngine e)
@@ -42,6 +47,20 @@ public static class TestCommands
             run.Phase = RogueStars.Rules.Systems.RunPhase.Event;
             run.EventId = "campfire";
             run.EventTile = -1;
+            return CommandResult.Success();
+        });
+        e.Register<TestReactorSetup>((c, ctx) =>
+        {
+            var s = ctx.State;
+            s.Flags.Add(RogueStars.Rules.Systems.Features.DevUnlockAllFlag);
+            s.Wallet.Add(Currencies.Diamonds, 100_000);
+            s.Wallet.Add(Currencies.Grain, 100_000);
+            s.Wallet.Add(Currencies.AlienShards("alien_blorp"), 5_000);
+            ctx.Grant(new Reward(RewardKinds.Blueprint, RogueStars.Rules.Content.ContentDb.ShardReactorId, 1));
+            var b = RogueStars.Rules.Systems.CitySystem.Owned(s, RogueStars.Rules.Content.ContentDb.ShardReactorId);
+            b.Placed = true; b.Level = 1; b.X = 4; b.Y = 4;
+            ctx.Grant(new Reward(RewardKinds.Alien, "alien_blorp", 1));
+            RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_blorp").WorkBuildingId = b.Id;
             return CommandResult.Success();
         });
         e.Register<TestServerGrant>((c, ctx) =>
