@@ -145,7 +145,9 @@ public class EndlessCampaignTests
         Assert.Equal(1, s.Counter("milestone_chests"));
         Assert.True(s.Wallet.Get(Currencies.AlienTokens) >= tokens + chest.Single(r => r.Id == Currencies.AlienTokens).Amount);
         Assert.True(s.Wallet.Get(Currencies.Diamonds) >= diamonds + chest.Single(r => r.Id == Currencies.Diamonds).Amount);
-        Assert.DoesNotContain(s.Run.LastSummary.Doublable, r => r.Id == Currencies.AlienTokens);
+        // The chest is never doubled: only run loot tokens (all features are open at level 509) are doublable.
+        long doublableTokens = s.Run.LastSummary.Doublable.Where(r => r.Id == Currencies.AlienTokens).Sum(r => r.Amount);
+        Assert.True(s.Wallet.Get(Currencies.AlienTokens) - tokens >= doublableTokens + chest.Single(r => r.Id == Currencies.AlienTokens).Amount);
 
         // The next portal (level 511 = portal 52, level 1) opens; replaying 510 pays no second chest.
         Assert.True(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(511), RunMode.Normal));

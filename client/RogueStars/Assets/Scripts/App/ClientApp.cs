@@ -24,6 +24,8 @@ namespace RogueStars.Client.App
         public ToastCenter Toasts { get; private set; }
         public RectTransform Root { get; private set; }
         public RectTransform ModalLayer { get; private set; }
+        /// <summary>Tutorial coach marks (CoachMarks): above the modals and toasts, never blocking input.</summary>
+        public RectTransform CoachLayer { get; private set; }
         public ResourceBar Bar { get; private set; }
         public ClientSettings Settings { get; private set; }
         /// <summary>Store / ads / product-set configuration of this build (Resources/PlatformConfig).</summary>
@@ -76,6 +78,7 @@ namespace RogueStars.Client.App
             app.ModalLayer = Ui.Stretch(Ui.Rect(safe, "Modals"));
             var toastLayer = Ui.Stretch(Ui.Rect(safe, "ToastLayer"));
             app.Toasts = new ToastCenter(toastLayer);
+            app.CoachLayer = Ui.Stretch(Ui.Rect(safe, "CoachLayer"));
 
             var platform = PlatformConfig.LoadDefault();
             app.Platform = platform;

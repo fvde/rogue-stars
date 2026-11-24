@@ -191,6 +191,11 @@ namespace RogueStars.Rules.Content
         public bool Consumable = true;
         /// <summary>At most this many per run from the tile pools (0 = no limit; RunTileLimits).</summary>
         public int MaxPerRun;
+        /// <summary>
+        /// Level-unlocked run content: never picked from a pool on a main level (Normal mode) below this number (0 = always;
+        /// RunTileLimits). Fixed tiles are per level (LevelDef.FixedTiles).
+        /// </summary>
+        public int MinMainLevel;
     }
 
     [Serializable]
@@ -292,6 +297,8 @@ namespace RogueStars.Rules.Content
         /// <summary>Feat 2: worm HP ≥ this % at the end. Feat 3: boss beaten within this many rounds.</summary>
         public double FeatHpPct = 50;
         public int FeatBossRounds = 15;
+        /// <summary>The awakening clock sends minibosses (RunTuning.MinibossAtMeter); false on the first main levels (GDD §16).</summary>
+        public bool ClockMinibosses = true;
     }
 
     [Serializable]
@@ -626,17 +633,32 @@ namespace RogueStars.Rules.Content
         public int LateFamilyFromPortal = 40;
         /// <summary>
         /// Gentle ramp for new players: enemy HP % and ATK % of main levels 1, 2, 3, … (on top of the threat curve; levels
-        /// past the list are unchanged). Level 1 is played without parts (onboarding v2) and worm levels unlock on day 3,
-        /// so day-1 levels are carried by the starter parts and part levels alone; levels 1–3 should almost never be lost
-        /// (EarlyLevelBalanceTests).
+        /// past the list are unchanged). Level 1 (the tutorial run) is played without parts, shops or
+        /// Mythics, level 2 without shops, and worm levels unlock with level 3 (GDD §16 level unlocks), so the first levels are
+        /// eased the most; levels 1–3 should almost never be lost (EarlyLevelBalanceTests).
         /// </summary>
-        public List<double> EarlyLevelEnemyHpPct = new List<double> { -60, -55, -50, -48, -46, -42, -38, -34, -28, -22, -14, -7 };
-        public List<double> EarlyLevelEnemyAtkPct = new List<double> { -40, -40, -35, -35, -32, -30, -27, -24, -18, -12, -8, -4 };
+        public List<double> EarlyLevelEnemyHpPct = new List<double> { -70, -60, -50, -48, -46, -42, -38, -34, -28, -22, -14, -7 };
+        public List<double> EarlyLevelEnemyAtkPct = new List<double> { -50, -42, -35, -35, -32, -30, -27, -24, -18, -12, -8, -4 };
 
         public double EarlyHpPct(int level) => level >= 1 && level <= EarlyLevelEnemyHpPct.Count ? EarlyLevelEnemyHpPct[level - 1] : 0;
         public double EarlyAtkPct(int level) => level >= 1 && level <= EarlyLevelEnemyAtkPct.Count ? EarlyLevelEnemyAtkPct[level - 1] : 0;
 
-        /// <summary>First Dark Side level (the feature itself unlocks at main level 45 on day 21, ContentDb.Onboarding).</summary>
+        /// <summary>
+        /// Run content introduced level by level (GDD §16 level unlocks): main levels below these numbers do not have it, and
+        /// its feature (Features.RunShop, …) unlocks when the level before is cleared. Main portals only, every portal past
+        /// the first has everything (numbers ≤ LevelsPerPortal). Two dice keep their per-portal rule (portal levels 6–10);
+        /// forks come with them (BranchChance 0 below <see cref="ForksFromLevel"/>). Mini-games: MinigameTuning.MinMainLevel.
+        /// </summary>
+        public int ShopsFromLevel = 3, MinibossesFromLevel = 5, ForksFromLevel = 6, CampfiresFromLevel = 10, SignatureChoiceFromLevel = 12;
+        /// <summary>
+        /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
+        /// or debuffs), and a faster awakening so the first boss comes after about 20 rolls. Named pool_&lt;family&gt;_&lt;variant&gt;:
+        /// the client draws portal 1's biome for it.
+        /// </summary>
+        public string TutorialPool = "pool_ember_tutorial";
+        public double TutorialAwakeningPct = 25;
+
+        /// <summary>First Dark Side level (the feature itself unlocks at main level 53, ContentDb.Onboarding).</summary>
         public int DarkSideFromLevel = 40;
         /// <summary>
         /// Dark Side: endless procedural levels along the campaign curve. Dark level i sits at main level

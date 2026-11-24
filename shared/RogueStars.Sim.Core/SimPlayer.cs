@@ -34,8 +34,8 @@ namespace RogueStars.Sim
         private long _monthBudgetUsed;
         private int _month = -1;
         public long Commands, FailedCommands;
-        /// <summary>Feature id → (account day 1-based, highest main level cleared) when the unlock was recorded.</summary>
-        public readonly Dictionary<string, (int day, long level)> Unlocks = new();
+        /// <summary>Feature id → (account day 1-based, highest main level cleared, minutes played, runs played) when the unlock was recorded.</summary>
+        public readonly Dictionary<string, (int day, long level, double minutes, int runs)> Unlocks = new();
         public double MinutesPlayed, MinutesInRuns;
         public int RunsPlayed, RunsWon;
         /// <summary>Per-run records (run length, drafts, battles, loot) when <see cref="KeepRunLog"/> is set (simulator --run-length).</summary>
@@ -107,10 +107,10 @@ namespace RogueStars.Sim
             if (S.Onboarding.Unlocked.Count != Unlocks.Count)
                 foreach (var kv in S.Onboarding.Unlocked)
                     if (!Unlocks.ContainsKey(kv.Key))
-                        Unlocks[kv.Key] = ((int)Requirements.AccountAgeDays(S, C, kv.Value) + 1, S.Counter(Requirements.MainLevelCounter));
+                        Unlocks[kv.Key] = ((int)Requirements.AccountAgeDays(S, C, kv.Value) + 1, S.Counter(Requirements.MainLevelCounter), MinutesPlayed, RunsPlayed);
             foreach (var kv in S.Lab.Entries) // synergy packages researched (signatures pass): recorded like feature unlocks
                 if (kv.Value.Level > 0 && !Unlocks.ContainsKey(kv.Key) && C.LabNode(kv.Key)?.Kind == LabNodeKind.Package)
-                    Unlocks[kv.Key] = (DayIndex + 1, S.Counter(Requirements.MainLevelCounter));
+                    Unlocks[kv.Key] = (DayIndex + 1, S.Counter(Requirements.MainLevelCounter), MinutesPlayed, RunsPlayed);
             for (int i = 0; i < Tracked.Length; i++)
             {
                 long d = S.Wallet.Get(Tracked[i]) - _before[i];

@@ -22,6 +22,7 @@ namespace RogueStars.Client.Screens
         private string _pending;    // blueprint being placed/moved
 
         public override string Title => "City";
+        public override string[] IntroFeatures => new[] { Features.BiomassFarm, Features.GrainFarm, Features.OreMine, Features.AlienSquad };
 
         /// <summary>Select a placed building (its detail card), as a tap on it does.</summary>
         public void Select(string blueprintId) { _selected = blueprintId; _mode = Mode.Select; Rebuild(); }

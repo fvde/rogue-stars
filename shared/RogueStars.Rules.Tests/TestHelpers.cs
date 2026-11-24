@@ -23,7 +23,7 @@ public static class TestHelpers
     {
         var c = new ContentDb();
         c.Onboarding.StarterKit.Clear();
-        return c;
+        return Run.RunTestKit.ClassicBoards(c); // shared by parallel tests: the run-test boards are set up once, here
     }
 
     public static GameEngine Engine() => new GameEngine(NoStarterKit) { Cloner = Clone };

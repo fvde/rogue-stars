@@ -146,17 +146,21 @@ namespace RogueStars.Client.App
                 case Features.Quests: return new Entry(featureId, "SEE TODAY'S GOALS", null, "quests");
                 case Features.BiomassFarm: return new Entry(featureId, "BUILD THE FARM", null, "city");
                 case Features.WormLevel: return new Entry(featureId, "LEVEL UP THE WORM", null, "worm");
-                case Features.PartPulls: case Features.Shop: return new Entry(featureId, "TUNE IN", null, "signals");
+                case Features.PartPulls: return new Entry(featureId, "TUNE IN", null, "signals");
+                case Features.Shop: return new Entry(featureId, "OPEN THE SHOP", null, "shop");
                 case Features.Laboratory: return new Entry(featureId, "START FIRST RESEARCH", null, "laboratory");
                 case Features.GrainFarm: return new Entry(featureId, "BUILD THE GRAIN FARM", null, "city");
-                case Features.Aliens: case Features.AlienPulls: return new Entry(featureId, "MEET YOUR ALIEN", null, "aliens");
+                case Features.Aliens: return new Entry(featureId, "MEET YOUR ALIEN", null, "aliens");
+                case Features.AlienPulls: return new Entry(featureId, "CALL AN ALIEN", null, "signals");
                 case Features.AlienSquad: return new Entry(featureId, "BUILD HOUSING", null, "city");
                 case Features.Blueprints: return new Entry(featureId, "PULL A BLUEPRINT", null, "signals");
                 case Features.Heroes: return new Entry(featureId, "CHOOSE A HERO", null, "heroes");
-                case Features.OreMine: case Features.Runes: return new Entry(featureId, "BUILD THE ORE MINE", null, "city");
+                case Features.OreMine: return new Entry(featureId, "BUILD THE ORE MINE", null, "city");
+                case Features.Runes: return new Entry(featureId, "SEE YOUR PARTS", null, "parts");
                 case Features.Mounts: return new Entry(featureId, "SADDLE UP", null, "mounts");
                 case Features.Funds: return new Entry(featureId, "SEE THE FUNDS", null, "shop");
-                case Features.Breeding: case Features.SeasonPass: return new Entry(featureId, "BUILD THE PEN", null, "city");
+                case Features.Breeding: return new Entry(featureId, "BUILD THE PEN", null, "city");
+                case Features.SeasonPass: return new Entry(featureId, "SEE THE PASS", null, "shop");
                 case Features.Arena: return new Entry(featureId, "ENTER THE ARENA", null, "arena");
                 case Features.Overcharged: return new Entry(featureId, "PLAY OVERCHARGED", null, "portals");
                 case Features.Guilds: return new Entry(featureId, "FIND A GUILD", null, "guild");
@@ -164,6 +168,12 @@ namespace RogueStars.Client.App
                 case Features.Burrow: return new Entry(featureId, "DIG IN", null, "portals");
                 case Features.Forge: return new Entry(featureId, "OPEN THE FORGE", null, "parts");
                 case Features.DarkSide: return new Entry(featureId, "CROSS OVER", null, "portals");
+                case Features.RunShop: case Features.RunMiniboss: case Features.RunTwoDice: case Features.RunCampfire:
+                case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll:
+                    return new Entry(featureId, "PLAY", null, "portals");
+                case Features.PackageIce: case Features.PackageLightning: case Features.PackageCounter: case Features.PackageAlien:
+                case Features.PackageTime:
+                    return new Entry(featureId, "OPEN THE LAB", null, "laboratory");
                 default: return new Entry(featureId, "LET'S GO", null, "portals");
             }
         }

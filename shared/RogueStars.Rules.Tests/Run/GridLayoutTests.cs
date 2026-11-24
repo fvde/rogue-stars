@@ -79,7 +79,7 @@ public class GridLayoutTests(ITestOutputHelper output)
     [MemberData(nameof(Levels))]
     public void EveryTile_OnItsOwnCell_NeighboursAdjacent_SlotsFree(string levelId)
     {
-        var c = ContentDb.Default;
+        var c = RunTestKit.Classic;
         var level = c.RunLevel(levelId)!;
         int turns = 0, backs = 0, steps = 0, loops = 0, hairpins = 0;
         for (ulong seed = 1; seed <= 30; seed++)

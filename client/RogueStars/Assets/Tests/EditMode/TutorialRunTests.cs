@@ -1,0 +1,127 @@
+using System.Linq;
+using NUnit.Framework;
+using RogueStars.Client.App;
+using RogueStars.Client.Screens;
+using RogueStars.Client.UiKit;
+using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace RogueStars.Client.Tests
+{
+    /// <summary>
+    /// GDD §16 tutorial run (main level 1): coach marks with a hand pointer for rolling, picking a skill on level-up and
+    /// beating the boss, nothing else; "Skip tips" turns them off; later runs have none. The first run has no signature
+    /// pick and no auto roll yet (both level unlocks).
+    /// </summary>
+    public sealed class TutorialRunTests
+    {
+        private AppFixture _f;
+        private GameState S => _f.Service.State;
+        private ContentDb C => _f.Service.Content;
+
+        [SetUp] public void SetUp() { _f = new AppFixture(); RunScreen.InstantOutcomes = true; }
+        [TearDown] public void TearDown() { RunScreen.InstantOutcomes = false; _f.Dispose(); }
+
+        private static Transform FindNamed(Transform root, string name) =>
+            root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == name);
+
+        private ActiveRun StartTutorial()
+        {
+            var level = C.MainLevel(1);
+            Assert.That(_f.Service.ExecuteNow(new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }).Ok, Is.True);
+            return S.Run.Active;
+        }
+
+        private RunScreen Open()
+        {
+            _f.App.Router.Push(new RunScreen());
+            var screen = (RunScreen)_f.App.Router.Current;
+            screen.Frame(0.1f);
+            return screen;
+        }
+
+        [Test]
+        public void FirstRun_CoachMarks_Roll_ThenPick_ThenBoss()
+        {
+            var run = StartTutorial();
+            Assert.That(CoachMarks.IsTutorialRun(S, C), Is.True);
+            var screen = Open();
+            Assert.That(screen.CoachMark, Is.EqualTo(CoachMarks.Roll));
+            var coach = FindNamed(_f.App.CoachLayer, "Coach:" + CoachMarks.Roll);
+            Assert.That(coach, Is.Not.Null);
+            Assert.That(FindNamed(coach, "Hand").gameObject.activeSelf, Is.True, "the hand points at the dice");
+            Assert.That(FindNamed(coach, "CoachText").GetComponent<Text>().text, Is.EqualTo("Tap the dice to roll!"));
+            Assert.That(coach.GetComponentsInChildren<Graphic>(true).Where(g => g.raycastTarget).All(g => g.GetComponentInParent<Button>() != null), Is.True,
+                "the coach layer never blocks the board");
+
+            // a level-up: the draft opens, the hand points at a skill card
+            _f.App.Router.Pop();
+            run.Phase = RunPhase.Draft; run.MythicDraft = false;
+            run.DraftOffer.Clear(); run.DraftOffer.AddRange(new[] { "crit_keen", "gen_power", "gen_guard" });
+            screen = Open();
+            screen.Frame(0.1f);
+            Assert.That(FindNamed(_f.App.ModalLayer, "Button:Pick"), Is.Not.Null, "the draft is open");
+            Assert.That(screen.CoachMark, Is.EqualTo(CoachMarks.Pick));
+            Assert.That(FindNamed(_f.App.CoachLayer, "CoachText").GetComponent<Text>().text, Is.EqualTo("Level up! Pick a skill."));
+
+            // the boss
+            _f.App.Router.Pop();
+            run.Phase = RunPhase.Encounter; run.EncounterKind = "boss";
+            screen = Open();
+            Assert.That(screen.CoachMark, Is.EqualTo(CoachMarks.Boss));
+            Assert.That(FindNamed(_f.App.CoachLayer, "CoachText").GetComponent<Text>().text, Is.EqualTo("The boss is here. Tap to fight!"));
+
+            // only one mark at a time, and none once the screen is left
+            Assert.That(_f.App.CoachLayer.childCount, Is.EqualTo(1));
+            _f.App.Router.Pop();
+            Assert.That(_f.App.CoachLayer.childCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SkipTips_TurnsTheMarksOff_ForThisRun()
+        {
+            StartTutorial();
+            var screen = Open();
+            Assert.That(screen.CoachMark, Is.EqualTo(CoachMarks.Roll));
+            FindNamed(_f.App.CoachLayer, "CoachSkip").GetComponent<Button>().onClick.Invoke();
+            screen.Frame(0.1f);
+            Assert.That(screen.CoachMark, Is.Null);
+            Assert.That(_f.App.CoachLayer.childCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LaterRuns_HaveNoCoachMarks()
+        {
+            S.Counters[Requirements.MainLevelCounter] = 1;
+            S.Run.Levels[C.MainLevelId(1)] = new LevelProgress { Cleared = true, Clears = 1 };
+            StartTutorial(); // a replay of level 1
+            Assert.That(CoachMarks.IsTutorialRun(S, C), Is.False);
+            var screen = Open();
+            Assert.That(screen.CoachMark, Is.Null);
+        }
+
+        [Test]
+        public void FirstRun_NoSignaturePick_NoAutoRoll_UntilTheirUnlocks()
+        {
+            var level = C.MainLevel(1);
+            SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, _ => { });
+            Assert.That(S.Run.Active, Is.Not.Null, "one signature on offer: the run starts at once");
+            Assert.That(RunSystem.Signatures(S.Run.Active).Count, Is.EqualTo(1));
+            var screen = Open();
+            var roll = FindNamed(screen.Root, "RollButton");
+            Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Tap to roll"));
+            roll.GetComponent<HoldButton>().OnHold();
+            Assert.That(screen.Auto, Is.False, "Auto Roll is a level unlock");
+
+            S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs;
+            screen.Rebuild();
+            roll = FindNamed(screen.Root, "RollButton");
+            Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Hold for Auto"));
+            roll.GetComponent<HoldButton>().OnHold();
+            Assert.That(screen.Auto, Is.True);
+        }
+    }
+}

@@ -99,6 +99,10 @@ namespace RogueStars.Client.PlayTests
             Assert.That(hub.ShowPendingUnlock(), Is.True, "Parts unlock moment after level 1");
             yield return Wait(0.5f);
             yield return Shot("11a_unlock_parts");
+            // the intro panels (GDD §16): skip to the last one, the reward and the guided action
+            ClickNamed("IntroSkip");
+            yield return Wait(0.3f);
+            yield return Shot("11a2_unlock_parts_reward");
             ClickNamed("UnlockAction");
             yield return Wait(0.3f);
             Assert.That(_app.Router.Current, Is.InstanceOf<WormScreen>());

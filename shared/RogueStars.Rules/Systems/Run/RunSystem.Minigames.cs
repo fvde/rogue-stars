@@ -161,13 +161,16 @@ namespace RogueStars.Rules.Systems
     {
         public static bool Allowed(ContentDb c, ActiveRun run, string tileId)
         {
-            if (!c.BoardTiles.TryGetValue(tileId, out var def) || def.MaxPerRun <= 0) return true;
-            if (run == null) return false; // previews / runless generation: limited tiles are never placed
-            if (tileId == ContentDb.MinigameTileId)
+            if (!c.BoardTiles.TryGetValue(tileId, out var def)) return true;
+            int minLevel = tileId == ContentDb.MinigameTileId ? c.MinigameTuning.MinMainLevel : def.MinMainLevel;
+            if (minLevel > 0 && run != null)
             {
+                // level-unlocked run content (GDD §16): not on the main levels before it
                 var level = c.RunLevel(run.LevelId);
-                if (level != null && level.PortalId != ContentDb.DarkSidePortalId && level.Number > 0 && level.Number < c.MinigameTuning.MinMainLevel && run.Mode == RunMode.Normal) return false;
+                if (level != null && level.PortalId != ContentDb.DarkSidePortalId && level.Number > 0 && level.Number < minLevel && run.Mode == RunMode.Normal) return false;
             }
+            if (def.MaxPerRun <= 0) return true;
+            if (run == null) return false; // previews / runless generation: limited tiles are never placed
             return (run.TilesPlaced.TryGetValue(tileId, out var n) ? n : 0) < def.MaxPerRun;
         }
 

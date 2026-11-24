@@ -21,6 +21,11 @@ namespace RogueStars.Rules.Systems
         public HashSet<string> Celebrated = new HashSet<string>();
         /// <summary>Completed tutorial steps (also mirrored as "tut:&lt;id&gt;" flags).</summary>
         public HashSet<string> TutorialDone = new HashSet<string>();
+        /// <summary>
+        /// Onboarding content version the save is on (ContentDb.Onboarding.Version for new players; 0 = a save from before the
+        /// level unlocks, migrated once by OnboardingSystem.Migrate).
+        /// </summary>
+        public int Version;
         public long PopupDay = -1;
         public int PopupsShownToday;
     }

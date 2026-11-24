@@ -204,12 +204,11 @@ public class DevToolsTests : IDisposable
         Assert.Equal(day - 1, Requirements.AccountAgeDays(s, c, now));
         Assert.InRange(s.LastCommandMs, s.CreatedMs, now);
 
-        // Unlocks happened on days ≤ N, in the past, with the level gates met.
+        // Unlocks happened in the past with their level gates met (level unlocks: no calendar gate, GDD §16).
         foreach (var (id, at) in s.Onboarding.Unlocked)
         {
             Assert.InRange(at, s.CreatedMs, now);
-            Assert.True(Requirements.AccountAgeDays(s, c, at) + 1 <= day, id + " unlocked on day " + (Requirements.AccountAgeDays(s, c, at) + 1));
-            Assert.True(Features.UnlockDay(c.Feature(id)) <= day, id + " is scheduled after day " + day);
+            Assert.True(Features.UnlockLevel(c.Feature(id)!) <= s.Counter(Requirements.MainLevelCounter), id + " unlocked below its level");
         }
         if (day >= 2) Assert.NotEmpty(s.Onboarding.Unlocked);
         Assert.True(s.Counter(Requirements.MainLevelCounter) >= 1, "no level cleared");

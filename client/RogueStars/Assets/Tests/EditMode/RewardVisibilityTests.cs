@@ -114,6 +114,7 @@ namespace RogueStars.Client.Tests
             var hub = (HubScreen)_f.App.Router.Current;
             Assert.That(hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
+            moment.ShowPage(moment.PageCount - 1); // the reward is on the last intro panel
             var chips = moment.Root.GetComponentsInChildren<Text>(true).Where(t => t.transform.parent != null && t.transform.parent.name == "Reward").Select(t => t.text).ToList();
             Assert.That(chips, Does.Contain("+20 Diamonds"));
             // the starter parts (3) and any part the first run dropped were kept for the Parts unlock

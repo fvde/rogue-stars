@@ -143,7 +143,10 @@ public class RewardGateTests
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
         Assert.True(s.Wallet.Get(Currencies.Diamonds) >= diamonds + chest.Single(r => r.Id == Currencies.Diamonds).Amount);
-        foreach (var t in new[] { Currencies.PartTokens, Currencies.AlienTokens, Currencies.BlueprintTokens })
+        // Level 10 opens the Part Signal with this very clear: its tokens (and the ones kept from levels 5 and 10) land at once.
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.PartPulls));
+        Assert.True(s.Wallet.Get(Currencies.PartTokens) >= chest.Single(r => r.Id == Currencies.PartTokens).Amount);
+        foreach (var t in new[] { Currencies.AlienTokens, Currencies.BlueprintTokens })
         {
             Assert.Equal(0, s.Wallet.Get(t));
             Assert.True(RewardGate.Stashed(s, t) >= chest.Single(r => r.Id == t).Amount, t);

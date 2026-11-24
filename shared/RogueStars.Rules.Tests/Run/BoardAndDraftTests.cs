@@ -43,7 +43,7 @@ public class BoardTests
     [Fact]
     public void Generation_HasForks_AndSegmentsVaryTheirMix()
     {
-        var c = ContentDb.Default;
+        var c = RunTestKit.Classic;
         var level = c.RunLevel("ember_wastes_5")!;
         int forks = 0;
         var enemyShare = new List<double>();

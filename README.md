@@ -67,14 +67,17 @@ Playable prototype (placeholder UI), offline and online.
   events ([docs/design/summon-events.md](docs/design/summon-events.md)), quests, shop,
   mail, arena, guilds, live ops (weekly + surprise invasions, never two of one type at once, max 2 concurrent;
   planetary events). Endless procedural campaign and Dark Side (50 named portals, then generated) tuned with the simulator.
+  Level unlocks (GDD §16): every feature (38, run content and Laboratory packages included) unlocks at a main level,
+  never by calendar day; level 1 is the tutorial run.
 - **Server:** authoritative command endpoint, idempotency, compare-and-set saves, arena, guilds, invasions (instances
   = rules live-ops occurrences), jobs, Google Play receipt validation (productsv2, server consume/acknowledge; initial 4-product set), global
   ads-disabled mode (AppLovin MAX S2S verification ready for later), Firestore (emulator-tested), Cloud Run + Cloud Build + Terraform; owner runbook docs/setup.md.
-- **Client:** every screen, battle playback from the logged HP/shield/rage, offline + online services, playthrough
+- **Client:** every screen, feature intros (unlock screens with animated panels, "?" replays), tutorial coach marks,
+  battle playback from the logged HP/shield/rage, offline + online services, playthrough
   screenshots in [docs/client-screenshots](docs/client-screenshots), Firebase Auth (Google Play Games sign-in, anonymous fallback +
   linking), Unity IAP (Google Play Billing), AppLovin MAX gateway (disabled for now), signed AAB + APK builds.
-- **Tests:** .NET 805 (rules 680, server 97, simulator guard 28) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
-  Unity EditMode 308 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
+- **Tests:** .NET 799 (rules 669, server 96, simulator guard 34) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
+  Unity EditMode 311 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
 - **Open:** console setup for Play Games sign-in (docs/setup.md step 3), AppLovin + mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).

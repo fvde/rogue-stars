@@ -21,6 +21,7 @@ namespace RogueStars.Client.Screens
             { StatId.Hp, StatId.Atk, StatId.Def, StatId.Speed, StatId.CritChance, StatId.CritDamage, StatId.Dodge, StatId.ComboChance, StatId.CounterChance, StatId.LifeSteal };
 
         public override string Title => "Worm";
+        public override string[] IntroFeatures => new[] { Features.Parts, Features.WormLevel };
 
         protected override void Build(RectTransform body)
         {

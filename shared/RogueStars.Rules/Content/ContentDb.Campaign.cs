@@ -259,10 +259,30 @@ namespace RogueStars.Rules.Content
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
                 if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
                 l.FirstClearRewards.AddRange(c.MilestoneRewards(n));
+                CampaignIntroduceRunContent(l, n);
                 levels.Add(l);
                 portal.LevelIds.Add(l.Id);
             }
             return portal;
+        }
+
+        /// <summary>
+        /// GDD §16 level unlocks: main level <paramref name="n"/> leaves out the run content that is introduced later (shops,
+        /// minibosses, forks, campfires); level 1 is the tutorial run (its own small tile pool, a faster boss). Each element's
+        /// feature unlocks when the level before its first board is cleared (ContentDb.Onboarding).
+        /// </summary>
+        private void CampaignIntroduceRunContent(LevelDef l, int n)
+        {
+            var c = Campaign;
+            if (n == 1)
+            {
+                l.TilePoolId = c.TutorialPool;
+                l.Modifiers.AwakeningPct = c.TutorialAwakeningPct;
+            }
+            if (n < c.ShopsFromLevel) l.FixedTiles.RemoveAll(ft => ft.TileId == "shop");
+            if (n < c.MinibossesFromLevel) { l.FixedTiles.RemoveAll(ft => ft.TileId == "miniboss"); l.ClockMinibosses = false; }
+            if (n < c.ForksFromLevel) l.BranchChance = 0;
+            if (n < c.CampfiresFromLevel) l.FixedTiles.RemoveAll(ft => ft.TileId == "campfire");
         }
 
         /// <summary>Loot table of main portal <paramref name="index"/>: currencies × the portal's reward scale, items shifted up in rarity past the anchor.</summary>

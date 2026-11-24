@@ -187,10 +187,9 @@ namespace RogueStars.Client.Tests
         public void Encounter_IsItsOwnStep_WithAFightButton_AndAPlayback()
         {
             var run = StartRun();
-            run.MinibossesSpawned = 0;
-            run.Awakening = 24.9; // the next roll crosses 25: a miniboss attacks after the move
+            // a clock miniboss attacks after the move (level 1 has none since the level unlocks: set it up directly)
+            run.Phase = RunPhase.Encounter; run.EncounterKind = "ambush"; run.PendingAmbushes = 1; run.MinibossesSpawned = 1;
             var screen = Open();
-            Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True);
             Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Encounter));
             screen.Rebuild();
             Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("Fight!"));

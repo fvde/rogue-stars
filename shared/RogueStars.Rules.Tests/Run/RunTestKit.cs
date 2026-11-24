@@ -14,10 +14,63 @@ public static class RunTestKit
         public List<StatMod> Extra = new();
     }
 
+    private static readonly HashSet<ContentDb> Applied = new(ReferenceEqualityComparer.Instance); // before Classic (static init order)
+
+    /// <summary>
+    /// Content whose first main levels have every run element (campfire, shops, miniboss lair, clock minibosses, forks, the
+    /// portal's own tile pool, normal awakening, mini-games from level 2), as before the level unlocks (GDD §16). The run
+    /// mechanic tests were written against these boards; LevelUnlockRunContentTests covers the real early levels.
+    /// </summary>
+    public static readonly ContentDb Classic = ClassicBoards(new ContentDb());
+
+    /// <summary>Restores the classic boards on main levels 1–12 of <paramref name="c"/> (never ContentDb.Default). Idempotent.</summary>
+    public static ContentDb ClassicBoards(ContentDb c)
+    {
+        if (ReferenceEquals(c, ContentDb.Default)) return c;
+        lock (Applied)
+        {
+            if (!Applied.Add(c)) return c; // once per content: shared contents are read by parallel tests
+            ApplyClassic(c);
+        }
+        return c;
+    }
+
+
+    private static void ApplyClassic(ContentDb c)
+    {
+        string pool = c.MainLevel(c.Campaign.LevelsPerPortal * 4 + 1)!.TilePoolId; // portal 5: the same family as portal 1
+        for (int n = 1; n <= 12; n++)
+        {
+            var l = c.MainLevel(n)!;
+            if (n <= c.Campaign.LevelsPerPortal) l.TilePoolId = pool;
+            l.Modifiers.AwakeningPct = 0;
+            l.BranchChance = new LevelDef().BranchChance;
+            l.ClockMinibosses = true;
+            foreach (var (at, id) in new[] { (0.22, "campfire"), (0.42, "shop"), (0.68, "miniboss"), (0.88, "shop") })
+                if (!l.FixedTiles.Any(f => f.TileId == id && Math.Abs(f.At - at) < 1e-9)) l.FixedTiles.Add(new FixedTile(at, id));
+            l.FixedTiles.Sort((a, b) => a.At.CompareTo(b.At));
+        }
+        // the classic ease of levels 1 and 2 (the tutorial levels are eased a bit more now, without shops and Mythics)
+        void Ease(int n, double hpWas, double atkWas)
+        {
+            var m = c.MainLevel(n)!.Modifiers;
+            double hpNow = c.Campaign.EarlyHpPct(n), atkNow = c.Campaign.EarlyAtkPct(n);
+            if (Math.Abs(hpNow - hpWas) < 1e-9 && Math.Abs(atkNow - atkWas) < 1e-9) return;
+            m.EnemyHpPct = Math.Round(((1 + m.EnemyHpPct / 100) * (1 + hpWas / 100) / (1 + hpNow / 100) - 1) * 100, 2);
+            m.EnemyAtkPct = Math.Round(((1 + m.EnemyAtkPct / 100) * (1 + atkWas / 100) / (1 + atkNow / 100) - 1) * 100, 2);
+            c.Campaign.EarlyLevelEnemyHpPct[n - 1] = hpWas;
+            c.Campaign.EarlyLevelEnemyAtkPct[n - 1] = atkWas;
+        }
+        Ease(1, -60, -40);
+        Ease(2, -55, -40);
+        c.BoardTiles["campfire"].MinMainLevel = 0;
+        c.MinigameTuning.MinMainLevel = Math.Min(c.MinigameTuning.MinMainLevel, 2);
+    }
+
     public static GameEngine Engine(WormSetup? worm = null, ContentDb? content = null)
     {
         worm ??= new WormSetup();
-        var e = new GameEngine(content ?? ContentDb.Default) { Cloner = TestHelpers.Clone };
+        var e = new GameEngine(ClassicBoards(content ?? Classic)) { Cloner = TestHelpers.Clone };
         e.RegisterLoadoutContributor((s, c, now, l) =>
         {
             // Controlled worm: replace whatever Progression/City contributed (registered after every system).

@@ -142,27 +142,17 @@ public class CrossSystemTests
         Assert.Equal("feature locked", Fail(e, ref s, new RuneLock { RuneUid = "r" }, t));
         Assert.Equal("feature locked", Fail(e, ref s, new PartForgeUnlock { Uid = "p" }, t));
 
-        // Portal progress is Run's main_level_max counter (max-style); gates also need the account day.
-        s.Counters[Requirements.MainLevelCounter] = 12;
-        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Part), t)); // level 12 on day 1: Part Signal waits for day 4
-        PlayDays(e, ref s, 2, 4);
-        Ok(e, ref s, P(GachaType.Part), Day(4));
-        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Alien), Day(4)));
-        s.Counters[Requirements.MainLevelCounter] = 22;
-        PlayDays(e, ref s, 5, 9); // one group per day: Laboratory, Grain Farm, Aliens, Housing, Blueprint Signal
-        Ok(e, ref s, P(GachaType.Alien), Day(9));
-        Ok(e, ref s, P(GachaType.Blueprint), Day(9));
-        Assert.Equal("feature locked", Fail(e, ref s, new MountEquip { MountId = "mount_scout_saucer" }, Day(9)));
+        // Portal progress is Run's main_level_max counter (max-style); the level is the only gate (GDD §16, no calendar).
+        s.Counters[Requirements.MainLevelCounter] = 9;
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Part), t)); // Part Signal: level 10
+        s.Counters[Requirements.MainLevelCounter] = 10;
+        Ok(e, ref s, P(GachaType.Part), t); // same day
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Alien), t));
+        s.Counters[Requirements.MainLevelCounter] = 20;
+        Ok(e, ref s, P(GachaType.Alien), t + 1000);
+        Ok(e, ref s, P(GachaType.Blueprint), t + 2000);
+        Assert.Equal("feature locked", Fail(e, ref s, new MountEquip { MountId = "mount_scout_saucer" }, t + 3000)); // Mounts: level 26
         Assert.False(Features.IsUnlocked(s, e.Content, Features.Forge));
-    }
-
-    /// <summary>Start of account day <paramref name="day"/> (1 = creation day) plus an hour.</summary>
-    private static long Day(int day) => T0 + (day - 1) * MetaTime.Day + MetaTime.Hour;
-
-    /// <summary>One command per account day so the onboarding settler runs (one unlock group per day after day 1).</summary>
-    private static void PlayDays(GameEngine e, ref GameState s, int from, int to)
-    {
-        for (int d = from; d <= to; d++) Ok(e, ref s, new CityCollect(), Day(d));
     }
 
     // ---- onboarding -------------------------------------------------------------------------------
@@ -178,38 +168,40 @@ public class CrossSystemTests
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Empty(s.Aliens.Owned);
 
-        // Level 20 by day 8: Laboratory (day 5, blueprint), Aliens (day 7, first alien) and Housing (day 8, squad slot building).
-        s.Counters[Requirements.MainLevelCounter] = 20;
+        // Level 1: Parts, with the starter parts and the Ore the starting wallet used to hold.
+        s.Counters[Requirements.MainLevelCounter] = 1;
         var r = Ok(e, ref s, new CityCollect(), T0 + 1000);
-        Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Quests); // day-1 unlocks are not limited
         Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Parts);
-        Assert.Equal(3, s.Parts.Items.Count); // released by the Parts unlock, with the Ore the starting wallet used to hold
+        Assert.Equal(3, s.Parts.Items.Count); // released by the Parts unlock
         Assert.Equal(500, s.Wallet.Get(Currencies.Ore));
         Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
+        // Level 6: the City (farm blueprint, Biomass); level 16: Laboratory (13), Aliens (15, first alien), Housing (16).
+        s.Counters[Requirements.MainLevelCounter] = 6;
+        Ok(e, ref s, new CityCollect(), T0 + 2000);
+        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Null(AlienSystem.Owned(s, "alien_blorp"));
-        PlayDays(e, ref s, 2, 2);
-        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm")); // the City (day 2)
-        Assert.Equal(500, s.Wallet.Get(Currencies.Biomass));
-        PlayDays(e, ref s, 3, 8);
+        s.Counters[Requirements.MainLevelCounter] = 16;
+        Ok(e, ref s, new CityCollect(), T0 + 3000);
         Assert.Contains(Features.Aliens, s.Onboarding.Unlocked.Keys);
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
         Assert.NotNull(CitySystem.Owned(s, "bp_housing_pod"));
         Assert.NotNull(CitySystem.Owned(s, "bp_laboratory"));
         // Sticky: a later command does not grant again.
-        Ok(e, ref s, new CityCollect(), Day(8) + 2000);
+        Ok(e, ref s, new CityCollect(), T0 + 4000);
         Assert.Equal(0, s.Counter("alien_duplicates"));
         Assert.Equal(0, s.Counter("blueprint_duplicates"));
 
-        // Heroes (day 10, level 24): no starter hero, only the hero summon events and the first event's 10 tickets.
-        s.Counters[Requirements.MainLevelCounter] = 24;
-        PlayDays(e, ref s, 9, 10);
+        // Heroes (level 18): no starter hero, only the hero summon events and the first event's 10 tickets.
+        s.Counters[Requirements.MainLevelCounter] = 18;
+        long t = T0 + MetaTime.Hour;
+        Ok(e, ref s, new CityCollect(), t);
         Assert.Contains(Features.Heroes, s.Onboarding.Unlocked.Keys);
         Assert.Empty(s.Heroes.Owned);
         Assert.All(e.Content.HeroConfig.Defs.Keys, h => Assert.Equal(0, s.Wallet.Get(Currencies.HeroShards(h))));
         Assert.Equal(10, s.Wallet.Get(Currencies.HeroTickets));
-        Assert.NotNull(SummonEventSystem.CurrentEvent(s, e.Content, SummonEventType.Hero, Day(10) + 3000));
-        Assert.NotEqual("feature locked", Fail(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, Day(10) + 3000)); // no shards to unlock one
+        Assert.NotNull(SummonEventSystem.CurrentEvent(s, e.Content, SummonEventType.Hero, t + 3000));
+        Assert.NotEqual("feature locked", Fail(e, ref s, new HeroUnlock { HeroId = "hero_star_knight" }, t + 3000)); // no shards to unlock one
         Assert.DoesNotContain(e.Content.FeatureDefs[Features.Heroes].UnlockGrants, g => g.Kind is RewardKinds.Hero or RewardKinds.HeroShards);
         Assert.Equal("hero_summon", e.Content.FeatureDefs[Features.Heroes].TutorialStep);
     }

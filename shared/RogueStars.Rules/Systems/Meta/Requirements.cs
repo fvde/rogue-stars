@@ -67,7 +67,7 @@ namespace RogueStars.Rules.Systems
                 case RequirementKind.Flag: return state.Flags.Contains(req.Key) ? 1 : 0;
                 case RequirementKind.Currency: return state.Wallet.Get(req.Key);
                 case RequirementKind.Feature:
-                    // Recorded unlocks only (the onboarding settler applies day gates and the daily limit).
+                    // Recorded unlocks only (the onboarding settler records them, sticky).
                     return Features.IsUnlocked(state, content, req.Key) ? 1 : 0;
                 case RequirementKind.AccountAgeDays: return 0; // needs time: see Current(state, content, req, now)
                 default: return 0;

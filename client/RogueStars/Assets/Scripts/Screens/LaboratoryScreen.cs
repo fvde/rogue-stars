@@ -98,6 +98,7 @@ namespace RogueStars.Client.Screens
         private int _branch;
 
         public override string Title => "Laboratory";
+        public override string[] IntroFeatures => new[] { Features.Laboratory, Features.PackageIce, Features.PackageLightning, Features.PackageCounter, Features.PackageAlien, Features.PackageTime };
 
         /// <summary>Last built layout (tests).</summary>
         public LabTreeLayout Layout { get; private set; }

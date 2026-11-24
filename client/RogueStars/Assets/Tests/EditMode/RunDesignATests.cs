@@ -128,6 +128,7 @@ namespace RogueStars.Client.Tests
         public void Hud_FloatsOverTheWorld_ControlsAtTheBottom()
         {
             StartRun();
+            S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs; // hold-for-auto is a level unlock (GDD §16)
             var screen = Open();
             var holder = (RectTransform)FindNamed(screen.Root, "BoardHolder");
             var view = FindNamed(holder, "BoardView").GetComponent<RawImage>();

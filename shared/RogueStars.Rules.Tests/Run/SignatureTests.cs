@@ -90,18 +90,23 @@ public class SignatureTests
     }
 
     [Fact]
-    public void Packages_AreAChain_AndTheAlienPackageNeedsAliens()
+    public void Packages_AreAChain_AndEachNeedsItsLevelUnlock()
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 3);
         Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_combo")!));
         Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!));
         Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("res_frost_nova")!)); // Ice lab skill needs the package
-        foreach (var id in new[] { "pkg_combo", "pkg_ice", "pkg_lightning", "pkg_counter" }) s.Lab.Entries[id] = new LabEntry { Level = 1 };
-        s.Lab.Entries["lab_alien_power_1"] = new LabEntry { Level = 2 };
+        s.Lab.Entries["pkg_combo"] = new LabEntry { Level = 1 };
+        s.Lab.Entries["lab_atk_1"] = new LabEntry { Level = 2 };
         s.Flags.Remove(Features.DevUnlockAllFlag);
+        Assert.Equal("Ice Package locked", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!)); // prerequisites met, level not yet
+        s.Onboarding.Unlocked[Features.PackageIce] = TestHelpers.T0;
+        Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!));
+        foreach (var id in new[] { "pkg_ice", "pkg_lightning", "pkg_counter" }) s.Lab.Entries[id] = new LabEntry { Level = 1 };
+        s.Lab.Entries["lab_alien_power_1"] = new LabEntry { Level = 2 };
         Assert.Contains("locked", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_alien")!));
-        s.Onboarding.Unlocked[Features.Aliens] = TestHelpers.T0;
+        s.Onboarding.Unlocked[Features.PackageAlien] = TestHelpers.T0; // after Aliens in the level order
         Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_alien")!));
         Assert.Equal("research maxed", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_combo")!));
     }

@@ -9,7 +9,7 @@ namespace RogueStars.Sim.Tests;
 /// </summary>
 public class MinigameSimTests
 {
-    private static SimPlayer Play(MinigameTier skill, int days = 5)
+    private static SimPlayer Play(MinigameTier skill, int days = 7)
     {
         var p = new SimPlayer(TimeProfile.Active, SpendProfile.F2P, 4) { KeepRunLog = true, MinigameSkill = skill };
         for (int d = 0; d < days; d++) p.PlayDay(d);
@@ -20,12 +20,15 @@ public class MinigameSimTests
     public void Runs_PlayOneToTwoMinigames_AtTheBotsSkill()
     {
         var p = Play(MinigameTier.Silver);
-        var runs = p.RunLog.Where(r => r.Mode != RunMode.Burrow).ToList();
+        // the Alien Arcade is level-unlocked run content (GDD §16): count the runs on levels that have it
+        int from = p.C.MinigameTuning.MinMainLevel;
+        var runs = p.RunLog.Where(r => r.Mode != RunMode.Burrow && (r.Mode != RunMode.Normal || r.Level >= from)).ToList();
         Assert.True(runs.Count >= 10, "runs played: " + runs.Count);
         double perRun = runs.Average(r => r.Minigames);
         Assert.True(perRun >= 0.8 && perRun <= 2.0, "mini-games per run " + perRun);
         Console.WriteLine("mini-games per run " + perRun);
-        Assert.All(runs, r => Assert.InRange(r.Minigames, 0, 2));
+        Assert.All(p.RunLog, r => Assert.InRange(r.Minigames, 0, 2));
+        Assert.All(p.RunLog.Where(r => r.Mode == RunMode.Normal && r.Level > 0 && r.Level < from), r => Assert.Equal(0, r.Minigames));
         // the median player is Silver: most games end Silver, the rest one tier off
         int total = p.MinigameTiers.Sum();
         Assert.Equal(runs.Sum(r => r.Minigames) + p.RunLog.Where(r => r.Mode == RunMode.Burrow).Sum(r => r.Minigames), total);

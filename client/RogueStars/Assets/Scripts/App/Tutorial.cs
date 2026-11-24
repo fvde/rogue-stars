@@ -10,7 +10,7 @@ namespace RogueStars.Client.App
     /// Non-intrusive tutorial: content tutorial steps (Meta onboarding) are completed automatically when the
     /// player has done the thing (TutorialAdvance grants the step reward); the hub shows the next goal that needs another
     /// screen as a card with a "Go" button (PLAY covers the run goals). Steps follow the onboarding v2 order: the first
-    /// run before anything else, then equip the starter parts (Parts unlock after level 1), City, worm level, laboratory,
+    /// run before anything else, then equip the starter parts (Parts unlock after level 1), worm level, City, laboratory,
     /// aliens, the first hero summon pull. No forced popups.
     /// </summary>
     public static class Tutorial
@@ -31,8 +31,8 @@ namespace RogueStars.Client.App
             new Goal { StepId = "first_battle", Text = "Win your first battle", ScreenId = "portals", Done = s => s.Counter("run_battles_won") > 0 },
             new Goal { StepId = "first_run", Text = "Beat the boss to finish your first run", ScreenId = "portals", Done = s => s.Counter("runs_completed") > 0 },
             new Goal { StepId = "equip_part", Text = "Equip a part on the worm", ScreenId = "worm", Done = s => s.Parts.Equipped.Count > 0 },
-            new Goal { StepId = "build_biomass_farm", Text = "Build the Biomass Farm in the City", ScreenId = "city", Done = s => s.Counter("city_buildings_built") > 0 },
             new Goal { StepId = "level_worm", Text = "Level up the worm with Biomass", ScreenId = "worm", Done = s => s.Counter("worm_levels") > 0 },
+            new Goal { StepId = "build_biomass_farm", Text = "Build the Biomass Farm in the City", ScreenId = "city", Done = s => s.Counter("city_buildings_built") > 0 },
             new Goal { StepId = "research_skill", Text = "Research a skill in the Laboratory", ScreenId = "laboratory", Done = s => s.Counter("lab_research_started") > 0 },
             new Goal { StepId = "meet_alien", Text = "Meet your first alien", ScreenId = "aliens", Done = s => s.Aliens.Owned.Count > 0 },
             new Goal { StepId = "hero_summon", Text = "Pull in the hero summon event", ScreenId = "summon", Done = s => s.Counter("summon_pulls_hero") > 0 },

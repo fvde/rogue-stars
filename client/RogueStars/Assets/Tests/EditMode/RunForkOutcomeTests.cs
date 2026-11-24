@@ -107,7 +107,7 @@ namespace RogueStars.Client.Tests
             _f.App.Router.Push(new RunScreen());
             var screen = (RunScreen)_f.App.Router.Current;
             int est = RunSystem.BossRollEstimate(C, run);
-            Assert.That(est, Is.InRange(25, 35));
+            Assert.That(est, Is.InRange(18, 35)); // level 1, the tutorial run, is shorter (~20 rolls; GDD §16)
             Assert.That(screen.Subtitle, Does.StartWith("Roll 0/" + est));                 // no laps: the path never repeats
             Assert.That(Texts(FindNamed(screen.Root, "RollCounter")), Does.Contain("0/" + est));
             Assert.That(Texts(FindNamed(screen.Root, "BossClock")), Does.Contain("BOSS"));

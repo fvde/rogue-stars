@@ -43,9 +43,13 @@ Grant rewards through `ctx.Grant(...)` so every reward kind goes through its own
 
 ## Integration points between workstreams
 - **Feature gates:** `Features.IsUnlocked(state, content, Features.X)` (owned by Meta). Reads recorded unlocks only: the
-  onboarding settler applies the gate (main level AND account day) and the one-group-per-day limit (GDD §16). Tests that
-  need a feature without playing the days record it (`state.Onboarding.Unlocked[id] = t`) or set `Features.DevUnlockAllFlag`.
-  `Features.Next` = the single next unlock group for the hub teaser.
+  onboarding settler records a feature the moment its main level is cleared (GDD §16 level unlocks: no calendar gate, no
+  daily limit; sticky, never re-locked). Tests that need a feature without playing record it
+  (`state.Onboarding.Unlocked[id] = t`) or set `Features.DevUnlockAllFlag`. `Features.Next` = the single next unlock for
+  the hub teaser. Every feature has an intro (`FeatureDef.Intro`, tests enforce 2–4 panels); a new feature id needs
+  `Since` = the current `OnboardingConfig.Version` (old saves get it silently, `OnboardingSystem.Migrate`) and a "?" home
+  (`UiScreen.IntroFeatures` on its client screen). Run content introduced by level reads its level from `CampaignDef`
+  (`ShopsFromLevel` …); the run-mechanic tests play `RunTestKit.Classic` boards (every element from level 1).
 - **Rewards:** `RewardKinds` + granters (`Part`/`Rune` → Progression, `Blueprint`/`Alien` → City,
   `HeroShards`/`Mount` → Progression). Every grant passes `RewardGate` (GDD §13.1 "rewards follow use"): a reward whose
   currency / item kind has no use yet (`ContentDb.RewardUses`) goes to the reward stash and `ctx.Grant` returns false (list

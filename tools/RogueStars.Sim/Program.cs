@@ -88,14 +88,19 @@ if (opts.Has("inventory"))
 }
 if (opts.Has("unlocks"))
 {
-    // Onboarding schedule check: unlock day/level per feature for a ~1 h/day player (Active) and a binge player (Hardcore).
+    // Level unlocks check (GDD §16): minutes / runs / level / day per feature and the novelty gaps, per profile.
     int ud = opts.Int("days", 30), us = opts.Int("seeds", 3);
-    var ujobs = new[] { TimeProfile.Casual, TimeProfile.Active, TimeProfile.Hardcore }
-        .SelectMany(t => Enumerable.Range(1, us).Select(seed => (t, seed: (long)seed))).ToList();
+    var uprof = new List<(TimeProfile t, SpendProfile s)>();
+    foreach (var p in opts.Str("profiles", "Casual:F2P,Active:F2P,Hardcore:F2P,Active:Whale").Split(',', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var parts = p.Split(':');
+        uprof.Add((TimeProfile.ByName(parts[0]), SpendProfile.ByName(parts[1])));
+    }
+    var ujobs = uprof.SelectMany(p => Enumerable.Range(1, us).Select(seed => (p.t, p.s, seed: (long)seed))).ToList();
     var ures = new ConcurrentBag<SimResult>();
     string uv = opts.Str("variant", "");
-    Parallel.ForEach(ujobs, j => ures.Add(Simulation.Run(j.t, SpendProfile.F2P, j.seed, ud, string.IsNullOrEmpty(uv) ? null : () => Variants.Create(uv))));
-    var ordered0 = ures.OrderBy(r => Array.FindIndex(TimeProfile.All, t => t.Name == r.Time)).ThenBy(r => r.Seed).ToList();
+    Parallel.ForEach(ujobs, j => ures.Add(Simulation.Run(j.t, j.s, j.seed, ud, string.IsNullOrEmpty(uv) ? null : () => Variants.Create(uv))));
+    var ordered0 = ures.OrderBy(r => uprof.FindIndex(p => p.t.Name == r.Time && p.s.Name == r.Spend)).ThenBy(r => r.Seed).ToList();
     Console.WriteLine(Unlocks.Markdown(ordered0, string.IsNullOrEmpty(uv) ? SimContent.Create() : Variants.Create(uv)));
     return;
 }

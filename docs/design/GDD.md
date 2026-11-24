@@ -49,9 +49,10 @@ Aliens, Laboratory → stronger runs, harder portals.
 - Tiles are generated per level from weighted pools plus fixed special positions. Consumed tiles are
   replaced from the pool; some special tiles appear at most once.
 - Tile valence colours: positive, negative, enemy, elite, boss, special.
-- **Auto mode:** holding Roll enables auto-roll; any tap interrupts. Auto only automates the **clear, choice-free**
-  steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss tiles) and battles
-  (fast playback). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
+- **Auto mode** (a level unlock, `auto_roll`, §16): holding Roll enables auto-roll; any tap interrupts. Auto only automates
+  the **clear, choice-free** steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss
+  tiles) and **starting the fights it meets** (a clock miniboss, the boss arena: no Fight! / Enter Arena tap while auto is
+  on; manual play keeps the tap). The battle playback and every result sheet wait for the player's tap (playtest 0.1.200). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
   treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out, mini-game (§3.6) — auto **pauses**, shows the
   decision and hands control back; after the player decides it resumes by itself while auto is still on. The result screen of an event / chest / campfire / shop (§3.3) is shown for a moment and passed by
   auto. Giving up
@@ -182,7 +183,7 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
   type) and every 50th a bigger portal-completion bonus; run item drops shift up in rarity past level 500 but never
   above Legendary. Formulas: `docs/design/economy-model.md` ("Endless campaign rewards").
 - **Overcharged** levels: harder variant of each portal, 2× stamina, better rewards.
-- **Dark Side of the Planet:** late mode (opens at main level 40), endless procedural levels along the campaign curve (dark
+- **Dark Side of the Planet:** late mode (the feature unlocks at main level 53; its first level sits on the main level 40 curve), endless procedural levels along the campaign curve (dark
   level i ≈ main level 40 + 3·(i−1)) with extreme modifiers (+45…90% enemy HP/ATK, −50% healing, faster awakening and
   danger), own rewards and leaderboard. The long-term source of **Data** for the Laboratory (Data per clear grows with
   the level).
@@ -194,8 +195,8 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 ### 3.6 Mini-games (Alien Arcade)
 - **GAME tiles** come from every tile pool (`MinigameTuning.PoolWeight`), at most `MaxPerRun` = 2 per run
   (`TileDef.MaxPerRun`, enforced where the segment generator picks pool tiles, `RunBoard.AppendSegment` → `PickPoolTile` →
-  `RunTileLimits`, counted per run), so every segment can hold one until the run has had two; ~1.4 played per run (simulator). The first main level (the tutorial run) has none
-  (`MinMainLevel` 2). A GAME tile **forces a stop** like a
+  `RunTileLimits`, counted per run), so every segment can hold one until the run has had two; ~1.4 played per run (simulator). Main levels below `MinMainLevel` 15 have none: the
+  Alien Arcade is level-unlocked run content (`run_minigames`, §16). A GAME tile **forces a stop** like a
   shop, so every one on the worm's path is played; afterwards it is **cleared** like every resolved tile.
 - Landing → `RunPhase.Minigame` (decision `Minigame`). **Auto mode pauses** there (the player plays). **Farming**
   (auto-pick) resolves it as `MinigameTuning.FarmingTier` = **Miss** (consolation coins only, no skill roll): AFK play
@@ -513,43 +514,69 @@ new-player 7-day event, mailbox, idle production (city), push notification hooks
 gifts. Lobby popups capped.
 
 ## 16. Onboarding / unlock order
-A three-week journey, one new thing at a time (onboarding v2). Every feature has a gate = **main level cleared AND
-earliest account day** (`RequirementKind.AccountAgeDays`, counted in daily resets: day 1 = the creation day, day 2 starts
-at the first reset after it). Day-1 unlocks are not limited; after that **at most one unlock group per day** (the lowest
-pending one, deterministic), so a binge player hits the day gate, a slow player the level gate, and a returning player
-catches up one group per day. Pairs ("X + Y") are one group and unlock together.
+Level unlocks (owner decision 2026-11-24): **nothing limits progression by calendar day.** Every feature unlocks at a
+**player level = the main campaign level cleared** (`main_level_max`, `RequirementKind.MainLevel`; the worm level is itself
+a feature, so the campaign level is the account's level). How fast the player gets there is up to them: there is no
+account-day gate and no "one unlock per day" limit (daily resets, daily goals, timers and event schedules stay). The
+features are spaced out for a steady stream of new things: **one per level up to level 20, then every 2 levels, then
+every 3–4**; systems come before what depends on them and every reward waits for its use (§13.1). Run content is
+introduced the same way, after the level before the first board that has it (the level's own fields, `ContentDb.Campaign`).
+The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows the minutes, runs and days per profile.
 
-| Day | Level | Unlock (feature id) | Guided action |
-|---|---|---|---|
-| 1 | – | only PLAY: the scripted first run (level 1 eased −35% so a worm without parts wins it) | – |
-| 1 | 1 | Parts / Worm tab (`parts`): equip the three starter parts | Equip your parts |
-| 1 | 5 | Daily goals (`quests`) | See today's goals |
-| 2 | 8 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
-| 3 | 6* | Worm level & talents (`worm_level`) | Level up the worm |
-| 4 | 12 | Part Signal + Shop (`part_pulls`, `shop`); the first pulls are on the starting tokens | Tune in |
-| 5 | 14 | Laboratory (`laboratory`) | Start first research |
-| 6 | 16 | Grain Farm (`grain_farm`) | Build the grain farm |
-| 7 | 18 | Aliens (first alien) + Alien Signal (`aliens`, `alien_pulls`) | Meet your alien |
-| 8 | 20 | Housing → first squad slot (`alien_squad`) | Build housing |
-| 9 | 22 | Blueprint Signal (`blueprints`) | Pull a blueprint |
-| 10 | 24 | Heroes (`heroes`; the hero summon events, first event + 10 tickets; no starter hero) | Pull in the hero event |
-| 11 | 26 | Ore Mine + Runes (`ore_mine`, `runes`) | Build the ore mine |
-| 12 | 28 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
-| 13 | 29 | Funds (`funds`; not in the approved list, fills the free day 13) | See the funds |
-| 14 | 30 | Breeding Pen + Season pass (`breeding`, `season_pass`) | Build the pen |
-| 15 | 32 | Arena (`arena`) | Enter the arena |
-| 16 | 34 | Overcharged levels (`overcharged`) | Play overcharged |
-| 17 | 36 | Guilds (`guilds`) | Find a guild |
-| 18 | 38 | Invasions (`invasions`; also opens the hub's live-event column and the Observatory) | Defend the planet |
-| 19 | 40 | Burrow (`burrow`) | Dig in |
-| 20 | 42 | Forge (`forge`) | Open the forge |
-| 21 | 45 | Dark Side of the Planet (`dark_side`) | Cross over |
+| Level | Unlock (feature id) | Guided action |
+|---|---|---|
+| – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
+| 1 | Parts / Worm tab (`parts`): equip the three starter parts | Equip your parts |
+| 2 | Shops on the board from level 3 (`run_shop`) | Play |
+| 3 | Worm level & talents (`worm_level`) | Level up the worm |
+| 4 | Minibosses & Mythics from level 5: the lair and the awakening clock (`run_miniboss`) | Play |
+| 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
+| 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
+| 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
+| 8 | Daily goals and the 7-day calendar (`quests`) | See today's goals |
+| 9 | Campfires from level 10 (`run_campfire`) | Play |
+| 10 | Part Signal (`part_pulls`); the first pulls are on the house | Tune in |
+| 11 | Signature choice (1 of 3) from level 12 (`run_signatures`; before it the run gets the first offered signature) | Play |
+| 12 | Shop (`shop`) | Open the shop |
+| 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
+| 14 | Alien Arcade mini-games from level 15 (`run_minigames`) | Play |
+| 15 | Aliens: the first alien (`aliens`) | Meet your alien |
+| 16 | Housing → first squad slot (`alien_squad`) | Build housing |
+| 17 | Grain Farm (`grain_farm`) | Build the grain farm |
+| 18 | Heroes (`heroes`; the hero summon events, first event + 10 tickets; no starter hero) | Choose a hero |
+| 19 | Alien Signal (`alien_pulls`) | Call an alien |
+| 20 | Blueprint Signal (`blueprints`) | Pull a blueprint |
+| 22 | Ore Mine (`ore_mine`) | Build the ore mine |
+| 24 | Laboratory: Ice Package (`package_ice`) | Open the lab |
+| 26 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
+| 28 | Runes (`runes`) | See your parts |
+| 30 | Funds (`funds`) | See the funds |
+| 32 | Arena (`arena`) | Enter the arena |
+| 34 | Breeding Pen (`breeding`) | Build the pen |
+| 36 | Season pass (`season_pass`) | See the pass |
+| 38 | Laboratory: Lightning Package (`package_lightning`) | Open the lab |
+| 40 | Overcharged levels (`overcharged`) | Play overcharged |
+| 42 | Guilds (`guilds`) | Find a guild |
+| 44 | Invasions (`invasions`; also opens the hub's live-event column and the Observatory) | Defend the planet |
+| 46 | Burrow (`burrow`) | Dig in |
+| 48 | Laboratory: Counter Package (`package_counter`) | Open the lab |
+| 50 | Forge (`forge`) | Open the forge |
+| 53 | Dark Side of the Planet (`dark_side`) | Cross over |
+| 56 | Laboratory: Alien Package (`package_alien`) | Open the lab |
+| 60 | Laboratory: Time Package (`package_time`) | Open the lab |
 
-\* Approved as level 10. At level 10 casual players cannot clear the gate level without worm levels and stall for
-~12 days (simulator); level 6 keeps day 3 for ~1 h/day and binge players. See `docs/balance/onboarding-unlocks.md`.
+Each package node needs its feature (`LabResearchDef.RequiresFeature`) besides the chain of prerequisites. The first boards
+(main levels 1–14, numbers in `CampaignDef`: `ShopsFromLevel`, `MinibossesFromLevel`, `ForksFromLevel`, `CampfiresFromLevel`,
+`SignatureChoiceFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later portals, the Burrow
+and the Dark Side have everything. The run-content features read their levels from those numbers, so they never drift.
 
-**Visibility:** locked features are invisible — no greyed-out entries. Only the single next group is teased
-(`Features.Next`: "Next: Laboratory — clear level 14", "unlocks tomorrow"). Day-1 hub of a brand-new account: PLAY, the
+**Old saves** keep every unlock they have (unlocks never re-lock). A save from before the level unlocks
+(`OnboardingState.Version` 0) gets, once, the new features its level already meets (`FeatureDef.Since` 2: the run content,
+auto roll, packages) recorded and celebrated silently — it already had that content; their "?" replays the intro. The
+original features it now meets earlier get their normal unlock moments.
+
+**Visibility:** locked features are invisible — no greyed-out entries. Only the single next unlock is teased
+(`Features.Next`: "Laboratory — clear level 13" with the level progress "11/13"). Day-1 hub of a brand-new account: PLAY, the
 Planet tab, the teaser, the stamina and Diamonds chips and the profile chip; the Worm tab (and Mail) join after level 1. Mail and the
 currency chips follow use (§13.1): a currency shows once the player can use it, so a brand-new account shows the stamina and
 Diamonds chips only (Diamonds buy stamina refills).
@@ -559,9 +586,12 @@ column = daily goals, summon events (from Heroes) and live events (invasions, pl
 shop, offer, pass, mail, "More" (laboratory, aliens, heroes, mounts, breeding, guild); the PLAY card (Continue during a
 run) sits above the tabs.
 
-**Unlock moment:** each unlock opens a full-screen celebration on the hub (never mid-run): the feature's name, one line
-of what it does, the reward (unlock gift and items), ONE guided action that claims the gift and opens the feature, and
-the next teaser. Starter items arrive with the unlock (`UnlockGrants`: first alien, blueprints, Data, hero shards...) together
+**Unlock moment and feature intro:** each unlock opens a full-screen screen on the hub (never mid-run, one at a time):
+the feature's name on a ribbon, then its intro: 2–4 short panels (`FeatureDef.Intro`: one line, an art key from ArtCatalog
+`Art/Intro/` with a drawn fallback, a simple looping animation: a tapping hand, pulse, slide-in, count-up, spin, hop, a
+filling bar) with NEXT and SKIP; the last panel adds one line of what it does, the reward (unlock gift and items), ONE
+guided action that claims the gift and opens the feature, and the next teaser. Every feature screen has a **"?"** that
+replays the intro (a topic list when the screen has several features), without claiming anything. Starter items arrive with the unlock (`UnlockGrants`: first alien, blueprints, Data, hero shards...) together
 with the reward stash kept for the feature (§13.1), e.g. the starter parts and the first runs' Ore with Parts.
 
 ## 17. Technical architecture

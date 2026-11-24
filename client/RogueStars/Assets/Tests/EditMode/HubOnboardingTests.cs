@@ -99,6 +99,15 @@ namespace RogueStars.Client.Tests
             var moment = _f.App.Router.Current as UnlockScreen;
             Assert.That(moment, Is.Not.Null, "full-screen unlock moment");
             Assert.That(Named(moment.Root, "FeatureName").text, Is.EqualTo("Parts"));
+            // the intro panels first (GDD §16): one line, art and an animation each, NEXT to go on
+            Assert.That(moment.PageCount, Is.EqualTo(C.Feature(Features.Parts).Intro.Count));
+            Assert.That(Named(moment.Root, "StepText").text, Is.EqualTo(C.Feature(Features.Parts).Intro[0].Text));
+            for (int i = 1; i < moment.PageCount; i++)
+            {
+                moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroNext").onClick.Invoke();
+                Assert.That(Named(moment.Root, "StepText").text, Is.EqualTo(C.Feature(Features.Parts).Intro[i].Text));
+            }
+            Assert.That(moment.OnLastPage, Is.True);
             Assert.That(Named(moment.Root, "Description").text, Is.EqualTo(C.Feature(Features.Parts).Description));
             Assert.That(moment.Root.GetComponentsInChildren<Text>(true).Any(t => t.text == "+20 Diamonds"), Is.True, "reward shown");
             var actions = moment.Root.GetComponentsInChildren<Button>(true);
@@ -172,54 +181,62 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Teaser_ShowsTheLevelGate_ThenTheDayGate()
+        public void Teaser_ShowsTheLevelToClear_NeverADay()
         {
-            Unlock(Features.Parts, Features.Quests);
-            S.Counters[Requirements.MainLevelCounter] = 6;
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — clear level 8 · unlocks tomorrow"));
-            Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("6/8"));
-            S.Counters[Requirements.MainLevelCounter] = 9;
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — unlocks tomorrow"));
-            Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("Day 2"));
+            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
+            S.Counters[Requirements.MainLevelCounter] = 4;
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — clear level 6"));
+            Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("4/6"));
+            S.Counters[Requirements.MainLevelCounter] = 6; // met: the next command records it
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — unlocking now"));
+            Assert.That(Named(Hub.Root, "Figure"), Is.Null);
         }
 
         [Test]
-        public void NextDay_DayGatedUnlock_MomentOpensTheCity()
+        public void LevelCleared_UnlockMoment_SameDay_OpensTheCity()
         {
             ClearLevel1();
             Celebrated(Features.Parts);
-            S.Counters[Requirements.MainLevelCounter] = 9; // Daily goals (level 5) on day 1, the City waits for day 2
-            _f.Service.Refresh(_ => { });
-            Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.Quests), Is.True);
-            Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.False);
-            Celebrated(Features.Quests);
-
-            _f.Clock.Advance(Day);
+            S.Counters[Requirements.MainLevelCounter] = 6; // no calendar gate: everything up to level 6 at once
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
+            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
-            Assert.That(Named(moment.Root, "Kicker").text, Is.EqualTo("DAY 2 · NEW ON YOUR PLANET"));
+            Assert.That(moment.FeatureIds, Is.EqualTo(new[] { Features.BiomassFarm }));
+            Assert.That(Named(moment.Root, "Kicker").text, Is.EqualTo("NEW UNLOCK"));
+            Assert.That(moment.Action, Is.Null, "the guided action waits on the last panel");
+            moment.ShowPage(moment.PageCount - 1);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("BUILD THE FARM"));
-            Assert.That(Named(moment.Root, "TeaserText").text, Does.StartWith("Tomorrow: Worm Level & Talents"));
+            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 7: Auto Roll"));
             moment.Claim();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
             Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.BiomassFarm));
         }
 
         [Test]
-        public void UnlockGroup_IsOneMoment_ClaimingEveryMember()
+        public void RunContentUnlock_IntroPanels_NextAndSkip_ThenPlay()
         {
-            Unlock(Features.Parts, Features.Quests, Features.BiomassFarm, Features.WormLevel);
-            Celebrated(Features.Parts, Features.Quests, Features.BiomassFarm, Features.WormLevel);
-            Unlock(Features.PartPulls, Features.Shop);
+            Unlock(Features.Parts);
+            Celebrated(Features.Parts);
+            Unlock(Features.RunShop);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
-            Assert.That(moment.FeatureIds, Is.EqualTo(new[] { Features.PartPulls, Features.Shop }));
-            Assert.That(Named(moment.Root, "FeatureName").text, Is.EqualTo("Part Signal + Shop"));
+            var intro = C.Feature(Features.RunShop).Intro;
+            Assert.That(Named(moment.Root, "Kicker").text, Is.EqualTo("NEW IN YOUR RUNS"));
+            Assert.That(Named(moment.Root, "FeatureName").text, Is.EqualTo("Shops"));
+            Assert.That(moment.PageCount, Is.EqualTo(intro.Count));
+            Assert.That(moment.Root.GetComponentsInChildren<Image>(true).Count(i => i.name.StartsWith("Dot:")), Is.EqualTo(intro.Count));
+            Assert.That(moment.Root.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "IntroArt"), Is.True, "an art slot");
+            Assert.That(moment.Root.GetComponentInChildren<RogueStars.Client.World.IntroAnimator>(true).Kind, Is.EqualTo(intro[0].Anim));
+            moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroNext").onClick.Invoke();
+            Assert.That(Named(moment.Root, "StepText").text, Is.EqualTo(intro[1].Text));
+            moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroSkip").onClick.Invoke();
+            Assert.That(moment.OnLastPage, Is.True);
+            Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("PLAY"));
             moment.Claim();
-            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.PartPulls).And.Contain(Features.Shop));
-            Assert.That(_f.App.Router.Current, Is.InstanceOf<SignalsScreen>());
+            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.RunShop));
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<PortalsScreen>());
         }
 
         [Test]

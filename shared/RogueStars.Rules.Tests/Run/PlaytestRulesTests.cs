@@ -43,7 +43,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     [MemberData(nameof(Levels))]
     public void Forks_NeverBypassAMinibossOrShop_AndBothArmsHaveAtLeast8Tiles(string levelId)
     {
-        var c = ContentDb.Default;
+        var c = RunTestKit.Classic; // classic boards: forks from level 1
         var level = c.RunLevel(levelId)!;
         int forks = 0;
         for (ulong seed = 1; seed <= 40; seed++)
@@ -97,7 +97,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     [Fact]
     public void Layout_SegmentsUseVariedShapes()
     {
-        var c = ContentDb.Default;
+        var c = RunTestKit.Classic;
         Assert.True(c.RunTuning.BoardLayouts.Select(l => l.Kind).Distinct().Count() >= 5);
         var level = c.RunLevel("ember_wastes_5")!;
         // the shapes differ: how often the path turns varies across seeds (straights, zig-zags, hairpins, fork loops)
