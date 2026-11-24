@@ -148,6 +148,10 @@ namespace RogueStars.Rules.Systems
                     foreach (var t in sk.Triggers) if (t.When == TriggerKind.OnAbility) { ab = true; break; }
                     if (ab) { r.AbilitySkill = sk.Id; break; }
                 }
+                // the HUD's starting point: a timer's rounds / turns left, a counter's 0 / max, the empty bank
+                if (r.AbilityEvery > 0 || r.AbilityTurns > 0) CounterLog(worm, worm.AbilityLeft, r.AbilityEvery > 0 ? r.AbilityEvery : r.AbilityTurns, r.AbilitySkill);
+                else if (r.AbilityShieldHits > 0 || r.AbilityStillness > 0) CounterLog(worm, 0, r.AbilityShieldHits > 0 ? r.AbilityShieldHits : r.AbilityStillness, r.AbilitySkill);
+                else if (r.RageBank > 0) CounterLog(worm, 0, r.RageBank, r.AbilitySkill);
                 if (r.ElementPoolPct > 0) PoolElements(worm, r.ElementPoolPct);
                 var mount = MountOf((BattleSide)side);
                 if (mount != null)
@@ -241,9 +245,10 @@ namespace RogueStars.Rules.Systems
             int every = turnTimer ? r.AbilityTurns : r.AbilityEvery;
             if (every <= 0 || (turnTimer ? r.AbilityEvery > 0 : false)) return;
             w.AbilityLeft--;
-            if (w.AbilityLeft > 0) return;
+            if (w.AbilityLeft > 0) { CounterLog(w, w.AbilityLeft, every, r.AbilitySkill); return; } // "Feast in 2"
             w.AbilityLeft = every;
             FireAbility(w, 1);
+            CounterLog(w, w.AbilityLeft, every, r.AbilitySkill);
         }
 
         private void FireAbility(Fighter w, double mult)
@@ -307,6 +312,7 @@ namespace RogueStars.Rules.Systems
             {
                 worm.AbilityAdvRound = Round;
                 worm.AbilityLeft--;
+                CounterLog(worm, worm.AbilityLeft, worm.Rules.AbilityEvery > 0 ? worm.Rules.AbilityEvery : worm.Rules.AbilityTurns, worm.Rules.AbilitySkill);
             }
             if ((all || HasToken(which, "mount")) && mount != null && mount.MountAdvRound != Round && mount.MountLeft > 1)
             {

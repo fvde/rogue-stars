@@ -126,8 +126,6 @@ public static class KitShare
                 setup.Enemy.Add(e);
             }
             var r = BattleSimulator.Simulate(setup, c, new Rng((ulong)(9000 + seed)));
-            if (Environment.GetEnvironmentVariable("KS_DEBUG") != null && kit == null && seed == 1)
-                Console.Error.WriteLine(sig + " " + r.EndReason + " r" + r.Rounds + " wormHp " + r.WormHpLeft + " foes " + string.Join(",", r.Fighters.Where(f => f.Side == BattleSide.Enemy).Select(f => f.EndHp + "/" + f.MaxHp)));
             if (r.PlayerWon()) wins++;
             dpr += r.PlayerDamageDealt / (double)Math.Max(1, r.Rounds);
             double side = r.Fighters.Where(f => f.Side == BattleSide.Player).Sum(f => (double)f.DamageDealt);

@@ -57,6 +57,14 @@ namespace RogueStars.Client.Screens
         private int _next;
         private float _timer;
         private Text _round;
+        /// <summary>Hero and mount kits: the hero's Ability HUD ("Starfall 2/4", "Feast in 2") and the mount's ("Scan Pulse in 2").</summary>
+        private Text _kitHero, _kitMount;
+        private string _mountShot;
+        private int _mountNext = -1, _mountReload;
+        /// <summary>What the kit HUD showed (tests, screenshots).</summary>
+        public readonly List<string> KitHud = new List<string>();
+        public int Volleys { get; private set; }
+        public int Abilities { get; private set; }
         private Text _banner;
         private RectTransform _endPanel;
         private RectTransform _stage;
@@ -194,6 +202,23 @@ namespace RogueStars.Client.Screens
             var roundPill = SliceKit.Pill(holder, s, 540, 296, 300, 62, new Color32(0x14, 0x12, 0x20, 200), "RoundPill");
             _round = SliceKit.Chunky(roundPill.transform, "Round 1/" + _battle.Rounds, (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
             Ui.Stretch(_round.rectTransform);
+            // the kit HUD (hero and mount kits): the hero's Ability counter / timer and the mount's next shot, left of the round
+            if (_battle.Log.Exists(x => x.Action == BattleAction.KitCounter && x.Round == 0))
+            {
+                var kp = SliceKit.Pill(holder, s, 190, 296, 340, 62, new Color32(0x20, 0x16, 0x34, 210), "KitHeroPill");
+                _kitHero = SliceKit.Chunky(kp.transform, "", (int)(30 * s), Theme.Gold, TextAnchor.MiddleCenter, "KitHero");
+                Ui.Stretch(_kitHero.rectTransform);
+            }
+            if (_views.Exists(v => v.Info.Role == CombatRole.Mount) && _battle.Log.Exists(x => x.Action == BattleAction.Volley))
+            {
+                var mp = SliceKit.Pill(holder, s, 190, 360, 340, 54, new Color32(0x12, 0x22, 0x34, 210), "KitMountPill");
+                _kitMount = SliceKit.Chunky(mp.transform, "", (int)(26 * s), Theme.Hex(0x7FB2FF), TextAnchor.MiddleCenter, "KitMount");
+                Ui.Stretch(_kitMount.rectTransform);
+                var first = _battle.Log.Find(x => x.Action == BattleAction.Volley);
+                _mountShot = Content.Skill(first.SkillId)?.Name ?? "Shot";
+                _mountNext = first.Round;
+                SetMountHud(0);
+            }
             var skip = Ui.Button(holder, "", Close, SliceKit.PillDark, 130 * s, 62 * s, true, 20);
             skip.name = "SkipButton";
             SliceKit.Place((RectTransform)skip.transform, s, 990, 296, 130, 62);
@@ -746,6 +771,7 @@ namespace RogueStars.Client.Screens
         {
             var e = _battle.Log[_next++];
             if (_round != null) _round.text = "Round " + e.Round + "/" + _battle.Rounds;
+            if (e.Round != _roundNow) SetMountHud(e.Round);
             _roundNow = e.Round;
             var actor = View(e.Actor);
             var target = View(e.Target) ?? actor;
@@ -880,6 +906,34 @@ namespace RogueStars.Client.Screens
                     break;
                 case BattleAction.Death:
                     if (target != null) { Die(target, animate); Popup(target, "KO", Theme.TextDim, animate, 52); }
+                    break;
+                // ---- hero and mount kits ----
+                case BattleAction.Volley:
+                {
+                    // the mount fires on its reload: the shot's name over the worm it carries, a hop of the seated worm
+                    Volleys++;
+                    var name = Content.Skill(e.SkillId)?.Name ?? "Shot";
+                    var seat = _hero ?? actor;
+                    if (animate && seat != null) Hop(seat);
+                    if (seat != null) AbilityFloat(seat, name.ToUpperInvariant(), e.Amount > 0, animate);
+                    if (e.Amount == 0) { _mountReload = Math.Max(1, e.Stacks); _mountNext = e.Round + _mountReload; _mountShot = name; }
+                    SetMountHud(e.Round);
+                    break;
+                }
+                case BattleAction.Ability:
+                {
+                    Abilities++;
+                    var name = Content.Skill(e.SkillId)?.Name ?? "Ability";
+                    if (target != null) { Popup(target, name.ToUpperInvariant() + "!", Theme.Gold, animate, 52, "hero ability"); if (animate) Hop(target); }
+                    if (_kitHero != null) { _kitHero.text = name + "!"; KitHud.Add(_kitHero.text); }
+                    break;
+                }
+                case BattleAction.KitCounter:
+                    if (actor != null && actor.Info.Role == CombatRole.Mount) { SetMountHud(e.Round, e); break; }
+                    if (_kitHero != null) { _kitHero.text = KitCounterText(e); KitHud.Add(_kitHero.text); }
+                    break;
+                case BattleAction.Mark:
+                    if (target != null) Popup(target, "MARKED", Theme.Hex(0x7FB2FF), animate, 34, "Spotlight");
                     break;
             }
             Sync(e, actor, View(e.Target));
@@ -1219,6 +1273,10 @@ namespace RogueStars.Client.Screens
                     break;
                 case BattleAction.Guarded: what = who + "'s guard softens a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " less)"; break;
                 case BattleAction.Block: what = who + " blocks a hit on " + tgt + " (" + Fmt.Num(e.Amount) + " stopped)"; break;
+                case BattleAction.Volley: what = who + " fires " + (Content.Skill(e.SkillId)?.Name ?? "its shot") + (e.Amount > 0 ? " (extra shot)" : "") + (tgt.Length > 0 ? " at " + tgt : ""); break;
+                case BattleAction.Ability: what = who + " uses " + (Content.Skill(e.SkillId)?.Name ?? "its Ability"); break;
+                case BattleAction.Mark: what = who + " marks " + tgt; break;
+                case BattleAction.KitCounter: return;
                 default:
                     what = who + " " + e.Action.ToString().ToLowerInvariant() + (tgt.Length > 0 ? " → " + tgt : "")
                            + (e.Dodge ? " (dodged)" : e.Amount > 0 ? " " + Fmt.Num(e.Amount) : "") + (e.Crit ? " CRIT" : "")
@@ -1228,6 +1286,46 @@ namespace RogueStars.Client.Screens
             var line = Ui.Label(_feed, "R" + e.Round + "  " + what, 22, Theme.TextDim);
             _feedLines.Enqueue(line.gameObject);
             while (_feedLines.Count > 12) Ui.DestroyGo(_feedLines.Dequeue());
+        }
+
+        /// <summary>
+        /// The hero's kit HUD: a counter "Starfall 2/4" / "Stillness 1/3" / "Bank 60/100", a timer "Feast in 2" (the skill's
+        /// ability_every / ability_turns rule says it is a timer).
+        /// </summary>
+        public string KitCounterText(BattleLogEntry e)
+        {
+            var sk = Content.Skill(e.SkillId);
+            string name = sk?.Name ?? "Ability";
+            bool timer = false, bank = false, still = false;
+            if (sk != null)
+                foreach (var t in sk.Triggers)
+                {
+                    if (t.Effect != EffectKind.Rule || t.Param == null) continue;
+                    if (t.Param.StartsWith("ability_every") || t.Param.StartsWith("ability_turns")) timer = true;
+                    if (t.Param.StartsWith("rage_bank")) bank = true;
+                }
+            if (!timer && !bank && e.Stacks == 3 && sk != null && sk.Triggers.Exists(t => t.Effect == EffectKind.SpreadStatus)) still = true;
+            if (timer) return name + (e.Amount <= 1 ? " next turn" : " in " + e.Amount);
+            if (bank) return "Bank " + e.Amount + "/" + e.Stacks;
+            return (still ? "Stillness" : name) + " " + e.Amount + "/" + e.Stacks;
+        }
+
+        /// <summary>The mount's HUD: "Scan Pulse in 2" (its reload), or its charge / coil "Coil 120/300".</summary>
+        private void SetMountHud(int round, BattleLogEntry counter = null)
+        {
+            if (_kitMount == null) return;
+            if (counter != null)
+            {
+                var sk = Content.Skill(counter.SkillId);
+                bool coil = sk != null && sk.Triggers.Exists(t => t.Effect == EffectKind.Rule && t.Param == "coil");
+                _kitMount.text = (coil ? "Coil " : "Charge +") + Fmt.Num(counter.Amount) + (coil ? "/" + Fmt.Num(counter.Stacks) : "%") + " · " + _mountShot;
+            }
+            else
+            {
+                int left = _mountNext - round;
+                _kitMount.text = _mountShot + (left <= 0 ? " ready" : left == 1 ? " next round" : " in " + left);
+            }
+            KitHud.Add(_kitMount.text);
         }
 
         /// <summary>HP / shield / rage straight from the log entry (values right after it, see BattleLogEntry).</summary>

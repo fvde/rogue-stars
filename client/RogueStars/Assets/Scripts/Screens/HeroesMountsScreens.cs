@@ -1,13 +1,17 @@
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
+using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
 
 namespace RogueStars.Client.Screens
 {
-    /// <summary>Hero personas: unlock by shards, stars 1–10, levels (Hero XP), equip, trait skills by star.</summary>
+    /// <summary>
+    /// Hero personas: unlock by shards, stars 1–10, levels (Hero XP), equip. Hero and mount kits: each card shows the hero's line, what
+    /// drives its Ability, the kit lines it has (Trait, Ability, the star clauses) and the next change in grey.
+    /// </summary>
     public sealed class HeroesScreen : UiScreen
     {
         public override string Title => "Heroes";
@@ -30,17 +34,13 @@ namespace RogueStars.Client.Screens
                 var h = HeroSystem.Get(State, hid);
                 long shards = State.Wallet.Get(Currencies.HeroShards(hid));
                 bool equipped = State.Heroes.Equipped == hid;
-                var card = Card(body, Color.Lerp(Theme.FamilyColor(def.Family), Theme.Panel, equipped ? 0.55f : 0.8f));
+                var card = Card(body, Color.Lerp(Theme.Hex(0x7FB2FF), Theme.Panel, equipped ? 0.62f : 0.84f));
+                card.name = "Hero:" + hid;
                 var head = Ui.Row(card, 56, 8);
                 Ui.Label(head, def.Name + (h != null ? "  " + Fmt.Stars(h.Stars) : ""), Theme.FontNormal, h != null ? Theme.Text : Theme.TextDim);
-                Ui.Label(head, SkillText.FamilyName(def.Family) + (def.SecondaryFamily != SkillFamily.None ? " / " + SkillText.FamilyName(def.SecondaryFamily) : ""), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
-                var traits = new List<string>();
-                foreach (var t in def.Traits)
-                {
-                    bool have = h != null && h.Stars >= t.Star;
-                    traits.Add((have ? "" : "<color=#777788>") + t.Star + "★ " + (Content.Skill(t.SkillId)?.Name ?? t.SkillId) + (have ? "" : "</color>"));
-                }
-                Ui.Label(card, string.Join(" · ", traits), 22);
+                Ui.Label(head, def.Meter, Theme.FontSmall, Theme.Gold, TextAnchor.MiddleRight);
+                Ui.Label(card, def.Tagline, 22, Theme.TextDim);
+                KitView.Lines(card, HeroSystem.KitAt(Content, hid, h != null ? h.Stars : 1), HeroSystem.NextKit(Content, hid, h != null ? h.Stars : 1));
                 var row = Ui.Row(card, 80, 8);
                 if (h == null)
                 {
@@ -59,7 +59,10 @@ namespace RogueStars.Client.Screens
         }
     }
 
-    /// <summary>Spaceship mounts: stars 1–5 then awakening 1–5 (shards + mount cores), Fuel levels, weapons, equip.</summary>
+    /// <summary>
+    /// Spaceship mounts: stars 1–5 then awakening 1–5 (shards + mount cores), Fuel levels, equip. Hero and mount kits: a vehicle on
+    /// a reload; each card shows its passive and active at its step, the reload, its mount damage and the next step's lines in grey.
+    /// </summary>
     public sealed class MountsScreen : UiScreen
     {
         public override string Title => "Mounts";
@@ -82,13 +85,21 @@ namespace RogueStars.Client.Screens
                 var m = MountSystem.Get(State, mid);
                 long shards = State.Wallet.Get(Currencies.MountShards(mid));
                 bool active = State.Mounts.Active == mid;
-                var card = Card(body, Color.Lerp(Theme.FamilyColor(def.Family), Theme.Panel, active ? 0.55f : 0.8f));
+                var card = Card(body, Color.Lerp(Theme.Hex(0x7FB2FF), Theme.Panel, active ? 0.62f : 0.84f));
+                card.name = "Mount:" + mid;
                 var head = Ui.Row(card, 56, 8);
                 Ui.Label(head, def.Name + (m != null ? "  " + Fmt.Stars(m.Stars) + (m.Awaken > 0 ? " A" + m.Awaken : "") : "  (not owned)"), Theme.FontNormal, m != null ? Theme.Text : Theme.TextDim);
-                Ui.Label(head, SkillText.FamilyName(def.Family), Theme.FontSmall, Theme.FamilyColor(def.Family), TextAnchor.MiddleRight);
-                var weapons = new List<string>();
-                foreach (var w in def.Weapons) weapons.Add((w.Awaken > 0 ? "A" + w.Awaken : w.Star + "★") + " " + (Content.Skill(w.SkillId)?.Name ?? w.SkillId));
-                Ui.Label(card, string.Join(" · ", weapons), 22);
+                int k = cfg.KitStep(m != null ? m.Stars : 1, m != null ? m.Awaken : 0);
+                double dmg = m != null ? MountSystem.MountStats(Content, mid, m).Value(StatId.MountPower) : 0;
+                Ui.Label(head, "Reload " + def.Reloads[k] + (dmg > 0 ? " · +" + Fmt.Num(dmg) + "% dmg" : ""), Theme.FontSmall, Theme.Gold, TextAnchor.MiddleRight);
+                Ui.Label(card, def.Tagline, 22, Theme.TextDim);
+                var now = MountSystem.KitNow(Content, mid, m != null ? m.Stars : 1, m != null ? m.Awaken : 0);
+                KitView.Lines(card, now, null);
+                if (k + 1 < cfg.KitSteps.Length)
+                {
+                    var step = cfg.KitSteps[k + 1];
+                    foreach (var line in MountSystem.KitNow(Content, mid, step[0], step[1])) KitView.Lines(card, new List<KitText>(), line);
+                }
                 if (m == null)
                 {
                     Ui.Button(card, "Unlock (" + shards + "/" + cfg.UnlockShards + " shards)", () => Run(new MountUnlock { MountId = mid }), Theme.Accent, -1, 80, shards >= cfg.UnlockShards).name = "Unlock:" + mid;
@@ -115,6 +126,27 @@ namespace RogueStars.Client.Screens
                 Ui.Button(row, "Lv " + m.Level + "/" + max + "\n<size=20>" + (canLevel ? Fmt.Num(fuel) + " fuel" : "cap") + "</size>", () => Run(new MountLevelUp { MountId = mid }), Theme.Good, -1, 80,
                     canLevel && State.Wallet.CanAfford(Currencies.Fuel, fuel), 26);
                 Ui.Button(row, active ? "Active" : "Equip", () => Run(new MountEquip { MountId = mid }), active ? Theme.Accent : Theme.Button, 200, 80, !active, 26);
+            }
+        }
+    }
+
+    /// <summary>Kit lines on a hero / mount card: "1★ Trait · Starguard: …" (what it has), then the next change in grey.</summary>
+    internal static class KitView
+    {
+        public static void Lines(Transform card, List<KitText> have, KitText next)
+        {
+            foreach (var line in have)
+            {
+                // a number line already names its element ("Starfall: 60% → 90% ATK.")
+                bool named = line.Text.StartsWith(line.Name + ":", System.StringComparison.Ordinal);
+                var l = Ui.Label(card, "<b>" + line.StepLabel + " " + line.Slot + (named ? ":</b> " : " · " + line.Name + ":</b> ") + line.Text, 22);
+                l.name = "Kit:" + line.Slot + ":" + line.StepLabel;
+            }
+            if (next != null)
+            {
+                bool named = next.Text.StartsWith(next.Name + ":", System.StringComparison.Ordinal);
+                var l = Ui.Label(card, "<color=#8A8AA0>Next " + next.StepLabel + " " + next.Slot + (named ? ": " : " · " + next.Name + ": ") + next.Text + "</color>", 20);
+                l.name = "KitNext:" + next.Slot;
             }
         }
     }

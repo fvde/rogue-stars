@@ -63,7 +63,7 @@ python3 tools/RogueStars.Sim/charts.py docs/balance before                # char
 
 Playable prototype (placeholder UI), offline and online.
 
-- **Rules:** run board, battles, worm/parts/runes/heroes/mounts, city/aliens/breeding, laboratory, gacha, hero/mount summon
+- **Rules:** run board, battles, worm/parts/runes, heroes and mounts with hand-written kits (docs/design/heroes-mounts.md), city/aliens/breeding, laboratory, gacha, hero/mount summon
   events ([docs/design/summon-events.md](docs/design/summon-events.md)), quests, shop,
   mail, arena, guilds, live ops (weekly + surprise invasions, never two of one type at once, max 2 concurrent;
   planetary events). Endless procedural campaign and Dark Side (50 named portals, then generated) tuned with the simulator.
@@ -73,8 +73,8 @@ Playable prototype (placeholder UI), offline and online.
 - **Client:** every screen, battle playback from the logged HP/shield/rage, offline + online services, playthrough
   screenshots in [docs/client-screenshots](docs/client-screenshots), Firebase Auth (Google Play Games sign-in, anonymous fallback +
   linking), Unity IAP (Google Play Billing), AppLovin MAX gateway (disabled for now), signed AAB + APK builds.
-- **Tests:** .NET 705 (rules 583, server 94, simulator guard 28) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
-  Unity EditMode 272 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
+- **Tests:** .NET 778 (rules 655, server 95, simulator guard 28) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
+  Unity EditMode 284 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
 - **Open:** console setup for Play Games sign-in (docs/setup.md step 3), AppLovin + mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).

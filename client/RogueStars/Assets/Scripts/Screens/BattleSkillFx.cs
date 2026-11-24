@@ -28,6 +28,9 @@ namespace RogueStars.Client.Screens
         {
             if (e == null || string.IsNullOrEmpty(e.SkillId) || battle == null) return null;
             if (e.Action == BattleAction.StatusExpired) return null;
+            // hero and mount kits: the HUD counters show these; the shot / ability marker plays over the worm, its effects fire the tile
+            if (e.Action == BattleAction.KitCounter || e.Action == BattleAction.Volley || e.Action == BattleAction.Mark) return null;
+            if (e.Action == BattleAction.Ability) return new SkillFire { SkillId = e.SkillId, Effect = "Ability", Label = (c?.Skill(e.SkillId)?.Name ?? e.SkillId) + " · Ability" };
             if (e.Actor < 0 || e.Actor >= battle.Fighters.Count || battle.Fighters[e.Actor].Side != BattleSide.Player) return null;
             // a sidekick's ability (aliens, drones) plays on the sidekick itself (BattlePlaybackScreen: hop + name float)
             var who = battle.Fighters[e.Actor];

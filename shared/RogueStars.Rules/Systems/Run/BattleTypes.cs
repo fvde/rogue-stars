@@ -58,7 +58,9 @@ namespace RogueStars.Rules.Systems
         /// <summary>The worm's hero Ability fires (Actor = Target = the worm, SkillId = the ability skill). Its effects follow.</summary>
         Ability,
         /// <summary>A kit counter changed (Actor = Target = its owner, SkillId = the skill that owns it, Amount = the value, Stacks = the
-        /// max): "Starfall 2/4" (shield hits), Stillness 0–3, the rage bank 0–100, the Aegis Walker's coil.</summary>
+        /// max): "Starfall 2/4" (shield hits), Stillness 0–3, the rage bank 0–100, a timer's rounds / turns left ("Feast in 2"; the
+        /// skill's ability_every / ability_turns rule says it is a timer), the Aegis Walker's coil, the Star Lancer's charge. Round 0
+        /// holds each hero's starting value.</summary>
         KitCounter,
         /// <summary>The mount marked an enemy (Actor = the mount, Target = the marked enemy; Scout Saucer's Spotlight).</summary>
         Mark,

@@ -53,7 +53,7 @@ public class DeadEffectsTests
     /// The SkillTuningTests arena (worm + mount + two aliens vs a shielded slug, a dodging wraith and a boss), with the skill where its
     /// source puts it: mount weapons on the mount, alien skills on an alien, enemy skills on the slug, everything else on the worm.
     /// </summary>
-    internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double hpPct = 0) => Fight(c, skillId, seed, brawl, context, hpPct);
+    internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double hpPct = 0) => Fight(c, skillId, seed, brawl, context, hpPct); // kit debugging
 
     private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double enemyHpPct = 0)
     {

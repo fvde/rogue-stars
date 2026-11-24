@@ -40,7 +40,7 @@ namespace RogueStars.Client.Tests
                 var lo = new CombatLoadout { DisplayName = "Worm", MountId = "mount_hive_carrier" };
                 lo.WormStats.Add(new StatMod(StatId.Hp, 6000)).Add(new StatMod(StatId.Atk, 60)).Add(new StatMod(StatId.Def, 10)).Add(new StatMod(StatId.Speed, 100));
                 lo.MountStats.Add(new StatMod(StatId.Atk, 40)).Add(new StatMod(StatId.Hp, 10));
-                lo.MetaSkillIds.Add("mount_hive_carrier_w1");
+                lo.MetaSkillIds.Add("mount_hive_carrier_active_1"); // Launch Bay (hero and mount kits)
                 lo.Aliens.Add(Alien(c, "alien_pebblehorn", 5));
                 lo.Aliens.Add(Alien(c, "alien_emberkit"));
                 lo.Aliens.Add(Alien(c, "alien_mossling"));

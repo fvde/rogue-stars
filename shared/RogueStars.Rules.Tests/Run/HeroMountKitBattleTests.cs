@@ -107,7 +107,8 @@ public class HeroMountKitBattleTests
         var r = Fight(Hero("hero_star_knight", 1), enemies: new[] { Unit("e1", 20000, 40, 200), Unit("e2", 20000, 40, 200), Unit("e3", 20000, 40, 200) }, rounds: 3);
         int w = Worm(r);
         Assert.Contains(r.Log, e => e.Round == 0 && e.Action == BattleAction.Shield && e.Amount == 600); // Starguard: 12% of 5000
-        var counts = r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w).Select(e => e.Amount).ToList();
+        Assert.Contains(r.Log, e => e.Round == 0 && e.Action == BattleAction.KitCounter && e.Amount == 0 && e.Stacks == 4); // the HUD starts at 0/4
+        var counts = r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w && e.Round > 0).Select(e => e.Amount).ToList();
         Assert.Equal(new long[] { 1, 2, 3, 4, 0 }, counts.Take(5));                                  // "Starfall 1/4 … 4/4", then reset
         Assert.All(r.Log.Where(e => e.Action == BattleAction.KitCounter), e => Assert.Equal(4, e.Stacks));
         var ability = r.Log.First(e => e.Action == BattleAction.Ability);
@@ -165,6 +166,8 @@ public class HeroMountKitBattleTests
     {
         var r = Fight(Hero("hero_noodle_ninja", 3), rounds: 7);
         Assert.Equal(new[] { 3, 6 }, r.Log.Where(e => e.Action == BattleAction.Ability).Select(e => e.Round));
+        // the HUD's timer: turns left 3 (start), 2, 1, then 3 again after the knot
+        Assert.Equal(new long[] { 3, 2, 1, 3 }, r.Log.Where(e => e.Action == BattleAction.KitCounter).Take(4).Select(e => e.Amount));
         Assert.Equal(new long[] { 45, 45 }, r.Log.Where(e => e.Action == BattleAction.Buff && e.SkillId == "hero_noodle_ninja_ability_3").Take(2).Select(e => e.Amount));
     }
 
@@ -252,7 +255,7 @@ public class HeroMountKitBattleTests
         var enemies = new[] { Unit("e1", 900000, 1), Unit("e2", 900000, 1), Unit("e3", 900000, 1) };
         var r = Fight(Hero("hero_glacier_monk", 1).Append("probe_rad5").Append("probe_bigshield").Append("probe_combo"), rounds: 3, enemies: enemies);
         int w = Worm(r);
-        Assert.Equal(new long[] { 1, 2, 3 }, r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w).Take(3).Select(e => e.Amount));
+        Assert.Equal(new long[] { 1, 2, 3 }, r.Log.Where(e => e.Action == BattleAction.KitCounter && e.Actor == w && e.Round > 0).Take(3).Select(e => e.Amount));
         var palm = r.Log.Single(e => e.Action == BattleAction.Ability);
         Assert.Equal(3, palm.Round);
         var front = r.Fighters.First(f => f.Id == "e1").Index;
