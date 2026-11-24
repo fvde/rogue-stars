@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -241,7 +242,7 @@ namespace RogueStars.Client.Tests
                 {
                     // an encounter is answered on the ROLL button (FIGHT! / ENTER ARENA), not in a modal
                     var label = FindNamedButton(enc.Root, "RollButton").GetComponentInChildren<Text>().text;
-                    Assert.That(label, Does.Contain("FIGHT").Or.Contain("ENTER ARENA"));
+                    Assert.That(label, Does.Contain("Fight").Or.Contain("Enter Arena"));
                 }
                 else if (active.Phase != RunPhase.AwaitRoll && _f.App.Router.Current is RunScreen)
                     Assert.That(_f.App.ModalLayer.childCount, Is.GreaterThan(0), "decision modal for " + active.Phase);
@@ -254,6 +255,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void BoardLayout_TilesNeverOverlap()
         {
+            // every main level: each tile on its own grid cell of the world board (the cell the iso board draws it on)
             var content = _f.Service.Content;
             foreach (var level in content.RunLevels.Values)
             {
@@ -261,20 +263,19 @@ namespace RogueStars.Client.Tests
                 for (int seed = 1; seed <= 5; seed++)
                 {
                     var board = RunBoard.Generate(content, level, Rng.FromSeed(seed * 977 + level.Index));
-                    var seen = new Dictionary<Vector2, int>();
+                    var seen = new Dictionary<Vector2Int, int>();
                     foreach (var t in board.Tiles)
                     {
-                        var c = RunScreen.TileCenter(t);
+                        var c = WorldBoard.CellOf(t);
                         Assert.That(seen.ContainsKey(c), Is.False, level.Id + " tiles " + t.Id + " and " + (seen.ContainsKey(c) ? seen[c] : -1) + " overlap");
                         seen[c] = t.Id;
-                        Assert.That(c.x, Is.InRange(0f, RunScreen.BoardWidth));
                     }
                 }
             }
         }
 
         [Test]
-        public void BossMarker_NeverOverlapsATile()
+        public void BossArena_TakesAFreeCellNextToTheWorm()
         {
             var content = _f.Service.Content;
             foreach (var level in content.RunLevels.Values)
@@ -283,28 +284,21 @@ namespace RogueStars.Client.Tests
                 for (int seed = 1; seed <= 5; seed++)
                 {
                     var board = RunBoard.Generate(content, level, Rng.FromSeed(seed * 977 + level.Index));
-                    // the arena opens ahead of the worm (its own lane, one column on): drawn are the walked path and the arena
                     int at = board.MainPath[Mathf.Min(board.MainPath.Count - 2, 8 + seed * 3)];
                     var here = board.Tiles[at];
                     var arena = RunBoard.Add(board.Tiles, "boss_gate", here.X + 1, -1);
-                    RunBoard.PlaceAhead(here, arena); // as RunSystem opens it
+                    RunBoard.PlaceAhead(here, arena, board.Tiles); // as RunSystem opens it
                     var drawn = new List<RunTile>();
                     foreach (var id in board.MainPath) { drawn.Add(board.Tiles[id]); if (id == at) break; }
-                    drawn.Add(arena);
                     var run = new ActiveRun { Tiles = board.Tiles, BossGateTile = arena.Id, Position = at };
                     foreach (var t in drawn) run.Trail.Add(t.Id);
-                    run.Trail.Remove(arena.Id);
-                    int x0 = RunScreen.WindowStart(run, at);
-                    var visible = board.Tiles.FindAll(t => RunScreen.InWindow(run, t, x0));
+                    var visible = board.Tiles.FindAll(t => WorldBoard.InWindow(run, t, WorldBoard.Depth(here)));
                     Assert.That(visible, Does.Contain(arena));
-                    var size = new Vector2(RunScreen.BoardWidth, RunScreen.BoardHeight(run, x0));
-                    var p = RunScreen.BossMarkerCenter(visible, arena.Id, size, x0);
-                    var marker = new Rect(p - RunScreen.BossMarkerSize / 2, RunScreen.BossMarkerSize);
-                    Assert.That(marker.xMin >= 0 && marker.yMin >= 0 && marker.xMax <= size.x && marker.yMax <= size.y, Is.True, level.Id + " marker on the board");
+                    var ca = WorldBoard.CellOf(arena);
+                    var ch = WorldBoard.CellOf(here);
+                    Assert.That(Mathf.Abs(ca.x - ch.x) + Mathf.Abs(ca.y - ch.y), Is.EqualTo(1), level.Id + ": the arena is next to the worm");
                     foreach (var t in visible)
-                        Assert.That(RunScreen.TileRect(t, t.Id == arena.Id, x0).Overlaps(marker), Is.False, level.Id + " seed " + seed + ": marker overlaps tile " + t.Id);
-                    foreach (var t in visible)
-                        if (t.Id != arena.Id) Assert.That(RunScreen.TileRect(t, false, x0).Overlaps(RunScreen.TileRect(arena, true, x0)), Is.False, "arena on top of a path tile");
+                        if (t.Id != arena.Id) Assert.That(WorldBoard.CellOf(t), Is.Not.EqualTo(ca), level.Id + " seed " + seed + ": arena on top of tile " + t.Id);
                 }
             }
         }
@@ -319,10 +313,9 @@ namespace RogueStars.Client.Tests
             for (int i = 0; i < 5; i++) _f.App.Toasts.Info("Toast " + i);
             Assert.That(_f.App.Toasts.Count, Is.EqualTo(ToastCenter.MaxVisible));
             Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Toast 4"));
-            // The strip starts just above the fixed action bar and the scrolling body (board) ends above the strip.
-            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(run.FooterHeight + 4).Within(0.01f));
-            Assert.That(run.BodyFrame.offsetMin.y, Is.GreaterThanOrEqualTo(run.FooterHeight + ToastCenter.StripHeight));
-            Assert.That(run.Root.Find("Footer").GetComponentsInChildren<Button>(true).Length, Is.GreaterThanOrEqualTo(4), "skill slots, Loot, ROLL and AUTO in the bar");
+            // The toasts float above the dice pedestal (the HUD floats over the world: no footer bar).
+            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(run.ToastBottomInset).Within(0.01f));
+            Assert.That(run.ToastBottomInset, Is.GreaterThan(400f), "clear of the dice button");
             // Short-lived.
             _f.App.Update(ToastCenter.Lifetime + 0.1f);
             Assert.That(_f.App.Toasts.Count, Is.EqualTo(0));

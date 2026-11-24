@@ -11,9 +11,10 @@ namespace RogueStars.Rules.Systems
     /// (each RunTuning.BranchMinArm..BranchMaxArm tiles) rejoin further ahead, the level's fixed specials (campfire, shops,
     /// miniboss lair) on trunk tiles only (every path passes them: no fork bypasses a miniboss or a shop), the boss's dedicated
     /// tiles and a weighted pool fill with the segment's own mix (RunTuning.SegmentThemes). Edges only point forward, so no
-    /// tile or fork is ever visited twice. Every segment also gets a 2D layout style (RunTuning.BoardLayouts: long straights
-    /// with side loops, zig-zags, wide curves, hooks, diamond splits) that sets each tile's <see cref="RunTile.PosX"/> /
-    /// <see cref="RunTile.PosY"/> / <see cref="RunTile.Dir"/> (display only; the layout uses no randomness of its own).
+    /// tile or fork is ever visited twice. Every segment also gets a layout style (RunTuning.BoardLayouts: long straights,
+    /// zig-zags, wide turns, hairpins, fork-rich) that puts each tile on a cell of an iso grid (<see cref="RunTile.PosX"/> /
+    /// <see cref="RunTile.PosY"/> whole numbers, <see cref="RunTile.Dir"/> a right angle, <see cref="RunTile.Height"/> 0/1) and
+    /// leaves set-piece slots inside loops (<see cref="Board.SetPieces"/>; display only, no randomness of its own).
     /// RunSystem extends the board whenever the worm gets close to its end and opens the boss arena ahead of the worm when
     /// the awakening meter is full. Deterministic for a given Rng.
     /// </summary>
@@ -27,6 +28,8 @@ namespace RogueStars.Rules.Systems
             /// <summary>The open end of the path (the last trunk tile; the next segment starts after it).</summary>
             public int EndTile;
             public int Segments;
+            /// <summary>Set-piece slots the layout left free inside loops and hairpins (grid cells no tile ever takes).</summary>
+            public List<RunSetPiece> SetPieces = new List<RunSetPiece>();
         }
 
         /// <summary>One piece of a segment in path order: a trunk tile, or a fork (two arms that rejoin at the next trunk tile).</summary>
@@ -41,7 +44,7 @@ namespace RogueStars.Rules.Systems
         {
             var b = new Board();
             var start = Add(b.Tiles, "start", 0, 0);
-            start.Segment = 0; // laid out (PosX/PosY 0,0): the board's 2D layout starts here
+            start.Segment = 0; // laid out (cell 0,0, heading +Y): the board's grid layout starts here
             b.MainPath.Add(start.Id);
             b.EndTile = start.Id;
             int n = Math.Max(1, content.RunTuning.InitialSegments);
@@ -50,7 +53,8 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Wraps a run's tiles to extend them (the run keeps its tiles and the open end).</summary>
-        public static Board Wrap(List<RunTile> tiles, int endTile, int segments) => new Board { Tiles = tiles, EndTile = endTile, Segments = segments };
+        public static Board Wrap(List<RunTile> tiles, int endTile, int segments, List<RunSetPiece> setPieces = null) =>
+            new Board { Tiles = tiles, EndTile = endTile, Segments = segments, SetPieces = setPieces ?? new List<RunSetPiece>() };
 
         /// <summary>The layout style of a segment index (deterministic from the board's own picks; null without styles).</summary>
         private static BoardLayoutDef PickLayout(RunTuning t, Rng rng)
@@ -91,6 +95,8 @@ namespace RogueStars.Rules.Systems
                 if (canBranch && rng.Chance(branchChance))
                 {
                     int lenA = rng.Range(minArm, maxArm + 1), lenB = rng.Range(minArm, maxArm + 1);
+                    // grid layout: both arms run around one rectangle, so their lengths need the same parity
+                    if (((lenA - lenB) & 1) != 0) lenA += lenA > lenB ? -1 : 1; // toward the other arm: stays in range, no bias
                     var armA = Chain(b.Tiles, cur, lenA, col + 1, 0, segment, all);
                     var armB = Chain(b.Tiles, cur, lenB, col + 1, 1, segment, all);
                     col += Math.Max(lenA, lenB) + 1;
@@ -168,177 +174,261 @@ namespace RogueStars.Rules.Systems
             foreach (var x in all)
                 if (x.TileId == null) x.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce, theme, run);
 
-            Layout(t, b.Tiles, startTile, pieces, layout);
+            GridLayout(t, b, startTile, pieces, layout, segment);
         }
 
-        // ---- 2D layout ------------------------------------------------------------------------------------------------
+        // ---- iso grid layout ------------------------------------------------------------------------------------------
 
-        private const double Deg = Math.PI / 180.0;
-        /// <summary>Degrees of heading toward a band edge allowed per tile unit of room left.</summary>
-        private const double BandSteer = 30;
-        /// <summary>Layout positions are rounded to this (display only; keeps saved states tidy and platform-stable).</summary>
-        private static double R(double v) => Math.Round(v, 3);
+        /// <summary>Grid headings: index 0 +Y, 1 +X, 2 −Y, 3 −X (RunTile.Dir 0 / 90 / 180 / −90 degrees).</summary>
+        private static readonly int[] DX = { 0, 1, 0, -1 };
+        private static readonly int[] DY = { 1, 0, -1, 0 };
+        private static readonly double[] DirDeg = { 0, 90, 180, -90 };
+
+        /// <summary>Screen-horizontal coordinate of a grid cell (iso: +X runs up-right, +Y up-left).</summary>
+        public static int Lateral(int x, int y) => x - y;
+
+        /// <summary>The cell a tile sits on (grid layout: PosX / PosY are whole numbers).</summary>
+        public static int CellX(RunTile t) => (int)Math.Round(t.PosX);
+        public static int CellY(RunTile t) => (int)Math.Round(t.PosY);
+
+        /// <summary>Grid heading index of a tile's Dir (0 +Y, 1 +X, 2 −Y, 3 −X).</summary>
+        public static int Heading(RunTile t) =>
+            Math.Abs(t.Dir - 90) < 1 ? 1 : Math.Abs(Math.Abs(t.Dir) - 180) < 1 ? 2 : Math.Abs(t.Dir + 90) < 1 ? 3 : 0;
+
+        /// <summary>Deterministic 0..1 value for a layout decision (no Rng draw: the layout never changes the board's content).</summary>
+        private static double Hash01(int segment, int salt)
+        {
+            unchecked
+            {
+                uint h = 2166136261;
+                h = (h ^ (uint)segment) * 16777619;
+                h = (h ^ (uint)salt) * 16777619;
+                h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
+                return (h & 0xFFFFFF) / (double)0x1000000;
+            }
+        }
 
         /// <summary>
-        /// Lays out one segment from its start tile (position and heading carried over): trunk tiles follow the style's heading
-        /// program with a limited turn rate, inside the band; forks become diamonds (both arms bulge out symmetrically) or side
-        /// loops (one straight arm, one swinging out toward the middle of the band). Uses no randomness.
+        /// Lays one segment out on the iso grid (display only, no randomness of its own). Every move is one cell along a grid
+        /// axis: straight runs and right-angle turns, hairpins (a U-turn that wraps a set-piece slot), raised sections (Height
+        /// 0/1, changing between runs = a step), and forks as rectangles: both arms run around the box from the fork tile to the
+        /// join on the opposite corner, the box's inside is a set-piece slot. Invariant: the open end (head) is the only tile in
+        /// its closed up-quadrant {x ≥ head.x, y ≥ head.y}; every shape only places cells inside that quadrant and leaves the
+        /// new head's quadrant empty, so no two tiles ever share a cell and set-piece slots stay free for good.
         /// </summary>
-        private static void Layout(RunTuning t, List<RunTile> tiles, RunTile start, List<Piece> pieces, BoardLayoutDef style)
+        private static void GridLayout(RunTuning t, Board b, RunTile start, List<Piece> pieces, BoardLayoutDef style, int segment)
         {
-            double x = start.PosX, y = start.PosY, heading = start.Dir;
-            double maxHeading = t.LayoutMaxHeading, maxTurn = t.LayoutMaxTurn, half = t.LayoutHalfWidth;
+            int x = CellX(start), y = CellY(start), h = start.Height;
+            int band = Math.Max(4, t.GridBand);
             var kind = style != null ? style.Kind : BoardLayoutKind.Straight;
-            double amp = style != null ? style.Amplitude : 15, period = Math.Max(2, style != null ? style.Period : 12);
-            // the style's swing starts toward the middle of the band
-            double side = x > 0 ? -1 : 1;
-            int k = 0;
+            int lastDir = Heading(start) == 1 ? 1 : 0;
+            int forcedDir = -1;
+            var plan = new Queue<int>();
+            int salt = 0;
             for (int p = 0; p < pieces.Count; p++)
             {
                 var piece = pieces[p];
-                bool forkSoon = false;
-                for (int q = p; q < pieces.Count && q <= p + 5; q++) if (pieces[q].ArmA != null) forkSoon = true;
-                if (piece.ArmA == null)
+                if (piece.ArmA != null)
                 {
-                    double want = Target(kind, k, amp, period, side);
-                    if (forkSoon) want = Clamp(-x * 25, -35, 35);                 // centre before a fork: arms need room
-                    want = Clamp(want, -maxHeading, maxHeading);
-                    heading += Clamp(want - heading, -maxTurn, maxTurn);
-                    // keep to the band (portrait screen): the heading toward an edge shrinks with the room left
-                    heading = Clamp(heading, -Math.Max(0, half + x) * BandSteer, Math.Max(0, half - x) * BandSteer);
-                    heading = Clamp(heading, -maxHeading, maxHeading);
-                    x += Math.Sin(heading * Deg);
-                    y += Math.Cos(heading * Deg);
-                    Place(piece.Tile, x, y, heading);
-                    k++;
+                    plan.Clear();
+                    forcedDir = ForkLayout(b, piece, ref x, ref y, h, band, segment, ref salt);
+                    lastDir = forcedDir == 0 ? 1 : 0;
                     continue;
                 }
-
-                // Fork: chord from the fork tile to the join, leaning toward the middle of the band.
-                int nA0 = piece.ArmA.Count, nB0 = piece.ArmB.Count;
-                double chord = Clamp(Math.Atan2(-x, (Math.Max(nA0, nB0) + 1) * 0.85) / Deg, -30, 30); // the join lands mid-band
-                int nA = piece.ArmA.Count, nB = piece.ArmB.Count;
-                bool loop = style != null && style.SideLoops;
-                double len = (Math.Max(nA, nB) + 1) * 0.85; // the longer arm sets the chord: arms stay narrow
-                double cx = Math.Sin(chord * Deg), cy = Math.Cos(chord * Deg);   // along the chord
-                double px = cy, py = -cx;                                         // perpendicular (to the right)
-                if (loop)
+                if (plan.Count == 0)
                 {
-                    // the shorter arm runs almost straight (a slight counter-curve keeps the arms apart at the fork); the other swings
-                    // out toward the middle of the band
-                    bool aStraight = nA <= nB;
-                    double outSide = x > 0 ? -1 : 1;
-                    ArmLayout(aStraight ? piece.ArmA : piece.ArmB, x, y, cx, cy, px, py, len, -outSide * Bulge(aStraight ? nA : nB, len, 1.5), chord);
-                    ArmLayout(aStraight ? piece.ArmB : piece.ArmA, x, y, cx, cy, px, py, len, outSide * Bulge(aStraight ? nB : nA, len, 2.0), chord);
+                    int room = 0;
+                    for (int q = p; q < pieces.Count && pieces[q].ArmA == null; q++) room++;
+                    bool forkSoon = true; // a fork may follow this stretch (the next segment can fork right after its first tile)
+                    h = PlanMacro(b, plan, kind, x, y, h, band, room, forkSoon, ref lastDir, ref forcedDir, segment, ref salt);
                 }
-                else
-                {
-                    ArmLayout(piece.ArmA, x, y, cx, cy, px, py, len, -Bulge(nA, len, 1.8), chord);
-                    ArmLayout(piece.ArmB, x, y, cx, cy, px, py, len, Bulge(nB, len, 1.8), chord);
-                }
-                x += cx * len;
-                y += cy * len;
-                heading = chord;
-                Place(piece.Tile, x, y, heading);
-                k += Math.Min(nA, nB) + 1;
+                int d = plan.Dequeue();
+                x += DX[d]; y += DY[d];
+                Place(piece.Tile, x, y, d, h);
             }
         }
 
-        /// <summary>Heading (degrees) the style wants at trunk step k of the segment.</summary>
-        private static double Target(BoardLayoutKind kind, int k, double amp, double period, double side)
+        /// <summary>Plans the next trunk shape (a straight run, or a hairpin around a set-piece slot); returns its height.</summary>
+        private static int PlanMacro(Board b, Queue<int> plan, BoardLayoutKind kind, int x, int y, int h, int band, int room, bool forkSoon,
+            ref int lastDir, ref int forcedDir, int segment, ref int salt)
         {
+            int v = Lateral(x, y);
+            double hairpinChance = kind == BoardLayoutKind.Hook ? 0.7 : kind == BoardLayoutKind.Straight ? 0.25 : kind == BoardLayoutKind.Diamonds ? 0.2 : 0.4;
+            // hairpin: out a, across hb, back a (back ≤ out keeps the quadrant invariant), then hc on (keeps the next run off the U)
+            const int ha = 3, hb = 3, hc = 2;
+            if (forcedDir < 0 && room >= ha + hb + ha + hc && Hash01(segment, salt++) < hairpinChance)
+            {
+                // X-major (+X a, +Y b, −X a, +Y c): lateral from v up to v+a, down to v+a−b−a−c; Y-major mirrored
+                int xmMax = v + ha, xmMin = v + ha - hb - ha - hc;
+                int ymMin = v - ha, ymMax = v - ha + hb + ha + hc;
+                bool xm = xmMax <= band && xmMin >= -band, ym = ymMax <= band && ymMin >= -band;
+                // before a fork the hairpin must leave room to get back to the middle of the band
+                int after = room - (ha + hb + ha + hc);
+                if (forkSoon && Math.Abs(xmMin) - 1 > after) xm = false;
+                if (forkSoon && Math.Abs(ymMax) - 1 > after) ym = false;
+                if (xm && ym)
+                {
+                    if (v > 0) ym = false;
+                    else if (v < 0) xm = false;
+                    else if (Hash01(segment, salt++) < 0.5) xm = false;
+                    else ym = false;
+                }
+                if (xm || ym)
+                {
+                    int f = xm ? 1 : 0, s = xm ? 0 : 1, back = xm ? 3 : 2;
+                    for (int i = 0; i < ha; i++) plan.Enqueue(f);
+                    for (int i = 0; i < hb; i++) plan.Enqueue(s);
+                    for (int i = 0; i < ha; i++) plan.Enqueue(back);
+                    for (int i = 0; i < hc; i++) plan.Enqueue(s);
+                    // the slot inside the U, between the outgoing and the return run
+                    b.SetPieces.Add(xm
+                        ? new RunSetPiece { X = x + 1, Y = y + 1, W = ha - 1, H = hb - 1, Height = h, Segment = segment, Shape = "hairpin" }
+                        : new RunSetPiece { X = x + 1, Y = y + 1, W = hb - 1, H = ha - 1, Height = h, Segment = segment, Shape = "hairpin" });
+                    lastDir = s;
+                    return h;
+                }
+            }
+
+            // straight run: turn (alternate axis) unless the style keeps going or the band forbids it
+            int dir;
+            if (forcedDir >= 0) dir = forcedDir;
+            else
+            {
+                dir = lastDir == 1 ? 0 : 1;
+                bool keep = Hash01(segment, salt++) < (kind == BoardLayoutKind.Straight ? 0.3 : 0.12);
+                if (keep) dir = lastDir;
+            }
+            forcedDir = -1;
+            bool steer = forkSoon && Math.Abs(v) > 1 && room <= Math.Abs(v) + 3;
+            if (steer) dir = v > 0 ? 0 : 1; // a fork's box needs the whole band: start it mid-band
+            if (dir == 1 && v >= band - 1) dir = 0;
+            else if (dir == 0 && v <= -band + 1) dir = 1;
+            int lo, hi;
             switch (kind)
             {
-                case BoardLayoutKind.ZigZag: return side * ((k / (int)Math.Round(period)) % 2 == 0 ? amp : -amp);
-                case BoardLayoutKind.WideCurve: return side * amp * Math.Sin(2 * Math.PI * k / period);
-                case BoardLayoutKind.Hook:
+                case BoardLayoutKind.Straight: lo = 3; hi = 6; break;
+                case BoardLayoutKind.ZigZag: lo = 2; hi = 3; break;
+                case BoardLayoutKind.WideCurve: lo = 3; hi = 5; break;
+                default: lo = 2; hi = 4; break;
+            }
+            int len = lo + (int)(Hash01(segment, salt++) * (hi - lo + 1));
+            int roomBand = dir == 1 ? band - v : v + band;
+            if (steer) roomBand = Math.Min(roomBand, Math.Abs(v)); // stop in the middle
+            len = Math.Max(1, Math.Min(len, Math.Min(room, roomBand)));
+            // before a fork, never run so far out that the trunk left cannot bring the path back to the middle
+            int step = dir == 1 ? 1 : -1;
+            while (forkSoon && len > 1 && Math.Abs(v + step * len) - 1 > room - len) len--;
+            if (forkSoon && Math.Abs(v + step) - 1 > room - 1 && Math.Abs(v - step) <= band) { dir = 1 - dir; step = -step; }
+            for (int i = 0; i < len; i++) plan.Enqueue(dir);
+            lastDir = dir;
+            // a raised section (or the step back down) starts with this run
+            if (Hash01(segment, salt++) < 0.3) h = h == 0 ? 1 : 0;
+            return h;
+        }
+
+        /// <summary>
+        /// A fork as a rectangle k × m from the fork tile (corner 0,0) to the join (corner k,m): one arm runs +X then +Y, the
+        /// other +Y then +X; the longer arm (arm lengths differ by an even number, AppendSegment) detours w cells further out
+        /// on its far side. Every cell is in the fork tile's up-quadrant; the join is the new head. Returns the exit heading
+        /// (away from a detour, so the path never runs alongside an arm).
+        /// </summary>
+        private static int ForkLayout(Board b, Piece piece, ref int x, ref int y, int h, int band, int segment, ref int salt)
+        {
+            int nA = piece.ArmA.Count, nB = piece.ArmB.Count;
+            int sum = Math.Min(nA, nB) + 1; // k + m − 1 = the shorter arm
+            int w = Math.Abs(nA - nB) / 2;
+            int v = Lateral(x, y);
+            // pick the box (k × m) and which arm runs +X first: inside the band (arms reach v − m − wy .. v + k + wx), join
+            // nearest the middle; the longer arm detours on its far side
+            int bestK = 2, bestScore = int.MaxValue;
+            bool bestAX = true;
+            for (int k0 = 2; k0 <= sum - 2; k0++)
+                for (int ax = 0; ax < 2; ax++)
                 {
-                    // lean out, curl hard, then swing back: a sawtooth whose direction alternates every period
-                    int n = (int)Math.Round(period);
-                    int phase = k % n;
-                    double dir = (k / n) % 2 == 0 ? side : -side;
-                    return dir * (phase < n * 0.7 ? amp * phase / (n * 0.7) : -amp * 0.5);
+                    bool aX = ax == 0;
+                    int m0 = sum - k0;
+                    int wx0 = (aX ? nA : nB) > Math.Min(nA, nB) ? w : 0, wy0 = (aX ? nB : nA) > Math.Min(nA, nB) ? w : 0;
+                    int over = Math.Max(0, v + k0 + wx0 - band) + Math.Max(0, -band - (v - m0 - wy0));
+                    int score = over * 1000 + Math.Abs(v + k0 - m0) * 10 + Math.Abs(k0 - m0) + (int)(Hash01(segment, salt + k0 * 2 + ax) * 3);
+                    if (score < bestScore) { bestScore = score; bestK = k0; bestAX = aX; }
                 }
-                case BoardLayoutKind.Diamonds: return side * amp * Math.Sin(2 * Math.PI * k / period);
-                default: return side * amp * Math.Sin(2 * Math.PI * k / period);
-            }
-        }
+            salt += 64;
+            int k = bestK, m = sum - k;
+            bool aXFirst = bestAX;
+            var xArm = aXFirst ? piece.ArmA : piece.ArmB;
+            var yArm = aXFirst ? piece.ArmB : piece.ArmA;
+            int wx = (xArm.Count - (k + m - 1)) / 2, wy = (yArm.Count - (k + m - 1)) / 2;
 
-        /// <summary>Sideways bulge of an arm of n tiles over a chord of length len so the tiles are ~1 apart (at least min).</summary>
-        private static double Bulge(int n, double len, double min)
-        {
-            double want = (n + 1) * 0.85; // arm tiles may sit a little closer than trunk tiles (min gap stays > 0.75)
-            double lo = 0, hi = 8;
-            for (int i = 0; i < 30; i++)
+            // X-first arm: (1..k+wx, 0), (k+wx, 1..m−1), then back (k+wx−1 .. k, m−1)
+            var cells = new List<int[]>();
+            for (int i = 1; i <= k + wx; i++) cells.Add(new[] { i, 0 });
+            for (int j = 1; j <= m - 1; j++) cells.Add(new[] { k + wx, j });
+            for (int i = k + wx - 1; i >= k; i--) cells.Add(new[] { i, m - 1 });
+            PlaceArm(xArm, cells, x, y, h);
+            // Y-first arm: (0, 1..m+wy), (1..k−1, m+wy), then down (k−1, m+wy−1 .. m)
+            cells.Clear();
+            for (int j = 1; j <= m + wy; j++) cells.Add(new[] { 0, j });
+            for (int i = 1; i <= k - 1; i++) cells.Add(new[] { i, m + wy });
+            for (int j = m + wy - 1; j >= m; j--) cells.Add(new[] { k - 1, j });
+            PlaceArm(yArm, cells, x, y, h);
+
+            b.SetPieces.Add(new RunSetPiece { X = x + 1, Y = y + 1, W = k - 1, H = m - 1, Height = h, Segment = segment, Shape = "loop" });
+            x += k; y += m;
+            Place(piece.Tile, x, y, aXFirst ? 0 : 1, h); // the join, entered from the default arm's side
+            int lat = Lateral(x, y);
+            int exit = wx > 0 ? 0 : wy > 0 ? 1 : lat > 0 ? 0 : 1;
+            if (wx == 0 && wy == 0)
             {
-                double mid = (lo + hi) / 2;
-                if (ArcLength(len, mid) < want) lo = mid; else hi = mid;
+                if (exit == 1 && lat >= band - 1) exit = 0;
+                if (exit == 0 && lat <= -band + 1) exit = 1;
             }
-            return Math.Max(min, hi);
+            return exit;
         }
 
-        private static double ArcLength(double len, double bulge)
+        private static void PlaceArm(List<RunTile> arm, List<int[]> cells, int x0, int y0, int h)
         {
-            const int steps = 32;
-            double total = 0, px = 0, py = 0;
-            for (int i = 1; i <= steps; i++)
+            int px = x0, py = y0;
+            for (int i = 0; i < arm.Count; i++)
             {
-                double u = (double)i / steps;
-                double x = bulge * Math.Sin(Math.PI * u), y = len * u;
-                total += Math.Sqrt((x - px) * (x - px) + (y - py) * (y - py));
-                px = x; py = y;
+                int cx = x0 + cells[i][0], cy = y0 + cells[i][1];
+                int d = cx > px ? 1 : cx < px ? 3 : cy > py ? 0 : 2;
+                Place(arm[i], cx, cy, d, h);
+                px = cx; py = cy;
             }
-            return total;
         }
 
-        /// <summary>Places an arm's tiles evenly (by arc length) along a half-sine bulge over the chord.</summary>
-        private static void ArmLayout(List<RunTile> arm, double x0, double y0, double cx, double cy, double px, double py, double len, double bulge, double chord)
+        private static void Place(RunTile tile, int x, int y, int dir, int height)
         {
-            int n = arm.Count;
-            // sample the curve, then pick points at equal arc length
-            const int steps = 64;
-            var us = new double[steps + 1];
-            var acc = new double[steps + 1];
-            double lx = 0, ly = 0;
-            for (int i = 0; i <= steps; i++)
-            {
-                double u = (double)i / steps;
-                double a = len * u, s = bulge * Math.Sin(Math.PI * u);
-                double xx = cx * a + px * s, yy = cy * a + py * s;
-                us[i] = u;
-                acc[i] = i == 0 ? 0 : acc[i - 1] + Math.Sqrt((xx - lx) * (xx - lx) + (yy - ly) * (yy - ly));
-                lx = xx; ly = yy;
-            }
-            double total = acc[steps];
-            int j = 0;
-            for (int i = 1; i <= n; i++)
-            {
-                double target = total * i / (n + 1);
-                while (j < steps && acc[j + 1] < target) j++;
-                double f = acc[j + 1] > acc[j] ? (target - acc[j]) / (acc[j + 1] - acc[j]) : 0;
-                double u = us[j] + (us[j + 1] - us[j]) * f;
-                double a = len * u, s = bulge * Math.Sin(Math.PI * u);
-                // direction: derivative of the curve
-                double da = len, ds = bulge * Math.PI * Math.Cos(Math.PI * u);
-                double dx = cx * da + px * ds, dy = cy * da + py * ds;
-                Place(arm[i - 1], x0 + cx * a + px * s, y0 + cy * a + py * s, Math.Atan2(dx, dy) / Deg);
-            }
+            tile.PosX = x;
+            tile.PosY = y;
+            tile.Dir = DirDeg[dir];
+            tile.Height = height;
         }
 
-        private static void Place(RunTile tile, double x, double y, double dir)
-        {
-            tile.PosX = R(x);
-            tile.PosY = R(y);
-            tile.Dir = R(dir);
-        }
+        private static int Clamp(int v, int lo, int hi) => v < lo ? lo : v > hi ? hi : v;
 
-        private static double Clamp(double v, double lo, double hi) => v < lo ? lo : v > hi ? hi : v;
-
-        /// <summary>Layout of the boss arena: one step past the worm along its current direction (RunSystem.OpenEncounter).</summary>
-        public static void PlaceAhead(RunTile from, RunTile tile, double distance = 1.3)
+        /// <summary>
+        /// Layout of the boss arena (RunSystem.OpenEncounter): the free grid cell next to the worm, straight ahead if it can.
+        /// Without <paramref name="tiles"/> it goes straight ahead.
+        /// </summary>
+        public static void PlaceAhead(RunTile from, RunTile tile, List<RunTile> tiles = null)
         {
             tile.Segment = from.Segment;
-            Place(tile, from.PosX + Math.Sin(from.Dir * Deg) * distance, from.PosY + Math.Cos(from.Dir * Deg) * distance, from.Dir);
+            int fx = CellX(from), fy = CellY(from);
+            int fwd = Heading(from);
+            int[] order = { fwd, 0, 1, 3, 2 };
+            foreach (int d in order)
+            {
+                int cx = fx + DX[d], cy = fy + DY[d];
+                bool free = true;
+                if (tiles != null)
+                    foreach (var o in tiles)
+                        if (o != tile && o != from && o.Segment >= 0 && CellX(o) == cx && CellY(o) == cy) { free = false; break; }
+                if (!free) continue;
+                Place(tile, cx, cy, d, from.Height);
+                return;
+            }
+            Place(tile, fx + DX[fwd], fy + DY[fwd], fwd, from.Height);
         }
 
         // ---- pool picks and graph queries -----------------------------------------------------------------------------

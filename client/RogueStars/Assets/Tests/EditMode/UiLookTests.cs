@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.World;
 using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
@@ -160,23 +161,21 @@ namespace RogueStars.Client.Tests
             run.Phase = RunPhase.AwaitRoll;
             run.BranchOptions.Clear();
 
-            // the board is drawn flipped: the path starts at the bottom and climbs band by band
-            float h = RunScreen.BoardHeight(run);
-            var first = RunScreen.DrawPoint(RunScreen.TileCenter(new RunTile { X = 0 }), h);
-            var secondBand = RunScreen.DrawPoint(RunScreen.TileCenter(new RunTile { X = RunScreen.Columns }), h);
-            Assert.That(secondBand.y, Is.GreaterThan(first.y));
+            // the board climbs: a hand-built board (no layout) is a staircase up the screen
+            Assert.That(WorldBoard.TopOf(new RunTile { X = 3 }).y, Is.GreaterThan(WorldBoard.TopOf(new RunTile { X = 0 }).y));
 
             _f.App.Router.Push(new RunScreen());
             var screen = (RunScreen)_f.App.Router.Current;
-            for (int i = 0; i < ids.Length; i++) Assert.That(FindNamed(screen.Root, "Tile:" + i), Is.Not.Null);
-            Assert.That(FindNamed(screen.Root, "Token"), Is.Not.Null);
-            Assert.That(FindNamed(FindNamed(screen.Root, "Token"), "Worm").GetComponent<UiBob>(), Is.Not.Null, "the worm bobs");
+            var world = screen.World.Root.transform;
+            for (int i = 0; i < ids.Length; i++) Assert.That(FindNamed(world, "Tile:" + i), Is.Not.Null);
+            Assert.That(FindNamed(world, "Token"), Is.Not.Null);
+            Assert.That(FindNamed(FindNamed(world, "Token"), "Worm"), Is.Not.Null, "the worm stands on its tile");
             Assert.That(FindNamed(screen.Root, "BossClock"), Is.Not.Null);
             Assert.That(screen.Title, Does.Contain(level.Name));
             Assert.That(screen.Subtitle, Does.StartWith("Roll 0/"));
             Assert.That(FindNamed(screen.Root, "RollButton"), Is.Not.Null);
-            Assert.That(FindNamed(screen.Root, "AutoButton"), Is.Not.Null);
-            Assert.That(FindNamed(screen.Root, "Slots").GetComponentsInChildren<Button>().Length, Is.EqualTo(RunScreen.SkillSlots));
+            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Not.Null);
+            Assert.That(FindNamed(screen.Root, "SkillsButton"), Is.Not.Null);
         }
 
         [Test]

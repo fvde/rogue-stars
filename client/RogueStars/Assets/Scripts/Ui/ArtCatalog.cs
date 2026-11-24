@@ -210,6 +210,36 @@ namespace RogueStars.Client.UiKit
         /// <summary>The hero worm sprite, or null (the drawn pill worm).</summary>
         public static Sprite Hero() => Load(HeroWorm);
 
+        // ---- vertical slice (iso board, HUD, draft cards, battle) -------------------------------------------------------
+        // Generated art of the tools/art/packages/slice-*.json packages, imported by ArtImporter from the owner's picks
+        // (tools/art/slice-picks.json) under these Resources keys. Every caller falls back to a code-drawn placeholder
+        // (World/IsoArt, Screens/SliceKit) while a key has no file.
+
+        /// <summary>Resources root of the slice art.</summary>
+        public const string SliceRoot = "Art/Slice";
+        /// <summary>Tile markers standing on tiles: <c>Art/Slice/Markers/&lt;id&gt;</c> (enemy, elite, miniboss, boss, event, mystery, chest, rest, shop, minigame, portal, reward).</summary>
+        public const string SliceMarkers = SliceRoot + "/Markers";
+        /// <summary>Set pieces inside loops: <c>Art/Slice/SetPieces/&lt;id&gt;</c> (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound, time_clock, alien_tree).</summary>
+        public const string SliceSetPieces = SliceRoot + "/SetPieces";
+        /// <summary>Scatter props along the path: <c>Art/Slice/Scatter/&lt;id&gt;</c> (rock_small, rock_pile, bush, flowers, fern, pebble_glow, stump, crystal_small, mushrooms, barrel, antenna, bones).</summary>
+        public const string SliceScatterFolder = SliceRoot + "/Scatter";
+        /// <summary>HUD icons: <c>Art/Slice/Hud/&lt;id&gt;</c> (dice, pedestal, heart, sword, shield, coin, exp, cog, skull, book, speed, reroll, boss_rail_top).</summary>
+        public const string SliceHudFolder = SliceRoot + "/Hud";
+        /// <summary>Full-frame textures: <c>Art/Slice/Textures/&lt;id&gt;</c> (tile_top_moss, tile_side_rock; ground_meadow optional).</summary>
+        public const string SliceTextures = SliceRoot + "/Textures";
+        /// <summary>Battle arenas (3/4 top-down, full-frame): <c>Art/Slice/Battle/&lt;id&gt;</c> (battle_meadow, battle_meadow_ruins).</summary>
+        public const string SliceBattleFolder = SliceRoot + "/Battle";
+        /// <summary>Skill icons by run skill id: <c>Art/Skills/&lt;skill id&gt;</c>.</summary>
+        public const string SkillFolder = "Art/Skills";
+
+        public static Sprite SliceMarker(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceMarkers + "/" + id);
+        public static Sprite SliceSetPiece(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceSetPieces + "/" + id);
+        public static Sprite SliceScatter(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceScatterFolder + "/" + id);
+        public static Sprite SliceHud(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceHudFolder + "/" + id);
+        public static Sprite SliceTexture(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceTextures + "/" + id);
+        public static Sprite SliceBattle(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceBattleFolder + "/" + id);
+        public static Sprite SkillIcon(string skillId) => string.IsNullOrEmpty(skillId) ? null : Load(SkillFolder + "/" + skillId);
+
         /// <summary>An alien's sprite by alien type id (alien_blorp…), or null (the lettered token).</summary>
         public static Sprite Alien(string alienTypeId) => string.IsNullOrEmpty(alienTypeId) ? null : Load(AlienFolder + "/" + alienTypeId);
 

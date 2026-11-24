@@ -85,7 +85,7 @@ namespace RogueStars.Client.Tests
             var screen = Open();
             var chip = FindNamed(screen.Root, "SkillCount");
             Assert.That(chip, Is.Not.Null);
-            Assert.That(RunHudStrip.Plain(chip.GetComponent<Text>()), Is.EqualTo("SKILLS 2"));
+            Assert.That(chip.GetComponent<Text>().text, Is.EqualTo("2"), "the skills book's badge");
             Assert.That(screen.HudText, Does.Contain("SKILLS 2"));
         }
 
@@ -160,7 +160,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True);
             Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Encounter));
             screen.Rebuild();
-            Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("FIGHT!"));
+            Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("Fight!"));
             S.Run.Active.WormHp = 1e12; S.Run.Active.WormMaxHp = 1e12;
             FindNamed(screen.Root, "RollButton").GetComponent<HoldButton>().OnTap();
             Assert.That(S.Run.Active.MinibossesDefeated + (S.Run.Active.Phase == RunPhase.Defeated ? 1 : 0), Is.EqualTo(1));

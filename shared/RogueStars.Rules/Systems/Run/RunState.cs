@@ -86,13 +86,15 @@ namespace RogueStars.Rules.Systems
         /// <summary>Topology hint (column along the path, lane: 0 trunk / first fork arm, 1 second arm, −1 boss arena).</summary>
         public int X, Y;
         /// <summary>
-        /// 2D layout position in tile units (RunBoard layout pass): +PosY is "forward" (the path climbs), PosX is lateral
-        /// (the trunk keeps to ±RunTuning.LayoutHalfWidth, fork arms bulge further). Neighbouring path tiles are ~1 apart, no
-        /// two tiles closer than ~0.8. Display only: no rule reads it.
+        /// Iso grid cell (RunBoard grid layout; whole numbers): +PosX runs up-right on screen, +PosY up-left, so the path climbs
+        /// as PosX + PosY grows and PosX − PosY is its screen-horizontal place (kept to ±RunTuning.GridBand). Neighbouring path
+        /// tiles are side neighbours on the grid, no two tiles share a cell. Display only: no rule reads it.
         /// </summary>
         public double PosX, PosY;
-        /// <summary>Path direction at this tile in degrees (0 = forward/up, + = to the right), for drawing the path and the worm.</summary>
+        /// <summary>Grid heading the path enters this tile with, in degrees: 0 = +Y, 90 = +X, 180 = −Y, −90 = −X.</summary>
         public double Dir;
+        /// <summary>Platform height of the tile's block (0 ground, 1 raised section); neighbours differ by at most 1 (a step).</summary>
+        public int Height;
         /// <summary>Board segment the tile belongs to (the start tile: 0, the boss arena: the worm's); −1 = no 2D layout (hand-built boards).</summary>
         public int Segment = -1;
         /// <summary>Extra enemy strength % on this tile (campfire light, boss actions).</summary>
@@ -101,6 +103,20 @@ namespace RogueStars.Rules.Systems
         public int TimesResolved;
         /// <summary>Resolved (fight won, pickup taken, event decided): kept on the board as it was, drawn cleared.</summary>
         public bool Cleared;
+    }
+
+    /// <summary>
+    /// A set-piece slot the board layout keeps free inside a loop (fork rectangle) or a hairpin: grid cells X..X+W−1 ×
+    /// Y..Y+H−1 that no tile ever takes (display only: the client stands a large prop there).
+    /// </summary>
+    [Serializable]
+    public sealed class RunSetPiece
+    {
+        public int X, Y, W, H;
+        public int Height;
+        public int Segment;
+        /// <summary>"loop" (inside a fork) or "hairpin" (inside a U-turn).</summary>
+        public string Shape;
     }
 
     [Serializable]
@@ -137,6 +153,8 @@ namespace RogueStars.Rules.Systems
         /// <summary>The open end of the path and the segments generated so far (RunBoard: the board grows ahead of the worm).</summary>
         public int BoardEnd;
         public int BoardSegments;
+        /// <summary>Set-piece slots of the board's grid layout (RunBoard.Board.SetPieces; display only).</summary>
+        public List<RunSetPiece> SetPieces = new List<RunSetPiece>();
         /// <summary>Steps the next roll loses (Gravity Vortex).</summary>
         public int StepPenaltyNext;
         /// <summary>Phase Encounter: "ambush" (a miniboss of the awakening clock) or "boss" (the arena opened ahead).</summary>

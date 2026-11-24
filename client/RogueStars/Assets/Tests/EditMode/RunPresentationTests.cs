@@ -160,12 +160,8 @@ namespace RogueStars.Client.Tests
                 }
                 if (S.Run.Active.Position > 0) Assert.That(moved, Is.GreaterThan(0), "the camera followed the worm");
                 // it ends centred near the token (a little ahead of it)
-                var token = (RectTransform)FindNamed(screen.Root, "Token");
-                var viewport = (RectTransform)FindNamed(screen.Root, "BoardHolder");
-                var corners = new Vector3[4];
-                token.GetWorldCorners(corners);
-                var mid = viewport.InverseTransformPoint((corners[0] + corners[2]) / 2);
-                Assert.That(Mathf.Abs(mid.y - viewport.rect.center.y), Is.LessThan(viewport.rect.height * 0.35f), "token in view");
+                var token = (Vector2)screen.World.Token.localPosition;
+                Assert.That(Mathf.Abs(token.y - screen.CameraCentre.y), Is.LessThan(screen.World.ViewHeight * 0.35f), "token in view");
                 while (S.Run.Active != null && S.Run.Active.Phase != RunPhase.AwaitRoll)
                 {
                     if (!_f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true }).Ok) break;
@@ -189,26 +185,23 @@ namespace RogueStars.Client.Tests
             Assert.That(RunScreen.LookOf(run, run.Tiles[1], C).Landed, Is.False);
             Assert.That(RunScreen.LookOf(run, run.Tiles[3], C).Landed, Is.True);
             var screen = Open();
-            Color Fill(int id) => FindNamed(screen.Root, "Tile:" + id).GetComponent<Image>().color;
+            var world = screen.World.Root.transform;
+            Color Fill(int id) => FindNamed(FindNamed(world, "Tile:" + id), "Top").GetComponent<SpriteRenderer>().color;
             Assert.That(Fill(1), Is.EqualTo(Fill(20)), "a passed tile looks like an unwalked one");
             Assert.That(Fill(2), Is.EqualTo(Fill(20)), "a passed (resolved) tile looks like an unwalked one");
             Assert.That(Fill(3), Is.Not.EqualTo(Fill(20)), "the landed tile is coloured");
-            Assert.That(FindNamed(FindNamed(screen.Root, "Tile:3"), "LandMark"), Is.Not.Null, "landed marker");
-            Assert.That(FindNamed(FindNamed(screen.Root, "Tile:1"), "LandMark"), Is.Null);
 
-            // a real move: of the tiles the worm hops over only the one it stops on is marked
+            // a real move: of the tiles the worm hops over only the one it stops on is coloured
             var r2 = S.Run.Active;
             int from = r2.Position;
             Assert.That(_f.Service.ExecuteNow(new RunRoll()).Ok, Is.True);
             CloseBattles();
             int land = S.Run.Active.Position;
             Assert.That(screen.LastLandedTile, Is.EqualTo(land));
-            for (int id = from + 1; id < land; id++)
-            {
-                Assert.That(FindNamed(FindNamed(screen.Root, "Tile:" + id), "LandMark"), Is.Null, "passed tile " + id);
-                Assert.That(Fill(id), Is.EqualTo(Fill(20)), "passed tile " + id + " keeps its look");
-            }
-            Assert.That(FindNamed(FindNamed(screen.Root, "Tile:" + land), "LandMark").gameObject.activeSelf, Is.True);
+            screen.Rebuild();
+            world = screen.World.Root.transform;
+            for (int id = from + 1; id < land; id++) Assert.That(Fill(id), Is.EqualTo(Fill(20)), "passed tile " + id + " keeps its look");
+            Assert.That(Fill(land), Is.Not.EqualTo(Fill(20)), "the landed tile takes its colour");
         }
 
         // ---- 4. feedback on every landing ----
@@ -298,7 +291,7 @@ namespace RogueStars.Client.Tests
             Assert.That(text, Does.Contain("Lv " + run.Level));
             Assert.That(text, Does.Contain("XP " + run.Xp + " / " + hud.XpNeed));
             Assert.That(FindNamed(screen.Root, "HpBar"), Is.Not.Null);
-            Assert.That(FindNamed(screen.Root, "XpRing"), Is.Not.Null, "XP as a ring around the run level");
+            Assert.That(FindNamed(screen.Root, "XpFill"), Is.Not.Null, "XP fills the level pill");
 
             // run modifications apply: +50% ATK and +50% DEF perks, some XP
             run.RunStats.Add(new StatMod(StatId.Atk, 0, 50));
@@ -344,10 +337,6 @@ namespace RogueStars.Client.Tests
             run.Phase = RunPhase.Draft;
             run.DraftOffer.Clear(); run.DraftOffer.Add(common.Id); run.DraftOffer.Add(epicSkill.Id);
             var screen = Open();
-            // skill slot
-            var slot = FindNamed(screen.Root, "Slot:" + epicSkill.Id);
-            Assert.That(slot, Is.Not.Null);
-            Assert.That(FindNamed(slot, "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
             // draft cards: the icon is the rarity colour
             var card = FindNamed(_f.App.ModalLayer, "Draft:" + common.Id);
             Assert.That(card, Is.Not.Null, "draft open");

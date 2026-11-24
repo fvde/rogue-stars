@@ -71,38 +71,27 @@ public class PlaytestRulesTests(ITestOutputHelper output)
 
     [Theory]
     [MemberData(nameof(Levels))]
-    public void Layout_EveryTileHasA2DPosition_NeighboursClose_NoOverlap(string levelId)
+    public void Layout_EveryTileHasAGridCell_NeighboursAdjacent_NoOverlap(string levelId)
     {
+        // the iso grid layout (GridLayoutTests has the full set): path neighbours one cell apart, no shared cells, inside the band
         var c = ContentDb.Default;
         var level = c.RunLevel(levelId)!;
-        double minGap = double.MaxValue, maxStep = 0, maxX = 0;
         for (ulong seed = 1; seed <= 25; seed++)
         {
             var rng = new Rng(seed);
             var b = RunBoard.Generate(c, level, rng);
             RunBoard.AppendSegment(c, level, b, rng);
             var tiles = b.Tiles;
+            var seen = new HashSet<(int, int)>();
             foreach (var t in tiles)
             {
                 Assert.True(t.Segment >= 0);
+                Assert.True(seen.Add((RunBoard.CellX(t), RunBoard.CellY(t))), $"{levelId} seed {seed}: tile {t.Id} overlaps");
                 foreach (var n in t.Next)
-                {
-                    double d = Math.Sqrt(Math.Pow(tiles[n].PosX - t.PosX, 2) + Math.Pow(tiles[n].PosY - t.PosY, 2));
-                    maxStep = Math.Max(maxStep, d);
-                    Assert.InRange(d, 0.6, 1.8);
-                }
-                maxX = Math.Max(maxX, Math.Abs(t.PosX));
+                    Assert.Equal(1, Math.Abs(RunBoard.CellX(tiles[n]) - RunBoard.CellX(t)) + Math.Abs(RunBoard.CellY(tiles[n]) - RunBoard.CellY(t)));
+                Assert.InRange(RunBoard.Lateral(RunBoard.CellX(t), RunBoard.CellY(t)), -c.RunTuning.GridBand, c.RunTuning.GridBand);
             }
-            for (int i = 0; i < tiles.Count; i++)
-                for (int j = i + 1; j < tiles.Count; j++)
-                {
-                    double d = Math.Sqrt(Math.Pow(tiles[j].PosX - tiles[i].PosX, 2) + Math.Pow(tiles[j].PosY - tiles[i].PosY, 2));
-                    minGap = Math.Min(minGap, d);
-                    Assert.True(d >= 0.75, $"{levelId} seed {seed}: tiles {i} and {j} overlap ({d:0.00})");
-                }
         }
-        output.WriteLine($"{levelId}: min gap {minGap:0.00}, max step {maxStep:0.00}, max |x| {maxX:0.0}");
-        Assert.True(maxX <= 2.4, "the layout fits a portrait screen: max |x| " + maxX);
     }
 
     [Fact]
@@ -111,16 +100,17 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var c = ContentDb.Default;
         Assert.True(c.RunTuning.BoardLayouts.Select(l => l.Kind).Distinct().Count() >= 5);
         var level = c.RunLevel("ember_wastes_5")!;
-        // the shapes differ: how much the path turns varies across seeds (straights, curves, zig-zags, hooks, diamonds)
-        var spreads = new HashSet<int>();
+        // the shapes differ: how often the path turns varies across seeds (straights, zig-zags, hairpins, fork loops)
+        var turnRates = new HashSet<int>();
         for (ulong seed = 1; seed <= 30; seed++)
         {
             var b = RunBoard.Generate(c, level, new Rng(seed));
             var seg = b.Tiles.Where(t => t.Segment == 0).ToList();
-            spreads.Add((int)Math.Round(seg.Average(t => Math.Abs(t.Dir)) / 5)); // how much the path turns
-            Assert.True(seg.Max(t => t.PosY) > seg.Min(t => t.PosY) + 8, "the path climbs");
+            int turns = seg.Count(t => t.Next.Count > 0 && b.Tiles[t.Next[0]].Dir != t.Dir);
+            turnRates.Add((int)Math.Round(10.0 * turns / seg.Count));
+            Assert.True(seg.Max(t => t.PosX + t.PosY) > seg.Min(t => t.PosX + t.PosY) + 8, "the path climbs");
         }
-        Assert.True(spreads.Count >= 4, "layout spreads: " + string.Join(",", spreads));
+        Assert.True(turnRates.Count >= 3, "turn rates: " + string.Join(",", turnRates));
     }
 
     [Fact]

@@ -336,6 +336,8 @@ namespace RogueStars.Client.UiKit
     public sealed class BoardDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         public Action<float> OnDragY;
+        /// <summary>Both axes (canvas units): the world board pans in 2D.</summary>
+        public Action<Vector2> OnDrag2;
         private Canvas _canvas;
 
         public void OnBeginDrag(PointerEventData e) { _canvas = GetComponentInParent<Canvas>()?.rootCanvas; }
@@ -344,6 +346,7 @@ namespace RogueStars.Client.UiKit
         {
             float scale = _canvas != null && _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1;
             OnDragY?.Invoke(e.delta.y / scale);
+            OnDrag2?.Invoke(e.delta / scale);
         }
 
         public void OnEndDrag(PointerEventData e) { }

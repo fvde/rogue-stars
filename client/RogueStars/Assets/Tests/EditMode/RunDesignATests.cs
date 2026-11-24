@@ -84,58 +84,71 @@ namespace RogueStars.Client.Tests
         // ---- top strip ----
 
         [Test]
-        public void TopStrip_ShowsPauseHpStatsLevelRingAndCoins_NoAppHeader()
+        public void TopHud_ShowsLevelHpAtkDefCogAndCoins_NoAppHeader()
         {
             var run = StartRun();
             run.Xp = 3;
             run.Coins = 418;
             var screen = Open();
-            Assert.That(screen.HeaderHeight, Is.EqualTo(0), "the strip replaces the app header");
+            Assert.That(screen.HeaderHeight, Is.EqualTo(0), "the HUD replaces the app header");
             Assert.That(screen.CoversResourceBar, Is.True);
             Assert.That(FindNamed(screen.Root, "Header"), Is.Null);
             var strip = FindNamed(screen.Root, "TopStrip");
             Assert.That(strip, Is.Not.Null);
-            foreach (var name in new[] { "PauseButton", "HpBar", "AtkChip", "DefChip", "SkillCount", "RunLevel", "XpRing", "CoinsChip", "BossClock" })
-                Assert.That(FindNamed(strip, name), Is.Not.Null, name + " in the top strip");
+            foreach (var name in new[] { "PauseButton", "HpBar", "AtkChip", "DefChip", "RunLevel", "XpFill", "CoinsChip", "HeartIcon", "SwordIcon", "ShieldIcon", "ExpIcon", "CoinIcon" })
+                Assert.That(FindNamed(strip, name), Is.Not.Null, name + " in the top HUD");
 
             var hud = RunPresentation.Hud(C, run);
             var w = RunSystem.WormStats(C, run);
             var lv = RunSystem.LevelInfo(C, run);
             Assert.That(hud.Atk, Is.EqualTo(w.Atk));
             Assert.That(screen.HudText, Does.Contain("HP " + Fmt.Num(Math.Round(w.Hp)) + " / " + Fmt.Num(Math.Round(w.MaxHp))));
-            Assert.That(RunHudStrip.Plain(FindNamed(strip, "AtkChip").GetComponent<Text>()), Is.EqualTo("ATK " + Fmt.Num(Math.Round(w.Atk))));
-            Assert.That(RunHudStrip.Plain(FindNamed(strip, "DefChip").GetComponent<Text>()), Is.EqualTo("DEF " + Fmt.Num(Math.Round(w.Def))));
-            Assert.That(RunHudStrip.Plain(FindNamed(strip, "SkillCount").GetComponent<Text>()), Is.EqualTo("SKILLS " + RunSystem.BuildSize(run)));
-            Assert.That(FindNamed(strip, "LvNumber").GetComponent<Text>().text, Is.EqualTo(lv.Level.ToString()));
-            var ring = FindNamed(strip, "XpRing").GetComponent<Image>();
-            Assert.That(ring.type, Is.EqualTo(Image.Type.Filled));
-            Assert.That(ring.fillMethod, Is.EqualTo(Image.FillMethod.Radial360));
-            Assert.That(ring.fillAmount, Is.EqualTo((float)lv.Xp / lv.XpNeeded).Within(1e-4f), "XP progress as a ring");
+            Assert.That(FindNamed(strip, "AtkChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(w.Atk))));
+            Assert.That(FindNamed(strip, "DefChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(w.Def))));
+            Assert.That(FindNamed(screen.Root, "SkillCount").GetComponent<Text>().text, Is.EqualTo(RunSystem.BuildSize(run).ToString()), "the skills book's count");
+            Assert.That(FindNamed(strip, "LvNumber").GetComponent<Text>().text, Is.EqualTo("Lv. " + lv.Level));
+            var xp = FindNamed(strip, "XpFill").GetComponent<Image>();
+            Assert.That(xp.type, Is.EqualTo(Image.Type.Filled));
+            Assert.That(xp.fillMethod, Is.EqualTo(Image.FillMethod.Horizontal));
+            Assert.That(xp.fillAmount, Is.EqualTo((float)lv.Xp / lv.XpNeeded).Within(1e-4f), "XP progress fills the level pill");
             Assert.That(screen.HudText, Does.Contain("XP 3 / " + lv.XpNeeded));
+            var hp = FindNamed(strip, "HpFill").GetComponent<Image>();
+            Assert.That(hp.fillAmount, Is.EqualTo((float)(w.Hp / w.MaxHp)).Within(1e-3f));
             screen.Tick();
             Assert.That(Texts(FindNamed(strip, "CoinsChip")), Does.Contain(Fmt.Num(418)));
+            // chunky display text: white with a dark stroke
+            Assert.That(FindNamed(strip, "AtkChip").GetComponents<Outline>().Length, Is.GreaterThanOrEqualTo(2));
 
-            // the pause button opens the pause modal naming the level
+            // the cog opens the pause modal naming the level and the pending loot
             FindNamed(strip, "PauseButton").GetComponent<Button>().onClick.Invoke();
-            Assert.That(Texts(_f.App.ModalLayer), Does.Contain(screen.Title));
+            Assert.That(Texts(_f.App.ModalLayer), Does.Contain(screen.Title).And.Contain("Pending loot"));
         }
 
         [Test]
-        public void TopStrip_SitsAboveTheBoard_AndTheFooterHoldsTrayAndRollRow()
+        public void Hud_FloatsOverTheWorld_ControlsAtTheBottom()
         {
             StartRun();
             var screen = Open();
-            var strip = (RectTransform)FindNamed(screen.Root, "TopStrip");
-            var board = (RectTransform)FindNamed(screen.Root, "BoardHolder");
-            var corners = new Vector3[4];
-            strip.GetWorldCorners(corners);
-            float stripBottom = corners[0].y;
-            board.GetWorldCorners(corners);
-            Assert.That(corners[1].y, Is.LessThanOrEqualTo(stripBottom + 0.5f), "board under the strip");
-            var footer = FindNamed(screen.Root, "Footer");
-            foreach (var name in new[] { "Slots", "RollRow", "LootButton", "RollButton", "AutoButton", "AutoPickToggle", "FooterDice", "Hint" })
-                Assert.That(FindNamed(footer, name), Is.Not.Null, name + " in the footer");
-            Assert.That(FindNamed(FindNamed(footer, "RollButton"), "FooterDice"), Is.Not.Null, "the dice glyph sits on ROLL");
+            var holder = (RectTransform)FindNamed(screen.Root, "BoardHolder");
+            var view = FindNamed(holder, "BoardView").GetComponent<RawImage>();
+            Assert.That(view.texture, Is.SameAs(screen.World.Target), "the world board renders under the HUD");
+            Assert.That(screen.World.Cam.orthographic, Is.True);
+            Assert.That(screen.World.Cam.cullingMask, Is.EqualTo(1 << RogueStars.Client.World.WorldBoard.Layer));
+            Assert.That(FindNamed(screen.Root, "Footer"), Is.Null, "no stacked footer: one composed world");
+            Assert.That(FindNamed(screen.Root, "Slots"), Is.Null, "no skill tray on the board");
+            Assert.That(FindNamed(holder, "TopStrip").GetSiblingIndex(), Is.GreaterThan(FindNamed(holder, "BoardView").GetSiblingIndex()), "HUD over the board");
+            foreach (var name in new[] { "Pedestal", "RollButton", "FooterDice", "SpeedChip", "AutoPickToggle", "SkillsButton", "BossClock" })
+                Assert.That(FindNamed(holder, name), Is.Not.Null, name + " over the world");
+            Assert.That(FindNamed(FindNamed(holder, "RollButton"), "FooterDice"), Is.Not.Null, "the dice sit on the button");
+            Assert.That(Texts(FindNamed(holder, "RollButton")), Does.Contain("Hold for Auto"));
+            var rb = (RectTransform)FindNamed(holder, "RollButton");
+            Assert.That(rb.anchorMin.y, Is.EqualTo(0f), "anchored to the bottom");
+            Assert.That(rb.anchoredPosition.y + rb.sizeDelta.y / 2, Is.LessThan(2400 * 0.3f * screen.BodyFrame.rect.width / 1080f), "the dice button sits in the bottom of the screen");
+            // the speed chip cycles x1 -> x2 -> x3 -> x1
+            int before = RunScreen.BoardSpeed;
+            FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
+            Assert.That(RunScreen.BoardSpeed, Is.EqualTo(before >= 3 ? 1 : before + 1));
+            RunScreen.BoardSpeed = 1;
         }
 
         // ---- boss clock ----
@@ -157,12 +170,12 @@ namespace RogueStars.Client.Tests
 
             var screen = Open();
             var c = FindNamed(screen.Root, "BossClock");
-            Assert.That(Texts(c), Does.Contain(RunScreen.RollText(C, run)).And.Contain("BOSS"));
+            Assert.That(Texts(c), Does.Contain(SliceHud.ShortRoll(RunScreen.RollText(C, run))).And.Contain("BOSS"));
             var m0 = FindNamed(c, "MinibossMarker:0").GetComponent<Image>().color;
             var m2 = FindNamed(c, "MinibossMarker:2").GetComponent<Image>().color;
             Assert.That(m0.a, Is.EqualTo(1f), "passed marker is bright");
             Assert.That(m2.a, Is.LessThan(0.6f), "an upcoming marker is dim");
-            Assert.That(((RectTransform)FindNamed(c, "MinibossMarker:1")).anchorMin.x, Is.EqualTo(0.5f).Within(1e-4f));
+            Assert.That(((RectTransform)FindNamed(c, "MinibossMarker:1")).anchoredPosition.y, Is.GreaterThan(((RectTransform)FindNamed(c, "MinibossMarker:0")).anchoredPosition.y), "the rail climbs to the boss");
             Assert.That(FindNamed(c, "ClockFill"), Is.Not.Null);
 
             run.Mode = RunMode.Burrow;
@@ -172,7 +185,7 @@ namespace RogueStars.Client.Tests
         // ---- skill tray ----
 
         [Test]
-        public void SkillTray_TierColours_Levels_AndOverflowOpensTheList()
+        public void SkillTiers_Colours_Levels_AndTheBookOpensTheList()
         {
             var run = StartRun();
             var commons = RunSkills(Rarity.Common, 7);
@@ -183,8 +196,8 @@ namespace RogueStars.Client.Tests
             run.Skills.Add(commons[0].Id);
             run.SkillLevels[commons[0].Id] = 2;
 
-            run.Loadout.MetaSkillIds.Clear(); // only the run's skills on the tray here
-            var tray = RunPresentation.Tray(C, run, RunScreen.SkillSlots);
+            run.Loadout.MetaSkillIds.Clear(); // only the run's skills here
+            var tray = RunPresentation.Tray(C, run, 7);
             Assert.That(tray.Overflow, Is.EqualTo(0));
             Assert.That(tray.Tiles.Count, Is.EqualTo(3));
             Assert.That(tray.Tiles[0].Color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)), "orange");
@@ -193,28 +206,10 @@ namespace RogueStars.Client.Tests
             Assert.That(tray.Tiles[2].LevelText, Is.EqualTo("Lv 2/" + C.RunTuning.MaxSkillLevelOf(Rarity.Common)));
             Assert.That(tray.Tiles[0].LevelText, Is.EqualTo("Lv 1/" + C.RunTuning.MaxSkillLevelOf(Rarity.Legendary)));
 
-            var screen = Open();
-            var slots = FindNamed(screen.Root, "Slots");
-            Assert.That(slots.GetComponentsInChildren<Button>().Length, Is.EqualTo(RunScreen.SkillSlots), "7 tiles (empty ones outlined)");
-            var tile = FindNamed(slots, "Slot:" + commons[0].Id);
-            Assert.That(Texts(tile), Does.Contain("Lv 2/3"));
-            Assert.That(FindNamed(tile, "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
-            Assert.That(AllNamed(slots, "EmptySlot").Count, Is.EqualTo(RunScreen.SkillSlots - 3));
-            Assert.That(FindNamed(slots, "MoreSkills"), Is.Null);
-
-            // more skills than tiles: 6 tiles + "+N" that opens the skills list
             for (int i = 1; i < commons.Count; i++) run.Skills.Add(commons[i].Id);
-            int total = RunSystem.ActiveSkillIds(run).Count;
-            Assert.That(total, Is.GreaterThan(RunScreen.SkillSlots));
-            tray = RunPresentation.Tray(C, run, RunScreen.SkillSlots);
-            Assert.That(tray.Tiles.Count, Is.EqualTo(RunScreen.SkillSlots - 1));
-            Assert.That(tray.Overflow, Is.EqualTo(total - (RunScreen.SkillSlots - 1)));
-            screen.Rebuild();
-            slots = FindNamed(screen.Root, "Slots");
-            Assert.That(slots.GetComponentsInChildren<Button>().Length, Is.EqualTo(RunScreen.SkillSlots));
-            var more = FindNamed(slots, "MoreSkills");
-            Assert.That(Texts(more), Does.Contain("+" + tray.Overflow));
-            more.GetComponent<Button>().onClick.Invoke();
+            var screen = Open();
+            Assert.That(FindNamed(screen.Root, "SkillCount").GetComponent<Text>().text, Is.EqualTo(RunSystem.BuildSize(run).ToString()));
+            FindNamed(screen.Root, "SkillsButton").GetComponent<Button>().onClick.Invoke();
             foreach (var id in RunSystem.ActiveSkillIds(run)) Assert.That(FindNamed(_f.App.ModalLayer, "Skill:" + id), Is.Not.Null, "the list shows every skill: " + id);
         }
 
@@ -270,7 +265,7 @@ namespace RogueStars.Client.Tests
             Assert.That(strip, Is.Not.Null, "skill strip in the footer");
             Assert.That(FindNamed(strip, "Slot:" + sk[0].Id), Is.Not.Null);
             Assert.That(FindNamed(strip, "Slot:" + sk[1].Id), Is.Not.Null);
-            Assert.That(((RectTransform)FindNamed(strip, "Slot:" + sk[0].Id)).rect.width, Is.GreaterThan(RunScreen.SkillTileSize), "larger tiles than the board's tray");
+            Assert.That(((RectTransform)FindNamed(strip, "Slot:" + sk[0].Id)).rect.width, Is.GreaterThan(118f), "big skill tiles");
             Assert.That(FindNamed(screen.Root, "TopStrip"), Is.Not.Null, "same top strip as the run");
             screen.Frame(0.001f);
             Assert.That(screen.Finished, Is.True);
@@ -361,32 +356,24 @@ namespace RogueStars.Client.Tests
             ArtCatalog.TileSprite(sea, TileCategory.Enemy);
             Assert.That(loaded.Count, Is.EqualTo(before), "misses are cached");
 
-            // procedural slab colours per biome: landed tiles take the kind's colour, passed ones keep the slab face
-            var look = new RunScreen.TileLook { Label = "FIGHT", Accent = Theme.Bad };
-            RunScreen.TileColors(look, false, sea, false, out var fill, out var border, out var text);
-            Assert.That(fill, Is.EqualTo(sea.SlabFace));
-            Assert.That(border, Is.EqualTo(Theme.Bad));
-            Assert.That(Theme.TextOn(fill), Is.EqualTo(Theme.OnAccent), "the seabed slab is light: dark label");
-            RunScreen.TileColors(look, true, sea, false, out var landed, out _, out _);
-            Assert.That(landed, Is.Not.EqualTo(fill));
-            RunScreen.TileColors(look, false, lava, true, out var spriteFill, out _, out _);
-            Assert.That(spriteFill, Is.EqualTo(Color.white), "a tile sprite is drawn untinted");
-
-            // nothing at all → the hero falls back to the drawn worm and the board to the plain one
+            // nothing at all: the hero falls back to a drawn piece and every board piece to its code-drawn placeholder
             ArtCatalog.Loader = p => null;
+            RogueStars.Client.World.IsoArt.ClearCache();
             var run = StartRun();
             var screen = Open();
             Assert.That(screen.Biome.Id, Is.EqualTo("lava"));
-            Assert.That(FindNamed(screen.Root, "BoardGround"), Is.Null);
-            var worm = FindNamed(FindNamed(screen.Root, "Token"), "Worm");
-            Assert.That(worm.GetComponent<UiBob>(), Is.Not.Null);
-            Assert.That(worm.GetComponent<Image>().sprite, Is.Not.SameAs(fake));
-            Assert.That(FindNamed(screen.Root, "SlabSide"), Is.Not.Null, "procedural slabs with a bevel side");
-            Assert.That(FindNamed(FindNamed(screen.Root, "Tile:1"), "Marker") != null || RunScreen.LookOf(run, run.Tiles[1], C).Empty, Is.True);
+            var world = screen.World.Root.transform;
+            var worm = FindNamed(FindNamed(world, "Token"), "Worm");
+            Assert.That(worm, Is.Not.Null);
+            Assert.That(worm.GetComponentInChildren<SpriteRenderer>().sprite, Is.Not.SameAs(fake));
+            Assert.That(FindNamed(FindNamed(world, "Tile:1"), "Block"), Is.Not.Null, "code-drawn iso blocks");
+            Assert.That(FindNamed(FindNamed(world, "Tile:1"), "Top"), Is.Not.Null);
+            var marker = RogueStars.Client.World.IsoArt.MarkerOf(C.BoardTiles[run.Tiles[1].TileId].Category);
+            Assert.That(marker == null || FindNamed(FindNamed(world, "Tile:1"), "Marker:" + marker) != null, Is.True, "a marker prop stands on the tile");
         }
 
         [Test]
-        public void Art_IsImported_BoardGroundIsLockedToTheBoard_HeroIsTheToken()
+        public void Art_IsImported_HeroIsTheToken()
         {
             ArtCatalog.Loader = null;
             Assert.That(ArtCatalog.Hero(), Is.Not.Null, "Assets/Art/Resources/Art/Hero/hero_worm.png is a sprite");
@@ -395,16 +382,9 @@ namespace RogueStars.Client.Tests
 
             StartRun();
             var screen = Open();
-            var ground = FindNamed(screen.Root, "BoardGround");
-            Assert.That(ground, Is.Not.Null, "level 1 (ember) draws the lava ground");
-            Assert.That(ground.GetSiblingIndex(), Is.LessThan(FindNamed(screen.Root, "Board").GetSiblingIndex()), "behind the path");
-            var layer = screen.GroundView;
-            Assert.That(layer, Is.Not.Null);
-            Assert.That(layer.Rows, Is.GreaterThanOrEqualTo(2));
-            Assert.That(screen.GroundY, Is.EqualTo(GroundLayer.Phase(screen.CameraY, layer.Pitch)).Within(0.5f), "placed 1:1 by the camera's phase");
-            var worm = FindNamed(FindNamed(screen.Root, "Token"), "Worm").GetComponent<Image>();
+            var worm = FindNamed(FindNamed(screen.World.Root.transform, "Token"), "Worm").GetComponentInChildren<SpriteRenderer>();
             Assert.That(worm.sprite, Is.SameAs(ArtCatalog.Hero()), "the hero sprite is the token");
-            Assert.That(worm.GetComponent<UiBob>(), Is.Not.Null);
+            Assert.That(worm.bounds.size.y, Is.EqualTo(RogueStars.Client.World.WorldBoard.WormHeight).Within(0.05f), "the worm is drawn at its board height");
 
             // battle: the worm fighter is the hero sprite too
             BattlePlaybackScreen.Instant = true;

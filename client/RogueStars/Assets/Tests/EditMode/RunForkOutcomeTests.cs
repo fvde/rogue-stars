@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using RogueStars.Client.Screens;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -84,14 +85,13 @@ namespace RogueStars.Client.Tests
             var b = (RectTransform)FindNamed(screen.Root, "BranchPick:B");
             Assert.That(a, Is.Not.Null);
             Assert.That(b, Is.Not.Null);
-            float h = RunScreen.BoardHeight(run);
-            Assert.That(a.anchoredPosition, Is.EqualTo(RunScreen.DrawPoint(RunScreen.TileCenter(run.Tiles[6]), h)), "A sits on its landing tile");
-            Assert.That(b.anchoredPosition, Is.EqualTo(RunScreen.DrawPoint(RunScreen.TileCenter(run.Tiles[8]), h)), "B sits on the shop it stops at");
+            Assert.That(Vector2.Distance(a.anchoredPosition, screen.OverlayPoint(WorldBoard.TopOf(run.Tiles[6]) + new Vector2(0, 0.2f))), Is.LessThan(0.5f), "A sits on its landing tile");
+            Assert.That(Vector2.Distance(b.anchoredPosition, screen.OverlayPoint(WorldBoard.TopOf(run.Tiles[8]) + new Vector2(0, 0.2f))), Is.LessThan(0.5f), "B sits on the shop it stops at");
             Assert.That(a.sizeDelta.x, Is.GreaterThanOrEqualTo(150f), "a thumb-sized target");
             Assert.That(Texts(a), Does.Contain("A · LAND"));
             Assert.That(FindNamed(screen.Root, "BranchOption:B"), Is.Not.Null, "the option tile is tappable too");
-            Assert.That(FindNamed(screen.Root, "BranchPath"), Is.Not.Null, "the walked path is highlighted");
-            Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("PICK A PATH"));
+            Assert.That(FindNamed(screen.World.Root.transform, "BranchPath"), Is.Not.Null, "the walked path is highlighted");
+            Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("Pick a path"));
 
             b.GetComponent<Button>().onClick.Invoke();
             Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Shop), "path B taken, stopped at the shop");
@@ -101,16 +101,15 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Board_IsZoomedIn_AndShowsTheRollClock()
         {
-            Assert.That(RunScreen.Columns, Is.LessThanOrEqualTo(5));
-            Assert.That(RunScreen.TileW, Is.GreaterThanOrEqualTo(150f));
-            Assert.That(RunScreen.BoardWidth, Is.LessThanOrEqualTo(978f));
+            // a tile's top face is at least 15% of the screen width (big, thumb-sized tap targets)
+            Assert.That(Iso.TileW / WorldBoard.ViewWidth, Is.GreaterThanOrEqualTo(0.15f));
             var run = StartRun();
             _f.App.Router.Push(new RunScreen());
             var screen = (RunScreen)_f.App.Router.Current;
             int est = RunSystem.BossRollEstimate(C, run);
             Assert.That(est, Is.InRange(25, 35));
             Assert.That(screen.Subtitle, Does.StartWith("Roll 0/" + est));                 // no laps: the path never repeats
-            Assert.That(Texts(FindNamed(screen.Root, "RollCounter")), Does.Contain("Roll 0/" + est));
+            Assert.That(Texts(FindNamed(screen.Root, "RollCounter")), Does.Contain("0/" + est));
             Assert.That(Texts(FindNamed(screen.Root, "BossClock")), Does.Contain("BOSS"));
         }
 

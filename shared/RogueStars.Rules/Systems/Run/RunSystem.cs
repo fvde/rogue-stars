@@ -194,6 +194,7 @@ namespace RogueStars.Rules.Systems
             run.Tiles = board.Tiles;
             run.BoardEnd = board.EndTile;
             run.BoardSegments = board.Segments;
+            run.SetPieces = board.SetPieces;
             run.BossGateTile = -1;
             run.StepPenaltyNext = 0;
             run.EncounterKind = null;

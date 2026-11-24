@@ -47,7 +47,7 @@ namespace RogueStars.Client.App
         /// </summary>
         public virtual bool ReserveToastStrip => false;
         /// <summary>Distance of the toast strip from the bottom of the screen: just above the footer.</summary>
-        public float ToastBottomInset => FooterHeight > 0 ? FooterHeight + 4 : ToastCenter.DefaultBottomInset;
+        public virtual float ToastBottomInset => FooterHeight > 0 ? FooterHeight + 4 : ToastCenter.DefaultBottomInset;
         /// <summary>The fixed bottom bar (cleared before every <see cref="Build"/>); null without <see cref="FooterHeight"/>.</summary>
         protected RectTransform Footer { get; private set; }
         /// <summary>The scroll viewport of the body (tests: layout checks).</summary>

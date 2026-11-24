@@ -95,7 +95,7 @@ namespace RogueStars.Rules.Systems
             int need = steps + c.RunTuning.BoardLookAhead;
             for (int guard = 0; guard < 20 && RunBoard.StepsToEnd(run.Tiles, run.Position, run.BoardEnd) < need; guard++)
             {
-                var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments);
+                var b = RunBoard.Wrap(run.Tiles, run.BoardEnd, run.BoardSegments, run.SetPieces);
                 RunBoard.AppendSegment(c, level, b, run.Rng, run);
                 run.BoardEnd = b.EndTile;
                 run.BoardSegments = b.Segments;
@@ -113,7 +113,7 @@ namespace RogueStars.Rules.Systems
                 // the arena opens right ahead of the worm: the path ends there
                 var here = run.Tiles[run.Position];
                 var arena = RunBoard.Add(run.Tiles, "boss_gate", here.X + 1, -1); // its own lane: never on top of a path tile
-                RunBoard.PlaceAhead(here, arena);
+                RunBoard.PlaceAhead(here, arena, run.Tiles);
                 here.Next.Clear();
                 here.Next.Add(arena.Id);
                 run.BossGateTile = arena.Id;

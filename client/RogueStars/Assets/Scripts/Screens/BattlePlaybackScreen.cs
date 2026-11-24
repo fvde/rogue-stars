@@ -859,6 +859,8 @@ namespace RogueStars.Client.Screens
         public int SkillCount;
         public List<string> Skills = new List<string>();
         public Dictionary<string, int> Levels = new Dictionary<string, int>();
+        /// <summary>The run's "Roll n/N" (null outside a run).</summary>
+        public string Rolls;
 
         public static BattleHudContext FromRun(ActiveRun run, ContentDb c)
         {
@@ -868,6 +870,7 @@ namespace RogueStars.Client.Screens
             ctx.HasStats = true;
             ctx.Coins = run.Coins;
             ctx.SkillCount = RunSystem.BuildSize(run);
+            ctx.Rolls = RunScreen.RollText(c, run);
             ctx.Skills = RunSystem.ActiveSkillIds(run);
             foreach (var id in ctx.Skills) ctx.Levels[id] = RunDraft.Level(run, id);
             return ctx;
