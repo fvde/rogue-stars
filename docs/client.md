@@ -352,7 +352,7 @@ EditMode (`Assets/Tests/EditMode`, 233 tests; `RunPresentationTests`: dice skip 
   wrapping by whole pitches; on the run screen ground and decor move exactly with the tiles over 40 drags (the ground keeps
   its offset to the board modulo the pitch); decor never overlaps tiles, path edges or other props, stays on the board,
   is deterministic per seed and differs between runs, puts landmarks beside forks / the arena, keeps earlier segments' props
-  when a segment is added, none on hand-built boards, real runs of levels 1–3 clear, prop art replaces the placeholder rocks.
+  when a segment is added, none on hand-built boards, three grown level-1 runs clear, prop art replaces the placeholder rocks.
 - `MinigameTests`: every game × every tier (56 cases) reaches the tier with its scripted player on seed 7919 within 30 s of
   simulated time and draws its scene; the catalog covers the rules' 14 games with rising thresholds; same seed = same game;
   on the run screen a GAME tile stops the worm and opens the host (name, instruction, prize), Gold → coins + "MINI-GAME
@@ -449,7 +449,7 @@ PlayMode (`Assets/Tests/PlayMode`, needs a graphics device — run WITHOUT `-nog
   into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/design-a/`).
 - `ArtPassShowcaseTests` (**Explicit**: `-testFilter ArtPassShowcaseTests`) renders the layered board on the first level of
   the ember (lava), static (space station), void (shipwreck) and glacier (seabed, tile sprites) families after a few steps and a
-  battle with sprites (alien companion, ember imp, lava brute, the Magma Tyrant with its family's sprite) into
+  battle with sprites (alien companion, ember imp, lava brute, the Magma Tyrant with its family's sprite; the static family with the Storm Hive Queen) into
   `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/art-pass/`).
 - `RunMotionShowcaseTests` (**Explicit**) captures the run's motion (HUD, dice tumbling, mid-hop, landing pop, popups, two dice) into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/run-motion/`).
 - Skip flags: `RunFx.Instant` (dice land at once, hops jump, popups settle in place; everything in `RunFx` is also synchronous outside play mode), `RunScreen.InstantOutcomes`, `BattlePlaybackScreen.Instant`.
