@@ -1,0 +1,18 @@
+{
+  "name": "pkg-slice-markers4",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5131,
+    5132,
+    5133
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", a single small object floating on its own, no base, no pedestal, no plinth, no platform, no tile, no ground, no shadow, centered, isolated on a plain pure white background, no text",
+  "negative": "base, pedestal, plinth, platform, stand, tile, floor, ground, stone slab, scenery, multiple objects, text, letters, watermark, blurry, photo, realistic",
+  "subjects": {
+    "enemy": "a small cute cartoon skull with a goofy grumpy face, very simple shapes, friendly, not scary",
+    "elite": "a cute cartoon skull with two small round horns and a mildly angry face, very simple shapes, not scary",
+    "miniboss": "a cute cartoon skull wearing a small golden crown, cheeky face, very simple shapes, not scary"
+  }
+}

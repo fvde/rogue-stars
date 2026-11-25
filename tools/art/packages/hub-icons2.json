@@ -1,0 +1,28 @@
+{
+  "name": "pkg-hub-icons2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5011,
+    5012,
+    5013
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", game UI icon, one bold central object, slightly tilted three-quarter view, chunky and readable at small size, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, multiple objects, background scenery, watermark, blurry, photo, tiny details",
+  "subjects": {
+    "tab_planet": "home planet with a ring and a tiny colony dome",
+    "tab_city": "alien colony with two glass domes",
+    "tab_signals": "satellite dish beaming a signal",
+    "tab_arena": "two crossed laser swords",
+    "side_goals": "clipboard with a big green checkmark",
+    "side_offer": "glowing gift box with a ribbon",
+    "side_mail": "space mail envelope with a planet stamp",
+    "side_more": "four small rounded squares in a grid",
+    "side_invasion": "alien mothership with a red warning light",
+    "side_sale": "black hole with a gift falling in",
+    "side_observatory": "observatory dome with a telescope",
+    "quick_starmap": "folded star map with a dotted route",
+    "quick_trials": "golden trophy with a star"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "pkg-run-props2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6311,
+    6312,
+    6313
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text",
+  "negative": "scenery, multiple objects, text, watermark, blurry, photo",
+  "subjects": {
+    "abandoned_cart": "a small cartoon wooden alien handcart with a torn cloth cover and a few blue coins, simple shapes, bold outline",
+    "campfire_big": "a cozy cartoon campfire with green alien flames and a few logs in a small stone ring, simple shapes, bold outline"
+  }
+}

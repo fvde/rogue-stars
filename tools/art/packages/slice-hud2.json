@@ -1,0 +1,31 @@
+{
+  "name": "pkg-slice-hud2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5411,
+    5412,
+    5413
+  ],
+  "suffix": ", game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "variants": [
+    {
+      "key": "L",
+      "model": "flux",
+      "style": "flat cartoon mobile game icon, one simple bold symbol, thick black outline, three or four colors, filling the square",
+      "note": "Flux, flat skill icon"
+    }
+  ],
+  "subjects": {
+    "dice": "a big chunky white six-sided dice with red pips, 3D tilted, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "pedestal": "a round carved stone pedestal button base seen from slightly above, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "sword": "a crossed sword, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "shield": "a round blue shield, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "exp": "a green hexagon gem, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "cog": "a grey settings gear, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "speed": "a double right arrow fast forward symbol, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "reroll": "two circular arrows, game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+    "boss_rail_top": "a grumpy but cute cartoon alien boss skull with small horns, friendly, not scary, simple shapes, game user interface icon, centered, isolated on a plain pure white background, no text, no frame"
+  }
+}

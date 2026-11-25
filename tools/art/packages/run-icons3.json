@@ -1,0 +1,21 @@
+{
+  "name": "pkg-run-icons3",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6721,
+    6722,
+    6723
+  ],
+  "variants": [
+    {
+      "key": "N",
+      "model": "flux",
+      "style": "2D cartoon mobile game item sprite, bold clean black outline, flat bright colors, cel shading, simple readable silhouette, slight three-quarter view"
+    }
+  ],
+  "subjects": {
+    "max_hp": "a glossy red heart that is slightly bigger and swollen with a small golden plus badge, game reward icon, centered, isolated on a plain pure white background, no text, no arrow, no frame"
+  },
+  "negative": "arrow, text, letters, frame, border, watermark, blurry, photo"
+}
