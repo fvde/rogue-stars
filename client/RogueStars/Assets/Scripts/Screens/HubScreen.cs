@@ -316,12 +316,10 @@ namespace RogueStars.Client.Screens
 
         private int GuideItems() => GuideExpanded ? GuideCount() : System.Math.Min(1, GuideCount());
 
-        /// <summary>Guide cards available (NEW unlock, goal, next unlock); only the first shows unless expanded (H3).</summary>
+        /// <summary>Guide cards available (goal, next unlock); only the first shows unless expanded (H3).</summary>
         private int GuideCount()
         {
             int n = 0;
-            var snoozed = HubLayout.PendingGroup(State, Content);
-            if (snoozed != null && App.SnoozedUnlocks.Contains(snoozed[0])) n++;
             var goal = Tutorial.Next(State, Content, Now);
             if (goal != null && goal.ScreenId != "portals" && goal.ScreenId != null) n++;
             if (Features.Next(State, Content, Now) != null) n++;
@@ -330,19 +328,6 @@ namespace RogueStars.Client.Screens
 
         /// <summary>The guide shows all its cards (the "+N" chip was tapped; tap "–" to collapse).</summary>
         public bool GuideExpanded;
-
-        /// <summary>Main-level runs started when an unlock moment was snoozed: the snooze expires after the next run (H3).</summary>
-        private readonly Dictionary<string, long> SnoozedAtRun = new Dictionary<string, long>();
-
-        /// <summary>Lift snoozes that outlived a run: the moment opens again instead of a card waiting for many levels.</summary>
-        private void ExpireSnoozes()
-        {
-            if (State == null || State.Run.Active != null || SnoozedAtRun.Count == 0) return;
-            long runs = State.Counter("runs_started");
-            var expired = new List<string>();
-            foreach (var kv in SnoozedAtRun) if (runs > kv.Value) expired.Add(kv.Key);
-            foreach (var id in expired) { SnoozedAtRun.Remove(id); App.SnoozedUnlocks.Remove(id); }
-        }
 
         private void BuildBottom()
         {
@@ -390,19 +375,6 @@ namespace RogueStars.Client.Screens
             var vl = col.GetComponent<VerticalLayoutGroup>();
             vl.childAlignment = TextAnchor.LowerCenter; vl.childForceExpandHeight = false;
             var cards = new List<GameObject>();
-            var snoozed = HubLayout.PendingGroup(State, Content);
-            if (snoozed != null && App.SnoozedUnlocks.Contains(snoozed[0]))
-            {
-                var row = HubKit.RoundPanel(col, HubKit.TabActive, "NewUnlock");
-                Ui.Size(row, -1, 120);
-                var btn = row.gameObject.AddComponent<Button>();
-                btn.targetGraphic = row;
-                btn.onClick.AddListener(() => { App.SnoozedUnlocks.Clear(); SnoozedAtRun.Clear(); ShowPendingUnlock(); });
-                var t = Ui.Label(row.transform, "NEW: " + Content.Feature(snoozed[0])?.Name + " — tap to open", 32, HubKit.Cyan, TextAnchor.MiddleCenter, "Text");
-                t.fontStyle = FontStyle.Bold;
-                Ui.Stretch(t.rectTransform, 16, 0, 16, 0);
-                cards.Add(row.gameObject);
-            }
             var goal = Tutorial.Next(State, Content, Now);
             if (goal != null && goal.ScreenId != "portals" && goal.ScreenId != null)
             {
@@ -576,19 +548,18 @@ namespace RogueStars.Client.Screens
         // ---- unlock moment ----------------------------------------------------------------------------
 
         /// <summary>Every frame while the hub is on top (never from a rebuild): open a pending unlock moment.</summary>
-        public override void Frame(float dt) { ExpireSnoozes(); ShowPendingUnlock(); }
+        public override void Frame(float dt) { ShowPendingUnlock(); }
 
         /// <summary>
         /// Opens the full-screen unlock moment for the first pending celebration group while the hub is on top and no modal
-        /// is open (never during a run). Returns true when it opened one. Snoozed groups (the player backed out) wait for a tap.
+        /// is open (never during a run). Returns true when it opened one. Backing out of / skipping the moment claims it
+        /// (Q7: counts as seen), so it never comes back; the "?" on the feature's screen replays the intro.
         /// </summary>
         public bool ShowPendingUnlock()
         {
             if (State == null || App.Router.Current != this || App.ModalLayer.childCount > 0) return false;
             var group = HubLayout.PendingGroup(State, Content);
-            if (group == null || App.SnoozedUnlocks.Contains(group[0])) return false;
-            App.SnoozedUnlocks.Add(group[0]); // backing out of the moment does not reopen it on every tick
-            SnoozedAtRun[group[0]] = State.Counter("runs_started"); // ... until the next run is over
+            if (group == null) return false;
             App.Router.Push(new UnlockScreen(group));
             return true;
         }

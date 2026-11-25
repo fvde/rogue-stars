@@ -233,7 +233,8 @@ namespace RogueStars.Client.Tests
             Assert.That(moment.Root.GetComponentInChildren<RogueStars.Client.World.IntroAnimator>(true).Kind, Is.EqualTo(intro[0].Anim));
             moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroNext").onClick.Invoke();
             Assert.That(Named(moment.Root, "StepText").text, Is.EqualTo(intro[1].Text));
-            moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroSkip").onClick.Invoke();
+            moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroNext").onClick.Invoke();
+            moment.ShowPage(moment.PageCount - 1);
             Assert.That(moment.OnLastPage, Is.True);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("PLAY"));
             moment.Claim();
@@ -242,17 +243,51 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void BackingOutOfTheMoment_DoesNotReopenIt_TheHubOffersItInstead()
+        public void BackingOutOfTheMoment_DismissesItForGood_CountsAsSeen()
         {
+            // Q7: Android back on the unlock moment = seen; it never reopens (no snooze, no "NEW: … tap to open" card)
             Unlock(Features.Parts);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
+            long dia = S.Wallet.Get(Currencies.Diamonds);
             Assert.That(_f.App.HandleBack(), Is.True);
             var hub = Hub;
+            Assert.That(_f.App.Router.Current, Is.SameAs(hub), "back returns to the hub");
+            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.Parts), "backing out counts as seen");
+            Assert.That(S.Wallet.Get(Currencies.Diamonds), Is.EqualTo(dia + 20), "the unlock gift is still granted");
             hub.Frame(0.1f);
-            Assert.That(_f.App.Router.Current, Is.SameAs(hub), "not reopened on every tick");
-            var reopen = hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "NewUnlock");
-            reopen.onClick.Invoke();
-            Assert.That(_f.App.Router.Current, Is.InstanceOf<UnlockScreen>());
+            Assert.That(_f.App.Router.Current, Is.SameAs(hub), "not reopened");
+            Assert.That(hub.ShowPendingUnlock(), Is.False, "nothing pending any more");
+            Assert.That(hub.Root.GetComponentsInChildren<Transform>(true).Any(t => t.name == "NewUnlock"), Is.False, "no snooze card");
+        }
+
+        [Test]
+        public void SkippingTheMoment_DismissesItForGood_ButTheHelpButtonStillReplaysIt()
+        {
+            // Q7: SKIP on any panel dismisses the moment permanently (no feature opened); "?" still replays the intro
+            Unlock(Features.Parts);
+            Assert.That(Hub.ShowPendingUnlock(), Is.True);
+            var moment = (UnlockScreen)_f.App.Router.Current;
+            Assert.That(moment.PageCount, Is.GreaterThan(1));
+            moment.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "IntroSkip").onClick.Invoke();
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>(), "skip closes the moment, it does not open the feature");
+            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.Parts));
+            Hub.Frame(0.1f);
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>(), "not reopened");
+
+            _f.App.Open("worm");
+            var worm = _f.App.Router.Current;
+            worm.ShowIntro();
+            var replay = _f.App.Router.Current as UnlockScreen;
+            if (replay == null) // a screen of several features lists its topics first
+            {
+                _f.App.ModalLayer.GetComponentsInChildren<Button>(true).First(b => b.name == "Intro:" + Features.Parts).onClick.Invoke();
+                replay = _f.App.Router.Current as UnlockScreen;
+            }
+            Assert.That(replay, Is.Not.Null);
+            Assert.That(replay.IsReplay, Is.True);
+            Assert.That(replay.FeatureIds, Is.EqualTo(new[] { Features.Parts }));
+            Assert.That(_f.App.HandleBack(), Is.True);
+            Assert.That(_f.App.Router.Current, Is.SameAs(worm), "back closes the replay");
         }
 
         [Test]

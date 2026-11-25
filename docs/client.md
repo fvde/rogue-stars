@@ -765,6 +765,53 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 - **Removed**: "Equip best parts" (button, level-up callout, auto-pick), the draft cards' SYNERGY tag (display-only),
   the "LEVEL n → n+1" chip.
 
+## Run shop fixes (owner playtest, branch `run-shop-fixes`)
+- **Stat perks show at once**: the open shop follows every state change in place — `ShowDecision` calls `RefreshShop` when the
+  shop sheet stays open, so the shop's run HUD (HP / ATK / DEF, level, coins), the buy buttons and the reroll price track the
+  state, not only the buy button's callback (a purchase or an online refresh shows without leaving the shop).
+- **Reroll price per visit**: `RunSystem.ShopRerollCost` (base + step × rerolls in this visit) is what the rules charge and what
+  the Reroll button shows; `ActiveRun.ShopRerolls` resets when a new shop opens, so every shop starts at the base price.
+- Tests: `RunShopFixTests` (EditMode), `ShopVisitTests` (rules); screenshots: `ShopFixShowcaseTests` (explicit PlayMode).
+
+## Skill help (owner playtest, branch `skill-help`)
+- **The "?" panel explains the mechanics** (`SkillTooltip`, used by every card's "?", the skills book, the battle grid, shop and
+  result tiles): the skill's own text at its level and the next level (or the offered level-up), then one short block per
+  mechanic the skill touches (`TipMechanic:<id>`: Heat / Supernova, Radiation, Bleed, Chill / Freeze — any Freeze resets Chill,
+  Shock, Arc, Stun, Charm, Exposed, Stagger, Delay, Combo, Counter, Crit, Rage, Shield, Dodge, life steal, regeneration,
+  aliens, Echo, signature, boss awakening, run XP, coins) and the synergy info (`TipSynergy`: more offers per owned skill,
+  awakening at 3 / 6, family / source gates, Mythic origin; no synergy tag chip). Tall panels are centred and clamped.
+- **One source of truth** in the rules: `RogueStars.Rules.Core.SkillGlossary` — `Entries(content)` builds every definition
+  from content numbers (status caps, damage per stack, durations, cooldowns, rage, crit, chain decay, awakening thresholds)
+  through `NumFmt`; `Keywords(content, skill)` maps a skill's family, stats, triggers, effects, statuses, gate conditions,
+  rule changes and offer gate to entries (never per-skill text); `SynergyLines` the family block. Tests
+  (`SkillGlossaryTests`): every run-pool skill resolves every mechanic its own text names, every status it applies and
+  (signatures) Signature; glossary texts carry no raw ids and follow the number rule; numbers follow content.
+- **Skills book everywhere** (`RunScreen.OpenSkills`, `RunScenes.SkillsBook`, named `SkillsBook`): the board, the level-up
+  draft and Mythic choice, the Mythic / signal / loot chests (over the tap catcher), the signature choice, the shop, scene
+  events and the rest (stage), the Train picker, vendors (on the clear wall right of the NPC, above the counter's wares), the outcome sheet, revive and burrow modals
+  ("Your skills"). It opens `Modal:Skills` on top; closing it returns to the same decision — nothing is sent, rerolled or
+  rebuilt. Not on the run-start signature pick (no run yet) or inside a mini-game.
+- Tests: `SkillHelpTests` (EditMode); screenshots: `SkillHelpShowcaseTests` (explicit PlayMode).
+
+## Playtest decisions (owner, branch `playtest-decisions`)
+- **Q2 — battles without a run** (hero / mount kit fights, the last battle of a finished run): the top strip shows only the
+  worm's account max HP, ATK and DEF — no level badge, no EXP hexagon, no XP bar (`BattleHudContext.InRun` false →
+  `SliceHud.Show(…, inRun: false)`; `RunScreen.BattleContext` sets it only while `Run.Active` exists). Inside a run nothing
+  changes. Test: `RunDesignATests.Battle_OutsideARun_HudShowsTheWormsRealStats_NeverADash` (BT3).
+- **Q4 — reveal only for big loot**: run results (`RunResultScreen.Reveal`, once per screen) and mail claims
+  (`MailScreen.Claim` / `ClaimAll`, one reveal for all) open the shared pull reveal (`PullReveal.ShowIfEarned`) only when the
+  rewards hold a Legendary or Mythic item (`PullReveal.Earns`; currencies never count). Otherwise the reward strip / flyout
+  stays as before. Tests in `PullRevealTests`.
+- **Q7 — unlock moments are dismissed for good**: SKIP or Android back (`UiScreen.HandleSystemBack`) on an unlock moment
+  claims the celebration (counts as seen, gifts granted) and returns without opening the feature; the snooze
+  (`App.SnoozedUnlocks`, `SnoozedAtRun`, the hub's "NEW: … tap to open" card) is gone. In a "?" replay SKIP still jumps to
+  the last panel and back closes it. Tests in `HubOnboardingTests`.
+- **Mythic chest art**: `Art/Run/Props/chest_mythic` (owner pick `run-props/chest_mythic: I_s6601.png` in
+  `tools/art/slice-picks.json`, cut out with `tools/art/export_assets.py`) — the Mythic run chest no longer falls back to the
+  board's wooden chest marker.
+- **Small fixes**: the vendor's Skills button moved off the counter's crate; Last Light reads "Below 30% HP: every hit
+  crits. You can't heal." (rules test: no skill line ends on a comma / colon / semicolon).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

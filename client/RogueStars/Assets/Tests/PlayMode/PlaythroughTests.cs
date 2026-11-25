@@ -100,7 +100,7 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(0.5f);
             yield return Shot("11a_unlock_parts");
             // the intro panels (GDD §16): skip to the last one, the reward and the guided action
-            ClickNamed("IntroSkip");
+            ((UnlockScreen)_app.Router.Current).ShowPage(((UnlockScreen)_app.Router.Current).PageCount - 1); // SKIP would dismiss it (Q7)
             yield return Wait(0.3f);
             yield return Shot("11a2_unlock_parts_reward");
             ClickNamed("UnlockAction");

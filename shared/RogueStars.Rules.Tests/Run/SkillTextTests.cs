@@ -20,6 +20,17 @@ public class SkillTextTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void NoSkillLine_EndsMidSentence()
+    {
+        // owner playtest: Last Light read "every hit crits,." (a template line ending on a comma before the joining ".")
+        var c = new ContentDb();
+        foreach (var s in c.Skills.Values)
+            foreach (var line in SkillText.Effects(s))
+                Assert.False(line.EndsWith(",") || line.EndsWith(";") || line.EndsWith(":"), s.Id + ": " + line);
+        Assert.Equal("Below 30% HP: every hit crits. You can't heal.", SkillText.Full(c.Skill("mythic_last_light")!));
+    }
+
+    [Fact]
     public void Text_ReadsNaturally()
     {
         var s = new SkillDef { Id = "x", Name = "X" };

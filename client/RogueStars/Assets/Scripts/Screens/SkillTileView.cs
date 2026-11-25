@@ -107,9 +107,12 @@ namespace RogueStars.Client.Screens
     }
 
     /// <summary>
-    /// The skill tooltip: a popover next to the tapped tile with the skill's name, tier and level, its full text
-    /// (SkillText.Full at that level) and the upgrade line (an offered level-up, or what the next level adds). A tap
-    /// anywhere (also on the popover) closes it. One at a time; lives on the root canvas over everything.
+    /// The skill tooltip (the "?" panel): a popover next to the tapped tile with the skill's name, tier and level, its full
+    /// text (SkillText.Full at that level) and the upgrade line (an offered level-up, or what the next level adds), then one
+    /// short block per mechanic the skill touches (<see cref="SkillGlossary"/>: Bleed, Heat / Supernova, Chill / Freeze, Arc,
+    /// Combo, aliens …, with the content's numbers) and its synergy info (offers, signature awakening, gates). A tap anywhere
+    /// (also on the popover) closes it. One at a time; lives on the root canvas over everything.
+    /// Parts: "TipTitle", "TipCaption", "TipText", "TipUpgrade", "TipMechanic:&lt;id&gt;", "TipSynergy".
     /// </summary>
     public static class SkillTooltip
     {
@@ -143,6 +146,23 @@ namespace RogueStars.Client.Screens
             return lines;
         }
 
+        /// <summary>The mechanics the skill touches, one block each (pure; the rules' glossary).</summary>
+        public static List<GlossaryEntry> Mechanics(ContentDb c, SkillTip tip)
+        {
+            var s = c?.Skill(tip.SkillId);
+            return s == null ? new List<GlossaryEntry>() : SkillGlossary.Explain(c, s);
+        }
+
+        /// <summary>The synergy / family lines (pure; the rules' glossary; empty for a generic skill).</summary>
+        public static List<string> Synergy(ContentDb c, SkillTip tip)
+        {
+            var s = c?.Skill(tip.SkillId);
+            return s == null ? new List<string>() : SkillGlossary.SynergyLines(c, s);
+        }
+
+        /// <summary>Name colour of a mechanic block.</summary>
+        public static readonly Color MechanicName = new Color32(0xFF, 0xD2, 0x7A, 255);
+
         public static void Close()
         {
             if (_open != null) Ui.DestroyGo(_open);
@@ -166,14 +186,21 @@ namespace RogueStars.Client.Screens
             _open = layer.gameObject;
 
             var lines = Lines(c, tip);
-            float w = Mathf.Min(760, root.rect.width > 100 ? root.rect.width - 40 : 760);
-            var panel = Ui.RoundPanel(layer.transform, new Color32(0x22, 0x1C, 0x30, 250), 26, "Popover");
+            var mechanics = Mechanics(c, tip);
+            var synergy = Synergy(c, tip);
+            float w = Mathf.Min(900, root.rect.width > 100 ? root.rect.width - 40 : 900);
+            var panel = Ui.RoundPanel(layer.transform, new Color32(0x22, 0x1C, 0x30, 255), 26, "Popover");
             panel.raycastTarget = false;
             var prt = panel.rectTransform;
             prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0.5f);
             prt.pivot = new Vector2(0.5f, 0);
             var s = c?.Skill(tip.SkillId);
             var tierCol = tip.TierOverride != null ? SignaturePick.SignatureColor : RunPresentation.SkillColor(s);
+            // an opaque backing plate: the panel now carries several text blocks and must hide the cards under it
+            var plate = Ui.RoundPanel(prt, new Color32(0x22, 0x1C, 0x30, 255), 26, "Plate");
+            plate.raycastTarget = false;
+            var ple = plate.GetComponent<LayoutElement>(); if (ple == null) ple = plate.gameObject.AddComponent<LayoutElement>(); ple.ignoreLayout = true;
+            Ui.Stretch(plate.rectTransform);
             UiShapes.Outline(prt, tierCol, 26, 5);
             var col = prt.gameObject.AddComponent<VerticalLayoutGroup>();
             col.padding = new RectOffset(30, 30, 24, 26);
@@ -198,14 +225,48 @@ namespace RogueStars.Client.Screens
                 t.verticalOverflow = VerticalWrapMode.Overflow;
                 t.raycastTarget = false;
             }
+            // one short block per mechanic the skill touches, then its synergy
+            if (mechanics.Count > 0 || synergy.Count > 0)
+            {
+                var rule = Ui.Panel(prt, new Color(1, 1, 1, 0.14f), "TipRule");
+                rule.raycastTarget = false;
+                var rle = rule.GetComponent<LayoutElement>(); if (rle == null) rle = rule.gameObject.AddComponent<LayoutElement>(); rle.preferredHeight = 3; rle.minHeight = 3;
+            }
+            string nameHex = ColorUtility.ToHtmlStringRGB(MechanicName);
+            foreach (var m in mechanics)
+            {
+                var t = Ui.Label(prt, "<color=#" + nameHex + ">" + m.Name + "</color>  " + m.Text, 27, new Color(0.86f, 0.84f, 0.92f), TextAnchor.UpperLeft, "TipMechanic:" + m.Id);
+                t.supportRichText = true;
+                t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                t.verticalOverflow = VerticalWrapMode.Overflow;
+                t.raycastTarget = false;
+            }
+            if (synergy.Count > 0)
+            {
+                var famCol = s != null && s.Family != SkillFamily.None ? Color.Lerp(Theme.FamilyColor(s.Family), Color.white, 0.5f) : Color.Lerp(tierCol, Color.white, 0.5f);
+                var t = Ui.Label(prt, string.Join("\n", synergy), 26, famCol, TextAnchor.UpperLeft, "TipSynergy");
+                t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                t.verticalOverflow = VerticalWrapMode.Overflow;
+                t.raycastTarget = false;
+            }
             LayoutRebuilder.ForceRebuildLayoutImmediate(prt);
-            // above the tile, or below it when there is no room; clamped into the screen
+            // above the tile, or below it when there is no room; a tall panel is centred; always clamped into the screen
             Vector2 local = root.InverseTransformPoint(anchor.TransformPoint(anchor.rect.center));
             float ah = anchor.rect.height * Mathf.Abs(anchor.lossyScale.y / Mathf.Max(0.0001f, root.lossyScale.y));
             float h = prt.rect.height;
             float half = root.rect.height / 2;
             float y = local.y + ah / 2 + 16;
-            if (y + h > half - 20) { prt.pivot = new Vector2(0.5f, 1); y = local.y - ah / 2 - 16; }
+            if (y + h > half - 20)
+            {
+                prt.pivot = new Vector2(0.5f, 1);
+                y = local.y - ah / 2 - 16;
+                if (y - h < -half + 20)
+                {
+                    prt.pivot = new Vector2(0.5f, 0.5f);
+                    float room = Mathf.Max(0, half - 20 - h / 2);
+                    y = Mathf.Clamp(local.y, -room, room);
+                }
+            }
             float hw = root.rect.width / 2 - w / 2 - 20;
             prt.anchoredPosition = new Vector2(Mathf.Clamp(local.x, -Mathf.Max(0, hw), Mathf.Max(0, hw)), y);
             UiTween.PopIn(prt, 0.12f);

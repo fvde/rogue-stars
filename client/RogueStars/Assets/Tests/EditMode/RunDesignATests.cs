@@ -409,8 +409,14 @@ namespace RogueStars.Client.Tests
             var strip = FindNamed(screen.Root, "TopStrip");
             Assert.That(FindNamed(strip, "AtkChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Atk)))));
             Assert.That(FindNamed(strip, "DefChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Def)))));
-            Assert.That(FindNamed(strip, "LvNumber").GetComponent<Text>().text, Is.EqualTo("Lv. " + Math.Max(1, S.Worm.Level)));
-            foreach (var t in strip.GetComponentsInChildren<Text>(true)) Assert.That(t.text, Does.Not.Contain("–"), t.name);
+            // Q2: no run behind the battle → no level badge, no XP bar at all; only account max HP, ATK and DEF
+            Assert.That(FindNamed(strip, "RunLevel").gameObject.activeSelf, Is.False, "no level badge outside a run");
+            Assert.That(FindNamed(strip, "ExpIcon").gameObject.activeSelf, Is.False, "no EXP hexagon outside a run");
+            Assert.That(FindNamed(strip, "XpFill").gameObject.activeInHierarchy, Is.False, "no XP bar outside a run");
+            Assert.That(FindNamed(strip, "AtkPill").gameObject.activeSelf && FindNamed(strip, "DefPill").gameObject.activeSelf && FindNamed(strip, "HpBar").gameObject.activeSelf, Is.True);
+            Assert.That(screen.HudText, Does.StartWith("HP ").And.Contain("ATK ").And.Contain("DEF "));
+            Assert.That(screen.HudText, Does.Not.Contain("Lv ").And.Not.Contain("XP "));
+            foreach (var t in strip.GetComponentsInChildren<Text>(false)) Assert.That(t.text, Does.Not.Contain("–"), t.name);
             // a passed context without stats gets them too
             var ctx = new BattleHudContext { Coins = 5 };
             var screen2 = new BattlePlaybackScreen(HandBattle(sk[0].Id, sk[1].Id, sk[2].Id), ctx);
@@ -418,6 +424,8 @@ namespace RogueStars.Client.Tests
             Assert.That(ctx.HasStats, Is.True);
             Assert.That(screen2.HudText, Does.Contain("ATK " + Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Atk)))));
             Assert.That(screen2.HudText, Does.Not.Contain("–"));
+            Assert.That(screen2.HudText, Does.Not.Contain("Lv ").And.Not.Contain("XP "));
+            Assert.That(FindNamed(FindNamed(screen2.Root, "TopStrip"), "RunLevel").gameObject.activeSelf, Is.False);
         }
 
         [Test]

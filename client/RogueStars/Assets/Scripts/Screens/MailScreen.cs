@@ -8,7 +8,10 @@ using UnityEngine;
 
 namespace RogueStars.Client.Screens
 {
-    /// <summary>Inbox: "N messages, M unread", an unread dot, rewards as icon tiles, an envelope illustration when empty (MS2).</summary>
+    /// <summary>
+    /// Inbox: "N messages, M unread", an unread dot, rewards as icon tiles, an envelope illustration when empty (MS2). A
+    /// claim with a Legendary or Mythic item plays the shared pull reveal (Q4); other claims keep the reward flyout.
+    /// </summary>
     public sealed class MailScreen : UiScreen
     {
         public override string Title => "Mail";
@@ -24,7 +27,7 @@ namespace RogueStars.Client.Screens
             var top = Ui.Row(body);
             Ui.Label(top, CountLine(inbox.Count, MailSystem.UnreadCount(State)), Theme.FontNormal, Theme.TextDim, TextAnchor.MiddleLeft, "MailCount");
             bool anyRewards = inbox.Exists(MailSystem.HasUnclaimed);
-            Ui.Button(top, "Claim all", () => Run(new MailClaimAll()), Theme.Good, 260, Theme.ButtonHeight, anyRewards);
+            Ui.Button(top, "Claim all", ClaimAll, Theme.Good, 260, Theme.ButtonHeight, anyRewards);
             if (inbox.Count == 0) Empty(body);
             foreach (var mail in inbox)
             {
@@ -38,10 +41,28 @@ namespace RogueStars.Client.Screens
                 if (m.ExpiresMs > 0) Live(Note(card, ""), () => "Expires in " + Fmt.Duration(m.ExpiresMs - Now));
                 var row = Ui.Row(card, 80);
                 Ui.Button(row, "Open", () => Open(m), Theme.Button, -1, 80);
-                if (MailSystem.HasUnclaimed(m)) Ui.Button(row, "Claim", () => Run(new MailClaim { MailId = m.Id }), Theme.Good, -1, 80);
+                if (MailSystem.HasUnclaimed(m)) Ui.Button(row, "Claim", () => Claim(m), Theme.Good, -1, 80);
                 else Ui.Button(row, "Delete", () => Run(new MailDelete { MailId = m.Id }), Theme.Bad, -1, 80);
             }
         }
+
+        /// <summary>Claims one mail; Legendary / Mythic items play the pull reveal (Q4).</summary>
+        public void Claim(MailItem m)
+        {
+            var shown = RewardGate.Usable(State, Content, m.Rewards, Now);
+            Run(new MailClaim { MailId = m.Id }, r => { if (r != null && r.Ok) Reveal(shown); });
+        }
+
+        /// <summary>Claims every unclaimed mail; one reveal for all of them when one holds a Legendary / Mythic item (Q4).</summary>
+        public void ClaimAll()
+        {
+            var shown = new List<Reward>();
+            foreach (var m in State.Mail.Inbox) if (MailSystem.HasUnclaimed(m)) shown.AddRange(RewardGate.Usable(State, Content, m.Rewards, Now));
+            Run(new MailClaimAll(), r => { if (r != null && r.Ok) Reveal(RunResultScreen.Aggregate(shown)); });
+        }
+
+        private void Reveal(List<Reward> shown) =>
+            PullReveal.ShowIfEarned(App.ModalLayer, shown, Content, new RevealOptions { Title = "Mail rewards", Name = "MailReveal", Skip = SummonEventScreen.SkipAnimation });
 
         /// <summary>The rewards as icon tiles (usable ones; the rest waits in the reward stash).</summary>
         private void RewardIcons(Transform parent, List<Reward> rewards, bool claimed)
@@ -72,7 +93,7 @@ namespace RogueStars.Client.Screens
                 Ui.Label(b, m.Body, Theme.FontNormal);
                 if (m.Rewards.Count > 0) RewardIcons(b, m.Rewards, m.Claimed);
             }, MailSystem.HasUnclaimed(m)
-                ? new[] { new ModalButton("Claim", () => Run(new MailClaim { MailId = m.Id }), Theme.Good), new ModalButton("Close", null) }
+                ? new[] { new ModalButton("Claim", () => Claim(m), Theme.Good), new ModalButton("Close", null) }
                 : new[] { new ModalButton("Close", null) });
         }
     }

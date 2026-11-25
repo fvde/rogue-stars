@@ -187,7 +187,7 @@ namespace RogueStars.Client.PlayTests
                 while (_app.Router.Depth > 1) _app.Router.Pop();
                 _svc.State.Run.Levels[c.MainLevelId(12)].Feats = new List<bool> { true, true, true };
                 _app.Router.RebuildCurrent();
-                foreach (var f in c.FeatureDefs.Keys) _app.SnoozedUnlocks.Add(f);
+                foreach (var f in c.FeatureDefs.Keys) _svc.State.Onboarding.Celebrated.Add(f); // no unlock moment over the home shot
                 yield return Wait(1.0f);
                 Ui.Clear(_app.ModalLayer);
                 if (!(_app.Router.Current is HubScreen)) { while (_app.Router.Depth > 1) _app.Router.Pop(); }

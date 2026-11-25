@@ -350,12 +350,22 @@ namespace RogueStars.Rules.Systems
         private static void ShopReroll(CommandContext ctx, ActiveRun run)
         {
             Require(run.Phase == RunPhase.Shop, "no shop open");
-            var table = ShopTable(ctx.Content, run);
-            long price = table.RerollBase + table.RerollStep * run.ShopRerolls;
+            long price = ShopRerollCost(ctx.Content, run);
             Require(run.Coins >= price, "not enough run coins");
             run.Coins -= price;
             run.ShopRerolls++;
             FillShop(ctx.Content, run);
+        }
+
+        /// <summary>
+        /// The next reroll's price in the open shop: the level's shop table base + step × rerolls in this visit. Every shop
+        /// visit starts again at the base price (owner playtest: the raised price carried over to the next shop).
+        /// </summary>
+        public static long ShopRerollCost(ContentDb content, ActiveRun run)
+        {
+            if (run == null) return 0;
+            var table = ShopTable(content, run);
+            return table.RerollBase + table.RerollStep * run.ShopRerolls;
         }
 
         private static void ShopLeave(CommandContext ctx, ActiveRun run)

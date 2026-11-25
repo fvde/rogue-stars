@@ -42,8 +42,6 @@ namespace RogueStars.Client.App
         /// <summary>Creates the service for the current settings (override in tests).</summary>
         public Func<ClientSettings, IGameService> ServiceFactory;
         public string ConnectionStatus { get; private set; } = "idle";
-        /// <summary>Unlock groups (first feature id) whose full-screen moment was already opened this session (no reopen loop).</summary>
-        public readonly HashSet<string> SnoozedUnlocks = new HashSet<string>();
 
         private float _tick;
         private float _sinceRefresh;
@@ -119,7 +117,6 @@ namespace RogueStars.Client.App
             if (Platform != null && Platform.StoreMode == PlatformConfig.StoreDisabled && !Application.isEditor)
                 Session.Store = service.IsOnline ? (IStoreGateway)new DisabledStoreGateway() : new FakeStoreGateway();
             Session.Use(service);
-            SnoozedUnlocks.Clear();
             ConnectionStatus = "connecting";
             Router.Reset(new HubScreen());
             Bar.Rebuild();
@@ -164,6 +161,7 @@ namespace RogueStars.Client.App
                 Ui.DestroyGo(ModalLayer.GetChild(ModalLayer.childCount - 1).gameObject);
                 return true;
             }
+            if (Router.Current != null && Router.Current.HandleSystemBack()) return true;
             return Router.Pop();
         }
 

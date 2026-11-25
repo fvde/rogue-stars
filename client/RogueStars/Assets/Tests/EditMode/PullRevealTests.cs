@@ -190,5 +190,89 @@ namespace RogueStars.Client.Tests
             Assert.That(items[0].Name, Is.EqualTo("Ore"));
             Assert.That(items[0].Tier, Is.EqualTo(Rarity.Common));
         }
+
+        // ---- Q4: run results and mail claims reveal only Legendary / Mythic items ----------------------------------------
+
+        private Reward PartReward(PartRarity r) => new Reward(RewardKinds.Part, C.PartsConfig.Defs.Values.First().Id, 1, (int)r);
+
+        private bool RevealOpen(string name) => _f.App.ModalLayer.GetComponentsInChildren<PullRevealPlayer>(true).Any(p => p.name == "Modal:" + name);
+
+        [Test]
+        public void Earns_OnlyWithALegendaryOrMythicItem()
+        {
+            Assert.That(PullReveal.Earns(new[] { Reward.Cur(Currencies.Diamonds, 999999), PartReward(PartRarity.Epic) }, C), Is.False);
+            Assert.That(PullReveal.Earns(new[] { Reward.Cur(Currencies.Ore, 10), PartReward(PartRarity.Legendary) }, C), Is.True);
+            Assert.That(PullReveal.Earns(new[] { PartReward(PartRarity.Mythic) }, C), Is.True);
+            Assert.That(PullReveal.Earns(new[] { new Reward(RewardKinds.Alien, "alien_nebulisk", 1) }, C), Is.True, "a Mythic alien");
+            Assert.That(PullReveal.Earns(null, C), Is.False);
+        }
+
+        [Test]
+        public void RunResult_WithALegendaryItem_PlaysTheReveal_Once()
+        {
+            UnlockAll();
+            S.Run.LastSummary = new RunSummary { RunId = "x", LevelId = C.MainLevel(1).Id, Won = true, Rolls = 30 };
+            S.Run.LastSummary.Granted.Add(Reward.Cur(Currencies.Diamonds, 10));
+            S.Run.LastSummary.Granted.Add(PartReward(PartRarity.Legendary));
+            var screen = new RunResultScreen();
+            _f.App.Router.Push(screen);
+            Assert.That(screen.Reveal, Is.Not.Null, "Legendary loot: the pull reveal");
+            Assert.That(RevealOpen("RunReveal"), Is.True);
+            var cards = screen.Reveal.Body.Cast<Transform>().Where(t => t.name.StartsWith("Card:")).ToList();
+            Assert.That(cards.Count, Is.EqualTo(2), "every reward of the run on a card");
+            Assert.That(screen.Root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Reward"), Is.EqualTo(2), "the strip stays under it");
+            screen.Reveal.Close();
+            screen.Rebuild();
+            Assert.That(RevealOpen("RunReveal"), Is.False, "a rebuild does not replay it");
+        }
+
+        [Test]
+        public void RunResult_WithoutALegendaryItem_KeepsTheRewardStrip_NoReveal()
+        {
+            UnlockAll();
+            S.Run.LastSummary = new RunSummary { RunId = "x", LevelId = C.MainLevel(1).Id, Won = true, Rolls = 30 };
+            S.Run.LastSummary.Granted.Add(Reward.Cur(Currencies.Diamonds, 10));
+            S.Run.LastSummary.Granted.Add(PartReward(PartRarity.Epic));
+            var screen = new RunResultScreen();
+            _f.App.Router.Push(screen);
+            Assert.That(screen.Reveal, Is.Null);
+            Assert.That(_f.App.ModalLayer.GetComponentsInChildren<PullRevealPlayer>(true), Is.Empty);
+            Assert.That(screen.Root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Reward"), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void MailClaim_WithAMythicItem_PlaysTheReveal_OtherClaimsDoNot()
+        {
+            UnlockAll();
+            long now = _f.Service.NowMs;
+            string plain = MailSystem.Push(S, C, now, "Gift", "Diamonds", new[] { Reward.Cur(Currencies.Diamonds, 50) });
+            string rich = MailSystem.Push(S, C, now, "Treasure", "A Mythic part", new[] { Reward.Cur(Currencies.Ore, 100), PartReward(PartRarity.Mythic) });
+            _f.App.Open("mail");
+            var mail = (MailScreen)_f.App.Router.Current;
+            long dia = S.Wallet.Get(Currencies.Diamonds);
+            mail.Claim(S.Mail.Inbox.First(m => m.Id == plain));
+            Assert.That(S.Wallet.Get(Currencies.Diamonds), Is.EqualTo(dia + 50));
+            Assert.That(RevealOpen("MailReveal"), Is.False, "Diamonds only: the usual flyout, no reveal");
+            mail.Claim(S.Mail.Inbox.First(m => m.Id == rich));
+            Assert.That(S.Mail.Inbox.First(m => m.Id == rich).Claimed, Is.True);
+            Assert.That(RevealOpen("MailReveal"), Is.True, "a Mythic part: the pull reveal");
+        }
+
+        [Test]
+        public void MailClaimAll_RevealsOnlyWhenOneMailHoldsALegendary()
+        {
+            UnlockAll();
+            long now = _f.Service.NowMs;
+            MailSystem.Push(S, C, now, "A", "", new[] { Reward.Cur(Currencies.Diamonds, 5) });
+            MailSystem.Push(S, C, now, "B", "", new[] { PartReward(PartRarity.Rare) });
+            _f.App.Open("mail");
+            var mail = (MailScreen)_f.App.Router.Current;
+            mail.ClaimAll();
+            Assert.That(RevealOpen("MailReveal"), Is.False);
+            MailSystem.Push(S, C, now, "C", "", new[] { Reward.Cur(Currencies.Diamonds, 5) });
+            MailSystem.Push(S, C, now, "D", "", new[] { PartReward(PartRarity.Legendary) });
+            mail.ClaimAll();
+            Assert.That(RevealOpen("MailReveal"), Is.True);
+        }
     }
 }

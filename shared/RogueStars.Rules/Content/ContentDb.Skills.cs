@@ -473,7 +473,7 @@ namespace RogueStars.Rules.Content
                 .Text("Damage beyond an enemy's HP carries over to the next enemy.");
             RunSkill("mythic_last_light", "Last Light", SkillFamily.None, Rarity.Mythic).Desc("Brightest before the end.")
                 .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "last_light:30"))
-                .Text("Below 30% HP: every hit crits,|!but you can't heal");
+                .Text("Below 30% HP: every hit crits.|!You can't heal");
             RunSkill("mythic_catalyst", "Catalyst", SkillFamily.None, Rarity.Mythic).Desc("Afflictions feed each other.")
                 .Add(Tg(Hit, EffectKind.StackAll, @if: "statuses:3"))
                 .Text("Enemies with 3+ different statuses gain 1 stack of each whenever you hit them.");
