@@ -743,8 +743,9 @@ namespace RogueStars.Rules.Systems
             {
                 Log(BattleAction.SkipTurn, f, f, 0);
                 // Time Debt: each enemy turn skipped feeds the other side
-                foreach (var o in F)
+                for (int i = 0, n = F.Count; i < n; i++) // a trigger may summon (F grows): iterate the fighters present now
                 {
+                    var o = F[i];
                     if (Over) break;
                     if (o.Side != f.Side && o.Alive && (o.Role == CombatRole.Worm || o.Role == CombatRole.Mount)) Fire(o, TriggerKind.OnSkipTurn, f);
                 }
@@ -908,8 +909,9 @@ namespace RogueStars.Rules.Systems
             if (worm != null && worm.Alive && f.SidekickHitThisAct && f.SidekickHitTarget >= 0 && F[f.SidekickHitTarget].Alive)
                 Fire(worm, TriggerKind.OnSidekickHit, F[f.SidekickHitTarget]);
             if (Over) return;
-            foreach (var o in F)
+            for (int i = 0, n = F.Count; i < n; i++) // a trigger may summon (F grows): iterate the fighters present now
             {
+                var o = F[i];
                 if (Over) break;
                 if (o.Side == f.Side && o.Alive && (o.Role == CombatRole.Worm || o.Role == CombatRole.Mount)) Fire(o, TriggerKind.OnSidekickAct, null);
             }
@@ -1389,7 +1391,9 @@ namespace RogueStars.Rules.Systems
                 Log(BattleAction.Death, src, target, 0);
                 CheckOver();
                 if (src != null && src.Alive) Fire(src, TriggerKind.OnKill, target);
-                foreach (var o in F) if (o.Alive && o.Side != target.Side && !Over) Fire(o, TriggerKind.OnEnemyDeath, target);
+                // Index loop over the fighters present at the death: an OnEnemyDeath trigger may summon (F grows), which would break
+                // a foreach ("Collection was modified"); fighters summoned by these triggers do not react to this death.
+                for (int i = 0, n = F.Count; i < n; i++) { var o = F[i]; if (o.Alive && o.Side != target.Side && !Over) Fire(o, TriggerKind.OnEnemyDeath, target); }
                 MarkDied(target); // Spotlight moves on; Contagion carries the statuses over
                 // Overkill: damage past the killed fighter's HP carries over to the next enemy
                 var ors = RulesOf(src);
