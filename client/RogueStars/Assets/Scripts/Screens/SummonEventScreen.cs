@@ -246,78 +246,41 @@ namespace RogueStars.Client.Screens
 
         // ---- draw result ------------------------------------------------------------------------------------------
 
-        /// <summary>The draw result: one card per pull (rarity frame, icon, amount, NEW / ★n on copies), Luck and tokens.</summary>
+        /// <summary>
+        /// The draw result through the shared pull reveal (SG1): one card per pull (rarity frame, art, amount, NEW ribbon,
+        /// "+50 SHARDS" / FEATURED badge), the Luck line, OK and Draw ×1 / ×10 again. Skip Animation opens it in the end state.
+        /// </summary>
         public UiModal Reveal(SummonPullResult result)
         {
             var def = Def;
-            var cards = new List<RectTransform>();
-            var modal = Ui.Sheet(App.ModalLayer, "SummonResult", SummonKit.Night, SummonArt.Accent(Type), (box, m) =>
+            var o = new RevealOptions
             {
-                SummonKit.Chunky(box, result.Items.Count > 1 ? "Summon ×" + result.Items.Count : "Summon", 56, Color.white, TextAnchor.MiddleCenter, "Title");
-                var grid = Ui.Grid(box, new Vector2(164, 250), 5, 12);
-                foreach (var it in result.Items)
+                Title = result.Items.Count > 1 ? "Summon ×" + result.Items.Count : "Summon",
+                Name = "SummonResult",
+                Skip = SkipAnimation,
+                Accent = SummonArt.Accent(Type),
+                InfoName = "LuckAfter",
+                Info = (result.LuckTriggered ? "Luck full — guaranteed! · " : "") + "Luck " + result.Luck + "/" + result.LuckMax
+                    + "   +" + Fmt.Num(result.Tokens) + " " + Fmt.CurrencyName(def?.TokenCurrency, Content),
+            };
+            if (def != null)
+            {
+                foreach (int n in new[] { 1, 10 })
                 {
-                    var card = Card(grid, it);
-                    cards.Add(card);
-                    if (Application.isPlaying && !SkipAnimation) card.gameObject.SetActive(false);
-                }
-                var info = Ui.Row(box, 60, 10, null, 0, "Info");
-                info.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-                var luck = SummonKit.Chunky(info, (result.LuckTriggered ? "Luck full — guaranteed! · " : "") + "Luck " + result.Luck + "/" + result.LuckMax
-                    + "   +" + Fmt.Num(result.Tokens) + " " + Fmt.CurrencyName(def?.TokenCurrency, Content), 32, Color.white, TextAnchor.MiddleCenter, "LuckAfter");
-                luck.horizontalOverflow = HorizontalWrapMode.Overflow;
-                var buttons = Ui.Row(box, 110, 20, null, 0, "Buttons");
-                Ui.Button(buttons, "OK", m.Close, SummonKit.Plum, -1, 110, true, 40);
-                if (def != null && result.Items.Count > 0)
-                {
-                    int count = result.Items.Count;
+                    int count = n;
                     bool tickets = SummonView.PaysWithTickets(State, def, count);
-                    bool can = tickets || State.Wallet.Get(Currencies.Diamonds) >= SummonView.DiamondCost(def, count);
-                    var again = SummonKit.ActionButton(buttons, "Again ×" + count, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
-                        tickets ? TicketCost(count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1) : Fmt.Num(SummonView.DiamondCost(def, count)),
-                        () => { m.Close(); Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, result.EventId); }, tickets ? SummonKit.Lime : Theme.Premium, -1, 110, can, "Again");
-                    if (!can) MarkShort(again);
-                }
-            }, 960);
-            if (Application.isPlaying && !SkipAnimation)
-            {
-                var seq = UiSequence.On(modal.Root);
-                foreach (var c in cards)
-                {
-                    var card = c;
-                    seq.Wait(0.1f, () => { if (card != null) { card.gameObject.SetActive(true); UiTween.PopIn(card, 0.2f); } });
+                    o.Again.Add(new RevealAction
+                    {
+                        Caption = "Draw ×" + n, Name = "Again:" + n,
+                        Icon = tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
+                        Cost = tickets ? TicketCost(count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1) : Fmt.Num(SummonView.DiamondCost(def, count)),
+                        Can = tickets || State.Wallet.Get(Currencies.Diamonds) >= SummonView.DiamondCost(def, count),
+                        Face = tickets ? SummonKit.Lime : Theme.Premium,
+                        OnClick = () => Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, result.EventId),
+                    });
                 }
             }
-            return modal;
-        }
-
-        private RectTransform Card(Transform grid, SummonPullItem it)
-        {
-            var color = Theme.RarityColor(it.Tier);
-            var card = Ui.RoundPanel(grid, Color.Lerp(color, SummonKit.Night, 0.25f), 26, "Card:" + it.Kind + ":" + it.Id);
-            UiShapes.Outline(card.rectTransform, Color.Lerp(color, Color.white, 0.3f), 26, 4);
-            var reward = new Reward(it.Kind, it.Id, it.Amount);
-            if (reward.Kind == RewardKinds.Hero) SummonKit.Place(SummonKit.FeaturedArt(card.transform, SummonEventType.Hero, reward.Id, "Icon"), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(112, 112));
-            else SummonKit.Place(SummonKit.Img(card.transform, SummonArt.RewardIcon(reward), "Icon"), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(112, 112));
-            string amount = SummonView.Amount(reward);
-            if (amount.Length > 0)
-            {
-                // SM3: the amount under the icon, shrunk to fit the card
-                var a = SummonKit.Chunky(card.transform, amount, 30, Color.white, TextAnchor.MiddleCenter, "Amount");
-                a.resizeTextForBestFit = true; a.resizeTextMinSize = 14; a.resizeTextMaxSize = 30;
-                SummonKit.Place(a, new Vector2(0.5f, 1), new Vector2(0, -126), new Vector2(150, 36));
-            }
-            var name = SummonKit.Chunky(card.transform, SummonView.RewardName(reward, Content), 22, Color.white, TextAnchor.UpperCenter, "Name");
-            SummonKit.Place(name, new Vector2(0.5f, 0), new Vector2(0, 6), new Vector2(154, 80));
-            string badge = SummonView.CopyBadge(it, Content);
-            if (badge.Length > 0 || it.Featured)
-            {
-                var b = Ui.RoundPanel(card.transform, badge.Length > 0 ? SummonKit.BadgeRed : Theme.Hex(0x8A4CE0), 14, "Badge");
-                SummonKit.Place(b, new Vector2(0.5f, 1), new Vector2(0, 10), new Vector2(150, 38));
-                var bt = SummonKit.Chunky(b.transform, badge.Length > 0 ? badge : "FEATURED", badge.Length > 12 ? 16 : 22, Color.white, TextAnchor.MiddleCenter, "BadgeText");
-                Ui.Stretch(bt.rectTransform);
-            }
-            return card.rectTransform;
+            return PullReveal.Show(App.ModalLayer, PullReveal.FromSummon(result, Content), o);
         }
 
         // ---- luck info ------------------------------------------------------------------------------------------------
@@ -374,6 +337,7 @@ namespace RogueStars.Client.Screens
                         int left = ShopSystem.AdViewsLeft(State, Content, ad.Id, Now);
                         PackRow(b, ad.Rewards, "Daily limit " + (ad.DailyCap - left) + "/" + ad.DailyCap, row =>
                         {
+                            if (Session.IsAdPending(ad.Id)) { ShopScreen.AdPending(row); return; } // T51
                             var btn = SummonKit.ActionButton(row, Session.NoAds ? "Free" : "", Session.NoAds ? null : "ad", null,
                                 () => Session.WatchAd(ad.Id, _ => { m.Close(); PacksSheet(); }), Theme.Hex(0xF2C23C), 240, 96, left > 0, "Pack:" + ad.Id);
                             SummonKit.Badge(btn.transform, left);
@@ -387,7 +351,8 @@ namespace RogueStars.Client.Screens
                         string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
                         PackRow(b, p.Contents, "Daily limit " + ShopSystem.DailyPurchaseCount(State, Content, p.Id, Now) + "/" + p.DailyLimit, row =>
                         {
-                            if (!Session.IsOffered(p.Id)) Ui.Button(row, "Coming soon", null, Theme.Button, 240, 96, false, 30).name = "ComingSoon:" + p.Id;
+                            if (!Session.IsOffered(p.Id)) Ui.Button(row, "Soon", null, Theme.Button, 240, 96, false, 30).name = "ComingSoon:" + p.Id;
+                            else if (Session.PendingPayments.Contains(p.Id)) Ui.Button(row, "PENDING", null, Theme.Button, 240, 96, false, 30).name = "Pending:" + p.Id; // T52
                             else SummonKit.ActionButton(row, Fmt.Price(p.PriceUsdCents), null, null, () => Session.Purchase(p.Id, _ => { m.Close(); PacksSheet(); }), SummonKit.Lime, 240, 96, block == null, "Pack:" + p.Id);
                         });
                     }

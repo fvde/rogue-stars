@@ -148,62 +148,44 @@ namespace RogueStars.Client.Screens
         }
         private void PityRow(Transform parent, GachaType type, GachaTypeDef def) => PityRow(parent, type, def, State, Content);
 
+        private string _lastBanner;
+
         private void Pull(GachaType type, int count, GachaPayment pay, string bannerId, string adToken = null)
         {
             Run(new GachaPull { PullType = type, Count = count, Payment = pay, BannerId = bannerId, AdToken = adToken }, r =>
             {
                 if (!r.Ok) return;
                 var result = r.Payload as GachaPullResult ?? (r.Payload as JToken)?.ToObject<GachaPullResult>(ClientJson.WireSerializer);
-                if (result != null) Reveal(result);
+                if (result != null) { _lastBanner = bannerId; Reveal(result, type, bannerId); }
             });
         }
 
-        /// <summary>Reveal modal: cards pop in one by one (instant in edit mode).</summary>
-        public UiModal Reveal(GachaPullResult result)
+        /// <summary>The shared pull reveal (SG1): charge → crack → deal → hold → banner; Pull ×1 / ×10 again with tokens or Diamonds.</summary>
+        public UiModal Reveal(GachaPullResult result) => Reveal(result, result.Type, result.BannerId ?? _lastBanner);
+
+        public UiModal Reveal(GachaPullResult result, GachaType type, string bannerId)
         {
-            var cards = new List<RectTransform>();
-            var modal = Modal(result.Items.Count > 1 ? "10× Signal" : "Signal", b =>
+            var o = new RevealOptions { Title = result.Items.Count > 1 ? result.Items.Count + "× Signal" : "Signal", Skip = SummonEventScreen.SkipAnimation };
+            if (Content.GachaConfig.Types.TryGetValue(type, out var def))
             {
-                var grid = Ui.Grid(b, new Vector2(170, 170), 5, 8);
-                foreach (var it in result.Items)
+                foreach (int n in new[] { 1, 10 })
                 {
-                    var color = Theme.RarityColor(it.Tier);
-                    var c = Ui.Panel(grid, Color.Lerp(color, Theme.Panel, 0.35f), "Card");
-                    var pulled = new Reward(it.Kind, it.Id, it.Amount, it.Rarity);
-                    // A pull result is always shown (published odds); one without a use yet waits in the reward stash.
-                    string kept = RewardGate.HasUse(State, Content, pulled, Now) ? "" : "\n<size=16>kept for later</size>";
-                    // an alien shows its sprite (ArtCatalog) over the name
-                    var art = it.Kind == RewardKinds.Alien ? ArtCatalog.Alien(it.Id) : null;
-                    if (art != null)
+                    int count = n;
+                    long tokenCost = n == 1 ? def.TokenCost1 : def.TokenCost10;
+                    long diaCost = n == 1 ? def.DiamondCost1 : def.DiamondCost10;
+                    bool tokens = State.Wallet.Get(def.TokenCurrency) >= tokenCost;
+                    o.Again.Add(new RevealAction
                     {
-                        var img = Ui.Panel(c.transform, Color.white, "AlienSprite");
-                        img.sprite = art;
-                        img.preserveAspect = true;
-                        img.raycastTarget = false;
-                        var irt = img.rectTransform;
-                        irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 1);
-                        irt.pivot = new Vector2(0.5f, 1);
-                        irt.sizeDelta = new Vector2(96, 96);
-                        irt.anchoredPosition = new Vector2(0, -4);
-                    }
-                    // a blueprint / alien is a batch of 50 shards: "NEW" when it unlocked the item, else "+50 shards"
-                    string batch = it.Shards > 0 ? "\n<size=18>" + (it.Note == "new" ? "NEW" : "+" + Fmt.Num(it.Shards) + " shards") + "</size>" : "";
-                    var t = Ui.Label(c.transform, (it.Featured ? "FEATURED\n" : "") + Fmt.Reward(pulled, Content) + batch + "\n<size=18>" + it.Tier + "</size>" + kept, art != null ? 17 : 20, Color.white, art != null ? TextAnchor.LowerCenter : TextAnchor.MiddleCenter);
-                    Ui.Stretch(t.rectTransform, 6, art != null ? 96 : 6, 6, 6);
-                    cards.Add(c.rectTransform);
-                    if (Application.isPlaying) c.gameObject.SetActive(false);
-                }
-            });
-            if (Application.isPlaying)
-            {
-                var seq = UiSequence.On(modal.Root);
-                foreach (var c in cards)
-                {
-                    var card = c;
-                    seq.Wait(0.12f, () => { if (card != null) { card.gameObject.SetActive(true); UiTween.PopIn(card, 0.2f); } });
+                        Caption = "Pull ×" + n, Name = "Again:" + n,
+                        Icon = tokens ? SummonArt.IconOfCurrency(def.TokenCurrency) : "diamond",
+                        Cost = tokens ? TokenCost(tokenCost) : Fmt.Num(diaCost),
+                        Can = tokens || State.Wallet.Get(Currencies.Diamonds) >= diaCost,
+                        Face = tokens ? Theme.Accent : Theme.Premium,
+                        OnClick = () => Pull(type, count, tokens ? GachaPayment.Tokens : GachaPayment.Diamonds, bannerId),
+                    });
                 }
             }
-            return modal;
+            return PullReveal.Show(App.ModalLayer, PullReveal.FromGacha(result, Content, State, Now), o);
         }
 
         private void OddsModal(GachaType type, string bannerId)

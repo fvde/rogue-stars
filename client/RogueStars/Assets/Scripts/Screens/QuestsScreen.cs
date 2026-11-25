@@ -67,9 +67,19 @@ namespace RogueStars.Client.Screens
                 bool claimed = State.Quests.ChestsClaimed.Contains(track + ":" + c.Points);
                 bool ready = points >= c.Points && !claimed;
                 ChestTile(row, c.Points, claimed, ready, () => Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content, State, Now), Theme.FontNormal),
-                        ready ? new[] { new ModalButton("Open", () => Run(new QuestClaimChest { Track = track, Points = c.Points }), Theme.Good), new ModalButton("Close", null) }
+                        ready ? new[] { new ModalButton("Open", () => OpenChest(track, c), Theme.Good), new ModalButton("Close", null) }
                               : new[] { new ModalButton("Close", null) }));
             }
+        }
+
+        /// <summary>Opens a point chest and shows its contents through the shared reveal (SG1: chests use the pull ceremony).</summary>
+        public void OpenChest(PointTrack track, PointChestDef c)
+        {
+            var shown = RewardGate.Usable(State, Content, c.Rewards, Now);
+            Run(new QuestClaimChest { Track = track, Points = c.Points }, r =>
+            {
+                if (r.Ok) PullReveal.Show(App.ModalLayer, PullReveal.FromRewards(shown, Content), new RevealOptions { Title = track + " chest", Skip = SummonEventScreen.SkipAnimation });
+            });
         }
 
         /// <summary>MS3: a chest icon (grey until reached, gold when ready, dimmed with a check once opened) with the points under it.</summary>

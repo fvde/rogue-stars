@@ -64,9 +64,33 @@ namespace RogueStars.Client.Screens
                     Theme.FontNormal, Theme.Text);
                 bool done = ShardReactorSystem.IsDone(State, job, Now);
                 if (!done) TimerControls(card, job.TimerId, "Fusing");
-                Ui.Button(card, "Collect", () => Run(new ReactorCollect { JobId = job.Id }), Theme.Good, -1, Theme.ButtonHeight, done).name = "Collect";
+                Ui.Button(card, "Collect", () => Collect(job), Theme.Good, -1, Theme.ButtonHeight, done).name = "Collect";
             }
         }
+
+        /// <summary>Collects a finished job and shows its output through the shared pull reveal (SG1): NEW when it unlocked the item.</summary>
+        public void Collect(ReactorJob job)
+        {
+            var kind = job.Kind;
+            string target = job.TargetId;
+            long shards = job.OutputShards;
+            bool ownedBefore = Owned(kind, target);
+            Run(new ReactorCollect { JobId = job.Id }, r => { if (r.Ok) RevealOutput(kind, target, shards, !ownedBefore && Owned(kind, target)); });
+        }
+
+        /// <summary>The reveal of one reactor output (tests call it directly).</summary>
+        public UiModal RevealOutput(ReactorKind kind, string target, long shards, bool unlocked)
+        {
+            var reward = new Reward(kind == ReactorKind.Alien ? RewardKinds.Alien : RewardKinds.Blueprint, target, 1);
+            var item = new RevealItem
+            {
+                Kind = reward.Kind, Id = target, Name = ItemName(kind, target), Tier = ShardReactorSystem.RarityOf(Content, kind, target) ?? Rarity.Common,
+                Art = PullReveal.ArtFor(reward), IsNew = unlocked, Badge = unlocked ? "" : "+" + W(shards) + " shards",
+            };
+            return PullReveal.Show(App.ModalLayer, new List<RevealItem> { item }, new RevealOptions { Title = "Fusion complete", Skip = SummonEventScreen.SkipAnimation });
+        }
+
+        private bool Owned(ReactorKind kind, string id) => kind == ReactorKind.Alien ? AlienSystem.Owned(State, id) != null : CitySystem.Owned(State, id) != null;
 
         // ---- new job -------------------------------------------------------------------------------------------------
 
