@@ -81,7 +81,7 @@ namespace RogueStars.Client.Tests
             Assert.That(dests, Has.None.EqualTo("Art/Run/Icons/curse.png"), "the curse icon's arrow is being removed: not imported yet");
             Assert.That(dests, Has.None.EqualTo("Art/Run/Icons/max_hp.png"), "max HP shows the heart (owner)");
             // the result emblems: the lowest approved seed
-            foreach (var id in ScreenArt.ResultIds) Assert.That(plan.Find(i => i.Dest == "Art/Result/" + id + ".png").Source, Does.EndWith("N_s6511.png"), id);
+            foreach (var id in ScreenArt.ResultIds) Assert.That(plan.Find(i => i.Dest == "Art/Result/" + id + ".png").Source, Does.EndWith(id == "banner" ? "N_s6513.png" : "N_s6511.png"), id); // victory pennant: the plain seed (s6511 has "VICTORY" painted in)
         }
 
         // ---- imported art ----
