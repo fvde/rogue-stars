@@ -227,5 +227,16 @@ namespace RogueStars.Client.Tests
             Assert.That(ArtCatalog.RunProps, Is.EqualTo("Art/Run/Props"));
             Assert.That(ArtCatalog.HubPlanet, Is.EqualTo("Art/Hub/Planet"));
         }
+
+        [Test]
+        public void MythicChest_UsesItsOwnImportedArt_NotTheWoodenMarker()
+        {
+            ArtCatalog.Loader = null; // the real Resources loader
+            var mythic = ArtCatalog.RunProp("chest_mythic");
+            Assert.That(mythic, Is.Not.Null, "Assets/Art/Resources/Art/Run/Props/chest_mythic.png is a sprite");
+            Assert.That(RunScreen.ChestSprite("chest_mythic"), Is.SameAs(mythic));
+            Assert.That(RunScreen.ChestSprite("chest_mythic"), Is.Not.SameAs(ArtCatalog.SliceMarker("chest")), "not the board's wooden chest");
+            Assert.That(ScreenArt.Prop("chest_mythic"), Is.SameAs(mythic));
+        }
     }
 }

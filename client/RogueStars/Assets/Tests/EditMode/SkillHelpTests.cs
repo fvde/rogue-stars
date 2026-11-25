@@ -230,7 +230,20 @@ namespace RogueStars.Client.Tests
             Open();
             var vendor = FindNamed(_f.App.ModalLayer, "Npc:black_marketeer");
             Assert.That(vendor, Is.Not.Null);
+            // owner playtest: the button sat over a crate on the counter; it stands clear of the wares, the counter and the NPC
+            var book = (RectTransform)FindNamed(_f.App.ModalLayer, "SkillsBook");
+            var bookRect = WorldRect(book);
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<RectTransform>(true))
+                if (t.name.StartsWith("Ware:") || t.name == "Counter" || t.name.StartsWith("Npc:") || t.name == "Bubble" || t.name.StartsWith("VendorCard"))
+                    Assert.That(bookRect.Overlaps(WorldRect(t)), Is.False, "the Skills button overlaps " + t.name);
             AssertBookOpensOver(OverlayOf(vendor).name, "vendor event");
+        }
+
+        private static Rect WorldRect(RectTransform t)
+        {
+            var c = new Vector3[4];
+            t.GetWorldCorners(c);
+            return new Rect(c[0].x, c[0].y, c[2].x - c[0].x, c[2].y - c[0].y);
         }
 
         [Test]

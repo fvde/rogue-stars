@@ -207,6 +207,25 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
+        /// <summary>
+        /// Q4: a reward list earns the reveal ceremony (run results, mail claims) only with at least one Legendary or Mythic
+        /// item (currencies never count); otherwise the screen keeps its plain reward list / flyout.
+        /// </summary>
+        public static bool Earns(IEnumerable<Reward> rewards, ContentDb c)
+        {
+            if (rewards == null) return false;
+            foreach (var r in rewards)
+                if (r != null && r.Kind != RewardKinds.Currency && Held(TierOf(r, c))) return true;
+            return false;
+        }
+
+        /// <summary>Opens the reveal for <paramref name="rewards"/> when they <see cref="Earns"/> it; null otherwise.</summary>
+        public static UiModal ShowIfEarned(Transform layer, IList<Reward> rewards, ContentDb c, RevealOptions o)
+        {
+            if (!Earns(rewards, c)) return null;
+            return Show(layer, FromRewards(rewards, c), o);
+        }
+
         public static Rarity TierOf(Reward r, ContentDb c)
         {
             if (r == null || c == null) return Rarity.Common;

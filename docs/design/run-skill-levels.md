@@ -82,7 +82,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Overclocked Core | `gen_overclocked` | Legendary | Run | 1 | +25% ATK. -15% max HP. |
 | | | | | 2 | +25% → +40% ATK. -15% max HP. |
 | Catalyst | `mythic_catalyst` | Mythic | Run | 1 | Enemies with 3+ different statuses gain 1 stack of each whenever you hit them. |
-| Last Light | `mythic_last_light` | Mythic | Run | 1 | Below 30% HP: every hit crits,. but you can't heal. |
+| Last Light | `mythic_last_light` | Mythic | Run | 1 | Below 30% HP: every hit crits. You can't heal. |
 | Overkill | `mythic_overkill` | Mythic | Run | 1 | Damage beyond an enemy's HP carries over to the next enemy. |
 | Ember Strikes | `fire_ember` | Common | Run · Fire | 1 | On crit: 30% chance to apply Heat ×3. |
 | | | | | 2 | On crit: 30% → 50% chance to apply Heat ×3. |

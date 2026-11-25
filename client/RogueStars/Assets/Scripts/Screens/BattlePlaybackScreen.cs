@@ -149,8 +149,8 @@ namespace RogueStars.Client.Screens
             var bl = body.GetComponent<VerticalLayoutGroup>();
             if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 0); bl.spacing = 0; }
             _ctx = _ctx ?? BattleHudContext.FromRun(State?.Run.Active, Content);
-            // BT3: a battle without run stats (hero / mount kit fights, a run that already ended) shows the worm's account
-            // stats, bound before the first frame — the HUD never shows "–"
+            // BT3 / Q2: a battle without a run behind it (hero / mount kit fights, a run that already ended) shows only the
+            // worm's account max HP, ATK and DEF, bound before the first frame — no level badge, no XP bar, never "–"
             if (!_ctx.HasStats && State != null && Session?.Engine != null) _ctx.FillFromAccount(State, Session.Engine.BuildLoadout(State, Now));
             float frameH = BodyFrame != null && BodyFrame.rect.height > 100 ? BodyFrame.rect.height : 1920;
             float frameW = BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width : 1080;
@@ -1478,7 +1478,7 @@ namespace RogueStars.Client.Screens
                 s.MaxHp = _hero.Info.MaxHp;
                 s.Atk = LiveStat(s.Atk, StatId.Atk);
                 s.Def = LiveStat(s.Def, StatId.Def);
-                _hud.Show(s, _ctx.HasStats ? s.Level : 0, s.XpNeed > 0 ? (float)s.Xp / s.XpNeed : 0, _ctx.SkillCount, _ctx.HasStats);
+                _hud.Show(s, _ctx.HasStats ? s.Level : 0, s.XpNeed > 0 ? (float)s.Xp / s.XpNeed : 0, _ctx.SkillCount, _ctx.HasStats, _ctx.InRun);
             }
             if (_heroRage == null) return;
             double rageMax = Content.Combat.RageMax;
@@ -1532,6 +1532,8 @@ namespace RogueStars.Client.Screens
         public RunHudStats Hud;
         /// <summary>False: ATK / DEF / level unknown (no run and no account) — the strip hides those pills (never "–").</summary>
         public bool HasStats;
+        /// <summary>True: a run is behind this battle (its level badge and XP bar show). False (Q2): account stats only.</summary>
+        public bool InRun;
         /// <summary>Run coins for the chip; &lt; 0 = no coins chip.</summary>
         public long Coins = -1;
         public int SkillCount;
@@ -1566,6 +1568,7 @@ namespace RogueStars.Client.Screens
             if (run == null) return ctx;
             ctx.Hud = RunPresentation.Hud(c, run);
             ctx.HasStats = true;
+            ctx.InRun = true;
             ctx.Coins = run.Coins;
             ctx.SkillCount = RunSystem.BuildSize(run);
             ctx.Rolls = RunScreen.RollText(c, run);

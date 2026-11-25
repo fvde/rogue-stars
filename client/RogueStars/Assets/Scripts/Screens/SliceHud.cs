@@ -103,7 +103,7 @@ namespace RogueStars.Client.Screens
         public float Scale;
 
         /// <summary>Plain-text view (tests): "HP a / b | ATK n | DEF n | Lv n | XP x / y | SKILLS n".</summary>
-        public string Summary => string.Join(" | ", new[] { _hpLine, _atkLine, _defLine, "Lv " + _level, XpText, _skillsLine });
+        public string Summary => string.Join(" | ", Array.FindAll(new[] { _hpLine, _atkLine, _defLine, _level.Length > 0 ? "Lv " + _level : "", XpText, _skillsLine }, x => x.Length > 0));
         private string _level = "";
 
         /// <summary>Builds the top HUD over <paramref name="parent"/> (a full-screen rect of width <paramref name="width"/>).</summary>
@@ -182,8 +182,11 @@ namespace RogueStars.Client.Screens
             return h;
         }
 
-        /// <summary>The shown values: HP fill and text, ATK / DEF numbers, level and XP fill.</summary>
-        public void Show(RunHudStats st, int level, float xpFrac, int skills, bool known = true)
+        /// <summary>
+        /// The shown values: HP fill and text, ATK / DEF numbers, level and XP fill. <paramref name="inRun"/> false (Q2: a
+        /// battle with no run behind it — hero / mount kit fights, a finished run): no level badge and no XP bar at all.
+        /// </summary>
+        public void Show(RunHudStats st, int level, float xpFrac, int skills, bool known = true, bool inRun = true)
         {
             double hpFrac = st.MaxHp > 0 ? st.Hp / st.MaxHp : 1;
             HpFill.fillAmount = Mathf.Clamp01((float)hpFrac);
@@ -197,12 +200,12 @@ namespace RogueStars.Client.Screens
             _defLine = known ? "DEF " + Def.text : "";
             _skillsLine = "SKILLS " + skills;
             if (Skills != null) Skills.text = skills.ToString();
-            bool hasLevel = known && level > 0;
+            bool hasLevel = inRun && known && level > 0;
             _level = hasLevel ? level.ToString() : "";
             Level.text = "Lv. " + _level;
             ShowPart("RunLevel", hasLevel); ShowPart("ExpIcon", hasLevel);
             XpFill.fillAmount = Mathf.Clamp01(xpFrac);
-            XpText = "XP " + st.Xp + " / " + st.XpNeed;
+            XpText = hasLevel ? "XP " + st.Xp + " / " + st.XpNeed : "";
         }
 
         private void ShowPart(string name, bool on)

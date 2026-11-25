@@ -15,6 +15,7 @@ namespace RogueStars.Client.Screens
     /// cracked grey one), the ribbon "VICTORY!" / "DEFEATED", a hanging pennant with the level tag, "You Survived · N Rolls ·
     /// Longest Journey", the level's three stars, a full-width reward strip (tiles: icon + amount, identical rewards summed
     /// into one tile, <see cref="Aggregate"/>), the run's chips, double rewards (rewarded ad), Continue (back to the portals) and the next level / try again.
+    /// Rewards with a Legendary or Mythic item open the shared pull reveal over the screen once (Q4); others only the strip.
     /// </summary>
     public sealed class RunResultScreen : UiScreen
     {
@@ -25,6 +26,9 @@ namespace RogueStars.Client.Screens
 
         private static readonly Color Gold = new Color32(0xF6, 0xCC, 0x40, 255);
         private static readonly Color StripBg = new Color32(0x2E, 0x24, 0x48, 255);
+        private bool _revealed;
+        /// <summary>The pull reveal this screen opened (null: the rewards had no Legendary / Mythic item).</summary>
+        public UiModal Reveal { get; private set; }
 
         /// <summary>
         /// The reward strip's tiles: identical rewards (same kind, id and rarity) summed into one, in first-seen order
@@ -141,6 +145,12 @@ namespace RogueStars.Client.Screens
             int n = Mathf.Min(5, shown.Count);
             float tile = n <= 3 ? 180 : 165, gap = 28, x0 = 540 - (n * tile + (n - 1) * gap) / 2 + tile / 2;
             for (int i = 0; i < n; i++) RewardTile(frame, s, x0 + i * (tile + gap), 1490, tile, shown[i]);
+            if (!_revealed)
+            {
+                _revealed = true; // once per screen (rebuilds do not replay it)
+                Reveal = PullReveal.ShowIfEarned(App.ModalLayer, shown, Content,
+                    new RevealOptions { Title = won ? "Run rewards" : "Kept rewards", Name = "RunReveal", Skip = SummonEventScreen.SkipAnimation });
+            }
             if (shown.Count > n)
             {
                 var more = SliceKit.Chunky(frame, "+" + (shown.Count - n) + " more", (int)(34 * s), Color.white, TextAnchor.MiddleCenter, "MoreRewards");

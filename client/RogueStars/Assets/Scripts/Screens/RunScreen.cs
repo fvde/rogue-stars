@@ -618,7 +618,8 @@ namespace RogueStars.Client.Screens
             var hud = _hudShown ?? (run != null ? RunPresentation.Hud(Content, run) : default(RunHudStats));
             return new BattleHudContext
             {
-                Hud = hud, HasStats = _hudShown.HasValue || run != null, Coins = run?.Coins ?? -1, SkillCount = run != null ? RunSystem.BuildSize(run) : _skillCount,
+                // Q2: once the run is over the battle shows the worm's account stats (no level badge / XP bar)
+                Hud = hud, HasStats = run != null, InRun = run != null, Coins = run?.Coins ?? -1, SkillCount = run != null ? RunSystem.BuildSize(run) : _skillCount,
                 Skills = new List<string>(_lastSkills), Levels = new Dictionary<string, int>(_lastSkillLevels),
                 Rolls = run != null ? RollText(Content, run) : null,
             };

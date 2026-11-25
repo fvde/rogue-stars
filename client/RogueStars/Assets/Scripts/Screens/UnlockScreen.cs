@@ -17,6 +17,8 @@ namespace RogueStars.Client.Screens
     /// panel adds the one-line description, the reward (unlock gift, starter items, the stash kept for it) and ONE guided
     /// action that claims the celebration (FeatureCelebrate for every member) and opens the feature, plus the next teaser.
     /// <see cref="Replay"/> shows the same panels from a feature screen's "?" button: no claim, the last button closes it.
+    /// SKIP or Android back on an unlock moment dismisses it for good (Q7): the celebration is claimed (counts as seen, the
+    /// gifts are granted) and the player returns to where they were, without opening the feature.
     /// </summary>
     public sealed class UnlockScreen : UiScreen
     {
@@ -114,7 +116,8 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(Footer, 150, 24, null, 0, "Buttons");
                 Ui.Size(row, -1, 150, -1, 0); // never stretched by the buttons
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-                var skip = HubKit.RoundButton(row, "SKIP", () => ShowPage(_pages.Count - 1), new Color(1, 1, 1, 0.1f), HubKit.Ink, 260, 130, 40); // a light text button (U2)
+                // a light text button (U2); on an unlock moment it dismisses the moment for good (Q7), in a replay it jumps to the end
+                var skip = HubKit.RoundButton(row, "SKIP", () => { if (_replay) ShowPage(_pages.Count - 1); else Dismiss(); }, new Color(1, 1, 1, 0.1f), HubKit.Ink, 260, 130, 40);
                 skip.name = "IntroSkip";
                 var next = HubKit.RoundButton(row, "NEXT", Next, HubKit.Gold, HubKit.OrangeInk, 520, 150, 52);
                 next.name = "IntroNext";
@@ -229,23 +232,42 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>Claim every pending member of the group (unlock gifts), then open the feature in place of this screen.</summary>
-        public void Claim()
+        public void Claim() => ClaimAll(true);
+
+        /// <summary>
+        /// SKIP / back (Q7): the moment counts as seen — every pending member is claimed (gifts granted) — and the screen
+        /// closes without opening the feature. A replay just closes.
+        /// </summary>
+        public void Dismiss()
+        {
+            if (_replay) { if (App.Router.Current == this) App.Router.Pop(); return; }
+            ClaimAll(false);
+        }
+
+        public override bool HandleSystemBack() { Dismiss(); return true; }
+
+        private void ClaimAll(bool open)
         {
             if (_claiming || _replay) return;
             _claiming = true;
             var pending = new List<string>();
             foreach (var id in _ids) if (!State.Onboarding.Celebrated.Contains(id) && State.Onboarding.Unlocked.ContainsKey(id)) pending.Add(id);
-            ClaimNext(pending, 0);
+            ClaimNext(pending, 0, open);
         }
 
-        private void ClaimNext(List<string> pending, int i)
+        private void ClaimNext(List<string> pending, int i, bool open)
         {
-            if (i >= pending.Count) { Open(); return; }
+            if (i >= pending.Count) { if (open) Open(); else Close(); return; }
             Run(new FeatureCelebrate { FeatureId = pending[i] }, r =>
             {
-                if (r != null && r.Ok) ClaimNext(pending, i + 1);
+                if (r != null && r.Ok) ClaimNext(pending, i + 1, open);
                 else _claiming = false;
             });
+        }
+
+        private void Close()
+        {
+            if (App.Router.Current == this) App.Router.Pop();
         }
 
         private void Open()

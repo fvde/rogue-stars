@@ -62,6 +62,8 @@ namespace RogueStars.Client.App
         protected virtual string BackLabel => "<";
         /// <summary>The header's back button (default: pop this screen).</summary>
         protected virtual void OnBack() => App.Router.Pop();
+        /// <summary>Android back on this screen: true = handled here (the router does not pop).</summary>
+        public virtual bool HandleSystemBack() => false;
 
         internal void Create(ClientApp app, RectTransform parent)
         {

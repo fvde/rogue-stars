@@ -156,7 +156,8 @@ namespace RogueStars.Client.Screens
             }
             var or = SliceKit.Chunky(frame, "OR", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "Or");
             RunScenes.At(or.rectTransform, s, 540, 2282, 160, 120);
-            DecisionSkillsBook(frame, s, 975, 1010); // beside the vendor, above the counter (the cards' buttons fill the bottom row)
+            // on the clear wall right of the vendor, above the counter's wares (it sat over the crate; the cards fill the bottom row)
+            DecisionSkillsBook(frame, s, 975, 760);
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }
