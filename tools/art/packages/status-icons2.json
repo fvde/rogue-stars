@@ -1,0 +1,26 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon2.json",
+  "suffix": ", small game status effect icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "width": 1024,
+  "height": 1024,
+  "name": "pkg-status-icons2",
+  "seeds": [
+    7001,
+    7002
+  ],
+  "subjects": {
+    "heat": "a flame with a thermometer",
+    "radiation": "a glowing green radiation trefoil",
+    "bleed": "a red blood drop",
+    "chill": "a cyan snowflake",
+    "shock": "a yellow lightning bolt",
+    "freeze": "an ice cube block",
+    "stun": "spinning stars",
+    "charm": "a pink heart with sparkles",
+    "delay": "a small hourglass with a pause sign",
+    "exposed": "a cracked target",
+    "guard": "a stone shield",
+    "echo": "a double ghost copy of a sword swing"
+  }
+}

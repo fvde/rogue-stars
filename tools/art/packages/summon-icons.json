@@ -1,0 +1,30 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon2.json",
+  "suffix": ", game currency or menu icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "width": 1024,
+  "height": 1024,
+  "name": "pkg-summon-icons",
+  "seeds": [
+    6901,
+    6902
+  ],
+  "subjects": {
+    "hero_ticket": "a golden summon ticket with a tiny worm hero silhouette",
+    "mount_ticket": "a blue summon ticket with a tiny spaceship silhouette",
+    "hero_sigil": "a shiny star-shaped token coin",
+    "mount_bolt": "a chunky metal bolt token",
+    "luck_gem": "a glowing pink diamond gem",
+    "exchange": "an open book with wings and a gem",
+    "packs": "a bundle of a scroll and a sack tied with a red ribbon",
+    "pass": "an hourglass with sparkles",
+    "tasks": "a cork board with pinned notes and a check mark",
+    "shards": "a jigsaw puzzle piece made of crystal",
+    "hero_xp": "a glowing golden XP orb",
+    "fuel": "a canister of glowing rocket fuel",
+    "star": "a big golden star",
+    "spotlight": "a stage spotlight beam",
+    "reactor": "a glowing alien reactor machine turning crystals into shards",
+    "awaken_core": "a radiant rainbow crystal core"
+  }
+}
