@@ -161,3 +161,4 @@ Meta content now reads the keys the owning workstreams actually write:
 - `reactor_shards_out` — target shards the Shard Reactor paid out — City/ShardReactor
 - `city_digs` — patches dug (City redesign: replaces `city_areas_unlocked`, which is no longer counted) — City
 - `city_chances_popped` — chances popped on pull buildings (Research Scrolls, Incoming Transmissions, Meteor Drops) — City
+- `city_pulls_popped` — pulls (tokens) those pops paid out — City

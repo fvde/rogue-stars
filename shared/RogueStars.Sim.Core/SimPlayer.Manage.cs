@@ -20,22 +20,40 @@ namespace RogueStars.Sim
         /// </summary>
         private static readonly string[] BuildOrder =
         {
-            ContentDb.LaunchPodId, "bp_biomass_farm", ContentDb.LaboratoryId, "bp_ore_mine", "bp_token_relay", "bp_signal_beacon",
-            "bp_part_fabricator", "bp_diamond_mine", "bp_stasis_beacon", "bp_fuel_refinery", "bp_command_spire", "bp_gear_works",
+            ContentDb.LaunchPodId, "bp_biomass_farm", ContentDb.LaboratoryId, "bp_ore_mine", "bp_gear_works", "bp_token_relay",
+            "bp_signal_beacon", "bp_part_fabricator", "bp_diamond_mine", "bp_stasis_beacon", "bp_command_spire", "bp_fuel_refinery",
             "bp_stamina_well", "bp_supply_depot", "bp_war_academy", "bp_training_grounds", "bp_scout_post", "bp_grain_farm", "bp_breeding_pen",
             ContentDb.ShardReactorId, "bp_plate_foundry", "bp_regen_spire", "bp_observatory", "bp_barracks_dome", "bp_gene_lab",
         };
 
         private int Rank(string bp) { int i = Array.IndexOf(BuildOrder, bp); return i < 0 ? BuildOrder.Length : i; }
 
-        /// <summary>Biomass / Ore / Gear Cores held back for the next dig (the bot saves up for land; worm and parts spend above it).</summary>
+        /// <summary>
+        /// Share of income the bot puts aside for digging (City design §4: "a dig eats about 30% of all Biomass earned since the last
+        /// one, the last five 40–45%"): 35%, 45% for digs 16–20, 75% of Gear Cores. The rest goes to the worm, parts and buildings.
+        /// </summary>
+        private const double DigSavingShare = 0.35, LateDigSavingShare = 0.45, GearCoreSavingShare = 0.75;
+
+        /// <summary>Earned totals (SimPlayer.Earned) when the last dig started: the dig pot fills from what was earned since.</summary>
+        private readonly Dictionary<string, double> _earnedAtDig = new Dictionary<string, double>();
+
+        private double EarnedTotal(string currency) { int i = Array.IndexOf(Tracked, currency); return i < 0 ? 0 : Earned[i]; }
+
+        /// <summary>
+        /// Held back for the next dig: the dig pot, DigSavingShare of what was earned since the last dig started, up to the dig's cost
+        /// (worm and parts spend above it).
+        /// </summary>
         private long DigReserve(string currency)
         {
             if (S.City.DigPatchId != null || NextDigPatch() == null) return 0;
-            var cost = CitySystem.DigCost(C, CitySystem.NextDigNumber(S));
-            // Hold a currency back only while the dig's other currencies are at least half saved (no deadlock on Gear Cores).
-            if (cost.Any(c => c.Currency != currency && Bal(c.Currency) < c.Amount / 2)) return 0;
-            foreach (var c in cost) if (c.Currency == currency) return c.Amount;
+            foreach (var c in CitySystem.DigCost(C, CitySystem.NextDigNumber(S)))
+                if (c.Currency == currency)
+                {
+                    double since = EarnedTotal(currency) - (_earnedAtDig.TryGetValue(currency, out var e) ? e : 0);
+                    // Gear Cores have one other sink (part levels) and digs from #10 on need a lot of them: a bigger share.
+                    double share = currency == Currencies.GearCores ? GearCoreSavingShare : CitySystem.NextDigNumber(S) > 15 ? LateDigSavingShare : DigSavingShare;
+                    return Math.Min(c.Amount, (long)(since * share));
+                }
             return 0;
         }
 
@@ -76,8 +94,9 @@ namespace RogueStars.Sim
 
             // Dig as soon as the next dig is affordable (saved for: DigReserve).
             var patch = S.City.DigPatchId == null ? NextDigPatch() : null;
-            if (patch != null && CitySystem.DigCost(C, CitySystem.NextDigNumber(S)).All(c => c.Amount <= Bal(c.Currency) - BuildReserve(c.Currency)))
-                Exec(new CityDig { PatchId = patch.Id });
+            if (patch != null && CitySystem.DigCost(C, CitySystem.NextDigNumber(S)).All(c => c.Amount <= Bal(c.Currency) - BuildReserve(c.Currency))
+                && Ok(new CityDig { PatchId = patch.Id }))
+                foreach (var cur in new[] { Currencies.Biomass, Currencies.Ore, Currencies.GearCores }) _earnedAtDig[cur] = EarnedTotal(cur);
 
             PlaceBuildings();
 
@@ -367,11 +386,10 @@ namespace RogueStars.Sim
         // ---- laboratory -----------------------------------------------------------------------------------------
 
         /// <summary>
-        /// Held back from worm / part spending: the next dig's cost (research costs Data only). The worm is never starved for more
-        /// than a few days: after <see cref="WormPatienceDays"/> without a worm upgrade the reserve is lifted for it.
+        /// Held back from worm / part spending: the next dig's cost and the next key building's (research costs Data only). The worm is
+        /// never starved for long: after <see cref="WormPatienceDays"/> without a worm upgrade it may take one upgrade out of the savings.
         /// </summary>
-        private long LabReserve(string currency) =>
-            currency == Currencies.Biomass && Now - _lastWormUpgradeMs >= WormPatienceDays * 86_400_000L ? 0 : DigReserve(currency) + BuildReserve(currency);
+        private long LabReserve(string currency) => DigReserve(currency) + BuildReserve(currency);
 
         private const int WormPatienceDays = 5;
         private long _lastWormUpgradeMs;

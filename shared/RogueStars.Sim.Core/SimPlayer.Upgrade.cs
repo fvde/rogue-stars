@@ -40,7 +40,9 @@ namespace RogueStars.Sim
                     }
                     if (talentBtn == null) { talentCost = tier.RankUpCost; tierUp = true; }
                 }
-                long bio = Bal(Currencies.Biomass) - LabReserve(Currencies.Biomass);
+                // Savings for the next dig / key building come first; a starved worm gets one upgrade out of them.
+                bool starved = Now - _lastWormUpgradeMs >= WormPatienceDays * 86_400_000L;
+                long bio = Bal(Currencies.Biomass) - (starved ? 0 : LabReserve(Currencies.Biomass));
                 bool canLevel = levelCost > 0 && levelCost <= bio;
                 bool canTalent = talentCost > 0 && talentCost <= bio;
                 if (canTalent && (!canLevel || talentCost <= levelCost))

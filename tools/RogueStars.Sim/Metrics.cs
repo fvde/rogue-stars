@@ -50,6 +50,9 @@ public sealed class DayRecord
     public int MaxPartRarity, AwakenedParts, LabDone, LabTotal;
     public int Runs;
     public long SpentCents;
+    /// <summary>City: patches dug, buildings placed / running, pulls popped from pull buildings (cumulative), pull buildings placed.</summary>
+    public int Digs, CityPlaced, CityRunning, PullBuildings;
+    public long CityPulls;
     /// <summary>Runs per next upgrade of each <see cref="Endless.Sinks"/> entry (NaN = maxed/locked).</summary>
     public double[] RunsPerUpgrade = Array.Empty<double>();
 }
@@ -71,6 +74,11 @@ public static class Metrics
         d.LabDone = LabDone(s);
         d.LabTotal = LabTotal(p.C);
         d.RunsPerUpgrade = Endless.RunsPerUpgrade(p);
+        d.Digs = s.City.DugPatches.Count;
+        d.CityPlaced = s.City.Buildings.Count(b => b.Placed);
+        d.CityRunning = s.City.Buildings.Count(b => CitySystem.IsActive(s, p.C, b));
+        d.PullBuildings = s.City.Buildings.Count(b => b.Placed && p.C.Blueprint(b.BlueprintId)?.Pull != null);
+        d.CityPulls = s.Counter("city_pulls_popped");
         for (int i = 0; i < SystemEvents.Systems.Length; i++) d.SystemTotals[i] = SystemEvents.Total(s, SystemEvents.Systems[i].counters);
         for (int i = 0; i < SimPlayer.Tracked.Length; i++)
         {

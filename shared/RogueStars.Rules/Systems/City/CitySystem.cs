@@ -822,6 +822,7 @@ namespace RogueStars.Rules.Systems
                     int pulls = 1 + ctx.Rng.PickWeighted(new List<double>(odds));
                     ctx.Grant(Reward.Cur(def.Pull.TokenCurrency, pulls));
                     ctx.State.Count("city_chances_popped");
+                    ctx.State.Count("city_pulls_popped", pulls);
                     results.Add(new CityPopResult { Uid = b.Uid, Currency = def.Pull.TokenCurrency, Pulls = pulls });
                     ctx.Emit("city_popped", b.Uid, def.Pull.TokenCurrency, pulls.ToString());
                 }
