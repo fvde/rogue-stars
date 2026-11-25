@@ -311,6 +311,16 @@ namespace RogueStars.Client.UiKit
         public static Button ButtonWithReason(Transform parent, string text, Action onClick, Color? color, float width, float height, bool interactable, string reason, int fontSize = Theme.FontNormal)
         {
             if (interactable || string.IsNullOrEmpty(reason)) return Button(parent, text, onClick, color, width, height, interactable, fontSize);
+            // a fixed-height row grows to fit the reason under the button (never over the content above)
+            var rowLayout = parent.GetComponent<HorizontalLayoutGroup>();
+            var rowSize = parent.GetComponent<LayoutElement>();
+            if (rowLayout != null && rowSize != null && rowSize.preferredHeight > 0 && rowSize.preferredHeight < height + 34)
+            {
+                rowSize.preferredHeight = height + 34;
+                rowLayout.childForceExpandHeight = false;
+                rowLayout.childAlignment = rowLayout.childAlignment == TextAnchor.MiddleCenter || rowLayout.childAlignment == TextAnchor.UpperCenter ? TextAnchor.UpperCenter
+                    : rowLayout.childAlignment == TextAnchor.MiddleRight || rowLayout.childAlignment == TextAnchor.UpperRight ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
+            }
             var col = Column(parent, 4, 0, null, "ButtonWithReason");
             col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
             Size(col, width, -1, width < 0 ? 1 : 0);

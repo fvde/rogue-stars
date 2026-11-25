@@ -43,7 +43,7 @@ namespace RogueStars.Client.Screens
                 var info = KitView.Card(body, "Hero:" + hid, SummonArt.Featured(SummonEventType.Hero, hid), h != null, equipped,
                     def.Name + (h != null ? "  " + Fmt.Stars(h.Stars) : ""), def.Tagline, def.Meter,
                     () => KitView.Details(App.ModalLayer, hid, def.Name, HeroSystem.KitAt(Content, hid, stars), HeroSystem.NextKit(Content, hid, stars)));
-                var row = Ui.Row(info, 80, 8);
+                var row = KitView.ButtonRow(info);
                 if (h == null)
                 {
                     long need = Content.ShardStars.UnlockShards;
@@ -102,7 +102,7 @@ namespace RogueStars.Client.Screens
                     def.Name + (m != null ? "  " + Fmt.Stars(m.Stars) : ""), def.Tagline,
                     "Reload " + def.Reloads[k] + (dmg > 0 ? " · +" + Fmt.Num(dmg) + "% dmg" : ""),
                     () => KitView.Details(App.ModalLayer, mid, def.Name, now, null, next));
-                var row = Ui.Row(info, 80, 8);
+                var row = KitView.ButtonRow(info);
                 if (m == null)
                 {
                     long unlock = Content.ShardStars.UnlockShards;
@@ -164,6 +164,15 @@ namespace RogueStars.Client.Screens
             Ui.Label(col, line1, 22, Theme.TextDim, TextAnchor.UpperLeft, "Summary");
             Ui.Label(col, line2, 22, Theme.Gold, TextAnchor.UpperLeft, "Summary2");
             return card;
+        }
+
+        /// <summary>The card's button row: buttons top-aligned at 80, room under them for a disabled reason (G4).</summary>
+        public static RectTransform ButtonRow(Transform card)
+        {
+            var row = Ui.Row(card, 114, 8, null, 0, "Buttons");
+            var h = row.GetComponent<HorizontalLayoutGroup>();
+            h.childForceExpandHeight = false; h.childAlignment = TextAnchor.UpperLeft;
+            return row;
         }
 
         /// <summary>The "Get in Summon" button of a hero / mount not owned yet (shard progress under it).</summary>
