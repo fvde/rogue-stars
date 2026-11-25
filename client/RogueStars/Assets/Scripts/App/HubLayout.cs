@@ -150,7 +150,7 @@ namespace RogueStars.Client.App
                 case Features.Laboratory: return new Entry(featureId, "START FIRST RESEARCH", null, "laboratory");
                 case Features.GrainFarm: return new Entry(featureId, "BUILD THE GRAIN FARM", null, "city");
                 case Features.Aliens: return new Entry(featureId, "MEET YOUR ALIEN", null, "aliens");
-                case Features.AlienSquad: return new Entry(featureId, "BUILD HOUSING", null, "city");
+                case Features.AlienSquad: return new Entry(featureId, "MEET YOUR SQUAD", null, "aliens");
                 case Features.Heroes: return new Entry(featureId, "CHOOSE A HERO", null, "heroes");
                 case Features.OreMine: return new Entry(featureId, "BUILD THE ORE MINE", null, "city");
                 case Features.Runes: return new Entry(featureId, "SEE YOUR PARTS", null, "parts");
@@ -182,10 +182,10 @@ namespace RogueStars.Client.App
             {
                 case Features.Parts: case Features.WormLevel: return "~";
                 case Features.Quests: return "!";
-                case Features.BiomassFarm: case Features.GrainFarm: case Features.OreMine: case Features.AlienSquad: return "#";
+                case Features.BiomassFarm: case Features.GrainFarm: case Features.OreMine: return "#";
                 case Features.Shop: case Features.Funds: return "$";
                 case Features.Laboratory: return "Lab";
-                case Features.Aliens: case Features.Breeding: return "@";
+                case Features.Aliens: case Features.AlienSquad: case Features.Breeding: return "@";
                 case Features.Arena: return "X";
                 default: return "*";
             }

@@ -278,6 +278,10 @@ namespace RogueStars.Sim
         private double AlienPower(OwnedAlien a) =>
             (int)C.AlienType(a.TypeId).Rarity * 100 + a.Stars * 10 - AlienSystem.ActsEvery(C, a);
 
+        /// <summary>
+        /// From the Aliens unlock (level 6) the rules build the Launch Pod on the crash site (CitySystem.EnsureCrashSitePod): the squad
+        /// below is set from then on, before the City; City() levels the pod too (its upgrades need no City).
+        /// </summary>
         private void Aliens()
         {
             if (!Unlocked(Features.Aliens) || S.Aliens.Owned.Count == 0) return;

@@ -695,6 +695,30 @@ level 95 vs 115 at d365, power −8%) as its research starts ~3 months later. Gu
 days (Active F2P waits ~50 days in its first 60); "new things in the first two hours" 10 → 9 (the Part Signal is no longer its
 own unlock); building features are left out of the level-unlock check.
 
+### Crash site: the Launch Pod comes with the Aliens (owner, 2026-11-25)
+
+Changes: the Aliens unlock (level 6) builds the Launch Pod on the crash site at once with the first alien in its seat (docs/design/
+city.md "The crash site comes first"); the City's free 10× Blueprint pull has no guarantee. The bot needs no new rule: its squad
+pick and its city upgrades already run before the City (it sets the squad and levels the pod from level 6). Re-run: Active F2P and
+Casual F2P, 3 seeds × 365 days (`--profiles Active:F2P,Casual:F2P`), against main.
+
+| Metric (median) | Profile | d1 | d3 | d7 | d14 | d30 | d60 | d90 |
+|---|---|---|---|---|---|---|---|---|
+| squad size | Active F2P | 0 → 1 | 1 | 1 | 1 | 2 | 3 | 3 |
+| squad size | Casual F2P | 0 | 0 | 0 → 1 | 0 → 1 | 1 | 2 | 2 |
+| main level | Active F2P | 9 | 18 → 20 | 23 | 29 → 27 | 42 → 43 | 60 → 59 | 75 → 72 |
+| main level | Casual F2P | 2 | 4 | 8 | 15 | 27 → 26 | 35 → 34 | 44 |
+| power | Casual F2P | 1 247 | 2 241 | 3 268 → 3 635 | 4 062 → 4 159 | 5 616 → 5 442 | 9 123 → 8 618 | 11 364 → 11 198 |
+
+* The squad now flies from level 6: the Launch Pod arrives on day 1 (was 2) for Active F2P and day 5 (was 14) for Casual F2P,
+  whose runs carry an alien from about day 5 instead of day 30. The +10% alien damage boon of the running pod comes with it.
+* Campaign pace barely moves (±1–2 levels, inside the seed noise): one Common alien is a small share of the worm's power at levels
+  6–15. Casual F2P power +11% on day 7, then back within noise.
+* The free City pull now rolls 10 random results instead of the pod + 9, which shifts every later pull of the run: the Laboratory
+  (Mythic) arrived earlier in the median (Active F2P day 19 → 7, Casual F2P 110 → 77), but seed 1 of the guard run waits 59 days
+  (guard limit 56 → 60, ProgressionGuardTests). Longer-term metrics (d180+, e.g. Active F2P main level d365 254 → 228) move by
+  run-to-run pull luck, not by the change.
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still

@@ -130,7 +130,7 @@ public class BannerAndFreePullTests
     }
 
     [Fact]
-    public void EachSignalUnlock_GivesOneFree10x_TheCitysHoldsTheLaunchPod()
+    public void EachSignalUnlock_GivesOneFree10x_NoneHoldsAGuarantee()
     {
         var e = Engine(); var s = e.NewPlayer("p1", TestHelpers.T0, 42);
         Assert.Equal(0, s.Gacha.FreePulls(GachaType.Part));
@@ -143,12 +143,12 @@ public class BannerAndFreePullTests
         Assert.Contains("10×", Fail(e, ref s, new GachaPull { PullType = GachaType.Blueprint, Count = 1, Payment = GachaPayment.Free }));
         var r = Pull(e, ref s, GachaType.Blueprint, 10, null, TestHelpers.T0, GachaPayment.Free);
         Assert.Equal(10, r.Items.Count);
-        Assert.Equal(ContentDb.LaunchPodId, r.Items[0].Id);
-        Assert.Equal("new", r.Items[0].Note);
+        // the crash site comes first (owner, 2026-11-25): the Launch Pod came with the Aliens, so the City's free 10× is a normal 10×
+        Assert.DoesNotContain(typeof(GachaTypeDef).GetFields(), x => x.Name == "FreePullGuarantee");
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(s)));
         Assert.Contains(r.Items, i => i.Tier >= Rarity.Epic); // the 10× rule still holds
         Assert.Equal((dia, bpTok), (s.Wallet.Get(Currencies.Diamonds), s.Wallet.Get(Currencies.BlueprintTokens))); // free
         Assert.Equal(10, s.Gacha.For(GachaType.Blueprint).TotalPulls); // counts for the pity like any 10×
-        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaunchPodId));
         Assert.Equal("no free pull", Fail(e, ref s, new GachaPull { PullType = GachaType.Blueprint, Count = 10, Payment = GachaPayment.Free }));
 
         // the Part and Alien free pulls have no guarantee: ordinary 10× results
@@ -163,7 +163,8 @@ public class BannerAndFreePullTests
         var e = Engine(); var s = e.NewPlayer("p1", TestHelpers.T0, 42);
         s.Counters[Requirements.MainLevelCounter] = 60;
         Ok(e, ref s, new CityCollect(), TestHelpers.T0);
-        foreach (var id in new[] { Features.AlienSquad, Features.Laboratory, Features.GrainFarm, Features.OreMine, Features.Breeding })
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.AlienSquad)); // the Launch Pod came with the Aliens (crash site)
+        foreach (var id in new[] { Features.Laboratory, Features.GrainFarm, Features.OreMine, Features.Breeding })
             Assert.False(Features.IsUnlocked(s, e.Content, id), id);
         Assert.Equal("laboratory locked", Fail(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }));
 

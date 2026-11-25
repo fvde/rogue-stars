@@ -176,30 +176,30 @@ public class CrossSystemTests
         Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Equal(1, s.Gacha.FreePulls(GachaType.Part)); // the Part Signal's free 10×
-        // Level 6: Aliens (first alien, the Alien Signal's free 10×); level 15: the City (farm blueprint, Biomass, the Blueprint
-        // Signal's free 10× that holds the Launch Pod). No building comes by level: the Launch Pod and the Laboratory are pulled.
+        // Level 6: Aliens (first alien, the Alien Signal's free 10×, the Launch Pod built on the crash site with the alien in its seat);
+        // level 15: the City (farm blueprint, Biomass, the Blueprint Signal's normal free 10×). The Laboratory is pulled.
         s.Counters[Requirements.MainLevelCounter] = 6;
         Ok(e, ref s, new CityCollect(), T0 + 2000);
         Assert.Contains(Features.Aliens, s.Onboarding.Unlocked.Keys);
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
         Assert.Equal(1, s.Gacha.FreePulls(GachaType.Alien));
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(s)));
+        Assert.Equal(new[] { "alien_blorp" }, AlienSystem.ActiveSquad(s, e.Content));
         s.Counters[Requirements.MainLevelCounter] = 17;
         Ok(e, ref s, new CityCollect(), T0 + 3000);
         Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
         Assert.Equal(1, s.Gacha.FreePulls(GachaType.Blueprint));
-        Assert.Null(CitySystem.Owned(s, ContentDb.LaunchPodId));
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(s))); // the City keeps the crash site's pod
         Assert.Null(CitySystem.Owned(s, ContentDb.LaboratoryId));
-        Assert.False(Features.IsUnlocked(s, e.Content, Features.AlienSquad));
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.AlienSquad));
         // Sticky: a later command does not grant again.
         Ok(e, ref s, new CityCollect(), T0 + 4000);
         Assert.Equal(0, s.Counter("alien_duplicates"));
         Assert.Equal(0, s.Counter("blueprint_duplicates"));
         var free = Ok(e, ref s, new GachaPull { PullType = GachaType.Blueprint, Count = 10, Payment = GachaPayment.Free }, T0 + 4500);
-        Assert.Contains(((GachaPullResult)free.Payload!).Items, i => i.Id == ContentDb.LaunchPodId);
-        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaunchPodId));
-        Ok(e, ref s, new CityCollect(), T0 + 4600);
-        Assert.True(Features.IsUnlocked(s, e.Content, Features.AlienSquad)); // the Launch Pod feature came with its blueprint
+        Assert.Equal(10, ((GachaPullResult)free.Payload!).Items.Count); // a normal free 10× (no Launch Pod guarantee)
+        Assert.Single(CitySystem.Copies(s, ContentDb.LaunchPodId)); // a pulled pod is shards: the one copy stays on the crash site
 
         // Heroes (level 18): no starter hero, only the hero summon events and the first event's 10 tickets.
         s.Counters[Requirements.MainLevelCounter] = 18;

@@ -185,10 +185,10 @@ namespace RogueStars.Client.Tests
         {
             Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             S.Counters[Requirements.MainLevelCounter] = 4;
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens — clear level 6"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens + Launch Pod — clear level 6"));
             Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("4/6"));
             S.Counters[Requirements.MainLevelCounter] = 6; // met: the next command records it
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens — unlocking now"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens + Launch Pod — unlocking now"));
             Assert.That(Named(Hub.Root, "Figure"), Is.Null);
         }
 
@@ -200,7 +200,7 @@ namespace RogueStars.Client.Tests
             S.Counters[Requirements.MainLevelCounter] = 15; // no calendar gate: everything up to level 15 (the City) at once
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
-            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AutoRoll,
+            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
                 Features.Quests, Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.Shop, Features.AlienPulls,
                 Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);

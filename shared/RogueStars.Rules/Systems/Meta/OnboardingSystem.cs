@@ -50,6 +50,7 @@ namespace RogueStars.Rules.Systems
                     ctx.Emit("feature_unlocked", f.Id);
                 }
             }
+            CitySystem.EnsureCrashSitePod(ctx); // the Aliens unlock's Launch Pod stands on the crash site (old saves get it here too)
         }
 
         private static void Record(CommandContext ctx, FeatureDef f)

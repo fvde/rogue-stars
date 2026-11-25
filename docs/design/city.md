@@ -32,6 +32,28 @@ round down per copy. No collection bonus.
 **Runs only when staffed.** A building produces or gives its boon while placed, built and staffed by at least one alien. The
 Launch Pod runs when built; its aliens are the squad and work nowhere else. Copies add up for everything except squad slots.
 
+## The crash site comes first (owner, 2026-11-25)
+
+Aliens unlock at level 6 but everything they do used to live in the City (level 15). Now the **Aliens unlock brings the Launch
+Pod** (blueprint 1★) and its first copy stands **built at once** (level 1, no build timer) on the crash site:
+`CitySystem.EnsureCrashSitePod` places it at `CityPlanner.Find`'s spot with no new streets and off the fireplace's street axes
+(`CityPlanner.SpineCells`), i.e. touching the 3×3 plaza inside the 30 start tiles: **(8, 7)**, north of the plaza, west of the
+axis, for every player (deterministic). An idle alien (the first, Blorp) takes the seat, so the squad flies from level 6. It runs
+at the end of every unlock check (`OnboardingSystem.CheckUnlocks`), so a save that already had the Aliens unlock gets its pod on
+load the same way (no migration; its Launch Pod feature unlocks then with its own moment). Dev unlock-all states without a
+recorded Aliens unlock get none.
+
+* **Before the City** the City screen stays locked and layout edits (`CityPlace / CityMove / CityStore / CityStreets`) are
+  refused ("feature locked"): the crash site stays as it is. What works: the seats (`AlienAssign` to / from the pod,
+  `AlienSetSquad`), `CityUpgrade` (Biomass only, the pod's cost type) and `BlueprintStarUp` (blueprint shards wait for the City,
+  RewardGate, so in practice no stars before it). The hub shows the fireplace, the saucer and the pod on the planet with the squad
+  walking around (C4 walkers); tapping the pod opens its card (docs/client.md "Crash site").
+* **At the City** (level 15) the City opens with the pod already standing on the crash site and the land around it buildable.
+  A pulled Launch Pod later is a batch of shards (one copy).
+* **Features:** the Launch Pod feature (`alien_squad`) is no longer a building feature: it unlocks at level 6 in the Aliens' group
+  (one unlock moment "Aliens + Launch Pod": the Aliens' 2 panels, then the pod's 3; the Aliens' 50 Diamonds and the pod's 30).
+  The pod blueprint is not an unlock grant (blueprint rewards wait for the City in the reward gate); EnsureCrashSitePod gives it.
+
 ## Costs
 
 `BuildingCostType` per blueprint (8 Biomass only, 7 Ore only, 10 both). Single-currency buildings pay 3× the Biomass part or
@@ -107,19 +129,20 @@ PlacementFlat(uid)`, `CityLayout.IsLand`, `CityLayout.Cell/CellX/CellY`; `CitySy
 | Unlock | Level | Comes with |
 |---|---|---|
 | Parts | 1 | the Part Signal (part pulls) and one free 10× Part pull |
-| Aliens | 6 | the first alien, the Alien Signal (alien pulls) and one free 10× Alien pull |
-| City | 15 | the Biomass Farm blueprint, the Blueprint Signal and one free 10× Blueprint pull that **always holds the Launch Pod** (owner's call: the only squad-slot source) |
+| Aliens | 6 | the first alien, the Alien Signal (alien pulls), one free 10× Alien pull and **the Launch Pod, built on the crash site** with the first alien in its seat (the Launch Pod feature unlocks in the same moment) |
+| City | 15 | the Biomass Farm blueprint, the Blueprint Signal and one free 10× Blueprint pull (a normal 10×: the Launch Pod came with the Aliens) |
 
 The separate Part Signal (10), Alien Signal (13) and Blueprint Signal (20) unlocks are gone (`Features.PartPulls / AlienPulls /
-Blueprints` are now the same ids as Parts / Aliens / City). **Buildings have no level:** the Launch Pod (`alien_squad`),
-Laboratory, Grain Farm, Ore Mine and Breeding Pen features unlock the moment their blueprint is owned (`RequirementKind.Blueprint`,
-after the City), with their intro and gift (the Laboratory's 60 Data); the hub teaser skips them. No unlock grants a blueprint any
-more (only the starter Biomass Farm). Research needs the Laboratory **pulled, built and staffed** (cost unchanged; the friction is
-intended). Free pulls: `GachaState.FreeTenPulls[type]`, spent with `GachaPull { Count = 10, Payment = GachaPayment.Free }`; the
-Blueprint one's first result is `GachaTypeDef.FreePullGuarantee` (counts for the pity and the 10× rule like any result).
+Blueprints` are now the same ids as Parts / Aliens / City). **Buildings have no level:** the Laboratory, Grain Farm, Ore Mine and
+Breeding Pen features unlock the moment their blueprint is owned (`RequirementKind.Blueprint`, after the City), with their intro
+and gift (the Laboratory's 60 Data); the hub teaser skips them. The Launch Pod is the exception: it comes with the Aliens (above).
+Research needs the Laboratory **pulled, built and staffed** (cost unchanged; the friction is intended). Free pulls:
+`GachaState.FreeTenPulls[type]`, spent with `GachaPull { Count = 10, Payment = GachaPayment.Free }`; none of them has a
+guarantee any more (`GachaTypeDef.FreePullGuarantee` is removed).
 
-Sim (9 profiles × 3 seeds × 730 days, `docs/balance/data/city_city.md` "Building blueprints"): the Launch Pod comes with the City
-(day 1–14), the Laboratory is pulled on day 2–5 by Hardcore players and spenders, ~19 by Active F2P and ~110 by Casual F2P (first
+Sim (9 profiles × 3 seeds × 730 days, `docs/balance/data/city_city.md` "Building blueprints", before the crash site): the Launch Pod
+came with the City (day 1–14; now with the Aliens: Active F2P day 1, Casual F2P day 5, see progression-report.md "Crash site"),
+the Laboratory is pulled on day 2–5 by Hardcore players and spenders, ~19 by Active F2P and ~110 by Casual F2P (first
 research a day to ~2 months after; see progression-report.md "City follow-up").
 
 Blueprint banners (see pull-system.md "Banner schedule"): a weekly rotation from Monday 00:00 UTC whose **core blueprint banner**

@@ -22,7 +22,7 @@ public class OnboardingTests
     public static readonly (string id, int level)[] Schedule =
     {
         (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
-        (Features.Aliens, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9),
+        (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9),
         (Features.RunSignatures, 11), (Features.Shop, 12), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
         (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
         (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
@@ -30,12 +30,23 @@ public class OnboardingTests
         (Features.DarkSide, 53), (Features.PackageAlien, 56), (Features.PackageTime, 60),
     };
 
-    /// <summary>Building features: unlocked the moment the blueprint is owned (after the City), never by level.</summary>
+    /// <summary>
+    /// Building features: unlocked the moment the blueprint is owned (after the City), never by level. The Launch Pod is not one any more:
+    /// it comes with the Aliens unlock on the crash site (owner, 2026-11-25), one unlock moment with the Aliens (<see cref="Grouped"/>).
+    /// </summary>
     public static readonly (string id, string blueprint)[] BuildingFeatures =
     {
-        (Features.AlienSquad, ContentDb.LaunchPodId), (Features.Laboratory, ContentDb.LaboratoryId), (Features.GrainFarm, "bp_grain_farm"),
+        (Features.Laboratory, ContentDb.LaboratoryId), (Features.GrainFarm, "bp_grain_farm"),
         (Features.OreMine, "bp_ore_mine"), (Features.Breeding, "bp_breeding_pen"),
     };
+
+    /// <summary>Features that unlock in another feature's moment (member → group): the Launch Pod with the Aliens.</summary>
+    public static readonly Dictionary<string, string> Grouped = new() { [Features.AlienSquad] = Features.Aliens };
+
+    /// <summary>The unlock moments in schedule order: each group's ids (the Aliens moment = Aliens + Launch Pod).</summary>
+    private static List<(string[] ids, int level)> Moments() =>
+        Schedule.Where(x => !Grouped.ContainsKey(x.id))
+            .Select(x => (Schedule.Where(y => y.id == x.id || Grouped.TryGetValue(y.id, out var g) && g == x.id).Select(y => y.id).ToArray(), x.level)).ToList();
 
     private static List<FeatureDef> LevelFeatures(ContentDb c) => c.FeatureOrder.Where(f => Features.UnlockLevel(f) > 0).ToList();
 
@@ -59,20 +70,20 @@ public class OnboardingTests
             var (id, level) = Schedule[i];
             var f = levelFeatures[i];
             Assert.Equal(id, f.Id);
-            Assert.Equal(id, f.GroupId); // every feature is its own unlock (own screen)
+            Assert.Equal(Grouped.TryGetValue(id, out var g) ? g : id, f.GroupId); // every feature is its own unlock (own screen) but the Launch Pod
             Assert.False(string.IsNullOrEmpty(f.Description), id);
             var req = Assert.Single(f.Requires.Items);
             Assert.Equal(RequirementKind.MainLevel, req.Kind);
             Assert.Equal(level, req.Target);
         }
         Assert.DoesNotContain(c.FeatureOrder, f => f.Requires.Items.Any(r => r.Kind == RequirementKind.AccountAgeDays));
-        Assert.Equal(c.FeatureOrder.Count, Features.Groups(c).Count);
+        Assert.Equal(c.FeatureOrder.Count - Grouped.Count, Features.Groups(c).Count);
     }
 
     [Fact]
     public void Schedule_IsSpacedOut_OnePerLevelEarly_WiderLater()
     {
-        var levels = LevelFeatures(ContentDb.Default).Select(f => (int)Features.UnlockLevel(f)).ToList();
+        var levels = LevelFeatures(ContentDb.Default).Where(f => f.GroupId == f.Id).Select(f => (int)Features.UnlockLevel(f)).ToList();
         Assert.Equal(1, levels[0]); // the first unlock right after the tutorial run
         for (int i = 1; i < levels.Count; i++)
         {
@@ -97,6 +108,7 @@ public class OnboardingTests
         Before(Features.Parts, Features.Runes, Features.Forge, Features.WormLevel);
         Before(Features.WormLevel, Features.BiomassFarm); // the farm's Biomass has a use the moment it is built
         Before(Features.Aliens, Features.BiomassFarm); // aliens staff the buildings
+        Assert.Equal(Features.Aliens, c.Feature(Features.AlienSquad)!.GroupId); // the Launch Pod (squad) comes with the Aliens
         Assert.Equal(Features.Parts, Features.PartPulls); // the Signals come with their system's unlock
         Assert.Equal(Features.Aliens, Features.AlienPulls);
         Assert.Equal(Features.BiomassFarm, Features.Blueprints);
@@ -177,14 +189,14 @@ public class OnboardingTests
     {
         var e = Engine(); var s = Player(e);
         long t = TestHelpers.T0;
-        foreach (var (id, level) in Schedule)
+        foreach (var (ids, level) in Moments())
         {
             s.Counters[Requirements.MainLevelCounter] = level - 1;
             Tick(e, ref s, t);
-            Assert.False(Features.IsUnlocked(s, e.Content, id), id + " before level " + level);
+            Assert.False(Features.IsUnlocked(s, e.Content, ids[0]), ids[0] + " before level " + level);
             Assert.Equal("clear level " + level, Features.Next(s, e.Content, t)!.Text);
             s.Counters[Requirements.MainLevelCounter] = level;
-            Assert.Equal(new[] { id }, Tick(e, ref s, t)); // same day, no daily limit: one feature per level
+            Assert.Equal(ids, Tick(e, ref s, t)); // same day, no daily limit: one moment per level (Aliens + Launch Pod together)
             t += D; // the tick command is a lobby popup (capped per day)
         }
         Assert.Null(Features.Next(s, e.Content, t));
@@ -250,8 +262,9 @@ public class OnboardingTests
         s.Counters[Requirements.MainLevelCounter] = 15;
         var r = Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, TestHelpers.T0);
         Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Aliens);
-        Assert.DoesNotContain(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.AlienSquad);
+        Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.AlienSquad); // one moment with the Aliens
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp")); // unlock grant
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(s))); // the crash site's Launch Pod
         Assert.Contains(Features.Aliens, OnboardingSystem.PendingCelebrations(s, e.Content));
         Assert.Contains(Features.RunShop, OnboardingSystem.PendingCelebrations(s, e.Content)); // a new player sees every intro
 

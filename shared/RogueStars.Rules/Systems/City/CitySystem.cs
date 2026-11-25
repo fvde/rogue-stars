@@ -528,6 +528,41 @@ namespace RogueStars.Rules.Systems
             CityLayout.Invalidate(s);
         }
 
+        /// <summary>
+        /// The crash site comes first (owner, 2026-11-25): once the Aliens unlock is recorded, the player owns the Launch Pod blueprint and
+        /// its first copy stands built (level 1, no build timer) on the crash site — touching the plaza with the fireplace, inside the start
+        /// land, at <see cref="CityPlanner.Find"/>'s spot (no new streets, off the street axes: deterministic, the free plaza side closest to
+        /// the fire). An idle
+        /// alien takes the first seat so the squad flies at once. Runs after every unlock check (OnboardingSystem.CheckUnlocks), so a save
+        /// that already had the Aliens unlock gets its pod on load the same way. Dev unlock-all states (no recorded unlock) are skipped.
+        /// Returns the pod's uid when it was created now.
+        /// </summary>
+        public static string EnsureCrashSitePod(CommandContext ctx)
+        {
+            var s = ctx.State; var c = ctx.Content;
+            if (!s.Onboarding.Unlocked.ContainsKey(Features.Aliens) || LaunchPod(s) != null) return null;
+            var def = c.Blueprint(ContentDb.LaunchPodId);
+            if (def == null) return null;
+            if (Owned(s, def.Id) == null) Unlock(ctx, def);
+            // off the fireplace's street axes (CityPlanner.SpineCells), so the City's main streets can still grow from the plaza
+            var plan = CityPlanner.Find(s, c, def.Id, null, 0, CityPlanner.SpineCells(c)) ?? CityPlanner.Find(s, c, def.Id, null, 0);
+            var b = new CityBuilding { Uid = NextUid(s, def), BlueprintId = def.Id, Level = 1, LastSettleMs = ctx.NowMs };
+            if (plan != null) { b.Placed = true; b.X = plan.X; b.Y = plan.Y; b.Rotated = plan.Rotated; }
+            s.City.Buildings.Add(b);
+            CityLayout.Invalidate(s);
+            if (b.Placed)
+            {
+                OwnedAlien first = null;
+                foreach (var a in s.Aliens.Owned.Values)
+                    if (string.IsNullOrEmpty(a.WorkBuildingId) && (first == null || string.CompareOrdinal(a.TypeId, first.TypeId) < 0)) first = a;
+                if (first != null) first.WorkBuildingId = b.Uid;
+                AlienSystem.SyncSquad(s);
+            }
+            s.Count("city_buildings_built");
+            ctx.Emit("crash_site_pod", b.Uid);
+            return b.Uid;
+        }
+
         private static void CompleteBuild(CommandContext ctx, GameTimer t)
         {
             var b = Building(ctx.State, t.RefId);
@@ -643,6 +678,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandlePlace(CityPlace cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
             var def = ctx.Content.Blueprint(cmd.BlueprintId);
             GameEngine.Require(def != null, "unknown blueprint");
             string uid = string.IsNullOrEmpty(cmd.Uid) ? null : cmd.Uid;
@@ -669,6 +705,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleMove(CityMove cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
             RequireLayout(ctx, CityEdit.Move(cmd.Uid, cmd.X, cmd.Y, cmd.Rotated));
             var b = Building(ctx.State, cmd.Uid);
             b.X = cmd.X; b.Y = cmd.Y; b.Rotated = cmd.Rotated;
@@ -683,6 +720,7 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         private static CommandResult HandleStore(CityStore cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
             var b = Building(ctx.State, cmd.Uid);
             GameEngine.Require(b != null && b.Placed, "building not placed");
             var def = ctx.Content.Blueprint(b.BlueprintId);
@@ -711,6 +749,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStreets(CityStreets cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
             var edit = CityEdit.Streets(cmd.Adds, cmd.Removes);
             RequireLayout(ctx, edit);
             foreach (var r in edit.Removes) ctx.State.City.Streets.Remove(r);

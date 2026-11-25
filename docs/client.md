@@ -844,6 +844,25 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 - **Hub (C4)**: `Screens/HubSquad` — the Launch Pod squad walks the planet's top arc around the worm with the same `WalkerSim`.
 - Tests: `CityEditorTests` (EditMode); screenshots `CityShowcaseTests` (explicit PlayMode, `-testFilter CityShowcaseTests`).
 
+## Crash site on the hub (branch `crash-site`, docs/design/city.md "The crash site comes first")
+- From the Aliens unlock (level 6) the rules build the Launch Pod on the crash site. The hub's planet shows the crash site on its
+  top arc (`Screens/HubScreen.CrashSite.cs`): the crashed saucer and the fireplace (`CityArt.Saucer / Fire`, glow) left of the worm,
+  the pod (`CityArt.Building`) right of it with a "Squad n/m" badge (red and pulsing "+" while a seat is free and an alien could
+  take it); the squad walks around them (C4 `HubSquad`). Shown while the pod is built (`HubScreen.CrashSiteVisible`), also after
+  the City.
+- Tapping the pod opens its card (`HubScreen.OpenPodCard`, a `Ui.Sheet` "LaunchPodCard" that refreshes with the hub on every state
+  change): name, level, stars, the seats (an alien in a seat: tap = `AlienAssign` to none; empty seats "+"), up to six other aliens
+  (tap = `AlienAssign` to the pod, disabled while full; after the City their workplace is shown), the boon (alien damage), Level up
+  with its cost type (Biomass; the timer controls while it runs), ★ Star up (blueprint shards) and, before the City, "The crash
+  site grows into your City at level 15." No Move / Store: layout edits wait for the City.
+- The Aliens unlock moment is one group "Aliens + Launch Pod" (2 + 3 panels; MEET YOUR ALIEN → Aliens screen); an old save that
+  gets its pod on load sees the Launch Pod's own moment (MEET YOUR SQUAD → Aliens screen). The City moment frames the crash site
+  growing into a City; the City screen opens with the pod already standing next to the plaza.
+- Tests: `CrashSiteHubTests` (EditMode: no crash site before the Aliens; fireplace, saucer, pod, badge and one walker after, City
+  tab still hidden; the pod card's seats, boon, Biomass level-up, star-up and City note; free a seat, seat another alien, seats
+  full, the loadout carries the new squad, level-up starts its timer, all before the City; the Aliens moment holds both features
+  and ends on the Aliens screen); screenshots `CrashSiteShowcaseTests` (explicit PlayMode, `-testFilter CrashSiteShowcaseTests`).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

@@ -158,7 +158,7 @@ public class FullGameSmokeTests
         p.Do(new PurchaseComplete { ProductId = "diamonds_8000", ReceiptId = "dev:smoke-1" });
         Assert.True(p.S.Wallet.Get(Currencies.Diamonds) >= 16_000);
 
-        // Every pull type: the free 10× of each Signal (the Blueprint one brings the Launch Pod), tokens and Diamonds.
+        // Every pull type: the free 10× of each Signal, tokens and Diamonds (the Launch Pod came with the Aliens).
         foreach (var t in new[] { GachaType.Part, GachaType.Alien, GachaType.Blueprint })
             p.Do(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Free });
         Assert.NotNull(CitySystem.Owned(p.S, ContentDb.LaunchPodId));
@@ -184,8 +184,8 @@ public class FullGameSmokeTests
         var arm = p.S.Parts.Equipped[PartSlot.RightArm];
         p.Do(new PartLevelUp { Uid = arm, Levels = 3 });
 
-        // City: housing (squad slot), grain farm with an alien worker, squad, breeding.
-        p.Build(ContentDb.LaunchPodId);
+        // City: the crash site's Launch Pod (squad slot), grain farm with an alien worker, squad, breeding.
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(p.S)));
         string grainFarm = p.Build("bp_grain_farm");
         p.Do(new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = grainFarm });
         var aliens = p.S.Aliens.Owned.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
@@ -256,7 +256,7 @@ public class FullGameSmokeTests
         p.Do(new MailClaim { MailId = labMail });
         p.DigFree(4);
         p.Build("bp_biomass_farm");
-        p.Build(ContentDb.LaunchPodId);
+        Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(p.S)));
         p.Do(new AlienSetSquad { AlienTypeIds = { "alien_blorp" } });
         string lab = p.Build(ContentDb.LaboratoryId);
         p.Do(new AlienAssign { AlienTypeId = p.S.Aliens.Owned.Keys.Where(k => k != "alien_blorp").OrderBy(k => k, StringComparer.Ordinal).First(), BuildingUid = lab });

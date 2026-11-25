@@ -55,11 +55,6 @@ namespace RogueStars.Rules.Content
         /// <summary>Visible 10-pull rule: a 10-pull contains at least one result of <see cref="TenPullMinTier"/> or better (false = none).</summary>
         public bool TenPullGuarantee = true;
         public Rarity TenPullMinTier = Rarity.Epic;
-        /// <summary>
-        /// The free 10× pull (GachaPayment.Free) always holds this result as its first pull (null = none). Its tier counts for the
-        /// pity and the 10× rule like any result. Blueprint: the Launch Pod (owner, 2026-11-25: the only squad-slot source).
-        /// </summary>
-        public GachaEntry FreePullGuarantee;
     }
 
     /// <summary>One featured item of a banner and the tier it is featured in (Legendary or Mythic).</summary>
@@ -233,8 +228,6 @@ namespace RogueStars.Rules.Content
                     GachaThemeOf("bp_stasis_week", "Stasis Beacon Week", RewardKinds.Blueprint, "bp_stasis_beacon", 1, mythic),
                 },
             });
-            // The free 10× Blueprint pull of the City unlock always holds the Launch Pod (owner, 2026-11-25: the only squad-slot source).
-            bp.FreePullGuarantee = new GachaEntry(RewardKinds.Blueprint, LaunchPodId, 1, (int)Rarity.Common, 1);
             g.Rotations.Add(new BannerRotation
             {
                 Type = GachaType.Alien, EpochMs = epoch, DurationMs = week,

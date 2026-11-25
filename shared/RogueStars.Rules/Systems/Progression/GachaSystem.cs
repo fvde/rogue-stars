@@ -184,17 +184,6 @@ namespace RogueStars.Rules.Systems
             bool gotMin = false;
             for (int i = 0; i < cmd.Count; i++)
             {
-                if (free && i == 0 && def.FreePullGuarantee != null)
-                {
-                    // the free 10×'s guaranteed result (the City's: the Launch Pod); its tier counts for the pity and the 10× rule
-                    var g = def.FreePullGuarantee;
-                    var gt = (Rarity)Math.Max(0, Math.Min(4, g.Rarity));
-                    pity.TotalPulls++;
-                    AdvancePity(pity, gt);
-                    if (gt >= def.TenPullMinTier) gotMin = true;
-                    result.Items.Add(new GachaPullItem { Kind = g.Kind, Id = g.Id, Amount = g.Amount, Rarity = g.Rarity, Tier = gt });
-                    continue;
-                }
                 bool forceMin = def.TenPullGuarantee && cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
                 var tier = RollTier(def, pity, ctx.Rng, forceMin);
                 if (tier.Tier >= def.TenPullMinTier) gotMin = true;

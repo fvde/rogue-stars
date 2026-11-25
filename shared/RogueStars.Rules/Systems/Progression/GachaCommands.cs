@@ -7,7 +7,7 @@ namespace RogueStars.Rules.Systems
 {
     /// <summary>
     /// Ad: the daily extra free single pull of a rewarded ad (Meta placement GachaTypeDef.AdPlacementId). Free: one of the free 10×
-    /// pulls of the type (GachaState.FreeTenPulls, Count must be 10); it holds GachaTypeDef.FreePullGuarantee when the type has one.
+    /// pulls of the type (GachaState.FreeTenPulls, Count must be 10), a normal 10× with no guarantee.
     /// </summary>
     public enum GachaPayment { Tokens, Diamonds, Ad, Free }
 

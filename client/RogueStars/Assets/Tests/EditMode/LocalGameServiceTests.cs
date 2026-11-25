@@ -116,6 +116,7 @@ namespace RogueStars.Client.Tests
         {
             var s = Connected();
             s.DevGrantStarterKit();
+            s.DevSetFlag(Features.DevUnlockAllFlag, true); // layout edits need the City (crash site: nothing but the pod before it)
             string bp = null;
             foreach (var b in CitySystem.SortedBlueprints(s.State))
             {

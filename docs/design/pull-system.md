@@ -80,12 +80,24 @@ too). Rates and pity never change; the banner only decides which Legendary / Myt
 - The themed weeks in between feature one Mythic blueprint each (Command Spire, Shard Reactor, the Stasis Beacon — now Mythic).
 - Why every other week: the Laboratory gates research (pulled, built and staffed) and the pull buildings make the pull chances, so
   the core banner should never be more than a week away; alternating keeps the Mythic themes (and the Reactor's own banner) in.
-- The free 10× Blueprint pull of the City unlock always holds the Launch Pod (`GachaTypeDef.FreePullGuarantee`, owner's call: it is
-  the only squad-slot source); the free Part / Alien pulls of the Parts / Aliens unlocks have no guarantee.
+- The free 10× pulls of the Parts / Aliens / City unlocks are normal 10× pulls with no guarantee (owner, 2026-11-25, "the crash
+  site comes first": the Launch Pod now comes with the Aliens unlock, built on the crash site, so the City's free Blueprint pull
+  no longer holds it; `GachaTypeDef.FreePullGuarantee` is removed). See docs/design/city.md "The crash site comes first".
 
 Re-run of `--pulls` with the City redesign and these rules: `docs/balance/data/pulls_city.md` (the table below is from before the
 City redesign). In that re-run the Reactor columns read 0 for every profile although the Reactor blueprint is owned ("4 M"): the
 bot does not run Reactor jobs in the redesigned city (not investigated here).
+
+## Unlocks come with pulls
+
+| Unlock | Level | Comes with |
+|---|---|---|
+| Parts | 1 | the Part Signal and one free 10× Part pull |
+| Aliens | 6 | the first alien, the Alien Signal, one free 10× Alien pull and the Launch Pod built on the crash site (squad seat from level 6) |
+| City | 15 | the Biomass Farm blueprint, the Blueprint Signal and one free 10× Blueprint pull |
+
+Every free 10× is a normal 10× (the 10× rule and the pity apply, no fixed result). Before the crash site (owner, 2026-11-25) the
+City's free pull always held the Launch Pod. Details: docs/design/city.md "Unlocks" and "The crash site comes first".
 
 ## Hero and mount event pools (filler)
 
@@ -198,7 +210,7 @@ pay Fuel at 1 core = 300 Fuel (the mount event's filler value), or tokens' worth
 | Hero / mount milestone 150 / 120 | a featured batch (50) | kept: a reward for pulling 150 / 120 times in the event |
 | Breeding (discard a child) | 1–3 alien shards | kept (already tiny) |
 | Shard Reactor | converts spare shards | kept (made from shards, not a new source) |
-| Feature-unlock gifts (Onboarding: blueprints, Blorp) | an unlock copy each | kept (the unlock itself) |
+| Feature-unlock gifts (Onboarding: blueprints, Blorp; the Launch Pod at the Aliens unlock) | an unlock copy each | kept (the unlock itself) |
 | Run loot: campaign portals (~0.25% of loot rolls each: a Common Blueprint / Alien), Dark Side (~0.9% each, Rare) | a batch (50) or the unlock | kept, flagged for the owner |
 | Quests, mail templates, shops, packs, arena, guild, invasions | none | – |
 

@@ -233,7 +233,11 @@ namespace RogueStars.Rules.Content
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
-            F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien arrives and the Alien Signal opens: your first 10× pull is free. Aliens run the City's buildings and fly in your squad.");
+            // The crash site comes first (owner, 2026-11-25): the Aliens unlock brings the Launch Pod, built on the crash site at once, so
+            // the squad flies from level 6 (Launch Pod = the squad seats). Its feature unlocks with the Aliens in one moment (one group).
+            var aliens = F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien lands with a Launch Pod at your crash site: aliens in its seat join your runs. The Alien Signal opens: your first 10× pull is free.");
+            var squad = F(Features.AlienSquad, "Launch Pod", 6, 30, null, "The Launch Pod stands at your crash site: the aliens in its seats are your run squad.");
+            squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             F(Features.Quests, "Daily Goals", 8, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
@@ -241,10 +245,9 @@ namespace RogueStars.Rules.Content
             F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
             // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
-            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "The City opens around your crash site and the Blueprint Signal with it: your first 10× pull is free and brings the Launch Pod.");
+            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "Your crash site grows into a City: the land around the Launch Pod opens for building, and the Blueprint Signal with it: your first 10× pull is free.");
             // Buildings come from their blueprint, not from a level (owner, 2026-11-25): these features unlock the moment the blueprint
             // is owned (pulled). No level, so the hub teaser skips them (Features.Next).
-            B(Features.AlienSquad, "Launch Pod", LaunchPodId, 30, null, "Build the Launch Pod: the aliens inside are your run squad.");
             B(Features.Laboratory, "Laboratory", LaboratoryId, 30, "research_skill", "Build the Laboratory in the City and staff it: research makes your worm stronger or adds new skills to every run.");
             F(Features.Heroes, "Heroes", 18, 50, "hero_summon", "Hero summon events open: pull for hero shards and copies. A hero adds its kit to every run.");
             B(Features.GrainFarm, "Grain Farm", "bp_grain_farm", 20, null, "Grain feeds the colony: breeding runs on it.");
@@ -284,13 +287,15 @@ namespace RogueStars.Rules.Content
             // The former starting wallet, each part with the unlock that gives it a use (rewards follow use, GDD §13).
             G(Features.Parts, Reward.Cur(Currencies.Ore, 500));
             G(Features.BiomassFarm, Reward.Cur(Currencies.Biomass, 500));
-            // One free 10× pull of each Signal with its unlock (the Blueprint one always holds the Launch Pod: GachaTypeDef.FreePullGuarantee).
+            // One free 10× pull of each Signal with its unlock (no guarantee in any of them: the Launch Pod comes with the Aliens).
             G(Features.Parts, new Reward(RewardKinds.FreePull, nameof(GachaType.Part), 1));
             G(Features.Aliens, Reward.Cur(Currencies.Grain, 300));
             G(Features.Aliens, new Reward(RewardKinds.FreePull, nameof(GachaType.Alien), 1));
             G(Features.BiomassFarm, new Reward(RewardKinds.FreePull, nameof(GachaType.Blueprint), 1));
             G(Features.Laboratory, Reward.Cur(Currencies.Data, 60)); // the first researches (later: daily chests, Dark Side)
             G(Features.Aliens, new Reward(RewardKinds.Alien, "alien_blorp", 1));
+            // The Launch Pod blueprint (1★) is not an unlock grant (blueprint rewards wait for the City, RewardGate): the onboarding
+            // settler's CitySystem.EnsureCrashSitePod gives it and builds its first copy on the crash site right after the Aliens unlock.
             G(Features.Heroes, Reward.Cur(Currencies.HeroTickets, 10)); // the first hero summon event's 10× pull (no starter hero: heroes only come from events)
             G(Features.Mounts, Reward.Cur(Currencies.MountTickets, 10)); // the first mount summon event's 10× pull
             G(Features.Runes, new Reward(RewardKinds.Rune, "rune_vigor", 1, 0));
@@ -340,8 +345,8 @@ namespace RogueStars.Rules.Content
                 "Your worm moves farther each roll.", "worm_move", Slide,
                 "Where the path forks, tap the way to go.", "fork", Tap);
             I(Features.BiomassFarm,
-                "Your City grows around the crash site.", "city", Pulse,
-                "Paint streets and build next to them.", "farm_build", Tap,
+                "Your crash site grows into a City.", "city", Pulse,
+                "Build on the land around the pod.", "farm_build", Tap,
                 "An alien must work in a building to run it.", "biomass", Count,
                 "Pull blueprints. The first 10× is free.", "blueprint_signal", Spin);
             I(Features.AutoRoll,
@@ -373,11 +378,11 @@ namespace RogueStars.Rules.Content
                 "Win a medal for coins or a skill.", "medal", Count);
             I(Features.Aliens,
                 "Your first alien has arrived.", "alien", Bounce,
-                "Aliens run the City's buildings.", "alien_squad", Slide,
                 "Call more at the Alien Signal. First 10× is free.", "alien_signal", Spin);
             I(Features.AlienSquad,
-                "Build the Launch Pod for a squad seat.", "housing", Tap,
-                "Its aliens fight beside your worm.", "alien_fight", Slide);
+                "A Launch Pod landed at your crash site.", "housing", Pulse,
+                "Aliens in its seat join your runs.", "alien_fight", Slide,
+                "Tap the pod on your planet to pick your squad.", "alien_squad", Tap);
             I(Features.GrainFarm,
                 "The Grain Farm grows Grain for breeding.", "grain_farm", Pulse,
                 "Collect it in the City.", "grain", Count);

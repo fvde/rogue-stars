@@ -19,7 +19,7 @@ namespace RogueStars.Client.Screens
     /// the raised active tab. Everything appears as features unlock (HubLayout, Features); locked features are never shown.
     /// Pending unlock celebrations open the full-screen <see cref="UnlockScreen"/>.
     /// </summary>
-    public sealed class HubScreen : UiScreen
+    public sealed partial class HubScreen : UiScreen
     {
         public override string Title => "Planet";
         public override bool ShowBack => false;
@@ -64,6 +64,7 @@ namespace RogueStars.Client.Screens
             BuildColumns();
             BuildCentre();
             BuildBottom();
+            RefreshPodCard();
         }
 
         /// <summary>Places by centre and size in reference px; <paramref name="fromBottom"/>: y is the distance from the bottom edge.</summary>
@@ -275,6 +276,7 @@ namespace RogueStars.Client.Screens
             var planet = Ui.Panel(_frame, Color.white, "Planet");
             planet.sprite = ScreenArt.Planet(PlanetStage(State)); planet.preserveAspect = true; planet.raycastTarget = false;
             At(planet.rectTransform, 540, cy, size, size);
+            BuildCrashSite(cy, size * 0.33f); // the fireplace, the saucer and the Launch Pod (from the Aliens unlock)
             var worm = Ui.Panel(_frame, Color.white, "Worm");
             worm.sprite = ArtCatalog.Hero() ?? HudArt.AlienCritter(HubKit.Pink); worm.preserveAspect = true; worm.raycastTarget = false;
             At(worm.rectTransform, 540, cy - size * 0.36f - size * 0.12f, size * 0.34f, size * 0.34f);

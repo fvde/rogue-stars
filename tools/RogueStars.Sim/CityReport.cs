@@ -23,7 +23,8 @@ public static class CityReport
             sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", digDays.Select(n => F(Median(g.Select(r => (double)(r.Daily.FindIndex(d => d.Digs >= n) is int i && i >= 0 ? i + 1 : double.NaN)))))) + " |");
         sb.AppendLine();
         // Buildings come from their blueprint (owner, 2026-11-25): the day each building feature unlocked = the day its blueprint was
-        // pulled (the Launch Pod comes with the City's free 10×), and the first finished research (the Laboratory pulled, built, staffed).
+        // pulled (the Launch Pod comes with the Aliens unlock on the crash site), and the first finished research (the Laboratory
+        // pulled, built, staffed).
         var gated = new[] { ("Launch Pod", RogueStars.Rules.Systems.Features.AlienSquad), ("Laboratory", RogueStars.Rules.Systems.Features.Laboratory),
             ("Ore Mine", RogueStars.Rules.Systems.Features.OreMine), ("Grain Farm", RogueStars.Rules.Systems.Features.GrainFarm),
             ("Breeding Pen", RogueStars.Rules.Systems.Features.Breeding) };
