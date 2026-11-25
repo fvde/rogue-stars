@@ -312,7 +312,7 @@ namespace RogueStars.Rules.Content
                 Spin = IntroAnim.Spin, Bounce = IntroAnim.Bounce, Fill = IntroAnim.Fill;
 
             I(Features.Parts,
-                "Your worm has slots: head, body and two arms.", "parts_slots", Pulse,
+                "Six slots: head, body, tail, legs and two arms.", "parts_slots", Pulse,
                 "Put a part in a slot. Every part adds stats.", "part_equip", Slide,
                 "Spend Ore to level parts up.", "ore", Count,
                 "Rarer parts add skills to every run.", "part_rare", Bounce);

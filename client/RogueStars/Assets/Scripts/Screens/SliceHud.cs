@@ -189,16 +189,26 @@ namespace RogueStars.Client.Screens
             HpFill.fillAmount = Mathf.Clamp01((float)hpFrac);
             HpText.text = Fmt.Num(Math.Round(st.Hp)) + " / " + Fmt.Num(Math.Round(st.MaxHp));
             _hpLine = "HP " + HpText.text;
-            Atk.text = known ? Fmt.Num(Math.Round(st.Atk)) : "–";
-            Def.text = known ? Fmt.Num(Math.Round(st.Def)) : "–";
-            _atkLine = "ATK " + Atk.text;
-            _defLine = "DEF " + Def.text;
+            // never "–" (BT3): stats that are unknown hide their pills instead
+            Atk.text = Fmt.Num(Math.Round(st.Atk));
+            Def.text = Fmt.Num(Math.Round(st.Def));
+            ShowPart("AtkPill", known); ShowPart("SwordIcon", known); ShowPart("DefPill", known); ShowPart("ShieldIcon", known);
+            _atkLine = known ? "ATK " + Atk.text : "";
+            _defLine = known ? "DEF " + Def.text : "";
             _skillsLine = "SKILLS " + skills;
             if (Skills != null) Skills.text = skills.ToString();
-            _level = level > 0 ? level.ToString() : "–";
+            bool hasLevel = known && level > 0;
+            _level = hasLevel ? level.ToString() : "";
             Level.text = "Lv. " + _level;
+            ShowPart("RunLevel", hasLevel); ShowPart("ExpIcon", hasLevel);
             XpFill.fillAmount = Mathf.Clamp01(xpFrac);
             XpText = "XP " + st.Xp + " / " + st.XpNeed;
+        }
+
+        private void ShowPart(string name, bool on)
+        {
+            var t = Root != null ? Root.Find(name) : null;
+            if (t != null && t.gameObject.activeSelf != on) t.gameObject.SetActive(on);
         }
 
         // ---- the boss rail ----------------------------------------------------------------------------------------------

@@ -45,7 +45,7 @@ namespace RogueStars.Client.Screens
             KeyValue(card, "Tickets", State.Wallet.Get(Currencies.ArenaTickets).ToString());
             KeyValue(card, "Arena Medals", Fmt.Num(State.Wallet.Get(Currencies.ArenaMedals)) + "  (+" + Content.Arena.MedalsPerWin + " win / +" + Content.Arena.MedalsPerLoss + " loss, weekly rank bonus)",
                 Theme.CurrencyColor(Currencies.ArenaMedals));
-            Note(card, Session.IsOnline ? "Fights are resolved by the server." : "Offline: fighting local bots (power comparison placeholder).");
+            if (Debug.isDebugBuild && !Session.IsOnline) Note(card, "Offline: fighting local bots (power comparison placeholder).").name = "DevHint"; // G7: dev builds only
 
             Ui.TabBar(body, new[] { "Opponents", "Leaderboard", "Medal shop" }, _tab, i => { _tab = i; Rebuild(); });
             if (_tab == 2) { MedalShop(body); return; }
@@ -62,7 +62,9 @@ namespace RogueStars.Client.Screens
             foreach (var o in _opponents)
             {
                 var opp = o;
-                var row = Ui.Row(body, 96, 10, Theme.Panel, 12);
+                var row = Ui.Row(body, 110, 14, Theme.Panel, 12);
+                row.name = "Opponent:" + opp.PlayerId;
+                Avatar(row, opp.PlayerId, 86);
                 Ui.Label(row, Fmt.PlayerName(opp.DisplayName) + "\n<size=22>" + opp.Points + " pts · power " + Fmt.Num(opp.Power) + "</size>", Theme.FontNormal);
                 Ui.Button(row, "Fight", () => Fight(opp), Theme.ValenceColor(Valence.Enemy), 200, 80, tickets && !_fighting);
             }
@@ -83,6 +85,18 @@ namespace RogueStars.Client.Screens
                 });
                 Load();
             });
+        }
+
+        /// <summary>MS4: an opponent avatar — a round portrait tinted per player (placeholder until player avatars exist).</summary>
+        public static void Avatar(Transform row, string playerId, float size)
+        {
+            int h = 17;
+            foreach (char ch in playerId ?? "") h = h * 31 + ch;
+            var tint = Color.HSVToRGB((h & 0x7fffffff) % 360 / 360f, 0.45f, 0.95f);
+            var disc = Ui.Dot(row, Color.Lerp(tint, Theme.PanelAlt, 0.6f), size, "Avatar");
+            var face = SummonKit.Img(disc.transform, World.SummonArt.Icon("avatar"), "Face");
+            face.color = tint;
+            Ui.Stretch(face.rectTransform, size * 0.1f, size * 0.08f, size * 0.1f, size * 0.12f);
         }
 
         /// <summary>Open the arena (medal) shop tab.</summary>
@@ -132,6 +146,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(body, 64, 10, me ? Theme.Header : Theme.Panel, 12);
                 var rank = Ui.Label(row, "#" + e.Rank, Theme.FontSmall, me ? Theme.Warn : Theme.TextDim);
                 Ui.Size(rank, 100, -1, 0);
+                Avatar(row, e.PlayerId, 52);
                 Ui.Label(row, Fmt.PlayerName(e.DisplayName), Theme.FontSmall);
                 Ui.Label(row, e.Points + " pts", Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
             }

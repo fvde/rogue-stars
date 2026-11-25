@@ -76,7 +76,8 @@ namespace RogueStars.Client.App
             {
                 var header = Ui.Row(Root, headerHeight, 20, null, 0, "Header");
                 var hl = header.GetComponent<HorizontalLayoutGroup>();
-                hl.padding = new RectOffset(24, 24, 12, 8);
+                // the "?" help button floats top-right: header extras (stamina chip ...) stay left of it (P2)
+                hl.padding = new RectOffset(24, IntroFeatures != null && IntroFeatures.Length > 0 ? 24 + 96 + 12 : 24, 12, 8);
                 hl.childForceExpandHeight = false;
                 header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1); header.pivot = new Vector2(0.5f, 1);
                 header.sizeDelta = new Vector2(0, headerHeight); header.anchoredPosition = Vector2.zero;

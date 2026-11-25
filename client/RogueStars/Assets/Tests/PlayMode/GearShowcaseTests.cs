@@ -67,7 +67,9 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(0.3f);
             yield return Shot("g02_worm_level2");
             var worm = (WormScreen)_app.Router.Current;
-            foreach (var cmd in worm.AutoEquipCommands()) _svc.ExecuteNow(cmd);
+            foreach (PartSlot slot in Enum.GetValues(typeof(PartSlot)))
+                foreach (var uid in PartsSystem.SortedPartUids(_svc.State))
+                    if (!PartsSystem.IsEquipped(_svc.State, uid) && _svc.ExecuteNow(new PartEquip { Uid = uid, Slot = slot }).Ok) break;
             _svc.Refresh(_ => { });
             yield return Wait(0.3f);
             yield return Shot("g02b_worm_equipped");

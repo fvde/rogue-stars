@@ -568,29 +568,71 @@ namespace RogueStars.Client.World
                     p.Shape(Star(c, 140, 96, 5, 0.48f, 90), VGrad(new Color32(0xF0, 0xB0, 0x30, 255), new Color32(0xFF, 0xE0, 0x6A, 255), 40, 236), Ink, 9);
                     p.Shape(RoundRect(40, 30, 176, 50, 16), col, Ink, 8);
                     break;
-                case "invasion": case "observatory": case "event":
-                    p.Blob(c, c, 96, 96, IsoPaint.Radial(Shade(col, 0.3f), Shade(col, -0.35f), c - 20, c + 30, 150), Ink, 9);
-                    p.Shape(RoundRect(c - 14, c - 20, 28, 90, 10), Color.white, Ink, 5);
-                    p.Circle(c, c - 52, 16, Color.white);
+                case "event":
+                    // a starburst with a pennant flag (H2: red stays for notification badges only)
+                    p.Shape(Star(c, c, 110, 12, 0.72f, 90), VGrad(new Color32(0xF0, 0xA0, 0x30, 255), new Color32(0xFF, 0xE0, 0x6A, 255), 18, 238), Ink, 8);
+                    p.Line(V(c - 30, 50), V(c - 30, 200), 12, Ink); p.Line(V(c - 30, 50), V(c - 30, 200), 6, new Color32(0xF8, 0xF0, 0xE8, 255));
+                    p.Shape(new[] { V(c - 26, 200), V(c + 62, 176), V(c - 26, 140) }, new Color32(0x5C, 0x9C, 0xF0, 255), Ink, 7);
+                    break;
+                case "observatory":
+                    // a telescope on a tripod
+                    p.Line(V(c, 110), V(70, 30), 12, Ink); p.Line(V(c, 110), V(186, 30), 12, Ink); p.Line(V(c, 110), V(c, 30), 12, Ink);
+                    p.Shape(new[] { V(60, 120), V(200, 196), V(216, 168), V(76, 92) }, VGrad(new Color32(0x4C, 0x5C, 0xA8, 255), new Color32(0x9C, 0xB0, 0xF0, 255), 92, 196), Ink, 8);
+                    p.Shape(new[] { V(196, 204), V(232, 222), V(244, 176), V(210, 160) }, new Color32(0xF6, 0xCC, 0x40, 255), Ink, 7);
+                    p.Shape(Star(70, 210, 22, 4, 0.4f, 90), Color.white, Ink, 4);
+                    break;
+                case "invasion":
+                    // a flying saucer with a beam
+                    p.Shape(new[] { V(c - 40, 110), V(c + 40, 110), V(c + 80, 20), V(c - 80, 20) }, new Color(0.6f, 1f, 0.6f, 0.45f), new Color(0, 0, 0, 0), 0);
+                    p.Blob(c, 150, 104, 34, VGrad(new Color32(0x8C, 0x94, 0xA8, 255), new Color32(0xD8, 0xDE, 0xE8, 255), 116, 184), Ink, 8);
+                    p.Blob(c, 182, 50, 40, IsoPaint.Radial(new Color32(0xC8, 0xF8, 0xFF, 255), new Color32(0x5C, 0xB8, 0xE8, 255), c - 14, 196, 70), Ink, 7);
+                    for (int i = -1; i <= 1; i++) p.Circle(c + i * 52, 148, 9, new Color32(0xFF, 0xE0, 0x5A, 255));
                     break;
                 case "tab_worm":
-                    p.Blob(c, 90, 70, 60, VGrad(Shade(col, -0.3f), Shade(col, 0.2f), 30, 150), Ink, 9);
-                    p.Blob(c + 10, 170, 56, 52, VGrad(Shade(col, -0.2f), Shade(col, 0.3f), 118, 222), Ink, 9);
-                    p.Circle(c - 4, 180, 10, Ink); p.Circle(c + 30, 180, 10, Ink);
+                    // the worm's head: a round pink face with big eyes and antennae (H1)
+                    p.Line(V(c - 30, 196), V(c - 58, 236), 10, Ink); p.Line(V(c + 30, 196), V(c + 58, 236), 10, Ink);
+                    p.Circle(c - 58, 236, 14, col); p.Circle(c + 58, 236, 14, col);
+                    p.Blob(c, 122, 96, 90, IsoPaint.Radial(Shade(col, 0.35f), Shade(col, -0.3f), c - 30, 150, 170), Ink, 9);
+                    p.Blob(c - 34, 140, 26, 30, Color.white, Ink, 6); p.Blob(c + 34, 140, 26, 30, Color.white, Ink, 6);
+                    p.Circle(c - 28, 136, 12, Ink); p.Circle(c + 40, 136, 12, Ink);
+                    p.Stroke(new[] { V(c - 30, 84), V(c, 68), V(c + 30, 84) }, 8, Ink, false);
                     break;
                 case "tab_city":
-                    p.Shape(RoundRect(40, 30, 70, 140, 10), VGrad(Shade(col, -0.3f), col, 30, 170), Ink, 8);
-                    p.Shape(RoundRect(120, 30, 96, 190, 10), VGrad(Shade(col, -0.2f), Shade(col, 0.2f), 30, 220), Ink, 8);
-                    for (int i = 0; i < 3; i++) p.Shape(RoundRect(144, 70 + i * 46, 48, 26, 6), new Color32(0xFF, 0xE0, 0x6A, 255), Ink, 4);
+                    // three little buildings with roofs and lit windows (H1)
+                    p.Shape(RoundRect(26, 24, 70, 110, 8), VGrad(Shade(col, -0.3f), col, 24, 134), Ink, 8);
+                    p.Shape(new[] { V(18, 130), V(104, 130), V(61, 180) }, new Color32(0xE8, 0x5A, 0x4A, 255), Ink, 7);
+                    p.Shape(RoundRect(160, 24, 70, 96, 8), VGrad(Shade(col, -0.3f), col, 24, 120), Ink, 8);
+                    p.Shape(new[] { V(152, 116), V(238, 116), V(195, 160) }, new Color32(0xE8, 0x5A, 0x4A, 255), Ink, 7);
+                    p.Shape(RoundRect(92, 24, 72, 160, 8), VGrad(Shade(col, -0.2f), Shade(col, 0.25f), 24, 184), Ink, 8);
+                    p.Shape(new[] { V(84, 180), V(172, 180), V(128, 236) }, new Color32(0x5C, 0x9C, 0xF0, 255), Ink, 7);
+                    for (int i = 0; i < 2; i++) p.Shape(RoundRect(112, 70 + i * 50, 32, 26, 5), new Color32(0xFF, 0xE0, 0x6A, 255), Ink, 4);
+                    p.Shape(RoundRect(46, 60, 30, 26, 5), new Color32(0xFF, 0xE0, 0x6A, 255), Ink, 4);
+                    p.Shape(RoundRect(180, 54, 30, 26, 5), new Color32(0xFF, 0xE0, 0x6A, 255), Ink, 4);
                     break;
                 case "tab_signals":
-                    p.Shape(new[] { V(c, 40), V(c + 30, 40), V(c + 10, 180), V(c - 10, 180) }, Shade(col, -0.2f), Ink, 8);
-                    p.Blob(c + 4, 196, 44, 30, VGrad(Shade(col, -0.2f), Shade(col, 0.3f), 166, 226), Ink, 8);
-                    for (int i = 1; i <= 2; i++) { var arc = new List<Vector2>(); for (int k = 0; k <= 10; k++) { float a = Mathf.Lerp(30, 150, k / 10f) * Mathf.Deg2Rad; arc.Add(V(c + 4 + Mathf.Cos(a) * (60 + i * 30), 196 + Mathf.Sin(a) * (30 + i * 16))); } p.Stroke(arc, 9, col, false); }
+                {
+                    // a satellite dish on a stand with signal waves (H1)
+                    p.Shape(new[] { V(c - 40, 20), V(c + 40, 20), V(c + 14, 90), V(c - 14, 90) }, Shade(col, -0.25f), Ink, 8);
+                    var dish = new List<Vector2>();
+                    for (int k = 0; k <= 16; k++) { float a = Mathf.Lerp(200, 380, k / 16f) * Mathf.Deg2Rad; dish.Add(V(c - 10 + Mathf.Cos(a) * 92, 150 + Mathf.Sin(a) * 92)); }
+                    dish.Reverse();
+                    p.Shape(dish, VGrad(Shade(col, -0.2f), Shade(col, 0.35f), 60, 160), Ink, 9);
+                    p.Line(V(c - 10, 120), V(c + 50, 190), 8, Ink);
+                    p.Circle(c + 54, 194, 14, new Color32(0xFF, 0xE0, 0x6A, 255));
+                    for (int i = 1; i <= 2; i++) { var arc = new List<Vector2>(); for (int k = 0; k <= 8; k++) { float a = Mathf.Lerp(0, 90, k / 8f) * Mathf.Deg2Rad; arc.Add(V(c + 54 + Mathf.Cos(a) * (24 + i * 22), 194 + Mathf.Sin(a) * (24 + i * 22))); } p.Stroke(arc, 8, Ink, false); }
                     break;
+                }
                 case "tab_arena":
-                    p.Line(V(50, 50), V(206, 206), 30, Ink); p.Line(V(50, 50), V(206, 206), 18, Shade(col, 0.3f));
-                    p.Line(V(206, 50), V(50, 206), 30, Ink); p.Line(V(206, 50), V(50, 206), 18, Shade(col, 0.1f));
+                    // crossed swords (H1: the plain X read as a close button)
+                    foreach (int sd in new[] { -1, 1 })
+                    {
+                        var a = V(c - sd * 90, 40); var b = V(c + sd * 60, 190);
+                        var dir = (b - a).normalized; var perp = new Vector2(-dir.y, dir.x);
+                        p.Line(a, b, 26, Ink); p.Line(a, b, 14, new Color32(0xE8, 0xEC, 0xF4, 255));
+                        var g = b - dir * 6;
+                        p.Line(g - perp * 36, g + perp * 36, 22, Ink); p.Line(g - perp * 32, g + perp * 32, 12, new Color32(0xF6, 0xCC, 0x40, 255));
+                        p.Line(b, b + dir * 44, 22, Ink); p.Line(b, b + dir * 44, 12, new Color32(0x8C, 0x5C, 0x3C, 255));
+                    }
                     break;
                 case "tab_planet":
                     p.Ellipse(c, c, 120, 34, new Color(1, 1, 1, 0.5f));

@@ -421,12 +421,18 @@ namespace RogueStars.Client.Tests
             GrantCurrency(Currencies.Data, 1234);
             GrantCurrency(Currencies.ArenaMedals, 56);
             GrantCurrency(ProgressionCurrencies.PartAwakenCores, 7);
-            _f.App.Bar.Tick();
+            _f.App.Bar.Rebuild();
             var texts = new Dictionary<string, string>();
             foreach (var t in _f.Canvas.GetComponentsInChildren<Text>(true)) if (t.name.StartsWith("Chip:")) texts[t.name] = t.text;
-            Assert.That(texts.Count, Is.EqualTo(ResourceBar.MaxChips), "the first chips, the rest behind All");
-            Assert.That(texts["Chip:" + Currencies.Data], Is.EqualTo("DATA " + Fmt.Num(S.Wallet.Get(Currencies.Data))));
-            Assert.That(texts.ContainsKey("Chip:" + Currencies.Stamina), Is.True);
+            Assert.That(texts.Count, Is.LessThanOrEqualTo(ResourceBar.MaxChips), "at most four chips, the rest in the wallet");
+            Assert.That(texts.ContainsKey("Chip:" + Currencies.Stamina), Is.True, "the hub shows stamina");
+            Assert.That(texts.ContainsKey("Chip:" + Currencies.Data), Is.False, "Data belongs to the Laboratory's bar");
+            _f.App.Open("laboratory");
+            _f.App.Bar.Tick(); // another screen: the bar rebuilds with its currencies
+            texts.Clear();
+            foreach (var t in _f.Canvas.GetComponentsInChildren<Text>(true)) if (t.name.StartsWith("Chip:")) texts[t.name] = t.text;
+            Assert.That(texts["Chip:" + Currencies.Data], Is.EqualTo(Fmt.Num(S.Wallet.Get(Currencies.Data))), "icon + number only");
+            Assert.That(ResourceBar.ChipsFor(S, C, "HubScreen"), Does.Not.Contain(Currencies.Fuel), "zero / irrelevant balances are hidden");
             var visible = HubLayout.VisibleCurrencies(S, C);
             Assert.That(visible, Does.Contain(Currencies.ArenaMedals).And.Contain(ProgressionCurrencies.PartAwakenCores));
             Assert.That(S.Wallet.Get(Currencies.Data), Is.GreaterThanOrEqualTo(1234));

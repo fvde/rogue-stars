@@ -20,6 +20,13 @@ namespace RogueStars.Client.Tests
         private GameState S => _f.Service.State;
         private ContentDb C => _f.Service.Content;
 
+        /// <summary>The card's "Details" opens the kit lines in a modal (HM1); returns the modal.</summary>
+        private Transform OpenDetails(Transform card)
+        {
+            card.GetComponentsInChildren<Button>(true).First(b => b.name == "Details").onClick.Invoke();
+            return _f.App.ModalLayer.GetComponentsInChildren<Transform>(true).First(t => t.name.StartsWith("Modal:Kit:"));
+        }
+
         private static Text Text(Transform root, string name) => root.GetComponentsInChildren<Text>(true).FirstOrDefault(t => t.name == name);
 
         [Test]
@@ -31,13 +38,17 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             var screen = new HeroesScreen();
             _f.App.Router.Push(screen);
-            var card = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Hero:hero_star_knight");
+            var heroCard = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Hero:hero_star_knight");
+            Assert.That(heroCard.Find("Top/Portrait/Art").GetComponent<Image>().sprite, Is.Not.Null, "portrait on the card (HM1)");
+            var card = OpenDetails(heroCard);
             Assert.That(Text(card, "Kit:Trait:1★").text, Does.Contain("Starguard"));
             Assert.That(Text(card, "Kit:Clause:5★").text, Does.Contain("Starlight"));
             Assert.That(Text(card, "Kit:Clause:7★"), Is.Null);
             Assert.That(Text(card, "KitNext:Clause").text, Does.Contain("Next 7★").And.Contain("Guiding Star"));
             // a hero not owned shows its 1★ kit and the 3★ number to come
-            var chef = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Hero:hero_chef");
+            var chefCard = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Hero:hero_chef");
+            Assert.That(chefCard.GetComponentsInChildren<Button>(true).Any(b => b.name == "GetInSummon:hero_chef"), Is.True, "not owned: Get in Summon");
+            var chef = OpenDetails(chefCard);
             Assert.That(Text(chef, "Kit:Ability:1★").text, Does.Contain("Feast"));
             Assert.That(Text(chef, "KitNext:Number").text, Does.Contain("every 4th → 3rd round"));
         }
@@ -50,11 +61,12 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             var screen = new MountsScreen();
             _f.App.Router.Push(screen);
-            var card = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Mount:mount_star_lancer");
+            var mountCard = screen.Root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Mount:mount_star_lancer");
+            Assert.That(mountCard.GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("Reload 3") && t.text.Contains("+30% dmg")), Is.True); // 2★ 4★ 6★ 7★ + 10 levels
+            var card = OpenDetails(mountCard);
             Assert.That(Text(card, "Kit:Passive:8★").text, Does.Contain("+30%")); // Lance Sight 8★ (kit tuning)
             Assert.That(Text(card, "Kit:Active:8★").text, Does.Contain("Every 3 rounds: 140% ATK"));
             Assert.That(Text(card, "KitNext:Active").text, Does.Contain("Next 10★"));
-            Assert.That(card.GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("Reload 3") && t.text.Contains("+30% dmg")), Is.True); // 2★ 4★ 6★ 7★ + 10 levels
         }
 
         [Test]

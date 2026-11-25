@@ -288,7 +288,19 @@ namespace RogueStars.Client.Services
 
         // ---- arena (local bots; power comparison until the Run workstream's BattleSimulator lands) ----
 
-        private static readonly string[] BotNames = { "Squirmlord", "Noodle Prime", "Glorp", "Wiggleton", "Coilbert", "Slinkster", "Vermax", "Dirt Duke", "Loopy", "Mudrunner" };
+        // Bot names are built from two of our own word lists (MS4: no "Glorp 2" numbering; 10 × 10 distinct names).
+        private static readonly string[] BotFirst = { "Squirm", "Noodle", "Glorp", "Wiggle", "Coil", "Slink", "Verm", "Dirt", "Loop", "Mud" };
+        private static readonly string[] BotLast = { "lord", "prime", "ton", "bert", "ster", "max", "duke", "runner", "wick", "zor" };
+
+        /// <summary>The i-th bot name of a week: distinct for i below 100, never numbered.</summary>
+        public static string BotName(long week, int i)
+        {
+            int n = BotFirst.Length * BotLast.Length;
+            int k = (int)((i + week * 37) % n);
+            if (k < 0) k += n;
+            int first = k % BotFirst.Length, last = (k / BotFirst.Length + first * 3) % BotLast.Length;
+            return BotFirst[first] + BotLast[last];
+        }
 
         private long MyPower() => Math.Max(100, Engine.BuildLoadout(_state, NowMs).Power);
 
@@ -303,7 +315,7 @@ namespace RogueStars.Client.Services
                 list.Add(new ArenaOpponent
                 {
                     PlayerId = "bot_" + week + "_" + i,
-                    DisplayName = BotNames[i % BotNames.Length] + (i >= BotNames.Length ? " " + (i / BotNames.Length + 1) : ""),
+                    DisplayName = BotName(week, i),
                     Points = Math.Max(0, Content.Arena.StartPoints + rng.Range(-200, 201)),
                     Power = (long)(power * (0.6 + rng.NextDouble() * 0.8)),
                 });

@@ -87,7 +87,9 @@ namespace RogueStars.Client.Tests
             Assert.That(picker, Is.Not.Null, "Train opens the picker");
             Assert.That(FindNamed(picker, "Train:" + two[0]), Is.Not.Null);
             Assert.That(FindNamed(picker, "Train:" + two[1]), Is.Not.Null);
-            Assert.That(Texts(picker), Does.Contain("LEVEL 1 → 2"));
+            Assert.That(Texts(picker), Does.Contain("Lv 2"), "C3: Name Lv 2, the upgrade inline");
+            Assert.That(Texts(picker), Does.Not.Contain("LEVEL 1 → 2"));
+            Assert.That(FindNamed(picker, "TrainList"), Is.Not.Null, "C1: the cards scroll between the ribbon and the footer");
             Btn(picker, "Train:" + two[1]).onClick.Invoke();
             Assert.That(RunDraft.Level(S.Run.Active, two[1]), Is.EqualTo(2), "the chosen skill trained");
             Assert.That(RunDraft.Level(S.Run.Active, two[0]), Is.EqualTo(1));
@@ -147,10 +149,11 @@ namespace RogueStars.Client.Tests
             Assert.That(lines.Exists(l => l.Key && l.Value.Contains("skill")), Is.True);
             string green = ColorUtility.ToHtmlStringRGB(RunScenes.Gain), red = ColorUtility.ToHtmlStringRGB(RunScenes.Loss);
             var rich = RunScenes.Colored(lines);
-            Assert.That(rich, Does.Contain("<color=#" + red + ">−10%</color>"));
+            Assert.That(rich, Does.Contain("<color=#" + red + ">10%</color>"));
+            Assert.That(rich, Does.Not.Contain("−"), "G8: no minus after a verb that already means loss");
             var cache = RunScenes.OutcomeText(C.RunEvents["abandoned_cache"].Options[0], C);
             Assert.That(cache, Does.Contain("65%:"));
-            Assert.That(cache, Does.Contain("account loot"));
+            Assert.That(cache, Does.Contain("reward chest"));
             Assert.That(cache, Does.Contain("<color=#" + green + ">"));
             Assert.That(RunScenes.OutcomeText(C.RunEvents["abandoned_cache"].Options[1], C), Is.EqualTo("Nothing happens"));
         }

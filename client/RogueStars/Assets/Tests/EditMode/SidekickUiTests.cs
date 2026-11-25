@@ -116,12 +116,15 @@ namespace RogueStars.Client.Tests
             Assert.That(AliensScreen.SquadHint(c, new System.Collections.Generic.List<string> { "alien_shiverpup", "alien_frostmite" }), Does.Contain("Freeze resets Chill"));
             Assert.That(AliensScreen.SquadHint(c, new System.Collections.Generic.List<string> { "alien_shiverpup", "alien_blorp" }), Is.Null);
 
-            // the screen: no levels, no Lv-up button, genes "coming soon", the ability of the star
+            // the screen: no levels, no Lv-up button, no genes line, the ability of the star
             _f.Service.State.Aliens.Owned["alien_pebblehorn"] = new OwnedAlien { TypeId = "alien_pebblehorn", Stars = 3, Level = 40 };
             _f.App.Router.Push(new AliensScreen());
             var texts = _f.App.Router.Current.Root.GetComponentsInChildren<Text>(true).Select(t => t.text).ToList();
             Assert.That(texts.Any(t => t.StartsWith("Lv ") || t.StartsWith("Lv up")), Is.False, string.Join(" | ", texts));
-            Assert.That(texts, Does.Contain(AliensScreen.GenesLine));
+            Assert.That(texts.Any(t => t.StartsWith("Genes")), Is.False, "genes stay hidden until they exist (AL1)");
+            Assert.That(texts.Any(t => t.Contains("hero_xp") || t.Contains("blueprint_tokens")), Is.False, "display names, never ids (AL1)");
+            Assert.That(AliensScreen.SquadTitle(2, 0), Is.EqualTo("Squad 2 · build housing for slots"));
+            Assert.That(AliensScreen.TraitText(c.AlienTrait("trait_scholar")), Is.EqualTo("+15% Hero XP, Blueprint Tokens and Alien Tokens production when working."));
             Assert.That(texts.Any(t => t.Contains("deals 25% less")), Is.True, "3★ Stone Guard");
             Assert.That(texts.Any(t => t.StartsWith("Breed")), Is.True, "a Breed shortcut (Grain's sink)");
         }
@@ -139,6 +142,12 @@ namespace RogueStars.Client.Tests
             var texts = _f.App.Router.Current.Root.GetComponentsInChildren<Text>(true).Select(t => t.text).ToList();
             Assert.That(texts, Does.Contain(BreedingScreen.Intro));
             Assert.That(texts.Any(t => t.Contains("(power)")), Is.False, "no gene stats");
+            if (BreedingSystem.Slots(_f.Service.State, c) == 0)
+            {
+                // AL2: no pen → a locked state with the way to build one, no disabled picker
+                Assert.That(texts, Does.Contain(BreedingScreen.NoPenText));
+                Assert.That(texts.Any(t => t == "Start breeding"), Is.False);
+            }
         }
 
         [Test]

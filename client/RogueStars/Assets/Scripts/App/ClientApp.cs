@@ -253,43 +253,112 @@ namespace RogueStars.Client.App
             sword.sprite = World.HudArt.Icon("sword"); sword.preserveAspect = true; sword.raycastTarget = false;
             sword.rectTransform.anchorMin = sword.rectTransform.anchorMax = new Vector2(0, 0);
             sword.rectTransform.sizeDelta = new Vector2(40, 40); sword.rectTransform.anchoredPosition = new Vector2(170, 38);
+            _builtFor = ScreenKey();
             if (s.State == null) return;
-            // Up to five currency chips (stamina first) and "All" in a 2-column block to the right of the profile.
-            var visible = HubLayout.VisibleCurrencies(s.State, s.Content);
-            // Two chip columns in what the profile leaves free of the 978-unit canvas (282-wide cells overflowed it and
-            // clipped the right column: Diamonds, "All").
-            var grid = Ui.Grid(bar, new Vector2(ChipWidth, 44), 2, 6);
-            var gl = grid.GetComponent<GridLayoutGroup>();
-            gl.childAlignment = TextAnchor.MiddleRight;
-            Ui.Size(grid, -1, 146, 1);
-            int shown = visible.Count > 1 ? Math.Min(visible.Count, MaxChips) : visible.Count;
-            for (int i = 0; i < shown; i++)
+            // G2: up to four currency chips relevant to the screen (icon + number), zero balances hidden, then the wallet.
+            var shownIds = ChipsFor(s.State, s.Content, _builtFor);
+            var row = Ui.Row(bar, 140, 6, null, 0, "Currencies");
+            var rl = row.GetComponent<HorizontalLayoutGroup>();
+            rl.childAlignment = TextAnchor.MiddleRight; rl.childForceExpandWidth = false; rl.childForceExpandHeight = false;
+            Ui.Size(row, -1, 140, 1);
+            foreach (var cid in shownIds)
             {
-                string id = visible[i];
-                var chip = HubKit.RoundPanel(grid, new Color32(0x16, 0x12, 0x2A, 255), "ChipBg:" + id);
+                string id = cid;
+                var cell = Ui.Column(row, 2, 0, null, "Cell:" + id);
+                cell.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+                Ui.Size(cell, ChipWidth, 140, 0);
+                var chip = HubKit.RoundPanel(cell, new Color32(0x16, 0x12, 0x2A, 255), "ChipBg:" + id);
+                Ui.Size(chip, ChipWidth, 56, 0);
                 var cb = chip.gameObject.AddComponent<Button>(); // tap: what it is for and where to spend it
                 cb.targetGraphic = chip;
                 cb.onClick.AddListener(() => ShowCurrency(id));
-                var dot = Ui.Panel(chip.transform, Theme.CurrencyColor(id), "Dot");
-                dot.sprite = HubKit.Circle;
-                var drt = dot.rectTransform;
-                drt.anchorMin = drt.anchorMax = drt.pivot = new Vector2(0, 0.5f);
-                drt.sizeDelta = new Vector2(30, 30); drt.anchoredPosition = new Vector2(8, 0);
-                UiShapes.Outline(drt, Screens.SliceKit.Ink, 15, 3);
-                var t = Screens.SliceKit.Chunky(chip.transform, "", 28, Color.white, TextAnchor.MiddleLeft, "Chip:" + id);
-                Ui.Stretch(t.rectTransform, 40, 0, 6, 0);
+                var icon = Ui.Panel(chip.transform, Color.white, "Icon");
+                icon.sprite = World.SummonArt.CurrencyIcon(id); icon.preserveAspect = true; icon.raycastTarget = false;
+                var irt = icon.rectTransform;
+                irt.anchorMin = irt.anchorMax = irt.pivot = new Vector2(0, 0.5f);
+                irt.sizeDelta = new Vector2(44, 44); irt.anchoredPosition = new Vector2(2, 0);
+                var t = Screens.SliceKit.Chunky(chip.transform, "", 28, Color.white, TextAnchor.MiddleCenter, "Chip:" + id);
+                t.resizeTextForBestFit = true; t.resizeTextMinSize = 16; t.resizeTextMaxSize = t.fontSize;
+                Ui.Stretch(t.rectTransform, 46, 0, 6, 0);
                 _live.Add(new KeyValuePair<Text, Func<string>>(t, () => ChipText(id)));
+                if (s.Content.Regen(id) != null)
+                {
+                    // the regen timer sits under its pill (it ran into the next chip)
+                    var timer = Screens.SliceKit.Chunky(cell, "", 22, new Color32(0xC9, 0xCF, 0xF5, 255), TextAnchor.UpperCenter, "Timer:" + id);
+                    Ui.Size(timer, ChipWidth, 28, 0);
+                    _live.Add(new KeyValuePair<Text, Func<string>>(timer, () => RegenTimer(id)));
+                }
             }
-            if (visible.Count > 1)
-                HubKit.RoundButton(grid, visible.Count > shown ? "All (" + visible.Count + ")" : "All", ShowDetails, HubKit.TabActive, HubKit.Cyan, -1, 44, 22).name = "CurrencyDetails";
+            if (HubLayout.VisibleCurrencies(s.State, s.Content).Count > 0)
+            {
+                // the wallet: every balance and what it is for
+                var wallet = Ui.Panel(row, new Color(0, 0, 0, 0), "CurrencyDetails");
+                Ui.Size(wallet, 64, 64, 0);
+                var wb = wallet.gameObject.AddComponent<Button>();
+                wb.targetGraphic = wallet;
+                wb.onClick.AddListener(ShowDetails);
+                var wi = Ui.Panel(wallet.transform, Color.white, "Icon");
+                wi.sprite = World.SummonArt.Icon("wallet"); wi.preserveAspect = true; wi.raycastTarget = false;
+                Ui.Stretch(wi.rectTransform);
+            }
             Tick();
         }
 
-        /// <summary>Currency chips in the bar before "All".</summary>
-        public const int MaxChips = 5;
+        /// <summary>Currency chips in the bar at most (G2: 3–4 per screen).</summary>
+        public const int MaxChips = 4;
 
-        /// <summary>Profile chip and currency chip widths: 12 + 400 + 12 + (2 × 265 + 6) + 12 ≤ 978.</summary>
-        public const float ProfileWidth = 400, ChipWidth = 265;
+        /// <summary>Profile chip and currency chip widths: 12 + 400 + 6 + (4 × 112 + 4 × 6 + 64) + 12 ≤ 978.</summary>
+        public const float ProfileWidth = 400, ChipWidth = 112;
+
+        private string _builtFor;
+
+        /// <summary>The screen the bar was built for (the router's top screen type).</summary>
+        private string ScreenKey() => _app.Router?.Current?.GetType().Name ?? "";
+
+        /// <summary>
+        /// The currencies a screen's bar shows, most relevant first (G2). Stamina and Diamonds are the defaults; feature
+        /// screens show what is spent there.
+        /// </summary>
+        public static string[] RelevantCurrencies(string screen)
+        {
+            switch (screen)
+            {
+                case "WormScreen": case "PartsScreen": case "GearScreen":
+                    return new[] { Currencies.Ore, Currencies.GearCores, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, Currencies.Diamonds };
+                case "CityScreen": return new[] { Currencies.Biomass, Currencies.Grain, Currencies.Ore, Currencies.Diamonds };
+                case "SignalsScreen": return new[] { Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens, Currencies.Diamonds };
+                case "HeroesScreen": return new[] { Currencies.HeroXp, Currencies.HeroSigils, Currencies.Diamonds };
+                case "MountsScreen": return new[] { Currencies.Fuel, Currencies.MountBolts, Currencies.Diamonds };
+                case "SummonEventScreen": case "SummonExchangeScreen": return new[] { Currencies.HeroTickets, Currencies.MountTickets, Currencies.Diamonds };
+                case "LaboratoryScreen": return new[] { Currencies.Data, Currencies.Biomass, Currencies.Diamonds };
+                case "AliensScreen": case "BreedingScreen": return new[] { Currencies.AlienTokens, Currencies.Grain, Currencies.Diamonds };
+                case "ArenaScreen": return new[] { Currencies.ArenaTickets, Currencies.ArenaMedals, Currencies.Diamonds };
+                case "ObservatoryScreen": return new[] { Currencies.InvasionAttempts, Currencies.Diamonds };
+                case "GuildScreen": return new[] { Currencies.GuildMarks, Currencies.Diamonds };
+                case "ReactorScreen": return new[] { Currencies.Fuel, Currencies.Diamonds };
+                case "ShopScreen": return new[] { Currencies.Diamonds, Currencies.Stamina };
+                case "HubScreen": return new[] { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.Biomass };
+                default: return new[] { Currencies.Stamina, Currencies.Diamonds };
+            }
+        }
+
+        /// <summary>
+        /// The chips for a screen: its relevant currencies the player has a use for, at most <see cref="MaxChips"/>; zero
+        /// balances are hidden (stamina and Diamonds always show: refills and the shop's entry).
+        /// </summary>
+        public static List<string> ChipsFor(GameState s, RogueStars.Rules.Content.ContentDb c, string screen)
+        {
+            var visible = HubLayout.VisibleCurrencies(s, c);
+            var list = new List<string>();
+            foreach (var id in RelevantCurrencies(screen))
+            {
+                if (list.Count >= MaxChips) break;
+                if (!visible.Contains(id) || list.Contains(id)) continue;
+                if (s.Wallet.Get(id) <= 0 && id != Currencies.Stamina && id != Currencies.Diamonds) continue;
+                list.Add(id);
+            }
+            return list;
+        }
 
         /// <summary>The top bar's band (reference home: a dark purple band under the portrait and the currencies).</summary>
         public static readonly Color BarBg = new Color32(0x2A, 0x22, 0x46, 255);
@@ -350,15 +419,15 @@ namespace RogueStars.Client.App
                     var rb = row.gameObject.AddComponent<Button>();
                     rb.targetGraphic = row.GetComponent<Image>();
                     rb.onClick.AddListener(() => ShowCurrency(cur));
-                    var sw = Ui.Panel(row, Theme.CurrencyColor(id), "Swatch");
-                    sw.sprite = HubKit.Circle;
-                    Ui.Size(sw, 28, 28, 0);
+                    var sw = Ui.Panel(row, Color.white, "Swatch");
+                    sw.sprite = World.SummonArt.CurrencyIcon(id); sw.preserveAspect = true;
+                    Ui.Size(sw, 64, 64, 0);
                     var col = Ui.Column(row, 2, 0, null, "Names");
                     col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                     Ui.Size(col, -1, -1, 1);
                     Ui.Label(col, info.Name, Theme.FontSmall, Theme.Text);
                     Ui.Label(col, info.Use, 20, Theme.TextDim, TextAnchor.MiddleLeft, "Use");
-                    var v = Ui.Label(row, ChipText(id).Replace(Fmt.CurrencyShort(id) + " ", ""), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
+                    var v = Ui.Label(row, ChipText(id), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight);
                     Ui.Size(v, 230, -1, 0);
                     var go = Ui.Label(row, "›", Theme.FontLarge, Theme.Accent, TextAnchor.MiddleCenter, "More");
                     Ui.Size(go, 30, -1, 0);
@@ -370,6 +439,17 @@ namespace RogueStars.Client.App
         /// One currency's explainer: balance, what it is for (the rules' reward-use text), what the player can do with it
         /// right now (Ore: equipped parts to level up) and a Go button to where it is spent (<see cref="CurrencyGuide"/>).
         /// </summary>
+        /// <summary>Is <paramref name="screenId"/> the screen on top (the Worm and Parts count as one gear screen)?</summary>
+        private bool IsCurrentScreen(string screenId)
+        {
+            var cur = _app.Router.Current;
+            if (cur == null) return false;
+            if ((screenId == "worm" || screenId == "parts") && cur is GearScreen) return true;
+            var entry = ScreenCatalog.Find(screenId);
+            var made = entry?.Create?.Invoke();
+            return made != null && made.GetType() == cur.GetType();
+        }
+
         public UiModal ShowCurrency(string id)
         {
             var s = _app.Session;
@@ -377,20 +457,16 @@ namespace RogueStars.Client.App
             Ui.Clear(_app.ModalLayer);
             var info = CurrencyGuide.For(s.State, s.Content, id);
             var buttons = new List<ModalButton>();
-            if (info.ScreenId != null)
+            // W6: no "Go to X" while X is the current screen (the Worm and Parts share the gear screen)
+            if (info.ScreenId != null && !IsCurrentScreen(info.ScreenId))
             {
                 string screen = info.ScreenId;
-                buttons.Add(new ModalButton(info.GoLabel, () =>
-                {
-                    // already on the gear screen: just bring the inventory into view
-                    if ((screen == "worm" || screen == "parts") && _app.Router.Current is GearScreen gear) gear.FocusInventory();
-                    else _app.Open(screen);
-                }, Theme.Accent));
+                buttons.Add(new ModalButton(info.GoLabel, () => _app.Open(screen), Theme.Accent));
             }
             buttons.Add(new ModalButton("Close", null));
             var modal = Ui.Modal(_app.ModalLayer, info.Name, b =>
             {
-                Ui.Display(b, "You have " + ChipText(id).Replace(Fmt.CurrencyShort(id) + " ", ""), Theme.FontLarge, Theme.CurrencyColor(id), TextAnchor.MiddleCenter, "Balance");
+                Ui.Display(b, "You have " + ChipText(id), Theme.FontLarge, Theme.CurrencyColor(id), TextAnchor.MiddleCenter, "Balance");
                 Ui.Caption(b, "What it's for");
                 Ui.Label(b, info.Use, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "Use");
                 if (!string.IsNullOrEmpty(info.Hint)) Ui.Label(b, info.Hint, Theme.FontSmall, Theme.Good, TextAnchor.MiddleLeft, "Hint");
@@ -400,27 +476,38 @@ namespace RogueStars.Client.App
             return modal;
         }
 
-        private string ChipText(string id)
+        /// <summary>The chip's number: the balance, "/cap" while a regen currency is below its cap (G2: numbers only).</summary>
+        public string ChipText(string id)
         {
             var s = _app.Session;
             if (s.State == null) return "";
-            string text = Fmt.CurrencyShort(id) + " " + Fmt.Num(s.State.Wallet.Get(id));
+            string text = Fmt.Num(s.State.Wallet.Get(id));
             var rule = s.Content.Regen(id);
-            if (rule != null && s.State.Wallet.Regen.TryGetValue(id, out var rs))
+            if (rule != null && s.State.Wallet.Regen.ContainsKey(id))
             {
                 long cap = s.State.Wallet.Cap(rule);
-                if (s.State.Wallet.Get(id) < cap)
-                {
-                    long tick = Math.Max(1000, (long)(rule.TickMs * (1 - Math.Min(90, rs.TickSpeedPercent) / 100.0)));
-                    long next = rs.LastTickMs + tick - s.NowMs;
-                    text += "/" + cap + " " + Fmt.Duration(Math.Max(0, next));
-                }
+                if (s.State.Wallet.Get(id) < cap) text += "/" + cap;
             }
             return text;
         }
 
+        /// <summary>Time to the next regen tick ("6m 00s"), empty at the cap: shown under the pill.</summary>
+        public string RegenTimer(string id)
+        {
+            var s = _app.Session;
+            if (s.State == null) return "";
+            var rule = s.Content.Regen(id);
+            if (rule == null || !s.State.Wallet.Regen.TryGetValue(id, out var rs)) return "";
+            long cap = s.State.Wallet.Cap(rule);
+            if (s.State.Wallet.Get(id) >= cap) return "";
+            long tick = Math.Max(1000, (long)(rule.TickMs * (1 - Math.Min(90, rs.TickSpeedPercent) / 100.0)));
+            long next = rs.LastTickMs + tick - s.NowMs;
+            return Fmt.Duration(Math.Max(0, next));
+        }
+
         public void Tick()
         {
+            if (_builtFor != null && _builtFor != ScreenKey()) { Rebuild(); return; } // another screen: its currencies
             foreach (var kv in _live) if (kv.Key != null) kv.Key.text = kv.Value();
         }
     }

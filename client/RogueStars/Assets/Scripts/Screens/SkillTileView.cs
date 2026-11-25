@@ -99,7 +99,7 @@ namespace RogueStars.Client.Screens
             var hit = tile.GetComponent<Image>();
             if (hit == null) { hit = tile.gameObject.AddComponent<Image>(); hit.color = new Color(0, 0, 0, 0); }
             hit.raycastTarget = true;
-            var b = tile.GetComponent<Button>() ?? tile.gameObject.AddComponent<Button>();
+            var b = tile.GetComponent<Button>(); if (b == null) b = tile.gameObject.AddComponent<Button>();
             b.transition = Selectable.Transition.None;
             b.onClick.AddListener(() => SkillTooltip.Show(tile, c, tip()));
             return b;

@@ -11,7 +11,7 @@ namespace RogueStars.Client.Screens
     /// <summary>
     /// Breeding Pen (aliens pass): Grain's only use and the targeted shard source. Pick two parents; the baby is randomly one of their
     /// two species; keep it (its traits replace the current alien's, stars stay) or release it for shards of its species.
-    /// Genes are bred but inactive ("coming soon").
+    /// Genes are bred but inactive (not shown). Without a Breeding Pen: a locked state with "Go to City".
     /// </summary>
     public sealed class BreedingScreen : UiScreen
     {
@@ -33,11 +33,26 @@ namespace RogueStars.Client.Screens
             int slots = BreedingSystem.Slots(State, Content);
             var jobs = State.Breeding.Jobs;
             Note(body, Intro).name = "Intro";
-            Note(body, "Slots: " + jobs.Count + "/" + slots + (slots == 0 ? " — build a Breeding Pen in the City" : "") + " · Grain " + Fmt.Num(State.Wallet.Get(Currencies.Grain)));
             Pending(body);
             Jobs(body);
+            if (slots == 0) { NoPen(body); return; }
+            Note(body, "Slots: " + jobs.Count + "/" + slots + " · Grain " + Fmt.Num(State.Wallet.Get(Currencies.Grain)));
             Picker(body, slots);
         }
+
+        /// <summary>AL2: without a Breeding Pen the picker is not shown: a locked state with the way to build one.</summary>
+        private void NoPen(RectTransform body)
+        {
+            var card = Ui.Card(body, Theme.PanelAlt, Theme.Border, Theme.RadiusCard, 28, 12, 4, "NoPen");
+            var lockRt = Ui.Rect(card, "Lock");
+            Ui.Size(lockRt, 96, 96, 0);
+            var li = lockRt.gameObject.AddComponent<UnityEngine.UI.Image>();
+            li.sprite = RogueStars.Client.World.SummonArt.Icon("lock"); li.preserveAspect = true; li.raycastTarget = false;
+            Ui.Display(card, NoPenText, Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "NoPenText");
+            Ui.Button(card, "Go to City", () => App.Open("city"), Theme.Accent, -1, Theme.ButtonHeight).name = "GoToCity";
+        }
+
+        public const string NoPenText = "Build a Breeding Pen in the City";
 
         private void Pending(RectTransform body)
         {
@@ -60,7 +75,6 @@ namespace RogueStars.Client.Screens
                 Ui.Label(b, "Traits (baby vs current):", Theme.FontNormal);
                 KeyValue(b, "Baby", Traits(child.Traits));
                 KeyValue(b, "Current", current != null ? Traits(current.Traits) : "—");
-                Note(b, AliensScreen.GenesLine);
                 Note(b, "Keep: the baby's traits replace the current " + Name(child.TypeId) + "'s; its stars stay. Release: " + ReleaseText(Content, child) + ".");
             },
             new ModalButton("Keep", () => Run(new BreedResolve { ChildId = child.Id, Keep = BreedKeep.Replace }), Theme.Good),
@@ -111,8 +125,10 @@ namespace RogueStars.Client.Screens
             KeyValue(body, "Baby", OddsText(Content, _a, _b));
             KeyValue(body, "Cost", Fmt.Num(grain) + " Grain", State.Wallet.CanAfford(Currencies.Grain, grain) ? Theme.Text : Theme.Bad);
             KeyValue(body, "Duration", Fmt.Duration(ms));
-            bool can = slots > State.Breeding.Jobs.Count && State.Wallet.CanAfford(Currencies.Grain, grain);
-            Ui.Button(body, "Start breeding", () => Run(new BreedStart { ParentA = _a, ParentB = _b }, r => { if (r.Ok) { _b = null; } }), Theme.Accent, -1, Theme.ButtonHeight, can);
+            bool free = slots > State.Breeding.Jobs.Count;
+            bool afford = State.Wallet.CanAfford(Currencies.Grain, grain);
+            string why = !free ? "All breeding slots are busy" : !afford ? "Needs " + Fmt.Num(grain - State.Wallet.Get(Currencies.Grain)) + " more Grain" : null;
+            Ui.ButtonWithReason(body, "Start breeding", () => Run(new BreedStart { ParentA = _a, ParentB = _b }, r => { if (r.Ok) { _b = null; } }), Theme.Accent, -1, Theme.ButtonHeight, free && afford, why);
         }
 
         /// <summary>"50% Blorp (1 shard if released) · 50% Solarch (2 shards)".</summary>
@@ -130,14 +146,17 @@ namespace RogueStars.Client.Screens
         private void ParentRow(RectTransform body, string label, List<string> ids, string selected, System.Action<string> pick)
         {
             Note(body, label);
-            var grid = Ui.Grid(body, new Vector2(320, 80), 3, 8);
-            foreach (var id in ids)
+            // AL2: three flexible columns sized from the available width (no fixed cell clipped at the right edge)
+            RectTransform grid = null;
+            for (int i = 0; i < ids.Count; i++)
             {
-                string alien = id;
+                if (i % 3 == 0) grid = Ui.Row(body, 80, 8, null, 0, "ParentRow");
+                string alien = ids[i];
                 var def = Content.AlienType(alien);
                 var o = AlienSystem.Owned(State, alien);
                 Ui.Button(grid, (def?.Name ?? alien) + (o != null ? " " + o.Stars + "★" : ""), () => pick(alien),
                     alien == selected ? Theme.Accent : Color.Lerp(Theme.RarityColor(def?.Rarity ?? Rarity.Common), Theme.Panel, 0.6f), -1, 80, true, 24);
+                if (i == ids.Count - 1) for (int k = i % 3; k < 2; k++) Ui.Size(Ui.Rect(grid, "Filler"), -1, 80, 1);
             }
         }
 

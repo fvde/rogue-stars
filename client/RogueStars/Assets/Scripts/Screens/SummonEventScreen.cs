@@ -94,9 +94,9 @@ namespace RogueStars.Client.Screens
 
             // the featured one, big, centre stage
             float art = Mathf.Min(Type == SummonEventType.Hero ? 820 : 640, Mathf.Min(width - 260, height * 0.56f) + (Type == SummonEventType.Hero ? 120 : 0));
-            var featured = SummonKit.Img(stage.transform, SummonArt.Featured(Type, ev.FeaturedId), "Featured");
+            var featured = SummonKit.FeaturedArt(stage.transform, Type, ev.FeaturedId);
             SummonKit.Place(featured, new Vector2(0.5f, 1), new Vector2(-90, Type == SummonEventType.Hero ? -150 : -260), new Vector2(art, art));
-            UiBob.On(featured.rectTransform, 10, 2.6f);
+            UiBob.On(featured, 10, 2.6f);
 
             // time left + what the player owns of it
             var time = SummonKit.Chunky(stage.transform, "", 34, Color.white, TextAnchor.MiddleLeft, "TimeLeft");
@@ -183,9 +183,11 @@ namespace RogueStars.Client.Screens
             var skip = Ui.Row(Footer, 60, 14, null, 0, "SkipRow");
             var sh = skip.GetComponent<HorizontalLayoutGroup>();
             sh.childAlignment = TextAnchor.MiddleCenter; sh.childForceExpandWidth = false;
-            var box = Ui.Button(skip, "", () => { SkipAnimation = !SkipAnimation; Rebuild(); }, Theme.Hex(0xF4F0FF), 56, 56, true);
+            // SM5: a framed checkbox — dark well with a light frame, a check mark when on
+            var box = Ui.Button(skip, "", () => { SkipAnimation = !SkipAnimation; Rebuild(); }, SkipAnimation ? SummonKit.Lime : SummonKit.Deep, 56, 56, true);
             box.name = "SkipAnimation";
-            if (SkipAnimation) SummonKit.Place(SummonKit.Img(box.targetGraphic.transform, SummonArt.Icon("check"), "Check"), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56, 56));
+            UiShapes.Outline((RectTransform)box.targetGraphic.transform, Theme.Hex(0xF4F0FF), 14, 4);
+            if (SkipAnimation) SummonKit.Place(SummonKit.Img(box.targetGraphic.transform, SummonArt.Icon("check"), "Check"), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50, 50));
             var st = SummonKit.Chunky(skip, "Skip Animation", 40, Color.white, TextAnchor.MiddleLeft, "SkipLabel");
             st.horizontalOverflow = HorizontalWrapMode.Overflow;
             Ui.Size(st, -1, 60, 0);
@@ -217,9 +219,19 @@ namespace RogueStars.Client.Screens
             bool can = tickets || State.Wallet.Get(Currencies.Diamonds) >= dia;
             string caption = count + "× Draw";
             var face = tickets ? SummonKit.Lime : Theme.Premium;
-            SummonKit.ActionButton(row, caption, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
-                tickets ? State.Wallet.Get(def.TicketCurrency) + "/" + need : Fmt.Num(dia),
+            // SM2: the cost ("1 ticket", "10 tickets"); red when the balance is short (the balance is in the top bar)
+            var b = SummonKit.ActionButton(row, caption, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
+                tickets ? TicketCost(need) : Fmt.Num(dia),
                 () => Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, ev.Id), face, -1, 150, can, "Draw:" + count);
+            if (!can) MarkShort(b);
+        }
+
+        /// <summary>"1 ticket" / "10 tickets".</summary>
+        public static string TicketCost(long n) => Fmt.Num(n) + (n == 1 ? " ticket" : " tickets");
+
+        private static void MarkShort(Button b)
+        {
+            foreach (var t in b.GetComponentsInChildren<Text>(true)) if (t.name == "Count") t.color = Theme.Bad;
         }
 
         public void Pull(int count, SummonPayment pay, string eventId)
@@ -261,9 +273,10 @@ namespace RogueStars.Client.Screens
                     int count = result.Items.Count;
                     bool tickets = SummonView.PaysWithTickets(State, def, count);
                     bool can = tickets || State.Wallet.Get(Currencies.Diamonds) >= SummonView.DiamondCost(def, count);
-                    SummonKit.ActionButton(buttons, "Again ×" + count, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
-                        tickets ? State.Wallet.Get(def.TicketCurrency) + "/" + (count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1) : Fmt.Num(SummonView.DiamondCost(def, count)),
+                    var again = SummonKit.ActionButton(buttons, "Again ×" + count, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
+                        tickets ? TicketCost(count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1) : Fmt.Num(SummonView.DiamondCost(def, count)),
                         () => { m.Close(); Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, result.EventId); }, tickets ? SummonKit.Lime : Theme.Premium, -1, 110, can, "Again");
+                    if (!can) MarkShort(again);
                 }
             }, 960);
             if (Application.isPlaying && !SkipAnimation)
@@ -284,12 +297,18 @@ namespace RogueStars.Client.Screens
             var card = Ui.RoundPanel(grid, Color.Lerp(color, SummonKit.Night, 0.25f), 26, "Card:" + it.Kind + ":" + it.Id);
             UiShapes.Outline(card.rectTransform, Color.Lerp(color, Color.white, 0.3f), 26, 4);
             var reward = new Reward(it.Kind, it.Id, it.Amount);
-            var icon = SummonKit.Img(card.transform, SummonArt.RewardIcon(reward), "Icon");
-            SummonKit.Place(icon, new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(130, 130));
+            if (reward.Kind == RewardKinds.Hero) SummonKit.Place(SummonKit.FeaturedArt(card.transform, SummonEventType.Hero, reward.Id, "Icon"), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(112, 112));
+            else SummonKit.Place(SummonKit.Img(card.transform, SummonArt.RewardIcon(reward), "Icon"), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(112, 112));
             string amount = SummonView.Amount(reward);
-            if (amount.Length > 0) SummonKit.Place(SummonKit.Chunky(card.transform, amount, 30, Color.white, TextAnchor.MiddleRight, "Amount"), new Vector2(1, 1), new Vector2(-8, -108), new Vector2(150, 40));
+            if (amount.Length > 0)
+            {
+                // SM3: the amount under the icon, shrunk to fit the card
+                var a = SummonKit.Chunky(card.transform, amount, 30, Color.white, TextAnchor.MiddleCenter, "Amount");
+                a.resizeTextForBestFit = true; a.resizeTextMinSize = 14; a.resizeTextMaxSize = 30;
+                SummonKit.Place(a, new Vector2(0.5f, 1), new Vector2(0, -126), new Vector2(150, 36));
+            }
             var name = SummonKit.Chunky(card.transform, SummonView.RewardName(reward, Content), 22, Color.white, TextAnchor.UpperCenter, "Name");
-            SummonKit.Place(name, new Vector2(0.5f, 0), new Vector2(0, 8), new Vector2(154, 96));
+            SummonKit.Place(name, new Vector2(0.5f, 0), new Vector2(0, 6), new Vector2(154, 80));
             string badge = SummonView.CopyBadge(it, Content);
             if (badge.Length > 0 || it.Featured)
             {

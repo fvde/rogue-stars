@@ -46,6 +46,8 @@ namespace RogueStars.Client.Screens
             public int Guards;
             /// <summary>An alien Guard's % (aliens pass): the next hit taken deals that much less (0 = a Block's full intercept).</summary>
             public long GuardPct;
+            /// <summary>Damage numbers / words floating over this fighter right now (they stack upwards).</summary>
+            public int LivePopups;
             public bool Sidekick => Info.Side == BattleSide.Player && (Info.Role == CombatRole.Alien || Info.Role == CombatRole.Summon);
         }
 
@@ -67,6 +69,8 @@ namespace RogueStars.Client.Screens
         private Text _banner;
         private RectTransform _endPanel;
         private RectTransform _stage;
+        /// <summary>Damage numbers, words and ability banners: a layer over every fighter (BT5), cleared when the battle ends.</summary>
+        private RectTransform _fx;
         private RectTransform _order;
         private bool _built;
         private RectTransform _feed;
@@ -145,6 +149,9 @@ namespace RogueStars.Client.Screens
             var bl = body.GetComponent<VerticalLayoutGroup>();
             if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 0); bl.spacing = 0; }
             _ctx = _ctx ?? BattleHudContext.FromRun(State?.Run.Active, Content);
+            // BT3: a battle without run stats (hero / mount kit fights, a run that already ended) shows the worm's account
+            // stats, bound before the first frame — the HUD never shows "–"
+            if (!_ctx.HasStats && State != null && Session?.Engine != null) _ctx.FillFromAccount(State, Session.Engine.BuildLoadout(State, Now));
             float frameH = BodyFrame != null && BodyFrame.rect.height > 100 ? BodyFrame.rect.height : 1920;
             float frameW = BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width : 1080;
             float s = frameW / 1080f;
@@ -175,6 +182,9 @@ namespace RogueStars.Client.Screens
                 _views.Add(Fighter(f, side.IndexOf(f), side.Count));
             }
             _hero = _views.Find(v => v.Info.Role == CombatRole.Worm) ?? _views.Find(v => v.Info.Side == BattleSide.Player);
+            _fx = Ui.Rect(holder, "BattleFx");
+            _fx.anchorMin = _stage.anchorMin; _fx.anchorMax = _stage.anchorMax; _fx.pivot = _stage.pivot;
+            _fx.sizeDelta = _stage.sizeDelta; _fx.localScale = _stage.localScale; _fx.anchoredPosition = _stage.anchoredPosition;
             var mount = _views.Find(v => v.Info.Role == CombatRole.Mount);
             if (mount != null && _hero != null && _hero.Info.Role == CombatRole.Worm) SeatOnMount(_hero, mount.Info.Id);
 
@@ -239,7 +249,7 @@ namespace RogueStars.Client.Screens
             // bottom row: speed chips, Continue (at the end), battle log
             bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
             // one dark speed pill bottom-left (the board's speed chip look): the ">>" icon, then the x1 / x2 / x3 segments
-            var speedPill = SliceKit.Pill(holder, s, 212, 2290, 404, 104, new Color32(0x3A, 0x2E, 0x58, 245), "SpeedPill", true);
+            var speedPill = SliceKit.Pill(holder, s, 212, SpeedPillY, 404, 104, new Color32(0x3A, 0x2E, 0x58, 245), "SpeedPill", true);
             var spIcon = Ui.Panel(speedPill.transform, Color.white, "SpeedIcon");
             spIcon.sprite = HudArt.Icon("speed");
             spIcon.preserveAspect = true;
@@ -289,9 +299,19 @@ namespace RogueStars.Client.Screens
 
         // ---- the skill grid (reference 3): 5 columns of tier-framed icons, each pops when its skill fires ----------------
 
-        /// <summary>Skill tiles in the grid (the last one is "+N" when there are more).</summary>
+        /// <summary>Skill tiles per row and their size (reference px); every skill gets a tile, the area scrolls (BT2).</summary>
         public const int GridColumns = 5, GridRows = 3;
         public const float GridTile = 172;
+        /// <summary>Six smaller tiles per row when the area is shorter than two rows (16:9 phones, BT1).</summary>
+        public const int CompactColumns = 6;
+        public const float CompactTile = 146;
+        /// <summary>Reference px kept free above the bottom control bar (speed, Continue, Log).</summary>
+        public const float ControlBarClear = 186;
+        /// <summary>Reference y of the speed pill's centre (the control bar).</summary>
+        public const float SpeedPillY = 2290;
+
+        /// <summary>The skill grid's scroll view (tests).</summary>
+        public ScrollRect SkillScroll { get; private set; }
 
         private void SkillGrid(RectTransform holder, float s, float arenaRefH)
         {
@@ -300,32 +320,57 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(grid);
             var order = BattleSkillFx.StripOrder(_ctx.Skills, _battle, Content);
             var levels = _ctx.Levels;
-            int slots = GridColumns * GridRows;
-            var tray = RunPresentation.Tray(Content, order, id => levels != null && levels.TryGetValue(id, out var lv) ? lv : 1, slots);
+            var tray = RunPresentation.Tray(Content, order, id => levels != null && levels.TryGetValue(id, out var lv) ? lv : 1, int.MaxValue);
+            // the area between the arena and the control bar: anchored above the controls (BT1), scrolls when it overflows (BT2)
+            float holderH = holder.GetComponent<LayoutElement>() != null && holder.GetComponent<LayoutElement>().preferredHeight > 100
+                ? holder.GetComponent<LayoutElement>().preferredHeight : holder.rect.height;
+            float refH = holderH > 100 ? holderH / s : 2400;
+            float top = arenaRefH + 24, bottom = Mathf.Max(top + 120, refH - ControlBarClear);
+            bool compact = bottom - top < 2 * GridTile + 30;
+            int cols = compact ? CompactColumns : GridColumns;
+            float tileSize = compact ? CompactTile : GridTile;
+            float step = compact ? 160 : 187.5f;
+            float x0 = 540 - (cols - 1) * step / 2;
+            var view = Ui.Rect(grid, "SkillViewport");
+            view.anchorMin = new Vector2(0, 0); view.anchorMax = new Vector2(1, 1); view.pivot = new Vector2(0.5f, 1);
+            // stretched between the arena and the control bar, whatever the holder's final height (BT1)
+            view.offsetMin = new Vector2(0, ControlBarClear * s); view.offsetMax = new Vector2(0, -top * s);
+            view.gameObject.AddComponent<RectMask2D>();
+            var hit = view.gameObject.AddComponent<Image>();
+            hit.color = new Color(0, 0, 0, 0); // drag target between tiles
+            var content = Ui.Rect(view, "SkillContent");
+            int rows = Mathf.Max(1, (tray.Tiles.Count + cols - 1) / cols);
+            float contentH = Mathf.Max(bottom - top, rows * step + 12);
+            content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1); content.pivot = new Vector2(0.5f, 1);
+            content.sizeDelta = new Vector2(0, contentH * s); content.anchoredPosition = Vector2.zero;
+            var sr = view.gameObject.AddComponent<ScrollRect>();
+            sr.content = content; sr.viewport = view; sr.horizontal = false; sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Clamped; sr.scrollSensitivity = 40;
+            SkillScroll = sr;
             int i = 0;
-            float x0 = 165, step = 187.5f, y0 = arenaRefH + 138;
+            float y0 = step / 2 + 6;
             foreach (var t in tray.Tiles)
             {
-                var tile = SkillIconTile(grid, t, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, s);
-                SliceKit.Place(tile, s, x0 + (i % GridColumns) * step, y0 + (i / GridColumns) * step, GridTile, GridTile);
+                var tile = SkillTileView.Build(content, t.SkillId, t.Color, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, tileSize * s);
+                SliceKit.Place(tile, s, x0 + (i % cols) * step, y0 + (i / cols) * step, tileSize, tileSize);
                 var tip = SkillTip.Of(t.SkillId, t.Level);
                 SkillTileView.Tappable(tile, Content, () => tip); // tap = the full text (owner playtest 0.1.224)
                 _skillTiles[t.SkillId] = tile;
                 i++;
             }
-            if (tray.Overflow > 0)
+            if (rows * step + 12 > bottom - top)
             {
-                var more = Ui.Button(grid, "+" + tray.Overflow, null, new Color32(0x2A, 0x30, 0x48, 255), GridTile * s, GridTile * s, true, (int)(52 * s));
-                more.name = "MoreSkills";
-                SliceKit.Place((RectTransform)more.transform, s, x0 + (i % GridColumns) * step, y0 + (i / GridColumns) * step, GridTile, GridTile);
-                UiShapes.Outline((RectTransform)more.transform, IsoArt.Ink, 26 * s, 5);
-                more.GetComponentInChildren<Text>().color = Color.white;
-                _skillTiles[MoreKey] = (RectTransform)more.transform;
+                // a fade at the bottom edge: more tiles below
+                var fade = Ui.Panel(grid, Color.white, "SkillScrollHint");
+                fade.sprite = HudArt.Gradient(new Color32(0x16, 0x1E, 0x28, 0), new Color32(0x16, 0x1E, 0x28, 255));
+                fade.raycastTarget = false;
+                fade.rectTransform.anchorMin = new Vector2(0, 0); fade.rectTransform.anchorMax = new Vector2(1, 0); fade.rectTransform.pivot = new Vector2(0.5f, 0);
+                fade.rectTransform.sizeDelta = new Vector2(0, 40 * s); fade.rectTransform.anchoredPosition = new Vector2(0, ControlBarClear * s);
             }
-            if (tray.Tiles.Count == 0 && tray.Overflow == 0)
+            if (tray.Tiles.Count == 0)
             {
                 var none = SliceKit.Chunky(grid, "No skills yet — draft some on the board.", (int)(34 * s), Theme.TextDim, TextAnchor.MiddleCenter, "NoSkills");
-                SliceKit.Place(none.rectTransform, s, 540, y0, 1000, 80);
+                SliceKit.Place(none.rectTransform, s, 540, top + 80, 1000, 80);
             }
             // labels rise from the tiles over the stage: their own layer on top of the screen
             _fireLayer = Ui.Rect(Root, "SkillFireLayer");
@@ -429,13 +474,19 @@ namespace RogueStars.Client.Screens
         public static readonly Vector2 WormSpot = new Vector2(-80, 30);
 
         /// <summary>
-        /// The k-th companion spot (sidekicks: aliens, then drones; reference 3): a column along the arena's left edge, top to
-        /// bottom, slightly staggered, clear of the worm's saucer.
+        /// The k-th companion spot (sidekicks: aliens, then drones; BT6): lined up behind the worm in two staggered columns
+        /// (front column next to the worm, back column behind it), three rows, fully on screen.
         /// </summary>
-        public static Vector2 CompanionPosition(int k) => new Vector2(-424 + (k % 2) * 30, 372 - (k % 6) * 170);
+        public static Vector2 CompanionPosition(int k)
+        {
+            k %= 6;
+            bool back = k % 2 == 1;
+            int row = k / 2;
+            return new Vector2(back ? -392 : -292, 330 - row * 190 + (back ? -60 : 0));
+        }
 
-        /// <summary>Scale of a sidekick on the stage (the worm and the enemies are 1).</summary>
-        public const float SidekickScale = 0.56f;
+        /// <summary>Scale of a sidekick on the stage (the worm and the enemies are 1): 1.5× the old 0.56 (BT6).</summary>
+        public const float SidekickScale = 0.84f;
 
         /// <summary>
         /// Seats the worm on its mount: the mount's art (ArtCatalog <c>Art/Slice/Mounts/&lt;mount id&gt;</c>, else the drawn
@@ -987,17 +1038,13 @@ namespace RogueStars.Client.Screens
         {
             AbilityFloats.Add(name);
             if (!animate || Instant || !Application.isPlaying || _stage == null || string.IsNullOrEmpty(name)) return;
-            var holder = Ui.Chip(_stage, name, new Color(0.06f, 0.16f, 0.1f, 0.92f), Color.Lerp(RoleColor(v.Info.Role), Color.white, 0.35f), 30, 56,
+            var holder = Ui.Chip(_fx ?? _stage, name, new Color(0.06f, 0.16f, 0.1f, 0.92f), Color.Lerp(RoleColor(v.Info.Role), Color.white, 0.35f), 30, 56,
                 RoleColor(v.Info.Role), "AbilityFloat");
             holder.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
             holder.pivot = new Vector2(0, 0.5f);
-            // right of the sidekick, at its middle (the column of sidekicks stays readable: a label never sits on its neighbour)
-            var s = v.Sprite;
-            float sx = ((s.anchorMin.x - 0.5f) * ViewSize.x + s.sizeDelta.x * 0.42f) * v.Root.localScale.x;
-            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y * 0.55f) * v.Root.localScale.y;
-            var start = v.Root.anchoredPosition + new Vector2(sx, sy);
-            start.x = Mathf.Clamp(start.x, -530, 160);
+            // BT6: in a band along the arena's top edge (lanes for banners at once), above the units, never over one
+            var start = new Vector2(Mathf.Clamp(v.Root.anchoredPosition.x - 60, -520, 120), StageH / 2 - 50 - (_abilityLane++ % 3) * 64);
             holder.anchoredPosition = start;
             Text cap = null;
             if (extra)
@@ -1015,8 +1062,10 @@ namespace RogueStars.Client.Screens
                 holder.localScale = Vector3.one * (t < 0.12f ? Mathf.Lerp(0.6f, 1.08f, t / 0.12f) : t < 0.2f ? Mathf.Lerp(1.08f, 1f, (t - 0.12f) / 0.08f) : 1);
                 holder.anchoredPosition = start + new Vector2(24 * RunFx.Ease(t), 34 * RunFx.Ease(t));
                 group.alpha = t < 0.75f ? 1 : 1 - (t - 0.75f) / 0.25f;
-            }, () => Ui.DestroyGo(holder.gameObject));
+            }, () => { _abilityLane = Math.Max(0, _abilityLane - 1); Ui.DestroyGo(holder.gameObject); });
         }
+
+        private int _abilityLane;
 
         /// <summary>
         /// A sidekick ability's short name: "Pebblehorn Block 2" → "Block" (the species and the star tier are on the sidekick
@@ -1074,16 +1123,19 @@ namespace RogueStars.Client.Screens
         private void Popup(FighterView v, string text, Color color, bool animate, int size, string caption = null)
         {
             if (!animate || v == null || Instant || !Application.isPlaying) return;
-            var holder = Ui.Rect(_stage, "Popup");
+            var holder = Ui.Rect(_fx ?? _stage, "Popup");
             holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
             size = (int)(size * 1.45f);
             holder.sizeDelta = new Vector2(700, size + (caption != null ? 40 : 0));
-            float jitter = ((_popupSeq++ % 3) - 1) * 46;
-            // over the sprite's centre (the sprite sits on the card's bottom, 30% / 70% across)
+            // BT5: above the sprite's head (never over its face) with a small random offset; numbers at once stack upwards
+            float jitter = UnityEngine.Random.Range(-40f, 40f);
+            int lane = v.LivePopups++;
             var s = v.Sprite;
             float sx = (s.anchorMin.x - 0.5f) * ViewSize.x * v.Root.localScale.x;
-            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y / 2) * v.Root.localScale.y;
-            var start = v.Root.anchoredPosition + new Vector2(sx + jitter, sy + (_popupSeq % 2) * 24);
+            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y) * v.Root.localScale.y;
+            var start = v.Root.anchoredPosition + new Vector2(sx + jitter, sy + 20 + size * 0.5f + lane * (size + 8));
+            start.y = Mathf.Min(start.y, StageH / 2 + 120);
+            _popupSeq++;
             // wide words ("SUPERNOVA!") stay on the stage
             float half = Mathf.Min(350, text.Length * size * 0.33f);
             start.x = Mathf.Clamp(start.x, -540 + half, 540 - half);
@@ -1099,17 +1151,17 @@ namespace RogueStars.Client.Screens
                 cap.rectTransform.anchorMin = new Vector2(0, 1); cap.rectTransform.anchorMax = Vector2.one; cap.rectTransform.pivot = new Vector2(0.5f, 1);
                 cap.rectTransform.sizeDelta = new Vector2(0, 36); cap.rectTransform.anchoredPosition = Vector2.zero;
             }
-            float life = Mathf.Max(0.5f, StepSeconds * 1.5f);
+            float life = Mathf.Clamp(StepSeconds * 1.5f, 0.4f, 0.8f); // gone within 0.8 s
             UiTweens.Play(holder.gameObject, "float", life, t =>
             {
                 float pop = t < 0.15f ? Mathf.Lerp(0.6f, 1.25f, t / 0.15f) : t < 0.25f ? Mathf.Lerp(1.25f, 1f, (t - 0.15f) / 0.1f) : 1f;
                 holder.localScale = Vector3.one * pop;
-                holder.anchoredPosition = start + new Vector2(0, 110 * t);
+                holder.anchoredPosition = start + new Vector2(0, 70 * t);
                 float a = t < 0.7f ? 1 : 1 - (t - 0.7f) / 0.3f;
                 label.color = new Color(color.r, color.g, color.b, a);
                 if (cap != null) cap.color = new Color(color.r, color.g, color.b, a);
                 if (outline != null) outline.effectColor = new Color(SliceKit.Ink.r, SliceKit.Ink.g, SliceKit.Ink.b, a);
-            }, () => Ui.DestroyGo(holder.gameObject));
+            }, () => { v.LivePopups = Math.Max(0, v.LivePopups - 1); Ui.DestroyGo(holder.gameObject); });
         }
 
         /// <summary>Supernovas played so far (tests).</summary>
@@ -1142,7 +1194,7 @@ namespace RogueStars.Client.Screens
             core.raycastTarget = false;
             Ui.Stretch(core.rectTransform, 50, 50, 50, 50);
             // the word beside the burst, towards the middle of the stage (the hit numbers stay readable on the fighters)
-            var word = SliceKit.Chunky(_stage, "SUPERNOVA!", 92, Theme.Hex(0xFFB03A), TextAnchor.MiddleCenter, "SupernovaWord");
+            var word = SliceKit.Chunky(_fx ?? _stage, "SUPERNOVA!", 92, Theme.Hex(0xFFB03A), TextAnchor.MiddleCenter, "SupernovaWord");
             word.raycastTarget = false;
             var wrt = word.rectTransform;
             wrt.anchorMin = wrt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1188,14 +1240,18 @@ namespace RogueStars.Client.Screens
                 last = e.Actor;
                 bool kick = v.Sidekick;
                 var sq = Ui.RoundPanel(_order, v.Info.Role == CombatRole.Worm ? Theme.Worm : RoleColor(v.Info.Role), kick ? 18 : 12, kick ? "Turn:Sidekick" : "Turn");
-                Ui.Size(sq, kick ? 36 : 48, kick ? 36 : 48, 0);
-                if (kick)
+                Ui.Size(sq, kick ? 44 : 54, kick ? 44 : 54, 0);
+                // a mini portrait (BT4): the fighter's own sprite in its role-coloured frame, never a letter
+                var face = v.SpriteImage != null ? v.SpriteImage.sprite : null;
+                if (face != null)
                 {
-                    // a sidekick's pip: smaller, round, with its letter
-                    var l = Ui.Display(sq.rectTransform, v.Info.Role == CombatRole.Summon ? "D" : v.Info.Name.Substring(0, 1), 22, Theme.Shade(RoleColor(v.Info.Role), 0.35f), TextAnchor.MiddleCenter);
-                    Ui.Stretch(l.rectTransform);
+                    var pic = Ui.Panel(sq.transform, Color.white, "Portrait");
+                    pic.sprite = face;
+                    pic.preserveAspect = true;
+                    pic.raycastTarget = false;
+                    Ui.Stretch(pic.rectTransform, 3, 3, 3, 3);
                 }
-                if (shown == 0) UiShapes.Outline(sq.rectTransform, Color.white, kick ? 18 : 12, 4);
+                UiShapes.Outline(sq.rectTransform, shown == 0 ? Color.white : SliceKit.Ink, kick ? 22 : 12, shown == 0 ? 4 : 2);
                 NextActors.Add(e.Actor);
                 shown++;
             }
@@ -1346,8 +1402,12 @@ namespace RogueStars.Client.Screens
                 Ui.Size(icon, danger ? 76 : 62, danger ? 76 : 62, 0);
                 UiShapes.Outline(icon.rectTransform, danger ? Theme.Hex(0xFFE04A) : SliceKit.Ink, 12, danger ? 5 : 3);
                 if (danger && Application.isPlaying) UiPulse.On(icon, 0.12f, 0.6f, 0.75f);
-                var g = SliceKit.Chunky(icon.transform, StatusGlyph(kv.Key), danger ? 46 : 38, Color.white, TextAnchor.MiddleCenter, "Glyph");
-                Ui.Stretch(g.rectTransform);
+                // the status's icon (BT4: flame, snowflake, trefoil, blood drop …) instead of a letter
+                var g = Ui.Panel(icon.transform, Color.white, "Glyph");
+                g.sprite = StatusArt.Icon(kv.Key);
+                g.preserveAspect = true;
+                g.raycastTarget = false;
+                Ui.Stretch(g.rectTransform, 6, 6, 6, 6);
                 var n = SliceKit.Chunky(icon.transform, kv.Value.ToString(), danger ? 40 : 34, danger ? Theme.Hex(0xFFE04A) : Color.white, TextAnchor.LowerRight, "Stacks");
                 Ui.Stretch(n.rectTransform, 0, 0, -12, -10);
             }
@@ -1420,6 +1480,7 @@ namespace RogueStars.Client.Screens
         private void End()
         {
             bool won = _battle.PlayerWon();
+            ClearFx();
             if (_banner != null)
             {
                 _banner.text = won ? "VICTORY" : _battle.EndReason == BattleEndReason.RoundCap ? "TIME UP" : "DEFEAT";
@@ -1428,6 +1489,15 @@ namespace RogueStars.Client.Screens
                 if (Application.isPlaying && !Instant) UiTween.PopIn(_banner, 0.3f);
             }
             if (_endPanel != null) _endPanel.gameObject.SetActive(true);
+        }
+
+        /// <summary>BT5: no stale numbers or banners after the battle ends.</summary>
+        private void ClearFx()
+        {
+            if (_fx == null) return;
+            for (int i = _fx.childCount - 1; i >= 0; i--) Ui.DestroyGo(_fx.GetChild(i).gameObject);
+            foreach (var v in _views) v.LivePopups = 0;
+            _abilityLane = 0;
         }
 
         /// <summary>The end panel's Continue button: back to the run.</summary>
@@ -1447,7 +1517,7 @@ namespace RogueStars.Client.Screens
     public sealed class BattleHudContext
     {
         public RunHudStats Hud;
-        /// <summary>False: ATK / DEF / level unknown (a battle outside a run) — the strip shows "–".</summary>
+        /// <summary>False: ATK / DEF / level unknown (no run and no account) — the strip hides those pills (never "–").</summary>
         public bool HasStats;
         /// <summary>Run coins for the chip; &lt; 0 = no coins chip.</summary>
         public long Coins = -1;
@@ -1456,6 +1526,26 @@ namespace RogueStars.Client.Screens
         public Dictionary<string, int> Levels = new Dictionary<string, int>();
         /// <summary>The run's "Roll n/N" (null outside a run).</summary>
         public string Rolls;
+
+        /// <summary>No run stats yet: the worm's account ATK / DEF / HP and worm level (keeps coins, skills, rolls).</summary>
+        public void FillFromAccount(GameState state, CombatLoadout loadout)
+        {
+            if (state == null || loadout == null) return;
+            double hp = loadout.WormStats.Value(StatId.Hp);
+            Hud = new RunHudStats
+            {
+                Hp = hp, MaxHp = hp, Atk = loadout.WormStats.Value(StatId.Atk), Def = loadout.WormStats.Value(StatId.Def),
+                Level = Math.Max(1, state.Worm.Level),
+            };
+            HasStats = true;
+        }
+
+        public static BattleHudContext FromAccount(GameState state, CombatLoadout loadout)
+        {
+            var ctx = new BattleHudContext();
+            ctx.FillFromAccount(state, loadout);
+            return ctx;
+        }
 
         public static BattleHudContext FromRun(ActiveRun run, ContentDb c)
         {

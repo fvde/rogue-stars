@@ -212,8 +212,8 @@ namespace RogueStars.Client.UiKit
             return btn;
         }
 
-        /// <summary>"?" silhouette + kicker + text + a progress figure on the right (the next unlock).</summary>
-        public static RectTransform Teaser(Transform parent, string kicker, string text, string figure, Color background, string name)
+        /// <summary>The feature's icon as a locked silhouette (or "?" without one) + kicker + text + a progress figure (the next unlock).</summary>
+        public static RectTransform Teaser(Transform parent, string kicker, string text, string figure, Color background, string name, Sprite icon = null)
         {
             var bg = RoundPanel(parent, background, name);
             Ui.Size(bg, -1, 150, 1);
@@ -225,9 +225,23 @@ namespace RogueStars.Client.UiKit
             Ui.Size(q, 104, 104, 0);
             var qi = RoundPanel(q.transform, background, "Inner");
             Ui.Stretch(qi.rectTransform, 4, 4, 4, 4);
-            var ql = Ui.Label(qi.transform, "?", 48, InkDim, TextAnchor.MiddleCenter, "Q");
-            ql.fontStyle = FontStyle.Bold;
-            Ui.Stretch(ql.rectTransform);
+            if (icon != null)
+            {
+                // a dark, tinted silhouette of the feature's art with a small lock (H4)
+                var si = Ui.Panel(qi.transform, new Color(0.16f, 0.18f, 0.34f, 1f), "Icon");
+                si.sprite = icon; si.preserveAspect = true; si.raycastTarget = false;
+                Ui.Stretch(si.rectTransform, 8, 8, 8, 8);
+                var lk = Ui.Panel(q.transform, Color.white, "Lock");
+                lk.sprite = World.SummonArt.Icon("lock"); lk.preserveAspect = true; lk.raycastTarget = false;
+                lk.rectTransform.anchorMin = lk.rectTransform.anchorMax = lk.rectTransform.pivot = new Vector2(1, 0);
+                lk.rectTransform.sizeDelta = new Vector2(44, 44); lk.rectTransform.anchoredPosition = new Vector2(10, -8);
+            }
+            else
+            {
+                var ql = Ui.Label(qi.transform, "?", 48, InkDim, TextAnchor.MiddleCenter, "Q");
+                ql.fontStyle = FontStyle.Bold;
+                Ui.Stretch(ql.rectTransform);
+            }
             var texts = Ui.Column(row, 2, 0, null, "Texts");
             Ui.Size(texts, -1, 120, 1);
             texts.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;

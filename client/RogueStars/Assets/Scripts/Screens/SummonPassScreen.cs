@@ -42,7 +42,7 @@ namespace RogueStars.Client.Screens
             var back = SummonKit.Img(head.transform, SummonArt.Backdrop(Type), "Backdrop", false);
             Ui.Stretch(back.rectTransform);
             SummonKit.Place(SummonKit.Img(head.transform, SummonArt.Icon("pass"), "Hourglass"), new Vector2(0, 0.5f), new Vector2(20, 0), new Vector2(170, 210));
-            SummonKit.Place(SummonKit.Img(head.transform, SummonArt.Featured(Type, ev.FeaturedId), "Featured"), new Vector2(1, 0), new Vector2(10, 0), new Vector2(330, 330));
+            SummonKit.Place(SummonKit.FeaturedArt(head.transform, Type, ev.FeaturedId), new Vector2(1, 0), new Vector2(10, 0), new Vector2(330, 330));
             var title = SummonKit.Chunky(head.transform, def.Name + " Pass", 60, Theme.Hex(0xFFD24A), TextAnchor.MiddleCenter, "Title");
             SummonKit.Place(title, new Vector2(0.5f, 0.5f), new Vector2(-10, 60), new Vector2(600, 90));
             var count = SummonKit.Chunky(head.transform, "", 32, Theme.Hex(0xFFE7A0), TextAnchor.MiddleCenter, "Countdown");

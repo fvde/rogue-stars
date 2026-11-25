@@ -281,7 +281,7 @@ namespace RogueStars.Client.Screens
                 bool affordable = b.Level > 0 || State.Wallet.CanAfford(CitySystem.BuildCost(Content, def));
                 Ui.Button(row, "Place", () => { _mode = Mode.Place; _pending = owned.Id; _selected = null; Rebuild(); }, Theme.Accent, 180, 80, affordable && b.TimerId == null);
             }
-            if (n == 0) Note(body, State.City.Blueprints.Count == 0 ? "No blueprints yet (Blueprint Signals; offline: Settings → starter kit)." : "All blueprints are placed.");
+            if (n == 0) Note(body, State.City.Blueprints.Count == 0 ? "No blueprints yet: pull them in Blueprint Signals." : "All blueprints are placed.");
         }
     }
 }

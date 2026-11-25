@@ -14,7 +14,7 @@ namespace RogueStars.Client.Screens
     /// Shared base of the gear screens (Worm tab and Parts): the inventory of ALL owned parts (slot filter with counts,
     /// rarity filter, sort; tiles with slot, rarity, level, EQUIPPED and a ▲ level-up badge), the part detail (stats now →
     /// next level, Ore level up, equip, lock, skills by rarity, merge, Replicator, runes, Forge, awakening, dismantle), the
-    /// merge picker (copies, fodder points in LE, Ore, best-fodder auto-select, confirmation before protected parts are
+    /// merge picker (copies, fodder points, Ore, best-fodder auto-select, confirmation before protected parts are
     /// used), the Replicator, the awakening preview and the rune list. Inventory queries: <see cref="GearGuide"/>; material
     /// logic: <see cref="PartPlanner"/>.
     /// </summary>
@@ -229,15 +229,16 @@ namespace RogueStars.Client.Screens
                     foreach (var arm in new[] { PartSlot.LeftArm, PartSlot.RightArm })
                     {
                         var a = arm;
-                        bool here = slot == a;
-                        Ui.Button(eqRow, here ? "On " + GearGuide.SlotName(a).ToLowerInvariant() : "Equip " + GearGuide.SlotName(a).ToLowerInvariant(), () => Run(new PartEquip { Uid = uid, Slot = a }, _ => Reopen(uid)),
-                            Theme.Accent, -1, 80, !here, 26).name = "Equip:" + a;
+                        if (slot == a) continue; // W4: no Equip for the arm it is already on (the ON chip says so)
+                        string verb = slot.HasValue ? "Swap to " : "Equip ";
+                        Ui.Button(eqRow, verb + GearGuide.SlotName(a).ToLowerInvariant(), () => Run(new PartEquip { Uid = uid, Slot = a }, _ => Reopen(uid)),
+                            Theme.Accent, -1, 80, true, 26).name = "Equip:" + a;
                     }
                 }
-                else
+                else if (!slot.HasValue) // W4: an equipped part shows Unequip only
                 {
                     var target = (PartSlot)(int)def.Kind;
-                    Ui.Button(eqRow, "Equip", () => Run(new PartEquip { Uid = uid, Slot = target }, _ => Reopen(uid)), Theme.Accent, -1, 80, !slot.HasValue, 28).name = "Equip:" + target;
+                    Ui.Button(eqRow, "Equip", () => Run(new PartEquip { Uid = uid, Slot = target }, _ => Reopen(uid)), Theme.Accent, -1, 80, true, 28).name = "Equip:" + target;
                 }
                 if (slot.HasValue)
                 {
@@ -363,7 +364,7 @@ namespace RogueStars.Client.Screens
             void Go() { var cmd = new PartDismantle(); cmd.Uids.Add(uid); Run(cmd); Ui.Clear(App.ModalLayer); }
             if (p.Rarity < (int)PartRarity.Legendary && !Locks.Contains(uid)) { Go(); return; }
             Modal("Dismantle " + PartName(Content, p) + "?", b => Note(b, RarityName(Content, p.Rarity) + (Locks.Contains(uid) ? ", locked" : "") + ": worth " + PartsSystem.FodderValue(Content, p)
-                + " fodder points (" + PartPlanner.Le(Content, PartsSystem.FodderValue(Content, p)) + ") as merge material."),
+                + " fodder points as merge material."),
                 new ModalButton("Cancel", null), new ModalButton("Dismantle", Go, Theme.Bad));
         }
 
@@ -418,10 +419,9 @@ namespace RogueStars.Client.Screens
             {
                 var rc = Card(b, Theme.PanelAlt, 4);
                 if (_pickReplicate) Note(rc, "Turns Legendary+ surplus of any other def into a Legendary copy of " + PartsSystem.Def(Content, t).Name + " (copy for its Mythic S / SS steps).");
-                else KeyValue(rc, "Own-def copies", plan.CopiesNeeded == 0 ? "none" : plan.Copies.Count + "/" + plan.CopiesNeeded + " × " + RarityName(Content, (int)plan.CopyMinRarity) + "+ (owned " + plan.CopiesOwned + ")",
+                else KeyValue(rc, "Copies", plan.CopiesNeeded == 0 ? "none" : plan.Copies.Count + "/" + plan.CopiesNeeded,
                     plan.Copies.Count >= plan.CopiesNeeded ? Theme.Good : Theme.Bad);
-                KeyValue(rc, "Fodder", plan.FodderPoints + "/" + plan.FodderNeeded + " pts · " + PartPlanner.Le(Content, plan.FodderPoints) + "/" + PartPlanner.Le(Content, plan.FodderNeeded)
-                                     + " · " + RarityName(Content, (int)plan.FodderMinRarity) + "+", plan.FodderPoints >= plan.FodderNeeded ? Theme.Good : Theme.Bad);
+                KeyValue(rc, "Fodder", plan.FodderPoints + "/" + plan.FodderNeeded, plan.FodderPoints >= plan.FodderNeeded ? Theme.Good : Theme.Bad);
                 KeyValue(rc, "Ore", plan.Ore <= 0 ? "none" : Fmt.Num(plan.Ore) + " (have " + Fmt.Num(State.Wallet.Get(Currencies.Ore)) + ")", State.Wallet.CanAfford(Currencies.Ore, plan.Ore) ? Theme.Text : Theme.Bad);
                 var status = Ui.Label(b, plan.Valid ? (plan.NeedsConfirmation ? "Ready — uses " + plan.Protected.Count + " protected part(s), you will be asked to confirm." : "Ready.") : Fmt.Humanize(plan.Error),
                     Theme.FontSmall, plan.Valid ? (plan.NeedsConfirmation ? Theme.Warn : Theme.Good) : Theme.Bad);
@@ -436,11 +436,17 @@ namespace RogueStars.Client.Screens
                     bool sel = _picked.Contains(c.Uid);
                     string reason = PartPlanner.ProtectReason(State, Content, c, Locks);
                     bool copy = plan.Copies.Contains(c.Uid) || (!_pickReplicate && c.DefId == t.DefId && c.Rarity >= (int)plan.CopyMinRarity && plan.CopiesNeeded > 0);
-                    string role = copy ? "copy" : "fodder";
                     var row = Ui.Row(list, 74, 8, sel ? Color.Lerp(RarityColor(c.Rarity), Theme.Panel, 0.45f) : Theme.Panel, 8);
-                    Ui.Label(row, (sel ? "✓ " : "") + PartName(Content, c) + "  <size=20>" + RarityName(Content, c.Rarity) + " · Lv " + c.Level + "</size>\n<size=19>"
-                                  + PartsSystem.FodderValue(Content, c) + " pts (" + PartPlanner.Le(Content, PartsSystem.FodderValue(Content, c)) + ") · " + role
-                                  + (reason != null ? " · protected: " + reason : "") + "</size>", 22, reason != null ? Theme.Warn : Theme.Text);
+                    // W5: "Legendary · Lv 1 · 81 pts"; copies say so; protected parts carry a lock icon
+                    if (reason != null)
+                    {
+                        var lockRt = Ui.Rect(row, "Protected");
+                        Ui.Size(lockRt, 40, 40, 0);
+                        var li = lockRt.gameObject.AddComponent<Image>();
+                        li.sprite = RogueStars.Client.World.SummonArt.Icon("lock"); li.preserveAspect = true; li.raycastTarget = false;
+                    }
+                    Ui.Label(row, (sel ? "✓ " : "") + PartName(Content, c) + "\n<size=20>" + RarityName(Content, c.Rarity) + " · Lv " + c.Level + " · "
+                                  + (copy ? "copy" : PartsSystem.FodderValue(Content, c) + " pts") + "</size>", 22, reason != null ? Theme.Warn : Theme.Text);
                     Ui.Button(row, sel ? "Remove" : "Add", () => TogglePick(cand.Uid), sel ? Theme.Button : Theme.Accent, 160, 60, true, 22).name = "Pick:" + c.Uid;
                     shown++;
                 }
@@ -567,8 +573,15 @@ namespace RogueStars.Client.Screens
             Ui.Size(col, -1, -1, 1);
             Ui.Label(col, title, Theme.FontSmall, Theme.Accent);
             foreach (var sk in skills)
-                Ui.Label(col, (sk.Unlocked ? "● " : "○ ") + sk.Name + "\n<size=17>" + RarityName(Content, (int)sk.UnlockRarity) + (sk.Unlocked ? "" : " · locked") + "</size>", 20,
-                    sk.Unlocked ? Theme.Text : Theme.TextDim);
+            {
+                Ui.Label(col, sk.Name, 22, sk.Unlocked ? Theme.Text : Theme.TextDim, TextAnchor.MiddleLeft, "SkillName");
+                // W7: rarity as a coloured dot + name at the normal size
+                var rr = Ui.Row(col, 32, 8, null, 0, "SkillRarity");
+                rr.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                var rcol = RarityColor((int)sk.UnlockRarity);
+                Ui.Size(Ui.Dot(rr, sk.Unlocked ? rcol : Theme.Shade(rcol, 0.6f), 18, "RarityDot"), 18, 18, 0);
+                Ui.Label(rr, RarityName(Content, (int)sk.UnlockRarity) + (sk.Unlocked ? "" : " · locked"), 22, sk.Unlocked ? Color.Lerp(rcol, Color.white, 0.35f) : Theme.TextDim);
+            }
         }
 
         private void SocketModal(string partUid, int slot)

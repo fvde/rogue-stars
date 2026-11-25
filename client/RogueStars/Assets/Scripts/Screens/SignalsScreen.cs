@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using RogueStars.Client.App;
 using RogueStars.Client.Services;
 using RogueStars.Client.UiKit;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -44,28 +45,35 @@ namespace RogueStars.Client.Screens
             Ui.Button(mode, "Standard", () => { _standard = true; Rebuild(); }, _standard || banner == null ? Theme.Accent : Theme.Button, -1, 76);
             bool useBanner = banner != null && !_standard;
 
-            var card = Card(body, useBanner ? Color.Lerp(Theme.RarityColor(Rarity.Mythic), Theme.Panel, 0.7f) : Theme.PanelAlt);
+            // SG2: the banner card — featured art, light text on the rarity red, pity as two bars
+            var mythicRed = Theme.RarityColor(Rarity.Mythic);
+            var card = Card(body, useBanner ? Color.Lerp(mythicRed, Theme.Panel, 0.45f) : Theme.PanelAlt);
+            card.name = "BannerCard";
             if (useBanner)
             {
                 var th = banner.Theme;
-                Ui.Label(card, th.Name, Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter);
-                Ui.Label(card, "Featured Mythic: " + Fmt.Reward(new Reward(th.FeaturedKind, th.FeaturedId, th.FeaturedAmount, th.FeaturedRarity), Content), Theme.FontNormal, Theme.RarityColor(Rarity.Mythic), TextAnchor.MiddleCenter);
-                Live(Ui.Label(card, "", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter), () => "Ends in " + Fmt.Duration(banner.EndMs - Now));
+                Ui.Display(card, th.Name, Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "BannerName");
+                FeaturedArt(card, th.FeaturedKind, th.FeaturedId);
+                Ui.Display(card, "Featured: " + FeaturedName(th.FeaturedKind, th.FeaturedId), Theme.FontNormal, Theme.Cream, TextAnchor.MiddleCenter, "Featured");
+                Live(Ui.Label(card, "", Theme.FontSmall, Theme.Cream, TextAnchor.MiddleCenter, "EndsIn"), () => "Ends in " + Fmt.Duration(banner.EndMs - Now));
             }
-            else Ui.Label(card, def.Name + " — standard pool", Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter);
+            else
+            {
+                Ui.Display(card, def.Name + " — standard pool", Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "BannerName");
+                FeaturedArt(card, null, null);
+            }
             PityRow(card, type, def);
             Ui.Button(card, "Published odds", () => OddsModal(type, useBanner ? banner.Id : null), Theme.Button, -1, 70);
 
             string bannerId = useBanner ? banner.Id : null;
             long tokens = State.Wallet.Get(def.TokenCurrency);
-            Note(body, Fmt.CurrencyName(def.TokenCurrency) + ": " + tokens + " · Diamonds: " + State.Wallet.Get(Currencies.Diamonds));
-            var row = Ui.Row(body, 100, 10);
-            Ui.Button(row, "1× \n<size=22>" + def.TokenCost1 + " tokens</size>", () => Pull(type, 1, GachaPayment.Tokens, bannerId), Theme.Accent, -1, 100, tokens >= def.TokenCost1, 30);
-            Ui.Button(row, "10×\n<size=22>" + def.TokenCost10 + " tokens</size>", () => Pull(type, 10, GachaPayment.Tokens, bannerId), Theme.Accent, -1, 100, tokens >= def.TokenCost10, 30);
-            var row2 = Ui.Row(body, 100, 10);
             long dia = State.Wallet.Get(Currencies.Diamonds);
-            Ui.Button(row2, "1× \n<size=22>" + def.DiamondCost1 + " DIA</size>", () => Pull(type, 1, GachaPayment.Diamonds, bannerId), Theme.Premium, -1, 100, dia >= def.DiamondCost1, 30);
-            Ui.Button(row2, "10×\n<size=22>" + def.DiamondCost10 + " DIA</size>", () => Pull(type, 10, GachaPayment.Diamonds, bannerId), Theme.Premium, -1, 100, dia >= def.DiamondCost10, 30);
+            var row = Ui.Row(body, 130, 14, null, 0, "TokenPulls");
+            PullButton(row, "1×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost1), tokens >= def.TokenCost1, () => Pull(type, 1, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:1:tokens");
+            PullButton(row, "10×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost10), tokens >= def.TokenCost10, () => Pull(type, 10, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:10:tokens");
+            var row2 = Ui.Row(body, 130, 14, null, 0, "DiamondPulls");
+            PullButton(row2, "1×", "diamond", Fmt.Num(def.DiamondCost1), dia >= def.DiamondCost1, () => Pull(type, 1, GachaPayment.Diamonds, bannerId), Theme.Premium, "Pull:1:diamonds");
+            PullButton(row2, "10×", "diamond", Fmt.Num(def.DiamondCost10), dia >= def.DiamondCost10, () => Pull(type, 10, GachaPayment.Diamonds, bannerId), Theme.Premium, "Pull:10:diamonds");
             if (!string.IsNullOrEmpty(def.AdPlacementId))
             {
                 int left = ShopSystem.AdViewsLeft(State, Content, def.AdPlacementId, Now);
@@ -76,25 +84,68 @@ namespace RogueStars.Client.Screens
             }
         }
 
+        /// <summary>"1 token" / "10 tokens".</summary>
+        public static string TokenCost(long n) => Fmt.Num(n) + (n == 1 ? " token" : " tokens");
+
+        private static void PullButton(Transform row, string caption, string icon, string cost, bool can, System.Action onClick, Color face, string name)
+        {
+            var b = SummonKit.ActionButton(row, caption, icon, cost, onClick, face, -1, 130, can, name);
+            if (!can)
+            {
+                // the cost turns red when the balance is short (SM2/SG2: show the price, not have/need)
+                foreach (var t in b.GetComponentsInChildren<UnityEngine.UI.Text>(true)) if (t.name == "Count") t.color = Theme.Bad;
+            }
+        }
+
+        /// <summary>The featured item's name, without its rarity ("Plasma Blaster").</summary>
+        private string FeaturedName(string kind, string id)
+        {
+            if (kind == RewardKinds.Part && id != null && Content.PartsConfig.Defs.TryGetValue(id, out var pd)) return pd.Name;
+            if (kind == RewardKinds.Alien) return Content.AlienType(id)?.Name ?? id;
+            if (kind == RewardKinds.Blueprint) return Content.Blueprint(id)?.Name ?? id;
+            return Fmt.Reward(new Reward(kind, id, 1), Content);
+        }
+
+        /// <summary>The featured art on the banner: the alien's sprite when it has one, else a glowing mythic emblem (placeholder).</summary>
+        private void FeaturedArt(Transform card, string kind, string id)
+        {
+            var holder = Ui.Rect(card, "FeaturedArt");
+            Ui.Size(holder, -1, 300, 1, 0);
+            var glow = Ui.Panel(holder, new Color(1f, 0.55f, 0.55f, kind != null ? 0.35f : 0.15f), "Glow");
+            glow.sprite = UiShapes.Circle;
+            glow.raycastTarget = false;
+            SummonKit.Place(glow, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 290));
+            UiPulse.On(glow, 0.06f, 1.8f, 1);
+            var art = kind == RewardKinds.Alien ? ArtCatalog.Alien(id) : null;
+            var img = SummonKit.Img(holder, art != null ? art : SummonArt.Icon(kind == null ? "token" : "star"), "FeaturedSprite");
+            SummonKit.Place(img, new Vector2(0.5f, 0.5f), Vector2.zero, art != null ? new Vector2(280, 280) : new Vector2(200, 200));
+            UiBob.On(img.rectTransform, 8, 2.4f);
+        }
+
         /// <summary>
-        /// The visible, fixed pity of the pull type: "Mythic 37/100" and "Legendary 12/40" (rarity colours), and the 10-pull rule.
-        /// Nothing else changes the odds (docs/design/pull-system.md).
+        /// The visible, fixed pity of the pull type: "Mythic 37/100" and "Legendary 12/40" (rarity colours) as two progress bars,
+        /// and the 10-pull rule. Nothing else changes the odds (docs/design/pull-system.md).
         /// </summary>
         public static RectTransform PityRow(Transform parent, GachaType type, GachaTypeDef def, GameState state, ContentDb content)
         {
             var pity = GachaSystem.Pity(state, content, type);
-            var row = Ui.Row(parent, 56, 12, null, 0, "Pity");
-            row.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-            if (pity.MythicPity > 0)
-                Ui.Label(row, "Mythic " + pity.Mythic + "/" + pity.MythicPity, Theme.FontNormal, Theme.RarityColor(Rarity.Mythic), TextAnchor.MiddleCenter).name = "PityMythic";
-            if (pity.LegendaryPity > 0)
-                Ui.Label(row, "Legendary " + pity.Legendary + "/" + pity.LegendaryPity, Theme.FontNormal, Theme.RarityColor(Rarity.Legendary), TextAnchor.MiddleCenter).name = "PityLegendary";
+            var col = Ui.Column(parent, 6, 14, new Color(0.08f, 0.04f, 0.06f, 0.75f), "Pity");
+            if (pity.MythicPity > 0) PityBar(col, "PityMythic", "Mythic " + pity.Mythic + "/" + pity.MythicPity, (float)pity.Mythic / pity.MythicPity, Rarity.Mythic);
+            if (pity.LegendaryPity > 0) PityBar(col, "PityLegendary", "Legendary " + pity.Legendary + "/" + pity.LegendaryPity, (float)pity.Legendary / pity.LegendaryPity, Rarity.Legendary);
             var rule = Ui.Label(parent, "Guaranteed Mythic by pull " + pity.MythicPity + ", Legendary by pull " + pity.LegendaryPity + " (fixed, never changes)."
-                + (def.TenPullGuarantee ? " Every 10× pull has at least one " + def.TenPullMinTier + "." : ""), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
+                + (def.TenPullGuarantee ? " Every 10× pull has at least one " + def.TenPullMinTier + "." : ""), Theme.FontSmall, Theme.Cream, TextAnchor.MiddleCenter);
             rule.name = "PityRule";
-            return row;
+            return col;
         }
 
+        private static void PityBar(Transform parent, string name, string text, float value, Rarity r)
+        {
+            var row = Ui.Row(parent, 44, 12, null, 0, name + "Row");
+            var label = Ui.Display(row, text, Theme.FontSmall, Theme.RarityColor(r), TextAnchor.MiddleLeft, name);
+            Ui.Size(label, 270, 44, 0);
+            var bar = Ui.Bar(row, value, Theme.RarityColor(r), null, 30);
+            bar.Fill.parent.name = name + "Bar";
+        }
         private void PityRow(Transform parent, GachaType type, GachaTypeDef def) => PityRow(parent, type, def, State, Content);
 
         private void Pull(GachaType type, int count, GachaPayment pay, string bannerId, string adToken = null)

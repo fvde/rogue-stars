@@ -119,21 +119,21 @@ namespace RogueStars.Client.Screens
             var lines = new List<KeyValuePair<bool, string>>();
             void Add(bool good, string t) { if (!lines.Exists(l => l.Value == t)) lines.Add(new KeyValuePair<bool, string>(good, t)); }
             if (o == null) return lines;
-            if (o.CoinCost > 0) Add(false, "Pay −" + o.CoinCost + " coins");
-            if (o.ShardCost > 0) Add(false, "Pay −" + o.ShardCost + " portal shards");
+            if (o.CoinCost > 0) Add(false, "Pay " + o.CoinCost + " coins");
+            if (o.ShardCost > 0) Add(false, "Pay " + o.ShardCost + " portal shards");
             if (o.Outcomes.Count != 1) return lines;
             foreach (var fx in o.Outcomes[0].Effects)
             {
                 double v = fx.Value, a = Math.Abs(v);
                 switch (fx.Kind)
                 {
-                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain +" + Fmt.Whole(a) + " coins" : "Lose −" + Fmt.Whole(a) + " coins"); break;
-                    case RunEffectKind.HealPct: Add(true, "Restore +" + Fmt.Pct(a) + " HP"); break;
-                    case RunEffectKind.DamagePct: Add(false, "Lose −" + Fmt.Pct(a) + " HP"); break;
+                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain " + Fmt.Whole(a) + " coins" : "Lose " + Fmt.Whole(a) + " coins"); break;
+                    case RunEffectKind.HealPct: Add(true, "Restore " + Fmt.Pct(a) + " HP"); break;
+                    case RunEffectKind.DamagePct: Add(false, "Lose " + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.StatPercent:
                     {
                         string stat = fx.Stat == StatId.Hp ? "max HP" : fx.Stat == StatId.Atk ? "ATK" : fx.Stat == StatId.Def ? "DEF" : fx.Stat == StatId.Speed ? "Speed" : fx.Stat.ToString();
-                        Add(v > 0, v > 0 ? "Gain +" + Fmt.Pct(a) + " " + stat : "Lose −" + Fmt.Pct(a) + " " + stat);
+                        Add(v > 0, v > 0 ? "Gain " + Fmt.Pct(a) + " " + stat : "Lose " + Fmt.Pct(a) + " " + stat);
                         break;
                     }
                     case RunEffectKind.GainSkill: Add(true, "Learn a " + (fx.MinRarity > Rarity.Common ? RunTuning.RunTier(fx.MinRarity) + "+ " : "") + "skill"); break;
@@ -141,16 +141,16 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.GainSignature: Add(true, "Awaken a new signature"); break;
                     case RunEffectKind.UpgradeSkill: Add(true, "Improve 1 skill of your choice"); break;
                     case RunEffectKind.LoseRandomSkill: Add(false, "Lose a random skill"); break;
-                    case RunEffectKind.Loot: Add(true, "+" + Math.Max(1, (int)v) + " account loot"); break;
-                    case RunEffectKind.PendingReward: Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot") + " (account loot)"); break;
-                    case RunEffectKind.Meter: Add(v < 0, v < 0 ? "Boss sleeps −" + Fmt.Whole(a) : "Boss wakes +" + Fmt.Whole(a)); break;
-                    case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + (v < 0 ? "−" : "+") + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
+                    case RunEffectKind.Loot: { int nl = Math.Max(1, (int)v); Add(true, "+" + nl + " reward chest" + (nl == 1 ? "" : "s")); break; }
+                    case RunEffectKind.PendingReward: Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot")); break;
+                    case RunEffectKind.Meter: Add(v < 0, "Boss wakes " + Fmt.Whole(a) + "% " + (v < 0 ? "later" : "sooner")); break;
+                    case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
                     case RunEffectKind.BossStatPct: Add(false, "Boss +" + Fmt.Pct(a) + " ATK"); break;
                     case RunEffectKind.Battle: Add(false, "Fight " + (fx.Param != null && fx.Param.StartsWith("elite") ? "an elite" : "a foe")); break;
-                    case RunEffectKind.Xp: Add(true, "Gain +" + Fmt.Whole(a) + " XP"); break;
-                    case RunEffectKind.Shards: Add(true, "Gain +" + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s")); break;
+                    case RunEffectKind.Xp: Add(true, "Gain " + Fmt.Whole(a) + " XP"); break;
+                    case RunEffectKind.Shards: Add(true, "Gain " + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s")); break;
                     case RunEffectKind.Danger: Add(false, "Danger +" + Fmt.Whole(a)); break;
-                    case RunEffectKind.StrengthenEnemies: Add(false, "Enemies nearby +" + Fmt.Pct(a)); break;
+                    case RunEffectKind.StrengthenEnemies: Add(false, "Nearby enemies +" + Fmt.Pct(a) + " stronger"); break;
                 }
             }
             return lines;
@@ -185,7 +185,7 @@ namespace RogueStars.Client.Screens
             if (o == null) return "";
             if (o.Outcomes.Count > 1)
             {
-                // a gamble: one line per outcome, "65%: +1 account loot, Boss wakes +8"
+                // a gamble: one line per outcome, "65%: +1 reward chest, Boss wakes 8% sooner"
                 double total = 0;
                 foreach (var oc in o.Outcomes) total += oc.Weight;
                 var sb = new StringBuilder();
@@ -461,16 +461,90 @@ namespace RogueStars.Client.Screens
             var bust = Ui.Panel(frame, Color.white, "Npc:" + npc);
             bust.sprite = ScreenArt.Character(npc); bust.preserveAspect = true; bust.raycastTarget = false;
             At(bust.rectTransform, s, 540, 840, 600, 600);
-            var counter = Ui.RoundPanel(frame, new Color32(0x9C, 0x96, 0xA8, 255), 16 * s, "Counter");
-            counter.raycastTarget = false;
-            At(counter.rectTransform, s, 540, 1150, 1120, 90);
-            UiShapes.Outline(counter.rectTransform, SliceKit.Ink, 16 * s, 5);
+            // E1: a wooden counter with the vendor's wares on it (potions, crates, skull candles)
+            var counter = Ui.Panel(frame, Color.white, "Counter");
+            counter.sprite = VendorCounter(); counter.preserveAspect = false; counter.raycastTarget = false;
+            At(counter.rectTransform, s, 540, 1170, 1120, 170);
+            var wares = VendorWares(npc);
+            float[] wx = { 150, 300, 905 };
+            for (int i = 0; i < wares.Length; i++)
+            {
+                var w = Ui.Panel(frame, Color.white, "Ware:" + wares[i]);
+                w.sprite = VendorWare(wares[i]); w.preserveAspect = true; w.raycastTarget = false;
+                SliceKit.Place(w.rectTransform, s, wx[i], 1045, 150, 150);
+                w.rectTransform.pivot = new Vector2(0.5f, 0);
+                w.rectTransform.anchoredPosition = new Vector2(wx[i] * s, -1092 * s);
+            }
             var rib = Ui.Panel(frame, Color.white, "Ribbon");
             rib.sprite = SliceCards.RedRibbon; rib.preserveAspect = true; rib.raycastTarget = false;
-            At(rib.rectTransform, s, 540, 285, 1060, 180);
+            At(rib.rectTransform, s, 540, 370, 1060, 180);
             var t = SliceKit.Chunky(rib.transform, title, (int)(80 * s), Color.white, TextAnchor.MiddleCenter, "Title");
             Ui.Stretch(t.rectTransform, 0, 0, 0, 14 * s);
-            Bubble(frame, s, 395, 510, 520, 190, line, true);
+            Bubble(frame, s, 395, 585, 520, 190, line, true);
+        }
+
+        /// <summary>Which wares stand on a vendor's counter (3; pure).</summary>
+        public static string[] VendorWares(string npc)
+        {
+            switch (npc)
+            {
+                case "cursed_vendor": return new[] { "candle", "potion_purple", "crate" };
+                case "camp_cook": return new[] { "potion_green", "potion_red", "crate" };
+                default: return new[] { "crate", "potion_purple", "crate" };
+            }
+        }
+
+        private static readonly Dictionary<string, Sprite> WareCache = new Dictionary<string, Sprite>();
+
+        /// <summary>The vendor's counter: a plank front under a lighter top ledge (placeholder art).</summary>
+        public static Sprite VendorCounter()
+        {
+            if (WareCache.TryGetValue("counter", out var c) && c != null) return c;
+            int w = 560, h = 86;
+            var p = new IsoPaint(w, h);
+            var wood = (Color)new Color32(0x8A, 0x52, 0x2E, 255);
+            var ink = IsoArt.Ink;
+            p.Shape(IsoPaint.RoundRect(6, 4, w - 12, h - 26, 8), IsoPaint.VGrad(IsoPaint.Shade(wood, -0.35f), IsoPaint.Shade(wood, -0.1f), 4, h - 22), ink, 4);
+            for (int i = 1; i < 6; i++) p.Line(IsoPaint.V(i * w / 6f, 8), IsoPaint.V(i * w / 6f, h - 26), 3, IsoPaint.Shade(wood, -0.45f));
+            p.Shape(IsoPaint.RoundRect(2, h - 26, w - 4, 22, 6), IsoPaint.VGrad(IsoPaint.Shade(wood, 0.05f), IsoPaint.Shade(wood, 0.3f), h - 26, h - 4), ink, 4);
+            c = p.ToSprite("rs_vendor_counter", IsoPaint.V(w / 2f, h / 2f));
+            WareCache["counter"] = c;
+            return c;
+        }
+
+        /// <summary>A ware on the counter: potion (green / red / purple), crate or skull candle (placeholder art, pivot at its foot).</summary>
+        public static Sprite VendorWare(string id)
+        {
+            if (WareCache.TryGetValue(id, out var sp) && sp != null) return sp;
+            const int n = 128;
+            var p = new IsoPaint(n, n);
+            var ink = IsoArt.Ink;
+            if (id.StartsWith("potion"))
+            {
+                var liquid = id.EndsWith("green") ? (Color)new Color32(0x5C, 0xE0, 0x6A, 255) : id.EndsWith("red") ? (Color)new Color32(0xF0, 0x4A, 0x5A, 255) : (Color)new Color32(0xB8, 0x6C, 0xF8, 255);
+                p.Shape(IsoPaint.RoundRect(50, 70, 28, 34, 6), new Color(0.85f, 0.9f, 1f, 1f), ink, 5);
+                p.Blob(64, 44, 38, 38, IsoPaint.Radial(IsoPaint.Shade(liquid, 0.35f), IsoPaint.Shade(liquid, -0.25f), 52, 56, 46), ink, 6);
+                p.Shape(IsoPaint.RoundRect(52, 100, 24, 16, 4), (Color)new Color32(0xB0, 0x80, 0x50, 255), ink, 4);
+                p.Ellipse(50, 56, 7, 10, new Color(1, 1, 1, 0.7f));
+            }
+            else if (id == "crate")
+            {
+                var wood = (Color)new Color32(0xB8, 0x7A, 0x44, 255);
+                p.Shape(IsoPaint.RoundRect(14, 6, 100, 92, 8), IsoPaint.VGrad(IsoPaint.Shade(wood, -0.2f), IsoPaint.Shade(wood, 0.15f), 6, 98), ink, 6);
+                p.Line(IsoPaint.V(20, 12), IsoPaint.V(108, 92), 7, IsoPaint.Shade(wood, -0.35f));
+                p.Line(IsoPaint.V(14, 52), IsoPaint.V(114, 52), 5, IsoPaint.Shade(wood, -0.35f));
+            }
+            else
+            {
+                // skull candle
+                p.Blob(64, 38, 40, 34, (Color)new Color32(0xEE, 0xE6, 0xD4, 255), ink, 6);
+                p.Circle(50, 40, 9, ink); p.Circle(78, 40, 9, ink);
+                p.Shape(IsoPaint.RoundRect(56, 70, 16, 34, 4), (Color)new Color32(0xF4, 0xEC, 0xC8, 255), ink, 4);
+                p.Blob(64, 114, 7, 11, (Color)new Color32(0xFF, 0xB8, 0x3C, 255), ink, 3);
+            }
+            sp = p.ToSprite("rs_ware_" + id, IsoPaint.V(n / 2f, 0));
+            WareCache[id] = sp;
+            return sp;
         }
 
         /// <summary>A white speech bubble with a tail toward the speaker (tail at the bottom-right or bottom-left).</summary>
@@ -553,7 +627,7 @@ namespace RogueStars.Client.Screens
             var lines = EffectLines(o, c);
             var good = lines.FindAll(l => l.Key);
             var bad = lines.FindAll(l => !l.Key);
-            blessing = good.Count > 0 ? Colored(good) : "Keep everything you have.";
+            blessing = good.Count > 0 ? Colored(good) : "Nothing changes";
             curse = bad.Count > 0 ? Colored(bad) : good.Count > 0 ? "No strings attached. Suspicious." : "Gain nothing at all.";
         }
     }

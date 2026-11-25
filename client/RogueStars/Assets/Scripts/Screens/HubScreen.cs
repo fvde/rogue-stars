@@ -144,10 +144,11 @@ namespace RogueStars.Client.Screens
                 var e = entry;
                 right.Add(y =>
                 {
-                    SideIcon(995, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
+                    // the pass's tier goes into its label (H5: a chip over the icon hid the star)
+                    string label = e.Id == "pass" ? e.Label + " · T" + ShopSystem.SeasonLevel(State, Content) : e.Label;
+                    SideIcon(995, y, e.Id, label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
                     if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); badge.text = unread > 0 ? unread.ToString() : ""; }
                     else if (e.Id == "offer") Live(timer, OfferTimer);
-                    else if (e.Id == "pass") timer.text = "Tier " + ShopSystem.SeasonLevel(State, Content);
                 });
             }
             Column(left, 85, "LeftColumn");
@@ -310,7 +311,10 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
-        private int GuideItems()
+        private int GuideItems() => GuideExpanded ? GuideCount() : System.Math.Min(1, GuideCount());
+
+        /// <summary>Guide cards available (NEW unlock, goal, next unlock); only the first shows unless expanded (H3).</summary>
+        private int GuideCount()
         {
             int n = 0;
             var snoozed = HubLayout.PendingGroup(State, Content);
@@ -319,6 +323,22 @@ namespace RogueStars.Client.Screens
             if (goal != null && goal.ScreenId != "portals" && goal.ScreenId != null) n++;
             if (Features.Next(State, Content, Now) != null) n++;
             return n;
+        }
+
+        /// <summary>The guide shows all its cards (the "+N" chip was tapped; tap "–" to collapse).</summary>
+        public bool GuideExpanded;
+
+        /// <summary>Main-level runs started when an unlock moment was snoozed: the snooze expires after the next run (H3).</summary>
+        private readonly Dictionary<string, long> SnoozedAtRun = new Dictionary<string, long>();
+
+        /// <summary>Lift snoozes that outlived a run: the moment opens again instead of a card waiting for many levels.</summary>
+        private void ExpireSnoozes()
+        {
+            if (State == null || State.Run.Active != null || SnoozedAtRun.Count == 0) return;
+            long runs = State.Counter("runs_started");
+            var expired = new List<string>();
+            foreach (var kv in SnoozedAtRun) if (runs > kv.Value) expired.Add(kv.Key);
+            foreach (var id in expired) { SnoozedAtRun.Remove(id); App.SnoozedUnlocks.Remove(id); }
         }
 
         private void BuildBottom()
@@ -352,16 +372,21 @@ namespace RogueStars.Client.Screens
             BuildGuide(y);
         }
 
+        /// <summary>Width of the guide: the space between the side columns (H3: cards ran under the right column).</summary>
+        public const float GuideWidth = 740;
+
         private void BuildGuide(float fromBottom)
         {
+            int total = GuideCount();
             var col = Ui.Column(_frame, 12, 0, null, "Guide");
             col.anchorMin = col.anchorMax = new Vector2(0.5f, 0);
             col.pivot = new Vector2(0.5f, 0);
-            col.sizeDelta = new Vector2(940, GuideItems() * 132);
+            col.sizeDelta = new Vector2(GuideWidth, GuideItems() * 132);
             col.localScale = Vector3.one * _s;
             col.anchoredPosition = new Vector2(0, fromBottom * _s);
             var vl = col.GetComponent<VerticalLayoutGroup>();
             vl.childAlignment = TextAnchor.LowerCenter; vl.childForceExpandHeight = false;
+            var cards = new List<GameObject>();
             var snoozed = HubLayout.PendingGroup(State, Content);
             if (snoozed != null && App.SnoozedUnlocks.Contains(snoozed[0]))
             {
@@ -369,10 +394,11 @@ namespace RogueStars.Client.Screens
                 Ui.Size(row, -1, 120);
                 var btn = row.gameObject.AddComponent<Button>();
                 btn.targetGraphic = row;
-                btn.onClick.AddListener(() => { App.SnoozedUnlocks.Clear(); ShowPendingUnlock(); });
+                btn.onClick.AddListener(() => { App.SnoozedUnlocks.Clear(); SnoozedAtRun.Clear(); ShowPendingUnlock(); });
                 var t = Ui.Label(row.transform, "NEW: " + Content.Feature(snoozed[0])?.Name + " — tap to open", 32, HubKit.Cyan, TextAnchor.MiddleCenter, "Text");
                 t.fontStyle = FontStyle.Bold;
-                Ui.Stretch(t.rectTransform);
+                Ui.Stretch(t.rectTransform, 16, 0, 16, 0);
+                cards.Add(row.gameObject);
             }
             var goal = Tutorial.Next(State, Content, Now);
             if (goal != null && goal.ScreenId != "portals" && goal.ScreenId != null)
@@ -383,16 +409,37 @@ namespace RogueStars.Client.Screens
                 Ui.Stretch(row, 30, 12, 16, 12);
                 var label = Ui.Label(row, (goal.StepId != null ? "GOAL  " : "") + goal.Text, 30, HubKit.Gold, TextAnchor.MiddleLeft, "GoalText");
                 label.fontStyle = FontStyle.Bold;
-                HubKit.RoundButton(row, "Go", () => App.Open(goal.ScreenId), HubKit.EventGreen, HubKit.EventGreenBg, 170, 90).name = "GoalGo";
+                HubKit.RoundButton(row, "Go", () => App.Open(goal.ScreenId), HubKit.EventGreen, HubKit.EventGreenBg, 150, 90).name = "GoalGo";
+                cards.Add(g.gameObject);
             }
             var next = Features.Next(State, Content, Now);
             if (next != null)
             {
-                var teaser = HubKit.Teaser(col, "NEXT", TeaserText(next), TeaserFigure(next), new Color(0.11f, 0.1f, 0.26f, 0.92f), "Teaser");
+                var teaser = HubKit.Teaser(col, "NEXT", TeaserText(next), TeaserFigure(next), new Color(0.11f, 0.1f, 0.26f, 0.92f), "Teaser", TeaserIcon(Content, next));
                 Ui.Size(teaser, -1, 120, 1);
+                cards.Add(teaser.gameObject);
+            }
+            // one card at a time (highest priority first); the rest behind a "+N" chip that expands the stack (H3)
+            for (int i = 1; i < cards.Count; i++) cards[i].SetActive(GuideExpanded);
+            if (total > 1 && cards.Count > 0)
+            {
+                var chipBtn = Ui.Button(cards[0].transform, GuideExpanded ? "–" : "+" + (total - 1), () => { GuideExpanded = !GuideExpanded; Rebuild(); },
+                    HubKit.Orange, 76, 52, true, 26);
+                chipBtn.name = "GuideMore";
+                var crt = (RectTransform)chipBtn.transform;
+                crt.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                crt.anchorMin = crt.anchorMax = crt.pivot = new Vector2(1, 1);
+                crt.sizeDelta = new Vector2(76, 52); crt.anchoredPosition = new Vector2(10, 22);
             }
         }
 
+        /// <summary>The next unlock's art as a locked silhouette (H4: was a "?" box).</summary>
+        public static Sprite TeaserIcon(ContentDb content, NextUnlock n)
+        {
+            if (n == null || n.Ids.Count == 0) return null;
+            var f = content.Feature(n.Ids[0]);
+            return f == null || string.IsNullOrEmpty(f.Art) ? null : IntroArt.Sprite(f.Art);
+        }
         /// <summary>"Laboratory — clear level 13".</summary>
         public static string TeaserText(NextUnlock n) => n.Name + " — " + n.Text;
 
@@ -484,12 +531,10 @@ namespace RogueStars.Client.Screens
                 Ui.Stretch(face.rectTransform, 5 * _s, 5 * _s, 5 * _s, 5 * _s);
                 var img = Ui.Panel(face.transform, Color.white, "Icon");
                 img.sprite = ScreenArt.HubIcon("tab_" + e.Id); img.preserveAspect = true; img.raycastTarget = false;
-                Ui.Stretch(img.rectTransform, 30 * _s, active ? 14 * _s : 30 * _s, 30 * _s, active ? 80 * _s : 30 * _s);
-                if (active)
-                {
-                    var l = SliceKit.Chunky(face.transform, e.Label, (int)(40 * _s), Color.white, TextAnchor.LowerCenter, "Label");
-                    Ui.Stretch(l.rectTransform, 0, 0, 0, 16 * _s);
-                }
+                Ui.Stretch(img.rectTransform, 30 * _s, active ? 14 * _s : 16 * _s, 30 * _s, active ? 80 * _s : 62 * _s);
+                // every tab is labelled (H1); the active one is taller with a bigger label
+                var l = SliceKit.Chunky(face.transform, e.Label, (int)((active ? 40 : 30) * _s), active ? Color.white : new Color32(0xD8, 0xD2, 0xF0, 255), TextAnchor.LowerCenter, "Label");
+                Ui.Stretch(l.rectTransform, 0, 0, 0, (active ? 16 : 10) * _s);
                 string badge = TabBadge(e.Id);
                 if (!string.IsNullOrEmpty(badge))
                 {
@@ -528,7 +573,7 @@ namespace RogueStars.Client.Screens
         // ---- unlock moment ----------------------------------------------------------------------------
 
         /// <summary>Every frame while the hub is on top (never from a rebuild): open a pending unlock moment.</summary>
-        public override void Frame(float dt) => ShowPendingUnlock();
+        public override void Frame(float dt) { ExpireSnoozes(); ShowPendingUnlock(); }
 
         /// <summary>
         /// Opens the full-screen unlock moment for the first pending celebration group while the hub is on top and no modal
@@ -540,6 +585,7 @@ namespace RogueStars.Client.Screens
             var group = HubLayout.PendingGroup(State, Content);
             if (group == null || App.SnoozedUnlocks.Contains(group[0])) return false;
             App.SnoozedUnlocks.Add(group[0]); // backing out of the moment does not reopen it on every tick
+            SnoozedAtRun[group[0]] = State.Counter("runs_started"); // ... until the next run is over
             App.Router.Push(new UnlockScreen(group));
             return true;
         }

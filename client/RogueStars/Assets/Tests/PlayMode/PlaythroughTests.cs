@@ -106,14 +106,18 @@ namespace RogueStars.Client.PlayTests
             ClickNamed("UnlockAction");
             yield return Wait(0.3f);
             Assert.That(_app.Router.Current, Is.InstanceOf<WormScreen>());
-            ClickNamed("AutoEquip");
+            foreach (PartSlot slot in Enum.GetValues(typeof(PartSlot)))
+                foreach (var uid in PartsSystem.SortedPartUids(_svc.State))
+                    if (!PartsSystem.IsEquipped(_svc.State, uid) && _svc.ExecuteNow(new PartEquip { Uid = uid, Slot = slot }).Ok) break;
+            _app.Router.Current.Rebuild();
             yield return Wait(0.3f);
             yield return Shot("11b_worm_equipped");
             Assert.That(_svc.State.Parts.Equipped.Count, Is.GreaterThanOrEqualTo(3));
-            // the Parts unlock's Ore levels an equipped part right away (the Worm's "Level up ready" callout)
+            // the Parts unlock's Ore levels an equipped part right away (part detail → Level up)
             Assert.That(GearGuide.HasAffordableUpgrade(_svc.State, _svc.Content), Is.True, "Ore has a use from day 1");
             long oreBefore = _svc.State.Wallet.Get(Currencies.Ore);
-            ClickNamed("QuickLevelUp");
+            _svc.ExecuteNow(new PartLevelUp { Uid = GearGuide.UpgradableEquipped(_svc.State, _svc.Content)[0].Uid });
+            _app.Router.Current.Rebuild();
             yield return Wait(0.3f);
             Assert.That(_svc.State.Wallet.Get(Currencies.Ore), Is.LessThan(oreBefore), "a part levelled with Ore");
             yield return Shot("11c_worm_part_levelled");

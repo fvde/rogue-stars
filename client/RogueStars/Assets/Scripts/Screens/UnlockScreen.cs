@@ -95,7 +95,7 @@ namespace RogueStars.Client.Screens
             BuildArt(body, page);
 
             var text = Ui.Label(body, page?.Text ?? "", 44, HubKit.Ink, TextAnchor.MiddleCenter, "StepText");
-            text.fontStyle = FontStyle.Bold;
+            text.font = Ui.FontFor(text.text); // the chunky display font (U2)
             Ui.Size(text, -1, 150);
 
             // page dots
@@ -114,7 +114,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(Footer, 150, 24, null, 0, "Buttons");
                 Ui.Size(row, -1, 150, -1, 0); // never stretched by the buttons
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-                var skip = HubKit.RoundButton(row, "SKIP", () => ShowPage(_pages.Count - 1), HubKit.CardDeep, HubKit.InkDim, 260, 130, 40);
+                var skip = HubKit.RoundButton(row, "SKIP", () => ShowPage(_pages.Count - 1), new Color(1, 1, 1, 0.1f), HubKit.Ink, 260, 130, 40); // a light text button (U2)
                 skip.name = "IntroSkip";
                 var next = HubKit.RoundButton(row, "NEXT", Next, HubKit.Gold, HubKit.OrangeInk, 520, 150, 52);
                 next.name = "IntroNext";
@@ -123,7 +123,7 @@ namespace RogueStars.Client.Screens
 
         private void BuildArt(RectTransform body, FeatureIntroStep step)
         {
-            var holder = HubKit.Centered(body, 460, 460, 560, "Art");
+            var holder = HubKit.Centered(body, 600, 600, 660, "Art"); // a big art card (U2: the page was half empty)
             var glow = Ui.Panel(holder, new Color(HubKit.Cyan.r, HubKit.Cyan.g, HubKit.Cyan.b, 0.18f), "Glow");
             glow.sprite = HubKit.Circle; glow.raycastTarget = false;
             Ui.Stretch(glow.rectTransform, -70, -70, -70, -70);
@@ -138,7 +138,7 @@ namespace RogueStars.Client.Screens
             art.raycastTarget = false;
             var art_rt = art.rectTransform;
             art_rt.anchorMin = art_rt.anchorMax = art_rt.pivot = new Vector2(0.5f, 0.5f);
-            art_rt.sizeDelta = new Vector2(330, 330);
+            art_rt.sizeDelta = new Vector2(450, 450);
             art.gameObject.AddComponent<CanvasGroup>();
             var anim = holder.gameObject.AddComponent<IntroAnimator>();
             anim.Kind = step?.Anim;
@@ -218,7 +218,7 @@ namespace RogueStars.Client.Screens
             Action.name = "UnlockAction";
             var next = Features.Next(State, Content, Now);
             if (next != null)
-                HubKit.Teaser(Footer, null, TeaserLine(next), null, HubKit.CardDeep, "UnlockTeaser");
+                HubKit.Teaser(Footer, null, TeaserLine(next), null, HubKit.CardDeep, "UnlockTeaser", HubScreen.TeaserIcon(Content, next));
         }
 
         /// <summary>"Next at level 16: Housing" style line for the bottom of the moment.</summary>

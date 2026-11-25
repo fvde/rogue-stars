@@ -20,7 +20,7 @@ namespace RogueStars.Client.Screens
         public Sprite IconArt;
         public string Title;
         public string Body;
-        /// <summary>A chip on the name ribbon ("LEVEL UP", "SYNERGY", "UPGRADE"), its name and colour; null = none.</summary>
+        /// <summary>A chip on the name ribbon ("UPGRADE", "NEW SIGNATURE"), its name and colour; null = none.</summary>
         public string Chip, ChipName;
         public Color ChipColor;
         public bool Dim;
@@ -166,6 +166,7 @@ namespace RogueStars.Client.Screens
             lip.raycastTarget = false;
             lip.rectTransform.anchorMin = Vector2.zero; lip.rectTransform.anchorMax = Vector2.one;
             lip.rectTransform.offsetMin = new Vector2(0, 0); lip.rectTransform.offsetMax = new Vector2(0, -52 * s * k);
+            UiShapes.Outline(lip.rectTransform, spec.TierColor, 26 * s, 4, "RarityOutline");
             var face = Ui.RoundPanel(lip.transform, spec.Dim ? Shade(Cream, -0.25f) : Cream, 24 * s, "Face");
             face.raycastTarget = false;
             Ui.Stretch(face.rectTransform, 4 * s, 4 * s, 4 * s, 12 * s);
@@ -211,14 +212,16 @@ namespace RogueStars.Client.Screens
                 onInfo = () => SkillTooltip.Show(frame, content, tip); // "?" opens the full text by the tile
                 if (onClick == null) SkillTileView.Tappable(frame, content, () => tip); // where a tap does not pick: the tile too
             }
-            var tag = Ui.RoundPanel(c, new Color32(0x4A, 0x4E, 0x78, 255), 12 * s, "TierTag");
+            // G5: the tier pill is filled with the rarity colour (white caption); the card has a matching 4 px outline
+            var tag = Ui.RoundPanel(c, spec.TierColor, 12 * s, "TierTag");
             tag.raycastTarget = false;
             tag.rectTransform.anchorMin = tag.rectTransform.anchorMax = new Vector2(0, 1);
             tag.rectTransform.pivot = new Vector2(0, 1);
             tag.rectTransform.sizeDelta = new Vector2(fs * s + 16 * s, 52 * s * k);
             tag.rectTransform.anchoredPosition = new Vector2(14 * s, 4 * s);
             UiShapes.Outline(tag.rectTransform, IsoArt.Ink, 12 * s, 3);
-            var tt = Ui.Display(tag.transform, spec.Tier, (int)(32 * s * k), Color.Lerp(spec.TierColor, Color.white, 0.55f), TextAnchor.MiddleCenter, "Tier");
+            var tt = Ui.Display(tag.transform, spec.Tier, (int)(32 * s * k), Color.white, TextAnchor.MiddleCenter, "Tier");
+            var tto = tt.gameObject.AddComponent<Outline>(); tto.effectColor = new Color(0, 0, 0, 0.55f); tto.effectDistance = new Vector2(2 * s, -2 * s);
             tt.raycastTarget = false;
             Ui.Stretch(tt.rectTransform);
             if (onInfo != null)
@@ -240,6 +243,44 @@ namespace RogueStars.Client.Screens
             }
             return brt;
         }
+
+        /// <summary>Where the header and a column of cards go (reference px from the top of the overlay).</summary>
+        public struct CardLayout
+        {
+            public float HeroY, RibbonY, FirstY, Step, CardH;
+        }
+
+        /// <summary>The overlay's height in reference px (2400 before layout / in tests).</summary>
+        public static float RefHeight(RectTransform root, float s) => root != null && root.rect.height > 100 && s > 0 ? root.rect.height / s : 2400;
+
+        /// <summary>
+        /// D1: lays <paramref name="n"/> cards between the subtitle and a bottom-anchored control that reserves
+        /// <paramref name="bottomReserve"/> reference px (from the bottom edge). On short screens (16:9) the header moves up
+        /// first, then the cards shrink, so the last card always ends above the control (pure; tested).
+        /// </summary>
+        public static CardLayout Layout(float refHeight, int n, float bottomReserve, float maxStep = 287, float maxH = 280)
+        {
+            n = Math.Max(1, n);
+            float step = Mathf.Min(maxStep, 900f / n), h = Mathf.Min(maxH, step - 7), gap = step - h;
+            var l = new CardLayout { HeroY = 520, RibbonY = 760 };
+            float top = l.RibbonY + 150, limit = refHeight - bottomReserve;
+            float needed = (n - 1) * step + h, avail = limit - top;
+            if (needed > avail)
+            {
+                float shift = Mathf.Min(needed - avail, 280);
+                l.HeroY -= shift; l.RibbonY -= shift; top -= shift; avail += shift;
+            }
+            if (needed > avail)
+            {
+                h = Mathf.Max(150, (avail - (n - 1) * gap) / n);
+                step = h + gap;
+            }
+            l.CardH = h; l.Step = step; l.FirstY = top + h / 2;
+            return l;
+        }
+
+        /// <summary>Reference px the draft's reroll button keeps free at the bottom (its top edge + a margin).</summary>
+        public const float RerollReserve = 2400 - 2086 + 85 + 24;
 
         private static Color FamilyGlyph(SkillFamily f) => f == SkillFamily.None ? (Color)new Color32(0xFF, 0xE0, 0x5A, 255) : Color.Lerp(Theme.FamilyColor(f), Color.white, 0.35f);
 

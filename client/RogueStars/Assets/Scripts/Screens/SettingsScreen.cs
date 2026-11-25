@@ -22,7 +22,7 @@ namespace RogueStars.Client.Screens
             var s = App.Settings;
             var card = Card(body);
             Section(card, "Mode");
-            KeyValue(card, "Current", Session.Service?.ModeName + " — " + App.ConnectionStatus, Session.IsOnline ? Theme.Good : Theme.Warn);
+            KeyValue(card, "Current", ModeLine(Session.IsOnline, App.ConnectionStatus), Session.IsOnline ? Theme.Good : Theme.Warn).name = "ModeLine";
             var row = Ui.Row(card);
             Ui.Button(row, "Offline", () => App.SwitchMode(false), !s.Online ? Theme.Accent : Theme.Button);
             Ui.Button(row, "Online", () => App.SwitchMode(true), s.Online ? Theme.Accent : Theme.Button);
@@ -33,7 +33,7 @@ namespace RogueStars.Client.Screens
             if (firebase == null) Note(card, "Dev auth device id: " + s.DeviceId + "  (server player id dev_" + s.DeviceId + ")");
             else AccountSection(card, firebase);
             Section(card, "Display name");
-            var name = Ui.Input(card, s.DisplayName, "Worm");
+            var name = Ui.Input(card, CurrentName(State?.DisplayName, s.DisplayName), "Worm");
             Ui.Button(card, "Save & reconnect", () =>
             {
                 s.ServerUrl = url.text.Trim();
@@ -50,6 +50,14 @@ namespace RogueStars.Client.Screens
             var tools = Session.Service?.DevTools;
             if (tools != null) DeveloperCard(body, tools, Session.Service as LocalGameService);
         }
+
+        /// <summary>MS5: "Offline" (never "offline — connected"); online shows the connection state.</summary>
+        public static string ModeLine(bool online, string status) =>
+            !online ? "Offline" : "Online" + (string.IsNullOrEmpty(status) || status == "idle" ? "" : " — " + status);
+
+        /// <summary>MS5: the name field shows the name the header shows (the player's display name), else the saved setting.</summary>
+        public static string CurrentName(string stateName, string settingName) =>
+            !string.IsNullOrWhiteSpace(stateName) ? stateName : settingName;
 
         // ---- Developer ------------------------------------------------------------------------------------------
 

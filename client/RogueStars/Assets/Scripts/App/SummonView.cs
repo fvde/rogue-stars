@@ -64,9 +64,17 @@ namespace RogueStars.Client.App
         public static string GoScreen(SummonTaskLineDef line) =>
             line != null && line.CounterKey.StartsWith("pulls_") ? "signals" : "portals";
 
-        /// <summary>Short amount caption on a reward tile ("×5", "2,000" → "2000"; a hero / mount batch: "×50" shards).</summary>
+        /// <summary>Short amount caption on a reward tile ("×5", "×2K", "×1.5K"; a hero / mount batch: "×50" shards) — SM3.</summary>
         public static string Amount(Reward r) =>
-            r == null ? "" : r.Kind == RewardKinds.Hero || r.Kind == RewardKinds.Mount ? "×" + Fmt.Num(r.Amount * ContentDb.Default.ShardStars.BatchShards) : "×" + Fmt.Num(r.Amount);
+            r == null ? "" : r.Kind == RewardKinds.Hero || r.Kind == RewardKinds.Mount ? "×" + Compact(r.Amount * ContentDb.Default.ShardStars.BatchShards) : "×" + Compact(r.Amount);
+
+        /// <summary>Tile amounts: whole below 1000, then K / M (one decimal only below 10, the G3 rule: "2K", "1.5K", "9K", "18K").</summary>
+        public static string Compact(long v)
+        {
+            if (System.Math.Abs(v) < 1000) return v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (System.Math.Abs(v) >= 10000) return Fmt.Num(v);
+            return RogueStars.Rules.Core.NumFmt.OneDecimal(System.Math.Floor(v / 100.0) / 10.0) + "K";
+        }
 
         /// <summary>Name of a reward tile (featured placeholders resolved by the caller).</summary>
         public static string RewardName(Reward r, ContentDb c)

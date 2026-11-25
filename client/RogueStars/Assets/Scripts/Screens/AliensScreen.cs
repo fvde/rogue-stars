@@ -12,7 +12,7 @@ namespace RogueStars.Client.Screens
 {
     /// <summary>
     /// Owned aliens (aliens pass): stars are the only progression, so each card shows the ability of its star, what the next star
-    /// changes, how often it acts, its synergies, traits and genes ("coming soon"); star up, breed (Grain's sink), work and squad.
+    /// changes, how often it acts, its synergies and traits (genes stay hidden until they do something); star up, breed (Grain's sink), work and squad.
     /// No levels, no stats.
     /// </summary>
     public sealed class AliensScreen : UiScreen
@@ -36,8 +36,7 @@ namespace RogueStars.Client.Screens
         {
             int slots = CitySystem.SquadSlots(State, Content);
             var squadCard = Card(body, Theme.Header);
-            Section(squadCard, "Squad (" + State.Aliens.Squad.Count + "/" + slots + " slots)");
-            if (slots == 0) Note(squadCard, "Build housing to unlock squad slots.");
+            Section(squadCard, SquadTitle(State.Aliens.Squad.Count, slots)).name = "SquadTitle";
             var squad = AlienSystem.ActiveSquad(State, Content);
             Ui.Label(squadCard, squad.Count == 0 ? "Empty" : string.Join(", ", squad.ConvertAll(id => Content.AlienType(id)?.Name ?? id)), Theme.FontNormal);
             string hint = SquadHint(Content, State.Aliens.Squad);
@@ -58,7 +57,7 @@ namespace RogueStars.Client.Screens
             var art = ArtCatalog.Alien(a.TypeId);
             var head = Ui.Row(card, 104);
             var portrait = Ui.Panel(head, Color.white, art != null ? "AlienSprite" : "AlienCritter");
-            portrait.sprite = art != null ? art : HudArt.AlienCritter(Theme.FamilyColor(def?.Family ?? SkillFamily.AlienSynergy));
+            portrait.sprite = art != null ? art : HudArt.AlienCritter(FallbackColor(a.TypeId)); // one colour per alien until its art exists
             portrait.preserveAspect = true;
             portrait.raycastTarget = false;
             Ui.Size(portrait, 104, 104, 0, 0);
@@ -71,7 +70,6 @@ namespace RogueStars.Client.Screens
             if (next != null) Note(card, next).name = "NextStar";
             Note(card, ActsText(AlienSystem.ActsEvery(Content, a)) + " · numbers are % of the worm's ATK / max HP").name = "Acts";
             Note(card, TraitsLine(Content, a)).name = "Traits";
-            Note(card, GenesLine).name = "Genes";
             string work = a.WorkBuildingId != null ? "works at " + (Content.Blueprint(a.WorkBuildingId)?.Name ?? a.WorkBuildingId) : "idle";
             bool inSquad = State.Aliens.Squad.Contains(a.TypeId);
             Note(card, "Work +" + Fmt.Whole(AlienSystem.WorkPower(Content, a)) + "% · " + work + (inSquad ? " · in squad" : ""));
@@ -87,8 +85,17 @@ namespace RogueStars.Client.Screens
             Ui.Button(row, inSquad ? "Bench" : "Squad", () => ToggleSquad(a.TypeId, slots), Theme.Accent, -1, 80, inSquad || State.Aliens.Squad.Count < slots, 26);
         }
 
-        /// <summary>"Genes: coming soon" (aliens pass: genes are stored and bred but have no effect yet).</summary>
-        public const string GenesLine = "Genes: coming soon";
+        /// <summary>"Squad 2/3"; without housing slots (or fewer slots than members): "Squad 2 · build housing for slots" (AL1).</summary>
+        public static string SquadTitle(int members, int slots) =>
+            slots <= 0 || members > slots ? "Squad " + members + " · build housing for slots" : "Squad " + members + "/" + slots;
+
+        /// <summary>A stable colour per alien id for the drawn critter of an alien without art (no two aliens share the same face).</summary>
+        public static Color FallbackColor(string typeId)
+        {
+            uint h = 2166136261;
+            foreach (char ch in typeId ?? "") { h ^= ch; h *= 16777619; }
+            return Color.HSVToRGB((h % 360) / 360f, 0.55f, 0.95f);
+        }
 
         /// <summary>"Stone Guard — Guard the worm: the next hit it takes deals 20% less." (the ability of the alien's star).</summary>
         public static string AbilityLine(ContentDb content, OwnedAlien a)
@@ -134,9 +141,18 @@ namespace RogueStars.Client.Screens
             foreach (var t in a.Traits)
             {
                 var tr = content.AlienTrait(t);
-                parts.Add(tr == null ? t : tr.Name + " (" + tr.Description.TrimEnd('.') + ")");
+                parts.Add(tr == null ? t : tr.Name + " (" + TraitText(tr).TrimEnd('.') + ")");
             }
             return "Traits: " + string.Join(" · ", parts);
+        }
+
+        /// <summary>A trait's description with display names (work traits name the resources: "+15% Hero XP, Blueprint Tokens and Alien Tokens production when working").</summary>
+        public static string TraitText(AlienTraitDef tr)
+        {
+            if (tr.Kind != AlienTraitKind.Work) return tr.Description ?? "";
+            var names = tr.WorkCurrencies.ConvertAll(c => Fmt.CurrencyName(c));
+            string what = names.Count == 0 ? "" : names.Count == 1 ? names[0] + " " : string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[names.Count - 1] + " ";
+            return "+" + Fmt.OneDecimal(tr.WorkPct) + "% " + what + "production when working.";
         }
 
         /// <summary>A squad hint (review: Freeze resets Chill, so Frostmite works against Shiverpup's Chill), or null.</summary>

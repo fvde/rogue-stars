@@ -93,7 +93,37 @@ namespace RogueStars.Client.Screens
             return chip;
         }
 
-        /// <summary>A reward tile: framed icon with the amount in the corner, optional caption under it. Returns the frame.</summary>
+        /// <summary>
+        /// The featured hero / mount as one placed rect: the art, and for a hero without its own art the worm in that hero's
+        /// outfit (cape behind, hat on the head — SM1). Place / bob the returned rect.
+        /// </summary>
+        public static RectTransform FeaturedArt(Transform parent, SummonEventType type, string id, string name = "Featured")
+        {
+            var root = Ui.Rect(parent, name);
+            bool outfit = type == SummonEventType.Hero && !SummonArt.HasHeroArt(id);
+            if (outfit)
+            {
+                var cape = Img(root, SummonArt.HeroOutfit(id, true), "HeroCape");
+                Rel(cape.rectTransform, 0.46f, 0.12f, 0.84f, 0.62f);
+            }
+            var art = Img(root, SummonArt.Featured(type, id), "Art");
+            Ui.Stretch(art.rectTransform);
+            if (outfit)
+            {
+                var hat = Img(root, SummonArt.HeroOutfit(id, false), "HeroHat");
+                Rel(hat.rectTransform, 0.26f, 0.66f, 0.62f, 0.98f);
+            }
+            return root;
+        }
+
+        /// <summary>Anchors a child to a normalised rect of its parent (x0, y0, x1, y1 from bottom-left).</summary>
+        private static void Rel(RectTransform rt, float x0, float y0, float x1, float y1)
+        {
+            rt.anchorMin = new Vector2(x0, y0); rt.anchorMax = new Vector2(x1, y1);
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>A reward tile: framed icon with the amount under it (abbreviated, auto-fit — SM3), optional caption below. Returns the root.</summary>
         public static RectTransform RewardTile(Transform parent, Reward r, float size, string caption = null, bool dim = false, string state = null, Color? frame = null)
         {
             var root = Ui.Rect(parent, "Reward:" + (r?.Kind ?? "") + ":" + (r?.Id ?? ""));
@@ -102,13 +132,24 @@ namespace RogueStars.Client.Screens
             Place(box, new Vector2(0.5f, 1), Vector2.zero, new Vector2(size, size));
             var inner = Ui.RoundPanel(box.transform, Theme.Hex(0xC86E3A), size * 0.14f, "Inner");
             Ui.Stretch(inner.rectTransform, 7, 7, 7, 7);
-            var icon = Img(inner.transform, SummonArt.RewardIcon(r), "Icon");
-            Ui.Stretch(icon.rectTransform, size * 0.1f, size * 0.08f, size * 0.1f, size * 0.16f);
             string amount = SummonView.Amount(r);
+            float iconBottom = amount.Length > 0 ? size * 0.3f : size * 0.12f;
+            if (r != null && r.Kind == RewardKinds.Hero)
+                Ui.Stretch(FeaturedArt(inner.transform, SummonEventType.Hero, r.Id, "Icon"), size * 0.08f, size * 0.06f, size * 0.08f, iconBottom);
+            else
+            {
+                var icon = Img(inner.transform, SummonArt.RewardIcon(r), "Icon");
+                Ui.Stretch(icon.rectTransform, size * 0.1f, size * 0.08f, size * 0.1f, iconBottom);
+            }
             if (amount.Length > 0)
             {
-                var a = Chunky(box.transform, amount, Mathf.RoundToInt(size * 0.24f), Color.white, TextAnchor.LowerCenter, "Amount");
-                Ui.Stretch(a.rectTransform, 0, 0, 0, -4);
+                // the amount sits in its own strip under the icon and shrinks to fit the frame
+                var a = Chunky(box.transform, amount, Mathf.RoundToInt(size * 0.24f), Color.white, TextAnchor.MiddleCenter, "Amount");
+                a.horizontalOverflow = HorizontalWrapMode.Wrap; a.verticalOverflow = VerticalWrapMode.Truncate;
+                a.resizeTextForBestFit = true; a.resizeTextMinSize = 10; a.resizeTextMaxSize = Mathf.RoundToInt(size * 0.24f);
+                var art = a.rectTransform;
+                art.anchorMin = new Vector2(0, 0); art.anchorMax = new Vector2(1, 0); art.pivot = new Vector2(0.5f, 0);
+                art.offsetMin = new Vector2(size * 0.06f, 4); art.offsetMax = new Vector2(-size * 0.06f, size * 0.3f);
             }
             if (dim) { var d = Ui.RoundPanel(box.transform, new Color(0, 0, 0, 0.5f), size * 0.18f, "Dim"); Ui.Stretch(d.rectTransform); d.raycastTarget = false; }
             if (state == "claimed") Place(Img(box.transform, SummonArt.Icon("check"), "Claimed"), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(size * 0.7f, size * 0.7f));
@@ -201,8 +242,57 @@ namespace RogueStars.Client.Screens
             var col = Ui.Column(frame.transform, 0, 18, null, "Pad");
             Ui.Stretch(col);
             Ui.Size(frame, -1, maxHeight, 1, 0);
-            Ui.ScrollingColumn(col, maxHeight - 36, build, 18, 800);
+            var content = Ui.ScrollingColumn(col, maxHeight - 36, build, 18, 800);
+            ScrollHint(frame.rectTransform, content, maxHeight - 36);
             return frame.rectTransform;
+        }
+
+        private static Sprite _fade;
+
+        /// <summary>Vertical fade sprite: opaque at the bottom, clear at the top.</summary>
+        private static Sprite Fade
+        {
+            get
+            {
+                if (_fade != null) return _fade;
+                var tex = new Texture2D(1, 32, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "rs_fade" };
+                for (int y = 0; y < 32; y++) tex.SetPixel(0, y, new Color(1, 1, 1, 1 - y / 31f));
+                tex.Apply();
+                _fade = Sprite.Create(tex, new Rect(0, 0, 1, 32), new Vector2(0.5f, 0.5f));
+                return _fade;
+            }
+        }
+
+        /// <summary>
+        /// SM4: when a cream list scrolls, a fade at its bottom edge and a thin scroll bar show there is more below (hidden at the end).
+        /// </summary>
+        public static void ScrollHint(RectTransform frame, RectTransform content, float visible)
+        {
+            var sr = content != null ? content.GetComponentInParent<ScrollRect>() : null;
+            if (sr == null || LayoutUtility.GetPreferredHeight(content) <= visible + 1) return;
+            var fade = Ui.Panel(frame, Cream, "ScrollFade");
+            fade.sprite = Fade;
+            fade.raycastTarget = false;
+            var frt = fade.rectTransform;
+            frt.anchorMin = new Vector2(0, 0); frt.anchorMax = new Vector2(1, 0); frt.pivot = new Vector2(0.5f, 0);
+            frt.offsetMin = new Vector2(8, 8); frt.offsetMax = new Vector2(-8, 110);
+            var track = Ui.RoundPanel(frame, new Color(CreamDeep.r, CreamDeep.g, CreamDeep.b, 0.9f), 6, "ScrollBar");
+            var trt = track.rectTransform;
+            trt.anchorMin = new Vector2(1, 0); trt.anchorMax = new Vector2(1, 1); trt.pivot = new Vector2(1, 0.5f);
+            trt.offsetMin = new Vector2(-16, 24); trt.offsetMax = new Vector2(-6, -24);
+            var area = Ui.Rect(track.transform, "Sliding");
+            Ui.Stretch(area);
+            var handle = Ui.RoundPanel(area, Brown, 6, "Handle");
+            Ui.Stretch(handle.rectTransform);
+            var bar = track.gameObject.AddComponent<Scrollbar>();
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.handleRect = handle.rectTransform;
+            bar.targetGraphic = handle;
+            sr.verticalScrollbar = bar;
+            sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+            bar.size = Mathf.Clamp01(visible / LayoutUtility.GetPreferredHeight(content));
+            bar.value = 1;
+            sr.onValueChanged.AddListener(v => { if (fade != null) fade.enabled = sr.verticalNormalizedPosition > 0.01f; });
         }
 
         /// <summary>A brown-headed card on the cream sheet (pack / task row).</summary>

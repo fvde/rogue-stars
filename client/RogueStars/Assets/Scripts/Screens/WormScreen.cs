@@ -11,8 +11,7 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Worm tab = the gear screen: worm card (level, power, Biomass level up), the level-up callout when an equipped part can
-    /// be levelled with Ore, the six body slots (tap → the inventory filtered to that slot), the inventory of every owned
+    /// Worm tab = the gear screen: worm card (portrait, level, power, Biomass level up), the six body slots (tap → the inventory filtered to that slot), the inventory of every owned
     /// part (<see cref="GearScreen"/>), stats and the talent road.
     /// </summary>
     public sealed class WormScreen : GearScreen
@@ -29,12 +28,12 @@ namespace RogueStars.Client.Screens
             var cfg = Content.WormConfig;
             var head = Card(body, Theme.Header);
             var who = Ui.Row(head, 110, 22);
-            var pill = Ui.RoundPanel(who, Theme.Worm, 40, "WormPill");
-            Ui.Size(pill, 190, 80, 0);
-            UiShapes.Outline(pill.rectTransform, Theme.WormLight, 40, 5);
-            var eye = Ui.Dot(pill.transform, Theme.OnAccent, 14, "Eye");
-            eye.rectTransform.anchorMin = eye.rectTransform.anchorMax = new Vector2(0.8f, 0.62f);
-            eye.rectTransform.sizeDelta = new Vector2(14, 14);
+            // W1: the worm's own art (the equipped hero's sprite, else the hero worm) instead of a drawn pill
+            var portrait = Ui.Rect(who, "WormPortrait");
+            Ui.Size(portrait, 150, 110, 0);
+            var img = portrait.gameObject.AddComponent<Image>();
+            img.sprite = HeaderSprite(State);
+            img.preserveAspect = true; img.raycastTarget = false;
             var names = Ui.Column(who, 0, 0, null, "Names");
             names.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Size(names, -1, -1, 1);
@@ -50,10 +49,6 @@ namespace RogueStars.Client.Screens
                 Ui.Button(row, "Level up\n<size=22>" + Fmt.Num(cost) + " Biomass</size>", () => Run(new WormLevelUp { Levels = 1 }), Theme.Good, -1, 90, State.Wallet.CanAfford(Currencies.Biomass, cost), 30);
                 Ui.Button(row, "+10", () => Run(new WormLevelUp { Levels = 10 }), Theme.Button, 160, 90);
             }
-
-            UpgradeCallout(body);
-            if (AutoEquipCommands().Count > 0)
-                Ui.Button(body, "Equip best parts", () => { foreach (var c in AutoEquipCommands()) Run(c); }, Theme.Good).name = "AutoEquip";
 
             var slotsHead = Ui.Row(body, 64, 12, null, 0, "SlotsHead");
             Section(slotsHead, "Equipped");
@@ -77,26 +72,6 @@ namespace RogueStars.Client.Screens
         {
             if (Session.IsUnlocked(Features.Runes))
                 Ui.Button(row, "Runes", () => App.Router.Push(new PartsScreen { Tab = 1 }), Theme.Button, 220, 80, true, 26).name = "OpenRunes";
-        }
-
-        /// <summary>
-        /// "Level up ready": the first equipped part the wallet can level now (name, level, Ore price) with a direct LEVEL UP
-        /// button and the count of the others; nothing when no equipped part is affordable.
-        /// </summary>
-        private void UpgradeCallout(Transform body)
-        {
-            var ready = GearGuide.UpgradableEquipped(State, Content);
-            if (ready.Count == 0) return;
-            var p = ready[0];
-            GearGuide.NextLevelCost(Content, p, out long ore, out long cores);
-            var card = Ui.Card(body, Color.Lerp(Theme.Panel, Theme.Good, 0.18f), Theme.Good, Theme.RadiusCard, 22, 8, 4, "UpgradeCallout");
-            Ui.Display(card, "▲ Level up ready", Theme.FontLarge, Theme.Good, TextAnchor.MiddleLeft, "CalloutTitle");
-            Ui.Label(card, "Ore levels up your parts. " + ready.Count + " equipped part" + (ready.Count == 1 ? " is" : "s are") + " ready.", 24, Theme.Text);
-            var row = Ui.Row(card, 88, 10);
-            string uid = p.Uid;
-            Ui.Button(row, "LEVEL UP " + PartName(Content, p) + "\n<size=22>to Lv " + (p.Level + 1) + " · " + Fmt.Num(ore) + " Ore" + (cores > 0 ? " + " + Fmt.Num(cores) + " Gear Cores" : "") + "</size>",
-                () => Run(new PartLevelUp { Uid = uid }), Theme.Good, -1, 88, true, 26).name = "QuickLevelUp";
-            Ui.Button(row, "Details", () => Detail(uid), Theme.Button, 190, 88, true, 26).name = "CalloutDetails";
         }
 
         /// <summary>One body slot: name, the equipped part (rarity colour, level) or "Empty" with the spare count; ▲ when it can level up.</summary>
@@ -124,27 +99,12 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>Commands that fill empty slots with the best unequipped fitting part (rarity, then level).</summary>
-        public List<PartEquip> AutoEquipCommands()
+        /// <summary>Header portrait (W1): the equipped hero's own art when it has one, else the hero worm sprite.</summary>
+        public static Sprite HeaderSprite(GameState state)
         {
-            var cmds = new List<PartEquip>();
-            var used = new HashSet<string>();
-            foreach (PartSlot slot in Enum.GetValues(typeof(PartSlot)))
-            {
-                if (State.Parts.Equipped.ContainsKey(slot)) continue;
-                PartItem best = null;
-                foreach (var uid in PartsSystem.SortedPartUids(State))
-                {
-                    if (used.Contains(uid) || PartsSystem.IsEquipped(State, uid)) continue;
-                    var p = PartsSystem.Get(State, uid);
-                    if (!GearGuide.Fits(PartsSystem.Def(Content, p), slot)) continue;
-                    if (best == null || p.Rarity > best.Rarity || (p.Rarity == best.Rarity && p.Level > best.Level)) best = p;
-                }
-                if (best == null) continue;
-                used.Add(best.Uid);
-                cmds.Add(new PartEquip { Uid = best.Uid, Slot = slot });
-            }
-            return cmds;
+            string hero = state?.Heroes?.Equipped;
+            var own = string.IsNullOrEmpty(hero) ? null : ArtCatalog.Load(RogueStars.Client.World.SummonArt.Root + "/Heroes/" + hero);
+            return own ?? RogueStars.Client.World.SummonArt.Featured(SummonEventType.Hero, hero ?? "");
         }
 
         public static string StatText(StatId st, double v) =>

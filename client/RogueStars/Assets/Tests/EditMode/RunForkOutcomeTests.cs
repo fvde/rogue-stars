@@ -133,7 +133,7 @@ namespace RogueStars.Client.Tests
             Button search = null;
             foreach (var b in _f.App.ModalLayer.GetComponentsInChildren<Button>(true)) if (b.name.StartsWith("Button:Search it")) search = b;
             Assert.That(search, Is.Not.Null, "event option");
-            Assert.That(Texts(_f.App.ModalLayer), Does.Contain("account loot"), "the risk is spelled out");
+            Assert.That(Texts(_f.App.ModalLayer), Does.Contain("reward chest"), "the risk is spelled out");
             search.onClick.Invoke();
             if (!screen.OutcomeOpen) screen.Rebuild();
             Assert.That(screen.OutcomeOpen, Is.True, "result screen after the choice");
@@ -146,7 +146,7 @@ namespace RogueStars.Client.Tests
             Assert.That(texts, Does.Contain(o.Success ? "SUCCESS!" : "NO LUCK"));
             Assert.That(texts, Does.Contain("EVENT RESULT"));
             foreach (var l in o.Lines) Assert.That(texts, Does.Contain(RunScreen.OutcomeLineText(l, C)), l.Kind.ToString());
-            if (o.Success) Assert.That(texts, Does.Contain("account loot, paid when you beat the boss"));
+            if (o.Success) Assert.That(texts, Does.Contain("reward chest, paid when you beat the boss"));
             else Assert.That(texts, Does.Contain("−5% max HP for the run"));
             Assert.That(FindNamed(sheet, "Icon"), Is.Not.Null, "icons per line");
 
@@ -202,7 +202,7 @@ namespace RogueStars.Client.Tests
             Assert.That(RunScreen.OutcomeLineText(new OutcomeLine(OutcomeKind.AwakenRate, null, 15, false), C), Is.EqualTo("Boss awakens 15% faster for the rest of the run"));
             Assert.That(RunScreen.OutcomeLineText(new OutcomeLine(OutcomeKind.Battle, "won", 1, true), C), Is.EqualTo("Fight won"));
             var loot = new OutcomeLine(OutcomeKind.AccountLoot, Currencies.Biomass, 120, true) { Reward = Reward.Cur(Currencies.Biomass, 120) };
-            Assert.That(RunScreen.OutcomeLineText(loot, C), Does.EndWith("account loot, paid when you beat the boss"));
+            Assert.That(RunScreen.OutcomeLineText(loot, C), Does.EndWith("reward chest, paid when you beat the boss"));
         }
     }
 }

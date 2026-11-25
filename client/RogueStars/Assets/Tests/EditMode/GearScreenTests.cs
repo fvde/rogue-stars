@@ -56,9 +56,17 @@ namespace RogueStars.Client.Tests
 
         private void EquipBest()
         {
-            var worm = OpenWorm();
-            foreach (var c in worm.AutoEquipCommands()) Assert.That(_f.Service.ExecuteNow(c).Ok, Is.True);
-            _f.App.Router.Pop();
+            // the player equips by hand (no auto-pick, W3): the first fitting part per slot
+            foreach (PartSlot slot in System.Enum.GetValues(typeof(PartSlot)))
+            {
+                if (S.Parts.Equipped.ContainsKey(slot)) continue;
+                foreach (var uid in PartsSystem.SortedPartUids(S))
+                {
+                    if (PartsSystem.IsEquipped(S, uid) || !GearGuide.Fits(PartsSystem.Def(C, PartsSystem.Get(S, uid)), slot)) continue;
+                    Assert.That(_f.Service.ExecuteNow(new PartEquip { Uid = uid, Slot = slot }).Ok, Is.True);
+                    break;
+                }
+            }
         }
 
         private List<string> Grant(string defId, PartRarity rarity, int count)
@@ -214,7 +222,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AffordableUpgrade_BadgesTheWormTab_TheSlot_AndTheCallout()
+        public void AffordableUpgrade_BadgesTheWormTab_AndTheSlot_NoCallout()
         {
             ReachLevel2();
             Assert.That(GearGuide.HasAffordableUpgrade(S, C), Is.False, "nothing equipped yet");
@@ -229,16 +237,12 @@ namespace RogueStars.Client.Tests
             var worm = OpenWorm();
             Assert.That(Child(Named(worm.Root, "Slot:Head").transform, "LevelUpBadge"), Is.Not.Null);
             Assert.That(Child(Named(worm.Root, "Part:" + S.Parts.Equipped[PartSlot.Head]).transform, "LevelUpBadge"), Is.Not.Null);
-            Assert.That(Child(worm.Root, "UpgradeCallout"), Is.Not.Null);
-            int before = GearGuide.UpgradableEquipped(S, C)[0].Level;
-            string first = GearGuide.UpgradableEquipped(S, C)[0].Uid;
-            Named(worm.Root, "QuickLevelUp").onClick.Invoke();
-            Assert.That(S.Parts.Items[first].Level, Is.EqualTo(before + 1));
+            Assert.That(Child(worm.Root, "UpgradeCallout"), Is.Null, "the level-up callout was removed (W3)");
+            Assert.That(Child(worm.Root, "Button:Equip best parts"), Is.Null, "no auto-equip (W3)");
 
             SpendAllOre();
             Assert.That(GearGuide.HasAffordableUpgrade(S, C), Is.False);
             worm.Rebuild();
-            Assert.That(Child(worm.Root, "UpgradeCallout"), Is.Null);
             Assert.That(Child(Named(worm.Root, "Slot:Head").transform, "LevelUpBadge"), Is.Null);
             _f.App.Router.Reset(hub = new HubScreen());
             Assert.That(hub.TabBadge("worm"), Is.Not.EqualTo(HubScreen.UpgradeBadge));
@@ -265,11 +269,10 @@ namespace RogueStars.Client.Tests
             Assert.That(go, Is.Not.Null);
             go.onClick.Invoke();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<WormScreen>());
-            // already on the Worm: Go just brings the inventory into view (no second Worm screen)
-            int depth = _f.App.Router.Depth;
+            // already on the Worm: no "Go to Worm" (W6)
             _f.App.Bar.ShowCurrency(Currencies.Ore);
-            Named(_f.App.ModalLayer, "Button:Go to Worm").onClick.Invoke();
-            Assert.That(_f.App.Router.Depth, Is.EqualTo(depth));
+            Assert.That(Named(_f.App.ModalLayer, "Button:Go to Worm"), Is.Null);
+            Assert.That(Named(_f.App.ModalLayer, "Button:Close"), Is.Not.Null);
         }
 
         [Test]

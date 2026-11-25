@@ -129,10 +129,11 @@ namespace RogueStars.Client.Screens
             double hpFrac = s.MaxHp > 0 ? s.Hp / s.MaxHp : 1;
             Hp.Set((float)hpFrac, "HP " + Fmt.Num(Math.Round(s.Hp)) + " / " + Fmt.Num(Math.Round(s.MaxHp)));
             Hp.Fill.GetComponent<Image>().color = hpFrac > 0.5 ? Theme.Hex(0xFF6B5E) : hpFrac > 0.25 ? Theme.Warn : Theme.Bad;
-            Atk.text = StatLine("ATK", known ? Fmt.Num(Math.Round(s.Atk)) : "–", AtkColor);
-            Def.text = StatLine("DEF", known ? Fmt.Num(Math.Round(s.Def)) : "–", DefColor);
+            // never "–" (BT3): unknown stats are left out of the line
+            Atk.text = known ? StatLine("ATK", Fmt.Num(Math.Round(s.Atk)), AtkColor) : "";
+            Def.text = known ? StatLine("DEF", Fmt.Num(Math.Round(s.Def)), DefColor) : "";
             Skills.text = StatLine("SKILLS", skills.ToString(), SkillsColor);
-            Level.text = level > 0 ? level.ToString() : "–";
+            Level.text = level > 0 ? level.ToString() : "";
             XpFill.fillAmount = Mathf.Clamp01(xpFrac);
             XpText = "XP " + s.Xp + " / " + s.XpNeed;
         }

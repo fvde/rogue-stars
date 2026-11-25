@@ -258,7 +258,7 @@ namespace RogueStars.Client.Screens
                             if (fx.Value >= 0) Add(true, "+" + Fmt.Pct(fx.Value) + " " + fx.Stat.ToString().ToUpperInvariant());
                             else Add(false, "RISK −" + Fmt.Pct(-fx.Value) + " " + fx.Stat.ToString().ToUpperInvariant());
                             break;
-                        case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "ACCOUNT LOOT (paid on clear)"); break;
+                        case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "REWARD CHEST (paid on clear)"); break;
                         case RunEffectKind.AwakenRatePct: Add(fx.Value < 0, fx.Value < 0 ? "Boss wakes slower" : "RISK boss wakes " + Fmt.Pct(fx.Value) + " faster"); break;
                         case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Fmt.Whole(Math.Abs(fx.Value)) + " coins"); break;
                         case RunEffectKind.Xp: Add(true, "+XP"); break;
@@ -408,9 +408,10 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(shade.rectTransform);
             float dieSize = vals.Count <= 2 ? 150 : Mathf.Max(70, 520f / vals.Count);
             var view = new DiceView(stage, vals.Count, dieSize);
-            view.Root.anchorMin = view.Root.anchorMax = new Vector2(0.5f, 0.5f);
             view.Root.sizeDelta = new Vector2(vals.Count * dieSize * 1.35f, dieSize * 1.4f);
-            view.Root.anchoredPosition = new Vector2(0, 60);
+            // B4: the dice pop above the worm's head (offset by its sprite height), never on top of it
+            view.Root.anchorMin = view.Root.anchorMax = new Vector2(0, 1);
+            view.Root.anchoredPosition = DiceAboveWorm(view.Root.sizeDelta);
             var group = stage.gameObject.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false;
             _anim.Then(secs, t =>
@@ -424,6 +425,24 @@ namespace RogueStars.Client.Screens
                 if (stage == null) return;
                 UiTweens.Play(stage.gameObject, "fade", 0.38f / AnimSpeed, k => { if (group != null) group.alpha = 1 - k; }, () => { if (stage != null) UnityEngine.Object.Destroy(stage.gameObject); });
             });
+        }
+
+        /// <summary>Centre of the rolling dice (top-left-anchored holder coordinates): above the worm's head, kept on screen.</summary>
+        private Vector2 DiceAboveWorm(Vector2 size)
+        {
+            float w = _holderSize.x > 10 ? _holderSize.x : 1080, h = _holderSize.y > 10 ? _holderSize.y : 1920;
+            if (_world == null) return new Vector2(w / 2, -h / 2 + 60);
+            var head = Overlay(_tokenPos + new Vector2(0, WorldBoard.WormHeight + 0.3f));
+            return DicePlacement(head, size, w, h);
+        }
+
+        /// <summary>The dice centre: just above <paramref name="head"/>, clamped inside the holder below the HUD strip (pure; tested).</summary>
+        public static Vector2 DicePlacement(Vector2 head, Vector2 size, float w, float h)
+        {
+            float x = Mathf.Clamp(head.x, size.x / 2 + 20, w - size.x / 2 - 20);
+            float y = head.y + size.y / 2 + 10;
+            y = Mathf.Clamp(y, -h + size.y / 2 + 20, -h * 0.14f - size.y / 2);
+            return new Vector2(x, y);
         }
 
         /// <summary>The landing: the tile pops and takes its landed colour (a beaten marker leaves), then the feedback popups.</summary>
@@ -537,6 +556,20 @@ namespace RogueStars.Client.Screens
         }
 
         private void ShowHud(RunHudStats s, int level, float xpFrac) => _hud?.Show(s, level, xpFrac, _skillCount);
+
+        /// <summary>D3: when the draft opens the HUD's Lv chip already shows the new level (with a pop), never the old one.</summary>
+        private void BumpHudLevel(ActiveRun run)
+        {
+            if (_hud == null || run == null) return;
+            var now = RunPresentation.Hud(Content, run);
+            int shown = _hudShown?.Level ?? 0;
+            if (_hudShown.HasValue && shown >= now.Level) return;
+            _hudShown = now;
+            ShowHud(now, now.Level, now.XpNeed > 0 ? (float)now.Xp / now.XpNeed : 0);
+            var pill = _hud.Root != null ? _hud.Root.Find("RunLevel") as RectTransform : null;
+            if (pill != null && Application.isPlaying)
+                UiTweens.Play(pill.gameObject, "lvpop", 0.45f, k => pill.localScale = Vector3.one * (1 + 0.35f * Mathf.Sin(k * Mathf.PI)), () => { if (pill != null) pill.localScale = Vector3.one; });
+        }
 
         /// <summary>The HUD as shown now (tests: "HP a / b | ATK n | DEF n | Lv n | XP x / y | SKILLS n").</summary>
         public string HudText => _hud?.Summary;
@@ -766,7 +799,7 @@ namespace RogueStars.Client.Screens
             if (_world == null || _world.Disposed)
             {
                 _world = new WorldBoard("RunBoard");
-                var life = Root.gameObject.GetComponent<WorldLifetime>() ?? Root.gameObject.AddComponent<WorldLifetime>();
+                var life = Root.gameObject.GetComponent<WorldLifetime>(); if (life == null) life = Root.gameObject.AddComponent<WorldLifetime>();
                 var w = _world;
                 life.OnGone = () => w.Dispose();
             }
@@ -1116,7 +1149,7 @@ namespace RogueStars.Client.Screens
             if (mark == _coachMark && (_coach != null) == (mark != null)) return;
             HideCoach();
             if (mark == null || run == null) return;
-            RectTransform target = _rollButton;
+            RectTransform target = (_rollButton != null ? _rollButton.Find("Cap/Label") as RectTransform : null) ?? _rollButton; // the dice: the hand at the caption's corner
             if (mark == CoachMarks.Pick)
                 foreach (var t in App.ModalLayer.GetComponentsInChildren<Button>(true))
                     if (t.name.StartsWith("Button:Pick")) { target = (RectTransform)t.transform; break; }
@@ -1224,6 +1257,7 @@ namespace RogueStars.Client.Screens
                 if (label != null) label.text = price > 0 ? price.ToString() : "FREE";
             }
             if (_shopCoins != null) _shopCoins.text = ShopBoughtLine(run);
+            if (_shopHud != null) { var st = RunPresentation.Hud(Content, run); _shopHud.Show(st, st.Level, st.XpNeed > 0 ? (float)st.Xp / st.XpNeed : 0, RunSystem.BuildSize(run)); }
             if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
             foreach (var kv in _shopButtons)
             {
@@ -1342,8 +1376,8 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.LevelUp: return "Level up! +" + Fmt.Whole(a) + " skill draft" + (a > 1 ? "s" : "");
                 case OutcomeKind.Shards: return sign + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s");
                 case OutcomeKind.AccountLoot:
-                    return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — account loot, paid when you beat the boss";
-                case OutcomeKind.Awakening: return "Boss awakening " + sign + Fmt.Whole(a);
+                    return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — reward chest, paid when you beat the boss";
+                case OutcomeKind.Awakening: return "Boss wakes " + Fmt.Whole(a) + "% " + (l.Amount >= 0 ? "sooner" : "later");
                 case OutcomeKind.AwakenRate: return "Boss awakens " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower") + " for the rest of the run";
                 case OutcomeKind.BossStat: return "Boss " + sign + Fmt.Pct(a) + " stronger";
                 case OutcomeKind.Danger: return "Danger " + sign + Fmt.Whole(a);
@@ -1351,6 +1385,29 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + Fmt.Whole(a) + " (" + l.Id + " odds)";
                 default: return "Nothing happened.";
             }
+        }
+
+        /// <summary>The id of a result line's icon (HUD icons: heart, sword, shield, coin, exp, skull; "chest" for loot), or null = a glyph (pure; tested).</summary>
+        public static string OutcomeIconId(OutcomeLine l)
+        {
+            switch (l.Kind)
+            {
+                case OutcomeKind.Coins: return "coin";
+                case OutcomeKind.Hp: return "heart";
+                case OutcomeKind.Stat: return l.Id == "Atk" ? "sword" : l.Id == "Def" ? "shield" : l.Id == "Hp" ? "heart" : null;
+                case OutcomeKind.Xp: case OutcomeKind.LevelUp: return "exp";
+                case OutcomeKind.Battle: return "sword";
+                case OutcomeKind.AccountLoot: return "chest";
+                case OutcomeKind.Awakening: case OutcomeKind.AwakenRate: case OutcomeKind.BossStat: return "skull";
+                default: return null;
+            }
+        }
+
+        private static Sprite OutcomeSprite(OutcomeLine l)
+        {
+            var id = OutcomeIconId(l);
+            if (id == null) return null;
+            return id == "chest" ? ArtCatalog.SliceMarker("chest") ?? ScreenArt.Prop("chest_common") : HudArt.Icon(id);
         }
 
         /// <summary>Icon glyph and colour of a result line.</summary>
@@ -1411,16 +1468,17 @@ namespace RogueStars.Client.Screens
         /// </summary>
         private UiModal DraftModal(ActiveRun run)
         {
-            var owned = new HashSet<SkillFamily>();
-            foreach (var id in RunSystem.ActiveSkillIds(run)) owned.Add(Content.Skill(id)?.Family ?? SkillFamily.None);
             bool mythic = run.MythicDraft;
+            BumpHudLevel(run);
             float s = ModalScale();
             var root = SliceCards.Overlay(App.ModalLayer, mythic ? "Mythic choice" : "Choose a skill", out var modal);
+            Canvas.ForceUpdateCanvases();
+            // D1: the cards fit above the reroll button on any aspect (16:9 moves the header up / shrinks the cards)
+            var lay = SliceCards.Layout(SliceCards.RefHeight(root, s), run.DraftOffer.Count, SliceCards.RerollReserve);
             SliceCards.Header(root, s, mythic ? SliceCards.RedRibbon : SliceCards.GoldRibbon, mythic ? "MYTHIC!" : "LEVEL UP!", mythic ? "MythicTitle" : "Title",
-                mythic ? "Miniboss defeated! Take a Mythic skill" : "Select a Skill to learn!");
+                mythic ? "Miniboss defeated! Take a Mythic skill" : "Select a Skill to learn!", lay.HeroY, lay.RibbonY);
             if (mythic) UiPulse.On(root.Find("Ribbon").GetComponent<Image>(), 0.03f, 1.4f, 1f);
-            int n = Math.Max(1, run.DraftOffer.Count);
-            float step = Mathf.Min(287, 900f / n), y = 1050;
+            float step = lay.Step, y = lay.FirstY;
             foreach (var id in run.DraftOffer)
             {
                 string sid = id;
@@ -1446,11 +1504,10 @@ namespace RogueStars.Client.Screens
                     spec.Chip = "NEW SIGNATURE" + (have >= Content.RunTuning.SignatureAwakenAt[0] ? " · AWAKENS NOW" : "");
                     spec.ChipName = "SignatureChip"; spec.ChipColor = SignaturePick.SignatureColor;
                 }
-                else if (ownedLevel > 0) { spec.Chip = "LEVEL " + ownedLevel + " → " + (ownedLevel + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
-                else if (sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
-                else if (fam != SkillFamily.None && owned.Contains(fam)) { spec.Chip = "SYNERGY"; spec.ChipName = "SynergyChip"; spec.ChipColor = Theme.Gold; }
+                // C3: an owned skill reads "Name Lv 2" with the upgrade inline (no "LEVEL 1 → 2" chip); D4: no synergy tag
+                else if (ownedLevel == 0 && sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
                 string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + SkillText.FamilyName(fam) : "") + "): " + SkillText.StripMarks(full) + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
-                SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info));
+                SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info), "Button:Pick", lay.CardH);
                 y += step;
             }
             SliceCards.Reroll(root, s, "Reroll (" + run.DraftRerolls + ")", () => Run(new RunDraftReroll()), run.DraftRerolls > 0);

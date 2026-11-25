@@ -113,6 +113,11 @@ namespace RogueStars.Client.Screens
         {
             var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
             RunScenes.VendorStage(root, frame, s, look.Title ?? ev.Name, look.Art, look.Line ?? ev.Text);
+            // E1: the run HUD (HP, coins) stays visible while deciding to pay coins or max HP
+            var hud = SliceHud.Build(frame, RunScenes.RefW * s, PauseModal, null, true);
+            var stats = RunPresentation.Hud(Content, run);
+            hud.Show(stats, stats.Level, stats.XpNeed > 0 ? (float)stats.Xp / stats.XpNeed : 0, RunSystem.BuildSize(run));
+            if (hud.Coins != null) hud.Coins.text = Fmt.Num(run.Coins);
             float[] xs = { 268, 812 };
             for (int k = 0; k < 2; k++)
             {
@@ -139,10 +144,30 @@ namespace RogueStars.Client.Screens
         {
             var choices = RunSystem.TrainChoices(Content, run);
             float s = ModalScale();
-            var root = SliceCards.Overlay(App.ModalLayer, "Train", out var modal, 0.96f);
-            SliceCards.Header(root, s, SliceCards.GoldRibbon, "TRAIN", "TrainTitle", "Pick a skill to improve!");
+            // C2: the rest scene (its panel and stage worm) is hidden while the picker is open, the overlay is opaque
+            if (parent?.Root != null) parent.Root.SetActive(false);
+            var root = SliceCards.Overlay(App.ModalLayer, "Train", out var modal, 1f);
+            modal.Closed += () => { if (parent?.Root != null) parent.Root.SetActive(true); };
+            Canvas.ForceUpdateCanvases();
             int n = Math.Max(1, choices.Count);
-            float step = Mathf.Min(287, 1000f / n), h = Mathf.Min(280, step - 10), y = 1050 + h / 2 - 140;
+            // C1: the cards live in a scroll area between the ribbon and the footer (note + Back), on any aspect
+            const float footer = 2400 - 2120 + 25 + 24;
+            var lay = SliceCards.Layout(SliceCards.RefHeight(root, s), Math.Min(n, 3), footer);
+            SliceCards.Header(root, s, SliceCards.GoldRibbon, "TRAIN", "TrainTitle", "Pick a skill to improve!", lay.HeroY, lay.RibbonY);
+            float top = lay.RibbonY + 150, h = lay.CardH, step = h + 10;
+            var view = Ui.Rect(root, "TrainList");
+            view.anchorMin = Vector2.zero; view.anchorMax = Vector2.one;
+            view.offsetMin = new Vector2(0, footer * s); view.offsetMax = new Vector2(0, -top * s);
+            var viewImg = view.gameObject.AddComponent<Image>(); viewImg.color = new Color(0, 0, 0, 0);
+            view.gameObject.AddComponent<RectMask2D>();
+            var content = Ui.Rect(view, "Content");
+            content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1); content.pivot = new Vector2(0.5f, 1);
+            content.sizeDelta = new Vector2(0, (n * step + 10) * s);
+            content.anchoredPosition = Vector2.zero;
+            var scroll = view.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = view; scroll.content = content; scroll.horizontal = false; scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 30;
+            float y = h / 2 + 5;
             foreach (var owned in choices)
             {
                 string id = owned;
@@ -150,17 +175,17 @@ namespace RogueStars.Client.Screens
                 var sk = Content.Skill(target);
                 int lv = RunDraft.Level(run, id);
                 bool chain = target != id;
+                // C3: "Name Lv 2" with the upgrade inline; only a chain upgrade (another skill) keeps its UPGRADE chip
                 var spec = new SkillCardSpec
                 {
                     Id = id, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
                     IconArt = ArtCatalog.SkillIcon(target),
                     Title = chain ? sk?.Name ?? target : SkillText.Title(sk, lv + 1),
                     Body = chain ? Fmt.SkillCard(Content, sk, 0) + " Replaces " + (Content.Skill(id)?.Name ?? id) + "." : Fmt.SkillCard(Content, sk, lv),
-                    Chip = chain ? "UPGRADE" : "LEVEL " + lv + " → " + (lv + 1), ChipName = "LevelUpChip",
-                    ChipColor = chain ? (Color)new Color32(0xD6, 0xC2, 0xFF, 255) : new Color32(0x9C, 0xF0, 0xB5, 255),
+                    Chip = chain ? "UPGRADE" : null, ChipName = "UpgradeChip", ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255),
                     Tip = chain ? SkillTip.Of(target, 1) : OfferTip(id, lv), TipContent = Content,
                 };
-                SliceCards.Card(root, s, y, spec, () => { modal.Close(); parent.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index, SkillId = id }); }, null, "Train:" + id, h);
+                SliceCards.Card(content, s, y, spec, () => { modal.Close(); parent.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index, SkillId = id }); }, null, "Train:" + id, h);
                 y += step;
             }
             var note = SliceKit.Chunky(root, "Signatures and max-level skills can't train.", (int)(34 * s), new Color(1, 1, 1, 0.8f), TextAnchor.MiddleCenter, "TrainNote");
@@ -195,23 +220,28 @@ namespace RogueStars.Client.Screens
             var holder = Ui.Rect(root, "ChestStage");
             Ui.Stretch(holder);
             var frame = RunScenes.Frame(holder, out float s);
-            var glow = Ui.Panel(frame, new Color(1f, 0.86f, 0.42f, 0.55f), "ChestGlow");
+            // K1: the chunky 3/4 chest art (the prop's own art, else the board's treasure chest) large in a glow in the
+            // chest's colour; reward ribbons are gold
+            var glow = Ui.Panel(frame, ChestGlowColor(prop), "ChestGlow");
             glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
-            RunScenes.At(glow.rectTransform, s, 540, 1260, 980, 980);
+            RunScenes.At(glow.rectTransform, s, 540, 1260, 1040, 1040);
             UiPulse.On(glow, 0.06f, 1.6f, 0.6f);
             var rib = Ui.Panel(frame, Color.white, "Ribbon");
-            rib.sprite = prop == "chest_mythic" ? SliceCards.RedRibbon : prop == "chest_signature" ? SliceCards.Ribbon(SignaturePick.SignatureColor) : SliceCards.GoldRibbon;
+            rib.sprite = SliceCards.GoldRibbon;
             rib.preserveAspect = true; rib.raycastTarget = false;
             RunScenes.At(rib.rectTransform, s, 540, 395, 1010, 172);
             var t = SliceKit.Chunky(rib.transform, title, (int)(80 * s), Color.white, TextAnchor.MiddleCenter, "ChestTitle");
             Ui.Stretch(t.rectTransform, 0, 0, 0, 14 * s);
             var chest = Ui.Panel(frame, Color.white, "Chest");
-            chest.sprite = ScreenArt.Prop(prop); chest.preserveAspect = true; chest.raycastTarget = false;
-            RunScenes.At(chest.rectTransform, s, 540, 1270, 660, 580);
+            chest.sprite = ChestSprite(prop); chest.preserveAspect = true; chest.raycastTarget = false;
+            RunScenes.At(chest.rectTransform, s, 540, 1270, 700, 640);
             UiBob.On(chest.rectTransform, 10 * s, 1.8f);
+            // K2: the hint sits just under the chest; the dice tower's caption is hidden while the chest is up
             var hint = SliceKit.Chunky(frame, "Tap anywhere to open!", (int)(60 * s), new Color(1, 1, 1, 0.78f), TextAnchor.MiddleCenter, "ChestHint");
-            RunScenes.At(hint.rectTransform, s, 540, 2055, 1000, 90);
+            RunScenes.At(hint.rectTransform, s, 540, 1670, 1000, 90);
             UiPulse.On(hint, 0.04f, 1.4f, 0.55f);
+            var diceLabel = _rollButton != null ? _rollButton.Find("Cap/Label") : null;
+            if (diceLabel != null) diceLabel.gameObject.SetActive(false);
             var b = Ui.Button(holder, "", null, new Color(1, 1, 1, 0.001f), 10, 10, true, 10);
             b.name = "ChestTap";
             Ui.Stretch((RectTransform)b.transform);
@@ -227,12 +257,18 @@ namespace RogueStars.Client.Screens
                     float sc = 1 + 0.25f * Mathf.Sin(k * Mathf.PI) + 0.04f * Mathf.Sin(k * 40);
                     chest.rectTransform.localScale = Vector3.one * sc;
                     glow.color = new Color(1f, 0.9f, 0.5f, 0.55f + 0.45f * k);
-                }, () => { close?.Invoke(); reveal?.Invoke(); });
+                }, () => { if (diceLabel != null) diceLabel.gameObject.SetActive(true); close?.Invoke(); reveal?.Invoke(); });
             }
             b.onClick.AddListener(Open);
             tap = b;
             return holder;
         }
+
+        /// <summary>The chest moment's art: the prop's generated art, else the board's treasure chest marker, else the drawn prop.</summary>
+        public static Sprite ChestSprite(string prop) => ArtCatalog.RunProp(prop) ?? ArtCatalog.SliceMarker("chest") ?? ScreenArt.Prop(prop);
+
+        private static Color ChestGlowColor(string prop) =>
+            prop == "chest_mythic" ? new Color(1f, 0.32f, 0.3f, 0.6f) : prop == "chest_signature" ? new Color(0.45f, 0.95f, 0.9f, 0.55f) : new Color(1f, 0.86f, 0.42f, 0.55f);
 
         /// <summary>The signature offer (Resonance) revealed from its chest: one card per offered signature, and the coins.</summary>
         private UiModal SignatureReveal(ActiveRun run, EventDef ev)
@@ -367,8 +403,19 @@ namespace RogueStars.Client.Screens
                     var dot = Ui.RoundPanel(row, icon.Value, 40 * s, "Icon");
                     Ui.Size(dot, 82 * s, 82 * s, 0);
                     UiShapes.Outline(dot.rectTransform, SliceKit.Ink, 40 * s, 4);
-                    var glyph = SliceKit.Chunky(dot.transform, icon.Key, (int)((icon.Key.Length > 1 ? 30 : 42) * s), Color.white, TextAnchor.MiddleCenter, "Glyph");
-                    Ui.Stretch(glyph.rectTransform);
+                    var art = OutcomeSprite(l);
+                    if (art != null)
+                    {
+                        // E3: the HUD's stat icons (heart, sword, shield, coin …) instead of letter chips
+                        var img = Ui.Panel(dot.transform, Color.white, "StatIcon");
+                        img.sprite = art; img.preserveAspect = true; img.raycastTarget = false;
+                        Ui.Stretch(img.rectTransform, 10 * s, 10 * s, 10 * s, 10 * s);
+                    }
+                    else
+                    {
+                        var glyph = SliceKit.Chunky(dot.transform, icon.Key, (int)((icon.Key.Length > 1 ? 30 : 42) * s), Color.white, TextAnchor.MiddleCenter, "Glyph");
+                        Ui.Stretch(glyph.rectTransform);
+                    }
                 }
                 var t = Ui.Label(row, OutcomeLineText(l, Content), 40, l.Good ? new Color32(0x2E, 0x6E, 0x1E, 255) : new Color32(0xA8, 0x1E, 0x2A, 255));
                 t.font = Ui.DisplayFont; t.fontSize = (int)(44 * s);
@@ -518,7 +565,7 @@ namespace RogueStars.Client.Screens
             var hud = SliceHud.Build(frame, RunScenes.RefW * s, PauseModal, null, true);
             var stats = RunPresentation.Hud(Content, run);
             hud.Show(stats, stats.Level, stats.XpNeed > 0 ? (float)stats.Xp / stats.XpNeed : 0, RunSystem.BuildSize(run));
-            _shopHudCoins = hud.Coins;
+            _shopHudCoins = hud.Coins; _shopHud = hud; _shopFrame = frame;
             if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
 
             var sign = Ui.RoundPanel(frame, new Color32(0x8A, 0x52, 0x2E, 255), 24 * s, "ShopSign");
@@ -614,8 +661,7 @@ namespace RogueStars.Client.Screens
             {
                 int index = utility[k];
                 var o = run.Shop[index];
-                float x = un == 3 ? 560 + k * 210 : 640 + k * 300;
-                float size = un == 3 ? 190 : 210;
+                ShopTileSlot(un, k, out float x, out float size);
                 string label = o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value) : SkillText.Stat(o.Stat) ?? "+stat";
                 var group = OfferGroup(index, x, 880);
                 var tileEdge = Ui.RoundPanel(group, SliceKit.Ink, 26 * s, "Utility:" + label);
@@ -634,7 +680,9 @@ namespace RogueStars.Client.Screens
                 lt.horizontalOverflow = HorizontalWrapMode.Wrap; lt.resizeTextForBestFit = true; lt.resizeTextMaxSize = lt.fontSize; lt.resizeTextMinSize = (int)(22 * s);
                 var slot = Ui.Rect(group, "OfferSlot:" + index);
                 Ui.Stretch(slot);
-                var buy = PriceButton(slot, s, x, 975, size, 92, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                Button buy = null;
+                buy = PriceButton(slot, s, x, 975, size, 92, o, () => BuyOffer(index, buy), !o.Sold && run.Coins >= o.Price);
+                if (o.Sold) SoldLook(group, tileEdge.rectTransform, s, false);
                 AddOfferName(buy, label);
                 _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
                 if (flipDelay > 0) UiTween.FlipIn(group, flipDelay + 0.04f * order++);
@@ -654,22 +702,121 @@ namespace RogueStars.Client.Screens
                     IconArt = ArtCatalog.SkillIcon(o.SkillId), Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : sk?.Name ?? o.SkillId,
                     Body = Fmt.SkillCard(Content, sk, ownedLv), Dim = o.Sold, Tip = OfferTip(o.SkillId, ownedLv), TipContent = Content,
                 };
-                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
                 string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
                 var group = OfferGroup(index, 540, y);
                 var card = SliceCards.Card(group, s, y, spec, null, () => Session.Info(info), "Offer", h, "Words");
                 var body = card.Find("Words/SkillText") as RectTransform;
                 if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
-                var chip = card.Find("Words/LevelUpChip") as RectTransform;
-                if (chip != null) chip.anchoredPosition = new Vector2(-300 * s, chip.anchoredPosition.y);
                 var slot = Ui.Rect(group, "OfferSlot:" + index);
                 Ui.Stretch(slot);
-                var buy = PriceButton(slot, s, 925, y + 22 * h / 280, 200, h * 0.48f, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                Button buy = null;
+                buy = PriceButton(slot, s, 925, y + 22 * h / 280, 200, h * 0.48f, o, () => BuyOffer(index, buy), !o.Sold && run.Coins >= o.Price);
+                if (o.Sold) SoldLook(group, card, s, false);
                 AddOfferName(buy, spec.Title);
                 _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
                 if (flipDelay > 0) UiTween.FlipIn(group, flipDelay + 0.04f * order++);
                 y += h + 14;
             }
+        }
+
+        /// <summary>Reference px right of the shopkeeper where the utility tiles go, and the screen margin kept on the right.</summary>
+        public const float ShopTilesLeft = 490, ShopTilesMargin = 32, ShopTileGap = 18;
+
+        /// <summary>
+        /// S2: centre and size of utility tile <paramref name="k"/> of <paramref name="n"/>: the tiles and their gaps fit the
+        /// width right of the shopkeeper minus a 32 px margin, so the last one never touches the screen edge (pure; tested).
+        /// </summary>
+        public static void ShopTileSlot(int n, int k, out float x, out float size)
+        {
+            n = Math.Max(1, n);
+            float width = RunScenes.RefW - ShopTilesMargin - ShopTilesLeft;
+            size = Mathf.Min(210, (width - (n - 1) * ShopTileGap) / n);
+            float used = n * size + (n - 1) * ShopTileGap;
+            float left = ShopTilesLeft + (width - used) / 2;
+            x = left + size / 2 + k * (size + ShopTileGap);
+        }
+
+        private SliceHud _shopHud;
+        private RectTransform _shopFrame;
+
+        /// <summary>Buys an offer; on success S4's feedback plays (SOLD stamp, coins to the counter, the changed HUD stat pops).</summary>
+        private void BuyOffer(int index, Button buy)
+        {
+            var run = State.Run.Active;
+            if (run == null) return;
+            var before = RunPresentation.Hud(Content, run);
+            long coinsBefore = run.Coins;
+            Vector2 from = buy != null ? InShopFrame((RectTransform)buy.transform) : Vector2.zero;
+            Run(new RunShopBuy { Index = index }, r =>
+            {
+                if (!r.Ok) return;
+                RefreshShop();
+                ShopBoughtFx(index, before, coinsBefore, from);
+            });
+        }
+
+        /// <summary>A rect's centre in the shop frame's top-left-anchored coordinates (RunFx particles).</summary>
+        private Vector2 InShopFrame(RectTransform rt)
+        {
+            if (_shopFrame == null || rt == null) return Vector2.zero;
+            Vector2 local = _shopFrame.InverseTransformPoint(rt.TransformPoint(rt.rect.center));
+            return new Vector2(local.x - _shopFrame.rect.xMin, local.y - _shopFrame.rect.yMax);
+        }
+
+        private void ShopBoughtFx(int index, RunHudStats before, long coinsBefore, Vector2 from)
+        {
+            var run = State.Run.Active;
+            if (run == null || _shopOffers == null) return;
+            var group = _shopOffers.Find("Offer:" + index) as RectTransform;
+            if (group != null)
+            {
+                RectTransform target = null;
+                foreach (Transform t in group) if (t.name.StartsWith("Utility:") || t.name == "Offer") { target = (RectTransform)t; break; }
+                SoldLook(group, target, _shopScale, true);
+            }
+            // coins fly from the price to the coin counter
+            if (_shopHud != null && _shopHud.CoinsChip != null && run.Coins < coinsBefore)
+            {
+                RunFx.Burst(_shopFrame, from, InShopFrame(_shopHud.CoinsChip), Theme.Gold, 8, 26 * _shopScale);
+                Pop(_shopHud.CoinsChip);
+            }
+            // the HUD stat the purchase changed pops
+            var after = RunPresentation.Hud(Content, run);
+            if (_shopHud != null)
+            {
+                if (Math.Round(after.Atk) != Math.Round(before.Atk)) Pop(_shopHud.AtkPill);
+                if (Math.Round(after.Def) != Math.Round(before.Def)) Pop(_shopHud.DefPill);
+                if ((Math.Round(after.Hp) != Math.Round(before.Hp) || Math.Round(after.MaxHp) != Math.Round(before.MaxHp)) && _shopHud.HpFill != null)
+                    Pop(_shopHud.HpFill.transform.parent as RectTransform);
+            }
+        }
+
+        /// <summary>A short scale pop (HUD stat changed).</summary>
+        private static void Pop(RectTransform rt)
+        {
+            if (rt == null || !Application.isPlaying) return;
+            UiTweens.Play(rt.gameObject, "pop", 0.35f, k => rt.localScale = Vector3.one * (1 + 0.28f * Mathf.Sin(k * Mathf.PI)), () => { if (rt != null) rt.localScale = Vector3.one; });
+        }
+
+        /// <summary>S4: a bought offer's tile / card dims and a red SOLD stamp lies across it (named "SoldStamp").</summary>
+        private static void SoldLook(RectTransform group, RectTransform target, float s, bool animate)
+        {
+            if (group == null || target == null || group.Find("SoldStamp") != null) return;
+            var cg = target.GetComponent<CanvasGroup>(); if (cg == null) cg = target.gameObject.AddComponent<CanvasGroup>();
+            cg.alpha = 0.45f;
+            var stamp = Ui.RoundPanel(group, new Color(0, 0, 0, 0), 14 * s, "SoldStamp");
+            stamp.raycastTarget = false;
+            var srt = stamp.rectTransform;
+            srt.anchorMin = target.anchorMin; srt.anchorMax = target.anchorMax; srt.pivot = new Vector2(0.5f, 0.5f);
+            float w = Mathf.Min(target.sizeDelta.x * 0.8f, 360 * s);
+            srt.sizeDelta = new Vector2(w, 96 * s);
+            srt.anchoredPosition = target.anchoredPosition + new Vector2(target.sizeDelta.x * (0.5f - target.pivot.x), target.sizeDelta.y * (0.5f - target.pivot.y));
+            srt.localRotation = Quaternion.Euler(0, 0, 12);
+            UiShapes.Outline(srt, new Color32(0xE0, 0x30, 0x3C, 255), 14 * s, 7);
+            var t = SliceKit.Chunky(srt, "SOLD", (int)(62 * s), new Color32(0xF0, 0x40, 0x4A, 255), TextAnchor.MiddleCenter, "SoldText");
+            Ui.Stretch(t.rectTransform);
+            if (animate && Application.isPlaying)
+                UiTweens.Play(stamp.gameObject, "stamp", 0.22f, k => srt.localScale = Vector3.one * Mathf.Lerp(1.8f, 1f, k * k));
         }
 
         /// <summary>Seconds of a reroll's flip-out of the old offers (the new ones flip in after it).</summary>

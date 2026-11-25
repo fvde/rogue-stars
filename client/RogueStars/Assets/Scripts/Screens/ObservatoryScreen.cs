@@ -94,7 +94,7 @@ namespace RogueStars.Client.Screens
             if (!unlocked) Note(body, "Invasions unlock later (" + Requirements.Describe(Content, Content.Feature(Features.Invasions)?.Requires ?? new RequirementSet()) + ").");
             else
             {
-                Note(body, "Attempts left: " + State.Wallet.Get(Currencies.InvasionAttempts) + (Session.IsOnline ? "  (server groups of 20)" : "  (offline: local damage roll)"));
+                Note(body, "Attempts left: " + State.Wallet.Get(Currencies.InvasionAttempts) + (Debug.isDebugBuild && !Session.IsOnline ? "  (offline: local damage roll)" : "")); // G7: dev hint only in dev builds
                 if (_invasionError != null) Ui.Label(body, Fmt.Humanize(_invasionError), Theme.FontSmall, Theme.Bad);
             }
             var rows = MergeInvasions(Content, LiveOpsSystem.ActiveEvents(State, Content, Now), _invasions);
@@ -104,7 +104,7 @@ namespace RogueStars.Client.Screens
                 var e = row.Event;
                 var inst = row.Instance;
                 var card = Card(body, Color.Lerp(Theme.ValenceColor(Valence.Boss), Theme.Panel, 0.7f));
-                Ui.Label(card, e.Name + (e.Surprise ? " (surprise!)" : ""), Theme.FontNormal);
+                EventHead(card, "invader", e.Name + (e.Surprise ? " (surprise!)" : ""), Theme.ValenceColor(Valence.Boss), () => "Ends in " + Fmt.Duration(e.EndMs - Now));
                 var def = Content.Invasion(e.RefId);
                 if (def != null) Note(card, def.Description);
                 if (State.LiveOps.Contributions.TryGetValue(e.OccurrenceId, out var c))
@@ -115,7 +115,6 @@ namespace RogueStars.Client.Screens
                     Ui.Label(card, "Overrun: " + Describe(def.LoseModifiers), Theme.FontSmall, Theme.ValenceColor(Valence.Negative));
                 }
                 var row2 = Ui.Row(card, 80, 10);
-                Live(Ui.Label(row2, "", Theme.FontSmall, Theme.TextDim), () => "Ends in " + Fmt.Duration(e.EndMs - Now));
                 if (unlocked && inst != null)
                     Ui.Button(row2, "Attack", () => Session.Service.InvasionAttack(inst.Id, r =>
                     {
@@ -136,10 +135,9 @@ namespace RogueStars.Client.Screens
                 var e = ev;
                 n++;
                 var card = Card(body, Color.Lerp(Theme.ValenceColor(Valence.Special), Theme.Panel, 0.7f));
-                Ui.Label(card, e.Name, Theme.FontNormal);
+                EventHead(card, "comet", e.Name, Theme.ValenceColor(Valence.Special), () => "Ends in " + Fmt.Duration(e.EndMs - Now));
                 var def = Content.PlanetaryEvent(e.RefId);
                 if (def != null) { Note(card, def.Description); Ui.Label(card, Describe(def.Modifiers), Theme.FontSmall, Theme.Warn); }
-                Live(Note(card, ""), () => "Ends in " + Fmt.Duration(e.EndMs - Now));
             }
             if (n == 0) Note(body, "The skies are quiet.");
         }
@@ -152,8 +150,23 @@ namespace RogueStars.Client.Screens
             foreach (var ev in list)
             {
                 var e = ev;
-                Live(Ui.Label(body, "", Theme.FontSmall, Theme.TextDim), () => (e.Kind == LiveOpsKind.Invasion ? "Invasion " : "Event ") + e.Name + " — starts in " + Fmt.Duration(e.StartMs - Now));
+                var card = Card(body, Theme.PanelAlt);
+                bool inv = e.Kind == LiveOpsKind.Invasion;
+                EventHead(card, inv ? "invader" : "comet", (inv ? "Invasion · " : "Event · ") + e.Name, Theme.TextDim, () => "Starts in " + Fmt.Duration(e.StartMs - Now));
             }
+        }
+
+        /// <summary>MS4: an event card's head — its art (placeholder icon), name and a countdown chip.</summary>
+        private void EventHead(Transform card, string icon, string name, Color accent, System.Func<string> countdown)
+        {
+            var head = Ui.Row(card, 110, 16, null, 0, "EventHead");
+            head.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>().childForceExpandWidth = false;
+            var art = SummonKit.Img(head, World.SummonArt.Icon(icon), "EventArt");
+            Ui.Size(art, 100, 100, 0);
+            var t = Ui.Display(head, name, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "EventName");
+            Ui.Size(t, -1, 100, 1);
+            var chip = Ui.Chip(head, countdown(), Color.Lerp(accent, Theme.Background, 0.55f), Theme.Text, 22, 48, accent, "Countdown");
+            Live(chip.GetComponentInChildren<UnityEngine.UI.Text>(), countdown);
         }
 
         private void Modifiers(RectTransform body)

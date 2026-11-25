@@ -177,7 +177,7 @@ public class RunLengthTests(ITestOutputHelper output)
         foreach (var ev in c.RunEvents.Values.Where(x => x.GrantsAccountLoot()))
             foreach (var o in ev.Options.Where(o => o.Outcomes.Any(oc => oc.Effects.Any(fx => fx.Kind is RunEffectKind.Loot or RunEffectKind.PendingReward))))
             {
-                Assert.Contains("account loot", o.RiskText);
+                Assert.Contains("reward chest", o.RiskText);
                 bool risky = o.Outcomes.Any(oc => oc.Effects.Any(fx => fx.Kind is RunEffectKind.Battle or RunEffectKind.AwakenRatePct or RunEffectKind.Meter
                     or RunEffectKind.DamagePct or RunEffectKind.BossStatPct || fx.Kind == RunEffectKind.StatPercent && fx.Value < 0));
                 Assert.True(risky, ev.Id + ": " + o.Text + " has no risk");

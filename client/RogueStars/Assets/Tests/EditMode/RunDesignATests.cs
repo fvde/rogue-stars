@@ -396,5 +396,68 @@ namespace RogueStars.Client.Tests
             _f.App.Router.Push(b);
             Assert.That(FindNamed(FindNamed(b.Root, "Fighter:0"), "Sprite").GetComponent<Image>().sprite, Is.SameAs(ArtCatalog.Hero()));
         }
+
+        [Test]
+        public void Battle_OutsideARun_HudShowsTheWormsRealStats_NeverADash()
+        {
+            // BT3: a hero / mount battle with no active run (no run context) binds the worm's account stats before the first frame
+            Assert.That(S.Run.Active, Is.Null);
+            var sk = RunSkills(Rarity.Common, 3);
+            var screen = new BattlePlaybackScreen(HandBattle(sk[0].Id, sk[1].Id, sk[2].Id));
+            _f.App.Router.Push(screen);
+            var lo = _f.App.Session.Engine.BuildLoadout(S, _f.App.Session.NowMs);
+            var strip = FindNamed(screen.Root, "TopStrip");
+            Assert.That(FindNamed(strip, "AtkChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Atk)))));
+            Assert.That(FindNamed(strip, "DefChip").GetComponent<Text>().text, Is.EqualTo(Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Def)))));
+            Assert.That(FindNamed(strip, "LvNumber").GetComponent<Text>().text, Is.EqualTo("Lv. " + Math.Max(1, S.Worm.Level)));
+            foreach (var t in strip.GetComponentsInChildren<Text>(true)) Assert.That(t.text, Does.Not.Contain("–"), t.name);
+            // a passed context without stats gets them too
+            var ctx = new BattleHudContext { Coins = 5 };
+            var screen2 = new BattlePlaybackScreen(HandBattle(sk[0].Id, sk[1].Id, sk[2].Id), ctx);
+            _f.App.Router.Push(screen2);
+            Assert.That(ctx.HasStats, Is.True);
+            Assert.That(screen2.HudText, Does.Contain("ATK " + Fmt.Num(Math.Round(lo.WormStats.Value(StatId.Atk)))));
+            Assert.That(screen2.HudText, Does.Not.Contain("–"));
+        }
+
+        [Test]
+        public void Battle_SkillArea_ShowsEverySkill_ScrollsAboveTheControlBar()
+        {
+            // BT1 / BT2: every skill gets a tile (no "+N"), the area scrolls and ends above the speed / Log controls
+            var sk = RunSkills(Rarity.Common, 14);
+            var run = StartRun();
+            foreach (var s in sk) run.Skills.Add(s.Id);
+            var screen = new BattlePlaybackScreen(HandBattle(sk[0].Id, sk[1].Id, sk[2].Id));
+            _f.App.Router.Push(screen);
+            var strip = FindNamed(screen.Root, "SkillStrip");
+            foreach (var s in sk) Assert.That(FindNamed(strip, "Slot:" + s.Id), Is.Not.Null, s.Id);
+            Assert.That(FindNamed(screen.Root, "MoreSkills"), Is.Null);
+            Assert.That(screen.SkillScroll, Is.Not.Null);
+            Assert.That(screen.SkillScroll.vertical, Is.True);
+            var view = (RectTransform)FindNamed(strip, "SkillViewport");
+            var speed = (RectTransform)FindNamed(screen.Root, "Speed1");
+            var corners = new Vector3[4];
+            view.GetWorldCorners(corners);
+            float viewBottom = corners[0].y;
+            speed.GetWorldCorners(corners);
+            Assert.That(viewBottom, Is.GreaterThanOrEqualTo(corners[1].y - 0.01f), "the skill area ends above the speed control");
+        }
+
+        [Test]
+        public void Battle_StatusIcons_And_SidekicksOnScreen()
+        {
+            // BT4: every status has a drawn icon (no letter boxes)
+            foreach (StatusId st in Enum.GetValues(typeof(StatusId))) Assert.That(RogueStars.Client.World.StatusArt.Icon(st), Is.Not.Null, st.ToString());
+            // BT6: sidekicks 1.5× bigger, lined up behind the worm, fully inside the arena
+            Assert.That(BattlePlaybackScreen.SidekickScale, Is.EqualTo(0.84f).Within(1e-4f));
+            var seen = new HashSet<Vector2>();
+            for (int k = 0; k < 6; k++)
+            {
+                var p = BattlePlaybackScreen.CompanionPosition(k);
+                Assert.That(p.x - BattlePlaybackScreen.ViewSize.x * BattlePlaybackScreen.SidekickScale / 2, Is.GreaterThanOrEqualTo(-545f), "on screen");
+                Assert.That(p.x, Is.LessThan(BattlePlaybackScreen.WormSpot.x), "behind the worm");
+                Assert.That(seen.Add(p), Is.True, "own spot");
+            }
+        }
     }
 }

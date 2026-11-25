@@ -84,7 +84,7 @@ namespace RogueStars.Client.Tests
             var def = C.SummonType(SummonEventType.Hero);
             _f.Service.DevGrant(new[] { Reward.Cur(def.TicketCurrency, 10) });
             var screen = Open(new SummonEventScreen());
-            Assert.That(FindText(Find(screen.Root, "Draw:10").transform, "Count").text, Is.EqualTo("10/10"));
+            Assert.That(FindText(Find(screen.Root, "Draw:10").transform, "Count").text, Is.EqualTo("10 tickets"), "the draw shows its cost (SM2), not have/need");
             SummonEventScreen.SkipAnimation = true;
             Find(screen.Root, "Draw:10").onClick.Invoke();
             Assert.That(S.Wallet.Get(def.TicketCurrency), Is.EqualTo(0));

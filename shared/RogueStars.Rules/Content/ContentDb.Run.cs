@@ -288,7 +288,7 @@ namespace RogueStars.Rules.Content
             var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 50; rich.Value = 6;
             rich.Text = "Lots of run coins and XP.";
             var pod = RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special); pod.EventId = "treasure_pod";
-            pod.Text = "Guarded account loot.";
+            pod.Text = "A guarded reward chest.";
             RunTile("event", "Strange Signal", TileCategory.Event, TileValence.Special);
             var fire = RunTile("campfire", "Campfire", TileCategory.Campfire, TileValence.Positive); fire.EventId = "campfire";
             fire.MinMainLevel = Campaign.CampfiresFromLevel; // level-unlocked run content (GDD §16)
@@ -402,11 +402,11 @@ namespace RogueStars.Rules.Content
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
                 RunOpt("Trade vitality", "-10% max HP for a Legendary+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Legendary))),
                 RunOpt("Decline", "Nothing happens.", RunNothing));
-            var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (account loot, paid on clear).",
+            var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (reward chest, paid on clear).",
                 RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
             RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 2.5, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 3,
-                RunOpt("Search it", "65%: 1 account loot item (paid on clear, +Danger) and the alarm wakes the boss (+8). 35%: trapped — lose 20% HP and 5% max HP for the run.",
+                RunOpt("Search it", "65%: 1 reward chest (paid on clear, +Danger) and the alarm wakes the boss 8% sooner. 35%: trapped — lose 20% HP and 5% max HP for the run.",
                     RunOut(65, "Loot! An alarm wails in the distance.", RunFx(RunEffectKind.Loot, 1), RunFx(RunEffectKind.Meter, 8)),
                     RunOut(35, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 20), RunStatFx(StatId.Hp, -5))),
                 RunOpt("Leave it", "Nothing happens.", RunNothing));
@@ -430,7 +430,7 @@ namespace RogueStars.Rules.Content
                 RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 60))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
             RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2,
-                RunOpt("Dive in", "2 account loot items (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
+                RunOpt("Dive in", "2 reward chests (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
                     RunOut(1, "You surface with treasure — and the boss stirs.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.AwakenRatePct, 15))),
                 RunOpt("Steer away", "Nothing happens.", RunNothing));
             RunEvent("echoing_shrine", "Echoing Shrine", "Ancient echoes can sharpen a technique.", 1, 2.5,
@@ -444,11 +444,11 @@ namespace RogueStars.Rules.Content
             RunEvents[fuel.Id] = fuel;
             RandomRunEvents.Add(new WeightedId(fuel.Id, 2));
             RunEvent("wild_beast", "Wild Beast", "A wild beast eyes you curiously.", 1, 2.5,
-                RunOpt("Try to tame it", "50%: +5% ATK and 1 account loot item (paid on clear). 50%: it attacks (elite fight).",
+                RunOpt("Try to tame it", "50%: +5% ATK and 1 reward chest (paid on clear). 50%: it attacks (elite fight).",
                     RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
                 RunOpt("Back off", "Nothing happens.", RunNothing));
-            var bm = RunOpt("Buy a signal beacon (100 coins)", "A blueprint token (account loot, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
+            var bm = RunOpt("Buy a signal beacon (100 coins)", "A blueprint token (reward chest, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
                 RunOut(1, "Sold. You feel a little weaker.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1)), RunStatFx(StatId.Hp, -8)));
             bm.CoinCost = 100;
             RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));
@@ -464,7 +464,7 @@ namespace RogueStars.Rules.Content
 
             // Tile-bound events
             RunEvent("treasure_pod", "Treasure Pod", "A sealed treasure pod, guarded by an elite. Opening it is loud.", 1, 0,
-                RunOpt("Fight the guardian", "Elite fight. Win: 2 account loot items (paid on clear, each +Danger); nearby enemies grow stronger.",
+                RunOpt("Fight the guardian", "Elite fight. Win: 2 reward chests (paid on clear, each +Danger); nearby enemies grow stronger.",
                     RunOut(1, "The guardian falls. Loot spills out.", RunFx(RunEffectKind.Battle, 10, "elite"), RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.StrengthenEnemies, 10))),
                 RunOpt("Leave", "Nothing happens.", RunNothing));
             // Train: the player picks which owned skill improves (RunChooseEventOption.SkillId, RunSystem.TrainChoices)

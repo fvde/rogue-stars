@@ -213,7 +213,7 @@ namespace RogueStars.Client.App
             }
             if (plan.Copies.Count < plan.CopiesNeeded)
             {
-                plan.Error = "needs " + plan.CopiesNeeded + "× own-def copy (" + c.PartsConfig.RarityDef((int)plan.CopyMinRarity).Name + "+), have " + plan.CopiesOwned;
+                plan.Error = "needs " + plan.CopiesNeeded + " " + c.PartsConfig.RarityDef((int)plan.CopyMinRarity).Name + "+ cop" + (plan.CopiesNeeded == 1 ? "y" : "ies") + ", have " + plan.CopiesOwned;
                 return plan;
             }
             FillFodder(s, c, plan, cands, used, target.DefId, locks, null);

@@ -174,7 +174,7 @@ namespace RogueStars.Client.Screens
             // Continue (back to the portals) and the next level / try again
             var cont = Ui.Button(frame, "", () => App.Router.Pop(), new Color32(0x3E, 0x3A, 0x78, 255), 430 * s, 170 * s, true, 20);
             cont.name = "Button:Portals";
-            RunScenes.At((RectTransform)cont.transform, s, 540, 2120, 430, 170);
+            RunScenes.At((RectTransform)cont.transform, s, 540, 1990, 430, 170);
             UiShapes.Outline((RectTransform)cont.transform, SliceKit.Ink, Theme.RadiusButton, 7);
             var ct = SliceKit.Chunky(cont.transform, "Continue", (int)(76 * s), Color.white, TextAnchor.MiddleCenter, "ContinueText");
             Ui.Stretch(ct.rectTransform, 0, 0, 0, 8 * s);
@@ -192,7 +192,7 @@ namespace RogueStars.Client.Screens
                 var go = Ui.Button(frame, "", () => SignaturePick.StartRun(App, new RunStart { PortalId = target.PortalId, LevelId = target.Id, Mode = mode }, r => { if (r.Ok) App.Router.Replace(new RunScreen()); }),
                     new Color32(0xF2, 0x8A, 0x3A, 255), 520 * s, 100 * s, true, 20);
                 go.name = "Again";
-                RunScenes.At((RectTransform)go.transform, s, 540, 2290, 520, 100);
+                RunScenes.At((RectTransform)go.transform, s, 540, 2150, 520, 100);
                 UiShapes.Outline((RectTransform)go.transform, SliceKit.Ink, Theme.RadiusButton, 5);
                 var gt = SliceKit.Chunky(go.transform, caption, (int)(46 * s), Color.white, TextAnchor.MiddleCenter, "AgainText");
                 Ui.Stretch(gt.rectTransform, 0, 0, 0, 6 * s);
@@ -214,14 +214,17 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(face.rectTransform, 7 * s, 7 * s, 7 * s, 7 * s);
             var orb = Ui.Panel(face.transform, Color.white, "Icon");
             orb.raycastTarget = false;
-            orb.sprite = r.Kind == RewardKinds.Currency ? HudArt.Icon("coin") : r.Kind == RewardKinds.Part ? HudArt.Icon("sword") : ScreenArt.Icon("blessing");
-            orb.color = r.Kind == RewardKinds.Currency ? Color.Lerp(c, Color.white, 0.25f) : Color.white;
+            // R1: one icon per currency everywhere (the gem for Diamonds), the same as the top bar
+            orb.sprite = r.Kind == RewardKinds.Currency ? SummonArt.CurrencyIcon(r.Id) : r.Kind == RewardKinds.Part ? HudArt.Icon("sword") : ScreenArt.Icon("blessing");
+            orb.color = Color.white;
             orb.preserveAspect = true;
             Ui.Stretch(orb.rectTransform, size * 0.16f * s, size * 0.08f * s, size * 0.16f * s, size * 0.26f * s);
             string amount = r.Kind == RewardKinds.Currency ? "x" + Fmt.Num(r.Amount) : "x" + r.Amount;
             var a = SliceKit.Chunky(edge.transform, amount, (int)(44 * s), Color.white, TextAnchor.LowerCenter, "Amount");
             Ui.Stretch(a.rectTransform, 0, 0, 0, -6 * s);
-            var name = SliceKit.Chunky(frame, "+" + Fmt.Reward(r, Content), (int)(24 * s), new Color(1, 1, 1, 0.8f), TextAnchor.UpperCenter, "RewardName");
+            // the caption is only the name (R1: the amount was shown twice)
+            string caption = r.Kind == RewardKinds.Currency ? Fmt.CurrencyName(r.Id, Content) : Fmt.Reward(new Reward(r.Kind, r.Id, 1, r.Rarity), Content);
+            var name = SliceKit.Chunky(frame, caption, (int)(24 * s), new Color(1, 1, 1, 0.8f), TextAnchor.UpperCenter, "RewardName");
             RunScenes.At(name.rectTransform, s, x, y + size / 2 + 30, size + 24, 40);
             name.horizontalOverflow = HorizontalWrapMode.Wrap; name.resizeTextForBestFit = true; name.resizeTextMaxSize = name.fontSize; name.resizeTextMinSize = (int)(16 * s);
         }
@@ -233,7 +236,7 @@ namespace RogueStars.Client.Screens
             if (sum.Doubled)
             {
                 var d = SliceKit.Chunky(frame, "Rewards doubled!", (int)(50 * s), Theme.Good, TextAnchor.MiddleCenter, "Doubled");
-                RunScenes.At(d.rectTransform, s, 540, 1965, 800, 70);
+                RunScenes.At(d.rectTransform, s, 540, 1830, 800, 70);
                 return;
             }
             int left = ShopSystem.AdViewsLeft(State, Content, RunSystem.DoubleRewardsAdPlacement, Now);
@@ -249,7 +252,7 @@ namespace RogueStars.Client.Screens
                 });
             }, new Color32(0x1E, 0x18, 0x30, 230), 760 * s, 96 * s, left > 0, 20);
             b.name = "DoubleRewards";
-            RunScenes.At((RectTransform)b.transform, s, 540, 1965, 760, 96);
+            RunScenes.At((RectTransform)b.transform, s, 540, 1830, 760, 96);
             UiShapes.Outline((RectTransform)b.transform, Gold, Theme.RadiusButton, 5);
             var t = SliceKit.Chunky(b.transform, label, (int)(38 * s), Gold, TextAnchor.MiddleCenter, "DoubleText");
             Ui.Stretch(t.rectTransform, 12 * s, 0, 12 * s, 4 * s);

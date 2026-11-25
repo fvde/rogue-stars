@@ -41,30 +41,53 @@ namespace RogueStars.Client.Screens
                 var card = Card(body, claimed ? Theme.Panel : Theme.PanelAlt);
                 Ui.Label(card, q.Name, Theme.FontNormal, claimed ? Theme.TextDim : Theme.Text);
                 Ui.Bar(card, q.Target > 0 ? (float)progress / q.Target : 1, claimed ? Theme.Locked : Theme.Good, System.Math.Min(progress, q.Target) + " / " + q.Target);
-                var row = Ui.Row(card, 80);
+                var row = Ui.Row(card, !claimed && !QuestSystem.CanClaim(State, Content, q, Now) ? 116 : 80);
                 string extra = (q.Points > 0 ? "  +" + q.Points + " pts" : "") + (q.SeasonXp > 0 ? "  +" + q.SeasonXp + " season XP" : "");
                 Ui.Label(row, Fmt.Rewards(q.Rewards, Content, State, Now) + extra, Theme.FontSmall, Theme.TextDim);
                 if (claimed) Ui.Label(row, "Claimed", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
-                else Ui.Button(row, "Claim", () => Run(new QuestClaim { QuestId = q.Id }), Theme.Good, 200, 80, QuestSystem.CanClaim(State, Content, q, Now));
+                else
+                {
+                    bool can = QuestSystem.CanClaim(State, Content, q, Now);
+                    // G4: a disabled Claim says why
+                    Ui.ButtonWithReason(row, "Claim", () => Run(new QuestClaim { QuestId = q.Id }), Theme.Good, 200, 80, can,
+                        progress < q.Target ? (q.Target - System.Math.Min(progress, q.Target)) + " to go" : "Not yet").name = "Claim:" + q.Id;
+                }
             }
         }
 
         private void Chests(RectTransform body, PointTrack track, long points)
         {
             var card = Card(body, Theme.Header);
-            Ui.Label(card, track + " points: " + points, Theme.FontNormal);
-            var row = Ui.Row(card, 110);
+            Ui.Display(card, track + " points: " + points, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "Points");
+            var row = Ui.Row(card, 150, 8, null, 0, "Chests");
             foreach (var chest in Content.PointChests)
             {
                 if (chest.Track != track) continue;
                 var c = chest;
                 bool claimed = State.Quests.ChestsClaimed.Contains(track + ":" + c.Points);
                 bool ready = points >= c.Points && !claimed;
-                Ui.Button(row, c.Points + (claimed ? "\ndone" : "\nchest"), () => Modal(track + " chest " + c.Points, b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content, State, Now), Theme.FontNormal),
+                ChestTile(row, c.Points, claimed, ready, () => Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content, State, Now), Theme.FontNormal),
                         ready ? new[] { new ModalButton("Open", () => Run(new QuestClaimChest { Track = track, Points = c.Points }), Theme.Good), new ModalButton("Close", null) }
-                              : new[] { new ModalButton("Close", null) }),
-                    ready ? Theme.Good : claimed ? Theme.Locked : Theme.Button, -1, 110, true, Theme.FontSmall);
+                              : new[] { new ModalButton("Close", null) }));
             }
+        }
+
+        /// <summary>MS3: a chest icon (grey until reached, gold when ready, dimmed with a check once opened) with the points under it.</summary>
+        private static void ChestTile(Transform row, long pts, bool claimed, bool ready, System.Action onClick)
+        {
+            var root = Ui.Rect(row, "Chest:" + pts);
+            Ui.Size(root, -1, 150, 1, 0);
+            var img = SummonKit.Img(root, World.SummonArt.Icon("chest"), "Icon");
+            img.color = ready ? Theme.Gold : claimed ? new Color(0.55f, 0.5f, 0.45f, 0.6f) : new Color(0.62f, 0.62f, 0.66f, 1f);
+            img.raycastTarget = true;
+            SummonKit.Place(img, new Vector2(0.5f, 1), Vector2.zero, new Vector2(100, 100));
+            if (ready) UiPulse.On(img, 0.06f, 1.2f, 1);
+            if (claimed) SummonKit.Place(SummonKit.Img(img.transform, World.SummonArt.Icon("check"), "Claimed"), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(60, 60));
+            var t = Ui.Display(root, pts.ToString(), Theme.FontSmall, ready ? Theme.Gold : Theme.TextDim, TextAnchor.MiddleCenter, "Points");
+            SummonKit.Place(t, new Vector2(0.5f, 0), Vector2.zero, new Vector2(140, 44));
+            var b = root.gameObject.AddComponent<UnityEngine.UI.Button>();
+            b.targetGraphic = img;
+            b.onClick.AddListener(() => onClick());
         }
 
         private void Login(RectTransform body)

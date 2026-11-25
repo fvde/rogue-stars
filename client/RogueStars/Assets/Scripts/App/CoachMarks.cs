@@ -61,32 +61,42 @@ namespace RogueStars.Client.App
         {
             Canvas.ForceUpdateCanvases();
             var root = Ui.Stretch(Ui.Rect(layer, "Coach:" + mark));
-            Vector2 at = Vector2.zero;
+            Vector2 at = Vector2.zero, min = Vector2.zero, max = Vector2.zero;
             if (target != null)
             {
-                var world = target.TransformPoint(target.rect.center);
-                at = layer.InverseTransformPoint(world);
+                // the target's bounds in the layer (T1: the hand sits at its lower-right corner, the ring around it)
+                var corners = new Vector3[4];
+                target.GetWorldCorners(corners);
+                min = new Vector2(float.MaxValue, float.MaxValue); max = new Vector2(float.MinValue, float.MinValue);
+                foreach (var c in corners)
+                {
+                    Vector2 p = layer.InverseTransformPoint(c);
+                    min = Vector2.Min(min, p); max = Vector2.Max(max, p);
+                }
+                at = (min + max) / 2;
             }
             float h = layer.rect.height > 10 ? layer.rect.height : 1920;
-            bool high = at.y > -h * 0.2f; // a card in the middle: the hand points up at it from below
+            Vector2 size = max - min;
 
-            var ring = Ui.Panel(root, new Color(1, 0.86f, 0.36f, 0.35f), "Ring");
-            ring.sprite = HubKit.Circle; ring.raycastTarget = false;
-            Place(ring.rectTransform, at, new Vector2(220, 220));
-            UiPulse.On(ring, 0.12f, 1.1f, 0.4f);
+            // a glowing ring around the target (never a fill over its text)
+            var ring = Ui.Rect(root, "Ring");
+            Place(ring, at, new Vector2(Mathf.Max(80, size.x + 36), Mathf.Max(80, size.y + 36)));
+            var ringImg = UiShapes.Outline(ring, new Color(1, 0.86f, 0.36f, 0.9f), 36, 8, "RingGlow");
+            UiPulse.On(ringImg, 0.04f, 1.1f, 0.4f);
             ring.gameObject.SetActive(target != null);
 
+            // the hand: its fingertip just inside the target's lower-right corner, pointing in (up-left), clear of the label
             var hand = Ui.Panel(root, Color.white, "Hand");
             hand.sprite = IntroArt.Hand(); hand.preserveAspect = true; hand.raycastTarget = false;
             var hrt = hand.rectTransform;
             hrt.anchorMin = hrt.anchorMax = new Vector2(0.5f, 0.5f);
             hrt.pivot = new Vector2(0.45f, 0.95f);
-            hrt.sizeDelta = new Vector2(190, 190);
-            hrt.anchoredPosition = at + new Vector2(20, -10);
-            hrt.localRotation = Quaternion.Euler(0, 0, 180); // the fingertip points up at the target from below
-            if (high) { hrt.localRotation = Quaternion.identity; hrt.pivot = new Vector2(0.45f, 0.95f); hrt.anchoredPosition = at + new Vector2(20, 10); }
-            UiBob.On(hrt, 18, 0.9f);
+            hrt.sizeDelta = new Vector2(170, 170);
+            hrt.anchoredPosition = HandTip(min, max);
+            hrt.localRotation = Quaternion.Euler(0, 0, 35);
+            UiBob.On(hrt, 14, 0.9f);
             hand.gameObject.SetActive(target != null);
+            bool high = at.y > -h * 0.2f; // a card in the middle: the bubble goes to the top, clear of the cards
 
             var bubble = HubKit.RoundPanel(root, new Color(1, 0.97f, 0.9f, 0.98f), "Bubble");
             bubble.raycastTarget = false;
@@ -110,6 +120,13 @@ namespace RogueStars.Client.App
             if (st != null) st.color = new Color(0.36f, 0.3f, 0.42f, 1);
             UiTween.PopIn(brt);
             return root.gameObject;
+        }
+
+        /// <summary>The hand's fingertip: just inside the lower-right corner of the target's bounds (pure; tested).</summary>
+        public static Vector2 HandTip(Vector2 min, Vector2 max)
+        {
+            var size = max - min;
+            return new Vector2(max.x - Mathf.Min(40, size.x * 0.12f), min.y + Mathf.Min(30, size.y * 0.15f));
         }
 
         private static void Place(RectTransform rt, Vector2 at, Vector2 size)

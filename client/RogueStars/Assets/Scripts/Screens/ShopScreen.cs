@@ -22,8 +22,8 @@ namespace RogueStars.Client.Screens
         protected override void Build(RectTransform body)
         {
             Ui.TabBar(body, Tabs, _tab, i => { _tab = i; Rebuild(); });
-            if (!Session.IsOnline) Note(body, "Offline mode: purchases complete instantly with dev receipts.");
-            else Note(body, "Store: " + Session.Store.Name + " (TODO: Google Play Billing gateway).");
+            // G7: store / offline hints are for developers only
+            if (Debug.isDebugBuild) Note(body, !Session.IsOnline ? "Offline mode: purchases complete instantly with dev receipts." : "Store: " + Session.Store.Name + ".").name = "DevHint";
             switch (_tab)
             {
                 case 0:
@@ -52,9 +52,9 @@ namespace RogueStars.Client.Screens
         {
             var list = OfKind(kind);
             if (list.Count == 0) return;
-            list.RemoveAll(p => !Usable(p));
+            list.RemoveAll(p => !Usable(p) || !Active(p));
             if (list.Count == 0) return;
-            Section(body, Fmt.Humanize(kind.ToString()));
+            Section(body, SectionTitle(kind)).name = "Section:" + kind;
             foreach (var p in list) ProductCard(body, p);
         }
 
@@ -66,6 +66,38 @@ namespace RogueStars.Client.Screens
         {
             var list = p.Contents.Count > 0 ? p.Contents : p.DailyRewards.Count > 0 ? p.DailyRewards : p.FirstPurchaseBonus;
             return list.Count == 0 || RewardGate.HasUse(State, Content, list[0], Now);
+        }
+
+        /// <summary>MS1: offers outside their schedule are hidden instead of listed as "offer not active".</summary>
+        private bool Active(ProductDef p) => p.Schedule == null || p.Schedule.TryActive(Now, out _, out _);
+
+        /// <summary>Player-facing section titles ("Starter Packs", "Flash Offers"), never the code ids.</summary>
+        public static string SectionTitle(ProductKind kind)
+        {
+            switch (kind)
+            {
+                case ProductKind.StarterPack: return "Starter Packs";
+                case ProductKind.FlashOffer: return "Flash Offers";
+                case ProductKind.GiftPack: return "Gift Packs";
+                case ProductKind.DiamondPack: return "Diamond Packs";
+                case ProductKind.MonthlyPass: return "Monthly Pass";
+                case ProductKind.Permanent: return "Forever";
+                case ProductKind.RollingOffer: return "Special Offer";
+                default: return Fmt.Words(kind.ToString());
+            }
+        }
+
+        /// <summary>The pack art of an offer (placeholder icons by kind until dedicated pack art exists).</summary>
+        private static string PackIcon(ProductDef p)
+        {
+            switch (p.Kind)
+            {
+                case ProductKind.DiamondPack: return "diamond";
+                case ProductKind.MonthlyPass: case ProductKind.SeasonPass: return "pass";
+                case ProductKind.Permanent: return "star";
+                case ProductKind.FlashOffer: return "luck_gem";
+                default: return "packs";
+            }
         }
 
         /// <summary>Usable rewards of an offer, and a hint that the rest arrives with later features (never named).</summary>
@@ -82,7 +114,7 @@ namespace RogueStars.Client.Screens
                 string stepId = ShopSystem.CurrentRollingStep(State, Content, chain.Id);
                 var p = Content.Product(stepId);
                 if (p == null || !Usable(p)) continue;
-                Section(body, "Rolling offer");
+                Section(body, SectionTitle(ProductKind.RollingOffer));
                 ProductCard(body, p);
             }
         }
@@ -91,9 +123,11 @@ namespace RogueStars.Client.Screens
         {
             string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
             var card = Card(body, p.PriceUsdCents == 0 ? Theme.Header : Theme.PanelAlt);
-            var head = Ui.Row(card, 60);
-            Ui.Label(head, p.Name, Theme.FontNormal);
-            Ui.Label(head, Fmt.Price(p.PriceUsdCents), Theme.FontNormal, Theme.Premium, TextAnchor.MiddleRight);
+            var head = Ui.Row(card, 110, 16);
+            var art = SummonKit.Img(head, World.SummonArt.Icon(PackIcon(p)), "PackArt");
+            Ui.Size(art, 110, 110, 0);
+            Ui.Display(head, OfferName(p), Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "OfferName");
+            Ui.Display(head, Fmt.Price(p.PriceUsdCents), Theme.FontNormal, Theme.Premium, TextAnchor.MiddleRight, "Price");
             if (p.Contents.Count > 0) Note(card, OfferRewards(p.Contents));
             if (p.FirstPurchaseBonus.Count > 0 && ShopSystem.PurchaseCount(State, p.Id) == 0) Ui.Label(card, "First purchase bonus: " + OfferRewards(p.FirstPurchaseBonus), Theme.FontSmall, Theme.Good);
             if (p.DailyRewards.Count > 0) Note(card, "Daily: " + OfferRewards(p.DailyRewards) + (p.DailyDays > 0 ? " for " + p.DailyDays + " days" : " forever"));
@@ -106,6 +140,10 @@ namespace RogueStars.Client.Screens
             if (p.DailyRewards.Count > 0 && ShopSystem.DailyGrantActive(State, Content, p.Id, Now))
                 Ui.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), Theme.Good, -1, 84, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
         }
+
+        /// <summary>"Rolling Offer 1" → "Special Offer · Step 1" (the chain step reads as progress, not a code name).</summary>
+        private static string OfferName(ProductDef p) =>
+            p.Kind == ProductKind.RollingOffer && p.Name != null && p.Name.StartsWith("Rolling Offer ") ? "Special Offer · Step " + p.Name.Substring(14) : p.Name;
 
         private void SeasonPass(RectTransform body)
         {
@@ -200,7 +238,7 @@ namespace RogueStars.Client.Screens
         private void Ads(RectTransform body)
         {
             bool noAds = ShopSystem.HasNoAds(State, Content);
-            Note(body, noAds ? "No Ads owned: placements complete instantly." : "Rewarded ads (TODO: AppLovin MAX; fake ads for now).");
+            if (noAds) Note(body, "No Ads owned: rewards are instant.");
             foreach (var a in Content.AdPlacements.Values)
             {
                 if (a.Rewards.Count == 0 || !RewardGate.AnyUsable(State, Content, a.Rewards, Now)) continue;
