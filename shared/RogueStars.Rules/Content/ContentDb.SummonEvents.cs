@@ -180,17 +180,18 @@ namespace RogueStars.Rules.Content
             hero.Tasks.Add(Task("alien_pulls", "Do {0} Alien pulls", "pulls_alien", ht, 5, 10, 20, 35, 60));
             hero.Tasks.Add(Task("part_pulls", "Do {0} Part pulls", "pulls_part", ht, 10, 20, 35, 60, 100));
             hero.Tasks.Add(Task("blueprint_pulls", "Do {0} Blueprint pulls", "pulls_blueprint", ht, 3, 6, 10, 15, 25));
+            // Shards outside pulls are tiny next to the 50-shard batch (owner, 2026-11-25): milestones ×5 / ×10, exchange ×5, pass ×5.
             hero.Milestones.Add(M(10, Cur(Currencies.HeroXp, 2000)));
-            hero.Milestones.Add(M(25, new Reward(RewardKinds.HeroShards, F, 20)));
+            hero.Milestones.Add(M(25, new Reward(RewardKinds.HeroShards, F, 5)));
             hero.Milestones.Add(M(50, Cur(hero.TicketCurrency, 3)));
-            hero.Milestones.Add(M(100, new Reward(RewardKinds.HeroShards, F, 60)));
+            hero.Milestones.Add(M(100, new Reward(RewardKinds.HeroShards, F, 10)));
             hero.Milestones.Add(M(150, new Reward(RewardKinds.Hero, F, 1)));
-            hero.Exchange.Add(X("hero_shards", "Featured shards", 60, new Reward(RewardKinds.HeroShards, F, 10), 3));
+            hero.Exchange.Add(X("hero_shards", "Featured shards", 60, new Reward(RewardKinds.HeroShards, F, 5), 3));
             hero.Exchange.Add(X("hero_ticket", "Hero Summon Ticket", 150, Cur(hero.TicketCurrency, 1), 3));
             hero.Exchange.Add(X("hero_xp", "Hero XP", 40, Cur(Currencies.HeroXp, 2000), 10));
             hero.Exchange.Add(X("hero_alien_tokens", "Alien Tokens", 80, Cur(Currencies.AlienTokens, 2), 3));
             hero.Exchange.Add(X("hero_diamonds", "Diamonds", 100, Cur(Currencies.Diamonds, 50), 5));
-            Pass(hero, new long[] { 1, 1, 1, 2, 2, 3 }, new long[] { 5, 5, 5, 6, 6, 8 }, new List<Reward> { new Reward(RewardKinds.HeroShards, F, 40) });
+            Pass(hero, new long[] { 1, 1, 1, 2, 2, 3 }, new long[] { 5, 5, 5, 6, 6, 8 }, new List<Reward> { new Reward(RewardKinds.HeroShards, F, 5) });
             Product(hero.PassProductId, "Hero Summon Pass", ProductKind.SummonPass, SummonEventType.Hero, 999, 0);
             hero.PackProductIds.Add(Product("summon_pack_hero_s", "Hero Summon Pack", ProductKind.SummonPack, SummonEventType.Hero, 299, 3, Cur(hero.TicketCurrency, 5), Cur(Currencies.Diamonds, 300)).Id);
             hero.PackProductIds.Add(Product("summon_pack_hero_m", "Hero Summon Crate", ProductKind.SummonPack, SummonEventType.Hero, 799, 3, Cur(hero.TicketCurrency, 14), Cur(Currencies.Diamonds, 800)).Id);
@@ -216,8 +217,7 @@ namespace RogueStars.Rules.Content
             // Pull system: 1.2% the featured mount's batch of 50 shards (Luck 100), 98.8% filler (no Legendary / Rare mount drops).
             mount.Gacha = SummonGacha("Mount Summon", mount.TicketCurrency, new GachaEntry(RewardKinds.Mount, F, 1, 0, 1),
                 new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 300, 0, 81.75),
-                new GachaEntry(RewardKinds.Currency, Currencies.MountCores, 5, 0, 7),
-                new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 1500, 0, 5),
+                new GachaEntry(RewardKinds.Currency, Currencies.Fuel, 1500, 0, 12), // 5% + the former Mount Cores ×5 (7%, 1 core = 300 Fuel)
                 new GachaEntry(RewardKinds.Currency, Currencies.BlueprintTokens, 1, 0, 2),
                 new GachaEntry(RewardKinds.Currency, Currencies.PartTokens, 1, 0, 2),
                 new GachaEntry(RewardKinds.Currency, Currencies.AlienTokens, 1, 0, 1),
@@ -231,16 +231,16 @@ namespace RogueStars.Rules.Content
             mount.Tasks.Add(Task("part_pulls", "Do {0} Part pulls", "pulls_part", mt, 5, 15, 25, 45, 70));
             mount.Tasks.Add(Task("blueprint_pulls", "Do {0} Blueprint pulls", "pulls_blueprint", mt, 2, 4, 8, 12, 20));
             mount.Milestones.Add(M(10, Cur(Currencies.Fuel, 2000)));
-            mount.Milestones.Add(M(25, Cur(MountShardsOf(F), 10)));
+            mount.Milestones.Add(M(25, Cur(MountShardsOf(F), 5)));
             mount.Milestones.Add(M(50, Cur(mount.TicketCurrency, 3)));
-            mount.Milestones.Add(M(80, Cur(Currencies.MountCores, 30)));
+            mount.Milestones.Add(M(80, Cur(Currencies.Fuel, 9000))); // was Mount Cores ×30 (1 core = 300 Fuel)
             mount.Milestones.Add(M(120, new Reward(RewardKinds.Mount, F, 1)));
-            mount.Exchange.Add(X("mount_shards", "Featured shards", 80, Cur(MountShardsOf(F), 10), 2));
+            mount.Exchange.Add(X("mount_shards", "Featured shards", 80, Cur(MountShardsOf(F), 5), 2));
             mount.Exchange.Add(X("mount_ticket", "Mount Summon Ticket", 150, Cur(mount.TicketCurrency, 1), 3));
-            mount.Exchange.Add(X("mount_cores", "Mount Cores", 100, Cur(Currencies.MountCores, 10), 2));
-            mount.Exchange.Add(X("mount_fuel", "Fuel", 40, Cur(Currencies.Fuel, 1500), 10));
+            // The former Mount Cores ×10 for 100 (2) is gone; its 200 tokens a week went to 5 more Fuel purchases (limit 10 → 15).
+            mount.Exchange.Add(X("mount_fuel", "Fuel", 40, Cur(Currencies.Fuel, 1500), 15));
             mount.Exchange.Add(X("mount_bp_tokens", "Blueprint Tokens", 80, Cur(Currencies.BlueprintTokens, 2), 3));
-            Pass(mount, new long[] { 1, 1, 2 }, new long[] { 4, 5, 7 }, new List<Reward> { Cur(MountShardsOf(F), 20) });
+            Pass(mount, new long[] { 1, 1, 2 }, new long[] { 4, 5, 7 }, new List<Reward> { Cur(MountShardsOf(F), 5) });
             Product(mount.PassProductId, "Mount Summon Pass", ProductKind.SummonPass, SummonEventType.Mount, 499, 0);
             mount.PackProductIds.Add(Product("summon_pack_mount_s", "Mount Summon Pack", ProductKind.SummonPack, SummonEventType.Mount, 199, 3, Cur(mount.TicketCurrency, 4), Cur(Currencies.Diamonds, 200)).Id);
             mount.PackProductIds.Add(Product("summon_pack_mount_m", "Mount Summon Crate", ProductKind.SummonPack, SummonEventType.Mount, 599, 3, Cur(mount.TicketCurrency, 12), Cur(Currencies.Diamonds, 600)).Id);

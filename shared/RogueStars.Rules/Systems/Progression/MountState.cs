@@ -26,7 +26,7 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class MountState
     {
-        /// <summary>Owned mounts by id. Shards live in the wallet (Currencies.MountShards(id)), cores in Currencies.MountCores.</summary>
+        /// <summary>Owned mounts by id. Shards live in the wallet (Currencies.MountShards(id)).</summary>
         public Dictionary<string, MountEntry> Owned = new Dictionary<string, MountEntry>();
         public string Active = "";
     }

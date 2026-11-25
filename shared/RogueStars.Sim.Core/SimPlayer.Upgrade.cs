@@ -281,7 +281,7 @@ namespace RogueStars.Sim
             foreach (var (id, m) in S.Mounts.Owned.OrderBy(k => k.Key, StringComparer.Ordinal).ToList())
             {
                 while (m.Stars < cfg.MaxStars && Bal(Currencies.MountShards(id)) >= C.ShardStars.NextCost(m.Stars)
-                       && Bal(Currencies.MountCores) >= MountSystem.NextStarCores(S, C, id) && Ok(new MountStarUp { MountId = id })) { }
+                       && Ok(new MountStarUp { MountId = id })) { }
             }
             var best = S.Mounts.Owned.OrderByDescending(k => k.Value.Stars).ThenByDescending(k => k.Value.Level)
                 .ThenBy(k => k.Key, StringComparer.Ordinal).Select(k => k.Key).First();

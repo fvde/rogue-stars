@@ -126,6 +126,26 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void SetPieceAlternates_PickedPerSlot_MainOnlyWithoutAlternates()
+        {
+            Sprite Make() => Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            Sprite main = Make(), alt2 = Make(), alt3 = Make(), well = Make();
+            ArtCatalog.Loader = p => p == "Art/Slice/SetPieces/giant_mushroom" ? main : p == "Art/Slice/SetPieces/giant_mushroom_2" ? alt2
+                : p == "Art/Slice/SetPieces/giant_mushroom_3" ? alt3 : p == "Art/Slice/SetPieces/portal_well" ? well : null;
+            try
+            {
+                IsoArt.ClearCache();
+                Assert.That(ArtCatalog.SliceSetPieceVariants("giant_mushroom"), Is.EqualTo(3));
+                Assert.That(new[] { IsoArt.SetPiece("giant_mushroom", 0), IsoArt.SetPiece("giant_mushroom", 1), IsoArt.SetPiece("giant_mushroom", 5) },
+                    Is.EqualTo(new[] { main, alt2, alt3 }));
+                Assert.That(IsoArt.SetPiece("giant_mushroom", -7), Is.Not.Null, "negative hashes pick a variant too");
+                Assert.That(IsoArt.SetPiece("portal_well", 4), Is.SameAs(well), "no alternates: the main sprite");
+                Assert.That(IsoArt.SetPiece("crystal_spire", 4), Is.Not.Null, "no art: the drawn placeholder");
+            }
+            finally { ArtCatalog.Loader = null; IsoArt.ClearCache(); }
+        }
+
+        [Test]
         public void WorldBoard_DrawsTilesSetPiecesScatterAndExclaims_AroundTheWorm()
         {
             // level 5: shops and the miniboss lair to exclaim (the tutorial level 1 is plain, GDD §16)

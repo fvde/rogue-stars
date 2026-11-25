@@ -77,7 +77,7 @@ namespace RogueStars.Client.Tests
             Assert.That(HubLayout.VisibleCurrencies(S, C), Does.Contain(Currencies.GearCores));
             Unlock(Features.Laboratory, Features.Mounts);
             var visible = HubLayout.VisibleCurrencies(S, C);
-            Assert.That(visible, Does.Contain(Currencies.Data).And.Contain(Currencies.Fuel).And.Contain(Currencies.MountCores));
+            Assert.That(visible, Does.Contain(Currencies.Data).And.Contain(Currencies.Fuel).And.Contain(Currencies.MountTickets));
             Assert.That(visible, Does.Not.Contain(Currencies.Biomass).And.Not.Contain(Currencies.Grain).And.Not.Contain(Currencies.HeroXp));
             foreach (var id in HubLayout.CurrencyOrder)
                 Assert.That(visible.Contains(id), Is.EqualTo(RewardGate.CurrencyHasUse(S, C, id)), id);

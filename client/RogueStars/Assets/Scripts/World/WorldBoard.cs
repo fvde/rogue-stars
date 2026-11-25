@@ -271,7 +271,7 @@ namespace RogueStars.Client.World
         {
             if (s.Shape == "loop" && s.W >= 2 && s.H >= 2)
                 return index % 3 == 0 ? "portal_well" : index % 3 == 1 ? "crystal_spire" : "giant_mushroom";
-            var standing = new[] { "giant_mushroom", "crashed_saucer", "alien_tree", "crystal_spire" };
+            var standing = new[] { "giant_mushroom", "crashed_saucer", "alien_tree", "crystal_spire", "ruined_arch", "burrow_mound", "time_clock" };
             return standing[Math.Abs(s.X * 7 + s.Y * 13) % standing.Length];
         }
 
@@ -329,7 +329,7 @@ namespace RogueStars.Client.World
                     for (int y = s.Y; y < s.Y + s.H; y++)
                         NewSprite("Floor", IsoArt.Block(TileFace.Floor, s.Height, Mask(x, y, s.Height)), Iso.Cell(x, y, s.Height) - new Vector2(0, Iso.Slab), Iso.Order(x, y));
                 string id = SetPieceFor(s, kv.Key);
-                var sprite = IsoArt.SetPiece(id);
+                var sprite = IsoArt.SetPiece(id, s.X * 73856093 ^ s.Y * 19349663); // a stable variant per slot
                 var foot = Iso.Cell(s.X + (s.W - 1) / 2f, s.Y + (s.H - 1) / 2f, s.Height) - new Vector2(0, Iso.Slab);
                 float fpW = (s.W + s.H) * Iso.StepX;
                 var go = new GameObject("SetPiece:" + id) { layer = Layer };

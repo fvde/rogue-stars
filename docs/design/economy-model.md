@@ -64,8 +64,8 @@ after the main hero is maxed.
   (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
   Sinks: worm levels, talents, buildings (no laboratory).
 - Mounts: mount summon events (docs/design/summon-events.md, pull-system.md): a batch of 50 shards unlocks a mount, stars to 10★
-  on the shared table (1 000 shards), stars 6★–10★ (the former awakening) also cost 2 500 Mount Cores in all. Mount Cores come from the mount events, Burrow floors 6+, the Dark Side (1–4 per clear) and the guild
-  shop.
+  on the shared table (1 000 shards), shards only (Mount Cores are gone; their sources pay Fuel: mount events, Burrow floors 6+,
+  the Dark Side 300–1 200 per clear, the guild shop).
 
 ## Endless campaign rewards
 
@@ -87,7 +87,7 @@ multiplied by the portal's reward scale S:
   × round(S); the daily Biomass surge (first 3 won portal runs ×4), Overcharged ×1.8, the double-reward ad and the
   run_reward modifiers apply on top as before;
 - Dark Side level i > 150: Data = Data(150) · (M(t_d(i)) / M(t_d(150)))^α (× 2.5 level multiplier), t_d(i) =
-  t(40 + 3 (i − 1)) − 5. Mount Cores (4) and Diamonds (8) per clear stay flat.
+  t(40 + 3 (i − 1)) − 5. Fuel (1 200) and Diamonds (8) per clear stay flat.
 
 Why α = 0.7: rewards must grow more slowly than threat (otherwise farming old levels would out-pace the curve) but fast
 enough that an upgrade keeps costing about the same number of runs as the player climbs. Measured with the simulator

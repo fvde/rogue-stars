@@ -127,23 +127,23 @@ public class MountTests
     }
 
     [Fact]
-    public void Stars1To10_SharedTable_CoresFrom6Stars_KitStepsAt1_3_5_8_10()
+    public void Stars1To10_SharedTable_ShardsOnly_KitStepsAt1_3_5_8_10()
     {
         var e = Engine(); var s = Player(e);
-        var cfg = C.MountConfig;
         Grant(e, s, new Reward(RewardKinds.Mount, M, 1));
         SetBalance(s, Currencies.MountShards(M), 100_000);
-        SetBalance(s, Currencies.MountCores, 100_000);
         string P(int k) => M + "_passive_" + k;
         string A(int k) => M + "_active_" + k;
         Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 1));
         for (int star = 2; star <= 10; star++)
         {
-            long before = s.Wallet.Get(Currencies.MountShards(M)), cores = s.Wallet.Get(Currencies.MountCores);
+            long before = s.Wallet.Get(Currencies.MountShards(M));
+            var walletBefore = new Dictionary<string, long>(s.Wallet.Balances);
             Ok(e, ref s, new MountStarUp { MountId = M });
             Assert.Equal(before - C.ShardStars.StepCosts[star], s.Wallet.Get(Currencies.MountShards(M)));
-            Assert.Equal(cores - cfg.StarCoreCosts[star], s.Wallet.Get(Currencies.MountCores));
-            Assert.Equal(star >= 6, cfg.StarCoreCosts[star] > 0);
+            // Shards only: no other balance changes on a star-up (stars 6–10 included).
+            foreach (var kv in walletBefore)
+                if (kv.Key != Currencies.MountShards(M)) Assert.Equal(kv.Value, s.Wallet.Get(kv.Key));
         }
         Assert.Contains("max stars", Fail(e, ref s, new MountStarUp { MountId = M }));
         Assert.Equal(new[] { P(1), A(1) }, MountSystem.WeaponSkills(C, M, 2));

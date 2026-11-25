@@ -27,6 +27,12 @@ namespace RogueStars.Client.Editor
             s.spriteAlignment = (int)SpriteAlignment.Center;
             s.spritePixelsPerUnit = 100;
             ti.SetTextureSettings(s);
+            // trimmed props / NPCs / markers (≤ 768 px sources): capped at 1024, compressed (ASTC on Android) like the rest
+            if (assetPath.Contains("/Art/Run/") || assetPath.Contains("/Art/Slice/Markers/") || assetPath.Contains("/Art/Slice/SetPieces/"))
+            {
+                ti.maxTextureSize = 1024;
+                ti.textureCompression = TextureImporterCompression.Compressed;
+            }
             // slice textures are sampled by the code-drawn tile faces (IsoArt.Top), and tile across the ground
             if (assetPath.Contains("/Art/Slice/Textures/")) { ti.isReadable = true; ti.wrapMode = TextureWrapMode.Repeat; }
         }

@@ -247,6 +247,21 @@ namespace RogueStars.Client.UiKit
 
         public static Sprite SliceMarker(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceMarkers + "/" + id);
         public static Sprite SliceSetPiece(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceSetPieces + "/" + id);
+
+        /// <summary>
+        /// Variant <paramref name="variant"/> of a set piece: 0 = the main sprite <c>&lt;id&gt;</c>, k = the alternate
+        /// <c>&lt;id&gt;_&lt;k + 1&gt;</c> (<c>_2</c>, <c>_3</c> …); null when that file is missing.
+        /// </summary>
+        public static Sprite SliceSetPiece(string id, int variant) =>
+            variant <= 0 ? SliceSetPiece(id) : string.IsNullOrEmpty(id) ? null : Load(SliceSetPieces + "/" + id + "_" + (variant + 1));
+
+        /// <summary>How many sprites a set piece has: the main one plus its consecutive alternates (0 when it has no art).</summary>
+        public static int SliceSetPieceVariants(string id)
+        {
+            int n = 0;
+            while (n < 16 && SliceSetPiece(id, n) != null) n++;
+            return n;
+        }
         public static Sprite SliceScatter(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceScatterFolder + "/" + id);
         public static Sprite SliceHud(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceHudFolder + "/" + id);
         public static Sprite SliceTexture(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceTextures + "/" + id);

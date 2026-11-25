@@ -361,15 +361,29 @@ design A (the board, tray and footer described in *Screens* above are superseded
 - **Art keys** (`ArtCatalog`, every one falls back to a code-drawn placeholder in `World/IsoArt` / `World/HudArt`):
   `Art/Slice/Markers/<id>` (enemy, elite, miniboss, boss, omen, event, mystery, chest, rest, shop, minigame, portal, reward),
   `Art/Slice/SetPieces/<id>` (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound,
-  time_clock, alien_tree), `Art/Slice/Scatter/<id>` (rock_small, rock_pile, bush, flowers, fern, pebble_glow, stump,
+  time_clock, alien_tree; alternates `<id>_2`, `<id>_3` …: `WorldBoard` picks one per slot by a hash of its cell,
+  `IsoArt.SetPiece(id, pick)` / `ArtCatalog.SliceSetPieceVariants`; loops take portal_well / crystal_spire / giant_mushroom,
+  other slots any of the standing seven), `Art/Slice/Scatter/<id>` (rock_small, rock_pile, bush, flowers, fern, pebble_glow, stump,
   crystal_small, mushrooms, barrel, antenna, bones), `Art/Slice/Hud/<id>` (dice, pedestal, heart, sword, shield, coin,
   exp, cog, skull, book, speed, reroll, boss_rail_top), `Art/Slice/Textures/<id>` (tile_top_moss — multiplied into tile
   tops, imported readable; tile_side_rock; ground_meadow = the tiled island ground; backdrop_deep = the tiled dark
   surround), `Art/Slice/Mounts/<mount id>` (or `mount`: the battle mount under the worm), `Art/Slice/Battle/<id>` (battle_meadow;
   battle_meadow_ruins), `Art/Skills/<skill id>` (draft cards, battle grid). Import: put the owner's picks in
-  `tools/art/slice-picks.json` (`{"slice-markers/enemy": "C_s1301.png", …}`, files under `~/AI/assets/<category>/<id>/`)
-  and run `Tools/Art/Import Generated Art` / `ArtImporter.ImportCli` (`ArtImportRules.PlanSlice`; props and icons are
-  trimmed, textures and arenas kept full-frame). Nothing is auto-picked for the slice.
+  `tools/art/slice-picks.json` (`{"slice-markers/enemy": "C_s1301.png", …}`, files under `<assets>/<category>/<id>/`; a value
+  with a "/" is a path under `<assets>/<category>/`, for alternates: `"slice-setpieces/giant_mushroom_2":
+  "giant_mushroom/J_s5201.png"`) and run `Tools/Art/Import Generated Art` / `ArtImporter.ImportCli`
+  (`ArtImportRules.PlanSlice`; categories slice-markers / -setpieces / -scatter / -hud / -skills / -texture / -battle and
+  run-characters / run-props / run-icons → `Art/Run/…`; props, NPCs and icons are trimmed, textures and arenas kept
+  full-frame). Nothing is auto-picked. **Imported (2026-11-25):** markers enemy, elite, miniboss, event, mystery, chest,
+  rest, shop, minigame, portal, reward; all eight set pieces (+ alternates burrow_mound 2–3, crashed_saucer 2,
+  crystal_spire 2, giant_mushroom 2–3, ruined_arch 2, time_clock 2); `Art/Run/Props` chest_common, chest_signature,
+  abandoned_cart, campfire_big, event_shrine, event_wreck (chest_mythic keeps its placeholder); `Art/Run/Characters`
+  shopkeeper, cursed_vendor, black_marketeer, camp_cook. They came from the cleaned packages (`~/AI/out/cleaned/pkg-…`,
+  characters from `~/AI/out/pkg-run-characters` C variants), cut out with `tools/art/export_assets.py` into a staging
+  root laid out as `<category>/<id>/<variant>_s<seed>.png` and imported with `ROGUESTARS_ART_ASSETS=<staging root>`;
+  `.fix` files had background trapped inside the object cleared (between legs, inside the tree's loop, a window),
+  `.us` files had the pale baked ground shadow removed. Import settings (`ArtImportSettings`): sprites, no mips, max
+  1024 for `Art/Run`, markers and set pieces, compressed.
 - **Captures**: `SliceShowcaseTests` (**Explicit**) renders `s1_board_start`, `s1_board_mid`, `s1_board_zoomed` (pinched
   out and dragged), `s2_levelup`, `s3_battle`, `s3_battle_later` at 1080×2400 (or `$ROGUESTARS_SHOT_SIZE`, e.g.
   `1440x3200`) into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/slice/`).
@@ -438,7 +452,8 @@ differs from *Screens* and the slice section above, this wins. Geometry is in re
   (`SliceKit.Chunky`) and the rebuilt screens use exact reference sizes; the card body (`SliceCards.BodySize`) 38 → 46,
   card names (`TitleSize`) 54 → 58, best-fit within the panel. The display font has no "→": chunky text and card bodies
   show "»".
-- **Art keys** (`ArtCatalog`, every one with a code-drawn fallback in `World/ScreenArt`; nothing imported yet):
+- **Art keys** (`ArtCatalog`, every one with a code-drawn fallback in `World/ScreenArt`; imported so far: the
+  characters and props listed in the slice section's import note):
   `Art/Run/Characters/<id>` (shopkeeper, cursed_vendor, black_marketeer, camp_cook), `Art/Run/Props/<id>`
   (chest_common, chest_mythic, chest_signature, abandoned_cart, campfire_big, event_shrine, event_wreck),
   `Art/Run/Icons/<id>` (coins_small, coins_big, heal, max_hp, skill_book, upgrade, reroll, curse, blessing, sale_tag;
@@ -447,7 +462,8 @@ differs from *Screens* and the slice section above, this wins. Geometry is in re
   observatory, invasion, event, map, chapter_rewards, patrol, challenges, settings), `Art/Result/<id>` (crown,
   crest_broken, banner, banner_defeat).
 - **Captures**: `ScreensShowcaseTests` (**Explicit**) renders `sc_board`, `sc_levelup`, `sc_rest`, `sc_rest_train`,
-  `sc_event`, `sc_event_vendor`, `sc_event_result`, `sc_chest`, `sc_chest_reveal`, `sc_shop`, `sc_result_victory`,
+  `sc_event`, `sc_event_vendor`, `sc_event_pod`, `sc_event_shrine`, `sc_event_wreck`, `sc_event_cursed`, `sc_event_medic`,
+  `sc_event_result`, `sc_chest`, `sc_chest_reveal`, `sc_shop`, `sc_result_victory`,
   `sc_result_defeat`, `sc_home` at 1080 × 2400 (`$ROGUESTARS_SHOT_SIZE`, `$ROGUESTARS_SHOTS_DIR`; `$ROGUESTARS_SHOTS_ONLY`
   = comma-separated groups: board, levelup, rest, event, chest, shop, result, home). Tests: `ScreensPassTests`.
 

@@ -41,17 +41,16 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 | Hero event | % | Mount event | % |
 |---|---|---|---|
 | Hero XP ×300 | 88.75 | Fuel ×300 | 81.75 |
-| Hero XP ×1 000 | 5 | Mount Cores ×5 | 7 |
-| Alien / Part / Blueprint Tokens ×1 | 2 / 2 / 1 | Fuel ×1 500 | 5 |
-| Awaken Core ×1 | 0.05 | Blueprint / Part / Alien Tokens ×1 | 2 / 2 / 1 |
-| | | Awaken Core ×1 | 0.05 |
+| Hero XP ×1 000 | 5 | Fuel ×1 500 | 12 |
+| Alien / Part / Blueprint Tokens ×1 | 2 / 2 / 1 | Blueprint / Part / Alien Tokens ×1 | 2 / 2 / 1 |
+| Awaken Core ×1 | 0.05 | Awaken Core ×1 | 0.05 |
 | **featured hero: 50 shards** | **1.2** | **featured mount: 50 shards** | **1.2** |
 
 ## Batches → stars
 - **Hero batch** (`RewardKinds.Hero`): 50 shards; the batch of a hero the player does not own unlocks it at 1★ (and equips it
   when none is equipped); stars are bought with shards on the shared table (HeroStarUp); a batch for a 10★ hero becomes 300
-  Star Sigils. Shards from the exchange, milestones and pass add up (HeroUnlock at 50).
-- **Mount batch** (`RewardKinds.Mount`): the same, up to 10★ (6★–10★ also cost Mount Cores, the former awakening); a batch for a
+  Star Sigils. Shards from the exchange, milestones and pass are tiny (×5 / ×10) and add up (HeroUnlock at 50).
+- **Mount batch** (`RewardKinds.Mount`): the same, up to 10★ (shards only; the former awakening is 6★–10★); a batch for a
   10★ mount becomes 300 Hangar Bolts. MountUnlock at 50 shards.
 
 ## Per event
@@ -68,16 +67,16 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 | Blueprint pulls | 3 / 6 / 10 / 15 / 25 | 2 / 4 / 8 / 12 / 20 |
 
   An active F2P player reaches ~4 of 5 targets per hero line and ~3 per mount line; a casual player 1–2; a binge player all.
-- **Pull milestones** (pulls in this event): heroes 10 Hero XP ×2 000 · 25 featured shards ×20 · 50 tickets ×3 · 100
-  featured shards ×60 · 150 **featured batch (50 shards)**; mounts 10 Fuel ×2 000 · 25 featured shards ×10 · 50 tickets ×3 · 80 Mount
-  Cores ×30 · 120 **featured batch (50 shards)**.
-- **Exchange shop** (tokens, limits per event): heroes — featured shards ×10 for 60 (3), Hero Summon Ticket 150 (3), Hero XP
-  ×2 000 for 40 (10), Alien Tokens ×2 for 80 (3), Diamonds ×50 for 100 (5); mounts — featured shards ×10 for 80 (2), Mount
-  Summon Ticket 150 (3), Mount Cores ×10 for 100 (2), Fuel ×1 500 for 40 (10), Blueprint Tokens ×2 for 80 (3). No featured
+- **Pull milestones** (pulls in this event): heroes 10 Hero XP ×2 000 · 25 featured shards ×5 · 50 tickets ×3 · 100
+  featured shards ×10 · 150 **featured batch (50 shards)**; mounts 10 Fuel ×2 000 · 25 featured shards ×5 · 50 tickets ×3 · 80 Fuel
+  ×9 000 · 120 **featured batch (50 shards)**.
+- **Exchange shop** (tokens, limits per event): heroes — featured shards ×5 for 60 (3), Hero Summon Ticket 150 (3), Hero XP
+  ×2 000 for 40 (10), Alien Tokens ×2 for 80 (3), Diamonds ×50 for 100 (5); mounts — featured shards ×5 for 80 (2), Mount
+  Summon Ticket 150 (3), Fuel ×1 500 for 40 (15), Blueprint Tokens ×2 for 80 (3). No featured
   copy in the exchange (saving tokens across eight events made 10★ far too fast; see "Tuning").
 - **Pass** (a day unlocks at every reset of the event; Claim All): heroes free 1 / 1 / 1 / 2 / 2 / 3 tickets, premium 5 / 5 /
-  5 / 6 / 6 / 8 + featured shards ×40 on day 6 (**$9.99**, `summon_pass_hero`); mounts free 1 / 1 / 2, premium 4 / 5 / 7 +
-  featured shards ×20 on day 3 (**$4.99**, `summon_pass_mount`). The premium track is bought for the current event only and
+  5 / 6 / 6 / 8 + featured shards ×5 on day 6 (**$9.99**, `summon_pass_hero`); mounts free 1 / 1 / 2, premium 4 / 5 / 7 +
+  featured shards ×5 on day 3 (**$4.99**, `summon_pass_mount`). The premium track is bought for the current event only and
   is retroactive for its unlocked days.
 - **Event end:** unclaimed rewards do not lapse. When the next event of the type starts (on the player's first command in
   it), every reached but unclaimed task target and every unclaimed pass day of the ended event (free, and premium when bought)
@@ -115,15 +114,14 @@ Pulls per complete event — Casual F2P 28 hero / 13 mount, Active F2P 47 / 27, 
   hero's events) reaches 10★ in ~78 weeks (seeds 50 / 78 / 84; band 9 months – 3 years); a 30× Diamond spender in ~9 weeks.
 - First pass (Luck 80, 0.8% copies, a featured copy for 1 600 tokens in the exchange) gave 10★ in ~23 weeks and every hero
   9–10★ within a year; Luck 300 / 0.15%, no exchange copy and fewer featured shards brought it to the numbers above.
-- Mount stars are quick (5★ is the end of the star road, not of the mount); awakening — 2 500 Mount Cores per mount — stays
-  the long haul. The 60-day guard bands (`ProgressionGuardTests`) hold.
+- Mount stars are shards only on the shared table (1 000 shards to 10★, like heroes); Mount Cores are gone (2026-11-25). The 60-day guard bands (`ProgressionGuardTests`) hold.
 
 ## Art (ArtCatalog keys, code-drawn fallbacks in `World/SummonArt`)
 - `Art/Summon/backdrop_hero`, `Art/Summon/backdrop_mount` — hub stage backdrops (portrait, full frame).
 - `Art/Summon/Heroes/<hero id>`, `Art/Summon/Mounts/<mount id>` — featured art, big (fallbacks: the hero worm sprite; the
   battle mount art / drawn saucer).
 - `Art/Summon/Icons/<id>`: `hero_ticket`, `mount_ticket`, `hero_sigil`, `mount_bolt`, `luck_gem`, `diamond`, `exchange`,
-  `packs`, `pass`, `tasks`, `shards`, `hero_xp`, `fuel`, `mount_core`, `token`, `grain`, `ore`, `lock`, `check`, `ad`, `star`,
+  `packs`, `pass`, `tasks`, `shards`, `hero_xp`, `fuel`, `token`, `grain`, `ore`, `lock`, `check`, `ad`, `star`,
   `spotlight`.
 
 ## Open questions

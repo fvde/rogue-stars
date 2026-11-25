@@ -332,7 +332,7 @@ namespace RogueStars.Rules.Content
             };
             l.CompletionRewards.Add(Reward.Cur(Currencies.Data, DarkSideData(i)));
             l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 8));
-            l.CompletionRewards.Add(Reward.Cur(Currencies.MountCores, 1 + Math.Min(i, 12) / 4));
+            l.CompletionRewards.Add(Reward.Cur(Currencies.Fuel, 300 * (1 + Math.Min(i, 12) / 4))); // was 1–4 Mount Cores (1 core = 300 Fuel)
             return l;
         }
 
