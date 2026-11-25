@@ -6,8 +6,8 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Mounts (spaceships, all Mythic): one active, stars 1–10 on the shared shard table (ContentDb.ShardStars; stars 6–10 also cost
-    /// Mount Cores, the former awakening), level by Fuel. Hero &amp; mount kits: a vehicle on a reload with no stats, one passive + one
+    /// Mounts (spaceships, all Mythic): one active, stars 1–10 on the shared shard table (ContentDb.ShardStars; shards only, the former
+    /// awakening is stars 6–10), level by Fuel. Hero &amp; mount kits: a vehicle on a reload with no stats, one passive + one
     /// active that change at 1★ / 3★ / 5★ / 8★ / 10★ (mount damage +5% at the steps between, +1% per level).
     /// Granter for RewardKinds.Mount (a batch: 50 shards; the batch of a mount the player does not own unlocks it at 1★; a batch for a
     /// 10★ mount becomes MountConfig.CopyOverflow). Pull system: docs/design/pull-system.md.
@@ -33,14 +33,6 @@ namespace RogueStars.Rules.Systems
         {
             var m = Get(s, mountId);
             return m == null ? c.ShardStars.UnlockShards : m.Stars >= c.MountConfig.MaxStars ? -1 : c.ShardStars.NextCost(m.Stars);
-        }
-
-        /// <summary>Mount Cores needed for the next star besides the shards (0 below 6★ and at max).</summary>
-        public static long NextStarCores(GameState s, ContentDb c, string mountId)
-        {
-            var m = Get(s, mountId); var cfg = c.MountConfig;
-            int next = m == null ? 1 : m.Stars + 1;
-            return next <= cfg.MaxStars && next < cfg.StarCoreCosts.Count ? cfg.StarCoreCosts[next] : 0;
         }
 
         /// <summary>Weapon / support skill ids active at the given stars.</summary>
@@ -156,10 +148,7 @@ namespace RogueStars.Rules.Systems
             Features.Require(ctx.State, ctx.Content, Features.Mounts);
             var s = ctx.State; var c = ctx.Content; var cfg = c.MountConfig; var m = RequireOwned(ctx, cmd.MountId);
             GameEngine.Require(m.Stars < cfg.MaxStars, "mount is at max stars");
-            var costs = new List<Cost> { new Cost(Currencies.MountShards(cmd.MountId), c.ShardStars.NextCost(m.Stars)) };
-            long cores = NextStarCores(s, c, cmd.MountId);
-            if (cores > 0) costs.Add(new Cost(Currencies.MountCores, cores));
-            ProgressionUtil.Spend(s, costs);
+            ProgressionUtil.Spend(s, Currencies.MountShards(cmd.MountId), c.ShardStars.NextCost(m.Stars));
             m.Stars++;
             s.Count("mount_stars");
             ctx.Emit("mount_star", cmd.MountId, m.Stars.ToString());

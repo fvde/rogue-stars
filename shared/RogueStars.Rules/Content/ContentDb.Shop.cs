@@ -293,7 +293,7 @@ namespace RogueStars.Rules.Content
             Item("guild_ore", "Ore ×5000", "guild", new Cost(Currencies.GuildMarks, 100), Reward.Cur(Currencies.Ore, 5000), 5, LimitPeriod.Weekly);
             Item("guild_gear_cores", "Gear Cores ×100", "guild", new Cost(Currencies.GuildMarks, 150), Reward.Cur(Currencies.GearCores, 100), 5, LimitPeriod.Weekly);
             Item("guild_part_tokens", "Part Tokens ×2", "guild", new Cost(Currencies.GuildMarks, 300), Reward.Cur(Currencies.PartTokens, 2), 3, LimitPeriod.Weekly);
-            Item("guild_mount_cores", "Mount Cores ×5", "guild", new Cost(Currencies.GuildMarks, 400), Reward.Cur(Currencies.MountCores, 5), 2, LimitPeriod.Weekly);
+            Item("guild_fuel", "Fuel ×1500", "guild", new Cost(Currencies.GuildMarks, 400), Reward.Cur(Currencies.Fuel, 1500), 2, LimitPeriod.Weekly); // was Mount Cores ×5
 
             // Rewarded ad placements (daily caps). Effects without direct rewards are applied by the owning
             // system via ShopSystem.ConsumeAdView (stamina refill: Progression, revive/double: Run, timers: City).

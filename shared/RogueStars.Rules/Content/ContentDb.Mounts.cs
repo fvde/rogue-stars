@@ -34,8 +34,6 @@ namespace RogueStars.Rules.Content
         public int MaxStars = 10;
         /// <summary>What a mount batch (RewardKinds.Mount) of a 10★ mount becomes (summon event exchange tokens).</summary>
         public Reward CopyOverflow;
-        /// <summary>StarCoreCosts[s] = Mount Cores to reach star s besides the shards (the former awakening cores, stars 6–10; 0 below).</summary>
-        public List<long> StarCoreCosts = new List<long>();
         public int MaxLevelBase = 20;
         public int MaxLevelPerStep = 10;
         /// <summary>LevelFuelCosts[L] = Fuel from level L to L+1.</summary>
@@ -80,8 +78,7 @@ namespace RogueStars.Rules.Content
             var m = MountConfig;
             m.MaxStars = 10;
             m.CopyOverflow = Reward.Cur(Currencies.MountBolts, 300);
-            // The former awakening Mount Cores stay on stars 6–10 (Mount Cores keep their sources: events, Burrow, Dark Side, guild shop).
-            m.StarCoreCosts.AddRange(new long[] { 0, 0, 0, 0, 0, 0, 100, 200, 400, 700, 1100 });
+            // Stars 1–10 cost exactly the shared shard table (no awakening, no Mount Cores: shards only, like every other item).
             m.MaxLevelBase = 20; m.MaxLevelPerStep = 10;
             m.LevelFuelCosts.Add(0);
             for (int l = 1; l < m.MaxLevelBase + m.MaxLevelPerStep * m.MaxStars; l++) m.LevelFuelCosts.Add((long)Math.Round(50 * Math.Pow(l, 1.5)));

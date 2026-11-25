@@ -44,13 +44,14 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
   featured hero / mount, a reward of kind Hero / Mount / Blueprint / Alien) is a **batch of 50 shards**. The first batch of an
   item the player does not own unlocks it (the unlock costs exactly one batch; loose shards stay). Stars are raised with the
   StarUp commands. A batch for a 10★ hero / mount becomes the old overflow (300 Star Sigils / Hangar Bolts).
-- **Everything goes to 10★.** Mounts: the former awakening 1–5 is stars 6★–10★ (`MountAwaken` is gone); those stars also cost
-  the former awakening Mount Cores (100 / 200 / 400 / 700 / 1 100) so Mount Cores keep their sources' purpose. Kit steps 1★ / 3★ /
+- **Everything goes to 10★.** Mounts: no awakening; the former awakening 1–5 is stars 6★–10★ (`MountAwaken` is gone), paid with
+  shards on the shared table like every other star (owner, 2026-11-25: Mount Cores are removed, see below). Kit steps 1★ / 3★ /
   5★ / 8★ / 10★, the +5% mount damage steps 2★ / 4★ / 6★ / 7★ / 9★, level cap 20 + 10 per star (all as before, renamed).
 - Epic stays a rarity (5 rarities for aliens and blueprints). Common and Epic aliens / blueprints use the same batches and table
   as Rare and Legendary (decided here: a 1-shard copy on a 1 000-shard table would be meaningless).
-- Other shard sources are unchanged in size: the summon exchange (featured shards ×10), milestones (×20 / ×60 heroes, ×10 mounts),
-  the premium pass (×40 / ×20) and breeding (1–3 shards on release). Shards that are not a won batch never unlock by themselves:
+- Shards outside pulls are **tiny** next to the 50-shard batch (owner, 2026-11-25): the summon exchange featured shards ×5 per
+  purchase (limits 3 / 2 as before), milestones ×5 / ×10 (heroes, pulls 25 / 100) and ×5 (mounts, pull 25), the premium pass ×5
+  on its last day (heroes and mounts), breeding 1–3 shards on release. See "Shard sources outside pulls" below. Shards that are not a won batch never unlock by themselves:
   heroes and mounts unlock with the Unlock button at 50; Shard Reactor output unlocks its target at 50 on collect.
 
 ## Hero and mount event pools (filler)
@@ -61,12 +62,11 @@ percent of all pulls).
 | Hero event | % | Mount event | % |
 |---|---|---|---|
 | Hero XP ×300 | 88.75 | Fuel ×300 | 81.75 |
-| Hero XP ×1 000 | 5 | Mount Cores ×5 | 7 |
-| Alien Tokens ×1 | 2 | Fuel ×1 500 | 5 |
-| Part Tokens ×1 | 2 | Blueprint Tokens ×1 | 2 |
-| Blueprint Tokens ×1 | 1 | Part Tokens ×1 | 2 |
-| Awaken Core ×1 (extremely rare) | 0.05 | Alien Tokens ×1 | 1 |
-| | | Awaken Core ×1 | 0.05 |
+| Hero XP ×1 000 | 5 | Fuel ×1 500 | 12 |
+| Alien Tokens ×1 | 2 | Blueprint Tokens ×1 | 2 |
+| Part Tokens ×1 | 2 | Part Tokens ×1 | 2 |
+| Blueprint Tokens ×1 | 1 | Alien Tokens ×1 | 1 |
+| Awaken Core ×1 (extremely rare) | 0.05 | Awaken Core ×1 | 0.05 |
 | **Featured hero: 50 shards** | **1.2** | **Featured mount: 50 shards** | **1.2** |
 
 Signal tokens stay at 5% of the filler (an Active F2P player's ~2 600 hero and ~3 100 mount pulls a year add ~130 / ~155
@@ -139,12 +139,42 @@ Reading it:
 - The bot staffs the Reactor with its weakest workers, picks the rarest unfinished item of the type (owned first) and spends at
   most half its Grain / Ore per job.
 
+## Mount Cores removed (owner, 2026-11-25)
+
+"Mounts have no awakening and stars 6–10 come from shards, just like all the others." Mount stars cost exactly the shared star
+table. Mount Cores had no other use, so the currency is gone (no conversion of old balances: early development). Its sources now
+pay Fuel at 1 core = 300 Fuel (the mount event's filler value), or tokens' worth of Fuel:
+
+| Source | Was | Now |
+|---|---|---|
+| Mount event filler (7%) | Mount Cores ×5 | Fuel ×1 500 (merged with the 5% Fuel ×1 500 entry: 12%) |
+| Mount event milestone 80 | Mount Cores ×30 | Fuel ×9 000 |
+| Mount exchange | Mount Cores ×10 for 100 tokens (limit 2) | removed; Fuel ×1 500 for 40 limit 10 → 15 (the same 200 tokens) |
+| Burrow floors 6–10 | Mount Cores ×1 | Fuel ×300 |
+| Dark Side clear | Mount Cores ×1–4 | Fuel ×300–1 200 |
+| Guild shop | Mount Cores ×5 for 400 marks (2 / week) | Fuel ×1 500 for 400 marks (2 / week, `guild_fuel`) |
+
+## Shard sources outside pulls (2026-11-25)
+
+| Source | Amount | Decision |
+|---|---|---|
+| Hero event milestones (pulls 25 / 100) | ×20 / ×60 → **×5 / ×10** | tiny |
+| Mount event milestone (pull 25) | ×10 → **×5** | tiny |
+| Hero / mount exchange "Featured shards" | ×10 → **×5** per purchase (limits 3 / 2) | tiny |
+| Hero / mount premium pass, last day | ×40 / ×20 → **×5** | tiny |
+| Hero / mount milestone 150 / 120 | a featured batch (50) | kept: a reward for pulling 150 / 120 times in the event |
+| Breeding (discard a child) | 1–3 alien shards | kept (already tiny) |
+| Shard Reactor | converts spare shards | kept (made from shards, not a new source) |
+| Feature-unlock gifts (Onboarding: blueprints, Blorp) | an unlock copy each | kept (the unlock itself) |
+| Run loot: campaign portals (~0.25% of loot rolls each: a Common Blueprint / Alien), Dark Side (~0.9% each, Rare) | a batch (50) or the unlock | kept, flagged for the owner |
+| Quests, mail templates, shops, packs, arena, guild, invasions | none | – |
+
 ## Open questions for the owner (not changed, by instruction)
 
 - Aliens and blueprints max in year one with 50-shard batches at every rarity: decide later whether low rarities should pay
   smaller batches or appear less (the math page's option), or whether a further sink for shards past 10★ is wanted.
-- Mount Cores were kept on stars 6★–10★ (the former awakening); dropping them would make mount stars shards-only like the rest.
-- The summon exchange (featured shards ×10), milestones and the premium pass still pay their old small shard amounts.
+- Run loot still drops whole Blueprint / Alien batches (campaign portals at a low weight, the Dark Side more often): kept, see
+  "Shard sources outside pulls"; say if those should become Signal tokens.
 - The run's level-up draft keeps its own hidden Legendary pity (GDD §6, in-run skills, not a pull); say if "no hidden pity
   anywhere" should cover it too.
 - The Reactor joined the Blueprint banner rotation (now 3 themes: Command Spire, Reliquary, Reactor), which shifts which Mythic

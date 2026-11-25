@@ -12,7 +12,7 @@ namespace RogueStars.Sim
 
         /// <summary>Exchange priorities: featured shards first, then tickets, then the rest (every item up to its event limit).</summary>
         private static readonly string[] HeroExchangeOrder = { "hero_shards", "hero_ticket", "hero_xp" };
-        private static readonly string[] MountExchangeOrder = { "mount_shards", "mount_cores", "mount_ticket", "mount_fuel" };
+        private static readonly string[] MountExchangeOrder = { "mount_shards", "mount_ticket", "mount_fuel" };
 
         /// <summary>
         /// Hero / mount summon events: the daily ad ticket, task / milestone / pass claims, every ticket pulled (10s, then

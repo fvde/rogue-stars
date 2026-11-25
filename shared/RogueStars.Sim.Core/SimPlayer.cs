@@ -58,7 +58,7 @@ namespace RogueStars.Sim
         {
             Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.GearCores, Currencies.AdvancementPlates, Currencies.Fuel,
             Currencies.HeroXp, Currencies.Diamonds, Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens,
-            Currencies.Stamina, Currencies.GuildMarks, Currencies.MountCores, ProgressionCurrencies.PartAwakenCores, Currencies.ArenaTickets,
+            Currencies.Stamina, Currencies.GuildMarks, ProgressionCurrencies.PartAwakenCores, Currencies.ArenaTickets,
             Currencies.Data, Currencies.ArenaMedals,
         };
 

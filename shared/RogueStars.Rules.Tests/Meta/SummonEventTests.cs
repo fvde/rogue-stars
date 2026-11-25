@@ -266,14 +266,12 @@ public class SummonEventTests
         Assert.Equal(batch.Id == hero ? 0 : 50, batch.Shards);
         Assert.Equal(batch.Id == hero ? 10 : 1, batch.Stars);
 
-        // Mounts: the same table to 10★ (stars 6–10 also take Mount Cores).
+        // Mounts: the same table to 10★, shards only (no awakening, no other currency).
         ctx = new CommandContext { State = s, Content = c, Engine = e, NowMs = TestHelpers.T0 };
         ctx.Grant(new Reward(RewardKinds.Mount, "mount_magma_barge", 20));
-        s.Wallet.Add(Currencies.MountCores, 2500);
         for (int star = 2; star <= 10; star++) Ok(e, ref s, new MountStarUp { MountId = "mount_magma_barge" }, TestHelpers.T0);
         Assert.Equal(10, s.Mounts.Owned["mount_magma_barge"].Stars);
         Assert.Equal(0, Bal(s, Currencies.MountShards("mount_magma_barge")));
-        Assert.Equal(0, Bal(s, Currencies.MountCores));
     }
 
     // ---- tasks, milestones, exchange, pass ------------------------------------------------------------------

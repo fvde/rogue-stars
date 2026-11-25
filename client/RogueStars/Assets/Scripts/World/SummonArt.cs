@@ -26,7 +26,7 @@ namespace RogueStars.Client.World
         public static readonly string[] IconIds =
         {
             "hero_ticket", "mount_ticket", "hero_sigil", "mount_bolt", "luck_gem", "diamond", "exchange", "packs", "pass", "tasks",
-            "shards", "hero_xp", "fuel", "mount_core", "token", "grain", "ore", "lock", "check", "ad", "star", "spotlight",
+            "shards", "hero_xp", "fuel", "token", "grain", "ore", "lock", "check", "ad", "star", "spotlight",
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
@@ -55,7 +55,6 @@ namespace RogueStars.Client.World
             if (currency == Currencies.Diamonds) return "diamond";
             if (currency == Currencies.HeroXp) return "hero_xp";
             if (currency == Currencies.Fuel) return "fuel";
-            if (currency == Currencies.MountCores) return "mount_core";
             if (currency == Currencies.Grain) return "grain";
             if (currency == Currencies.Ore) return "ore";
             if (currency.StartsWith("shards_")) return "shards";
@@ -247,13 +246,6 @@ namespace RogueStars.Client.World
                     p.Shape(IsoPaint.RoundRect(26, 10, 76, 96, 12), VGrad(Shade(red, -0.3f), Shade(red, 0.25f), 10, 106), Ink, 6);
                     p.Shape(IsoPaint.RoundRect(72, 100, 22, 18, 4), new Color32(0x6C, 0x64, 0x80, 255), Ink, 5);
                     p.Line(V(40, 30), V(88, 86), 8, new Color(1, 1, 1, 0.35f));
-                    break;
-                }
-                case "mount_core":
-                {
-                    var blue = (Color)new Color32(0x4F, 0x9C, 0xFF, 255);
-                    p.Shape(Hex(c, c, 50), new Color32(0x2C, 0x34, 0x58, 255), Ink, 6);
-                    p.Blob(c, c, 28, 28, IsoPaint.Radial(Shade(blue, 0.7f), blue, c - 6, c + 6, 30), Ink, 4);
                     break;
                 }
                 case "grain":

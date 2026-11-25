@@ -104,7 +104,6 @@ namespace RogueStars.Rules.Content
             Cur(Currencies.PartTokens, "Part Signal pulls", 30, F(Features.PartPulls));
             Cur(Currencies.AlienTokens, "Alien Signal pulls", 30, F(Features.AlienPulls));
             Cur(Currencies.BlueprintTokens, "Blueprint Signal pulls", 30, F(Features.Blueprints));
-            Cur(Currencies.MountCores, "Mount stars 6★–10★", -1, F(Features.Mounts));
             Cur(Currencies.HeroTickets, "Hero summon event pulls", 30, F(Features.Heroes));
             Cur(Currencies.MountTickets, "Mount summon event pulls", 30, F(Features.Mounts));
             Cur(Currencies.HeroSigils, "Hero summon exchange shop", -1, F(Features.Heroes));

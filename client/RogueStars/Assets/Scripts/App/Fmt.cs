@@ -38,7 +38,7 @@ namespace RogueStars.Client.App
             { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Blueprint Tokens" },
             { Currencies.PartTokens, "Part Tokens" }, { Currencies.AlienTokens, "Alien Tokens" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
-            { Currencies.GuildMarks, "Guild Marks" }, { Currencies.MountCores, "Mount Cores" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "Awaken Cores" },
+            { Currencies.GuildMarks, "Guild Marks" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "Awaken Cores" },
             { Currencies.Data, "Data" }, { Currencies.ArenaMedals, "Arena Medals" },
             { Currencies.HeroTickets, "Hero Summon Tickets" }, { Currencies.MountTickets, "Mount Summon Tickets" },
             { Currencies.HeroSigils, "Star Sigils" }, { Currencies.MountBolts, "Hangar Bolts" },

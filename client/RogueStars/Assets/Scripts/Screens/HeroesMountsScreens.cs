@@ -61,7 +61,7 @@ namespace RogueStars.Client.Screens
     }
 
     /// <summary>
-    /// Spaceship mounts: stars 1–10 on the shared shard table (6★–10★ also take Mount Cores), Fuel levels, equip. Hero and mount kits: a vehicle on
+    /// Spaceship mounts: stars 1–10 on the shared shard table (shards only), Fuel levels, equip. Hero and mount kits: a vehicle on
     /// a reload; each card shows its passive and active at its step, the reload, its mount damage and the next step's lines in grey.
     /// </summary>
     public sealed class MountsScreen : UiScreen
@@ -73,7 +73,7 @@ namespace RogueStars.Client.Screens
         {
             var cfg = Content.MountConfig;
             Ui.Button(body, "Summon events: get mounts and stars", () => App.Router.Push(new SummonEventScreen(RogueStars.Rules.Content.SummonEventType.Mount)), Theme.Purple).name = "OpenSummon";
-            Note(body, "Fuel " + Fmt.Num(State.Wallet.Get(Currencies.Fuel)) + " · Mount Cores " + State.Wallet.Get(Currencies.MountCores));
+            Note(body, "Fuel " + Fmt.Num(State.Wallet.Get(Currencies.Fuel)));
             var ids = new List<string>(cfg.Defs.Keys);
             ids.Sort((a, b) =>
             {
@@ -109,10 +109,10 @@ namespace RogueStars.Client.Screens
                     continue;
                 }
                 var row = Ui.Row(card, 80, 8);
-                long star = MountSystem.NextStarCost(State, Content, mid), cores = MountSystem.NextStarCores(State, Content, mid);
-                string need = star < 0 ? "max" : shards + "/" + star + (cores > 0 ? " + " + Fmt.Num(cores) + " cores" : "");
+                long star = MountSystem.NextStarCost(State, Content, mid);
+                string need = star < 0 ? "max" : shards + "/" + star;
                 Ui.Button(row, (star < 0 ? "Max stars" : "Star up") + "\n<size=20>" + need + "</size>", () => Run(new MountStarUp { MountId = mid }), Theme.Warn, -1, 80,
-                    star >= 0 && shards >= star && State.Wallet.Get(Currencies.MountCores) >= cores, 26);
+                    star >= 0 && shards >= star, 26);
                 int max = cfg.MaxLevel(m.Stars);
                 bool canLevel = m.Level < max && m.Level < cfg.LevelFuelCosts.Count;
                 long fuel = canLevel ? cfg.LevelFuelCosts[m.Level] : 0;
