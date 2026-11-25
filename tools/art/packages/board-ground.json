@@ -1,0 +1,18 @@
+{
+  "name": "pkg-board-ground",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5901,
+    5902
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", empty isometric ground chunk seen from a high three-quarter top-down view matching an isometric board game map, flat walkable top surface, thick earthy cliff edges on the sides, no objects, no buildings, no tiles, no characters, centered, isolated on a plain pure white background, no text",
+  "subjects": {
+    "ground_large": "a large square island of mossy alien grass ground",
+    "ground_long": "a long rectangular strip of mossy alien grass ground",
+    "ground_corner": "an L-shaped island of mossy alien grass ground",
+    "ground_small": "a small square island of mossy alien grass ground with a few pebbles"
+  },
+  "negative": "objects, buildings, trees, tiles, characters, text, watermark, blurry, photo"
+}

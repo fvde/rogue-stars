@@ -1,0 +1,23 @@
+{
+  "name": "pkg-hub-planet2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    5111,
+    5112,
+    5113
+  ],
+  "variants": [
+    {
+      "key": "S",
+      "model": "flux",
+      "style": "minimal flat cartoon mascot sprite, very few details, big clear shapes, bold black outline, only three or four colors, instantly readable character"
+    }
+  ],
+  "subjects": {
+    "planet_stage3": "a small round home planet with a cozy alien colony of glass domes, farms and a satellite dish, cute stylized planet centerpiece, round globe fully visible, centered, isolated on a plain pure white background, no stars, no text",
+    "planet_stage4": "a small round home planet bustling with colony domes, a laboratory, a landing pad and a glowing portal arch, cute stylized planet centerpiece, round globe fully visible, centered, isolated on a plain pure white background, no stars, no text",
+    "planet_stage5": "a lush small round home planet covered in a thriving alien city with towers, rings of satellites and a big portal, cute stylized planet centerpiece, round globe fully visible, centered, isolated on a plain pure white background, no stars, no text"
+  },
+  "negative": "text, background stars, space background, frame, watermark, blurry, photo"
+}

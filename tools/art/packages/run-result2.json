@@ -1,0 +1,24 @@
+{
+  "name": "pkg-run-result2",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6511,
+    6512,
+    6513
+  ],
+  "variants": [
+    {
+      "key": "N",
+      "model": "flux",
+      "style": "2D cartoon mobile game item sprite, bold clean black outline, flat bright colors, cel shading, simple readable silhouette, slight three-quarter view"
+    }
+  ],
+  "subjects": {
+    "crown": "a big golden crown with golden laurel leaves underneath, glowing, game victory screen emblem, centered, isolated on a plain pure white background, no text, no letters",
+    "crest_broken": "a cracked dull grey crown with broken laurel leaves, game victory screen emblem, centered, isolated on a plain pure white background, no text, no letters",
+    "banner": "a hanging red and gold victory pennant banner with ribbon tails, blank, game victory screen emblem, centered, isolated on a plain pure white background, no text, no letters",
+    "banner_defeat": "a torn dark grey hanging pennant banner with ribbon tails, blank, game victory screen emblem, centered, isolated on a plain pure white background, no text, no letters"
+  },
+  "negative": "text, letters, numbers, realistic, photo, 3d render, background scenery, watermark, blurry"
+}

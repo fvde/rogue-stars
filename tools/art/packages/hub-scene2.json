@@ -1,0 +1,24 @@
+{
+  "name": "pkg-hub-scene2",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    5211,
+    5212
+  ],
+  "fullframe": true,
+  "variants": [
+    {
+      "key": "Z",
+      "model": "flux",
+      "style": "comic style hand drawn outer space background, bold ink outlines, flat bright colors with simple cel shading, chunky friendly shapes, vertical mobile game background, only outer space, no ground, no horizon, no planet surface, empty middle area, no characters, no text, no user interface"
+    }
+  ],
+  "subjects": {
+    "space_day": "bright friendly outer space with soft teal and pink nebula wisps and a few small distant planets",
+    "space_night": "deep dark blue outer space with many twinkling stars and a faint violet nebula",
+    "space_event": "outer space with a swirling purple portal vortex and shooting meteors",
+    "space_invasion": "ominous red outer space with silhouettes of alien motherships and warning glows"
+  },
+  "negative": "ground, horizon, landscape, planet surface, text, letters, user interface, characters, watermark, blurry, photo, realistic"
+}
