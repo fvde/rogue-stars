@@ -25,10 +25,13 @@ namespace RogueStars.Client.UiKit
 
         public void OnPointerExit(PointerEventData e) { if (_fired) _down = false; }
 
-        private void Update()
+        private void Update() => Advance(Time.unscaledDeltaTime);
+
+        /// <summary>Counts a held press forward (Update; tests drive it directly).</summary>
+        public void Advance(float dt)
         {
             if (!_down || _fired) return;
-            _t += Time.unscaledDeltaTime;
+            _t += dt;
             if (_t >= HoldSeconds) { _fired = true; OnHold?.Invoke(); }
         }
     }

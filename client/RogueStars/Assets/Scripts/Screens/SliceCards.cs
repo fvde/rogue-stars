@@ -24,6 +24,9 @@ namespace RogueStars.Client.Screens
         public string Chip, ChipName;
         public Color ChipColor;
         public bool Dim;
+        /// <summary>The skill tooltip the card's "?" (and, on a card that does not pick on tap, its tile) opens; null = none / onInfo.</summary>
+        public SkillTip? Tip;
+        public ContentDb TipContent;
     }
 
     /// <summary>
@@ -195,31 +198,18 @@ namespace RogueStars.Client.Screens
             body.rectTransform.anchorMin = Vector2.zero; body.rectTransform.anchorMax = Vector2.one;
             body.rectTransform.offsetMin = new Vector2(266 * s * k, 22 * s); body.rectTransform.offsetMax = new Vector2(-40 * s, -106 * s * k);
             // the framed icon tile with the tier tag above it
+            // the shared skill tile (SkillTileView): tier frame, the art filling the face
             float fs = 210 * k;
-            var frame = Ui.RoundPanel(c, IsoArt.Ink, 30 * s * k, "Frame");
-            frame.raycastTarget = false;
-            frame.rectTransform.anchorMin = frame.rectTransform.anchorMax = new Vector2(0, 0.5f);
-            frame.rectTransform.pivot = new Vector2(0, 0.5f);
-            frame.rectTransform.sizeDelta = new Vector2(fs * s, fs * s);
-            frame.rectTransform.anchoredPosition = new Vector2(22 * s, -16 * s * k);
-            var icon = Ui.RoundPanel(frame.transform, spec.TierColor, 26 * s * k, "Icon");
-            icon.raycastTarget = false;
-            Ui.Stretch(icon.rectTransform, 6 * s, 6 * s, 6 * s, 6 * s);
-            var inner = Ui.RoundPanel(icon.transform, new Color(1, 1, 1, 0.16f), 20 * s * k, "IconInner");
-            inner.raycastTarget = false;
-            Ui.Stretch(inner.rectTransform, 12 * s * k, 12 * s * k, 12 * s * k, 16 * s * k);
-            if (spec.IconArt != null)
+            var frame = SkillTileView.Build(c, spec.Id, spec.TierColor, spec.Family, fs * s, "Frame", spec.IconArt);
+            frame.anchorMin = frame.anchorMax = new Vector2(0, 0.5f);
+            frame.pivot = new Vector2(0, 0.5f);
+            frame.anchoredPosition = new Vector2(22 * s, -16 * s * k);
+            if (spec.Tip.HasValue && spec.TipContent != null)
             {
-                var art = Ui.Panel(icon.transform, Color.white, "IconArt");
-                art.sprite = spec.IconArt;
-                art.preserveAspect = true;
-                art.raycastTarget = false;
-                Ui.Stretch(art.rectTransform, 16 * s * k, 16 * s * k, 16 * s * k, 16 * s * k);
-            }
-            else
-            {
-                var glyph = SliceKit.Chunky(icon.transform, spec.Family == SkillFamily.None ? "★" : SkillText.FamilyName(spec.Family).Substring(0, 1), (int)(110 * s * k), FamilyGlyph(spec.Family), TextAnchor.MiddleCenter, "Glyph");
-                Ui.Stretch(glyph.rectTransform);
+                var tip = spec.Tip.Value;
+                var content = spec.TipContent;
+                onInfo = () => SkillTooltip.Show(frame, content, tip); // "?" opens the full text by the tile
+                if (onClick == null) SkillTileView.Tappable(frame, content, () => tip); // where a tap does not pick: the tile too
             }
             var tag = Ui.RoundPanel(c, new Color32(0x4A, 0x4E, 0x78, 255), 12 * s, "TierTag");
             tag.raycastTarget = false;

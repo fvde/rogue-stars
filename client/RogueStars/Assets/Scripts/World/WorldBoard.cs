@@ -343,8 +343,8 @@ namespace RogueStars.Client.World
                 }
                 else
                 {
-                    Shadow(go, fpW * 0.62f, Iso.Order(s.X, s.Y) + 3);
-                    Fit(go, sprite, fpW * 0.9f, Mathf.Min(3.0f, 1.1f + (s.W + s.H) * 0.4f), Iso.Order(s.X, s.Y) + 4, true);
+                    Fit(go, sprite, fpW * 0.9f, Mathf.Min(3.0f, 1.1f + (s.W + s.H) * 0.4f), Iso.Order(s.X, s.Y) + 4, true, out float bw);
+                    ContactShadow(go, bw, fpW * 0.35f, fpW * 0.95f, Iso.Order(s.X, s.Y) + 3);
                 }
                 SetPiecesDrawn.Add(id);
             }
@@ -371,8 +371,8 @@ namespace RogueStars.Client.World
                 go.transform.localPosition = pos;
                 float size = IsoArt.ScatterHeight(sid) * (0.85f + 0.3f * Hash(seed, cell.x, cell.y, 7));
                 int order = Iso.Order(cell.x + off.x, cell.y + off.y) + 3;
-                var sr = Fit(go, IsoArt.Scatter(sid), size * (IsoArt.IsLargeScatter(sid) ? 0.9f : 1.7f), size, order, true, Hash(seed, cell.x, cell.y, 5) < 0.5f);
-                if (sr.sprite != null) Shadow(go, Mathf.Min(1.4f, sr.bounds.size.x * 0.9f), order - 1);
+                var sr = Fit(go, IsoArt.Scatter(sid), size * (IsoArt.IsLargeScatter(sid) ? 0.9f : 1.7f), size, order, true, out float bw, Hash(seed, cell.x, cell.y, 5) < 0.5f);
+                if (sr.sprite != null) ContactShadow(go, bw, 0.2f, 1.4f, order - 1);
                 ScatterCount++;
             }
 
@@ -422,8 +422,8 @@ namespace RogueStars.Client.World
                     mgo.transform.localPosition = new Vector2(0, -0.02f);
                     bool boss = marker == "boss";
                     var sprite = boss ? IsoArt.BossMarker(content, run.BossId) : IsoArt.Marker(marker);
-                    view.Marker = Fit(mgo, sprite, boss ? IsoArt.BossMarkerWidth : Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true);
-                    view.MarkerShadow = Shadow(mgo, Mathf.Min(Iso.TileW * 0.7f, view.Marker.bounds.size.x * 0.85f), order + 2);
+                    view.Marker = Fit(mgo, sprite, boss ? IsoArt.BossMarkerWidth : Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true, out float bw);
+                    view.MarkerShadow = ContactShadow(mgo, bw, Iso.TileW * 0.3f, Iso.TileW * (boss ? 0.95f : 0.72f), order + 2);
                     if (look.Gate) mgo.transform.localScale = Vector3.one * 1.25f;
                 }
                 if (exclaimed.Contains(t.Id))
@@ -597,15 +597,6 @@ namespace RogueStars.Client.World
             return field;
         }
 
-        /// <summary>A soft contact shadow under a prop (child of <paramref name="holder"/>), <paramref name="width"/> world units wide.</summary>
-        private static SpriteRenderer Shadow(GameObject holder, float width, int order)
-        {
-            var sr = Child(holder, "Shadow", IsoArt.SoftShadow(), new Vector2(0.04f, 0.02f), order);
-            float k = width / Mathf.Max(0.01f, IsoArt.SoftShadow().bounds.size.x);
-            sr.transform.localScale = new Vector3(k, k, 1);
-            return sr;
-        }
-
         /// <summary>Moves the worm (board-local top-face point, fractional grid cell for its draw order, squash scale).</summary>
         public void PlaceToken(Vector2 at, Vector2 cell, Vector2 scale)
         {
@@ -650,11 +641,16 @@ namespace RogueStars.Client.World
 
         /// <summary>
         /// A sprite fitted into <paramref name="maxW"/> × <paramref name="maxH"/> world units on <paramref name="holder"/>;
-        /// <paramref name="standing"/>: its lowest opaque row sits on the holder's origin (whatever the sprite's pivot), else
-        /// centred on it.
+        /// <paramref name="standing"/>: its footprint centre (<see cref="SpriteContact"/>: above the lowest solid row by half
+        /// the base's iso depth, whatever the sprite's pivot or transparent padding) sits on the holder's origin, else centred
+        /// on it. <paramref name="baseWidth"/> = the base's width in world units (standing; the contact shadow's size).
         /// </summary>
-        private static SpriteRenderer Fit(GameObject holder, Sprite sprite, float maxW, float maxH, int order, bool standing, bool flip = false)
+        private static SpriteRenderer Fit(GameObject holder, Sprite sprite, float maxW, float maxH, int order, bool standing, bool flip = false) =>
+            Fit(holder, sprite, maxW, maxH, order, standing, out _, flip);
+
+        private static SpriteRenderer Fit(GameObject holder, Sprite sprite, float maxW, float maxH, int order, bool standing, out float baseWidth, bool flip = false)
         {
+            baseWidth = 0;
             var go = new GameObject("Sprite") { layer = Layer };
             go.transform.SetParent(holder.transform, false);
             var sr = go.AddComponent<SpriteRenderer>();
@@ -665,8 +661,46 @@ namespace RogueStars.Client.World
             var b = sprite.bounds;
             float k = Mathf.Min(maxW / Mathf.Max(0.01f, b.size.x), maxH / Mathf.Max(0.01f, b.size.y));
             go.transform.localScale = new Vector3(k, k, 1);
-            go.transform.localPosition = standing ? new Vector3(-b.center.x * k, -b.min.y * k, 0) : new Vector3(-b.center.x * k, -b.center.y * k, 0);
+            if (!standing) { go.transform.localPosition = new Vector3(-b.center.x * k, -b.center.y * k, 0); return sr; }
+            var c = SpriteContact.Of(sprite);
+            float ppu = sprite.pixelsPerUnit;
+            // the contact in the sprite's local units (relative to its pivot); flipX mirrors about the pivot
+            float cx = (c.X - sprite.pivot.x) / ppu, cy = (c.Y - sprite.pivot.y) / ppu;
+            if (flip) cx = -cx;
+            go.transform.localPosition = new Vector3(-cx * k, -cy * k, 0);
+            baseWidth = c.Width / ppu * k;
             return sr;
+        }
+
+        /// <summary>
+        /// The contact shadow of a standing prop: centred on its footprint (the holder's origin), as wide as its base plus a
+        /// margin and squashed to the board's iso ratio, so the base sits inside it and it touches the prop.
+        /// </summary>
+        private static SpriteRenderer ContactShadow(GameObject holder, float baseWidth, float minWidth, float maxWidth, int order)
+        {
+            float w = Mathf.Max(Mathf.Clamp(baseWidth * 1.18f, minWidth, maxWidth), baseWidth); // never narrower than the base
+            var sr = Child(holder, "Shadow", IsoArt.SoftShadow(), Vector2.zero, order);
+            var sb = IsoArt.SoftShadow().bounds.size;
+            float kx = w / Mathf.Max(0.01f, sb.x);
+            float ky = w * (Iso.StepY / Iso.StepX) / Mathf.Max(0.01f, sb.y);
+            sr.transform.localScale = new Vector3(kx, ky, 1);
+            // a darker core where the base touches the ground (the soft shadow alone reads as a faint haze)
+            var core = Child(sr.gameObject, "Core", IsoArt.SoftShadow(), Vector2.zero, order);
+            core.transform.localScale = new Vector3(0.68f, 0.68f, 1);
+            core.color = new Color(1, 1, 1, 0.75f);
+            return sr;
+        }
+
+        /// <summary>The standing props' contact (world units, relative to the holder): tests check props sit on their spot.</summary>
+        public static Vector2 FootOf(SpriteRenderer sr)
+        {
+            if (sr == null || sr.sprite == null) return Vector2.zero;
+            var c = SpriteContact.Of(sr.sprite);
+            float ppu = sr.sprite.pixelsPerUnit;
+            float cx = (c.X - sr.sprite.pivot.x) / ppu, cy = (c.Y - sr.sprite.pivot.y) / ppu;
+            if (sr.flipX) cx = -cx;
+            var t = sr.transform;
+            return (Vector2)t.localPosition + new Vector2(cx * t.localScale.x, cy * t.localScale.y);
         }
     }
 }

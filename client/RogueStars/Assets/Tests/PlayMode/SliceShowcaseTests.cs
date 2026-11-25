@@ -89,6 +89,12 @@ namespace RogueStars.Client.PlayTests
                 ((RunScreen)_app.Router.Current).Rebuild();
                 yield return Wait(1.0f);
                 yield return Shot("s2_levelup");
+                // the "?" of a card: the skill tooltip by its tile
+                foreach (var b in _app.ModalLayer.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+                    if (b.name == "InfoButton") { b.onClick.Invoke(); break; }
+                yield return Wait(0.4f);
+                yield return Shot("s2_levelup_tooltip");
+                SkillTooltip.Close();
                 Ui.Clear(_app.ModalLayer);
             }
 
@@ -105,6 +111,12 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("s3_battle");
             yield return Wait(1.2f);
             yield return Shot("s3_battle_later");
+            // a tap on a grid tile: its full text
+            foreach (var b in playback.Root.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+                if (b.name.StartsWith("Slot:")) { b.onClick.Invoke(); break; }
+            yield return Wait(0.4f);
+            yield return Shot("s3_battle_tooltip");
+            SkillTooltip.Close();
         }
 
         private IEnumerator PlayLevel(ContentDb c, int number, int steps)

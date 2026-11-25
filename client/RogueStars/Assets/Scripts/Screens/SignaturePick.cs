@@ -35,6 +35,7 @@ namespace RogueStars.Client.Screens
             Id = s.Id, Tier = "Signature", TierColor = Theme.FamilyColor(s.Family), Family = s.Family, IconArt = ArtCatalog.SkillIcon(s.Id),
             Title = s.Name, Body = Body(c, s), Chip = SkillText.FamilyName(s.Family).ToUpperInvariant(), ChipName = "SynergyChip",
             ChipColor = Color.Lerp(Theme.FamilyColor(s.Family), Color.white, 0.45f),
+            Tip = RunScreen.OfferTip(s.Id, 0, true), TipContent = c,
         };
 
         /// <summary>Opens the pick over <paramref name="layer"/>; <paramref name="onPick"/> gets the chosen signature id.</summary>

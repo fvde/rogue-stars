@@ -77,7 +77,7 @@ Playable prototype (placeholder UI), offline and online.
   screenshots in [docs/client-screenshots](docs/client-screenshots), Firebase Auth (Google Play Games sign-in, anonymous fallback +
   linking), Unity IAP (Google Play Billing), AppLovin MAX gateway (disabled for now), signed AAB + APK builds.
 - **Tests:** .NET 820 (rules 688, server 98, simulator guard 34) + 9 Firestore emulator tests (scripts/firestore-tests.sh),
-  Unity EditMode 319 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
+  Unity EditMode 330 + PlayMode playthrough 1 (+ explicit screenshot showcases); APK ≈ 30 MB.
 - **Open:** console setup for Play Games sign-in (docs/setup.md step 3), AppLovin + mediation networks, push notifications, real art;
   balance follow-ups in the report's "Remaining recommendations" (late-game ceilings for spenders, Dark Side length,
   part drops at the portal 4–6 frontier).

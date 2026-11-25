@@ -158,6 +158,7 @@ namespace RogueStars.Client.Screens
                     Body = chain ? Fmt.SkillCard(Content, sk, 0) + " Replaces " + (Content.Skill(id)?.Name ?? id) + "." : Fmt.SkillCard(Content, sk, lv),
                     Chip = chain ? "UPGRADE" : "LEVEL " + lv + " → " + (lv + 1), ChipName = "LevelUpChip",
                     ChipColor = chain ? (Color)new Color32(0xD6, 0xC2, 0xFF, 255) : new Color32(0x9C, 0xF0, 0xB5, 255),
+                    Tip = chain ? SkillTip.Of(target, 1) : OfferTip(id, lv), TipContent = Content,
                 };
                 SliceCards.Card(root, s, y, spec, () => { modal.Close(); parent.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index, SkillId = id }); }, null, "Train:" + id, h);
                 y += step;
@@ -256,6 +257,7 @@ namespace RogueStars.Client.Screens
                         Id = sig?.Id ?? "sig", Tier = "Signature", TierColor = SignaturePick.SignatureColor, Family = sig?.Family ?? SkillFamily.None,
                         IconArt = ArtCatalog.SkillIcon(sig?.Id), Title = sig?.Name ?? o.Text, Body = SignaturePick.Body(Content, sig),
                         Chip = "SIGNATURE · " + SkillText.FamilyName(sig?.Family ?? SkillFamily.None).ToUpperInvariant(), ChipName = "SignatureChip", ChipColor = SignaturePick.SignatureColor,
+                        Tip = sig != null ? OfferTip(sig.Id, 0, true) : (SkillTip?)null, TipContent = Content,
                     };
                 }
                 else
@@ -349,11 +351,25 @@ namespace RogueStars.Client.Screens
             {
                 var icon = OutcomeIcon(l, Content);
                 var row = Ui.Row(details, 110 * s, 18 * s, l.Good ? new Color32(0xDC, 0xEE, 0xC4, 255) : new Color32(0xF6, 0xD2, 0xCC, 255), (int)(14 * s), "Line:" + l.Kind);
-                var dot = Ui.RoundPanel(row, icon.Value, 40 * s, "Icon");
-                Ui.Size(dot, 82 * s, 82 * s, 0);
-                UiShapes.Outline(dot.rectTransform, SliceKit.Ink, 40 * s, 4);
-                var glyph = SliceKit.Chunky(dot.transform, icon.Key, (int)((icon.Key.Length > 1 ? 30 : 42) * s), Color.white, TextAnchor.MiddleCenter, "Glyph");
-                Ui.Stretch(glyph.rectTransform);
+                bool skillLine = (l.Kind == OutcomeKind.SkillGained || l.Kind == OutcomeKind.SkillLost || l.Kind == OutcomeKind.SkillLevel) && Content.Skill(l.Id ?? "") != null;
+                if (skillLine)
+                {
+                    // a skill gained / lost / levelled: the shared skill tile, a tap shows its full text
+                    row.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false; // the tile stays square
+                    var tile = SkillTileView.Build(row, Content, l.Id, 92 * s, "Icon");
+                    Ui.Size(tile, 92 * s, 92 * s, 0);
+                    var r = State.Run.Active;
+                    var tip = SkillTip.Of(l.Id, r != null ? RunDraft.Level(r, l.Id) : 1);
+                    SkillTileView.Tappable(tile, Content, () => tip);
+                }
+                else
+                {
+                    var dot = Ui.RoundPanel(row, icon.Value, 40 * s, "Icon");
+                    Ui.Size(dot, 82 * s, 82 * s, 0);
+                    UiShapes.Outline(dot.rectTransform, SliceKit.Ink, 40 * s, 4);
+                    var glyph = SliceKit.Chunky(dot.transform, icon.Key, (int)((icon.Key.Length > 1 ? 30 : 42) * s), Color.white, TextAnchor.MiddleCenter, "Glyph");
+                    Ui.Stretch(glyph.rectTransform);
+                }
                 var t = Ui.Label(row, OutcomeLineText(l, Content), 40, l.Good ? new Color32(0x2E, 0x6E, 0x1E, 255) : new Color32(0xA8, 0x1E, 0x2A, 255));
                 t.font = Ui.DisplayFont; t.fontSize = (int)(44 * s);
                 t.resizeTextForBestFit = true; t.resizeTextMaxSize = t.fontSize; t.resizeTextMinSize = (int)(28 * s);
@@ -521,67 +537,11 @@ namespace RogueStars.Client.Screens
             RunScenes.At(npc.rectTransform, s, 235, 810, 500, 500);
             RunScenes.Bubble(frame, s, 665, 590, 700, 170, ShopLines[Math.Abs(run.ShopsVisited) % ShopLines.Length], false);
 
-            // utility offers (heal, stat perks): small priced tiles right of the shopkeeper
-            var utility = new List<int>();
-            var skills = new List<int>();
-            for (int i = 0; i < run.Shop.Count; i++) (run.Shop[i].Kind == ShopOfferKind.Skill ? skills : utility).Add(i);
-            int un = Math.Min(3, utility.Count);
-            for (int k = 0; k < un; k++)
-            {
-                int index = utility[k];
-                var o = run.Shop[index];
-                float x = un == 3 ? 560 + k * 210 : 640 + k * 300;
-                float size = un == 3 ? 190 : 210;
-                string label = o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value) : SkillText.Stat(o.Stat) ?? "+stat";
-                var tileEdge = Ui.RoundPanel(frame, SliceKit.Ink, 26 * s, "Utility:" + label);
-                tileEdge.raycastTarget = false;
-                RunScenes.At(tileEdge.rectTransform, s, x, 820, size, size);
-                var tileFace = Ui.RoundPanel(tileEdge.transform, o.Sold ? (Color)new Color32(0x6A, 0x66, 0x74, 255) : new Color32(0x74, 0x78, 0xA8, 255), 22 * s, "Face");
-                tileFace.raycastTarget = false;
-                Ui.Stretch(tileFace.rectTransform, 6 * s, 6 * s, 6 * s, 6 * s);
-                var icon = Ui.Panel(tileFace.transform, Color.white, "Icon");
-                icon.sprite = o.Kind == ShopOfferKind.Heal ? ScreenArt.Icon("heal") : o.Stat != null && o.Stat.Stat == StatId.Hp ? ScreenArt.Icon("max_hp")
-                    : o.Stat != null && o.Stat.Stat == StatId.Def ? HudArt.Icon("shield") : o.Stat != null && o.Stat.Stat == StatId.Atk ? HudArt.Icon("sword") : ScreenArt.Icon("upgrade");
-                icon.preserveAspect = true; icon.raycastTarget = false;
-                Ui.Stretch(icon.rectTransform, size * 0.16f * s, size * 0.08f * s, size * 0.16f * s, size * 0.3f * s);
-                var lt = SliceKit.Chunky(tileFace.transform, label, (int)(34 * s), Color.white, TextAnchor.LowerCenter, "Label");
-                Ui.Stretch(lt.rectTransform, 4 * s, 0, 4 * s, 10 * s);
-                lt.horizontalOverflow = HorizontalWrapMode.Wrap; lt.resizeTextForBestFit = true; lt.resizeTextMaxSize = lt.fontSize; lt.resizeTextMinSize = (int)(22 * s);
-                var slot = Ui.Rect(frame, "OfferSlot:" + index);
-                Ui.Stretch(slot);
-                var buy = PriceButton(slot, s, x, 975, size, 92, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
-                AddOfferName(buy, label);
-                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
-            }
-
-            // skill offers as cards
-            int n = Math.Max(1, skills.Count);
-            float h = Mathf.Min(285, 1060f / n - 14), y = 1110 + h / 2;
-            foreach (int index in skills)
-            {
-                var o = run.Shop[index];
-                var sk = Content.Skill(o.SkillId);
-                int ownedLv = RunDraft.Level(run, o.SkillId);
-                var spec = new SkillCardSpec
-                {
-                    Id = o.SkillId, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
-                    IconArt = ArtCatalog.SkillIcon(o.SkillId), Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : sk?.Name ?? o.SkillId,
-                    Body = Fmt.SkillCard(Content, sk, ownedLv), Dim = o.Sold,
-                };
-                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
-                string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
-                var card = SliceCards.Card(frame, s, y, spec, null, () => Session.Info(info), "Offer", h, "Words");
-                var body = card.Find("Words/SkillText") as RectTransform;
-                if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
-                var chip = card.Find("Words/LevelUpChip") as RectTransform;
-                if (chip != null) chip.anchoredPosition = new Vector2(-300 * s, chip.anchoredPosition.y);
-                var slot = Ui.Rect(frame, "OfferSlot:" + index);
-                Ui.Stretch(slot);
-                var buy = PriceButton(slot, s, 925, y + 22 * h / 280, 200, h * 0.48f, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
-                AddOfferName(buy, spec.Title);
-                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
-                y += h + 14;
-            }
+            // the offers live in their own layer: a reroll replaces only them, in place (RefreshShop)
+            _shopOffers = Ui.Rect(frame, "Offers");
+            Ui.Stretch(_shopOffers);
+            _shopScale = s;
+            BuildShopOffers(run, 0);
 
             // Exit (green), Reroll (purple, price), the skills book
             var exit = Ui.Button(frame, "", () => { modal.Close(); Run(new RunShopLeave()); }, new Color32(0xC2, 0xE0, 0x5A, 255), 370 * s, 175 * s, true, 20);
@@ -590,8 +550,9 @@ namespace RogueStars.Client.Screens
             UiShapes.Outline((RectTransform)exit.transform, SliceKit.Ink, Theme.RadiusButton, 7);
             var et = SliceKit.Chunky(exit.transform, "Exit", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "ExitText");
             Ui.Stretch(et.rectTransform, 0, 0, 0, 8 * s);
-            var rr = Ui.Button(frame, "", () => Run(new RunShopReroll()), SliceCards.Purple, 370 * s, 175 * s, run.Coins >= reroll, 20);
+            var rr = Ui.Button(frame, "", () => Run(new RunShopReroll(), r => { if (r.Ok) RefreshShop(true); }), SliceCards.Purple, 370 * s, 175 * s, run.Coins >= reroll, 20);
             rr.name = "Button:Reroll (" + reroll + ")";
+            _shopReroll = rr;
             RunScenes.At((RectTransform)rr.transform, s, 665, 2272, 370, 175);
             UiShapes.Outline((RectTransform)rr.transform, SliceKit.Ink, Theme.RadiusButton, 7);
             var rt = SliceKit.Chunky(rr.transform, "Reroll", (int)(66 * s), Color.white, TextAnchor.MiddleCenter, "RerollText");
@@ -606,9 +567,134 @@ namespace RogueStars.Client.Screens
             rp.rectTransform.pivot = new Vector2(0, 0.5f);
             rp.rectTransform.sizeDelta = new Vector2(170 * s, 60 * s);
             rp.rectTransform.anchoredPosition = new Vector2(-28 * s, 0);
-            RunScenes.SkillsBook(frame, s, 975, 2272, () => SkillsModal(run));
+            RunScenes.SkillsBook(frame, s, 975, 2272, () => SkillsModal(State.Run.Active ?? run));
             UiTween.PopIn(frame, 0.12f);
             return modal;
+        }
+
+        /// <summary>The reroll's price now (the level's shop table: base + step × rerolls so far).</summary>
+        private long ShopRerollPrice(ActiveRun run)
+        {
+            var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
+            return table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
+        }
+
+        private RectTransform _shopOffers;
+        private float _shopScale = 1;
+        private Button _shopReroll;
+
+        /// <summary>
+        /// One offer's layer (all of its parts: tile / card, price button, SALE tag), pivoted at the offer's centre so a
+        /// reroll flips it about its own middle.
+        /// </summary>
+        private RectTransform OfferGroup(int index, float x, float y)
+        {
+            var g = Ui.Rect(_shopOffers, "Offer:" + index);
+            Ui.Stretch(g);
+            g.pivot = new Vector2(x / RunScenes.RefW, 1 - y / RunScenes.RefH);
+            g.anchoredPosition = Vector2.zero;
+            return g;
+        }
+
+        /// <summary>
+        /// The utility tiles and skill cards of the current offers into <see cref="_shopOffers"/>; <paramref name="flipDelay"/>
+        /// &gt; 0 = a reroll: each new offer flips in after the old one flipped out (staggered).
+        /// </summary>
+        private void BuildShopOffers(ActiveRun run, float flipDelay)
+        {
+            float s = _shopScale;
+            _shopButtons.Clear();
+            int order = 0;
+            // utility offers (heal, stat perks): small priced tiles right of the shopkeeper
+            var utility = new List<int>();
+            var skills = new List<int>();
+            for (int i = 0; i < run.Shop.Count; i++) (run.Shop[i].Kind == ShopOfferKind.Skill ? skills : utility).Add(i);
+            int un = Math.Min(3, utility.Count);
+            for (int k = 0; k < un; k++)
+            {
+                int index = utility[k];
+                var o = run.Shop[index];
+                float x = un == 3 ? 560 + k * 210 : 640 + k * 300;
+                float size = un == 3 ? 190 : 210;
+                string label = o.Kind == ShopOfferKind.Heal ? "Heal " + Fmt.Pct(o.Value) : SkillText.Stat(o.Stat) ?? "+stat";
+                var group = OfferGroup(index, x, 880);
+                var tileEdge = Ui.RoundPanel(group, SliceKit.Ink, 26 * s, "Utility:" + label);
+                tileEdge.raycastTarget = false;
+                RunScenes.At(tileEdge.rectTransform, s, x, 820, size, size);
+                var tileFace = Ui.RoundPanel(tileEdge.transform, o.Sold ? (Color)new Color32(0x6A, 0x66, 0x74, 255) : new Color32(0x74, 0x78, 0xA8, 255), 22 * s, "Face");
+                tileFace.raycastTarget = false;
+                Ui.Stretch(tileFace.rectTransform, 6 * s, 6 * s, 6 * s, 6 * s);
+                var icon = Ui.Panel(tileFace.transform, Color.white, "Icon");
+                icon.sprite = o.Kind == ShopOfferKind.Heal ? ScreenArt.Icon("heal") : o.Stat != null && o.Stat.Stat == StatId.Hp ? ScreenArt.Icon("max_hp")
+                    : o.Stat != null && o.Stat.Stat == StatId.Def ? HudArt.Icon("shield") : o.Stat != null && o.Stat.Stat == StatId.Atk ? HudArt.Icon("sword") : ScreenArt.Icon("upgrade");
+                icon.preserveAspect = true; icon.raycastTarget = false;
+                Ui.Stretch(icon.rectTransform, size * 0.16f * s, size * 0.08f * s, size * 0.16f * s, size * 0.3f * s);
+                var lt = SliceKit.Chunky(tileFace.transform, label, (int)(34 * s), Color.white, TextAnchor.LowerCenter, "Label");
+                Ui.Stretch(lt.rectTransform, 4 * s, 0, 4 * s, 10 * s);
+                lt.horizontalOverflow = HorizontalWrapMode.Wrap; lt.resizeTextForBestFit = true; lt.resizeTextMaxSize = lt.fontSize; lt.resizeTextMinSize = (int)(22 * s);
+                var slot = Ui.Rect(group, "OfferSlot:" + index);
+                Ui.Stretch(slot);
+                var buy = PriceButton(slot, s, x, 975, size, 92, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                AddOfferName(buy, label);
+                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
+                if (flipDelay > 0) UiTween.FlipIn(group, flipDelay + 0.04f * order++);
+            }
+
+            // skill offers as cards
+            int n = Math.Max(1, skills.Count);
+            float h = Mathf.Min(285, 1060f / n - 14), y = 1110 + h / 2;
+            foreach (int index in skills)
+            {
+                var o = run.Shop[index];
+                var sk = Content.Skill(o.SkillId);
+                int ownedLv = RunDraft.Level(run, o.SkillId);
+                var spec = new SkillCardSpec
+                {
+                    Id = o.SkillId, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
+                    IconArt = ArtCatalog.SkillIcon(o.SkillId), Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : sk?.Name ?? o.SkillId,
+                    Body = Fmt.SkillCard(Content, sk, ownedLv), Dim = o.Sold, Tip = OfferTip(o.SkillId, ownedLv), TipContent = Content,
+                };
+                if (ownedLv > 0) { spec.Chip = "LEVEL " + ownedLv + " → " + (ownedLv + 1); spec.ChipName = "LevelUpChip"; spec.ChipColor = new Color32(0x9C, 0xF0, 0xB5, 255); }
+                string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
+                var group = OfferGroup(index, 540, y);
+                var card = SliceCards.Card(group, s, y, spec, null, () => Session.Info(info), "Offer", h, "Words");
+                var body = card.Find("Words/SkillText") as RectTransform;
+                if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
+                var chip = card.Find("Words/LevelUpChip") as RectTransform;
+                if (chip != null) chip.anchoredPosition = new Vector2(-300 * s, chip.anchoredPosition.y);
+                var slot = Ui.Rect(group, "OfferSlot:" + index);
+                Ui.Stretch(slot);
+                var buy = PriceButton(slot, s, 925, y + 22 * h / 280, 200, h * 0.48f, o, () => Run(new RunShopBuy { Index = index }, r => { if (r.Ok) RefreshShop(); }), !o.Sold && run.Coins >= o.Price);
+                AddOfferName(buy, spec.Title);
+                _shopButtons.Add(new KeyValuePair<Button, int>(buy, index));
+                if (flipDelay > 0) UiTween.FlipIn(group, flipDelay + 0.04f * order++);
+                y += h + 14;
+            }
+        }
+
+        /// <summary>Seconds of a reroll's flip-out of the old offers (the new ones flip in after it).</summary>
+        public const float ShopFlipSeconds = 0.12f;
+
+        /// <summary>
+        /// A reroll in place (owner playtest 0.1.224: the whole sheet used to close and reopen — a flash): the old offers flip
+        /// out about their own middle while the new ones are built underneath and flip in after them, staggered. The rest
+        /// of the sheet (background, sign, shopkeeper, HUD, buttons) stays as it is.
+        /// </summary>
+        private void ReplaceShopOffers(ActiveRun run)
+        {
+            if (_shopOffers == null) return;
+            var old = new List<Transform>();
+            foreach (Transform t in _shopOffers) old.Add(t);
+            float stagger = 0;
+            foreach (var t in old)
+            {
+                t.name = "Old" + t.name; // tests and lookups see only the live offers
+                foreach (var b in t.GetComponentsInChildren<Button>(true)) b.interactable = false;
+                UiTween.FlipOut(t, ShopFlipSeconds, stagger);
+                stagger += 0.04f;
+            }
+            BuildShopOffers(run, Application.isPlaying ? ShopFlipSeconds : 0);
+            foreach (var t in old) if (t != null) t.SetAsLastSibling(); // the old cards flip out on top of the new ones
         }
 
         /// <summary>"3 bought this run" under the counter (empty before the first purchase).</summary>

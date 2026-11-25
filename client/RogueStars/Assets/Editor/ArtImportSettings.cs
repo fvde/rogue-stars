@@ -1,3 +1,4 @@
+using RogueStars.Client.World;
 using UnityEditor;
 using UnityEngine;
 
@@ -26,6 +27,17 @@ namespace RogueStars.Client.Editor
             s.spriteMeshType = SpriteMeshType.FullRect;
             s.spriteAlignment = (int)SpriteAlignment.Center;
             s.spritePixelsPerUnit = 100;
+            // art that stands on the board: the pivot is its ground contact (footprint centre over the lowest solid row,
+            // transparent padding ignored), so the board seats it on its tile / slot / ground spot (SpriteContact)
+            if (IsStanding(assetPath))
+            {
+                var c = ContactOfFile(assetPath, out int w, out int h);
+                if (c.Valid)
+                {
+                    s.spriteAlignment = (int)SpriteAlignment.Custom;
+                    s.spritePivot = SpriteContact.Pivot01(c, w, h);
+                }
+            }
             ti.SetTextureSettings(s);
             // trimmed props / NPCs / markers (≤ 768 px sources): capped at 1024, compressed (ASTC on Android) like the rest
             if (assetPath.Contains("/Art/Run/") || assetPath.Contains("/Art/Slice/Markers/") || assetPath.Contains("/Art/Slice/SetPieces/"))
@@ -35,6 +47,41 @@ namespace RogueStars.Client.Editor
             }
             // slice textures are sampled by the code-drawn tile faces (IsoArt.Top), and tile across the ground
             if (assetPath.Contains("/Art/Slice/Textures/")) { ti.isReadable = true; ti.wrapMode = TextureWrapMode.Repeat; }
+        }
+
+        /// <summary>Bumped when the import rules change (Unity reimports the art): 2 = ground-contact pivots of standing art (3: footprint x over the lower quarter).</summary>
+        public override uint GetVersion() => 3;
+
+        /// <summary>Reimports the standing board art (after a change of the contact rules; batch: -executeMethod).</summary>
+        [MenuItem("Tools/Art/Reimport Standing Art (contact pivots)")]
+        public static void ReimportStanding()
+        {
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Art/Resources/Art/Slice" }))
+            {
+                var p = AssetDatabase.GUIDToAssetPath(guid);
+                if (IsStanding(p)) AssetDatabase.ImportAsset(p, ImportAssetOptions.ForceUpdate);
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Board art that stands on the ground: tile markers, set pieces, scatter props.</summary>
+        public static bool IsStanding(string path) =>
+            path.Contains("/Art/Slice/Markers/") || path.Contains("/Art/Slice/SetPieces/") || path.Contains("/Art/Slice/Scatter/");
+
+        /// <summary>The ground contact of a source PNG (read from disk, so the compressed import does not matter).</summary>
+        public static ContactInfo ContactOfFile(string path, out int w, out int h)
+        {
+            w = h = 0;
+            try
+            {
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!tex.LoadImage(System.IO.File.ReadAllBytes(path))) { Object.DestroyImmediate(tex); return default; }
+                w = tex.width; h = tex.height;
+                var c = SpriteContact.Find(tex.GetPixels32(), w, h);
+                Object.DestroyImmediate(tex);
+                return c;
+            }
+            catch (System.IO.IOException) { return default; }
         }
     }
 }

@@ -183,30 +183,5 @@ namespace RogueStars.Client.Screens
             Ui.Size(boss, 90, 44, 0);
             return row;
         }
-
-        // ---- skill tiles (run tray + battle strip) ------------------------------------------------
-
-        /// <summary>
-        /// One skill tile: a chunky square in the skill's tier colour (lighter top, darker lip), "Lv x/max" in the corner, the
-        /// family tag, the name at the bottom. Named "Slot:" + id; its rarity outline is "RarityBorder".
-        /// </summary>
-        public static Button SkillTileButton(Transform parent, SkillTile t, SkillFamily family, float size, Action onClick)
-        {
-            var b = Ui.Button(parent, "", onClick, Color.Lerp(t.Color, Color.white, 0.12f), size, size, true, 20);
-            b.name = "Slot:" + t.SkillId;
-            var rt = (RectTransform)b.transform;
-            var face = rt.Find("Face");
-            UiShapes.Outline(rt, t.Color, Theme.RadiusButton, 4, "RarityBorder");
-            UiShapes.Outline(rt, Theme.Hex(0x1C1220), Theme.RadiusButton, 2, "Edge");
-            var lv = Ui.Display(face, t.LevelText, size >= 140 ? 24 : 20, Theme.TextOn(t.Color), TextAnchor.UpperLeft, "SkillLevel");
-            Ui.Stretch(lv.rectTransform, 10, 6, 6, 0);
-            lv.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var name = Ui.Display(face, t.Name, size >= 140 ? 22 : 18, Theme.TextOn(t.Color), TextAnchor.LowerCenter, "SkillName");
-            name.lineSpacing = 0.8f;
-            name.resizeTextForBestFit = true; name.resizeTextMinSize = 12; name.resizeTextMaxSize = name.fontSize;
-            Ui.Stretch(name.rectTransform, 6, size * 0.34f, 6, 6);
-            RunScreen.FamilyTag(rt, family);
-            return b;
-        }
     }
 }

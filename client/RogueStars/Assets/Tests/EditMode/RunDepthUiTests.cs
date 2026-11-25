@@ -134,6 +134,52 @@ namespace RogueStars.Client.Tests
             Assert.That(Texts(modal), Does.Contain("3 bought this run"));
         }
 
+        /// <summary>
+        /// Owner playtest 0.1.224 ("screen flickers when rerolling at the shop"): a reroll closed the whole sheet and opened a
+        /// new one (the decision key held the reroll count) with a pop-in. Now the sheet stays — same background, sign,
+        /// shopkeeper and buttons — and only the offers are replaced in place; the reroll price updates.
+        /// </summary>
+        [Test]
+        public void Shop_Reroll_ReplacesOffersInPlace_SameSheet()
+        {
+            var run = StartRun();
+            run.Tiles[2].TileId = "shop";
+            run.Coins = 5000;
+            Assert.That(_f.Service.ExecuteNow(new RunAutoStep()).Ok, Is.True);
+            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Shop));
+            var screen = Open();
+            var sheet = FindNamed(_f.App.ModalLayer, "Modal:Shop");
+            var sign = FindNamed(_f.App.ModalLayer, "ShopSign");
+            Assert.That(sheet, Is.Not.Null);
+            Button reroll = null;
+            foreach (var b in _f.App.ModalLayer.GetComponentsInChildren<Button>(true)) if (b.name.StartsWith("Button:Reroll")) reroll = b;
+            Assert.That(reroll, Is.Not.Null);
+            string before = reroll.name;
+            var offersBefore = new List<string>();
+            foreach (var o in S.Run.Active.Shop) offersBefore.Add(o.Kind + ":" + o.SkillId + ":" + o.Price);
+            var oldSlot = FindNamed(_f.App.ModalLayer, "OfferSlot:0");
+            reroll.onClick.Invoke();
+            screen.Rebuild(); // the state change rebuilds the screen: the shop must not reopen
+            Assert.That(S.Run.Active.ShopRerolls, Is.EqualTo(1));
+            Assert.That(FindNamed(_f.App.ModalLayer, "Modal:Shop"), Is.SameAs(sheet), "the same sheet: no close / reopen");
+            Assert.That(FindNamed(_f.App.ModalLayer, "ShopSign"), Is.SameAs(sign));
+            int sheets = 0;
+            foreach (Transform t in _f.App.ModalLayer) if (t.name == "Modal:Shop") sheets++;
+            Assert.That(sheets, Is.EqualTo(1));
+            Assert.That(oldSlot == null, Is.True, "the old offers are gone (edit mode: no flip animation)");
+            int slots = 0;
+            foreach (var t in sheet.GetComponentsInChildren<Transform>(true)) if (t.name.StartsWith("OfferSlot:")) slots++;
+            Assert.That(slots, Is.EqualTo(S.Run.Active.Shop.Count), "one slot per new offer");
+            Assert.That(reroll.name, Is.Not.EqualTo(before).Or.EqualTo("Button:Reroll (0)"), "the reroll price updates");
+            var buys = new List<Button>();
+            foreach (var b in sheet.GetComponentsInChildren<Button>(true))
+                if (b.name.EndsWith(" coins") && !b.name.StartsWith("Button:Reroll")) buys.Add(b);
+            Assert.That(buys.Count, Is.EqualTo(S.Run.Active.Shop.Count));
+            buys[0].onClick.Invoke();
+            Assert.That(S.Run.Active.ShopBuys, Is.EqualTo(1), "the new offers' buttons buy the new offers");
+            Assert.That(FindNamed(_f.App.ModalLayer, "Modal:Shop"), Is.SameAs(sheet));
+        }
+
         [Test]
         public void ResultScreen_ListsNoSkills_AndSumsIdenticalRewardsIntoOneTile([Values(true, false)] bool won)
         {

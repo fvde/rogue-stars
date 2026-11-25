@@ -340,8 +340,8 @@ namespace RogueStars.Client.Tests
             // draft cards: the icon is the rarity colour
             var card = FindNamed(_f.App.ModalLayer, "Draft:" + common.Id);
             Assert.That(card, Is.Not.Null, "draft open");
-            Assert.That(FindNamed(card, "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
-            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Draft:" + epicSkill.Id), "Icon").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
+            Assert.That(FindNamed(card, "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Common)));
+            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Draft:" + epicSkill.Id), "RarityBorder").GetComponent<Image>().color, Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));
 
             // result screen: gained skills by rarity
             Assert.That(RunPresentation.SkillColor(C, epicSkill.Id), Is.EqualTo(Theme.SkillTierColor(Rarity.Legendary)));

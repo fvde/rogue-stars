@@ -215,6 +215,7 @@ namespace RogueStars.Client.World
             tex.Apply(false, true);
             var s = Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(pivotPixels.x / W, pivotPixels.y / H), ppu, 0, SpriteMeshType.FullRect);
             s.name = name;
+            SpriteContact.Register(s, SpriteContact.Find(_px, W, H)); // where it stands (the pixels are gone after the upload)
             return s;
         }
 

@@ -308,6 +308,8 @@ namespace RogueStars.Client.Screens
             {
                 var tile = SkillIconTile(grid, t, Content.Skill(t.SkillId)?.Family ?? SkillFamily.None, s);
                 SliceKit.Place(tile, s, x0 + (i % GridColumns) * step, y0 + (i / GridColumns) * step, GridTile, GridTile);
+                var tip = SkillTip.Of(t.SkillId, t.Level);
+                SkillTileView.Tappable(tile, Content, () => tip); // tap = the full text (owner playtest 0.1.224)
                 _skillTiles[t.SkillId] = tile;
                 i++;
             }
@@ -337,36 +339,8 @@ namespace RogueStars.Client.Screens
         /// One skill icon tile (no label): a thick frame in the skill's tier colour, a slate face, the skill's icon art
         /// (ArtCatalog Art/Skills/&lt;id&gt;) or its family glyph. Named "Slot:" + id, its frame "RarityBorder".
         /// </summary>
-        public static RectTransform SkillIconTile(Transform parent, SkillTile t, SkillFamily family, float s)
-        {
-            var rt = Ui.Rect(parent, "Slot:" + t.SkillId);
-            var border = Ui.RoundPanel(rt, t.Color, 28 * s, "RarityBorder");
-            border.raycastTarget = false;
-            Ui.Stretch(border.rectTransform);
-            UiShapes.Outline(border.rectTransform, IsoArt.Ink, 28 * s, 4);
-            var face = Ui.RoundPanel(rt, new Color32(0x8C, 0x90, 0xB6, 255), 20 * s, "Face");
-            face.raycastTarget = false;
-            Ui.Stretch(face.rectTransform, 12 * s, 12 * s, 12 * s, 14 * s);
-            var shine = Ui.RoundPanel(face.transform, new Color(1, 1, 1, 0.12f), 16 * s, "Shine");
-            shine.raycastTarget = false;
-            Ui.Stretch(shine.rectTransform, 6 * s, 6 * s, 6 * s, 40 * s);
-            var art = ArtCatalog.SkillIcon(t.SkillId);
-            if (art != null)
-            {
-                var img = Ui.Panel(rt, Color.white, "IconArt");
-                img.sprite = art;
-                img.preserveAspect = true;
-                img.raycastTarget = false;
-                Ui.Stretch(img.rectTransform, 18 * s, 18 * s, 18 * s, 18 * s);
-            }
-            else
-            {
-                var col = family == SkillFamily.None ? (Color)new Color32(0xFF, 0xE0, 0x5A, 255) : Color.Lerp(Theme.FamilyColor(family), Color.white, 0.3f);
-                var glyph = SliceKit.Chunky(rt, family == SkillFamily.None ? "★" : family.ToString().Substring(0, 1), (int)(84 * s), col, TextAnchor.MiddleCenter, "Glyph");
-                Ui.Stretch(glyph.rectTransform);
-            }
-            return rt;
-        }
+        public static RectTransform SkillIconTile(Transform parent, SkillTile t, SkillFamily family, float s) =>
+            SkillTileView.Build(parent, t.SkillId, t.Color, family, GridTile * s);
 
         /// <summary>A skill of the player's side fired (log entry with its SkillId): count it, queue its tile's flash + label.</summary>
         private void OnSkillFire(BattleLogEntry e, bool animate)

@@ -115,6 +115,7 @@ namespace RogueStars.Client.Tests
             Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Tap to roll"));
             roll.GetComponent<HoldButton>().OnHold();
             Assert.That(screen.Auto, Is.False, "Auto Roll is a level unlock");
+            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Auto Roll unlocks at level 7"), "owner playtest 0.1.224: a hold before the unlock explains it");
 
             S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs;
             screen.Rebuild();
@@ -122,6 +123,39 @@ namespace RogueStars.Client.Tests
             Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Hold for Auto"));
             roll.GetComponent<HoldButton>().OnHold();
             Assert.That(screen.Auto, Is.True);
+        }
+
+        /// <summary>
+        /// Owner playtest 0.1.224: from level 7 a real hold on the dice cap starts auto — the press reaches the cap (no
+        /// raycast target of the screen lies over its middle), the handler is found from the cap upwards, and 0.5 s held fires.
+        /// </summary>
+        [Test]
+        public void HoldOnDiceCap_StartsAuto_OnceUnlocked()
+        {
+            var level = C.MainLevel(1);
+            SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, _ => { });
+            S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs;
+            var screen = Open();
+            var cap = (RectTransform)FindNamed(screen.Root, "Cap");
+            Assert.That(cap, Is.Not.Null);
+            Canvas.ForceUpdateCanvases();
+            Vector2 at = RectTransformUtility.WorldToScreenPoint(null, cap.TransformPoint(cap.rect.center + new Vector2(0, cap.rect.height * 0.1f)));
+            // the topmost raycast target under the press (the last drawn of the canvas' targets containing the point)
+            // (hierarchy order = draw order on the one canvas)
+            Graphic top = null;
+            foreach (var g in _f.Canvas.GetComponentsInChildren<Graphic>())
+                if (g.raycastTarget && g.isActiveAndEnabled &&RectTransformUtility.RectangleContainsScreenPoint(g.rectTransform, at, null)) top = g;
+            Assert.That(top, Is.Not.Null);
+            Assert.That(top.transform.IsChildOf(FindNamed(screen.Root, "RollButton")), Is.True, "the press lands on the dice, not on " + top.name);
+            var handler = UnityEngine.EventSystems.ExecuteEvents.GetEventHandler<UnityEngine.EventSystems.IPointerDownHandler>(top.gameObject);
+            var hold = handler.GetComponent<HoldButton>();
+            Assert.That(hold, Is.Not.Null, "the press reaches the hold handler");
+            var e = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = at };
+            hold.OnPointerDown(e);
+            hold.Advance(0.3f);
+            Assert.That(screen.Auto, Is.False, "not yet a hold");
+            hold.Advance(0.3f);
+            Assert.That(screen.Auto, Is.True, "held 0.6 s: auto on");
         }
     }
 }

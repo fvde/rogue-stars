@@ -954,7 +954,7 @@ namespace RogueStars.Client.Screens
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
                 }
             };
-            hold.OnHold = () => { if (Session.IsUnlocked(Features.AutoRoll)) StartAuto(); }; // Auto Roll unlocks with a level (GDD §16)
+            hold.OnHold = HoldDice; // Auto Roll unlocks with a level (GDD §16); before it a hold says when
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
 
             // speed chip (×1 / ×2 / ×3 board animations)
@@ -1124,6 +1124,23 @@ namespace RogueStars.Client.Screens
             _coachMark = mark;
         }
 
+        /// <summary>
+        /// A hold on the dice: auto mode once Auto Roll is unlocked; before that a short hint says when it unlocks
+        /// (owner playtest 0.1.224: a silent hold felt broken).
+        /// </summary>
+        public void HoldDice()
+        {
+            if (Session.IsUnlocked(Features.AutoRoll)) StartAuto();
+            else Session.Info(AutoRollHint(Content));
+        }
+
+        /// <summary>"Auto Roll unlocks at level 7" (the feature's unlock level from content).</summary>
+        public static string AutoRollHint(ContentDb content)
+        {
+            var f = content?.Feature(Features.AutoRoll);
+            return "Auto Roll unlocks at level " + (f != null ? Features.UnlockLevel(f) : 7);
+        }
+
         public void StartAuto()
         {
             if (_auto) return;
@@ -1175,12 +1192,13 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>
-        /// What makes an open decision UI stale. A purchase does not: the shop sheet stays open and updates in place
-        /// (<see cref="RefreshShop"/>), so buying 2–4 perks per visit does not close and reopen it.
+        /// What makes an open decision UI stale. A purchase or a reroll in the shop does not: the shop sheet stays open and
+        /// updates in place (<see cref="RefreshShop"/>), so buying 2–4 perks per visit or rerolling never closes and reopens
+        /// it (owner playtest 0.1.224: a reroll rebuilt the whole sheet — a flash).
         /// </summary>
-        private static string DecisionKey(ActiveRun r) =>
-            r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.ShopRerolls + "|" + r.MythicDraft
-            + (r.Phase == RunPhase.Shop ? "" : "|" + r.Coins);
+        public static string DecisionKey(ActiveRun r) =>
+            r.RunId + "|" + r.Phase + "|" + r.Rolls + "|" + r.EventId + "|" + string.Join(",", r.DraftOffer) + "|" + r.DraftRerolls + "|" + r.MythicDraft
+            + (r.Phase == RunPhase.Shop ? "" : "|" + r.ShopRerolls + "|" + r.Coins);
 
         /// <summary>The skill level-up rule (exact numbers from RunTuning; a level-up improves the skill's own numbers).</summary>
         public static string LevelUpText(ContentDb c) => RogueStars.Rules.Core.SkillText.LevelUpRule(c);
@@ -1188,11 +1206,23 @@ namespace RogueStars.Client.Screens
         private readonly List<KeyValuePair<Button, int>> _shopButtons = new List<KeyValuePair<Button, int>>();
         private Text _shopCoins;
 
-        /// <summary>Updates the open shop after a purchase: sold offers, affordability, coins (no close / reopen).</summary>
-        private void RefreshShop()
+        /// <summary>
+        /// Updates the open shop after a purchase or a reroll: sold offers, affordability, coins, the reroll price; a reroll
+        /// flips the new offers in place (<see cref="ReplaceShopOffers"/>). Never closes and reopens the sheet.
+        /// </summary>
+        private void RefreshShop(bool rerolled = false)
         {
             var run = State.Run.Active;
             if (run == null || run.Phase != RunPhase.Shop) return;
+            if (rerolled) ReplaceShopOffers(run);
+            if (_shopReroll != null)
+            {
+                long price = ShopRerollPrice(run);
+                _shopReroll.name = "Button:Reroll (" + price + ")";
+                _shopReroll.interactable = run.Coins >= price;
+                var label = _shopReroll.transform.Find("RerollPrice")?.GetComponent<Text>();
+                if (label != null) label.text = price > 0 ? price.ToString() : "FREE";
+            }
             if (_shopCoins != null) _shopCoins.text = ShopBoughtLine(run);
             if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
             foreach (var kv in _shopButtons)
@@ -1407,7 +1437,7 @@ namespace RogueStars.Client.Screens
                     Id = sid, Tier = signature ? "Signature" : RunTuning.RunTier(rarity).ToString(), TierColor = signature ? SignaturePick.SignatureColor : RunPresentation.SkillColor(sk), Family = fam,
                     IconArt = ArtCatalog.SkillIcon(sid),
                     Title = ownedLevel > 0 && sk != null ? SkillText.Title(sk, ownedLevel + 1) : sk?.Name ?? sid,
-                    Body = full,
+                    Body = full, Tip = OfferTip(sid, ownedLevel, signature), TipContent = Content,
                 };
                 if (signature)
                 {
@@ -1427,6 +1457,13 @@ namespace RogueStars.Client.Screens
             UiTween.PopIn(root, 0.15f);
             return modal;
         }
+
+        /// <summary>The tooltip of an offered skill: a new one at Lv 1, an owned one at its next level with the upgrade line.</summary>
+        public static SkillTip OfferTip(string skillId, int ownedLevel, bool signature = false) => new SkillTip
+        {
+            SkillId = skillId, Level = ownedLevel > 0 ? ownedLevel + 1 : 1,
+            UpgradeFrom = ownedLevel, UpgradeTo = ownedLevel > 0 ? ownedLevel + 1 : 0, TierOverride = signature ? "Signature" : null,
+        };
 
         private UiModal ReviveModal(ActiveRun run)
         {
@@ -1480,9 +1517,17 @@ namespace RogueStars.Client.Screens
                     if (sig == null || !ids.Remove(sig.Id)) continue;
                     int slv = RunDraft.Level(run, sig.Id);
                     var scol = Theme.FamilyColor(sig.Family);
-                    var card = Card(b, Theme.Tint(scol, 0.3f), 6);
-                    card.name = "Signature:" + sig.Id;
-                    UiShapes.Outline(card, SignaturePick.SignatureColor, 16, 4);
+                    var sigRow = Ui.Row(b, -1, 16, Theme.Tint(scol, 0.3f), 14, "Signature:" + sig.Id);
+                    var sigLayout = sigRow.GetComponent<HorizontalLayoutGroup>();
+                    sigLayout.childAlignment = TextAnchor.UpperLeft;
+                    sigLayout.childForceExpandHeight = false;
+                    UiShapes.Outline(sigRow, SignaturePick.SignatureColor, 16, 4);
+                    var sigTile = SkillTileView.Build(sigRow, sig.Id, SignaturePick.SignatureColor, sig.Family, 132);
+                    Ui.Size(sigTile, 132, 132, 0);
+                    var sigTip = SkillTip.Of(sig.Id, slv); sigTip.TierOverride = "Signature";
+                    SkillTileView.Tappable(sigTile, Content, () => sigTip);
+                    var card = Ui.Column(sigRow, 6, 0, null, "SignatureText");
+                    Ui.Size(card, -1, -1, 1);
                     Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(sig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
                     Ui.Label(card, SkillText.Title(Content, sig, slv), Theme.FontNormal, Color.Lerp(scol, Color.white, 0.6f));
                     Ui.Label(card, Fmt.SkillFull(SkillLeveling.At(Content, sig, slv)), Theme.FontSmall, Theme.Text);
@@ -1490,15 +1535,36 @@ namespace RogueStars.Client.Screens
                     Ui.Label(card, next > 0 ? "Awakens at " + next + " " + SkillText.FamilyName(sig.Family) + " skills (have " + RunDraft.FamilyCount(Content, run, sig.Family) + ")." : "Fully awakened.",
                         20, Theme.TextDim);
                 }
+                // every other skill as the shared tile (tier frame, art filling it) with its name and level; a tap = the full text
+                if (ids.Count == 0) return;
+                const float cellW = 196, cellH = 262, tileSize = 168;
+                var grid = Ui.Rect(b, "SkillGrid");
+                var gl = grid.gameObject.AddComponent<GridLayoutGroup>();
+                gl.cellSize = new Vector2(cellW, cellH);
+                gl.spacing = new Vector2(14, 14);
+                gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                gl.constraintCount = 4;
+                gl.childAlignment = TextAnchor.UpperCenter;
+                Ui.Size(grid, -1, ((ids.Count + 3) / 4) * (cellH + 14), 1);
                 foreach (var id in ids)
                 {
                     var s = Content.Skill(id);
-                    var col = RunPresentation.SkillColor(s);
-                    var row = Ui.Row(b, 72, 12, Theme.Tint(col, 0.22f), 16, "Skill:" + id);
-                    UiShapes.Outline(row, Theme.Shade(col, 0.9f), 16, 3);
-                    Ui.Dot(row, col, 28, "Rarity");
-                    int lv = RunDraft.Level(run, id);
-                    Ui.Label(row, (s == null ? id : lv > 0 ? SkillText.Title(Content, s, lv) : s.Name) + " <size=20>(" + (s?.Rarity ?? Rarity.Common) + (s != null && s.Family != SkillFamily.None ? " · " + SkillText.FamilyName(s.Family) : "") + ")</size>", Theme.FontSmall, Color.Lerp(col, Color.white, 0.5f));
+                    int lv = Math.Max(1, RunDraft.Level(run, id));
+                    var cell = Ui.Rect(grid, "Skill:" + id);
+                    var tile = SkillTileView.Build(cell, Content, id, tileSize);
+                    tile.anchorMin = tile.anchorMax = tile.pivot = new Vector2(0.5f, 1);
+                    tile.anchoredPosition = Vector2.zero;
+                    var lvl = SliceKit.Chunky(tile, "Lv " + lv, 26, Color.white, TextAnchor.LowerRight, "SkillLevel");
+                    Ui.Stretch(lvl.rectTransform, 0, 0, 16, 12);
+                    var name = Ui.Label(cell, s?.Name ?? id, 22, Theme.Text, TextAnchor.UpperCenter, "SkillName");
+                    name.rectTransform.anchorMin = new Vector2(0, 0); name.rectTransform.anchorMax = new Vector2(1, 0);
+                    name.rectTransform.pivot = new Vector2(0.5f, 0);
+                    name.rectTransform.sizeDelta = new Vector2(0, cellH - tileSize - 6);
+                    name.rectTransform.anchoredPosition = Vector2.zero;
+                    name.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    name.resizeTextForBestFit = true; name.resizeTextMinSize = 14; name.resizeTextMaxSize = name.fontSize;
+                    var tip = SkillTip.Of(id, lv);
+                    SkillTileView.Tappable(tile, Content, () => tip);
                 }
             });
     }
