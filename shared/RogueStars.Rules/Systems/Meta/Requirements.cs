@@ -69,6 +69,7 @@ namespace RogueStars.Rules.Systems
                 case RequirementKind.Feature:
                     // Recorded unlocks only (the onboarding settler records them, sticky).
                     return Features.IsUnlocked(state, content, req.Key) ? 1 : 0;
+                case RequirementKind.Blueprint: return CitySystem.Owned(state, req.Key) != null ? 1 : 0;
                 case RequirementKind.AccountAgeDays: return 0; // needs time: see Current(state, content, req, now)
                 default: return 0;
             }
@@ -76,7 +77,7 @@ namespace RogueStars.Rules.Systems
 
         private static long Target(RequirementDef req)
         {
-            if (req.Kind == RequirementKind.Flag || req.Kind == RequirementKind.Feature) return 1;
+            if (req.Kind == RequirementKind.Flag || req.Kind == RequirementKind.Feature || req.Kind == RequirementKind.Blueprint) return 1;
             return req.Target;
         }
 
@@ -133,6 +134,9 @@ namespace RogueStars.Rules.Systems
                     var f = content?.Feature(r.Key);
                     return "Unlock " + (f != null ? f.Name : r.Key);
                 case RequirementKind.AccountAgeDays: return "Unlocks on day " + (r.Target + 1);
+                case RequirementKind.Blueprint:
+                    var b = content?.Blueprint(r.Key);
+                    return "Pull the " + (b != null ? b.Name : r.Key) + " blueprint";
                 default: return r.Kind.ToString();
             }
         }

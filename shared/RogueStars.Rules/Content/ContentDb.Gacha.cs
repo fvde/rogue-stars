@@ -55,9 +55,31 @@ namespace RogueStars.Rules.Content
         /// <summary>Visible 10-pull rule: a 10-pull contains at least one result of <see cref="TenPullMinTier"/> or better (false = none).</summary>
         public bool TenPullGuarantee = true;
         public Rarity TenPullMinTier = Rarity.Epic;
+        /// <summary>
+        /// The free 10× pull (GachaPayment.Free) always holds this result as its first pull (null = none). Its tier counts for the
+        /// pity and the 10× rule like any result. Blueprint: the Launch Pod (owner, 2026-11-25: the only squad-slot source).
+        /// </summary>
+        public GachaEntry FreePullGuarantee;
     }
 
-    /// <summary>A featured mythic item (themed banner).</summary>
+    /// <summary>One featured item of a banner and the tier it is featured in (Legendary or Mythic).</summary>
+    [Serializable]
+    public sealed class BannerFeature
+    {
+        public string Kind;
+        public string Id;
+        public long Amount = 1;
+        /// <summary>Reward.Rarity passed to the granter.</summary>
+        public int Rarity;
+        public Rarity Tier = Core.Rarity.Mythic;
+    }
+
+    /// <summary>
+    /// A themed banner: its headline featured item (FeaturedKind / Id, in FeaturedTier) and optionally more featured items
+    /// (<see cref="MoreFeatured"/>). Featured items are Legendary or Mythic: when a pull on the banner hits a tier that has featured
+    /// items, FeaturedShare (80%) of those results are a featured item (split evenly), the rest another item of that tier (owner,
+    /// 2026-11-25). The tier odds and the pity do not change.
+    /// </summary>
     [Serializable]
     public sealed class BannerTheme
     {
@@ -67,8 +89,29 @@ namespace RogueStars.Rules.Content
         public string FeaturedId;
         public long FeaturedAmount = 1;
         public int FeaturedRarity;
-        /// <summary>Share of Mythic outcomes that are the featured item (0..1).</summary>
-        public double FeaturedShare = 0.5;
+        /// <summary>Tier the headline item is featured in (Mythic unless set).</summary>
+        public Rarity FeaturedTier = Rarity.Mythic;
+        /// <summary>Share of a featured tier's results that are a featured item (0..1).</summary>
+        public double FeaturedShare = 0.8;
+        /// <summary>Further featured items (e.g. the core blueprint banner's Legendary pull buildings).</summary>
+        public List<BannerFeature> MoreFeatured = new List<BannerFeature>();
+
+        /// <summary>The featured items of a tier (headline first), empty when the tier has none.</summary>
+        public List<BannerFeature> FeaturedIn(Rarity tier)
+        {
+            var list = new List<BannerFeature>();
+            if (!string.IsNullOrEmpty(FeaturedId) && FeaturedTier == tier)
+                list.Add(new BannerFeature { Kind = FeaturedKind, Id = FeaturedId, Amount = FeaturedAmount, Rarity = FeaturedRarity, Tier = FeaturedTier });
+            foreach (var f in MoreFeatured) if (f.Tier == tier) list.Add(f);
+            return list;
+        }
+
+        public bool IsFeatured(string kind, string id)
+        {
+            if (FeaturedKind == kind && FeaturedId == id) return true;
+            foreach (var f in MoreFeatured) if (f.Kind == kind && f.Id == id) return true;
+            return false;
+        }
     }
 
     /// <summary>Endless weekly rotation of themes for one pull type: theme index = period mod theme count.</summary>
@@ -106,6 +149,8 @@ namespace RogueStars.Rules.Content
     {
         /// <summary>Pull types, pools, visible pity, banner rotations (Progression; docs/design/pull-system.md).</summary>
         public readonly GachaConfig GachaConfig = new GachaConfig();
+        /// <summary>Theme id of the recurring core blueprint banner (Laboratory + the three pull buildings).</summary>
+        public const string CoreBlueprintBannerId = "bp_core";
 
         /// <summary>Ids of a City-owned content dictionary with the given rarity, ordinal order (pool order is part of determinism).</summary>
         private static List<string> GachaIdsOfRarity<T>(Dictionary<string, T> defs, Func<T, Rarity> rarity, Rarity r)
@@ -169,16 +214,27 @@ namespace RogueStars.Rules.Content
                     GachaThemeOf("part_shadow_forge", "Shadow Forge", RewardKinds.Part, "arm_mantis_claw", 1, mythicPart),
                 },
             });
+            // Blueprint banners (owner, 2026-11-25; docs/design/pull-system.md "Banner schedule"): weekly from Monday 00:00 UTC, a 6-week
+            // cycle where the core blueprint banner returns every other week (Laboratory featured in Mythic, the three pull buildings
+            // in Legendary; nothing else rotates into it) between the themed Mythic banners.
+            var core = GachaThemeOf(CoreBlueprintBannerId, "Core Blueprints", RewardKinds.Blueprint, LaboratoryId, 1, mythic);
+            foreach (var id in new[] { "bp_token_relay", "bp_signal_beacon", "bp_part_fabricator" })
+                core.MoreFeatured.Add(new BannerFeature { Kind = RewardKinds.Blueprint, Id = id, Amount = 1, Rarity = (int)Rarity.Legendary, Tier = Rarity.Legendary });
             g.Rotations.Add(new BannerRotation
             {
                 Type = GachaType.Blueprint, EpochMs = epoch, DurationMs = week,
                 Themes =
                 {
+                    core,
                     GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
-                    GachaThemeOf("bp_laboratory_week", "Laboratory Week", RewardKinds.Blueprint, LaboratoryId, 1, mythic),
+                    core,
                     GachaThemeOf("bp_reactor_ignition", "Reactor Ignition", RewardKinds.Blueprint, ShardReactorId, 1, mythic),
+                    core,
+                    GachaThemeOf("bp_stasis_week", "Stasis Beacon Week", RewardKinds.Blueprint, "bp_stasis_beacon", 1, mythic),
                 },
             });
+            // The free 10× Blueprint pull of the City unlock always holds the Launch Pod (owner, 2026-11-25: the only squad-slot source).
+            bp.FreePullGuarantee = new GachaEntry(RewardKinds.Blueprint, LaunchPodId, 1, (int)Rarity.Common, 1);
             g.Rotations.Add(new BannerRotation
             {
                 Type = GachaType.Alien, EpochMs = epoch, DurationMs = week,
@@ -204,7 +260,7 @@ namespace RogueStars.Rules.Content
         }
 
         private static BannerTheme GachaThemeOf(string id, string name, string kind, string featuredId, long amount, int rarity) =>
-            new BannerTheme { Id = id, Name = name, FeaturedKind = kind, FeaturedId = featuredId, FeaturedAmount = amount, FeaturedRarity = rarity, FeaturedShare = 0.5 };
+            new BannerTheme { Id = id, Name = name, FeaturedKind = kind, FeaturedId = featuredId, FeaturedAmount = amount, FeaturedRarity = rarity, FeaturedTier = Rarity.Mythic, FeaturedShare = 0.8 };
 
         private static List<string> GachaSortedKeys<T>(Dictionary<string, T> d)
         {

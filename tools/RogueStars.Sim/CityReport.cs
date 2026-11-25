@@ -22,6 +22,26 @@ public static class CityReport
         foreach (var g in groups)
             sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", digDays.Select(n => F(Median(g.Select(r => (double)(r.Daily.FindIndex(d => d.Digs >= n) is int i && i >= 0 ? i + 1 : double.NaN)))))) + " |");
         sb.AppendLine();
+        // Buildings come from their blueprint (owner, 2026-11-25): the day each building feature unlocked = the day its blueprint was
+        // pulled (the Launch Pod comes with the City's free 10×), and the first finished research (the Laboratory pulled, built, staffed).
+        var gated = new[] { ("Launch Pod", RogueStars.Rules.Systems.Features.AlienSquad), ("Laboratory", RogueStars.Rules.Systems.Features.Laboratory),
+            ("Ore Mine", RogueStars.Rules.Systems.Features.OreMine), ("Grain Farm", RogueStars.Rules.Systems.Features.GrainFarm),
+            ("Breeding Pen", RogueStars.Rules.Systems.Features.Breeding) };
+        sb.AppendLine("**Building blueprints** (median account day the blueprint arrived, i.e. its feature unlocked; – = not within the run; City = day the City opened)");
+        sb.AppendLine();
+        sb.AppendLine("| Profile | City | " + string.Join(" | ", gated.Select(x => x.Item1)) + " | first research |");
+        sb.AppendLine("|---|---|" + string.Concat(gated.Select(_ => "---|")) + "---|");
+        double UnlockDay(SimResult r, string id) => r.Unlocks.TryGetValue(id, out var u) ? u.day : double.NaN;
+        string MedOrDash(IEnumerable<double> xs)
+        {
+            var l = xs.ToList();
+            return l.Count(x => !double.IsNaN(x)) * 2 <= l.Count ? "–" : F(l.Select(x => double.IsNaN(x) ? double.MaxValue : x).OrderBy(x => x).ElementAt(l.Count / 2));
+        }
+        foreach (var g in groups)
+            sb.AppendLine("| " + g.Key + " | " + MedOrDash(g.Select(r => UnlockDay(r, RogueStars.Rules.Systems.Features.BiomassFarm))) + " | "
+                + string.Join(" | ", gated.Select(x => MedOrDash(g.Select(r => UnlockDay(r, x.Item2)))))
+                + " | " + MedOrDash(g.Select(r => r.Daily.FindIndex(d => d.LabDone > content.LabResearch.Values.Count(x => x.DefaultResearched)) is int i && i >= 0 ? i + 1 : double.NaN)) + " |");
+        sb.AppendLine();
         var cps = new[] { 7, 30, 90, 180, 365, 730 }.Where(d => d <= days).ToArray();
         void Table(string title, Func<DayRecord, double> f)
         {

@@ -143,10 +143,11 @@ public class RewardGateTests
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
         Assert.True(s.Wallet.Get(Currencies.Diamonds) >= diamonds + chest.Single(r => r.Id == Currencies.Diamonds).Amount);
-        // Level 10 opens the Part Signal with this very clear: its tokens (and the ones kept from levels 5 and 10) land at once.
+        // The Part Signal (Parts, level 1) and the Alien Signal (Aliens, level 6) are open: their tokens land at once.
         Assert.True(Features.IsUnlocked(s, e.Content, Features.PartPulls));
         Assert.True(s.Wallet.Get(Currencies.PartTokens) >= chest.Single(r => r.Id == Currencies.PartTokens).Amount);
-        foreach (var t in new[] { Currencies.AlienTokens, Currencies.BlueprintTokens })
+        Assert.True(s.Wallet.Get(Currencies.AlienTokens) >= chest.Single(r => r.Id == Currencies.AlienTokens).Amount);
+        foreach (var t in new[] { Currencies.BlueprintTokens }) // the Blueprint Signal opens with the City (15)
         {
             Assert.Equal(0, s.Wallet.Get(t));
             Assert.True(RewardGate.Stashed(s, t) >= chest.Single(r => r.Id == t).Amount, t);
@@ -211,11 +212,12 @@ public class RewardGateTests
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
         Ok(e, ref s, new NewPlayerClaim { Day = 2 }, t + D);
         Assert.Equal(5, RewardGate.Stashed(s, Currencies.PartTokens));
-        // Part Signal: day 4, level 12. The unlock grants its 10 starting tokens and releases the 5 stashed ones.
+        // Part Signal (with Parts, level 1): the unlock grants its free 10× pull and releases the 5 stashed tokens.
         s.Counters[Requirements.MainLevelCounter] = 12;
         for (int day = 2; day <= 4; day++) Ok(e, ref s, new LobbyPopupShown(), t + day * D); // one group per day: City, Worm Level, Part Signal
         Assert.True(Features.IsUnlocked(s, e.Content, Features.PartPulls));
-        Assert.Equal(15, Bal(s, Currencies.PartTokens));
+        Assert.Equal(5, Bal(s, Currencies.PartTokens));
+        Assert.Equal(1, s.Gacha.FreePulls(GachaType.Part));
         Assert.Equal(0, RewardGate.Stashed(s, Currencies.PartTokens));
         var released = RewardGate.ReleasedAt(s, Features.PartPulls);
         Assert.Contains(released, r => r.Id == Currencies.PartTokens && r.Amount == 5);

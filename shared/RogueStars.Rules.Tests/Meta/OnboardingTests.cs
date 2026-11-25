@@ -15,28 +15,49 @@ public class OnboardingTests
     private static List<string> Tick(GameEngine e, ref GameState s, long t) =>
         Ok(e, ref s, new LobbyPopupShown { PopupId = "tick" + t }, t).Events.Where(ev => ev.Type == "feature_unlocked").Select(ev => ev.Args[0]).ToList();
 
-    /// <summary>The level-unlock table: feature → main level cleared.</summary>
+    /// <summary>
+    /// The level-unlock table: feature → main level cleared. The Signals come with Parts (1), Aliens (6) and the City (15) (owner,
+    /// 2026-11-25: same feature ids); building features unlock with their blueprint instead (<see cref="BuildingFeatures"/>).
+    /// </summary>
     public static readonly (string id, int level)[] Schedule =
     {
         (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
-        (Features.Aliens, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9), (Features.PartPulls, 10),
-        (Features.RunSignatures, 11), (Features.Shop, 12), (Features.AlienPulls, 13), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
-        (Features.AlienSquad, 16), (Features.Laboratory, 17), (Features.Heroes, 18), (Features.GrainFarm, 19), (Features.Blueprints, 20),
-        (Features.OreMine, 22), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
-        (Features.Arena, 32), (Features.Breeding, 34), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
+        (Features.Aliens, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9),
+        (Features.RunSignatures, 11), (Features.Shop, 12), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
+        (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
+        (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
         (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.PackageCounter, 48), (Features.Forge, 50),
         (Features.DarkSide, 53), (Features.PackageAlien, 56), (Features.PackageTime, 60),
     };
+
+    /// <summary>Building features: unlocked the moment the blueprint is owned (after the City), never by level.</summary>
+    public static readonly (string id, string blueprint)[] BuildingFeatures =
+    {
+        (Features.AlienSquad, ContentDb.LaunchPodId), (Features.Laboratory, ContentDb.LaboratoryId), (Features.GrainFarm, "bp_grain_farm"),
+        (Features.OreMine, "bp_ore_mine"), (Features.Breeding, "bp_breeding_pen"),
+    };
+
+    private static List<FeatureDef> LevelFeatures(ContentDb c) => c.FeatureOrder.Where(f => Features.UnlockLevel(f) > 0).ToList();
 
     [Fact]
     public void Content_FollowsTheLevelSchedule_OneFeaturePerLevel_NoDayGates()
     {
         var c = ContentDb.Default;
-        Assert.Equal(Schedule.Length, c.FeatureOrder.Count);
+        Assert.Equal(Schedule.Length + BuildingFeatures.Length, c.FeatureOrder.Count);
+        var levelFeatures = LevelFeatures(c);
+        Assert.Equal(Schedule.Length, levelFeatures.Count);
+        foreach (var (id, bp) in BuildingFeatures)
+        {
+            var f = c.Feature(id)!;
+            Assert.Equal(0, Features.UnlockLevel(f));
+            Assert.Contains(f.Requires.Items, r => r.Kind == RequirementKind.Feature && r.Key == Features.BiomassFarm);
+            Assert.Contains(f.Requires.Items, r => r.Kind == RequirementKind.Blueprint && r.Key == bp);
+            Assert.DoesNotContain(f.UnlockGrants, g => g.Kind == RewardKinds.Blueprint); // the blueprint is the trigger, not a gift
+        }
         for (int i = 0; i < Schedule.Length; i++)
         {
             var (id, level) = Schedule[i];
-            var f = c.FeatureOrder[i];
+            var f = levelFeatures[i];
             Assert.Equal(id, f.Id);
             Assert.Equal(id, f.GroupId); // every feature is its own unlock (own screen)
             Assert.False(string.IsNullOrEmpty(f.Description), id);
@@ -51,13 +72,15 @@ public class OnboardingTests
     [Fact]
     public void Schedule_IsSpacedOut_OnePerLevelEarly_WiderLater()
     {
-        var levels = ContentDb.Default.FeatureOrder.Select(f => (int)Features.UnlockLevel(f)).ToList();
+        var levels = LevelFeatures(ContentDb.Default).Select(f => (int)Features.UnlockLevel(f)).ToList();
         Assert.Equal(1, levels[0]); // the first unlock right after the tutorial run
         for (int i = 1; i < levels.Count; i++)
         {
             int gap = levels[i] - levels[i - 1];
             Assert.True(gap >= 1, "two features at level " + levels[i]);
-            int max = levels[i] <= 20 ? 1 : levels[i] <= 50 ? 2 : 4;
+            // Was one per level to 20 / two to 50: the Signals now come with Parts / Aliens / the City and the buildings with their
+            // blueprints (owner, 2026-11-25), which leaves level gaps up to 6 (Heroes 18 → Ice package 24).
+            int max = levels[i] <= 24 ? 6 : 4;
             Assert.True(gap <= max, "gap of " + gap + " levels before level " + levels[i]);
         }
     }
@@ -71,16 +94,21 @@ public class OnboardingTests
         {
             foreach (var l in later) Assert.True(L(first) < L(l), first + " must unlock before " + l);
         }
-        Before(Features.Parts, Features.Runes, Features.Forge, Features.PartPulls, Features.WormLevel);
+        Before(Features.Parts, Features.Runes, Features.Forge, Features.WormLevel);
         Before(Features.WormLevel, Features.BiomassFarm); // the farm's Biomass has a use the moment it is built
-        Before(Features.BiomassFarm, Features.GrainFarm, Features.OreMine, Features.AlienSquad, Features.Blueprints, Features.Breeding);
-        Before(Features.BiomassFarm, Features.Laboratory); // research needs the Laboratory building (City design)
-        Before(Features.Laboratory, Features.PackageIce, Features.PackageLightning, Features.PackageCounter, Features.PackageAlien, Features.PackageTime);
+        Before(Features.Aliens, Features.BiomassFarm); // aliens staff the buildings
+        Assert.Equal(Features.Parts, Features.PartPulls); // the Signals come with their system's unlock
+        Assert.Equal(Features.Aliens, Features.AlienPulls);
+        Assert.Equal(Features.BiomassFarm, Features.Blueprints);
+        // building features (Launch Pod, Laboratory, farms, Ore Mine, Breeding Pen) need the City and their blueprint
+        foreach (var (id, _) in BuildingFeatures)
+            Assert.Contains(c.Feature(id)!.Requires.Items, r => r.Kind == RequirementKind.Feature && r.Key == Features.BiomassFarm);
+        Before(Features.BiomassFarm, Features.PackageIce); // research packages after the Laboratory can exist
         Before(Features.PackageIce, Features.PackageLightning);
         Before(Features.PackageLightning, Features.PackageCounter);
         Before(Features.PackageCounter, Features.PackageAlien);
         Before(Features.PackageAlien, Features.PackageTime);
-        Before(Features.Aliens, Features.AlienSquad, Features.GrainFarm, Features.AlienPulls, Features.Breeding, Features.PackageAlien);
+        Before(Features.Aliens, Features.PackageAlien);
         Before(Features.Guilds, Features.Invasions);
         Before(Features.PartPulls, Features.AlienPulls, Features.Blueprints);
         Before(Features.RunShop, Features.Shop);
@@ -169,7 +197,8 @@ public class OnboardingTests
         s.Counters[Requirements.MainLevelCounter] = 60;
         var day1 = Tick(e, ref s, TestHelpers.T0);
         Assert.Equal(Schedule.Select(x => x.id), day1); // in order, all on the creation day
-        Assert.All(e.Content.FeatureOrder, f => Assert.True(Features.IsUnlocked(s, e.Content, f.Id)));
+        Assert.All(Schedule, f => Assert.True(Features.IsUnlocked(s, e.Content, f.id)));
+        Assert.All(BuildingFeatures, f => Assert.False(Features.IsUnlocked(s, e.Content, f.id))); // no blueprint pulled yet
 
         // A player who comes back after weeks catches up at once, not one feature per day.
         var t2 = Player(e);
@@ -177,7 +206,7 @@ public class OnboardingTests
         t2.Counters[Requirements.MainLevelCounter] = 20;
         var back = Tick(e, ref t2, OnDay(30));
         Assert.Equal(Schedule.Where(x => x.level <= 20).Select(x => x.id), back);
-        Assert.Equal(Features.OreMine, Features.Next(t2, e.Content, OnDay(30))!.Ids[0]);
+        Assert.Equal(Features.PackageIce, Features.Next(t2, e.Content, OnDay(30))!.Ids[0]); // building features are never teased
     }
 
     [Fact]
@@ -186,10 +215,9 @@ public class OnboardingTests
         var e = Engine(); var s = Player(e);
         s.Wallet.Add(Currencies.Diamonds, 10_000);
         var pull = new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Diamonds };
-        s.Counters[Requirements.MainLevelCounter] = 9;
         Assert.Equal("feature locked", Fail(e, ref s, pull, TestHelpers.T0));
-        s.Counters[Requirements.MainLevelCounter] = 10;
-        Ok(e, ref s, pull, TestHelpers.T0); // the settler records the Part Signal before the pull
+        s.Counters[Requirements.MainLevelCounter] = 1;
+        Ok(e, ref s, pull, TestHelpers.T0); // the settler records Parts (and its Part Signal) before the pull
     }
 
     [Fact]
@@ -275,7 +303,7 @@ public class OnboardingTests
 
         // runs once
         s.Counters[Requirements.MainLevelCounter] = 24;
-        Assert.Equal(new[] { Features.OreMine, Features.PackageIce }, Tick(e, ref s, TestHelpers.T0 + H));
+        Assert.Equal(new[] { Features.PackageIce }, Tick(e, ref s, TestHelpers.T0 + H));
         Assert.Contains(Features.PackageIce, OnboardingSystem.PendingCelebrations(s, e.Content));
     }
 

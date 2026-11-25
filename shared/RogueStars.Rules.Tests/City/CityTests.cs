@@ -402,6 +402,28 @@ public class CityTests
     }
 
     [Fact]
+    public void StasisBeacon_IsMythic_OneCopy_MaxSlowAtMost40Percent()
+    {
+        // owner, 2026-11-25: too strong stacked → Mythic (1 copy, 3×3), 10% → 30% at max, ≤ 39% with the +30% placement cap
+        var c = ContentDb.Default;
+        var d = c.Blueprint("bp_stasis_beacon")!;
+        Assert.Equal(Rarity.Mythic, d.Rarity);
+        Assert.Equal((1, 3, 3), (d.Copies, d.Width, d.Height));
+        var boon = d.Boons.Single(b => b.Kind == BoonKind.AwakeningSlowPct);
+        Assert.Equal(10, boon.Base);
+        var e = Engine();
+        var s = Rich(e);
+        UnlockAll(e, s);
+        long t = BuildActive(e, ref s, "bp_stasis_beacon", T0, out var stasis);
+        Staff(e, ref s, stasis, Worker, t);
+        CitySystem.Building(s, stasis).Level = 10;
+        CitySystem.Owned(s, "bp_stasis_beacon").Stars = 10;
+        double placement = CityLayout.PlacementPct(s, e.Content, stasis);
+        Assert.Equal(30 * (1 + placement / 100), e.BuildLoadout(s, t).AwakeningSlowPct, 6);
+        Assert.True(30 * (1 + c.CityTuning.PlacementCapPct / 100.0) <= 40); // the placement cap (+30%) keeps the single copy at 39%
+    }
+
+    [Fact]
     public void CommandSpire_RaisesEveryProducer_PlazaBonus()
     {
         var (e, s, t, uid) = FarmReady();

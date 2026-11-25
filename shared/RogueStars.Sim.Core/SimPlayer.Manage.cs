@@ -445,6 +445,8 @@ namespace RogueStars.Sim
                 if (!Unlocked(GachaSystem.FeatureFor(t))) continue;
                 var def = C.GachaConfig.Types[t];
                 string banner = GachaSystem.ActiveBanner(C, t, Now)?.Id;
+                while (S.Gacha.FreePulls(t) > 0 && Ok(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Free, BannerId = banner }))
+                    UseTime(Timing.PullCommand); // the unlock's free 10×
                 if (WillWatchAd(def.AdPlacementId) && Ok(new GachaPull { PullType = t, Count = 1, Payment = GachaPayment.Ad, AdToken = AdToken, BannerId = banner }))
                     UseTime(AdCost + Timing.PullCommand);
                 while (Bal(def.TokenCurrency) >= def.TokenCost10 && Ok(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Tokens, BannerId = banner }))

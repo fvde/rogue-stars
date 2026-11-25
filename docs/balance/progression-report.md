@@ -641,12 +641,59 @@ Biomass against 5.9M before. Building levels are cheap in comparison (0.3M Bioma
 **Proposal (not applied):** double every producer's placed rate (the design's open "×2" question, `--variant city_rates_x2`,
 `data/city_rates_x2.md`): dig #20 lands on day 170, main level and power are back on the old curve at day 180 (143, 47.1k), the
 worm stays ~2 weeks behind at day 180 (79 vs 90) while parts run ahead (Ore ×2). Alternatively lower the dig costs' Biomass by
-about a third, or both at ×1.5. Owner decision.
+about a third, or both at ×1.5. **Owner decision (2026-11-25): not applied** — the slower progression stays (no producer ×2,
+dig costs unchanged).
 
 **Other numbers.** Building pulls: Active F2P 2.8 a day at d90 with ~4 pull buildings, 8.1 at d730; whales ~10. Buildings
 running: ~18 from day 30 on (aliens are the limit: ~20 aliens minus 3 in the squad). Level curve (my call): first level-up ×1,
 2, 3, 5, 9, 15, 25, 45, 80 (185× in all; Biomass Farm 150 → 12 000). Guard test: the Buildings band moved 7 → 14 days
 (digs count as city progress now; 10 levels per building max out in weeks, the next step is a dig or a new copy).
+
+### City follow-up: unlocks come with pulls (owner, 2026-11-25)
+
+Changes: the Signals open with Parts (1) / Aliens (6) / the City (15), each with one free 10× pull (the City's always holds the
+Launch Pod); buildings (Launch Pod, Laboratory, Grain Farm, Ore Mine, Breeding Pen) unlock with their blueprint, never by level;
+the Laboratory must be pulled, built and staffed; banners pay 80 / 20 on Legendary and Mythic hits with the core blueprint banner
+(Laboratory + the three pull buildings) every other week; the Stasis Beacon is Mythic (max 39%). Re-run: same 9 profiles × 3 seeds ×
+730 days, `data/analysis_city.md`, `data/city_city.md` (new table "Building blueprints"), `data/*_city.csv`, `data/unlocks_city.md`,
+`data/pulls_city.md` (`--pulls`, 365 days). The Hardcore Whale seed 2 crash is fixed (BattleSim, separate commit).
+
+**When the buildings arrive** (median account day; City = the City unlock = the free Blueprint 10× with the Launch Pod):
+
+| Profile | City / Launch Pod | Laboratory pulled | first research | was (Laboratory at level 17) |
+|---|---|---|---|---|
+| Casual F2P | 14 | 110 | 112 | research from ~day 90 (lab_research d90 46) |
+| Active F2P | 2 | 19 | 20 | research by day 30 (37 levels) |
+| Active Whale | 2 | 4 | 13 | research by day 14 |
+| Hardcore F2P | 1 | 3 | 11 | research by day 14 |
+
+Ore Mine and Grain Farm come with the City's free 10× in the median run (Commons), the Breeding Pen within 1–15 days (Casual F2P 29).
+The Laboratory is a Mythic blueprint (0.96% a pull on the core banner, a Mythic every ~58 pulls with the pity): spenders and
+Hardcore players own it within days, Active F2P after ~3 weeks, **Casual F2P only after ~3.5 months** (research then catches up:
+lab 26% vs 38% at d180, 61% vs 64% at d730). Casual Whale pulls it on day 30 but runs its first research only on day 93 (the bot
+saves for the 15 000 Biomass + 10 000 Ore Mythic build after its other key buildings). This is the intended friction; if Casual
+F2P should research earlier, the options are the Laboratory as a guaranteed result of a later free pull or a first-time
+Laboratory pity on the core banner (not applied).
+
+Before → after (median, days 30 / 90 / 180 / 365 / 730):
+
+| Metric | Profile | City redesign (before) | this change |
+|---|---|---|---|
+| Main level | Casual F2P | 25 / 45 / 70 / 115 / 218 | 27 / 44 / 67 / 95 / 195 |
+| | Active F2P | 41 / 73 / 112 / 250 / 431 | 42 / 75 / 118 / 254 / 400 |
+| | Active Whale | 59 / 112 / 215 / 402 / 573 | 57 / 114 / 207 / 403 / 569 |
+| | Hardcore Whale | 64 / 118 / 240 / 446 / 677 | 70 / 124 / 231 / 473 / 677 |
+| Power | Active F2P | 9.9k / 20.3k / 35.6k / 70.6k / 125.4k | 10.7k / 20.9k / 35.3k / 72.1k / 119.8k |
+| Worm level | Active F2P | 40 / 58 / 72 / 108 / 144 | 40 / 59 / 73 / 112 / 144 |
+| Lab done % | Active F2P | 20 / 39 / 52 / 68 / 89 | 13 / 38 / 52 / 72 / 91 |
+| Lab done % | Casual F2P | 2 / 25 / 38 / 51 / 64 | 2 / 2 / 26 / 45 / 61 |
+| Dig #20 (day) | Active F2P | 213 | 201 |
+
+Most profiles move by a few percent either way (seed noise next to the earlier Signals: the Part Signal from level 1 and the
+Alien Signal from 6 bring parts and aliens forward: day-1 power is higher for most profiles, e.g. Active F2P 1.1k → 2.2k); Casual F2P falls behind from day ~180 (main
+level 95 vs 115 at d365, power −8%) as its research starts ~3 months later. Guard tests: the Laboratory wall band moved 28 → 56
+days (Active F2P waits ~50 days in its first 60); "new things in the first two hours" 10 → 9 (the Part Signal is no longer its
+own unlock); building features are left out of the level-unlock check.
 
 ## Remaining recommendations
 

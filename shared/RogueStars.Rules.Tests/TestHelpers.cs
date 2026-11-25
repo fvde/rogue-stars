@@ -56,6 +56,8 @@ public static class TestHelpers
         if (RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_zib") == null) ctx.Grant(new Reward(RewardKinds.Alien, "alien_zib", 1));
         RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_zib").WorkBuildingId = uid;
         RogueStars.Rules.Systems.CityLayout.Invalidate(s);
+        // the Laboratory feature comes with its blueprint: recorded here so its unlock gift (Data) does not land mid-test
+        s.Onboarding.Unlocked.TryAdd(RogueStars.Rules.Systems.Features.Laboratory, T0);
         return uid;
     }
 }

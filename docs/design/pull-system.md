@@ -28,8 +28,16 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
 - **Visible everywhere:** Signals show "Mythic 37/100 · Legendary 12/40" (rarity colours, `Theme.RarityColor`) and the line
   "Guaranteed Mythic by pull 100, Legendary by pull 40 (fixed, never changes). Every 10× pull has at least one Epic." Pull results
   carry the counters (`GachaPullResult.Pity`); the odds modal states the pity and the 10× rule. Summon events show "Luck x/100".
-- Pity is per pull type, shared by all its banners and carried over (unchanged). The banner's featured Mythic keeps its 50%
-  share of Mythic results.
+- Pity is per pull type, shared by all its banners and carried over (unchanged).
+- **Featured 80 / 20 (owner, 2026-11-25), every featured banner:** when a pull on a banner hits Legendary or Mythic and the banner
+  features items of that tier, 80% of those results are a featured item (split evenly when several share the tier) and 20% another
+  item of that tier ("off banner": the tier's pool without the featured items). The tier odds and the pity are unchanged, and there
+  is **no hidden guarantee**: no "lost the 50/50 → the next is featured" carry-over existed before and none was added; every pull
+  rolls the 80/20 afresh. Published: `GachaOddsTier.FeaturedPercent` (80) and the featured / off-banner item percentages in
+  `GachaOdds` (e.g. the core blueprint banner: Laboratory 0.96%, other Mythics 0.24% in all; each pull building 0.8%, the other
+  Legendary results 0.6%). Featured items are Legendary or Mythic only (`BannerTheme.FeaturedTier`, `MoreFeatured`).
+  Summon events are unchanged: their Mythic tier is the featured batch alone (98.8% filler, no other Mythic and no Legendary tier),
+  so there is no off-banner Mythic to give the 20% to — owner to decide if one should be added.
 - The Signal Mythic tier holds Mythic items only (its hero / mount ticket supply entries are gone); Epic and Legendary keep their
   ticket supplies, Common and Rare their Ore / Grain.
 
@@ -53,6 +61,31 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
   purchase (limits 3 / 2 as before), milestones ×5 / ×10 (heroes, pulls 25 / 100) and ×5 (mounts, pull 25), the premium pass ×5
   on its last day (heroes and mounts), breeding 1–3 shards on release. See "Shard sources outside pulls" below. Shards that are not a won batch never unlock by themselves:
   heroes and mounts unlock with the Unlock button at 50; Shard Reactor output unlocks its target at 50 on collect.
+
+## Banner schedule (owner, 2026-11-25)
+
+Every Signal has one rotating banner, one week each from Monday 00:00 UTC (epoch Monday 2027-01-04; the rotation runs before it
+too). Rates and pity never change; the banner only decides which Legendary / Mythic results are featured (80 / 20, above).
+
+| Signal | Cycle | Weeks |
+|---|---|---|
+| Blueprint | 6 weeks | **Core Blueprints** · Command Spire Rising · **Core Blueprints** · Reactor Ignition · **Core Blueprints** · Stasis Beacon Week |
+| Alien | 2 weeks | Nebula Court (Nebulisk) · Swarm Season (Swarmheart) |
+| Part | 4 weeks | Inferno Arsenal · Glacier Vault · Storm Works · Shadow Forge |
+
+- **Core Blueprints** (`ContentDb.CoreBlueprintBannerId` = `bp_core`), every other week: the Laboratory featured in Mythic and the
+  three pull buildings (Blueprint Relay, Alien Signal Beacon, Part Fabricator) featured in Legendary. Nothing else rotates into it.
+  Odds per pull: Laboratory 0.96%, each pull building 0.8%. With the Mythic pity (a Mythic every ~58 pulls on average) a player
+  pulling in core weeks gets the Laboratory about once per ~73 pulls.
+- The themed weeks in between feature one Mythic blueprint each (Command Spire, Shard Reactor, the Stasis Beacon — now Mythic).
+- Why every other week: the Laboratory gates research (pulled, built and staffed) and the pull buildings make the pull chances, so
+  the core banner should never be more than a week away; alternating keeps the Mythic themes (and the Reactor's own banner) in.
+- The free 10× Blueprint pull of the City unlock always holds the Launch Pod (`GachaTypeDef.FreePullGuarantee`, owner's call: it is
+  the only squad-slot source); the free Part / Alien pulls of the Parts / Aliens unlocks have no guarantee.
+
+Re-run of `--pulls` with the City redesign and these rules: `docs/balance/data/pulls_city.md` (the table below is from before the
+City redesign). In that re-run the Reactor columns read 0 for every profile although the Reactor blueprint is owned ("4 M"): the
+bot does not run Reactor jobs in the redesigned city (not investigated here).
 
 ## Hero and mount event pools (filler)
 
@@ -177,5 +210,5 @@ pay Fuel at 1 core = 300 Fuel (the mount event's filler value), or tokens' worth
   "Shard sources outside pulls"; say if those should become Signal tokens.
 - The run's level-up draft keeps its own hidden Legendary pity (GDD §6, in-run skills, not a pull); say if "no hidden pity
   anywhere" should cover it too.
-- The Reactor joined the Blueprint banner rotation (now 3 themes: Command Spire, Reliquary, Reactor), which shifts which Mythic
-  blueprint is featured in a given week.
+- Summon events: their featured batch is the whole Mythic tier, so the 80 / 20 rule has no off-banner Mythic to point at (see
+  "Featured 80 / 20"). Add an off-banner Mythic (another hero / mount's batch) if the rule should bite there too.

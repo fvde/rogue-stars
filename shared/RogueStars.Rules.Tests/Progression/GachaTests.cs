@@ -236,7 +236,7 @@ public class GachaTests
             Assert.Equal(Rarity.Mythic, (Rarity)(t == GachaType.Part ? 4 : b0.Theme.FeaturedRarity));
             var ids = new HashSet<string>();
             for (int w = 0; w < rot.Themes.Count; w++) ids.Add(GachaSystem.ActiveBanner(C, t, TestHelpers.T0 + w * Week)!.Theme.Id);
-            Assert.Equal(rot.Themes.Count, ids.Count); // every theme appears once per cycle
+            Assert.Equal(rot.Themes.Select(x => x.Id).Distinct().Count(), ids.Count); // every theme appears in a cycle
             var later = GachaSystem.ActiveBanner(C, t, TestHelpers.T0 + rot.Themes.Count * Week)!;
             Assert.Equal(b0.Theme.Id, later.Theme.Id);           // cycle repeats
             Assert.NotEqual(b0.Id, later.Id);                     // but is a new occurrence
@@ -263,7 +263,7 @@ public class GachaTests
     }
 
     [Fact]
-    public void FeaturedItem_GetsRateUpShareOfMythics()
+    public void FeaturedItem_Gets80PercentOfMythics()
     {
         var e = Engine(cloner: false); var s = Rich(e);
         var b = GachaSystem.ActiveBanner(C, GachaType.Part, TestHelpers.T0)!;
@@ -276,7 +276,7 @@ public class GachaTests
             Assert.Equal(Rarity.Mythic, it.Tier);
             if (it.Featured) { featured++; Assert.Equal(b.Theme.FeaturedId, it.Id); }
         }
-        Assert.InRange(featured / (double)n, 0.42, 0.58);
+        Assert.InRange(featured / (double)n, 0.72, 0.88); // 80% on banner, 20% another Mythic (owner, 2026-11-25)
     }
 
     [Fact]

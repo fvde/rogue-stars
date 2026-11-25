@@ -4,83 +4,97 @@
 
 | Profile | dig #5 (7) | dig #10 (32) | dig #15 (86) | dig #20 (178) |
 |---|---|---|---|---|
-| Casual F2P | 38 | 81 | 188 | 543 |
-| Casual Dolphin | 26 | 53 | 150 | 467 |
-| Casual Whale | 19 | 41 | 121 | 354 |
-| Active F2P | 10 | 25 | 77 | 213 |
-| Active Dolphin | 8 | 20 | 57 | 145 |
-| Active Whale | 7 | 17 | 57 | 130 |
-| Hardcore F2P | 5 | 18 | 55 | 133 |
-| Hardcore Dolphin | 5 | 16 | 45 | 115 |
-| Hardcore Whale | 5 | 12 | 42 | 108 |
+| Casual F2P | 25 | 71 | 176 | 610 |
+| Casual Dolphin | 13 | 53 | 145 | 467 |
+| Casual Whale | 16 | 39 | 121 | 327 |
+| Active F2P | 7 | 24 | 76 | 201 |
+| Active Dolphin | 5 | 20 | 57 | 142 |
+| Active Whale | 5 | 16 | 55 | 127 |
+| Hardcore F2P | 4 | 16 | 52 | 132 |
+| Hardcore Dolphin | 4 | 14 | 44 | 116 |
+| Hardcore Whale | 3 | 11 | 36 | 106 |
+
+**Building blueprints** (median account day the blueprint arrived, i.e. its feature unlocked; – = not within the run; City = day the City opened)
+
+| Profile | City | Launch Pod | Laboratory | Ore Mine | Grain Farm | Breeding Pen | first research |
+|---|---|---|---|---|---|---|---|
+| Casual F2P | 14 | 14 | 110 | 14 | 14 | 29 | 112 |
+| Casual Dolphin | 7 | 7 | 33 | 7 | 7 | 10 | 44 |
+| Casual Whale | 8 | 8 | 30 | 8 | 8 | 8 | 93 |
+| Active F2P | 2 | 2 | 19 | 2 | 2 | 4 | 20 |
+| Active Dolphin | 2 | 2 | 3 | 2 | 2 | 2 | 14 |
+| Active Whale | 2 | 2 | 4 | 2 | 2 | 2 | 13 |
+| Hardcore F2P | 1 | 1 | 3 | 1 | 1 | 2 | 11 |
+| Hardcore Dolphin | 1 | 1 | 2 | 1 | 1 | 2 | 10 |
+| Hardcore Whale | 1 | 1 | 5 | 1 | 1 | 1 | 8 |
 
 **Digs done** (median)
 
 | Profile | d7 | d30 | d90 | d180 | d365 | d730 |
 |---|---|---|---|---|---|---|
-| Casual F2P | 0 | 2 | 10 | 14 | 17 | 20 |
-| Casual Dolphin | 0 | 6 | 12 | 15 | 18 | 20 |
+| Casual F2P | 0 | 6 | 11 | 15 | 17 | 20 |
+| Casual Dolphin | 1 | 8 | 13 | 15 | 18 | 20 |
 | Casual Whale | 0 | 8 | 13 | 16 | 20 | 20 |
-| Active F2P | 2 | 10 | 15 | 19 | 20 | 20 |
-| Active Dolphin | 4 | 12 | 17 | 20 | 20 | 20 |
-| Active Whale | 5 | 12 | 17 | 20 | 20 | 20 |
-| Hardcore F2P | 6 | 12 | 17 | 20 | 20 | 20 |
+| Active F2P | 5 | 11 | 15 | 19 | 20 | 20 |
+| Active Dolphin | 6 | 12 | 17 | 20 | 20 | 20 |
+| Active Whale | 6 | 12 | 17 | 20 | 20 | 20 |
+| Hardcore F2P | 7 | 12 | 17 | 20 | 20 | 20 |
 | Hardcore Dolphin | 7 | 13 | 18 | 20 | 20 | 20 |
-| Hardcore Whale | 7 | 13 | 19 | 20 | 20 | 20 |
+| Hardcore Whale | 8 | 14 | 19 | 20 | 20 | 20 |
 
 **Buildings placed / running** (median)
 
 | Profile | d7 | d30 | d90 | d180 | d365 | d730 |
 |---|---|---|---|---|---|---|
-| Casual F2P | 0 | 12 | 19 | 18 | 18 | 18 |
-| Casual Dolphin | 0 | 18 | 19 | 18 | 18 | 18 |
-| Casual Whale | 3 | 18 | 18 | 18 | 18 | 18 |
-| Active F2P | 13 | 19 | 18 | 18 | 18 | 18 |
-| Active Dolphin | 17 | 19 | 18 | 18 | 18 | 18 |
+| Casual F2P | 0 | 18 | 19 | 18 | 18 | 18 |
+| Casual Dolphin | 7 | 19 | 19 | 18 | 18 | 18 |
+| Casual Whale | 0 | 18 | 18 | 18 | 18 | 18 |
+| Active F2P | 16 | 19 | 18 | 18 | 18 | 18 |
+| Active Dolphin | 18 | 19 | 18 | 18 | 18 | 18 |
 | Active Whale | 17 | 18 | 18 | 18 | 18 | 18 |
-| Hardcore F2P | 18 | 19 | 19 | 19 | 19 | 19 |
-| Hardcore Dolphin | 18 | 19 | 18 | 18 | 18 | 18 |
+| Hardcore F2P | 17 | 18 | 18 | 18 | 18 | 18 |
+| Hardcore Dolphin | 16 | 19 | 18 | 18 | 18 | 18 |
 | Hardcore Whale | 18 | 18 | 18 | 18 | 18 | 18 |
 
 **Buildings running (staffed)** (median)
 
 | Profile | d7 | d30 | d90 | d180 | d365 | d730 |
 |---|---|---|---|---|---|---|
-| Casual F2P | 0 | 12 | 19 | 18 | 18 | 18 |
-| Casual Dolphin | 0 | 18 | 19 | 18 | 18 | 18 |
-| Casual Whale | 3 | 18 | 18 | 18 | 18 | 18 |
-| Active F2P | 13 | 19 | 18 | 18 | 18 | 18 |
-| Active Dolphin | 17 | 19 | 18 | 18 | 18 | 18 |
+| Casual F2P | 0 | 17 | 19 | 18 | 18 | 18 |
+| Casual Dolphin | 1 | 18 | 19 | 18 | 18 | 18 |
+| Casual Whale | 0 | 18 | 18 | 18 | 18 | 18 |
+| Active F2P | 16 | 19 | 18 | 18 | 18 | 18 |
+| Active Dolphin | 18 | 19 | 18 | 18 | 18 | 18 |
 | Active Whale | 17 | 18 | 18 | 18 | 18 | 18 |
-| Hardcore F2P | 18 | 19 | 18 | 18 | 18 | 18 |
-| Hardcore Dolphin | 18 | 19 | 18 | 18 | 18 | 18 |
+| Hardcore F2P | 17 | 18 | 18 | 18 | 18 | 18 |
+| Hardcore Dolphin | 16 | 19 | 18 | 18 | 18 | 18 |
 | Hardcore Whale | 18 | 18 | 18 | 18 | 18 | 18 |
 
 **Pull buildings placed** (median)
 
 | Profile | d7 | d30 | d90 | d180 | d365 | d730 |
 |---|---|---|---|---|---|---|
-| Casual F2P | 0 | 0 | 3 | 5 | 6 | 6 |
-| Casual Dolphin | 0 | 0 | 3 | 6 | 6 | 6 |
-| Casual Whale | 0 | 2 | 4 | 6 | 6 | 6 |
-| Active F2P | 0 | 3 | 6 | 6 | 6 | 6 |
-| Active Dolphin | 0 | 2 | 4 | 6 | 6 | 6 |
-| Active Whale | 1 | 3 | 6 | 6 | 6 | 6 |
-| Hardcore F2P | 2 | 2 | 4 | 6 | 6 | 6 |
-| Hardcore Dolphin | 0 | 4 | 6 | 6 | 6 | 6 |
-| Hardcore Whale | 0 | 4 | 6 | 6 | 6 | 6 |
+| Casual F2P | 0 | 0 | 4 | 6 | 6 | 6 |
+| Casual Dolphin | 0 | 0 | 4 | 6 | 6 | 6 |
+| Casual Whale | 0 | 2 | 5 | 6 | 6 | 6 |
+| Active F2P | 1 | 3 | 4 | 6 | 6 | 6 |
+| Active Dolphin | 0 | 4 | 6 | 6 | 6 | 6 |
+| Active Whale | 1 | 4 | 6 | 6 | 6 | 6 |
+| Hardcore F2P | 2 | 3 | 6 | 6 | 6 | 6 |
+| Hardcore Dolphin | 2 | 4 | 6 | 6 | 6 | 6 |
+| Hardcore Whale | 1 | 5 | 6 | 6 | 6 | 6 |
 
 **Pulls a day from pull buildings** (median over the 30 days before the checkpoint; per placed pull building in brackets)
 
 | Profile | d30 | d90 | d180 | d365 | d730 |
 |---|---|---|---|---|---|
-| Casual F2P | 0 (–) | 1.4 (0.47) | 3.07 (0.51) | 4.33 (0.72) | 5.57 (0.93) |
-| Casual Dolphin | 0 (0.03) | 1.2 (0.66) | 4.6 (0.77) | 6.17 (1.03) | 7.73 (1.29) |
-| Casual Whale | 0.27 (0.13) | 2.5 (0.63) | 5.67 (0.94) | 7.37 (1.23) | 9.77 (1.63) |
-| Active F2P | 0.6 (0.21) | 2.77 (0.56) | 4.03 (0.67) | 5.27 (0.88) | 8.1 (1.35) |
-| Active Dolphin | 0.4 (0.23) | 2.6 (0.71) | 5.4 (0.9) | 6.67 (1.11) | 9.47 (1.58) |
-| Active Whale | 1.13 (0.38) | 4.8 (0.8) | 6.83 (1.14) | 9.03 (1.51) | 9.93 (1.66) |
-| Hardcore F2P | 0.73 (0.43) | 3.4 (0.67) | 5.03 (0.84) | 5.37 (0.89) | 8.13 (1.36) |
-| Hardcore Dolphin | 1.23 (0.31) | 5.3 (0.88) | 6.33 (1.06) | 8.43 (1.41) | 9.93 (1.66) |
-| Hardcore Whale | 1 (0.33) | 5.6 (0.93) | 7.23 (1.21) | 9.27 (1.54) | 9.83 (1.64) |
+| Casual F2P | 0 (0.05) | 0.53 (0.13) | 3.3 (0.63) | 5.07 (0.84) | 6.97 (1.16) |
+| Casual Dolphin | 0 (0.2) | 1.7 (0.43) | 4.5 (0.75) | 6.3 (1.05) | 8.97 (1.49) |
+| Casual Whale | 0.3 (0.15) | 3.7 (0.78) | 6.7 (1.12) | 8.63 (1.44) | 9.77 (1.63) |
+| Active F2P | 0.8 (0.27) | 3.5 (0.65) | 4.77 (0.79) | 6.13 (1.02) | 9.3 (1.55) |
+| Active Dolphin | 0.97 (0.24) | 4.07 (0.69) | 5.53 (0.92) | 7.93 (1.32) | 9.03 (1.51) |
+| Active Whale | 1.47 (0.37) | 5.4 (0.9) | 7.3 (1.22) | 9.13 (1.52) | 9.73 (1.62) |
+| Hardcore F2P | 1.37 (0.34) | 3.83 (0.64) | 6.2 (1.03) | 8.37 (1.39) | 10.07 (1.68) |
+| Hardcore Dolphin | 1 (0.37) | 5.23 (0.87) | 6.87 (1.14) | 9.27 (1.54) | 9.57 (1.59) |
+| Hardcore Whale | 1.67 (0.42) | 6.2 (1.03) | 8.33 (1.39) | 9.43 (1.57) | 10 (1.67) |
 

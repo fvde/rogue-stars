@@ -149,7 +149,7 @@ public class FullGameSmokeTests
         p.S.Counters[Requirements.MainLevelCounter] = 34;
         p.RunRewards(200_000, 200_000, 100_000);
         var unlockEvents = p.PlayUntilDay(14);
-        Assert.Contains(Features.Breeding, unlockEvents);
+        Assert.DoesNotContain(Features.Breeding, unlockEvents); // a building feature: comes with the Breeding Pen blueprint
         Assert.Contains(Features.Mounts, unlockEvents);
         Assert.NotNull(AlienSystem.Owned(p.S, "alien_blorp"));
 
@@ -158,13 +158,25 @@ public class FullGameSmokeTests
         p.Do(new PurchaseComplete { ProductId = "diamonds_8000", ReceiptId = "dev:smoke-1" });
         Assert.True(p.S.Wallet.Get(Currencies.Diamonds) >= 16_000);
 
-        // Every pull type, tokens and Diamonds.
+        // Every pull type: the free 10× of each Signal (the Blueprint one brings the Launch Pod), tokens and Diamonds.
+        foreach (var t in new[] { GachaType.Part, GachaType.Alien, GachaType.Blueprint })
+            p.Do(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Free });
+        Assert.NotNull(CitySystem.Owned(p.S, ContentDb.LaunchPodId));
+        // the other buildings come from pulls; a server mail stands in for lucky draws
+        string bpMail = (string)p.Do(new MailPush { Title = "Blueprints", Body = "", Rewards = { new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1),
+            new Reward(RewardKinds.Blueprint, "bp_breeding_pen", 1) } }).Payload!;
+        p.Do(new MailClaim { MailId = bpMail });
+        p.Do(new CityCollect());
+        Assert.True(Features.IsUnlocked(p.S, p.E.Content, Features.Breeding)); // recorded by the settler once the pen is owned
+        p.S.Wallet.Add(Currencies.PartTokens, 10); // token income (the unlocks give free pulls, not tokens)
+        p.S.Wallet.Add(Currencies.BlueprintTokens, 1);
+        p.S.Wallet.Add(Currencies.AlienTokens, 1);
         p.Do(new GachaPull { PullType = GachaType.Part, Count = 10, Payment = GachaPayment.Tokens });
         p.Do(new GachaPull { PullType = GachaType.Blueprint, Count = 1, Payment = GachaPayment.Tokens });
         p.Do(new GachaPull { PullType = GachaType.Alien, Count = 1, Payment = GachaPayment.Tokens });
         while (p.S.Aliens.Owned.Count < 2) p.Do(new GachaPull { PullType = GachaType.Alien, Count = 10, Payment = GachaPayment.Diamonds });
         p.Do(new GachaPull { PullType = GachaType.Blueprint, Count = 10, Payment = GachaPayment.Diamonds });
-        Assert.True(p.S.Counter("pulls_part") >= 10 && p.S.Counter("pulls_blueprint") >= 11 && p.S.Counter("pulls_alien") >= 1);
+        Assert.True(p.S.Counter("pulls_part") >= 20 && p.S.Counter("pulls_blueprint") >= 21 && p.S.Counter("pulls_alien") >= 11);
 
         // Worm and parts.
         p.Do(new WormLevelUp { Levels = 5 });
@@ -236,7 +248,12 @@ public class FullGameSmokeTests
         p.Do(new PurchaseStart { ProductId = p.E.Content.Shop.MonthlyPassProductId });
         p.Do(new PurchaseComplete { ProductId = p.E.Content.Shop.MonthlyPassProductId, ReceiptId = "dev:rt-2" });
         foreach (var t in new[] { GachaType.Part, GachaType.Blueprint, GachaType.Alien })
+        {
+            p.Do(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Free });
             p.Do(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Diamonds });
+        }
+        string labMail = (string)p.Do(new MailPush { Title = "Lab", Body = "", Rewards = { new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1) } }).Payload!;
+        p.Do(new MailClaim { MailId = labMail });
         p.DigFree(4);
         p.Build("bp_biomass_farm");
         p.Build(ContentDb.LaunchPodId);

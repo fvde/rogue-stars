@@ -201,7 +201,8 @@ namespace RogueStars.Rules.Systems
         public const string Laboratory = "laboratory";
         public const string Aliens = "aliens";
         public const string AlienSquad = "alien_squad";
-        public const string Blueprints = "blueprints";
+        /// <summary>The Blueprint Signal comes with the City unlock: the same feature id.</summary>
+        public const string Blueprints = BiomassFarm;
         public const string Heroes = "heroes";
         public const string Mounts = "mounts";
         public const string Breeding = "breeding";
@@ -211,8 +212,10 @@ namespace RogueStars.Rules.Systems
         public const string Overcharged = "overcharged";
         public const string Burrow = "burrow";
         public const string DarkSide = "dark_side";
-        public const string PartPulls = "part_pulls";
-        public const string AlienPulls = "alien_pulls";
+        /// <summary>The Part Signal comes with the Parts unlock (owner, 2026-11-25): the same feature id.</summary>
+        public const string PartPulls = Parts;
+        /// <summary>The Alien Signal comes with the Aliens unlock: the same feature id.</summary>
+        public const string AlienPulls = Aliens;
         public const string Forge = "forge";
         public const string Runes = "runes";
         /// <summary>The shop (offers, packs, daily gift). Client navigation gate; purchases themselves are not gated.</summary>
@@ -316,6 +319,13 @@ namespace RogueStars.Rules.Systems
             return level;
         }
 
+        /// <summary>A member unlocks at a main level (false for building features that unlock with their blueprint).</summary>
+        public static bool HasLevelGate(List<FeatureDef> group)
+        {
+            foreach (var f in group) if (UnlockLevel(f) > 0) return true;
+            return false;
+        }
+
         public static bool GroupUnlocked(GameState state, List<FeatureDef> group)
         {
             foreach (var f in group) if (!state.Onboarding.Unlocked.ContainsKey(f.Id)) return false;
@@ -332,6 +342,7 @@ namespace RogueStars.Rules.Systems
             foreach (var group in Groups(content))
             {
                 if (GroupUnlocked(state, group)) continue;
+                if (!HasLevelGate(group)) continue; // a building's feature (unlocks with its blueprint): nothing to tease by level
                 var n = new NextUnlock { GroupId = group[0].GroupId, Description = group[0].Description };
                 var names = new List<string>();
                 bool otherMet = true;

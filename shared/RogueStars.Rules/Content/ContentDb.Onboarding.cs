@@ -25,6 +25,8 @@ namespace RogueStars.Rules.Content
         /// 1 from the first reset after it ("day 2"), ... Not used by feature gates (GDD §16: nothing unlocks by calendar day).
         /// </summary>
         AccountAgeDays,
+        /// <summary>Blueprint Key owned (pulled or granted): building features unlock with their blueprint, not by level.</summary>
+        Blueprint,
     }
 
     [Serializable]
@@ -212,39 +214,47 @@ namespace RogueStars.Rules.Content
                 return f;
             }
             FeatureDef R(string id, string name, long level, string description) => F(id, name, level, 0, null, description, 2, true);
+            // A building's feature: unlocks when its blueprint is owned (after the City), never by level.
+            FeatureDef B(string id, string name, string blueprintId, long diamonds, string tutorial, string description)
+            {
+                var f = F(id, name, 0, diamonds, tutorial, description);
+                f.Requires = RequirementSet.All(ReqFeature(Features.BiomassFarm), new RequirementDef(RequirementKind.Blueprint, blueprintId, 1));
+                return f;
+            }
 
             // GDD §16 level unlocks: every feature unlocks at a main level cleared (the player level: Requirements.MainLevelCounter),
             // never by calendar day, one new thing per level up to level 20, then every 2 levels, then every 3–4. Systems come
             // before what depends on them and every reward kind waits for its use (RewardGate). Run content is introduced
             // after the level before the first board that has it. Main level numbers are global (portal 1 = levels 1..10, ...).
-            F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm: every slot adds stats, rarer parts add skills.");
+            // Unlocks come with pulls (owner, 2026-11-25): Parts open the Part Signal, Aliens the Alien Signal, the City the Blueprint
+            // Signal (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
+            F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones at the Part Signal: your first 10× pull is free.");
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
-            F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien arrives. Aliens run the City's buildings and fly in your squad.");
+            F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien arrives and the Alien Signal opens: your first 10× pull is free. Aliens run the City's buildings and fly in your squad.");
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             F(Features.Quests, "Daily Goals", 8, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
-            F(Features.PartPulls, "Part Signal", 10, 30, null, "Tune in to the Part Signal for new parts. Your first pulls are on the house.");
             R(Features.RunSignatures, "Signature Choice", Campaign.SignatureChoiceFromLevel - 1, "Pick your run's signature skill from three.");
             F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");
-            F(Features.AlienPulls, "Alien Signal", 13, 30, null, "Call more aliens from across the galaxy.");
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
             // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
-            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "The City opens around your crash site: build the Biomass Farm and put an alien to work in it.");
-            F(Features.AlienSquad, "Launch Pod", 16, 30, null, "Build the Launch Pod: the aliens inside are your run squad.");
-            F(Features.Laboratory, "Laboratory", 17, 30, "research_skill", "Build the Laboratory in the City: research makes your worm stronger or adds new skills to every run.");
+            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "The City opens around your crash site and the Blueprint Signal with it: your first 10× pull is free and brings the Launch Pod.");
+            // Buildings come from their blueprint, not from a level (owner, 2026-11-25): these features unlock the moment the blueprint
+            // is owned (pulled). No level, so the hub teaser skips them (Features.Next).
+            B(Features.AlienSquad, "Launch Pod", LaunchPodId, 30, null, "Build the Launch Pod: the aliens inside are your run squad.");
+            B(Features.Laboratory, "Laboratory", LaboratoryId, 30, "research_skill", "Build the Laboratory in the City and staff it: research makes your worm stronger or adds new skills to every run.");
             F(Features.Heroes, "Heroes", 18, 50, "hero_summon", "Hero summon events open: pull for hero shards and copies. A hero adds its kit to every run.");
-            F(Features.GrainFarm, "Grain Farm", 19, 20, null, "Grain feeds the colony: breeding runs on it.");
-            F(Features.Blueprints, "Blueprint Signal", 20, 50, null, "Pull new building blueprints for the City.");
-            F(Features.OreMine, "Ore Mine", 22, 20, null, "Ore powers part merges, the Replicator and upgrades.");
+            B(Features.GrainFarm, "Grain Farm", "bp_grain_farm", 20, null, "Grain feeds the colony: breeding runs on it.");
+            B(Features.OreMine, "Ore Mine", "bp_ore_mine", 20, null, "Ore powers part merges, the Replicator and upgrades.");
             F(Features.PackageIce, "Ice Package", 24, 0, null, "A new Laboratory package: research it to add Ice skills to your runs.", since: 2);
             F(Features.Mounts, "Mounts", 26, 50, null, "Ride into battle: mounts add stats, a shield and their own attacks. Summon events bring more mounts.");
             F(Features.Runes, "Runes", 28, 30, null, "Socket runes into parts for extra stats.");
             F(Features.Funds, "Funds", 30, 0, null, "Growth funds pay out Diamonds as you clear main levels.");
             F(Features.Arena, "Arena", 32, 50, null, "Fight other players' worms for league points and Arena Medals.");
-            F(Features.Breeding, "Breeding Pen", 34, 50, null, "Breed two aliens for a child with better genes.");
+            B(Features.Breeding, "Breeding Pen", "bp_breeding_pen", 50, null, "Breed two aliens for a child with better genes.");
             F(Features.SeasonPass, "Season Pass", 36, 0, null, "Earn pass points from daily goals for a track of rewards every season.");
             F(Features.PackageLightning, "Lightning Package", 38, 0, null, "A new Laboratory package: research it to add Lightning skills to your runs.", since: 2);
             F(Features.Overcharged, "Overcharged Levels", 40, 50, null, "Replay cleared levels with harder modifiers for bigger rewards.");
@@ -274,20 +284,16 @@ namespace RogueStars.Rules.Content
             // The former starting wallet, each part with the unlock that gives it a use (rewards follow use, GDD §13).
             G(Features.Parts, Reward.Cur(Currencies.Ore, 500));
             G(Features.BiomassFarm, Reward.Cur(Currencies.Biomass, 500));
-            G(Features.PartPulls, Reward.Cur(Currencies.PartTokens, 10)); // "your first pulls are on the house"
+            // One free 10× pull of each Signal with its unlock (the Blueprint one always holds the Launch Pod: GachaTypeDef.FreePullGuarantee).
+            G(Features.Parts, new Reward(RewardKinds.FreePull, nameof(GachaType.Part), 1));
             G(Features.Aliens, Reward.Cur(Currencies.Grain, 300));
-            G(Features.AlienPulls, Reward.Cur(Currencies.AlienTokens, 5));
-            G(Features.Blueprints, Reward.Cur(Currencies.BlueprintTokens, 5));
-            G(Features.GrainFarm, new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1));
-            G(Features.Laboratory, new Reward(RewardKinds.Blueprint, LaboratoryId, 1));
+            G(Features.Aliens, new Reward(RewardKinds.FreePull, nameof(GachaType.Alien), 1));
+            G(Features.BiomassFarm, new Reward(RewardKinds.FreePull, nameof(GachaType.Blueprint), 1));
             G(Features.Laboratory, Reward.Cur(Currencies.Data, 60)); // the first researches (later: daily chests, Dark Side)
             G(Features.Aliens, new Reward(RewardKinds.Alien, "alien_blorp", 1));
-            G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, LaunchPodId, 1));
-            G(Features.OreMine, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
             G(Features.Heroes, Reward.Cur(Currencies.HeroTickets, 10)); // the first hero summon event's 10× pull (no starter hero: heroes only come from events)
             G(Features.Mounts, Reward.Cur(Currencies.MountTickets, 10)); // the first mount summon event's 10× pull
             G(Features.Runes, new Reward(RewardKinds.Rune, "rune_vigor", 1, 0));
-            G(Features.Breeding, new Reward(RewardKinds.Blueprint, "bp_breeding_pen", 1));
 
             T("wake_up", "The worm wakes", null, null);
             T("first_roll", "Roll the dice", "wake_up", null);
@@ -315,8 +321,8 @@ namespace RogueStars.Rules.Content
             I(Features.Parts,
                 "Six slots: head, body, tail, legs and two arms.", "parts_slots", Pulse,
                 "Put a part in a slot. Every part adds stats.", "part_equip", Slide,
-                "Spend Ore to level parts up.", "ore", Count,
-                "Rarer parts add skills to every run.", "part_rare", Bounce);
+                "Rarer parts add skills to every run.", "part_rare", Bounce,
+                "Pull parts at the Part Signal. First 10× is free.", "signal", Spin);
             I(Features.RunShop,
                 "Shops now stand on the board.", "shop_tile", Bounce,
                 "Land on one to spend your run coins.", "coins", Count,
@@ -336,7 +342,8 @@ namespace RogueStars.Rules.Content
             I(Features.BiomassFarm,
                 "Your City grows around the crash site.", "city", Pulse,
                 "Paint streets and build next to them.", "farm_build", Tap,
-                "An alien must work in a building to run it.", "biomass", Count);
+                "An alien must work in a building to run it.", "biomass", Count,
+                "Pull blueprints. The first 10× is free.", "blueprint_signal", Spin);
             I(Features.AutoRoll,
                 "Hold the dice to roll on its own.", "dice_hold", Tap,
                 "Auto waits for every choice and fight.", "auto_pause", Pulse,
@@ -349,10 +356,6 @@ namespace RogueStars.Rules.Content
             I(Features.RunCampfire,
                 "Campfires now burn on the board.", "campfire", Pulse,
                 "Rest to heal, or train a skill.", "campfire_choice", Tap);
-            I(Features.PartPulls,
-                "Tune in to the Part Signal for new parts.", "signal", Spin,
-                "Each pull costs one Part Token.", "token", Count,
-                "Merge three equal parts into a rarer one.", "merge", Slide);
             I(Features.RunSignatures,
                 "Every run has a signature skill.", "signature", Pulse,
                 "Now you pick it: one of three.", "signature_pick", Tap,
@@ -361,7 +364,7 @@ namespace RogueStars.Rules.Content
                 "The Shop has offers and Diamond packs.", "shop", Bounce,
                 "A free gift waits there every day.", "gift", Tap);
             I(Features.Laboratory,
-                "Build the Laboratory to start research.", "lab", Pulse,
+                "Build the Laboratory and staff it to start research.", "lab", Pulse,
                 "Research costs Data and takes time.", "data", Fill,
                 "Packages add new skills to your runs.", "package", Slide);
             I(Features.RunMinigames,
@@ -371,7 +374,7 @@ namespace RogueStars.Rules.Content
             I(Features.Aliens,
                 "Your first alien has arrived.", "alien", Bounce,
                 "Aliens run the City's buildings.", "alien_squad", Slide,
-                "Collect more before the City opens.", "grain", Count);
+                "Call more at the Alien Signal. First 10× is free.", "alien_signal", Spin);
             I(Features.AlienSquad,
                 "Build the Launch Pod for a squad seat.", "housing", Tap,
                 "Its aliens fight beside your worm.", "alien_fight", Slide);
@@ -382,12 +385,6 @@ namespace RogueStars.Rules.Content
                 "Hero summon events are open.", "hero_event", Bounce,
                 "Pull with Hero Tickets for heroes and shards.", "hero_pull", Spin,
                 "Your hero adds its skills to every run.", "hero", Pulse);
-            I(Features.AlienPulls,
-                "Call more aliens with the Alien Signal.", "alien_signal", Spin,
-                "Each pull costs one Alien Token.", "alien_token", Count);
-            I(Features.Blueprints,
-                "Pull blueprints for new buildings.", "blueprint_signal", Spin,
-                "Build them in the City for goods and boosts.", "building", Slide);
             I(Features.OreMine,
                 "The Ore Mine digs Ore while you are away.", "ore_mine", Pulse,
                 "Ore levels up and merges your parts.", "ore", Count);
