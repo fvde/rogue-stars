@@ -49,14 +49,14 @@ namespace RogueStars.Client.Editor
             if (assetPath.Contains("/Art/Slice/Textures/")) { ti.isReadable = true; ti.wrapMode = TextureWrapMode.Repeat; }
         }
 
-        /// <summary>Bumped when the import rules change (Unity reimports the art): 2 = ground-contact pivots of standing art (3: footprint x over the lower quarter).</summary>
-        public override uint GetVersion() => 3;
+        /// <summary>Bumped when the import rules change (Unity reimports the art): 2 = ground-contact pivots of standing art (3: footprint x over the lower quarter; 4: the hero worm stands too).</summary>
+        public override uint GetVersion() => 4;
 
         /// <summary>Reimports the standing board art (after a change of the contact rules; batch: -executeMethod).</summary>
         [MenuItem("Tools/Art/Reimport Standing Art (contact pivots)")]
         public static void ReimportStanding()
         {
-            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Art/Resources/Art/Slice" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Art/Resources/Art/Slice", "Assets/Art/Resources/Art/Hero" }))
             {
                 var p = AssetDatabase.GUIDToAssetPath(guid);
                 if (IsStanding(p)) AssetDatabase.ImportAsset(p, ImportAssetOptions.ForceUpdate);
@@ -64,9 +64,9 @@ namespace RogueStars.Client.Editor
             AssetDatabase.SaveAssets();
         }
 
-        /// <summary>Board art that stands on the ground: tile markers, set pieces, scatter props.</summary>
+        /// <summary>Board art that stands on the ground: tile markers, set pieces, scatter props and the hero worm (the board token).</summary>
         public static bool IsStanding(string path) =>
-            path.Contains("/Art/Slice/Markers/") || path.Contains("/Art/Slice/SetPieces/") || path.Contains("/Art/Slice/Scatter/");
+            path.Contains("/Art/Slice/Markers/") || path.Contains("/Art/Slice/SetPieces/") || path.Contains("/Art/Slice/Scatter/") || path.Contains("/Art/Hero/");
 
         /// <summary>The ground contact of a source PNG (read from disk, so the compressed import does not matter).</summary>
         public static ContactInfo ContactOfFile(string path, out int w, out int h)

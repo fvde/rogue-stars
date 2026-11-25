@@ -45,6 +45,36 @@ namespace RogueStars.Client.Screens
             return lv < 5 ? 1 : lv < 20 ? 2 : lv < 50 ? 3 : lv < 100 ? 4 : 5;
         }
 
+        /// <summary>The sky state the hub shows (ArtCatalog.SkyStates), set on every build.</summary>
+        public string Sky { get; private set; }
+
+        /// <summary>Forces the sky state (tests, screenshots); null = <see cref="SkyState"/> from the live events and the local hour.</summary>
+        public static string SkyOverride;
+
+        /// <summary>Night from 19:00 to 06:00 local time.</summary>
+        public const int NightFrom = 19, NightUntil = 6;
+
+        /// <summary>
+        /// The home sky: an invasion running → "invasion", another live event → "event", else "night" (19–6 h local) or "day".
+        /// </summary>
+        public static string SkyState(IList<ActiveLiveEvent> live, int localHour)
+        {
+            if (live != null)
+            {
+                foreach (var e in live) if (e.Kind == LiveOpsKind.Invasion) return ArtCatalog.SkyInvasion;
+                if (live.Count > 0) return ArtCatalog.SkyEvent;
+            }
+            return localHour >= NightFrom || localHour < NightUntil ? ArtCatalog.SkyNight : ArtCatalog.SkyDay;
+        }
+
+        private string CurrentSky()
+        {
+            if (SkyOverride != null) return SkyOverride;
+            if (State == null) return ArtCatalog.SkyDay;
+            int hour = System.DateTimeOffset.FromUnixTimeMilliseconds(Now).ToLocalTime().Hour;
+            return SkyState(HubLayout.LiveEvents(State, Content, Now), hour);
+        }
+
         protected override void Build(RectTransform body)
         {
             var bl = body.GetComponent<VerticalLayoutGroup>();
@@ -55,9 +85,18 @@ namespace RogueStars.Client.Screens
             Ui.Size(holder, -1, frameH);
             _s = frameW / 1080f;
             _h = frameH / _s;
+            // the space backdrop by state (day / night / event / invasion), covering the frame at its own aspect (clipped)
+            holder.gameObject.AddComponent<RectMask2D>();
             var sky = Ui.Panel(holder, Color.white, "Sky");
-            sky.sprite = ScreenArt.Sky(PlanetStage(State)); sky.raycastTarget = false;
+            Sky = CurrentSky();
+            sky.sprite = ScreenArt.Sky(Sky, PlanetStage(State)); sky.raycastTarget = false;
             Ui.Stretch(sky.rectTransform);
+            if (sky.sprite != null && sky.sprite.rect.height > 0)
+            {
+                var fit = sky.gameObject.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fit.aspectRatio = sky.sprite.rect.width / sky.sprite.rect.height;
+            }
             _frame = Ui.Rect(holder, "Home");
             Ui.Stretch(_frame);
             BuildTop();
@@ -466,6 +505,17 @@ namespace RogueStars.Client.Screens
                 bolt.sprite = ScreenArt.Icon("stamina"); bolt.preserveAspect = true; bolt.raycastTarget = false;
                 bolt.rectTransform.anchorMin = bolt.rectTransform.anchorMax = new Vector2(0.5f, 0);
                 bolt.rectTransform.sizeDelta = new Vector2(54 * _s, 54 * _s); bolt.rectTransform.anchoredPosition = new Vector2(-30 * _s, 40 * _s);
+            }
+            // the play button's rocket (Art/Hub/Icons/play_button) launching off its left edge; no drawn fallback
+            var rocketArt = ArtCatalog.HubIcon("play_button");
+            if (rocketArt != null)
+            {
+                var rocket = Ui.Panel(b.transform, Color.white, "PlayRocket");
+                rocket.sprite = rocketArt; rocket.preserveAspect = true; rocket.raycastTarget = false;
+                rocket.rectTransform.anchorMin = rocket.rectTransform.anchorMax = new Vector2(0, 0.5f);
+                rocket.rectTransform.sizeDelta = new Vector2(170 * _s, 170 * _s);
+                rocket.rectTransform.anchoredPosition = new Vector2(6 * _s, 8 * _s);
+                rocket.rectTransform.localRotation = Quaternion.Euler(0, 0, 8);
             }
             if (Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide))
             {

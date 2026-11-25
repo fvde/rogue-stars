@@ -62,7 +62,7 @@ namespace RogueStars.Client.Tests
         public void EveryImportedStandingSprite_HasItsGroundContactAsPivot()
         {
             int n = 0;
-            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Art/Resources/Art/Slice" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Art/Resources/Art/Slice", "Assets/Art/Resources/Art/Hero" }))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 if (!ArtImportSettings.IsStanding(path)) continue;

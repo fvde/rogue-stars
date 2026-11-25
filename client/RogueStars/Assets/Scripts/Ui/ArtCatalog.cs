@@ -46,7 +46,10 @@ namespace RogueStars.Client.UiKit
     /// </summary>
     public static class ArtCatalog
     {
-        /// <summary>The hero worm (transparent, square): board token and battle sprite.</summary>
+        /// <summary>
+        /// The hero worm's body (transparent, square, legless, walking left): board token, battle, home planet, rest scene.
+        /// Imported as standing art (ArtImportSettings: its pivot is the ground contact). Icons use <see cref="WormIcon"/>.
+        /// </summary>
         public const string HeroWorm = "Art/Hero/hero_worm";
         /// <summary>Enemy sprites: <c>Art/Enemies/&lt;enemy def id&gt;</c> (transparent, square).</summary>
         public const string EnemyFolder = "Art/Enemies";
@@ -282,17 +285,40 @@ namespace RogueStars.Client.UiKit
         public const string RunIcons = "Art/Run/Icons";
         /// <summary>The home planet by growth stage: <c>Art/Hub/Planet/planet_stage1</c> … <c>planet_stage5</c>.</summary>
         public const string HubPlanet = "Art/Hub/Planet";
-        /// <summary>Home backdrops: <c>Art/Hub/Scene/&lt;id&gt;</c> (sky = the default sky; sky_stage1…5 per planet stage when present).</summary>
+        /// <summary>
+        /// Home backdrops: <c>Art/Hub/Scene/&lt;id&gt;</c> — <c>sky_day</c>, <c>sky_night</c>, <c>sky_event</c>, <c>sky_invasion</c>
+        /// (full-frame space, HubScreen.SkyState picks one); the older <c>sky</c> / <c>sky_stage1…5</c> are fallbacks.
+        /// </summary>
         public const string HubScene = "Art/Hub/Scene";
-        /// <summary>Home icons: <c>Art/Hub/Icons/&lt;id&gt;</c> (tab_worm, tab_city, tab_planet, tab_signals, tab_arena, shop, offer, pass, mail, more, quests, observatory, invasion, event, map, chapter_rewards, patrol, challenges, settings).</summary>
+        /// <summary>Home icons: <c>Art/Hub/Icons/&lt;id&gt;</c> (tab_worm, tab_city, tab_planet, tab_signals, tab_arena, shop, offer, pass, mail, more, quests, observatory, invasion, event, map, chapter_rewards, patrol, challenges, settings, profile_level = the level badge star, play_button = the START rocket; imported 2026-11-25: tab_worm, shop, pass, event, patrol (quick_harvest), chapter_rewards (quick_chest), profile_level, play_button).</summary>
         public const string HubIcons = "Art/Hub/Icons";
         /// <summary>Run result art: <c>Art/Result/&lt;id&gt;</c> (crown = victory crest, crest_broken = defeat crest, banner = the hanging pennant).</summary>
         public const string ResultArt = "Art/Result";
 
         public static Sprite RunCharacter(string id) => string.IsNullOrEmpty(id) ? null : Load(RunCharacters + "/" + id);
         public static Sprite RunProp(string id) => string.IsNullOrEmpty(id) ? null : Load(RunProps + "/" + id);
-        public static Sprite RunIcon(string id) => string.IsNullOrEmpty(id) ? null : Load(RunIcons + "/" + id);
+        /// <summary>
+        /// A run reward / option icon. Max HP has no icon of its own (owner, 2026-11-25): it shows the HUD heart
+        /// (<c>Art/Slice/Hud/heart</c>) unless a <c>max_hp</c> file is ever imported.
+        /// </summary>
+        public static Sprite RunIcon(string id) => string.IsNullOrEmpty(id) ? null
+            : Load(RunIcons + "/" + id) ?? (id == MaxHpIcon ? SliceHud("heart") : null);
+        public const string MaxHpIcon = "max_hp";
         public static Sprite Planet(int stage) => Load(HubPlanet + "/planet_stage" + Mathf.Clamp(stage, 1, 5));
+        public const string SkyDay = "day", SkyNight = "night", SkyEvent = "event", SkyInvasion = "invasion";
+        public static readonly string[] SkyStates = { SkyDay, SkyNight, SkyEvent, SkyInvasion };
+
+        /// <summary>Iso island ground chunks: <c>Art/Slice/Ground/&lt;id&gt;</c> (ground_corner, ground_large, ground_long, ground_small; alternates <c>&lt;id&gt;_2</c>). Imported for board decoration, not drawn yet.</summary>
+        public const string SliceGroundFolder = SliceRoot + "/Ground";
+        public static readonly string[] SliceGroundIds = { "ground_corner", "ground_large", "ground_long", "ground_small" };
+        public static Sprite SliceGround(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceGroundFolder + "/" + id);
+
+        /// <summary>
+        /// The worm as an icon (the Worm tab, the profile avatar): <c>Art/Hub/Icons/tab_worm</c>, else the hero body sprite.
+        /// The body (<see cref="Hero"/>) is the legless walking worm drawn on the board, in battle and on the home planet.
+        /// </summary>
+        public static Sprite WormIcon() => HubIcon("tab_worm") ?? Hero();
+
         public static Sprite HubSceneArt(string id) => string.IsNullOrEmpty(id) ? null : Load(HubScene + "/" + id);
         public static Sprite HubIcon(string id) => string.IsNullOrEmpty(id) ? null : Load(HubIcons + "/" + id);
         public static Sprite Result(string id) => string.IsNullOrEmpty(id) ? null : Load(ResultArt + "/" + id);

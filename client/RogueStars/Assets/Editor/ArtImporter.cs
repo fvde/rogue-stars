@@ -184,7 +184,38 @@ namespace RogueStars.Client.Editor
             { "run-characters", ("Art/Run/Characters", true) },
             { "run-props", ("Art/Run/Props", true) },
             { "run-icons", ("Art/Run/Icons", true) },
+            // art import 2026-11-25: home icons / backdrops, run result emblems, iso ground chunks, the hero worm
+            { "hub-icons", ("Art/Hub/Icons", true) },
+            { "hub-scene", ("Art/Hub/Scene", false) },
+            { "run-result", ("Art/Result", true) },
+            { "board-ground", ("Art/Slice/Ground", true) },
+            { "hero", ("Art/Hero", false) },
         };
+
+        /// <summary>
+        /// A picks category without its package generation suffix: "slice-hud2" → "slice-hud", "slice-markers4" →
+        /// "slice-markers" (a redo package lands in <c>&lt;assets&gt;/slice-hud2/</c> but goes to the same Resources folder).
+        /// </summary>
+        public static string BaseCategory(string category)
+        {
+            if (string.IsNullOrEmpty(category)) return category;
+            int n = category.Length;
+            while (n > 0 && char.IsDigit(category[n - 1])) n--;
+            return n > 0 && n < category.Length ? category.Substring(0, n) : category;
+        }
+
+        /// <summary>
+        /// The source file of a pick: an absolute path ("/…") or a home path ("~/…", e.g. a full-frame original under
+        /// ~/AI/out) as given; a value with a "/" is a path under <c>&lt;assets&gt;/&lt;category&gt;/</c> (an alternate, or
+        /// "../hub-icons/tab_worm/S_s5001.png" for a file of another package); else a file in <c>&lt;assets&gt;/&lt;category&gt;/&lt;id&gt;/</c>.
+        /// </summary>
+        public static string PickSource(string assetsRoot, string category, string id, string value)
+        {
+            if (value.StartsWith("~/", StringComparison.Ordinal))
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), value.Substring(2));
+            if (Path.IsPathRooted(value)) return value;
+            return value.Contains("/") ? Path.Combine(assetsRoot, category, value) : Path.Combine(assetsRoot, category, id, value);
+        }
 
         /// <summary>The generic boss marker is retired: an old pick of it is never imported.</summary>
         public const string RetiredBossMarker = "slice-markers/boss";
@@ -204,12 +235,12 @@ namespace RogueStars.Client.Editor
             foreach (var kv in picks)
             {
                 var parts = kv.Key.Split('/');
-                if (parts.Length != 2 || !SliceDest.TryGetValue(parts[0], out var dest) || string.IsNullOrEmpty(kv.Value)) continue;
-                if (kv.Key == RetiredBossMarker) continue; // the boss gate shows the run's own boss sprite (IsoArt.BossMarker)
+                if (parts.Length != 2 || !SliceDest.TryGetValue(BaseCategory(parts[0]), out var dest) || string.IsNullOrEmpty(kv.Value)) continue;
+                if (BaseCategory(parts[0]) + "/" + parts[1] == RetiredBossMarker) continue; // the boss gate shows the run's own boss sprite (IsoArt.BossMarker)
                 items.Add(new ArtImportItem
                 {
                     Kind = ArtKind.Slice, Id = kv.Key,
-                    Source = kv.Value.Contains("/") ? Path.Combine(assetsRoot, parts[0], kv.Value) : Path.Combine(assetsRoot, parts[0], parts[1], kv.Value),
+                    Source = PickSource(assetsRoot, parts[0], parts[1], kv.Value),
                     Dest = dest.folder + "/" + parts[1] + ".png", Trim = dest.trim,
                 });
             }

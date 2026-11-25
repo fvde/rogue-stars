@@ -236,13 +236,16 @@ namespace RogueStars.Client.App
             var avatar = Ui.RoundPanel(gold.transform, new Color32(0x3C, 0x5C, 0x9C, 255), 14, "Avatar");
             Ui.Stretch(avatar.rectTransform, 8, 8, 8, 8);
             var face = Ui.Panel(avatar.transform, Color.white, "Portrait");
-            face.sprite = ArtCatalog.Hero(); face.preserveAspect = true; face.raycastTarget = false;
+            face.sprite = ArtCatalog.WormIcon(); face.preserveAspect = true; face.raycastTarget = false;
             face.enabled = face.sprite != null;
             Ui.Stretch(face.rectTransform, 4, 4, 4, 0);
-            var lvBg = Ui.RoundPanel(frame.transform, new Color32(0x5C, 0xC8, 0x4C, 255), 16, "LevelBadge");
+            // the level badge: the star badge art (Art/Hub/Icons/profile_level), else a green pill
+            var star = ArtCatalog.HubIcon("profile_level");
+            var lvBg = star != null ? Ui.Panel(frame.transform, Color.white, "LevelBadge") : Ui.RoundPanel(frame.transform, new Color32(0x5C, 0xC8, 0x4C, 255), 16, "LevelBadge");
+            if (star != null) { lvBg.sprite = star; lvBg.preserveAspect = true; lvBg.raycastTarget = false; }
             var lrt = lvBg.rectTransform;
             lrt.anchorMin = lrt.anchorMax = new Vector2(1, 0); lrt.pivot = new Vector2(1, 0);
-            lrt.sizeDelta = new Vector2(56, 40); lrt.anchoredPosition = new Vector2(6, -4);
+            lrt.sizeDelta = star != null ? new Vector2(72, 72) : new Vector2(56, 40); lrt.anchoredPosition = star != null ? new Vector2(16, -14) : new Vector2(6, -4);
             var lv = Screens.SliceKit.Chunky(lvBg.transform, s.State != null ? s.State.Worm.Level.ToString() : "", 28, Color.white, TextAnchor.MiddleCenter, "WormLevel");
             Ui.Stretch(lv.rectTransform);
             string who = s.State != null ? (s.State.DisplayName ?? s.State.PlayerId) : "…";
