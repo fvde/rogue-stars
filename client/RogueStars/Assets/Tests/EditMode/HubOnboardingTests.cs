@@ -122,7 +122,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.App.Router.Pop(), Is.True);
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>(), "back returns to the hub, not to the moment");
 
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:signals" }));
             Assert.That(Named(Hub.Root, "BadgeText").text, Is.EqualTo("NEW"));
             Assert.That(Named(Hub.Root, "GoalText").text, Does.Contain("Equip your starter parts"));
             Assert.That(Hub.ShowPendingUnlock(), Is.False, "nothing pending any more");
@@ -133,10 +133,10 @@ namespace RogueStars.Client.Tests
         {
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet" }));
             Unlock(Features.Parts, Features.Quests);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:signals" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:quests"));
             Unlock(Features.BiomassFarm);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:signals" }));
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"));
             Unlock(Features.WormLevel, Features.PartPulls, Features.Shop);
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:signals" }));
@@ -210,7 +210,7 @@ namespace RogueStars.Client.Tests
             Assert.That(moment.Action, Is.Null, "the guided action waits on the last panel");
             moment.ShowPage(moment.PageCount - 1);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("BUILD THE FARM"));
-            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 16: Launch Pod"));
+            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 18: Heroes"));
             moment.Claim();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
             Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.BiomassFarm));

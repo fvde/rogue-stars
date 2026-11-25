@@ -79,8 +79,13 @@ namespace RogueStars.Client.World
             if (r.Kind == RewardKinds.Hero) return Featured(SummonEventType.Hero, r.Id);
             if (r.Kind == RewardKinds.Mount) return Featured(SummonEventType.Mount, r.Id);
             if (r.Kind == RewardKinds.HeroShards) return Icon("shards");
+            if (r.Kind == RewardKinds.FreePull) return Icon(FreePullIcon(r.Id));
             return Icon(IconOfCurrency(r.Kind == RewardKinds.Currency ? r.Id : null));
         }
+
+        /// <summary>A free 10× pull shows its Signal's token.</summary>
+        public static string FreePullIcon(string gachaType) =>
+            gachaType == "Blueprint" ? IconOfCurrency(Currencies.BlueprintTokens) : gachaType == "Alien" ? IconOfCurrency(Currencies.AlienTokens) : IconOfCurrency(Currencies.PartTokens);
 
         /// <summary>The featured hero / mount, big.</summary>
         public static Sprite Featured(SummonEventType type, string id)

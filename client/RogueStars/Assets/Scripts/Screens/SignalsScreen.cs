@@ -22,7 +22,7 @@ namespace RogueStars.Client.Screens
         private bool _standard;
 
         public override string Title => "Signals";
-        public override string[] IntroFeatures => new[] { Features.PartPulls, Features.AlienPulls, Features.Blueprints };
+        public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm }; // the Signals unlock with Parts / Aliens / the City
 
         protected override void Build(RectTransform body)
         {
@@ -54,7 +54,8 @@ namespace RogueStars.Client.Screens
                 var th = banner.Theme;
                 Ui.Display(card, th.Name, Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "BannerName");
                 FeaturedArt(card, th.FeaturedKind, th.FeaturedId);
-                Ui.Display(card, "Featured: " + FeaturedName(th.FeaturedKind, th.FeaturedId), Theme.FontNormal, Theme.Cream, TextAnchor.MiddleCenter, "Featured");
+                Ui.Display(card, "Featured: " + FeaturedLine(th), Theme.FontNormal, Theme.Cream, TextAnchor.MiddleCenter, "Featured").horizontalOverflow = HorizontalWrapMode.Wrap;
+                Ui.Label(card, Fmt.Whole(th.FeaturedShare * 100) + "% of each featured tier's results are featured", Theme.FontSmall, Theme.Cream, TextAnchor.MiddleCenter, "FeaturedShare");
                 Live(Ui.Label(card, "", Theme.FontSmall, Theme.Cream, TextAnchor.MiddleCenter, "EndsIn"), () => "Ends in " + Fmt.Duration(banner.EndMs - Now));
             }
             else
@@ -68,6 +69,10 @@ namespace RogueStars.Client.Screens
             string bannerId = useBanner ? banner.Id : null;
             long tokens = State.Wallet.Get(def.TokenCurrency);
             long dia = State.Wallet.Get(Currencies.Diamonds);
+            int free = State.Gacha.FreePulls(type);
+            if (free > 0)
+                PullButton(body, "Free 10×" + (free > 1 ? " (" + free + ")" : ""), SummonArt.IconOfCurrency(def.TokenCurrency), "free", true,
+                    () => Pull(type, 10, GachaPayment.Free, bannerId), Theme.Good, "Pull:10:free");
             var row = Ui.Row(body, 130, 14, null, 0, "TokenPulls");
             PullButton(row, "1×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost1), tokens >= def.TokenCost1, () => Pull(type, 1, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:1:tokens");
             PullButton(row, "10×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost10), tokens >= def.TokenCost10, () => Pull(type, 10, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:10:tokens");
@@ -95,6 +100,19 @@ namespace RogueStars.Client.Screens
                 // the cost turns red when the balance is short (SM2/SG2: show the price, not have/need)
                 foreach (var t in b.GetComponentsInChildren<UnityEngine.UI.Text>(true)) if (t.name == "Count") t.color = Theme.Bad;
             }
+        }
+
+        /// <summary>Every featured item, by tier: "Laboratory (Mythic) · Blueprint Relay, Alien Signal Beacon, Part Fabricator (Legendary)".</summary>
+        private string FeaturedLine(BannerTheme th)
+        {
+            var parts = new List<string>();
+            foreach (var tier in new[] { Rarity.Mythic, Rarity.Legendary })
+            {
+                var names = new List<string>();
+                foreach (var f in th.FeaturedIn(tier)) names.Add(FeaturedName(f.Kind, f.Id));
+                if (names.Count > 0) parts.Add(string.Join(", ", names) + " (" + tier + ")");
+            }
+            return parts.Count > 0 ? string.Join(" · ", parts) : FeaturedName(th.FeaturedKind, th.FeaturedId);
         }
 
         /// <summary>The featured item's name, without its rarity ("Plasma Blaster").</summary>
@@ -195,7 +213,7 @@ namespace RogueStars.Client.Screens
             {
                 foreach (var tier in odds.Tiers)
                 {
-                    Ui.Label(b, tier.Tier + ": " + Fmt.Odds(tier.Percent), Theme.FontNormal, Theme.RarityColor(tier.Tier));
+                    Ui.Label(b, tier.Tier + ": " + Fmt.Odds(tier.Percent) + (tier.FeaturedPercent > 0 ? " · " + Fmt.Whole(tier.FeaturedPercent) + "% featured" : ""), Theme.FontNormal, Theme.RarityColor(tier.Tier));
                     var items = new List<string>();
                     foreach (var it in tier.Items)
                     {

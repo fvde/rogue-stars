@@ -98,8 +98,17 @@ namespace RogueStars.Client.App
                     return (r.Amount > 1 ? r.Amount + "× " : "") + "Mount " + (content != null && content.MountConfig.Defs.TryGetValue(r.Id, out var md) ? md.Name : r.Id);
                 case RewardKinds.Hero:
                     return (r.Amount > 1 ? r.Amount + "× " : "") + "Hero " + (content != null && content.HeroConfig.Defs.TryGetValue(r.Id, out var hc) ? hc.Name : r.Id);
+                case RewardKinds.FreePull: return FreePull(r, content);
                 default: return r.Amount + "× " + r.Kind + " " + r.Id;
             }
+        }
+
+        /// <summary>"Free 10× Blueprint Signal" (a free_pull reward: id = the pull type, amount = free 10× pulls).</summary>
+        public static string FreePull(Reward r, ContentDb content)
+        {
+            string name = r.Id;
+            if (content != null && System.Enum.TryParse<GachaType>(r.Id, out var t) && content.GachaConfig.Types.TryGetValue(t, out var d)) name = d.Name;
+            return (r.Amount > 1 ? r.Amount + "× " : "") + "Free 10× " + name;
         }
 
         public static string Rewards(IEnumerable<Reward> rewards, ContentDb content)
