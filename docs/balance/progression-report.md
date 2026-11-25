@@ -598,6 +598,56 @@ skills, 10–20 shop purchases and 2–5 mythic picks and spend no more coins th
 minutes at the players' battle speed. `Runs_LastAbout30Rolls_…` unchanged (27–35 rolls, 8–12 drafts, ≤ 3 account-loot
 opportunities).
 
+## City redesign (rules, server, sim)
+
+Owner-approved City design (docs/design/city.md): 25 buildings at 3× growth, aliens as the only workers, land you dig (20 digs
+on the dig table), streets, placement skills, pull buildings that make poppable chances, cheaper Grain. Full run (9 profiles ×
+3 seeds × 730 days): `data/analysis_city.md`, `data/city_city.md` (digs, buildings, pull buildings), `data/*_city.csv`.
+Baseline on main before the change (same bot otherwise, Hardcore Whale left out because seed 2 crashes in `BattleSim.DealDamage`
+on main: "Collection was modified"): `data/analysis_pre_city.md`, `data/*_pre_city.csv`.
+
+**Sim bot.** Builds a street spine (vertical streets every 4 columns + the fireplace row, paved as the land grows), places
+buildings with `CityPlanner` (best placement bonus, ≤ 2 new street tiles), keeps an order of importance (Launch Pod, Biomass
+Farm, Laboratory, Ore Mine, Gear Works, the three pull buildings, Diamond Mine, Stasis Beacon …), stores the least important
+building when it runs out of aliens or room for a key building (Laboratory, pull buildings, Command Spire), staffs one alien per
+building then spares on Biomass. Digs the free patch that touches most of its land as soon as the dig pot allows: the pot is
+35% of the Biomass / Ore earned since the last dig (45% for digs 16–20, 75% of Gear Cores), per the design's "a dig eats about
+30% … the last five 40–45%". It saves for the next key building; a worm that went 5 days without an upgrade may take one
+upgrade out of the savings.
+
+**Targets** (median, City design §4 / §6):
+
+| Target | Result | |
+|---|---|---|
+| Dig #20 around day 180 ± 20 (Active F2P) | day 213 (dig #10 day 25, #15 day 77) | 15 days late |
+| Pull buildings: ~3 pulls a day when placed, ~10 at max (all six) | 0.5–0.7 a day per building when new (≈ 3 for six), 1.35–1.66 at d730 (8–10 a day with six) | on target |
+| Worm / parts no more than ~1 week slower | parts on par (Active F2P part level d180 59.5 vs 56.2), worm **~70 days slower** (level 72 at d180 vs 90; the old city reached 72 on day ~109), main level ~45 days slower (112 vs 143 at d180), power −20% at d180 | **badly missed (worm)** |
+
+Before → after (median, Active F2P, days 30 / 90 / 180 / 365):
+
+| Metric | before (main) | City redesign | redesign, producers ×2 (proposal) |
+|---|---|---|---|
+| Main level | 49 / 82 / 143 / 273 | 41 / 73 / 112 / 250 | 46 / 83 / 143 / 286 |
+| Worm level | 47 / 67 / 90 / 129 | 40 / 58 / 72 / 108 | 40 / 59 / 79 / 116 |
+| Part level avg | 21 / 36 / 56 / 92 | 18 / 39 / 60 / 96 | 26 / 55 / 82 / 116 |
+| Power | 12.6k / 23.8k / 44.4k / 90.6k | 9.9k / 20.3k / 35.6k / 70.6k | 11.1k / 23.3k / 47.1k / 83.8k |
+| Dig #20 | – | day 213 | day 170 |
+
+Why the worm slows down: by day 180 (Active F2P seed 1) the redesigned city earns 5.5M Biomass in all against 8.3M before
+(−33%, the design expected −15%: the Spore Vats are gone, producers grow 3× instead of ~11×, the City opens at level 15
+instead of 6 and an unstaffed building makes nothing), and the 20 digs take 2.4M of it by then (43%). The worm got 2.7M
+Biomass against 5.9M before. Building levels are cheap in comparison (0.3M Biomass by day 180 with the level curve below).
+
+**Proposal (not applied):** double every producer's placed rate (the design's open "×2" question, `--variant city_rates_x2`,
+`data/city_rates_x2.md`): dig #20 lands on day 170, main level and power are back on the old curve at day 180 (143, 47.1k), the
+worm stays ~2 weeks behind at day 180 (79 vs 90) while parts run ahead (Ore ×2). Alternatively lower the dig costs' Biomass by
+about a third, or both at ×1.5. Owner decision.
+
+**Other numbers.** Building pulls: Active F2P 2.8 a day at d90 with ~4 pull buildings, 8.1 at d730; whales ~10. Buildings
+running: ~18 from day 30 on (aliens are the limit: ~20 aliens minus 3 in the squad). Level curve (my call): first level-up ×1,
+2, 3, 5, 9, 15, 25, 45, 80 (185× in all; Biomass Farm 150 → 12 000). Guard test: the Buildings band moved 7 → 14 days
+(digs count as city progress now; 10 levels per building max out in weeks, the next step is a dig or a new copy).
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still
