@@ -1,0 +1,13 @@
+{
+  "name": "pkg-run-props3",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [6321, 6322, 6323],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text",
+  "negative": "coins, money, treasure, green fire, scenery, multiple objects, text, watermark, blurry, photo",
+  "subjects": {
+    "abandoned_cart": "a small empty abandoned wooden handcart with one broken wheel and a torn cloth cover, nothing inside, simple shapes, bold outline",
+    "campfire_big": "a cozy campfire with warm orange and yellow flames on crossed logs inside a small ring of round stones, simple shapes, bold outline"
+  }
+}

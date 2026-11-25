@@ -1,0 +1,17 @@
+{
+  "name": "pkg-slice-hud3",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [5421, 5422, 5423],
+  "suffix": ", game user interface icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, extra details, ornaments, multiple objects, watermark, blurry, photo, realistic",
+  "variants": [
+    {"key": "L", "model": "flux", "style": "flat cartoon mobile game icon, one single simple bold symbol, very clear silhouette, minimal detail, thick black outline, two or three flat colors, filling the square", "note": "Flux, simpler L"}
+  ],
+  "subjects": {
+    "sword": "one simple short sword pointing up diagonally, silver blade, brown handle",
+    "shield": "one simple round blue shield with a single white star in the middle",
+    "speed": "a simple bold double right arrow fast forward symbol, yellow",
+    "reroll": "a simple bold circular refresh arrow, one arrow forming a circle, green"
+  }
+}
