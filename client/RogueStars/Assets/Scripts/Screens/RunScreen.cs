@@ -112,6 +112,45 @@ namespace RogueStars.Client.Screens
         /// <summary>Seconds of the eased pan and zoom back to the follow framing (a roll / a move).</summary>
         public const float ReturnSeconds = 0.4f;
 
+        /// <summary>
+        /// G1 board feedback: a floor title card sweeps across the board (T44), a looted cache puffs and shows an empty chest
+        /// (T47), the boss icon on the track shakes and glows (T48).
+        /// </summary>
+        public override bool OnFeedback(GameEvent e)
+        {
+            if (_holder == null) return false;
+            switch (e.Type)
+            {
+                case "run_burrow_descend":
+                {
+                    var banner = RevealBanner.Show(_holder, "FLOOR " + (e.Args.Count > 0 ? e.Args[0] : ""), new Color32(0x6A, 0x4A, 0x2A, 255), null, 0.6f, 170);
+                    banner.name = "FloorCard";
+                    var go = banner.gameObject;
+                    UiTweens.Play(go, "life", 1.6f, null, () => Ui.DestroyGo(go));
+                    LastBoardFeedback = e.Type;
+                    return true;
+                }
+                case "run_cache_empty":
+                    App.Feedback.FloatNumber(_holder, "Empty", Theme.TextDim);
+                    LastBoardFeedback = e.Type;
+                    return true;
+                case "boss_awaken":
+                {
+                    RectTransform clock = null;
+                    foreach (var rt in _holder.GetComponentsInChildren<RectTransform>(true)) if (rt.name == "ClockTrack") { clock = rt; break; }
+                    if (clock == null) return false;
+                    FeedbackFx.Shake(clock, 10f, 0.5f);
+                    FeedbackFx.Flash(clock, Theme.Bad, 0.7f);
+                    LastBoardFeedback = e.Type;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The last board feedback played (tests).</summary>
+        public string LastBoardFeedback { get; private set; }
+
         public override string Title
         {
             get
@@ -140,8 +179,6 @@ namespace RogueStars.Client.Screens
         /// <summary>No app header and no footer: the HUD floats over the world (reference 1).</summary>
         public override float HeaderHeight => 0;
         public override bool CoversResourceBar => true;
-        /// <summary>Toasts float above the dice cap.</summary>
-        public override float ToastBottomInset => ControlsScale(_holderSize.x > 0 ? _holderSize : new Vector2(972, 2160)) * (ControlsTopRef + 20);
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
         public bool Auto => _auto;
@@ -772,7 +809,7 @@ namespace RogueStars.Client.Screens
         private void Hud(ActiveRun run, RunHudStats shown)
         {
             _skillCount = RunSystem.BuildSize(run);
-            _hud = SliceHud.Build(_holder, _holderSize.x, PauseModal, () => Session.Info("Run level " + _hud.Level.text + " · " + _hud.XpText), true);
+            _hud = SliceHud.Build(_holder, _holderSize.x, PauseModal, () => App.Feedback.Tip("Run level " + _hud.Level.text + " · " + _hud.XpText, _hud.Level.rectTransform, true), true); // T50
             _coins = _hud.Coins;
             SliceHud.BossRail(_holder, RunPresentation.BossClock(Content, run), _hud.Scale);
             ShowHud(shown, shown.Level, shown.XpNeed > 0 ? (float)shown.Xp / shown.XpNeed : 0);
@@ -973,6 +1010,7 @@ namespace RogueStars.Client.Screens
             lip.effectDistance = new Vector2(1.5f, -3f);
             caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = DiceStand.FrontWall01;
             caption.rectTransform.sizeDelta = new Vector2(420 * s, 70 * s);
+            _diceAnchor = btnRt;
             var hold = btnRt.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () =>
             {
@@ -1157,6 +1195,8 @@ namespace RogueStars.Client.Screens
             _coachMark = mark;
         }
 
+        private RectTransform _diceAnchor;
+
         /// <summary>
         /// A hold on the dice: auto mode once Auto Roll is unlocked; before that a short hint says when it unlocks
         /// (owner playtest 0.1.224: a silent hold felt broken).
@@ -1164,7 +1204,7 @@ namespace RogueStars.Client.Screens
         public void HoldDice()
         {
             if (Session.IsUnlocked(Features.AutoRoll)) StartAuto();
-            else Session.Info(AutoRollHint(Content));
+            else App.Feedback.Tip(AutoRollHint(Content), _diceAnchor); // anchored above the dice
         }
 
         /// <summary>"Auto Roll unlocks at level 7" (the feature's unlock level from content).</summary>
@@ -1507,7 +1547,7 @@ namespace RogueStars.Client.Screens
                 // C3: an owned skill reads "Name Lv 2" with the upgrade inline (no "LEVEL 1 → 2" chip); D4: no synergy tag
                 else if (ownedLevel == 0 && sk?.UpgradesFrom != null) { spec.Chip = "UPGRADE"; spec.ChipColor = new Color32(0xD6, 0xC2, 0xFF, 255); }
                 string info = (sk?.Name ?? sid) + " (" + rarity + (fam != SkillFamily.None ? " · " + SkillText.FamilyName(fam) : "") + "): " + SkillText.StripMarks(full) + (ownedLevel > 0 ? " " + LevelUpText(Content) : "");
-                SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => Session.Info(info), "Button:Pick", lay.CardH);
+                SliceCards.Card(root, s, y, spec, () => { modal.Close(); CloseDecision(); Run(new RunDraftPick { SkillId = sid }); }, () => App.Feedback.Tip(info), "Button:Pick", lay.CardH);
                 y += step;
             }
             SliceCards.Reroll(root, s, "Reroll (" + run.DraftRerolls + ")", () => Run(new RunDraftReroll()), run.DraftRerolls > 0);

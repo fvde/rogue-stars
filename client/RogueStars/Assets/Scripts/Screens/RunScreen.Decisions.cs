@@ -704,7 +704,7 @@ namespace RogueStars.Client.Screens
                 };
                 string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
                 var group = OfferGroup(index, 540, y);
-                var card = SliceCards.Card(group, s, y, spec, null, () => Session.Info(info), "Offer", h, "Words");
+                var card = SliceCards.Card(group, s, y, spec, null, () => App.Feedback.Tip(info), "Offer", h, "Words");
                 var body = card.Find("Words/SkillText") as RectTransform;
                 if (body != null) body.offsetMax = new Vector2(-250 * s, body.offsetMax.y);
                 var slot = Ui.Rect(group, "OfferSlot:" + index);

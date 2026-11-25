@@ -25,8 +25,6 @@ namespace RogueStars.Client.Screens
         public override bool ShowBack => false;
         public override float HeaderHeight => 0;
 
-        /// <summary>Toasts float above START and the tab bar.</summary>
-        public override float ToastBottomInset => 640 * (BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width / 1080f : 1);
 
         private static readonly Color Panel = new Color(0.08f, 0.06f, 0.16f, 0.55f);
         private static readonly Color BadgeRed = new Color32(0xE8, 0x3A, 0x48, 255);

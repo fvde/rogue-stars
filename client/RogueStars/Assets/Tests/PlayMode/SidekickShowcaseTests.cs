@@ -104,7 +104,6 @@ namespace RogueStars.Client.PlayTests
             }
             _svc.State.Wallet.Add(Currencies.AlienShards("alien_pebblehorn"), 12);
             _svc.State.Aliens.Squad = new List<string> { "alien_shiverpup", "alien_frostmite" };
-            _svc.State.Aliens.LevelGrainRefunded = 18_400;
             _svc.Refresh(_ => { });
             _app.Open("aliens");
             yield return Wait(0.8f);

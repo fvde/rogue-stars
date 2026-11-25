@@ -42,12 +42,10 @@ namespace RogueStars.Client.App
         /// <summary>Height of a fixed bottom action bar outside the scroll (<see cref="Footer"/>); 0 = none.</summary>
         public virtual float FooterHeight => 0;
         /// <summary>
-        /// Keep a toast strip free between the body and the footer: the body never extends under it, so toasts never
-        /// cover the screen's content (the run board).
+        /// A game event this screen shows itself (G1: a card's star fills, a part flies into its slot, a lab node pops, the
+        /// board's floor title); true = handled, else the app's default feedback runs (or nothing).
         /// </summary>
-        public virtual bool ReserveToastStrip => false;
-        /// <summary>Distance of the toast strip from the bottom of the screen: just above the footer.</summary>
-        public virtual float ToastBottomInset => FooterHeight > 0 ? FooterHeight + 4 : ToastCenter.DefaultBottomInset;
+        public virtual bool OnFeedback(RogueStars.Rules.Core.GameEvent e) => false;
         /// <summary>The fixed bottom bar (cleared before every <see cref="Build"/>); null without <see cref="FooterHeight"/>.</summary>
         protected RectTransform Footer { get; private set; }
         /// <summary>The scroll viewport of the body (tests: layout checks).</summary>
@@ -103,7 +101,7 @@ namespace RogueStars.Client.App
                     lg.childControlHeight = true; lg.childForceExpandHeight = false; lg.childAlignment = TextAnchor.LowerCenter;
                     lg.padding = new RectOffset(24, 24, FooterPadTop, FooterPadBottom);
                 }
-                bottom = FooterHeight + (ReserveToastStrip ? ToastCenter.StripHeight + 8 : 0);
+                bottom = FooterHeight;
             }
             BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);

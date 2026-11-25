@@ -99,7 +99,7 @@ namespace RogueStars.Client.Tests
             Assert.That(st.Onboarding.Unlocked, Is.Empty, "day-1 account");
             Assert.That(st.DisplayName, Is.EqualTo("Tester"));
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>());
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Progress reset · day 1"));
+            Assert.That(_f.App.DevStatus, Is.EqualTo("Progress reset · day 1"));
             Assert.That(LocalGameService.Load(_f.Service.SavePath).CreatedMs, Is.EqualTo(_f.Clock.NowMs), "saved");
         }
 
@@ -136,7 +136,7 @@ namespace RogueStars.Client.Tests
             Assert.That(level, Is.GreaterThan(1));
             Assert.That(st.Onboarding.Unlocked.Values.All(t => t <= _f.Clock.NowMs), Is.True);
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>());
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Day 4 · casual player · level " + level));
+            Assert.That(_f.App.DevStatus, Is.EqualTo("Day 4 · casual player · level " + level));
             Assert.That(LocalGameService.Load(_f.Service.SavePath).Counter(Requirements.MainLevelCounter), Is.EqualTo(level), "saved");
         }
 
@@ -162,14 +162,14 @@ namespace RogueStars.Client.Tests
             Assert.That(server.Service.State.Counter(Requirements.MainLevelCounter), Is.EqualTo(33));
             Assert.That(server.Sessions, Is.EqualTo(sessions + 1), "reloads the session");
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>());
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Day 14 · hardcore player · level 33"));
+            Assert.That(_f.App.DevStatus, Is.EqualTo("Day 14 · hardcore player · level 33"));
 
             s = OpenSettings();
             Click(s.Root, "DevReset");
             Click(TopModal, "Button:Reset");
             Assert.That(server.Http.Requests.Any(r => r.Url.EndsWith("/v1/dev/reset")), Is.True);
             Assert.That(server.Service.State.Counter(Requirements.MainLevelCounter), Is.EqualTo(0));
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Progress reset · day 1"));
+            Assert.That(_f.App.DevStatus, Is.EqualTo("Progress reset · day 1"));
         }
 
         [Test]
@@ -182,7 +182,7 @@ namespace RogueStars.Client.Tests
             Click(s.Root, "DevReset");
             Click(TopModal, "Button:Reset");
             Assert.That(server.Service.State, Is.SameAs(before));
-            Assert.That(_f.App.Toasts.LastText, Does.Contain("Dev tools"));
+            Assert.That(_f.App.DevStatus, Does.Contain("Dev tools"));
             Assert.That(s.DevBusy, Is.False);
         }
 

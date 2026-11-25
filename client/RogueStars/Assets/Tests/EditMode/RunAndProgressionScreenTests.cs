@@ -268,33 +268,55 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void RunScreen_ToastsUseAReservedStripAboveTheActionBar_AtMostTwo()
+        public void Feedback_ErrorBubbleAboveTheTappedButton_TipsAndBanners_ShortLived()
         {
-            StartFirstRun();
+            // G1 T57: a failed command shakes the tapped button and shows the reason above it for 2 s
             _f.App.Router.Push(new RunScreen());
-            var run = (RunScreen)_f.App.Router.Current;
             _f.App.Update(0.01f);
-            for (int i = 0; i < 5; i++) _f.App.Toasts.Info("Toast " + i);
-            Assert.That(_f.App.Toasts.Count, Is.EqualTo(ToastCenter.MaxVisible));
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Toast 4"));
-            // The toasts float above the dice pedestal (the HUD floats over the world: no footer bar).
-            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(run.ToastBottomInset).Within(0.01f));
-            Assert.That(run.ToastBottomInset, Is.GreaterThan(400f), "clear of the dice button");
-            // Short-lived.
-            _f.App.Update(ToastCenter.Lifetime + 0.1f);
-            Assert.That(_f.App.Toasts.Count, Is.EqualTo(0));
-            // The hub keeps toasts above its PLAY card and tabs; screens without a bottom bar use the default inset.
-            _f.App.Router.Pop();
-            _f.App.Update(0.01f);
-            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(_f.App.Router.Current.ToastBottomInset).Within(0.01f));
-            Assert.That(_f.App.Router.Current.ToastBottomInset, Is.GreaterThan(400f), "clear of START and the tabs");
-            _f.App.Open("mail");
-            _f.App.Update(0.01f);
-            Assert.That(_f.App.Toasts.Stack.anchoredPosition.y, Is.EqualTo(ToastCenter.DefaultBottomInset).Within(0.01f));
+            _f.App.Feedback.Error("Not enough coins");
+            Assert.That(_f.App.Feedback.BubbleVisible, Is.True);
+            Assert.That(_f.App.Feedback.LastBubble, Is.EqualTo("Not enough coins"));
+            _f.App.Update(GameFeedback.BubbleLifetime + 0.1f);
+            Assert.That(_f.App.Feedback.BubbleVisible, Is.False);
+            // T56: "Not connected" is a persistent strip, not a bubble
+            _f.App.Feedback.Error("Not connected");
+            Assert.That(_f.App.Feedback.Reconnecting, Is.True);
+            Assert.That(_f.App.Feedback.BubbleVisible, Is.False);
+            _f.App.Feedback.ShowReconnecting(false);
+            // banners: one at a time, queued
+            _f.App.Feedback.Banner("LEVEL UP!", RogueStars.Client.UiKit.Theme.Gold, "Worm level 3");
+            _f.App.Feedback.Banner("NEW LAND!", RogueStars.Client.UiKit.Theme.Good);
+            Assert.That(_f.App.Feedback.BannerCount, Is.EqualTo(2));
+            Assert.That(_f.App.Feedback.LastBanner, Is.EqualTo("LEVEL UP!"));
+            _f.App.Update(GameFeedback.BannerLifetime + 0.1f);
+            Assert.That(_f.App.Feedback.LastBanner, Is.EqualTo("NEW LAND!"));
+            _f.App.Update(GameFeedback.BannerLifetime + 0.1f);
+            Assert.That(_f.App.Feedback.BannerCount, Is.EqualTo(0));
         }
 
         [Test]
-        public void EventToasts_ShowDisplayNames_NeverInternalIds()
+        public void Feedback_Map_MatchesTheApprovedToastMap()
+        {
+            // T01-T04 animations, banners, silent ones (T05, T11, T13-T15, T18, T19, T21, T22, T25, T32-T34, T36, T38, T39, T43)
+            foreach (var t in new[] { "reward", "city_collected", "stamina_refilled", "purchase", "blueprint_star_up", "alien_star_up", "hero_star",
+                "mount_star", "part_equipped", "part_merged", "worm_talent_tier", "lab_collected", "run_burrow_descend", "run_cache_empty", "boss_awaken",
+                "building_built", "building_upgraded", "building_demolished" })
+                Assert.That(GameFeedback.KindOf(t), Is.EqualTo(FeedbackKind.Animation), t);
+            foreach (var t in new[] { "area_unlocked", "breed_born", "part_awakened", "part_replicated", "worm_level", "returning_player", "arena_week_end",
+                "planetary_event", "invasion_outcome", "run_signature_awakened", "run_encounter" })
+                Assert.That(GameFeedback.KindOf(t), Is.EqualTo(FeedbackKind.Banner), t);
+            foreach (var t in new[] { "building_placed", "building_moved", "blueprint_new", "blueprint_shards", "alien_new", "alien_shards", "alien_assigned",
+                "alien_unassigned", "breed_started", "breed_replaced", "breed_discarded", "hero_unlocked", "mount_unlocked", "summon_event_joined",
+                "feature_unlocked", "tutorial_step", "quest_claimed", "mail", "guild_joined", "guild_left", "arena_result", "some_new_event" })
+                Assert.That(GameFeedback.KindOf(t), Is.EqualTo(FeedbackKind.Silent), t);
+            // a run's end shows its rewards on the result screen: no reward flights
+            var end = new List<GameEvent> { new GameEvent { Type = "reward" }, new GameEvent { Type = "run_completed" } };
+            Assert.That(GameFeedback.Shown(end), Is.Empty);
+            Assert.That(GameFeedback.Shown(new List<GameEvent> { new GameEvent { Type = "reward" } }).Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FeedbackBanners_ShowDisplayNames_NeverInternalIds()
         {
             _f.Service.DevGrantStarterKit();
             var state = _f.Service.State;
@@ -302,14 +324,16 @@ namespace RogueStars.Client.Tests
             foreach (var kv in state.Parts.Items) { uid = kv.Key; break; }
             Assert.That(uid, Is.Not.Null);
             var content = _f.Service.Content;
-            var text = EventText.Describe(new GameEvent { Type = "part_equipped", Args = new List<string> { "LeftArm", uid } }, content, state);
-            Assert.That(text, Does.Not.Contain(uid));
-            Assert.That(text, Does.Contain(PartsScreen.PartName(content, state.Parts.Items[uid])));
-            Assert.That(text, Does.Contain("left arm"));
-            foreach (var type in new[] { "part_merged", "part_awakened", "run_rewards_doubled", "run_completed", "mail", "some_new_event" })
+            var text = GameFeedback.BannerText(new GameEvent { Type = "part_awakened", Args = new List<string> { uid } }, content, state, out var sub, out _);
+            Assert.That(text, Is.EqualTo("AWAKENED!"));
+            Assert.That(sub, Does.Not.Contain(uid));
+            Assert.That(sub, Is.EqualTo(PartsScreen.PartName(content, state.Parts.Items[uid])));
+            foreach (var type in new[] { "area_unlocked", "breed_born", "part_replicated", "worm_level", "returning_player", "arena_week_end", "planetary_event",
+                "invasion_outcome", "run_signature_awakened", "run_encounter" })
             {
-                var t = EventText.Describe(new GameEvent { Type = type, Args = new List<string> { uid, "2", "x" } }, content, state);
-                if (t != null) Assert.That(t, Does.Not.Contain(uid), type);
+                var t = GameFeedback.BannerText(new GameEvent { Type = type, Args = new List<string> { uid, "2", "x" } }, content, state, out var s2, out _);
+                Assert.That(t, Is.Not.Null.And.Not.Contain(uid), type);
+                if (s2 != null && type != "worm_level" && type != "arena_week_end") Assert.That(s2, Does.Not.Contain(uid), type); // those two print their number arg
             }
         }
 
@@ -415,7 +439,7 @@ namespace RogueStars.Client.Tests
             Assert.That(r.Ok, Is.True, r.Error);
             var modal = screen.Reveal((GachaPullResult)r.Payload);
             int cards = 0;
-            foreach (Transform t in modal.Body.GetChild(0)) cards++;
+            foreach (Transform t in modal.Body) if (t.name.StartsWith("Card:")) cards++; // the reveal's card grid (SG1)
             Assert.That(cards, Is.EqualTo(10));
         }
 

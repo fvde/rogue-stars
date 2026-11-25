@@ -79,7 +79,7 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("pulls_01_signals_pity");
             var r = _svc.ExecuteNow(new GachaPull { PullType = GachaType.Alien, Count = 10, Payment = GachaPayment.Tokens });
             Assert.That(r.Ok, Is.True, r.Error);
-            signals.Reveal((GachaPullResult)r.Payload);
+            signals.Reveal((GachaPullResult)r.Payload).Root.GetComponent<PullRevealPlayer>().Skip(); // the end state of the shared reveal (SG1)
             yield return Wait(2.0f);
             yield return Shot("pulls_02_signals_reveal_batches");
             Ui.Clear(_app.ModalLayer);
@@ -173,7 +173,7 @@ namespace RogueStars.Client.PlayTests
 
         private IEnumerator Shot(string name)
         {
-            _app.Toasts.Tick(60);
+            _app.Feedback.Tick(60);
             yield return Wait(0.3f);
             yield return null;
             yield return null;

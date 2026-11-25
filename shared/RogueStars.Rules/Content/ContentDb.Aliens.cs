@@ -79,12 +79,6 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class AlienTuningDef
     {
-        /// <summary>
-        /// Removed alien levels (aliens pass), kept only for the save migration's Grain refund: level L → L+1 cost
-        /// LegacyLevelGrainBase[rarity at the time] × LegacyLevelGrainGrowth^(L−1).
-        /// </summary>
-        public long[] LegacyLevelGrainBase = { 80, 120, 180, 280, 400 };
-        public double LegacyLevelGrainGrowth = 1.065;
         /// <summary>Work power growth in percent per star above 1 (stars are the only progression).</summary>
         public double StarWorkPct = 40;
         /// <summary>Initial gene roll: uniform in [−InitialGeneSpread, +InitialGeneSpread]. Genes always clamp to [GeneMin, GeneMax]. Genes are inactive (coming soon).</summary>

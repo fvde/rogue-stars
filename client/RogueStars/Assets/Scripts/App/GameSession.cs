@@ -60,12 +60,24 @@ namespace RogueStars.Client.App
 
         /// <summary>State replaced/changed (screens rebuild).</summary>
         public event Action Changed;
-        /// <summary>A game event from a successful command (toasts).</summary>
+        /// <summary>A game event from a successful command.</summary>
         public event Action<GameEvent> EventRaised;
-        /// <summary>The events of a result worth a toast (<see cref="EventText.ForToasts"/>), raised after <see cref="EventRaised"/>.</summary>
-        public event Action<GameEvent> ToastRaised;
-        public event Action<string> ErrorRaised;
-        public event Action<string> InfoRaised;
+        /// <summary>All events of one successful result, after <see cref="EventRaised"/> (GameFeedback: animations and banners, G1).</summary>
+        public event Action<IList<GameEvent>> ResultEvents;
+        /// <summary>A command or platform call failed: the player-facing reason (GameFeedback: the error bubble, T57).</summary>
+        public event Action<string> Failed;
+
+        /// <summary>Real-money products whose payment is pending at the store (the product card shows PENDING, T52).</summary>
+        public readonly HashSet<string> PendingPayments = new HashSet<string>();
+        private readonly Dictionary<string, int> _adPending = new Dictionary<string, int>();
+
+        /// <summary>A rewarded ad of this placement was watched online and its reward is not there yet (the button shows a spinner, T51).</summary>
+        public bool IsAdPending(string placementId)
+        {
+            if (!_adPending.TryGetValue(placementId, out var before)) return false;
+            if (AdViews(placementId) > before) { _adPending.Remove(placementId); return false; }
+            return true;
+        }
 
         public void Use(IGameService service)
         {
@@ -121,7 +133,7 @@ namespace RogueStars.Client.App
             });
         }
 
-        /// <summary>Execute a command; failures become error toasts, events become toasts.</summary>
+        /// <summary>Execute a command; failures raise <see cref="Failed"/>, events <see cref="EventRaised"/> / <see cref="ResultEvents"/>.</summary>
         public void Run(GameCommand command, Action<CommandResult> then = null)
         {
             if (!IsReady) { Error("Not connected"); return; }
@@ -136,11 +148,11 @@ namespace RogueStars.Client.App
             });
         }
 
-        /// <summary>Every event of one result, then the ones worth a toast.</summary>
+        /// <summary>Every event of one result, then the whole result.</summary>
         private void Raise(List<GameEvent> events)
         {
             foreach (var e in events) EventRaised?.Invoke(e);
-            foreach (var e in EventText.ForToasts(events)) ToastRaised?.Invoke(e);
+            ResultEvents?.Invoke(events);
         }
 
         /// <summary>
@@ -160,7 +172,7 @@ namespace RogueStars.Client.App
                 {
                     if (!sp.Ok)
                     {
-                        if (sp.Error == StoreErrors.Deferred) Info("Payment pending — " + def.Name + " arrives once it is approved");
+                        if (sp.Error == StoreErrors.Deferred) { PendingPayments.Add(def.Id); Changed?.Invoke(); }
                         else if (sp.Error != StoreErrors.Cancelled) Error(Fmt.Humanize(sp.Error));
                         then?.Invoke(CommandResult.Fail(sp.Error));
                         return;
@@ -183,11 +195,10 @@ namespace RogueStars.Client.App
                 if (r.Ok)
                 {
                     Store.Finish(purchase);
+                    PendingPayments.Remove(def.Id);
                     Raise(r.Events);
-                    // the rules' "purchase" event already toasts "Purchased …": no second toast
-                    if (!r.Events.Exists(e => e.Type == "purchase")) Info((purchase.Delivered ? "Delivered " : "Purchased ") + def.Name);
                 }
-                else if (r.Error == "purchase_pending") Info("Payment pending — " + def.Name + " arrives once it is approved");
+                else if (r.Error == "purchase_pending") { PendingPayments.Add(def.Id); Changed?.Invoke(); }
                 // Anything else stays unconfirmed: Play refunds unacknowledged purchases after 3 days.
                 else Error(Fmt.Humanize(r.Error));
                 then?.Invoke(r);
@@ -243,8 +254,9 @@ namespace RogueStars.Client.App
                 if (!ad.Ok) { if (ad.Error != "ad_cancelled") Error(Fmt.Humanize(ad.Error)); return; }
                 if (IsOnline)
                 {
-                    Info("Reward pending…");
                     int before = AdViews(placementId);
+                    _adPending[placementId] = before;
+                    Changed?.Invoke();
                     PollReward(placementId, before, AdVerifyTimeoutSeconds, then);
                     return;
                 }
@@ -263,8 +275,8 @@ namespace RogueStars.Client.App
             if (!IsReady) return;
             Service.Refresh(r =>
             {
-                if (AdViews(placementId) > before) { Info("Reward received!"); then?.Invoke(CommandResult.Success()); return; } // a refresh raises no reward events
-                if (left <= 0) { Info("Your reward arrives shortly"); then?.Invoke(CommandResult.Fail("ad_reward_pending")); return; }
+                if (AdViews(placementId) > before) { _adPending.Remove(placementId); Changed?.Invoke(); then?.Invoke(CommandResult.Success()); return; } // a refresh raises no reward events
+                if (left <= 0) { then?.Invoke(CommandResult.Fail("ad_reward_pending")); return; } // stays pending until it arrives
                 After(AdVerifyPollSeconds, () => PollReward(placementId, before, left - AdVerifyPollSeconds, then));
             });
         }
@@ -275,8 +287,8 @@ namespace RogueStars.Client.App
             Service.Refresh(r => { if (!r.Ok) Error(Fmt.Humanize(r.Error)); then?.Invoke(r); });
         }
 
-        public void Error(string message) => ErrorRaised?.Invoke(message);
-        public void Info(string message) => InfoRaised?.Invoke(message);
+        /// <summary>Report a failure to the player (the error bubble above the tapped button, T57).</summary>
+        public void Error(string message) => Failed?.Invoke(message);
         public void NotifyChanged() => Changed?.Invoke();
 
         /// <summary>No Ads entitlement or global ads-disabled mode (rules <c>ShopSystem.HasNoAds</c>): placements complete without an ad.</summary>

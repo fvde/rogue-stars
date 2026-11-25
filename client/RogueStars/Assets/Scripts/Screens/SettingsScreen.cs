@@ -83,6 +83,7 @@ namespace RogueStars.Client.Screens
             var dev = Card(body, Theme.PanelAlt);
             dev.name = "DeveloperCard";
             Section(dev, "Developer");
+            if (!string.IsNullOrEmpty(App.DevStatus)) Note(dev, App.DevStatus).name = "DevStatus"; // T58: dev tool results stay in the panel
             Note(dev, local != null
                 ? "Offline save: " + local.SavePath
                 : "Owner tools on this server (player id " + (Session.Service as RemoteGameService)?.PlayerId + "). They replace this account's progress.");
@@ -139,14 +140,15 @@ namespace RogueStars.Client.Screens
             var tools = Session.Service?.DevTools;
             if (tools == null || DevBusy) return;
             DevBusy = true;
-            Session.Info(working);
+            App.DevStatus = working; // T58: shown inside the dev panel
+            Rebuild();
             var service = Session.Service;
             call(tools, r =>
             {
                 DevBusy = false;
-                if (!r.Ok) { Session.Error("Dev tools: " + Fmt.Humanize(r.Error)); return; }
+                if (!r.Ok) { App.DevStatus = "Dev tools: " + Fmt.Humanize(r.Error); Rebuild(); return; }
+                App.DevStatus = r.Value.Summary;
                 App.Start(service);
-                Session.Info(r.Value.Summary);
             });
         }
 
@@ -167,7 +169,7 @@ namespace RogueStars.Client.Screens
                 if (auth.PlayGamesAvailable)
                     Ui.Button(card, "Link Play Games", () => auth.LinkPlayGames(r =>
                     {
-                        if (r.Ok) { Session.Info("Play Games linked"); App.Start(); }
+                        if (r.Ok) App.Start(); // T54: the row switches to "Google Play Games"
                         else Session.Error(Fmt.Humanize(r.Error));
                     }), Theme.Accent);
             }

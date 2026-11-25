@@ -288,6 +288,7 @@ namespace RogueStars.Client.UiKit
             colors.disabledColor = Color.white; // the disabled look is the flat face colour itself (UiButtonLook)
             colors.fadeDuration = 0;
             btn.colors = colors;
+            btn.onClick.AddListener(() => LastPressed = btn);
             if (onClick != null) btn.onClick.AddListener(() => onClick());
             var label = Label(face.transform, text, fontSize, Theme.TextOn(faceColor), TextAnchor.MiddleCenter);
             label.font = FontFor(text);
@@ -299,6 +300,9 @@ namespace RogueStars.Client.UiKit
             look.Init(btn, face, lipImg, shine, label, faceColor, lip > 0);
             return btn;
         }
+
+        /// <summary>The last <see cref="Button"/> the player pressed (anchor of the error bubble, G1 T57); null when destroyed.</summary>
+        public static UnityEngine.UI.Button LastPressed;
 
         /// <summary>
         /// A chunky button with a one-line reason under it while disabled (G4: "Needs 100 shards"). The reason label is named

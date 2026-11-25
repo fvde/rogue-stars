@@ -62,7 +62,7 @@ namespace RogueStars.Client.Tests
             {
                 o.Session.ProductSet = StoreCatalog.SetInitial;
                 var errors = new List<string>();
-                o.Session.ErrorRaised += errors.Add;
+                o.Session.Failed += errors.Add;
                 long before = o.Diamonds;
                 CommandResult result = null;
                 o.Session.Purchase("diamonds_330", r => result = r);
@@ -197,15 +197,13 @@ namespace RogueStars.Client.Tests
             using (var o = new Offline())
             {
                 long before = o.Diamonds;
-                var infos = new List<string>();
-                o.Session.InfoRaised += infos.Add;
                 o.Store.DeferNext = true;
                 CommandResult result = null;
                 o.Session.Purchase("diamonds_60", r => result = r);
                 Assert.That(result.Ok, Is.False);
                 Assert.That(result.Error, Is.EqualTo(StoreErrors.Deferred));
                 Assert.That(o.Diamonds, Is.EqualTo(before));
-                Assert.That(infos.Any(i => i.Contains("pending")), Is.True);
+                Assert.That(o.Session.PendingPayments, Does.Contain("diamonds_60"), "the product card shows PENDING (G1 T52)");
 
                 // Payment approved later (or the app restarted): the store delivers, the session verifies and finishes.
                 o.Store.Deliver(o.Store.Unfinished[0]);
@@ -220,7 +218,7 @@ namespace RogueStars.Client.Tests
             using (var o = new Offline())
             {
                 var errors = new List<string>();
-                o.Session.ErrorRaised += errors.Add;
+                o.Session.Failed += errors.Add;
                 o.Store.FailNext = true;
                 long before = o.Diamonds;
                 o.Session.Purchase("diamonds_60");
@@ -282,18 +280,16 @@ namespace RogueStars.Client.Tests
             var o = new Online();
             o.Extra = req => req.Url.EndsWith("/v1/iap/verify") ? FakeTransport.Json(402, "{\"ok\":false,\"error\":\"account_mismatch\"}") : null;
             var errors = new List<string>();
-            o.Session.ErrorRaised += errors.Add;
+            o.Session.Failed += errors.Add;
             o.Session.Purchase("diamonds_60");
             Assert.That(o.Store.Finished, Is.Empty);
             Assert.That(o.Store.Unfinished.Count, Is.EqualTo(1));
             Assert.That(errors.Count, Is.EqualTo(1));
 
             o.Extra = req => req.Url.EndsWith("/v1/iap/verify") ? FakeTransport.Json(402, "{\"ok\":false,\"error\":\"purchase_pending\"}") : null;
-            var infos = new List<string>();
-            o.Session.InfoRaised += infos.Add;
             o.Store.Restore();
             Assert.That(o.Store.Finished, Is.Empty);
-            Assert.That(infos.Any(i => i.Contains("pending")), Is.True);
+            Assert.That(o.Session.PendingPayments, Does.Contain("diamonds_60"));
 
             o.Extra = req => req.Url.EndsWith("/v1/iap/verify") ? FakeTransport.Json(200, "{\"ok\":true,\"alreadyCompleted\":true,\"orderId\":\"GPA.1\"}") : null;
             o.Store.Restore();
@@ -341,17 +337,15 @@ namespace RogueStars.Client.Tests
         public void Online_DirectRewardPlacement_ShowsPending_ThenSeesTheServerGrant()
         {
             var o = new Online();
-            var infos = new List<string>();
-            o.Session.InfoRaised += infos.Add;
             CommandResult done = null;
             o.Session.WatchAd("daily_diamonds_ad", r => done = r);
-            Assert.That(infos.Any(i => i.Contains("pending")), Is.True);
+            Assert.That(o.Session.IsAdPending("daily_diamonds_ad"), Is.True, "the ad button shows a spinner (G1 T51)");
             Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command")), Is.False, "the client never grants ad rewards online");
             // The S2S callback lands on the server; the next refresh shows the consumed placement.
             o.ServerState.Shop.AdViews["daily_diamonds_ad"] = 1;
             for (int i = 0; i < 5 && done == null; i++) o.Session.Tick(o.Session.AdVerifyPollSeconds);
             Assert.That(done.Ok, Is.True);
-            Assert.That(infos.Any(i => i.Contains("received")), Is.True);
+            Assert.That(o.Session.IsAdPending("daily_diamonds_ad"), Is.False);
         }
 
         [Test]

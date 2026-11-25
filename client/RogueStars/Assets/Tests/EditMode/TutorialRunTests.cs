@@ -115,7 +115,7 @@ namespace RogueStars.Client.Tests
             Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Tap to roll"));
             roll.GetComponent<HoldButton>().OnHold();
             Assert.That(screen.Auto, Is.False, "Auto Roll is a level unlock");
-            Assert.That(_f.App.Toasts.LastText, Is.EqualTo("Auto Roll unlocks at level 7"), "owner playtest 0.1.224: a hold before the unlock explains it");
+            Assert.That(_f.App.Feedback.LastTip, Is.EqualTo("Auto Roll unlocks at level 7"), "owner playtest 0.1.224: a hold before the unlock explains it");
 
             S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs;
             screen.Rebuild();

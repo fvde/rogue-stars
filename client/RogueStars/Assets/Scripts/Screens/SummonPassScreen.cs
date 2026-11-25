@@ -119,7 +119,8 @@ namespace RogueStars.Client.Screens
                 if (p != null)
                 {
                     var buyRow = Ui.Row(Footer, 120, 0, null, 0, "BuyRow");
-                    if (!Session.IsOffered(p.Id)) Ui.Button(buyRow, "Premium: coming soon", null, Theme.Button, -1, 110, false, 34).name = "ComingSoon:" + p.Id;
+                    if (!Session.IsOffered(p.Id)) Ui.Button(buyRow, "Premium: soon", null, Theme.Button, -1, 110, false, 34).name = "ComingSoon:" + p.Id;
+                    else if (Session.PendingPayments.Contains(p.Id)) Ui.Button(buyRow, "Premium: PENDING", null, Theme.Button, -1, 110, false, 34).name = "Pending:" + p.Id; // T52
                     else
                     {
                         string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);

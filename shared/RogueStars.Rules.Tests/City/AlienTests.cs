@@ -127,47 +127,6 @@ public class AlienTests
         Assert.Equal(10 * (1 + 2 * e.Content.AlienTuning.StarWorkPct / 100.0), AlienSystem.WorkPower(e.Content, a), 6);
     }
 
-    /// <summary>
-    /// Save migration (aliens pass): an old save's alien levels go back to 1 and 100% of the Grain spent on them comes back (by the
-    /// rarity they were paid at: Emberkit was Rare); old combat traits are remapped by species; stars, shards and genes stay.
-    /// </summary>
-    [Fact]
-    public void OldSave_AlienLevelsRefundGrain_TraitsRemap_OnTheFirstCommand()
-    {
-        var e = TestHelpers.Engine();
-        var s = TestHelpers.NewPlayer(e);
-        string json = System.Text.Json.JsonSerializer.Serialize(s, TestHelpers.Json);
-        var old = System.Text.Json.JsonSerializer.Deserialize<GameState>(json, TestHelpers.Json)!;
-        old.Aliens.Migrated = 0; // a save from before the aliens pass (the field did not exist)
-        old.Aliens.Owned["alien_blorp"] = new OwnedAlien { TypeId = "alien_blorp", Level = 3, Stars = 2, Traits = { "trait_tough", "trait_green_thumb" },
-            Genes = new AlienGenes { Hp = 20, Atk = -5, Def = 35, Speed = 10, Work = 4 } };
-        old.Aliens.Owned["alien_emberkit"] = new OwnedAlien { TypeId = "alien_emberkit", Level = 2, Traits = { "trait_pyromaniac", "trait_fierce" } };
-        old.Aliens.Owned["alien_voidmaw"] = new OwnedAlien { TypeId = "alien_voidmaw", Level = 1, Traits = { "trait_fierce", "trait_lucky", "trait_vampiric" } };
-        old.Aliens.Owned["alien_mossling"] = new OwnedAlien { TypeId = "alien_mossling", Level = 1, Traits = { "trait_tough" } };
-        old.Wallet.Add(Currencies.AlienShards("alien_blorp"), 7);
-        long grain = old.Wallet.Get(Currencies.Grain);
-        e.Settle(old, T0);
-        // Blorp (Common): levels 1→2→3 = 80 + 85; Emberkit (paid as a Rare): 1→2 = 120
-        Assert.Equal(80 + 85 + 120, old.Aliens.LevelGrainRefunded);
-        Assert.Equal(grain + 285, old.Wallet.Get(Currencies.Grain));
-        Assert.All(old.Aliens.Owned.Values, a => Assert.Equal(1, a.Level));
-        var blorp = old.Aliens.Owned["alien_blorp"];
-        Assert.Equal(2, blorp.Stars);
-        Assert.Equal(7, old.Wallet.Get(Currencies.AlienShards("alien_blorp")));
-        Assert.Equal(35, blorp.Genes.Def); // genes are kept (inactive)
-        Assert.Equal(new[] { "trait_lingering", "trait_green_thumb" }, blorp.Traits);              // Tough → Bulwark or Lingering: Blorp has Lingering
-        Assert.Equal(new[] { "trait_twin", "trait_wide" }, old.Aliens.Owned["alien_emberkit"].Traits); // Pyromaniac → Twin, Fierce → Twin or Wide
-        Assert.Equal(new[] { "trait_swift", "trait_vampiric" }, old.Aliens.Owned["alien_voidmaw"].Traits); // Fierce → (no Twin / Wide, Vampiric taken) dropped; Lucky → Swift
-        Assert.Equal(new[] { "trait_twin" }, old.Aliens.Owned["alien_mossling"].Traits);            // Tough → (no Bulwark / Lingering) Twin
-        Assert.Equal(AlienSystem.MigrationVersion, old.Aliens.Migrated);
-        // once only
-        old.Aliens.Owned["alien_blorp"].Level = 9;
-        e.Settle(old, T0 + 1);
-        Assert.Equal(grain + 285, old.Wallet.Get(Currencies.Grain));
-        // a new save is born migrated
-        Assert.Equal(AlienSystem.MigrationVersion, TestHelpers.NewPlayer(e).Aliens.Migrated);
-    }
-
     [Fact]
     public void Squad_GatedBySlots_AndFillsLoadout()
     {

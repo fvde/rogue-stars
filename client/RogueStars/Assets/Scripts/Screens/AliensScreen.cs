@@ -41,8 +41,6 @@ namespace RogueStars.Client.Screens
             Ui.Label(squadCard, squad.Count == 0 ? "Empty" : string.Join(", ", squad.ConvertAll(id => Content.AlienType(id)?.Name ?? id)), Theme.FontNormal);
             string hint = SquadHint(Content, State.Aliens.Squad);
             if (hint != null) Note(squadCard, hint).color = Theme.Warn;
-            if (State.Aliens.LevelGrainRefunded > 0)
-                Note(squadCard, "Alien levels are gone: stars are the only progression. " + Fmt.Num(State.Aliens.LevelGrainRefunded) + " Grain spent on levels came back for breeding.");
 
             var aliens = Sorted();
             if (aliens.Count == 0) Note(body, "No aliens yet. Aliens arrive from Alien Signals and events.");

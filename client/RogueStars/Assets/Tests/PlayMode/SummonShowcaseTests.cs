@@ -138,7 +138,7 @@ namespace RogueStars.Client.PlayTests
 
         private IEnumerator Shot(string name)
         {
-            _app.Toasts.Tick(60); // toasts of the setup commands are gone
+            _app.Feedback.Tick(60); // toasts of the setup commands are gone
             yield return Wait(0.3f);
             yield return null;
             yield return null;

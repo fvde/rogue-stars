@@ -20,6 +20,25 @@ namespace RogueStars.Client.Screens
             { StatId.Hp, StatId.Atk, StatId.Def, StatId.Speed, StatId.CritChance, StatId.CritDamage, StatId.Dodge, StatId.ComboChance, StatId.CounterChance, StatId.LifeSteal };
 
         public override string Title => "Worm";
+
+        /// <summary>G1 T26: an equipped part flies from the tapped button into its slot, the slot pulses.</summary>
+        public override bool OnFeedback(GameEvent e)
+        {
+            if (e.Type != "part_equipped" || e.Args.Count < 1) return false;
+            var slot = FindRect(Root, "Slot:" + e.Args[0]);
+            if (slot == null) return false;
+            var pressed = Ui.LastPressed;
+            var from = pressed != null && pressed.gameObject.activeInHierarchy ? FeedbackFx.Centre((RectTransform)pressed.transform) : FeedbackFx.Centre(slot);
+            FeedbackFx.FlyTo(App.Feedback.Layer, RogueStars.Client.World.SummonArt.Icon("star"), from, slot, 1, 96, () => FeedbackFx.Flash(slot, Theme.Gold));
+            return true;
+        }
+
+        private static RectTransform FindRect(Transform root, string name)
+        {
+            if (root == null) return null;
+            foreach (var rt in root.GetComponentsInChildren<RectTransform>(true)) if (rt.name == name) return rt;
+            return null;
+        }
         public override string[] IntroFeatures => new[] { Features.Parts, Features.WormLevel };
 
         protected override void Build(RectTransform body)

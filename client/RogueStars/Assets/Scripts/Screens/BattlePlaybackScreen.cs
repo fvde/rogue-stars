@@ -204,7 +204,7 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(panelShade.rectTransform, 0, 0, 0, 10 * s);
 
             // the HUD over the arena: the run's top HUD with the worm's live HP, "Round n/N", a skip chip
-            _hud = SliceHud.Build(holder, frameW, () => Session.Info("Tap >> to skip the fight"), null, _ctx.Coins >= 0);
+            _hud = SliceHud.Build(holder, frameW, PulseSkip, null, _ctx.Coins >= 0); // T49: a HUD tap pulses the >> button (no toast)
             if (_hud.Coins != null) _hud.Coins.text = Fmt.Num(_ctx.Coins);
             var roundPill = SliceKit.Pill(holder, s, 540, 296, 300, 62, new Color32(0x14, 0x12, 0x20, 200), "RoundPill");
             _round = SliceKit.Chunky(roundPill.transform, "Round 1/" + _battle.Rounds, (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
@@ -228,6 +228,7 @@ namespace RogueStars.Client.Screens
             }
             var skip = Ui.Button(holder, "", Close, SliceKit.PillDark, 130 * s, 62 * s, true, 20);
             skip.name = "SkipButton";
+            _skipButton = (RectTransform)skip.transform;
             SliceKit.Place((RectTransform)skip.transform, s, 990, 296, 130, 62);
             UiShapes.Outline((RectTransform)skip.transform, SliceKit.PillEdge, 30 * s, 4);
             var skipIcon = Ui.Panel(skip.transform, Color.white, "SkipIcon");
@@ -291,6 +292,18 @@ namespace RogueStars.Client.Screens
             foreach (var v in _views) Refresh(v, Content.Combat.RageMax, false);
             RefreshHero();
             TurnOrder();
+        }
+
+        private RectTransform _skipButton;
+        /// <summary>Times the >> button pulsed for a HUD tap (tests, T49).</summary>
+        public int SkipPulses { get; private set; }
+
+        /// <summary>A tap on the HUD: the >> (skip) button pulses to show where to skip (G1 T49).</summary>
+        public void PulseSkip()
+        {
+            if (_skipButton == null) return;
+            SkipPulses++;
+            App.FeedbackPop(_skipButton);
         }
 
         private float _scale = 1;

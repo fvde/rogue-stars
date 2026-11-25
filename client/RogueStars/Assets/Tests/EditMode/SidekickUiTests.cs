@@ -151,13 +151,10 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void EverySpecies_HasAnArtKey_AndTheRefundToastReads()
+        public void EverySpecies_HasAnArtKey()
         {
             var c = ContentDb.Default;
             Assert.That(ArtCatalog.AlienKeys.OrderBy(k => k), Is.EqualTo(c.AlienTypes.Keys.Select(ArtCatalog.AlienKey).OrderBy(k => k)));
-            var e = new GameEvent { Type = "alien_levels_refunded" };
-            e.Args.Add("1234");
-            Assert.That(EventText.Describe(e, c), Is.EqualTo("Alien levels are gone: +1234 Grain back for breeding"));
         }
     }
 }

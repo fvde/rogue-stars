@@ -9,8 +9,7 @@ namespace RogueStars.Rules.Systems
     /// Aliens: one alien per alien type (species). Aliens pass (owner-approved review rev 4.3): an alien is a sidekick with NO stats —
     /// its one ability works in % of the worm's ATK / max HP; stars 1–10 (shards from duplicates and breeding) are its only
     /// progression (every star is its own ability step; tier stars 3/5/7/10 change the effect); traits shape its tempo or effect;
-    /// genes are stored and bred but inactive ("coming soon"). Alien levels were removed: an old save's levels are refunded in Grain
-    /// (<see cref="Migrate"/>).
+    /// genes are stored and bred but inactive ("coming soon").
     ///
     /// Work vs squad (design decision): an alien can work in one building AND be in the squad at the same time;
     /// aliens in the active squad work at AlienTuning.SquadWorkFactor (50%). An alien works in at most one building.
@@ -19,19 +18,11 @@ namespace RogueStars.Rules.Systems
     public static class AlienSystem
     {
         public const int MaxStars = 10;
-        /// <summary>The save migration version this build applies (AlienState.Migrated).</summary>
-        public const int MigrationVersion = 1;
-
-        /// <summary>Species whose rarity changed in the aliens pass: the rarity their removed levels were paid at (Grain refund).</summary>
-        public static readonly Dictionary<string, Rarity> LegacyLevelRarity = new Dictionary<string, Rarity> { ["alien_emberkit"] = Rarity.Rare };
-
         public static void Register(GameEngine e)
         {
             e.Register<AlienStarUp>(HandleStarUp);
             e.Register<AlienAssign>(HandleAssign);
             e.Register<AlienSetSquad>(HandleSetSquad);
-            e.RegisterSettler(Migrate);
-            e.RegisterNewPlayer(ctx => ctx.State.Aliens.Migrated = MigrationVersion); // a new save has nothing to migrate
             e.RegisterLoadoutContributor(ContributeLoadout);
             e.Rewards.Register(RewardKinds.Alien, GrantAlien);
         }
@@ -218,52 +209,6 @@ namespace RogueStars.Rules.Systems
             var list = new List<string>();
             foreach (var t in slot) if (t != null) list.Add(t);
             return list;
-        }
-
-        /// <summary>Grain an old save paid for an alien's removed levels (level 1 → its level, at the rarity it had then).</summary>
-        public static long LegacyLevelGrain(ContentDb content, string typeId, int level)
-        {
-            var def = content.AlienType(typeId);
-            if (def == null || level <= 1) return 0;
-            var t = content.AlienTuning;
-            var rarity = LegacyLevelRarity.TryGetValue(typeId, out var r) ? r : def.Rarity;
-            long sum = 0;
-            for (int l = 1; l < level; l++) sum += (long)Math.Round(t.LegacyLevelGrainBase[(int)rarity] * Math.Pow(t.LegacyLevelGrainGrowth, l - 1));
-            return sum;
-        }
-
-        // ---- save migration -------------------------------------------------------------------------
-
-        /// <summary>
-        /// Aliens pass migration (settler, once per save): alien levels are removed — each alien's level goes back to 1 and 100% of the
-        /// Grain spent on it comes back (straight to the wallet: it was the player's); old combat traits are remapped by species on
-        /// owned aliens and waiting newborns. Stars, shards, genes (inactive), squad and work are kept.
-        /// </summary>
-        public static void Migrate(CommandContext ctx)
-        {
-            var st = ctx.State.Aliens;
-            if (st.Migrated >= MigrationVersion) return;
-            var c = ctx.Content;
-            long refund = 0;
-            var ids = new List<string>(st.Owned.Keys);
-            ids.Sort(string.CompareOrdinal);
-            foreach (var id in ids)
-            {
-                var a = st.Owned[id];
-                if (a.Level > 1) { refund += LegacyLevelGrain(c, a.TypeId, a.Level); a.Level = 1; }
-                var def = c.AlienType(a.TypeId);
-                if (def != null) a.Traits = ConvertTraits(c, def, a.Traits);
-            }
-            foreach (var child in ctx.State.Breeding.Pending)
-            {
-                var def = c.AlienType(child.TypeId);
-                if (def != null) child.Traits = ConvertTraits(c, def, child.Traits);
-            }
-            st.Migrated = MigrationVersion;
-            if (refund <= 0) return;
-            ctx.State.Wallet.Add(Currencies.Grain, refund);
-            st.LevelGrainRefunded += refund;
-            ctx.Emit("alien_levels_refunded", refund.ToString());
         }
 
         // ---- engine hooks -----------------------------------------------------------------------

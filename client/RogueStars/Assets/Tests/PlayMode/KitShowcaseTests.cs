@@ -132,7 +132,7 @@ namespace RogueStars.Client.PlayTests
 
         private IEnumerator Shot(string name)
         {
-            _app.Toasts.Tick(60);
+            _app.Feedback.Tick(60);
             yield return null;
             yield return null;
             Canvas.ForceUpdateCanvases();

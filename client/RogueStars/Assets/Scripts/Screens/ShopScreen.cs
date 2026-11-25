@@ -135,7 +135,8 @@ namespace RogueStars.Client.Screens
             var row = Ui.Row(card, 84);
             if (block != null) Ui.Label(row, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim);
             else if (p.PriceUsdCents == 0) Ui.Button(row, "Claim free", () => Run(new ShopClaimFree { ProductId = p.Id }), Theme.Good, -1, 84);
-            else if (!Session.IsOffered(p.Id)) Ui.Button(row, "Coming soon", null, Theme.Button, -1, 84, false).name = "ComingSoon:" + p.Id;
+            else if (!Session.IsOffered(p.Id)) Ui.Button(row, "Soon", null, Theme.Button, -1, 84, false).name = "ComingSoon:" + p.Id; // T53
+            else if (Session.PendingPayments.Contains(p.Id)) Ui.ButtonWithReason(row, "PENDING", null, Theme.Button, -1, 84, false, "Arrives once the payment is approved").name = "Pending:" + p.Id; // T52
             else Ui.Button(row, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, -1, 84);
             if (p.DailyRewards.Count > 0 && ShopSystem.DailyGrantActive(State, Content, p.Id, Now))
                 Ui.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), Theme.Good, -1, 84, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
@@ -157,7 +158,7 @@ namespace RogueStars.Client.Screens
             Ui.Bar(card, sp.XpPerLevel > 0 ? (xp % sp.XpPerLevel) / (float)sp.XpPerLevel : 0, Theme.Premium, "Level " + level + " — " + xp + " XP");
             Live(Note(card, ""), () => "Season ends in " + Fmt.Duration(ShopSystem.SeasonEndMs(Content, Now) - Now));
             var row = Ui.Row(card, 84);
-            if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, Session.IsOffered(pp.Id) ? "Premium " + Fmt.Price(pp.PriceUsdCents) : "Premium: coming soon", () => Session.Purchase(pp.Id), Theme.Accent, -1, 84, Session.IsOffered(pp.Id)); }
+            if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, !Session.IsOffered(pp.Id) ? "Premium: soon" : Session.PendingPayments.Contains(pp.Id) ? "Premium: PENDING" : "Premium " + Fmt.Price(pp.PriceUsdCents), () => Session.Purchase(pp.Id), Theme.Accent, -1, 84, Session.IsOffered(pp.Id) && !Session.PendingPayments.Contains(pp.Id)); }
             else Ui.Label(row, "Premium owned", Theme.FontSmall, Theme.Good);
             Ui.Button(row, "Claim all", () => Run(new SeasonPassClaimAll()), Theme.Good, -1, 84);
             foreach (var l in sp.Levels)
@@ -195,7 +196,7 @@ namespace RogueStars.Client.Screens
                 if (!owned && p != null)
                 {
                     string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
-                    if (block == null) Ui.Button(head, Session.IsOffered(p.Id) ? "Buy " + Fmt.Price(p.PriceUsdCents) : "Coming soon", () => Session.Purchase(p.Id), Theme.Accent, 240, 60, Session.IsOffered(p.Id));
+                    if (block == null) Ui.Button(head, !Session.IsOffered(p.Id) ? "Soon" : Session.PendingPayments.Contains(p.Id) ? "PENDING" : "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, 240, 60, Session.IsOffered(p.Id) && !Session.PendingPayments.Contains(p.Id));
                     else Ui.Label(head, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
                 }
                 var steps = Ui.Grid(card, new Vector2(190, 90), 5, 8);
@@ -246,8 +247,23 @@ namespace RogueStars.Client.Screens
                 int left = ShopSystem.AdViewsLeft(State, Content, ad.Id, Now);
                 var row = Ui.Row(body, 90, 10, Theme.Panel, 12);
                 Ui.Label(row, ad.Name + "\n<size=22>" + Fmt.Rewards(ad.Rewards, Content, State, Now) + " — " + left + "/" + ad.DailyCap + " left today</size>", Theme.FontSmall);
-                Ui.Button(row, noAds ? "Claim" : "Watch", () => Session.WatchAd(ad.Id), Theme.Good, 220, 76, left > 0);
+                if (Session.IsAdPending(ad.Id)) AdPending(row); // T51: a spinner until the server grants the reward
+                else Ui.Button(row, noAds ? "Claim" : "Watch", () => Session.WatchAd(ad.Id), Theme.Good, 220, 76, left > 0);
             }
+        }
+
+        /// <summary>The ad button while its reward is on the way (online, G1 T51): a spinning ring and "Pending".</summary>
+        public static RectTransform AdPending(Transform row)
+        {
+            var box = Ui.Row(row, 76, 8, null, 0, "AdPending");
+            Ui.Size(box, 220, 76, 0);
+            var ring = Ui.Panel(box, Theme.Good, "Spinner");
+            ring.sprite = UiShapes.CircleRing; ring.type = UnityEngine.UI.Image.Type.Filled;
+            ring.fillMethod = UnityEngine.UI.Image.FillMethod.Radial360; ring.fillAmount = 0.75f;
+            Ui.Size(ring, 44, 44, 0);
+            if (Application.isPlaying) ring.gameObject.AddComponent<UiSpin>();
+            Ui.Label(box, "Pending", Theme.FontSmall, Theme.TextDim);
+            return box;
         }
     }
 }

@@ -118,7 +118,7 @@ namespace RogueStars.Client.Screens
                 if (unlocked && inst != null)
                     Ui.Button(row2, "Attack", () => Session.Service.InvasionAttack(inst.Id, r =>
                     {
-                        if (r.Ok) Session.Info("Dealt " + Fmt.Num(r.Value.Damage) + " damage to " + e.Name);
+                        if (r.Ok) App.Feedback.FloatNumber(card, "-" + Fmt.Num(r.Value.Damage), Theme.Bad); // T55: the hit pops on the target
                         else Session.Error(Fmt.Humanize(r.Error));
                         LoadInvasions();
                     }), Theme.ValenceColor(Valence.Enemy), 220, 80, State.Wallet.Get(Currencies.InvasionAttempts) > 0);

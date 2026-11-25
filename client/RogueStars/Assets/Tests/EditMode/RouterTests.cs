@@ -90,11 +90,14 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Events_BecomeToasts()
+        public void Events_BecomeFeedback_NoToastLayer()
         {
+            // G1: rewards fly into the currency bar; there is no toast layer any more
+            int flights = FeedbackFx.FlightsStarted;
             _f.App.Session.Run(new RogueStars.Rules.Systems.LoginClaim());
-            Assert.That(_f.App.Toasts.Count, Is.GreaterThan(0));
-            Assert.That(_f.App.Toasts.LastText, Does.StartWith("+"));
+            Assert.That(FeedbackFx.FlightsStarted, Is.GreaterThan(flights), "the login reward flies into the bar");
+            Assert.That(_f.App.Root.Find("ToastLayer"), Is.Null);
+            Assert.That(_f.App.Root.Find("FeedbackLayer"), Is.Not.Null);
         }
     }
 }

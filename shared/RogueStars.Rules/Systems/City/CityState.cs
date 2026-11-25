@@ -89,10 +89,6 @@ namespace RogueStars.Rules.Systems
         public Dictionary<string, OwnedAlien> Owned = new Dictionary<string, OwnedAlien>();
         /// <summary>Squad order (alien type ids). Only the first CitySystem.SquadSlots entries fight.</summary>
         public List<string> Squad = new List<string>();
-        /// <summary>Save migrations applied (AlienSystem.Migrate): 1 = aliens pass (levels refunded in Grain, old traits remapped).</summary>
-        public int Migrated;
-        /// <summary>Grain refunded for removed alien levels by the aliens-pass migration (shown once, kept for support).</summary>
-        public long LevelGrainRefunded;
     }
 
     [Serializable]

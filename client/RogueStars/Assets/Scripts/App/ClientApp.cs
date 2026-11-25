@@ -12,7 +12,7 @@ namespace RogueStars.Client.App
 {
     /// <summary>
     /// Composition root: builds the canvas hierarchy (background, safe area, resource bar, screen container,
-    /// modal and toast layers), owns the session, router and toasts, and drives periodic refresh.
+    /// modal and feedback layers), owns the session, router and feedback, and drives periodic refresh.
     /// Plain C# so tests can build it without the bootstrap MonoBehaviour.
     /// </summary>
     public sealed class ClientApp
@@ -21,10 +21,17 @@ namespace RogueStars.Client.App
 
         public GameSession Session { get; } = new GameSession();
         public ScreenRouter Router { get; private set; }
-        public ToastCenter Toasts { get; private set; }
+        /// <summary>Last dev tool status ("Progress reset · day 1", errors): shown inside the dev panel (T58).</summary>
+        public string DevStatus;
+
+        /// <summary>A quick pop on a UI element (feedback hooks of screens).</summary>
+        public void FeedbackPop(RectTransform target) => FeedbackFx.Pop(target, 0.25f, 0.35f);
+
+        /// <summary>Animations, hurray banners, the error bubble and the reconnect strip (G1: there are no toasts).</summary>
+        public GameFeedback Feedback { get; private set; }
         public RectTransform Root { get; private set; }
         public RectTransform ModalLayer { get; private set; }
-        /// <summary>Tutorial coach marks (CoachMarks): above the modals and toasts, never blocking input.</summary>
+        /// <summary>Tutorial coach marks (CoachMarks): above the modals and the feedback layer, never blocking input.</summary>
         public RectTransform CoachLayer { get; private set; }
         public ResourceBar Bar { get; private set; }
         public ClientSettings Settings { get; private set; }
@@ -76,8 +83,8 @@ namespace RogueStars.Client.App
             var container = Ui.Stretch(Ui.Rect(safe, "Screens"), 0, TopBarHeight, 0, 0);
             app.Router = new ScreenRouter(app, container);
             app.ModalLayer = Ui.Stretch(Ui.Rect(safe, "Modals"));
-            var toastLayer = Ui.Stretch(Ui.Rect(safe, "ToastLayer"));
-            app.Toasts = new ToastCenter(toastLayer);
+            var feedbackLayer = Ui.Stretch(Ui.Rect(safe, "FeedbackLayer"));
+            app.Feedback = new GameFeedback(app, feedbackLayer);
             app.CoachLayer = Ui.Stretch(Ui.Rect(safe, "CoachLayer"));
 
             var platform = PlatformConfig.LoadDefault();
@@ -87,9 +94,8 @@ namespace RogueStars.Client.App
             app.Session.PlatformAds = PlatformServices.CreateAds(platform);
             if (app.Session.PlatformAds is MaxAdGateway max) max.UserId = () => app.Session.State?.PlayerId;
             app.Session.Changed += app.OnStateChanged;
-            app.Session.ToastRaised += e => app.Toasts.Event(e, app.Session.Content, app.Session.State);
-            app.Session.ErrorRaised += m => app.Toasts.Error(m);
-            app.Session.InfoRaised += m => app.Toasts.Info(m);
+            app.Session.ResultEvents += app.Feedback.OnEvents;
+            app.Session.Failed += app.Feedback.Error;
             return app;
         }
 
@@ -163,8 +169,7 @@ namespace RogueStars.Client.App
 
         public void Update(float dt)
         {
-            Toasts.SetBottomInset(Router.Current?.ToastBottomInset ?? ToastCenter.DefaultBottomInset);
-            Toasts.Tick(dt);
+            Feedback.Tick(dt);
             Session.Tick(dt);
             Router.Current?.Frame(dt);
             _tick += dt;
@@ -302,6 +307,29 @@ namespace RogueStars.Client.App
                 Ui.Stretch(wi.rectTransform);
             }
             Tick();
+        }
+
+        /// <summary>The chip of a currency in the bar (fly-to target, G1), null when it is not shown on this screen.</summary>
+        public RectTransform ChipOf(string currency)
+        {
+            if (_root == null || currency == null) return null;
+            foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+                if (rt.name == "ChipBg:" + currency) return rt;
+            return null;
+        }
+
+        /// <summary>The wallet button (fly-to target for items and currencies without a chip).</summary>
+        public RectTransform Wallet
+        {
+            get
+            {
+                if (_root == null) return null;
+                foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+                    if (rt.name == "CurrencyDetails") return rt;
+                foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+                    if (rt.name == "ProfileChip") return rt;
+                return null;
+            }
         }
 
         /// <summary>Currency chips in the bar at most (G2: 3–4 per screen).</summary>
