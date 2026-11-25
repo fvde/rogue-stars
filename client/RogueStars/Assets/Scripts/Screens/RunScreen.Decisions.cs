@@ -539,8 +539,7 @@ namespace RogueStars.Client.Screens
         /// </summary>
         private UiModal ShopModal(ActiveRun run)
         {
-            var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
-            long reroll = table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
+            long reroll = ShopRerollPrice(run);
             _shopButtons.Clear();
             var root = RunScenes.Overlay(App.ModalLayer, "Shop", out var modal, out var frame, out float s, new Color32(0x3E, 0x22, 0x16, 255));
             var wood = Ui.Panel(root, Color.white, "Wood");
@@ -619,12 +618,8 @@ namespace RogueStars.Client.Screens
             return modal;
         }
 
-        /// <summary>The reroll's price now (the level's shop table: base + step × rerolls so far).</summary>
-        private long ShopRerollPrice(ActiveRun run)
-        {
-            var table = Content.RunShopTables.TryGetValue(Content.RunLevel(run.LevelId)?.ShopTableId ?? "", out var st) ? st : null;
-            return table != null ? table.RerollBase + table.RerollStep * run.ShopRerolls : 0;
-        }
+        /// <summary>The reroll's price now: the rules' price (base + step × rerolls in this visit; every shop starts at the base).</summary>
+        private long ShopRerollPrice(ActiveRun run) => RunSystem.ShopRerollCost(Content, run);
 
         private RectTransform _shopOffers;
         private float _shopScale = 1;

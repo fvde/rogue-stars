@@ -1184,6 +1184,7 @@ namespace RogueStars.Rules.Systems
 
         private static void OpenShop(CommandContext ctx, ActiveRun run)
         {
+            run.ShopRerolls = 0; // rerolls count per visit: each new shop's reroll starts at the base price
             FillShop(ctx.Content, run);
             run.ShopsVisited++;
             run.Phase = RunPhase.Shop;

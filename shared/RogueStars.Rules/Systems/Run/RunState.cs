@@ -242,6 +242,7 @@ namespace RogueStars.Rules.Systems
         public int DraftRerolls;
         public int DraftsWithoutLegendary;
         public List<ShopOffer> Shop = new List<ShopOffer>();
+        /// <summary>Rerolls in the open shop (reset on every new shop visit: the reroll price starts at the base again).</summary>
         public int ShopRerolls;
         /// <summary>Shops opened this run (the first one always offers a skill at the cheapest price, RunSystem.StartCoins).</summary>
         public int ShopsVisited;

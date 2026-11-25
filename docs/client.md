@@ -765,6 +765,14 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 - **Removed**: "Equip best parts" (button, level-up callout, auto-pick), the draft cards' SYNERGY tag (display-only),
   the "LEVEL n → n+1" chip.
 
+## Run shop fixes (owner playtest, branch `run-shop-fixes`)
+- **Stat perks show at once**: the open shop follows every state change in place — `ShowDecision` calls `RefreshShop` when the
+  shop sheet stays open, so the shop's run HUD (HP / ATK / DEF, level, coins), the buy buttons and the reroll price track the
+  state, not only the buy button's callback (a purchase or an online refresh shows without leaving the shop).
+- **Reroll price per visit**: `RunSystem.ShopRerollCost` (base + step × rerolls in this visit) is what the rules charge and what
+  the Reroll button shows; `ActiveRun.ShopRerolls` resets when a new shop opens, so every shop starts at the base price.
+- Tests: `RunShopFixTests` (EditMode), `ShopVisitTests` (rules); screenshots: `ShopFixShowcaseTests` (explicit PlayMode).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

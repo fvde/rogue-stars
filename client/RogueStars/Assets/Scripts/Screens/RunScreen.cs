@@ -1315,7 +1315,12 @@ namespace RogueStars.Client.Screens
             var run = State.Run.Active;
             if (run == null || run.RunId != stale.RunId) return;
             string key = DecisionKey(run);
-            if (key == _decisionKey && _decision != null && _decision.IsOpen) return;
+            if (key == _decisionKey && _decision != null && _decision.IsOpen)
+            {
+                // the open shop follows every state change in place (HUD stats, coins, prices), not only its own buy callback
+                if (run.Phase == RunPhase.Shop) RefreshShop();
+                return;
+            }
             CloseDecision();
             _decisionKey = key;
             switch (run.Phase)
