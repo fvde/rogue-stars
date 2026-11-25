@@ -5,8 +5,11 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    /// <summary>Ad: the daily extra free single pull of a rewarded ad (Meta placement GachaTypeDef.AdPlacementId).</summary>
-    public enum GachaPayment { Tokens, Diamonds, Ad }
+    /// <summary>
+    /// Ad: the daily extra free single pull of a rewarded ad (Meta placement GachaTypeDef.AdPlacementId). Free: one of the free 10×
+    /// pulls of the type (GachaState.FreeTenPulls, Count must be 10); it holds GachaTypeDef.FreePullGuarantee when the type has one.
+    /// </summary>
+    public enum GachaPayment { Tokens, Diamonds, Ad, Free }
 
     /// <summary>
     /// Pull 1 or 10 times on a pull type. BannerId: empty = standard pool; otherwise must be a banner of
@@ -94,6 +97,11 @@ namespace RogueStars.Rules.Systems
         public Rarity Tier;
         /// <summary>Percent (0..100).</summary>
         public double Percent;
+        /// <summary>
+        /// Percent of this tier's results that are a featured item (80 on a banner with a featured item of this tier, else 0); the rest
+        /// ("off banner") are the other items of the tier.
+        /// </summary>
+        public double FeaturedPercent;
         public List<GachaOddsItem> Items = new List<GachaOddsItem>();
     }
 

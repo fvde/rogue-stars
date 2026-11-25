@@ -18,6 +18,9 @@ Implements the owner-approved City design (section 6 "Every building" is authori
 
 Other buildings have 1 worker slot; Shard Reactor and Launch Pod (= squad slots) +1 at 5★ and 10★.
 
+**Stasis Beacon** (owner, 2026-11-25: too strong stacked): Mythic, 1 copy, 3×3; boss-awakening slow 10% → 30% at level 10 / 10★, so
+the maximum with the +30% placement cap is 39% (≤ 40%). Other stacking (War Academy, Scout Post: +1 flat each copy) stays.
+
 Uids are `<blueprintId>#<n>` (n = 1..copies). Stars live on the blueprint and are shared by every copy; each copy has its own
 level (1–10), timers, storage, chances and workers.
 
@@ -46,7 +49,8 @@ next to the digs.
 20×20 grid (`ContentDb.CityMap`): 30 start tiles (the 3×3 plaza at 8..10 with the fireplace at 9,9, plus 21 around), 20
 patches of 7–16 tiles (210), 240 land tiles. Ten terrain features (4 Crystal Outcrops, 4 Springs, 2 Old Ruins) are obstacles.
 
-* A patch can be dug once it side-touches the land; any order. Cost and timer by dig number (`CityTuning.Digs`, the dig table:
+* A patch can be dug once it side-touches the land; any order. Dig costs and the slower production are kept (owner, 2026-11-25:
+  no producer ×2, see docs/balance/progression-report.md "City redesign"). Cost and timer by dig number (`CityTuning.Digs`, the dig table:
   2 500 Biomass + 750 Ore / 1 min for #1 … 600 000 + 150 000 + 12 000 Gear Cores / 24 h for #20). One dig at a time; timer
   speed-ups apply. `FreeDigs` (from the reset) are instant and free.
 * Streets are 1×1 on free land and must link back to the plaza (side steps). Buildings need a footprint tile side-touching a
@@ -60,6 +64,9 @@ boon value), own skill + auras capped at +30%. Scout Post and War Academy give +
 1-wide street), Hearth (≤ N tiles from the fireplace), Outskirts (≥ N), Open Ground (N+ empty land tiles touching), Cliffside
 (touches undug / void), Aura (Barracks Dome: +10% to touching buildings while it runs), Touch plaza (Command Spire).
 Distances: straight steps from the closest footprint tile. Bonuses are cached per `CityState.LayoutRev`.
+
+Readings confirmed by the owner (2026-11-25): the Barracks Dome aura counts toward the +30% cap; the Command Spire's production
+bonus and the production priority do not apply to pull buildings; free digs from the reset are instant.
 
 ## Pull buildings
 
@@ -95,10 +102,28 @@ PlacementFlat(uid)`, `CityLayout.IsLand`, `CityLayout.Cell/CellX/CellY`; `CitySy
 `NextDigNumber`, `DigDef`, `DigCost`, `DigBlockReason(patchId)`, `LaunchPod`, `Laboratory`, `SquadSlots`; `CityPlanner.Find`
 (a valid spot with up to two new street tiles, best bonus first) for an editor "suggest" button.
 
-## Unlocks
+## Unlocks (owner, 2026-11-25: unlocks come with pulls)
 
-Aliens at level 6 (first alien), Alien Signal 13, the City 15 (Biomass Farm), Launch Pod 16, Laboratory 17 (research is locked
-until the Laboratory building is placed and built; its slots need an alien), Grain Farm 19.
+| Unlock | Level | Comes with |
+|---|---|---|
+| Parts | 1 | the Part Signal (part pulls) and one free 10× Part pull |
+| Aliens | 6 | the first alien, the Alien Signal (alien pulls) and one free 10× Alien pull |
+| City | 15 | the Biomass Farm blueprint, the Blueprint Signal and one free 10× Blueprint pull that **always holds the Launch Pod** (owner's call: the only squad-slot source) |
+
+The separate Part Signal (10), Alien Signal (13) and Blueprint Signal (20) unlocks are gone (`Features.PartPulls / AlienPulls /
+Blueprints` are now the same ids as Parts / Aliens / City). **Buildings have no level:** the Launch Pod (`alien_squad`),
+Laboratory, Grain Farm, Ore Mine and Breeding Pen features unlock the moment their blueprint is owned (`RequirementKind.Blueprint`,
+after the City), with their intro and gift (the Laboratory's 60 Data); the hub teaser skips them. No unlock grants a blueprint any
+more (only the starter Biomass Farm). Research needs the Laboratory **pulled, built and staffed** (cost unchanged; the friction is
+intended). Free pulls: `GachaState.FreeTenPulls[type]`, spent with `GachaPull { Count = 10, Payment = GachaPayment.Free }`; the
+Blueprint one's first result is `GachaTypeDef.FreePullGuarantee` (counts for the pity and the 10× rule like any result).
+
+Sim (9 profiles × 3 seeds × 730 days, `docs/balance/data/city_city.md` "Building blueprints"): the Launch Pod comes with the City
+(day 1–14), the Laboratory is pulled on day 2–5 by Hardcore players and spenders, ~19 by Active F2P and ~110 by Casual F2P (first
+research a day to ~2 months after; see progression-report.md "City follow-up").
+
+Blueprint banners (see pull-system.md "Banner schedule"): a weekly rotation from Monday 00:00 UTC whose **core blueprint banner**
+(Laboratory in Mythic; Blueprint Relay, Alien Signal Beacon, Part Fabricator in Legendary; nothing else) returns every other week.
 
 ## Old saves
 

@@ -140,13 +140,15 @@ public class CrossSystemTests
         Assert.Equal("feature locked", Fail(e, ref s, new PartForgeUnlock { Uid = "p" }, t));
 
         // Portal progress is Run's main_level_max counter (max-style); the level is the only gate (GDD §16, no calendar).
-        s.Counters[Requirements.MainLevelCounter] = 9;
-        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Part), t)); // Part Signal: level 10
-        s.Counters[Requirements.MainLevelCounter] = 10;
+        // The Signals come with their system (owner, 2026-11-25): Part Signal with Parts (1), Alien Signal with Aliens (6),
+        // Blueprint Signal with the City (15).
+        s.Counters[Requirements.MainLevelCounter] = 1;
         Ok(e, ref s, P(GachaType.Part), t); // same day
         Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Alien), t));
-        s.Counters[Requirements.MainLevelCounter] = 20;
+        s.Counters[Requirements.MainLevelCounter] = 6;
         Ok(e, ref s, P(GachaType.Alien), t + 1000);
+        Assert.Equal("feature locked", Fail(e, ref s, P(GachaType.Blueprint), t + 1000));
+        s.Counters[Requirements.MainLevelCounter] = 15;
         Ok(e, ref s, P(GachaType.Blueprint), t + 2000);
         Assert.Equal("feature locked", Fail(e, ref s, new MountEquip { MountId = "mount_scout_saucer" }, t + 3000)); // Mounts: level 26
         Assert.False(Features.IsUnlocked(s, e.Content, Features.Forge));
@@ -173,21 +175,31 @@ public class CrossSystemTests
         Assert.Equal(500, s.Wallet.Get(Currencies.Ore));
         Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
-        // Level 6: Aliens (first alien); level 17: the City (15: farm blueprint, Biomass), Launch Pod (16), Laboratory (17).
+        Assert.Equal(1, s.Gacha.FreePulls(GachaType.Part)); // the Part Signal's free 10×
+        // Level 6: Aliens (first alien, the Alien Signal's free 10×); level 15: the City (farm blueprint, Biomass, the Blueprint
+        // Signal's free 10× that holds the Launch Pod). No building comes by level: the Launch Pod and the Laboratory are pulled.
         s.Counters[Requirements.MainLevelCounter] = 6;
         Ok(e, ref s, new CityCollect(), T0 + 2000);
         Assert.Contains(Features.Aliens, s.Onboarding.Unlocked.Keys);
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
+        Assert.Equal(1, s.Gacha.FreePulls(GachaType.Alien));
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
         s.Counters[Requirements.MainLevelCounter] = 17;
         Ok(e, ref s, new CityCollect(), T0 + 3000);
         Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
-        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaunchPodId));
-        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaboratoryId));
+        Assert.Equal(1, s.Gacha.FreePulls(GachaType.Blueprint));
+        Assert.Null(CitySystem.Owned(s, ContentDb.LaunchPodId));
+        Assert.Null(CitySystem.Owned(s, ContentDb.LaboratoryId));
+        Assert.False(Features.IsUnlocked(s, e.Content, Features.AlienSquad));
         // Sticky: a later command does not grant again.
         Ok(e, ref s, new CityCollect(), T0 + 4000);
         Assert.Equal(0, s.Counter("alien_duplicates"));
         Assert.Equal(0, s.Counter("blueprint_duplicates"));
+        var free = Ok(e, ref s, new GachaPull { PullType = GachaType.Blueprint, Count = 10, Payment = GachaPayment.Free }, T0 + 4500);
+        Assert.Contains(((GachaPullResult)free.Payload!).Items, i => i.Id == ContentDb.LaunchPodId);
+        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaunchPodId));
+        Ok(e, ref s, new CityCollect(), T0 + 4600);
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.AlienSquad)); // the Launch Pod feature came with its blueprint
 
         // Heroes (level 18): no starter hero, only the hero summon events and the first event's 10 tickets.
         s.Counters[Requirements.MainLevelCounter] = 18;

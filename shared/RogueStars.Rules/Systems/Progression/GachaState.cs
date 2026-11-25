@@ -39,6 +39,10 @@ namespace RogueStars.Rules.Systems
         public Dictionary<GachaType, GachaPityState> Pity = new Dictionary<GachaType, GachaPityState>();
         /// <summary>Save migration applied (PullSystemMigration.Version): 1 = the pull system (shard batches, 10★ table, visible pity).</summary>
         public int Migrated;
+        /// <summary>Free 10× pulls waiting per pull type (one comes with each Signal's unlock; GachaPayment.Free spends one).</summary>
+        public Dictionary<GachaType, int> FreeTenPulls = new Dictionary<GachaType, int>();
+
+        public int FreePulls(GachaType t) => FreeTenPulls.TryGetValue(t, out var n) ? n : 0;
 
         public GachaPityState For(GachaType t)
         {

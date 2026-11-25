@@ -430,7 +430,8 @@ namespace RogueStars.Rules.Content
                 "Extra draft rerolls every run.",
                 Skill(PlacementKind.AcrossStreet, 0, 0, "+1 reroll facing Training Grounds across a street.", "bp_training_grounds", 0, 1));
             academy.Boons.Add(new BuildingBoon { Kind = BoonKind.DraftRerolls, Base = 1, Placement = true, Whole = true });
-            var stasis = CityDef("bp_stasis_beacon", "Stasis Beacon", Rarity.Legendary, BuildingCategory.Boon, BuildingCostType.Both,
+            // Mythic (owner, 2026-11-25: too strong stacked): one copy, 3×3; 10% → 30% at max, ≤ 39% with the +30% placement cap.
+            var stasis = CityDef("bp_stasis_beacon", "Stasis Beacon", Rarity.Mythic, BuildingCategory.Boon, BuildingCostType.Both,
                 "Slows the boss awakening meter.",
                 Skill(PlacementKind.Outskirts, 30, 30, "Outskirts: +30% if 6+ tiles from the fireplace.", null, 6));
             stasis.Boons.Add(new BuildingBoon { Kind = BoonKind.AwakeningSlowPct, Base = 10, Placement = true });

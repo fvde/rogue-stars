@@ -15,6 +15,7 @@ namespace RogueStars.Rules.Core
         public const string Mount = "mount";           // Id = mount id, Amount = batches of 50 shards (the first unlocks; docs/design/pull-system.md)
         public const string Hero = "hero";             // Id = hero id, Amount = batches of 50 shards (the first unlocks at 1★)
         public const string Skin = "skin";             // cosmetic
+        public const string FreePull = "free_pull";    // Id = GachaType name (Part / Alien / Blueprint), Amount = free 10× pulls (GachaPayment.Free)
     }
 
     [Serializable]

@@ -146,14 +146,11 @@ namespace RogueStars.Client.App
                 case Features.Quests: return new Entry(featureId, "SEE TODAY'S GOALS", null, "quests");
                 case Features.BiomassFarm: return new Entry(featureId, "BUILD THE FARM", null, "city");
                 case Features.WormLevel: return new Entry(featureId, "LEVEL UP THE WORM", null, "worm");
-                case Features.PartPulls: return new Entry(featureId, "TUNE IN", null, "signals");
                 case Features.Shop: return new Entry(featureId, "OPEN THE SHOP", null, "shop");
                 case Features.Laboratory: return new Entry(featureId, "START FIRST RESEARCH", null, "laboratory");
                 case Features.GrainFarm: return new Entry(featureId, "BUILD THE GRAIN FARM", null, "city");
                 case Features.Aliens: return new Entry(featureId, "MEET YOUR ALIEN", null, "aliens");
-                case Features.AlienPulls: return new Entry(featureId, "CALL AN ALIEN", null, "signals");
                 case Features.AlienSquad: return new Entry(featureId, "BUILD HOUSING", null, "city");
-                case Features.Blueprints: return new Entry(featureId, "PULL A BLUEPRINT", null, "signals");
                 case Features.Heroes: return new Entry(featureId, "CHOOSE A HERO", null, "heroes");
                 case Features.OreMine: return new Entry(featureId, "BUILD THE ORE MINE", null, "city");
                 case Features.Runes: return new Entry(featureId, "SEE YOUR PARTS", null, "parts");
@@ -186,7 +183,6 @@ namespace RogueStars.Client.App
                 case Features.Parts: case Features.WormLevel: return "~";
                 case Features.Quests: return "!";
                 case Features.BiomassFarm: case Features.GrainFarm: case Features.OreMine: case Features.AlienSquad: return "#";
-                case Features.PartPulls: case Features.Blueprints: case Features.AlienPulls: return "))";
                 case Features.Shop: case Features.Funds: return "$";
                 case Features.Laboratory: return "Lab";
                 case Features.Aliens: case Features.Breeding: return "@";

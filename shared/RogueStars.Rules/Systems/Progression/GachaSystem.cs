@@ -17,7 +17,15 @@ namespace RogueStars.Rules.Systems
         public static void Register(GameEngine e)
         {
             e.Register<GachaPull>(HandlePull);
+            e.Rewards.Register(RewardKinds.FreePull, GrantFreePull);
             PullSystemMigration.Register(e);
+        }
+
+        /// <summary>A free 10× pull of the type named by the reward id (Part / Alien / Blueprint), Amount pulls.</summary>
+        private static void GrantFreePull(CommandContext ctx, Reward r)
+        {
+            if (!Enum.TryParse(r.Id, out GachaType type) || r.Amount <= 0) return;
+            ctx.State.Gacha.FreeTenPulls[type] = ctx.State.Gacha.FreePulls(type) + (int)r.Amount;
         }
 
         // ---- pity (visible) ------------------------------------------------------------------------
@@ -92,17 +100,16 @@ namespace RogueStars.Rules.Systems
             {
                 double tierPct = total > 0 ? Math.Max(0, t.Weight) / total * 100 : 0;
                 var ot = new GachaOddsTier { Tier = t.Tier, Percent = tierPct };
-                double share = banner != null && t.Tier == Rarity.Mythic ? Clamp01(banner.Theme.FeaturedShare) : 0;
-                double poolW = 0;
-                foreach (var e in t.Pool) poolW += Math.Max(0, e.Weight);
-                if (share > 0)
-                    ot.Items.Add(new GachaOddsItem { Kind = banner.Theme.FeaturedKind, Id = banner.Theme.FeaturedId, Amount = banner.Theme.FeaturedAmount, Rarity = banner.Theme.FeaturedRarity, Featured = true, Percent = tierPct * share });
-                double rest = poolW > 0 ? 1 - share : 0;
-                if (poolW <= 0 && share > 0) ot.Items[0].Percent = tierPct; // featured takes the whole tier
+                var feats = FeaturedIn(banner, t.Tier);
+                double poolW = OffBannerWeight(t, banner);
+                double share = feats.Count == 0 ? 0 : poolW <= 0 ? 1 : Clamp01(banner.Theme.FeaturedShare);
+                ot.FeaturedPercent = share * 100;
+                foreach (var f in feats)
+                    ot.Items.Add(new GachaOddsItem { Kind = f.Kind, Id = f.Id, Amount = f.Amount, Rarity = f.Rarity, Featured = true, Percent = tierPct * share / feats.Count });
                 foreach (var e in t.Pool)
                 {
-                    if (e.Weight <= 0) continue;
-                    ot.Items.Add(new GachaOddsItem { Kind = e.Kind, Id = e.Id, Amount = e.Amount, Rarity = e.Rarity, Percent = tierPct * rest * e.Weight / poolW });
+                    if (e.Weight <= 0 || poolW <= 0 || (feats.Count > 0 && banner.Theme.IsFeatured(e.Kind, e.Id))) continue;
+                    ot.Items.Add(new GachaOddsItem { Kind = e.Kind, Id = e.Id, Amount = e.Amount, Rarity = e.Rarity, Percent = tierPct * (1 - share) * e.Weight / poolW });
                 }
                 odds.Tiers.Add(ot);
             }
@@ -110,6 +117,20 @@ namespace RogueStars.Rules.Systems
         }
 
         private static double Clamp01(double v) => v < 0 ? 0 : v > 1 ? 1 : v;
+
+        /// <summary>Featured items of a tier on this banner (only Legendary and Mythic tiers have them).</summary>
+        private static List<BannerFeature> FeaturedIn(ActiveBannerInfo banner, Rarity tier) =>
+            banner == null || tier < Rarity.Legendary ? new List<BannerFeature>() : banner.Theme.FeaturedIn(tier);
+
+        /// <summary>Pool weight of the "off banner" items of a tier: everything but the featured items (when the tier has any).</summary>
+        private static double OffBannerWeight(GachaTierDef t, ActiveBannerInfo banner)
+        {
+            bool featuredTier = FeaturedIn(banner, t.Tier).Count > 0;
+            double w = 0;
+            foreach (var e in t.Pool)
+                if (e.Weight > 0 && !(featuredTier && banner.Theme.IsFeatured(e.Kind, e.Id))) w += e.Weight;
+            return w;
+        }
 
         private static ActiveBannerInfo ResolveBanner(ContentDb c, GachaType type, string bannerId, long nowMs, bool require)
         {
@@ -140,7 +161,14 @@ namespace RogueStars.Rules.Systems
                 GameEngine.Require(ctx.Engine.Rewards.CanGrant(e.Kind), "pull type not available yet");
             if (banner != null) GameEngine.Require(ctx.Engine.Rewards.CanGrant(banner.Theme.FeaturedKind), "pull type not available yet");
 
-            if (cmd.Payment == GachaPayment.Ad)
+            bool free = cmd.Payment == GachaPayment.Free;
+            if (free)
+            {
+                GameEngine.Require(cmd.Count == 10, "the free pull is a 10× pull");
+                GameEngine.Require(s.Gacha.FreePulls(cmd.PullType) > 0, "no free pull");
+                s.Gacha.FreeTenPulls[cmd.PullType] = s.Gacha.FreePulls(cmd.PullType) - 1;
+            }
+            else if (cmd.Payment == GachaPayment.Ad)
             {
                 GameEngine.Require(cmd.Count == 1, "ad pulls are single pulls");
                 GameEngine.Require(!string.IsNullOrEmpty(def.AdPlacementId), "no ad pull for this type");
@@ -156,6 +184,17 @@ namespace RogueStars.Rules.Systems
             bool gotMin = false;
             for (int i = 0; i < cmd.Count; i++)
             {
+                if (free && i == 0 && def.FreePullGuarantee != null)
+                {
+                    // the free 10×'s guaranteed result (the City's: the Launch Pod); its tier counts for the pity and the 10× rule
+                    var g = def.FreePullGuarantee;
+                    var gt = (Rarity)Math.Max(0, Math.Min(4, g.Rarity));
+                    pity.TotalPulls++;
+                    AdvancePity(pity, gt);
+                    if (gt >= def.TenPullMinTier) gotMin = true;
+                    result.Items.Add(new GachaPullItem { Kind = g.Kind, Id = g.Id, Amount = g.Amount, Rarity = g.Rarity, Tier = gt });
+                    continue;
+                }
                 bool forceMin = def.TenPullGuarantee && cmd.Count == 10 && i == cmd.Count - 1 && !gotMin;
                 var tier = RollTier(def, pity, ctx.Rng, forceMin);
                 if (tier.Tier >= def.TenPullMinTier) gotMin = true;
@@ -217,13 +256,19 @@ namespace RogueStars.Rules.Systems
                 if (forceMin && chosen.Tier < def.TenPullMinTier) chosen = TierOf(def, def.TenPullMinTier) ?? chosen;
             }
 
-            if (chosen.Tier == Rarity.Mythic) { pity.SinceMythic = 0; pity.SinceLegendary = 0; pity.Mythics++; }
+            AdvancePity(pity, chosen.Tier);
+            return chosen;
+        }
+
+        /// <summary>Moves the visible counters past one result of the given tier.</summary>
+        private static void AdvancePity(GachaPityState pity, Rarity tier)
+        {
+            if (tier == Rarity.Mythic) { pity.SinceMythic = 0; pity.SinceLegendary = 0; pity.Mythics++; }
             else
             {
                 pity.SinceMythic++;
-                if (chosen.Tier == Rarity.Legendary) pity.SinceLegendary = 0; else pity.SinceLegendary++;
+                if (tier == Rarity.Legendary) pity.SinceLegendary = 0; else pity.SinceLegendary++;
             }
-            return chosen;
         }
 
         private static GachaTierDef TierOf(GachaTypeDef def, Rarity r)
@@ -232,21 +277,25 @@ namespace RogueStars.Rules.Systems
             return null;
         }
 
+        /// <summary>
+        /// One item of the rolled tier. On a banner with featured items in this tier (Legendary / Mythic): FeaturedShare (80%) a
+        /// featured item (split evenly), otherwise another item of the tier ("off banner": the pool without the featured items).
+        /// No carry-over: every pull rolls the 80/20 afresh.
+        /// </summary>
         private static GachaPullItem PickItem(GachaTierDef tier, ActiveBannerInfo banner, Rng rng)
         {
-            if (banner != null && tier.Tier == Rarity.Mythic)
+            var feats = FeaturedIn(banner, tier.Tier);
+            if (feats.Count > 0)
             {
-                double share = Clamp01(banner.Theme.FeaturedShare);
-                bool emptyPool = true;
-                foreach (var e in tier.Pool) if (e.Weight > 0) emptyPool = false;
-                if (emptyPool || rng.Chance(share))
+                if (OffBannerWeight(tier, banner) <= 0 || rng.Chance(Clamp01(banner.Theme.FeaturedShare)))
                 {
-                    var th = banner.Theme;
-                    return new GachaPullItem { Kind = th.FeaturedKind, Id = th.FeaturedId, Amount = th.FeaturedAmount, Rarity = th.FeaturedRarity, Tier = tier.Tier, Featured = true };
+                    var f = feats.Count == 1 ? feats[0] : feats[(int)(rng.NextDouble() * feats.Count) % feats.Count];
+                    return new GachaPullItem { Kind = f.Kind, Id = f.Id, Amount = f.Amount, Rarity = f.Rarity, Tier = tier.Tier, Featured = true };
                 }
             }
             var weights = new double[tier.Pool.Count];
-            for (int i = 0; i < weights.Length; i++) weights[i] = tier.Pool[i].Weight;
+            for (int i = 0; i < weights.Length; i++)
+                weights[i] = feats.Count > 0 && banner.Theme.IsFeatured(tier.Pool[i].Kind, tier.Pool[i].Id) ? 0 : tier.Pool[i].Weight;
             int idx = rng.PickWeighted(weights);
             if (idx < 0) throw new RuleException("empty gacha pool");
             var en = tier.Pool[idx];

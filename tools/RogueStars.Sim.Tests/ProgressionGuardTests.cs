@@ -50,7 +50,9 @@ public class ProgressionGuardTests
     // maxed-out stretch of up to two weeks between them is expected (docs/balance/data/analysis_city.md).
     [InlineData("Buildings", 14)]
     [InlineData("Aliens", 10)]
-    [InlineData("Laboratory", 28)]
+    // Was 28: the Laboratory must now be pulled (a Mythic blueprint, featured on the core banner every other week), then built and
+    // staffed before research works (owner, 2026-11-25: the friction is intended). Active F2P seed 1 waits ~50 days in its first 60.
+    [InlineData("Laboratory", 56)]
     public void NoWall_InTheFirst60Days(string system, int maxGapDays)
     {
         foreach (var p in Both.Value.Profiles)

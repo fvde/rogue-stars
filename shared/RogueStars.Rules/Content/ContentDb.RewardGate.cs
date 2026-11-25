@@ -126,6 +126,7 @@ namespace RogueStars.Rules.Content
             Item(RewardKinds.Hero, "Heroes (a copy: unlock or +1 star)", -1, F(Features.Heroes));
             Item(RewardKinds.Mount, "Mounts", -1, F(Features.Mounts));
             Item(RewardKinds.Skin, "Cosmetic", -1);
+            Item(RewardKinds.FreePull, "A free 10× Signal pull", -1); // granted with the Signal's own unlock
 
             GateConfig.KeepAllCommands.AddRange(new[]
             {
