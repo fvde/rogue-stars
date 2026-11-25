@@ -773,6 +773,26 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   the Reroll button shows; `ActiveRun.ShopRerolls` resets when a new shop opens, so every shop starts at the base price.
 - Tests: `RunShopFixTests` (EditMode), `ShopVisitTests` (rules); screenshots: `ShopFixShowcaseTests` (explicit PlayMode).
 
+## Skill help (owner playtest, branch `skill-help`)
+- **The "?" panel explains the mechanics** (`SkillTooltip`, used by every card's "?", the skills book, the battle grid, shop and
+  result tiles): the skill's own text at its level and the next level (or the offered level-up), then one short block per
+  mechanic the skill touches (`TipMechanic:<id>`: Heat / Supernova, Radiation, Bleed, Chill / Freeze — any Freeze resets Chill,
+  Shock, Arc, Stun, Charm, Exposed, Stagger, Delay, Combo, Counter, Crit, Rage, Shield, Dodge, life steal, regeneration,
+  aliens, Echo, signature, boss awakening, run XP, coins) and the synergy info (`TipSynergy`: more offers per owned skill,
+  awakening at 3 / 6, family / source gates, Mythic origin; no synergy tag chip). Tall panels are centred and clamped.
+- **One source of truth** in the rules: `RogueStars.Rules.Core.SkillGlossary` — `Entries(content)` builds every definition
+  from content numbers (status caps, damage per stack, durations, cooldowns, rage, crit, chain decay, awakening thresholds)
+  through `NumFmt`; `Keywords(content, skill)` maps a skill's family, stats, triggers, effects, statuses, gate conditions,
+  rule changes and offer gate to entries (never per-skill text); `SynergyLines` the family block. Tests
+  (`SkillGlossaryTests`): every run-pool skill resolves every mechanic its own text names, every status it applies and
+  (signatures) Signature; glossary texts carry no raw ids and follow the number rule; numbers follow content.
+- **Skills book everywhere** (`RunScreen.OpenSkills`, `RunScenes.SkillsBook`, named `SkillsBook`): the board, the level-up
+  draft and Mythic choice, the Mythic / signal / loot chests (over the tap catcher), the signature choice, the shop, scene
+  events and the rest (stage), the Train picker, vendors (beside the NPC), the outcome sheet, revive and burrow modals
+  ("Your skills"). It opens `Modal:Skills` on top; closing it returns to the same decision — nothing is sent, rerolled or
+  rebuilt. Not on the run-start signature pick (no run yet) or inside a mini-game.
+- Tests: `SkillHelpTests` (EditMode); screenshots: `SkillHelpShowcaseTests` (explicit PlayMode).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

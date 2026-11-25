@@ -23,6 +23,30 @@ namespace RogueStars.Client.Screens
         /// <summary>Tests: build the chest intro outside play mode too.</summary>
         public static bool ForceChestIntro;
 
+        // ---- the skills book on every decision ------------------------------------------------------------------
+
+        /// <summary>
+        /// Opens the run's skills book on top of whatever is open (owner playtest: "the player must be able to see their
+        /// skills at any time"): the decision under it (draft, shop, event, chest, …) stays exactly as it is — nothing is sent,
+        /// rerolled or rebuilt — and closing the book returns to it.
+        /// </summary>
+        public void OpenSkills()
+        {
+            var run = State.Run.Active;
+            if (run != null) SkillsModal(run);
+        }
+
+        /// <summary>The skills book button of a decision screen (bottom-right unless placed otherwise; named "SkillsBook").</summary>
+        private Button DecisionSkillsBook(RectTransform parent, float s, float x = 975, float y = 2272, bool fromBottom = false) =>
+            RunScenes.SkillsBook(parent, s, x, y, OpenSkills, fromBottom);
+
+        /// <summary>The skills book in a plain modal's body (revive, burrow): a button named "SkillsBook".</summary>
+        private void ModalSkillsBook(RectTransform body)
+        {
+            var b = Ui.Button(body, "Your skills", OpenSkills, SliceCards.Purple);
+            b.name = "SkillsBook";
+        }
+
         // ---- events ----------------------------------------------------------------------------------------------
 
         private UiModal EventModal(ActiveRun run)
@@ -68,7 +92,7 @@ namespace RogueStars.Client.Screens
         private UiModal SceneModal(ActiveRun run, EventDef ev, EventLook look, List<int> visible)
         {
             var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
-            RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), () => SkillsModal(run), PauseModal);
+            RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), OpenSkills, PauseModal);
             bool campfire = ev.Id == "campfire";
             string flavour = look.Line ?? ev.Text;
             RunScenes.Panel(root, frame, s, look.Title ?? ev.Name, flavour, campfire ? 60 : 46);
@@ -132,6 +156,7 @@ namespace RogueStars.Client.Screens
             }
             var or = SliceKit.Chunky(frame, "OR", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "Or");
             RunScenes.At(or.rectTransform, s, 540, 2282, 160, 120);
+            DecisionSkillsBook(frame, s, 975, 1010); // beside the vendor, above the counter (the cards' buttons fill the bottom row)
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }
@@ -196,6 +221,7 @@ namespace RogueStars.Client.Screens
             UiShapes.Outline((RectTransform)back.transform, IsoArt.Ink, Theme.RadiusButton, 6);
             var bt = SliceKit.Chunky(back.transform, "Back", (int)(64 * s), Color.white, TextAnchor.MiddleCenter, "BackText");
             Ui.Stretch(bt.rectTransform, 0, 0, 0, 8 * s);
+            DecisionSkillsBook(root, s, 975, 2262, true);
             UiTween.PopIn(root, 0.15f);
         }
 
@@ -261,6 +287,10 @@ namespace RogueStars.Client.Screens
             }
             b.onClick.AddListener(Open);
             tap = b;
+            // the skills book over the tap catcher (its own frame layer, so a tap on it never opens the chest)
+            var bookLayer = RunScenes.Frame(holder, out float bs);
+            bookLayer.name = "BookLayer";
+            DecisionSkillsBook(bookLayer, bs);
             return holder;
         }
 
@@ -304,6 +334,7 @@ namespace RogueStars.Client.Screens
                 if (sigFx != null) card.Find("Draft:" + spec.Id)?.gameObject.SetActive(true);
                 y += step;
             }
+            DecisionSkillsBook(root, s, 975, 2262, true);
             UiTween.PopIn(root, 0.15f);
             return modal;
         }
@@ -430,6 +461,7 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(ct.rectTransform, 0, 0, 0, 8 * s);
             var hint = SliceKit.Chunky(frame, "Tap Continue.", (int)(32 * s), new Color(1, 1, 1, 0.6f), TextAnchor.MiddleCenter, "Hint");
             RunScenes.At(hint.rectTransform, s, 540, 2230, 900, 50);
+            DecisionSkillsBook(frame, s);
 
             Action startReveal = () =>
             {
@@ -613,7 +645,7 @@ namespace RogueStars.Client.Screens
             rp.rectTransform.pivot = new Vector2(0, 0.5f);
             rp.rectTransform.sizeDelta = new Vector2(170 * s, 60 * s);
             rp.rectTransform.anchoredPosition = new Vector2(-28 * s, 0);
-            RunScenes.SkillsBook(frame, s, 975, 2272, () => SkillsModal(State.Run.Active ?? run));
+            DecisionSkillsBook(frame, s);
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }

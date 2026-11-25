@@ -329,12 +329,17 @@ namespace RogueStars.Client.Screens
             return hud;
         }
 
-        /// <summary>The skills book button with its "Skills" label (reference: bottom-right of the stage / the shop).</summary>
-        public static Button SkillsBook(RectTransform frame, float s, float x, float y, Action onClick)
+        /// <summary>
+        /// The skills book button with its "Skills" label (reference: bottom-right of the stage / the shop; every run decision
+        /// screen has one: it opens the run's skills on top and returns to the same decision). <paramref name="fromBottom"/>:
+        /// <paramref name="y"/> is measured on a 2400 px frame anchored to the bottom edge (overlays that fill any aspect).
+        /// </summary>
+        public static Button SkillsBook(RectTransform frame, float s, float x, float y, Action onClick, bool fromBottom = false)
         {
             var book = Ui.Button(frame, "", onClick, new Color(0, 0, 0, 0), 150 * s, 170 * s, true, 20);
             book.name = "SkillsBook";
-            At((RectTransform)book.transform, s, x, y, 150, 170);
+            SliceKit.Place((RectTransform)book.transform, s, x, y, 150, 170, fromBottom);
+            var le = book.GetComponent<LayoutElement>(); if (le != null) le.ignoreLayout = true;
             var img = Ui.Panel(book.transform, Color.white, "BookIcon");
             img.sprite = ScreenArt.Icon("skill_book"); img.preserveAspect = true; img.raycastTarget = false;
             Ui.Stretch(img.rectTransform, 6 * s, 0, 6 * s, 40 * s);

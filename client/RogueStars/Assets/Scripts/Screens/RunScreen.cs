@@ -1066,6 +1066,17 @@ namespace RogueStars.Client.Screens
             var count = SliceKit.Chunky(badge.transform, _skillCount.ToString(), (int)(28 * s), Color.white, TextAnchor.MiddleCenter, "SkillCount");
             Ui.Stretch(count.rectTransform);
             if (_hud != null) _hud.Skills = count;
+            _boardBook = new[] { book.gameObject, bl.gameObject };
+        }
+
+        /// <summary>The board's skills book and its label: hidden while a decision / result covers the board (each has its own book).</summary>
+        private GameObject[] _boardBook;
+
+        private void SyncBoardBook()
+        {
+            if (_boardBook == null) return;
+            bool covered = (_decision != null && _decision.IsOpen) || OutcomeOpen;
+            foreach (var go in _boardBook) if (go != null && go.activeSelf == covered) go.SetActive(!covered);
         }
 
         /// <summary>The speed chip: board animations ×1 → ×2 → ×3 → ×1.</summary>
@@ -1124,6 +1135,7 @@ namespace RogueStars.Client.Screens
                 && BodyFrame.rect.width > 100 && BodyFrame.rect.height > 100)
                 Rebuild();
             StepCamera(dt);
+            SyncBoardBook();
             if (_toResult && !Animating && App.Router.Current == this)
             {
                 _toResult = false;
@@ -1556,6 +1568,7 @@ namespace RogueStars.Client.Screens
                 y += step;
             }
             SliceCards.Reroll(root, s, "Reroll (" + run.DraftRerolls + ")", () => Run(new RunDraftReroll()), run.DraftRerolls > 0);
+            DecisionSkillsBook(root, s, 975, 2262, true); // the run's skills while picking (opens on top, the offer stays)
             UiTween.PopIn(root, 0.15f);
             return modal;
         }
@@ -1583,6 +1596,7 @@ namespace RogueStars.Client.Screens
             buttons.Add(new ModalButton("Give up", () => Run(new RunAbandon()), Theme.Bad));
             return Modal("Defeated!", b =>
             {
+                ModalSkillsBook(b);
                 Ui.Label(b, run.ReviveUsed ? "Your revive for this run is used." : "Revive once with " + Fmt.Pct(Content.RunTuning.ReviveHpPct) + " HP and retry the fight.", Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
                 Note(b, "Giving up loses " + run.PendingLoot.Count + " pending loot items.");
             }, buttons.ToArray());
@@ -1591,6 +1605,7 @@ namespace RogueStars.Client.Screens
         private UiModal BurrowModal(ActiveRun run) =>
             Modal("Floor " + run.Floor + " cleared", b =>
             {
+                ModalSkillsBook(b);
                 Ui.Label(b, "Dive deeper for better loot, or cash out now.", Theme.FontNormal);
                 Note(b, "Pending: " + Fmt.Rewards(run.PendingLoot, Content, State, Now));
             },
