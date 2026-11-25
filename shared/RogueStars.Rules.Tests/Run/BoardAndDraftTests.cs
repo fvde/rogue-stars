@@ -371,9 +371,13 @@ public class ContentTests
             var def = ev.Options[ev.DefaultOption];
             Assert.Equal(0, def.CoinCost + def.ShardCost);
         }
-        // loot feeds every system: currencies, parts, runes, blueprints, aliens, tokens
+        // loot feeds the systems with currencies, parts, runes and pull tokens; never shards or shard items (owner: shards only from pulls)
         var kinds = c.RunLootTables["loot_p1"].Entries.Select(e => e.Kind).ToHashSet();
-        Assert.Superset(new HashSet<string> { RewardKinds.Currency, RewardKinds.Part, RewardKinds.Rune, RewardKinds.Blueprint, RewardKinds.Alien }, kinds);
+        Assert.Superset(new HashSet<string> { RewardKinds.Currency, RewardKinds.Part, RewardKinds.Rune }, kinds);
+        foreach (var t in c.RunLootTables.Values)
+            Assert.DoesNotContain(t.Entries, e => e.Kind == RewardKinds.Blueprint || e.Kind == RewardKinds.Alien || e.Kind == RewardKinds.HeroShards || e.Kind == RewardKinds.Mount);
+        Assert.Contains(c.RunLootTables["loot_p1"].Entries, e => e.Id == Currencies.AlienTokens);
+        Assert.Contains(c.RunLootTables["loot_p1"].Entries, e => e.Id == Currencies.BlueprintTokens);
     }
 
     [Fact]

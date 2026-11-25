@@ -304,10 +304,9 @@ namespace RogueStars.Rules.Content
             t.Entries.Add(new LootEntry(3, RewardKinds.Rune, "*", 1, 1, R(0)));
             t.Entries.Add(new LootEntry(2, RewardKinds.Currency, Currencies.PartTokens, 1, 1));
             t.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.Diamonds, 5, 15));
-            t.Entries.Add(new LootEntry(0.6, RewardKinds.Currency, Currencies.BlueprintTokens, 1, 1));
-            t.Entries.Add(new LootEntry(0.6, RewardKinds.Currency, Currencies.AlienTokens, 1, 1));
-            t.Entries.Add(new LootEntry(0.25, RewardKinds.Blueprint, "*", 1, 1, R(0)));
-            t.Entries.Add(new LootEntry(0.25, RewardKinds.Alien, "*", 1, 1, R(0)));
+            // Runs drop pull resources (rarely), never shards: shards only come from pulls (owner rule).
+            t.Entries.Add(new LootEntry(0.85, RewardKinds.Currency, Currencies.BlueprintTokens, 1, 1));
+            t.Entries.Add(new LootEntry(0.85, RewardKinds.Currency, Currencies.AlienTokens, 1, 1));
             return t;
         }
 

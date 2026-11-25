@@ -514,8 +514,8 @@ namespace RogueStars.Rules.Content
             darkLoot.Entries.AddRange(RunLootTables["loot_p3"].Entries);
             darkLoot.Entries.Add(new LootEntry(5, RewardKinds.Currency, Currencies.Diamonds, 10, 30));
             darkLoot.Entries.Add(new LootEntry(3, RewardKinds.Part, "*", 1, 1, 3)); // Legendary: the Mythic+ fodder
-            darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Blueprint, "*", 1, 1, 2));
-            darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Alien, "*", 1, 1, 2));
+            darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.BlueprintTokens, 1, 2)); // pull resources, never shards
+            darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.AlienTokens, 1, 2));
             RunLootTables[darkLoot.Id] = darkLoot;
         }
 
