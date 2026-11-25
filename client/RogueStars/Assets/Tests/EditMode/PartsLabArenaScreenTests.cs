@@ -261,28 +261,126 @@ namespace RogueStars.Client.Tests
         // ---- laboratory --------------------------------------------------------------------------------
 
         [Test]
-        public void LabTree_EveryBranchLaysOutWithoutOverlaps()
+        public void LabTree_WholeTree_LaysOutByDependency_WithoutOverlaps()
         {
-            var seen = new HashSet<string>();
-            foreach (var branch in LabTreeLayout.Branches(C))
+            var layout = LabTreeLayout.Build(C);
+            var rects = new List<KeyValuePair<string, Rect>>(layout.Nodes);
+            Assert.That(rects.Count, Is.EqualTo(C.LabResearch.Count), "every node is placed once");
+            foreach (var kv in rects)
             {
-                var layout = LabTreeLayout.Build(C, branch, LaboratoryScreen.TreeWidth);
-                var rects = new List<KeyValuePair<string, Rect>>(layout.Nodes);
-                foreach (var kv in rects)
-                {
-                    Assert.That(seen.Add(kv.Key), Is.True, kv.Key + " in one branch only");
-                    Assert.That(kv.Value.xMin, Is.GreaterThanOrEqualTo(0), kv.Key);
-                    Assert.That(kv.Value.xMax, Is.LessThanOrEqualTo(layout.Width + 0.01f), kv.Key);
-                    Assert.That(kv.Value.yMax, Is.LessThanOrEqualTo(layout.Height + 0.01f), kv.Key);
-                    Assert.That(kv.Value.width, Is.GreaterThan(150), "readable node width");
-                }
-                for (int i = 0; i < rects.Count; i++)
-                    for (int j = i + 1; j < rects.Count; j++)
-                        Assert.That(rects[i].Value.Overlaps(rects[j].Value), Is.False, branch + ": " + rects[i].Key + " overlaps " + rects[j].Key);
-                foreach (var e in layout.Edges)
-                    Assert.That(layout.Nodes[e.Key].yMax, Is.LessThan(layout.Nodes[e.Value].yMin), "edges run downwards: " + e.Key + " → " + e.Value);
+                Assert.That(kv.Value.xMin, Is.GreaterThanOrEqualTo(0), kv.Key);
+                Assert.That(kv.Value.xMax, Is.LessThanOrEqualTo(layout.Width + 0.01f), kv.Key);
+                Assert.That(kv.Value.yMax, Is.LessThanOrEqualTo(layout.Height + 0.01f), kv.Key);
+                Assert.That(kv.Value.width, Is.GreaterThan(150), "readable node width");
+                var lane = layout.Lanes[C.LabNode(kv.Key).Branch];
+                Assert.That(kv.Value.xMin >= lane.xMin && kv.Value.xMax <= lane.xMax, Is.True, kv.Key + " sits in its branch lane");
             }
-            Assert.That(seen.Count, Is.EqualTo(C.LabResearch.Count), "every node is placed");
+            for (int i = 0; i < rects.Count; i++)
+                for (int j = i + 1; j < rects.Count; j++)
+                    Assert.That(rects[i].Value.Overlaps(rects[j].Value), Is.False, rects[i].Key + " overlaps " + rects[j].Key);
+            int edges = 0;
+            foreach (var d in C.LabResearch.Values) edges += d.Requires.Count;
+            Assert.That(layout.Edges.Count, Is.EqualTo(edges), "every prerequisite is an edge, across branches too");
+            foreach (var e in layout.Edges)
+            {
+                Assert.That(layout.Nodes[e.Key].yMax, Is.LessThan(layout.Nodes[e.Value].yMin), "edges run downwards: " + e.Key + " → " + e.Value);
+                // the line's segments are axis-aligned and never cut through another node
+                var pts = layout.Route(e.Key, e.Value);
+                for (int k = 0; k + 1 < pts.Count; k++)
+                {
+                    var a = pts[k]; var b = pts[k + 1];
+                    Assert.That(Mathf.Approximately(a.x, b.x) || Mathf.Approximately(a.y, b.y), Is.True, "axis-aligned " + e.Key + ">" + e.Value);
+                    var seg = Rect.MinMaxRect(Mathf.Min(a.x, b.x) + 0.5f, Mathf.Min(a.y, b.y) + 0.5f, Mathf.Max(a.x, b.x) - 0.5f, Mathf.Max(a.y, b.y) - 0.5f);
+                    if (seg.width < 0) seg.width = 0;
+                    if (seg.height < 0) seg.height = 0;
+                    foreach (var kv in rects)
+                    {
+                        if (kv.Key == e.Key || kv.Key == e.Value) continue;
+                        var inner = Rect.MinMaxRect(kv.Value.xMin + 1, kv.Value.yMin + 1, kv.Value.xMax - 1, kv.Value.yMax - 1);
+                        bool hits = seg.xMax >= inner.xMin && seg.xMin <= inner.xMax && seg.yMax >= inner.yMin && seg.yMin <= inner.yMax;
+                        Assert.That(hits, Is.False, e.Key + ">" + e.Value + " crosses " + kv.Key);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void Laboratory_Tree_DrawsEveryNodeOnce_AndALineForEveryDependency_PannableBothWays()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.App.Open("laboratory");
+            var screen = (LaboratoryScreen)_f.App.Router.Current;
+            var names = new Dictionary<string, int>();
+            foreach (var rt in screen.Root.GetComponentsInChildren<RectTransform>(true))
+                names[rt.name] = (names.TryGetValue(rt.name, out int n) ? n : 0) + 1;
+            foreach (var d in C.LabResearch.Values)
+            {
+                Assert.That(names.TryGetValue("LabNode:" + d.Id, out int count) ? count : 0, Is.EqualTo(1), d.Id + " drawn once");
+                foreach (var r in d.Requires) Assert.That(names.ContainsKey("Edge:" + r.ResearchId + ">" + d.Id), Is.True, "line " + r.ResearchId + " → " + d.Id);
+            }
+            Assert.That(screen.TreeScroll.horizontal && screen.TreeScroll.vertical, Is.True, "the tree pans both ways");
+            Assert.That(screen.Layout.Width, Is.GreaterThan(1000), "wider than the screen: panning needed");
+            // no text lists dependencies on the tree, no raw ids anywhere on the screen
+            foreach (var t in screen.Root.GetComponentsInChildren<Text>(true))
+            {
+                Assert.That(t.text, Does.Not.Contain("Requires"), t.name);
+                Assert.That(t.text, Does.Not.Contain("ANY ").And.Not.Contain("ALL "), t.name);
+                foreach (StatId st in System.Enum.GetValues(typeof(StatId)))
+                {
+                    string raw = st.ToString();
+                    if (raw.Length > 3 && raw != Fmt.StatName(st)) Assert.That(t.text, Does.Not.Contain(raw), t.name + ": " + t.text);
+                }
+            }
+        }
+
+        [Test]
+        public void Laboratory_NodeDetail_UsesStatNames_AndARequirementRowPerPrerequisite()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.App.Open("laboratory");
+            var screen = (LaboratoryScreen)_f.App.Router.Current;
+            screen.NodeModal("lab_boss_damage");
+            Text next = null; int reqs = 0; Text reason = null;
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true))
+            {
+                if (t.name == "EffectNext") next = t;
+                if (t.name == "Requirement") reqs++;
+                if (t.name == "DisabledReason") reason = t;
+            }
+            Assert.That(next.text, Does.Contain("Boss damage +2%"));
+            Assert.That(next.text, Does.Not.Contain("BossDamage"));
+            Assert.That(reqs, Is.EqualTo(C.LabNode("lab_boss_damage").Requires.Count));
+            Assert.That(reason, Is.Not.Null, "a locked node says why Research is disabled");
+            Assert.That(FindButton(_f.App.ModalLayer, "Research").interactable, Is.False);
+        }
+
+        [Test]
+        public void Laboratory_NodeStates_LockedAvailableResearchingResearched()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            GrantCurrency(Currencies.Data, 10_000);
+            Assert.That(LaboratoryScreen.NodeState(S, C, C.LabNode("lab_atk_1")), Is.EqualTo(LabNodeState.Available));
+            Assert.That(LaboratoryScreen.NodeState(S, C, C.LabNode("lab_boss_damage")), Is.EqualTo(LabNodeState.Locked));
+            string researched = null;
+            foreach (var d in C.LabResearch.Values) if (d.DefaultResearched && d.Levels.Count > 1) researched = d.Id;
+            Assert.That(LaboratoryScreen.NodeState(S, C, C.LabNode(researched)), Is.EqualTo(LabNodeState.Researched));
+            Assert.That(_f.Service.ExecuteNow(new LabResearch { ResearchId = "lab_atk_1" }).Ok, Is.True);
+            Assert.That(LaboratoryScreen.NodeState(S, C, C.LabNode("lab_atk_1")), Is.EqualTo(LabNodeState.Researching));
+            _f.App.Open("laboratory");
+            var screen = (LaboratoryScreen)_f.App.Router.Current;
+            bool Has(string node, string child)
+            {
+                var n = FindButton(screen.Root, "LabNode:" + node);
+                foreach (var rt in n.GetComponentsInChildren<RectTransform>(true)) if (rt.name == child) return true;
+                return false;
+            }
+            Assert.That(Has("lab_atk_1", "State:Researching") && Has("lab_atk_1", "ResearchingRing") && Has("lab_atk_1", "ResearchBar"), Is.True);
+            Assert.That(Has("lab_boss_damage", "State:Locked") && Has("lab_boss_damage", "LockIcon"), Is.True);
+            Assert.That(Has(researched, "State:Researched") && Has(researched, "CheckBadge"), Is.True);
+            Assert.That(Has("lab_hp_1", "State:Available") && Has("lab_hp_1", "AvailableRing"), Is.True);
+            // collecting pops the node (synchronous outside play mode) and leaves it at normal scale
+            screen.PlayResearchDone("lab_atk_1");
+            Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1").transform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]
@@ -293,10 +391,10 @@ namespace RogueStars.Client.Tests
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
             Assert.That(screen.Layout, Is.Not.Null);
-            Assert.That(FindButton(screen.Root, "LabNode:pkg_combo"), Is.Not.Null, "the synergy packages are the first tab");
+            Assert.That(FindButton(screen.Root, "LabNode:pkg_combo"), Is.Not.Null, "the synergy packages lane");
             screen.ShowBranch("offense");
             Assert.That(screen.Layout.Nodes.Count, Is.GreaterThan(5));
-            Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1"), Is.Not.Null, "stat node drawn in the offense tab");
+            Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1"), Is.Not.Null, "stat node drawn in the offense lane");
             Text annex = null;
             foreach (var t in screen.Root.GetComponentsInChildren<Text>(true)) if (t.name == "AnnexStatus") annex = t;
             Assert.That(annex.text, Does.Contain("Research Annex"));
