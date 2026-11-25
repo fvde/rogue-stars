@@ -19,7 +19,7 @@ namespace RogueStars.Client.PlayTests
 {
     /// <summary>
     /// The screens pass (rest, events, chest, shop, home, run result) at the reference resolution 1080 × 2400 (or
-    /// $ROGUESTARS_SHOT_SIZE): sc_board, sc_levelup, sc_rest, sc_rest_train, sc_event, sc_event_vendor, sc_event_result,
+    /// $ROGUESTARS_SHOT_SIZE): sc_board, sc_levelup, sc_rest, sc_rest_train, sc_event, sc_event_vendor, sc_event_pod / _shrine / _wreck / _cursed / _medic, sc_event_result,
     /// sc_chest, sc_chest_reveal, sc_shop, sc_home, sc_result_victory, sc_result_defeat. Explicit
     /// (<c>-testFilter ScreensShowcaseTests</c>); writes to $ROGUESTARS_SHOTS_DIR or client/RogueStars/Screenshots/screens.
     /// Needs a graphics device: run WITHOUT -nographics.
@@ -110,6 +110,18 @@ namespace RogueStars.Client.PlayTests
                 yield return Rebuild(1.0f);
                 yield return Shot("sc_event_vendor");
                 Reset(run);
+                // every imported scene prop and vendor (Art/Run/Props, Art/Run/Characters)
+                foreach (var (id, shot) in new[]
+                {
+                    ("treasure_pod", "sc_event_pod"), ("echoing_shrine", "sc_event_shrine"), ("strange_spores", "sc_event_wreck"),
+                    ("cursed_relic", "sc_event_cursed"), ("alien_medic", "sc_event_medic"),
+                })
+                {
+                    OpenEvent(run, id);
+                    yield return Rebuild(1.0f);
+                    yield return Shot(shot);
+                    Reset(run);
+                }
                 OpenEvent(run, "strange_spores");
                 yield return Rebuild(0.2f);
                 Ui.Clear(_app.ModalLayer);

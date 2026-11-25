@@ -291,6 +291,13 @@ namespace RogueStars.Client.Tests
             Assert.That(ArtImportRules.PlanSlice("/assets", null), Is.Empty);
             // the generic boss marker is retired (the board shows the run's boss)
             Assert.That(ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks("{ \"slice-markers/boss\": \"C_s1.png\" }")), Is.Empty);
+            // the screens-pass keys (Art/Run/*) and set-piece alternates picked from another subject's folder
+            var run = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(
+                "{ \"run-props/campfire_big\": \"I_s6301.png\", \"run-characters/shopkeeper\": \"C_s6201.png\", \"slice-setpieces/giant_mushroom_2\": \"giant_mushroom/J_s5201.png\" }"));
+            Assert.That(run.Select(i => i.Dest), Is.EqualTo(new[] { "Art/Run/Characters/shopkeeper.png", "Art/Run/Props/campfire_big.png", "Art/Slice/SetPieces/giant_mushroom_2.png" }));
+            Assert.That(run.All(i => i.Trim), Is.True);
+            Assert.That(run[2].Source.Replace('\\', '/'), Is.EqualTo("/assets/slice-setpieces/giant_mushroom/J_s5201.png"));
+            Assert.That(run[1].Source.Replace('\\', '/'), Is.EqualTo("/assets/run-props/campfire_big/I_s6301.png"));
         }
 
         // The board's ground and props are the world board's now (IsoBoardTests).

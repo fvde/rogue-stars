@@ -180,15 +180,22 @@ namespace RogueStars.Client.Editor
             { "slice-skills", ("Art/Skills", true) },
             { "slice-texture", ("Art/Slice/Textures", false) },
             { "slice-battle", ("Art/Slice/Battle", false) },
+            // screens pass (rest, events, chest, shop): NPCs and scene props, trimmed
+            { "run-characters", ("Art/Run/Characters", true) },
+            { "run-props", ("Art/Run/Props", true) },
+            { "run-icons", ("Art/Run/Icons", true) },
         };
 
-        /// <summary>
-        /// The slice art the owner picked (no automatic pick: every file is approved by hand). <paramref name="picks"/> maps
-        /// "&lt;category&gt;/&lt;id&gt;" (e.g. "slice-markers/enemy") to the chosen file name in
-        /// <c>~/AI/assets/&lt;category&gt;/&lt;id&gt;/</c> ("C_s1301.png"); tools/art/slice-picks.json holds them.
-        /// </summary>
         /// <summary>The generic boss marker is retired: an old pick of it is never imported.</summary>
         public const string RetiredBossMarker = "slice-markers/boss";
+
+        /// <summary>
+        /// The slice / run art the owner picked (no automatic pick: every file is approved by hand). <paramref name="picks"/> maps
+        /// "&lt;category&gt;/&lt;id&gt;" (e.g. "slice-markers/enemy", "run-props/campfire_big") to the chosen file name in
+        /// <c>&lt;assets&gt;/&lt;category&gt;/&lt;id&gt;/</c> ("C_s1301.png"), or to a path under <c>&lt;assets&gt;/&lt;category&gt;/</c>
+        /// when it holds a "/" — an alternate of another subject ("slice-setpieces/giant_mushroom_2": "giant_mushroom/J_s5201.png");
+        /// tools/art/slice-picks.json holds them.
+        /// </summary>
 
         public static List<ArtImportItem> PlanSlice(string assetsRoot, IDictionary<string, string> picks)
         {
@@ -201,7 +208,8 @@ namespace RogueStars.Client.Editor
                 if (kv.Key == RetiredBossMarker) continue; // the boss gate shows the run's own boss sprite (IsoArt.BossMarker)
                 items.Add(new ArtImportItem
                 {
-                    Kind = ArtKind.Slice, Id = kv.Key, Source = Path.Combine(assetsRoot, parts[0], parts[1], kv.Value),
+                    Kind = ArtKind.Slice, Id = kv.Key,
+                    Source = kv.Value.Contains("/") ? Path.Combine(assetsRoot, parts[0], kv.Value) : Path.Combine(assetsRoot, parts[0], parts[1], kv.Value),
                     Dest = dest.folder + "/" + parts[1] + ".png", Trim = dest.trim,
                 });
             }

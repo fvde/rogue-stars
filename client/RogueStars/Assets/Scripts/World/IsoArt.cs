@@ -639,6 +639,16 @@ namespace RogueStars.Client.World
         public static Sprite SetPiece(string id) =>
             ArtCatalog.SliceSetPiece(id) ?? Get("setpiece:" + id, () => DrawSetPiece(id));
 
+        /// <summary>
+        /// A set piece for a slot: one of its imported variants (main + alternates <c>&lt;id&gt;_2</c> …) picked by
+        /// <paramref name="pick"/> (a stable per-slot hash), else the main sprite / the drawn placeholder.
+        /// </summary>
+        public static Sprite SetPiece(string id, int pick)
+        {
+            int n = ArtCatalog.SliceSetPieceVariants(id);
+            return n > 1 ? ArtCatalog.SliceSetPiece(id, (pick & int.MaxValue) % n) : SetPiece(id);
+        }
+
         /// <summary>Set pieces drawn flat on the slot floor (sized to the footprint) rather than standing up.</summary>
         public static bool IsFlat(string id) => id == "portal_well";
 
