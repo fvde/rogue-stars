@@ -46,7 +46,9 @@ public class ProgressionGuardTests
     [InlineData("PartLevels", 20)] // 9 before the plateau fix; see progression-report.md "Plateau fix"
     [InlineData("Heroes", 25)]
     [InlineData("Mounts", 21)]
-    [InlineData("Buildings", 7)]
+    // City redesign: 10 levels per building (3× growth); city progress now also comes in bigger steps (digs, new copies), so a
+    // maxed-out stretch of up to two weeks between them is expected (docs/balance/data/analysis_city.md).
+    [InlineData("Buildings", 14)]
     [InlineData("Aliens", 10)]
     [InlineData("Laboratory", 28)]
     public void NoWall_InTheFirst60Days(string system, int maxGapDays)

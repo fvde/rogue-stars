@@ -46,6 +46,10 @@ namespace RogueStars.Rules.Core
         public List<SkillFamily> UnlockedFamilies = new List<SkillFamily>();
         /// <summary>Extra draft rerolls per run from talents/buildings.</summary>
         public int DraftRerolls;
+        /// <summary>City boons applied at run start: run coins, bad event outcomes skipped, awakening meter slow-down percent.</summary>
+        public int RunStartCoins;
+        public int SkipNegativeEvents;
+        public double AwakeningSlowPct;
         /// <summary>Power score for display and matchmaking.</summary>
         public long Power;
     }

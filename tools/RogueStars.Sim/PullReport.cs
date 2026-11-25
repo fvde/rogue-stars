@@ -70,7 +70,7 @@ public static class PullReport
             Blueprints = s.City.Blueprints.Count, BpStars = s.City.Blueprints.Values.Sum(b => b.Stars),
             MythicBps = s.City.Blueprints.Keys.Count(id => c.Blueprint(id)?.Rarity == Rarity.Mythic),
             SignalPulls = s.Counter("pulls_total"), SignalMythics = s.Counter("pulls_mythic"),
-            ReactorOwned = reactor != null ? 1 : 0, ReactorStars = reactor?.Stars ?? 0,
+            ReactorOwned = reactor != null ? 1 : 0, ReactorStars = reactor != null ? CitySystem.Stars(s, reactor.BlueprintId) : 0,
             ReactorJobs = s.Counter("reactor_jobs_started"), ReactorIn = s.Counter("reactor_shards_in"), ReactorOut = s.Counter("reactor_shards_out"),
             ExcessAlien = c.AlienTypes.Keys.Sum(id => ShardReactorSystem.ExcessShards(s, c, ReactorKind.Alien, id)),
             ExcessBp = c.Blueprints.Keys.Sum(id => ShardReactorSystem.ExcessShards(s, c, ReactorKind.Blueprint, id)),

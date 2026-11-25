@@ -211,7 +211,8 @@ public class DeadEffectsTests
         var c = SkillTuningTests.KitContent();
         var skills = C.Skills.Values.OrderBy(s => s.Id, StringComparer.Ordinal).ToList();
         foreach (SkillSource src in Enum.GetValues(typeof(SkillSource)))
-            Assert.True(skills.Any(s => s.Source == src), "no skill of source " + src);
+            if (src != SkillSource.Building) // City redesign: building boons are loadout numbers, not skills
+                Assert.True(skills.Any(s => s.Source == src), "no skill of source " + src);
 
         var baseline = new Dictionary<(int, bool), string>();
         string Base(int seed, bool brawl) =>
@@ -241,7 +242,8 @@ public class DeadEffectsTests
             }
             if (!changed) failures.Add(s.Id + " (" + s.Source + "): " + (ActsInBattle(s) ? "no battle changed" : "no run changed"));
         }
-        Assert.True(battle > 300 && board > 20, battle + " battle / " + board + " board skills");
+        // (board > 0: since the City redesign the building boons are loadout numbers, not skills; the run-start ones are few)
+        Assert.True(battle > 300 && board > 0, battle + " battle / " + board + " board skills");
         Assert.True(failures.Count == 0, failures.Count + " dead skills:\n" + string.Join("\n", failures));
     }
 
@@ -400,17 +402,11 @@ public class DeadEffectsTests
     }
 
     [Fact]
-    public void PointStats_AreAddedAsPoints_ByRunesCollectionsAndTiles()
+    public void PointStats_AreAddedAsPoints_ByRunesAndTiles()
     {
         foreach (var r in C.PartsConfig.Runes.Values)
             Assert.True(!r.IsPercent || !StatMod.IsPointStat(r.Stat), r.Id);
-        // every blueprint's collection bonus at 10 stars
-        var e = TestHelpers.Engine();
-        var s = TestHelpers.NewPlayer(e);
-        foreach (var id in C.Blueprints.Keys) s.City.Blueprints[id] = new OwnedBlueprint { Id = id, Stars = 10 };
-        var mods = CitySystem.CollectionBonus(s, C);
-        Assert.Contains(mods, m => m.Stat == StatId.LootLuck && m.Flat > 0);
-        Assert.All(mods, m => Assert.True(m.Percent == 0 || !StatMod.IsPointStat(m.Stat), m.Stat.ToString()));
+        // (the City collection bonus is gone: owning a blueprint gives no stat bonus)
         // Sharp Stone: "+15% crit chance" is 15 points (it was 15% of the worm's 5)
         Assert.Equal(15, C.BoardTiles["buff_crit"].Value);
         var w = RunTestKit.Engine(new RunTestKit.WormSetup { Extra = { new StatMod(StatId.CritChance, 5) } });

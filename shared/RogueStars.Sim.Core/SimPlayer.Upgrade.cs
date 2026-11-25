@@ -49,6 +49,7 @@ namespace RogueStars.Sim
                 }
                 else if (canLevel) { if (!Ok(new WormLevelUp { Levels = 1 })) break; }
                 else break;
+                _lastWormUpgradeMs = Now;
             }
         }
 
@@ -82,7 +83,7 @@ namespace RogueStars.Sim
                         if (p.Level >= PartsSystem.LevelCap(C, p)) continue;
                     }
                     long ore = cfg.LevelOreCosts[p.Level];
-                    if (ore < pickCost && cfg.LevelGearCoreCosts[p.Level] <= Bal(Currencies.GearCores)) { pick = p; pickCost = ore; }
+                    if (ore < pickCost && cfg.LevelGearCoreCosts[p.Level] <= Bal(Currencies.GearCores) - LabReserve(Currencies.GearCores)) { pick = p; pickCost = ore; }
                 }
                 if (pick == null || pickCost > Bal(Currencies.Ore) - LabReserve(Currencies.Ore) - _oreReserve) break;
                 if (!Ok(new PartLevelUp { Uid = pick.Uid, Levels = 1 })) break;
@@ -230,7 +231,7 @@ namespace RogueStars.Sim
                 if (Unlocked(Features.Forge) && p.Rarity >= (int)cfg.ForgeMinRarity && p.ForgedSlots < cfg.Forge.Count)
                 {
                     var step = cfg.Forge[p.ForgedSlots];
-                    if (Spendable(step.Diamonds) && Bal(Currencies.GearCores) >= step.GearCores * 2) Exec(new PartForgeUnlock { Uid = uid });
+                    if (Spendable(step.Diamonds) && Bal(Currencies.GearCores) - LabReserve(Currencies.GearCores) >= step.GearCores * 2) Exec(new PartForgeUnlock { Uid = uid });
                 }
             }
             // Awakening: once per part, the best equipped Mythic+ part first.

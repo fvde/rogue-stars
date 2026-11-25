@@ -86,8 +86,6 @@ namespace RogueStars.Rules.Content
         /// <summary>Chance for the 1st, 2nd, 3rd trait when a new alien is rolled.</summary>
         public double[] TraitChances = { 1.0, 0.35, 0.1 };
         public int MaxTraits = 3;
-        /// <summary>Squad aliens can also work, at this fraction of their work bonus.</summary>
-        public double SquadWorkFactor = 0.5;
         /// <summary>Tier stars: an ability's effect (stacks, targets, chances) changes only here; between them only its main % grows.</summary>
         public int[] SkillStars = { 1, 3, 5, 7, 10 };
         /// <summary>Effect traits: Twin +1 stack on every TwinEvery-th action; Wide's extra target at WidePct %; Lingering +LingeringRounds;

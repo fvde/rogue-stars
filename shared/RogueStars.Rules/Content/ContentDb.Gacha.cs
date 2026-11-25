@@ -175,7 +175,7 @@ namespace RogueStars.Rules.Content
                 Themes =
                 {
                     GachaThemeOf("bp_command_spire_rising", "Command Spire Rising", RewardKinds.Blueprint, "bp_command_spire", 1, mythic),
-                    GachaThemeOf("bp_reliquary_week", "Reliquary Week", RewardKinds.Blueprint, "bp_ancient_reliquary", 1, mythic),
+                    GachaThemeOf("bp_laboratory_week", "Laboratory Week", RewardKinds.Blueprint, LaboratoryId, 1, mythic),
                     GachaThemeOf("bp_reactor_ignition", "Reactor Ignition", RewardKinds.Blueprint, ShardReactorId, 1, mythic),
                 },
             });

@@ -34,14 +34,11 @@ public class CrossSystemTests
     private static void Grant(GameEngine e, GameState s, Reward r, long now = T0) =>
         e.Rewards.Grant(new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = now }, r);
 
-    private static long BuildActive(GameEngine e, ref GameState s, string bp, int x, int y, long now)
+    /// <summary>Builds a copy at the planner's spot and staffs it with <paramref name="worker"/> (null: leave it empty).</summary>
+    private static long BuildActive(GameEngine e, ref GameState s, string bp, long now, string worker = "alien_zib")
     {
-        if (CitySystem.Owned(s, bp) == null) Grant(e, s, new Reward(RewardKinds.Blueprint, bp, 1));
-        Ok(e, ref s, new CityBuild { BlueprintId = bp, X = x, Y = y }, now);
-        var t = TimerSystem.Get(s, CitySystem.Owned(s, bp).TimerId);
-        long done = t?.EndsMs ?? now;
-        e.Settle(s, done);
-        Assert.True(CitySystem.IsActive(CitySystem.Owned(s, bp)));
+        long done = City.Kit.BuildActive(e, ref s, bp, now, out var uid);
+        if (worker != null) City.Kit.Staff(e, ref s, uid, worker, done);
         return done;
     }
 
@@ -57,7 +54,7 @@ public class CrossSystemTests
         long baseCap = C.Regen(Currencies.Stamina)!.BaseCap;
         Assert.Equal(baseCap, EconomySystem.RegenCap(s, e.Content, Currencies.Stamina));
 
-        long t = BuildActive(e, ref s, "bp_stamina_well", 4, 4, T0);
+        long t = BuildActive(e, ref s, "bp_stamina_well", T0);
         e.Settle(s, t);
         long withWell = EconomySystem.RegenCap(s, e.Content, Currencies.Stamina);
         Assert.Equal(baseCap + (long)CitySystem.StaminaBonus(s, e.Content, t).CapBonus, withWell);
@@ -76,7 +73,7 @@ public class CrossSystemTests
         var s = e.NewPlayer("p1", T0, 1);
         s.Flags.Add(Features.DevUnlockAllFlag); // not about gating: blueprints need the City
         s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
-        long t = BuildActive(e, ref s, "bp_regen_spire", 4, 4, T0);
+        long t = BuildActive(e, ref s, "bp_regen_spire", T0);
         e.Settle(s, t);
         double pct = CitySystem.StaminaBonus(s, e.Content, t).TickSpeedPercent;
         Assert.True(pct > 0);
@@ -102,13 +99,13 @@ public class CrossSystemTests
     // ---- power score ------------------------------------------------------------------------------
 
     [Fact]
-    public void Power_IncludesSquadAliens_AndCityCollectionBonus()
+    public void Power_IncludesSquadAliens()
     {
         var e = Engine();
         var s = e.NewPlayer("p1", T0, 1);
         s.Flags.Add(Features.DevUnlockAllFlag);
         s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
-        long t = BuildActive(e, ref s, "bp_housing_pod", 4, 4, T0);
+        long t = BuildActive(e, ref s, ContentDb.LaunchPodId, T0, null);
         var before = e.BuildLoadout(s, t);
         Assert.Equal(WormSystem.ComputePower(before, e.Content), before.Power);
 
@@ -176,17 +173,17 @@ public class CrossSystemTests
         Assert.Equal(500, s.Wallet.Get(Currencies.Ore));
         Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
-        // Level 6: the City (farm blueprint, Biomass); level 16: Laboratory (13), Aliens (15, first alien), Housing (16).
+        // Level 6: Aliens (first alien); level 17: the City (15: farm blueprint, Biomass), Launch Pod (16), Laboratory (17).
         s.Counters[Requirements.MainLevelCounter] = 6;
         Ok(e, ref s, new CityCollect(), T0 + 2000);
-        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
-        Assert.Null(AlienSystem.Owned(s, "alien_blorp"));
-        s.Counters[Requirements.MainLevelCounter] = 16;
-        Ok(e, ref s, new CityCollect(), T0 + 3000);
         Assert.Contains(Features.Aliens, s.Onboarding.Unlocked.Keys);
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp"));
-        Assert.NotNull(CitySystem.Owned(s, "bp_housing_pod"));
-        Assert.NotNull(CitySystem.Owned(s, "bp_laboratory"));
+        Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));
+        s.Counters[Requirements.MainLevelCounter] = 17;
+        Ok(e, ref s, new CityCollect(), T0 + 3000);
+        Assert.NotNull(CitySystem.Owned(s, "bp_biomass_farm"));
+        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaunchPodId));
+        Assert.NotNull(CitySystem.Owned(s, ContentDb.LaboratoryId));
         // Sticky: a later command does not grant again.
         Ok(e, ref s, new CityCollect(), T0 + 4000);
         Assert.Equal(0, s.Counter("alien_duplicates"));
@@ -233,8 +230,8 @@ public class CrossSystemTests
 
         // Timer speed-up ad shares the "timer_speedup" placement cap.
         Grant(e, s, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
-        Ok(e, ref s, new CityBuild { BlueprintId = "bp_ore_mine", X = 5, Y = 4 }, t);
-        var timer = TimerSystem.Get(s, CitySystem.Owned(s, "bp_ore_mine").TimerId)!;
+        string mine = (string)Ok(e, ref s, new CityPlace { BlueprintId = "bp_ore_mine", X = 11, Y = 9 }, t).Payload;
+        var timer = TimerSystem.Get(s, CitySystem.Building(s, mine).TimerId)!;
         Ok(e, ref s, new TimerSpeedUp { TimerId = timer.Id, Method = SpeedUpMethod.Ad, AdToken = "a3" }, t);
         Assert.Equal(e.Content.AdPlacement("timer_speedup")!.DailyCap - 1, ShopSystem.AdViewsLeft(s, e.Content, "timer_speedup", t));
 
@@ -260,9 +257,9 @@ public class CrossSystemTests
         long lastMs = dayStart + GameClock.Day - 1, next = dayStart + GameClock.Day;
         Assert.Equal(MetaTime.DayIndex(e.Content, T0), EconomySystem.DayIndex(e.Content, T0));
 
-        Grant(e, s, new Reward(RewardKinds.Blueprint, "bp_spore_vats", 1));
-        Ok(e, ref s, new CityBuild { BlueprintId = "bp_spore_vats", X = 4, Y = 4 }, T0);
-        string timerId = CitySystem.Owned(s, "bp_spore_vats").TimerId;
+        Grant(e, s, new Reward(RewardKinds.Blueprint, "bp_fuel_refinery", 1));
+        string refinery = (string)Ok(e, ref s, new CityPlace { BlueprintId = "bp_fuel_refinery", X = 6, Y = 9 }, T0).Payload;
+        string timerId = CitySystem.Building(s, refinery).TimerId;
         Ok(e, ref s, new BuyStamina { Method = StaminaRefillMethod.DailyFree }, T0);
         Ok(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Ad }, T0);
         Ok(e, ref s, new TimerSpeedUp { TimerId = timerId, Method = SpeedUpMethod.Free }, T0);

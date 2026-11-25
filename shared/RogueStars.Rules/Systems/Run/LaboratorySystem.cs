@@ -8,8 +8,9 @@ namespace RogueStars.Rules.Systems
     /// <summary>
     /// Laboratory (GDD §5): one tree of skill nodes (draft-pool skills, toggleable) and stat nodes (loadout bonuses).
     /// Research costs Data and time; the k-th research level started takes LabTuning.Hours(k) (exponential in k), shortened
-    /// by CitySystem.ResearchSpeedPct. One slot, plus one Research Annex slot while that building is staffed
-    /// (CitySystem.ResearchSlots); research started while the main slot is busy runs in the Annex (×AnnexDurationMult).
+    /// by CitySystem.ResearchSpeedPct. Research is locked until the Laboratory building (Mythic) is placed; its slots
+    /// (CitySystem.ResearchSlots: 1, +1 at 5★ and 10★) need it staffed. A research started while the first slot is busy is flagged
+    /// InAnnex (×AnnexDurationMult, 1 since the City redesign).
     /// Research runs on a City <see cref="TimerSystem"/> timer (kind "lab_research"), so TimerSpeedUp (Diamonds / ad /
     /// daily free) works on it; the player collects with LabCollect once the timer is due.
     /// </summary>
@@ -134,9 +135,15 @@ namespace RogueStars.Rules.Systems
             return n;
         }
 
-        /// <summary>Research slots: 1 (RunTuning.LabSlots) + staffed Research Annex buildings, capped by LabTuning.MaxSlots.</summary>
+        /// <summary>
+        /// Research slots: the Laboratory building's (1, +1 at 5★ and 10★) while it runs (placed, built, staffed), capped by
+        /// LabTuning.MaxSlots; 0 without a running Laboratory.
+        /// </summary>
         public static int Slots(GameState state, ContentDb content) =>
-            Math.Min(Math.Max(1, content.LabTuning.MaxSlots), Math.Max(1, content.RunTuning.LabSlots) + CitySystem.ResearchSlots(state, content));
+            Math.Min(Math.Max(1, content.LabTuning.MaxSlots), CitySystem.ResearchSlots(state, content));
+
+        /// <summary>Skill research stays locked until the Laboratory building is placed and built in the City.</summary>
+        public static bool BuildingPlaced(GameState state) => CitySystem.Laboratory(state) != null;
 
         /// <summary>True if the next research would run in the Annex slot (every main slot busy).</summary>
         public static bool NextInAnnex(GameState state, ContentDb content)
@@ -175,6 +182,8 @@ namespace RogueStars.Rules.Systems
             if (entry.Level == 0 && !PrerequisitesMet(state, content, def)) return "prerequisites missing";
             if (entry.Level == 0 && def.RequiresFeature != null && !Features.IsUnlocked(state, content, def.RequiresFeature))
                 return (content.Feature(def.RequiresFeature)?.Name ?? def.RequiresFeature) + " locked";
+            if (!BuildingPlaced(state)) return "build the Laboratory in the City";
+            if (Slots(state, content) == 0) return "the Laboratory needs an alien";
             if (Running(state) >= Slots(state, content)) return "laboratory busy";
             return null;
         }

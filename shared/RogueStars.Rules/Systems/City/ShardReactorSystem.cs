@@ -33,21 +33,26 @@ namespace RogueStars.Rules.Systems
 
         // ---- queries ----------------------------------------------------------------------------
 
-        public static OwnedBlueprint Building(GameState s, ContentDb c) => CitySystem.Owned(s, c.ShardReactor.BlueprintId);
+        /// <summary>The Shard Reactor building (its single copy), or null until built.</summary>
+        public static CityBuilding Building(GameState s, ContentDb c)
+        {
+            foreach (var b in s.City.Buildings) if (b.BlueprintId == c.ShardReactor.BlueprintId) return b;
+            return null;
+        }
 
-        /// <summary>Worker slots of the Reactor (0 when not owned).</summary>
+        /// <summary>Worker slots of the Reactor (0 when not built): 1, +1 at 5★ and 10★.</summary>
         public static int WorkerSlots(GameState s, ContentDb c)
         {
             var b = Building(s, c);
-            return b == null ? 0 : CitySystem.WorkerSlots(c, c.Blueprint(b.Id), b);
+            return b == null ? 0 : CitySystem.WorkerSlots(s, c, b);
         }
 
-        /// <summary>Jobs that can run at once: aliens working in the active Reactor (at most its worker slots).</summary>
+        /// <summary>Jobs that can run at once: aliens working in the running Reactor (at most its worker slots).</summary>
         public static int JobSlots(GameState s, ContentDb c)
         {
             var b = Building(s, c);
-            if (!CitySystem.IsActive(b)) return 0;
-            return Math.Min(WorkerSlots(s, c), CitySystem.Workers(s, b.Id).Count);
+            if (!CitySystem.IsActive(s, c, b)) return 0;
+            return Math.Min(WorkerSlots(s, c), CitySystem.Workers(s, b.Uid).Count);
         }
 
         public static ReactorJob Job(GameState s, string id)
@@ -102,9 +107,6 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Speed-up percent from the Reactor's level boon.</summary>
-        public static double SpeedPct(GameState s, ContentDb c) => CitySystem.BoonTotal(s, c, BoonKind.ReactorSpeedPct);
-
         /// <summary>The price of a job (source shards, fuel, output, duration); Error set when the pairing is not allowed.</summary>
         public static ReactorQuote Quote(GameState s, ContentDb c, ReactorKind kind, string sourceId, string targetId, int units)
         {
@@ -121,7 +123,7 @@ namespace RogueStars.Rules.Systems
             q.SourceShards = q.OutputShards * d.RatioByGap[Math.Min(gap, d.RatioByGap.Length - 1)];
             q.FuelCurrency = kind == ReactorKind.Alien ? Currencies.Grain : Currencies.Ore;
             q.Fuel = units * (kind == ReactorKind.Alien ? d.AlienFuelPerUnit[r] : d.BlueprintFuelPerUnit[r]);
-            double ms = units * d.MinutesPerUnit[r] * 60_000.0 / (1 + SpeedPct(s, c) / 100.0);
+            double ms = units * d.MinutesPerUnit[r] * 60_000.0;
             q.DurationMs = (long)Math.Ceiling(ms);
             return q;
         }
@@ -133,7 +135,7 @@ namespace RogueStars.Rules.Systems
             var s = ctx.State; var c = ctx.Content;
             GameEngine.Require(cmd.Kind == ReactorKind.Alien || cmd.Kind == ReactorKind.Blueprint, "unknown kind");
             if (cmd.Kind == ReactorKind.Alien) Features.Require(s, c, Features.Aliens);
-            GameEngine.Require(CitySystem.IsActive(Building(s, c)), "no Shard Reactor");
+            GameEngine.Require(CitySystem.IsBuilt(Building(s, c)), "no Shard Reactor");
             GameEngine.Require(cmd.SourceId != cmd.TargetId, "pick another target");
             var q = Quote(s, c, cmd.Kind, cmd.SourceId, cmd.TargetId, cmd.Units);
             GameEngine.Require(q.Error == null, q.Error);

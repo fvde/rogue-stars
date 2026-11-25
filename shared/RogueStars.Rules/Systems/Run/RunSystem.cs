@@ -172,7 +172,9 @@ namespace RogueStars.Rules.Systems
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
             SetupLevel(c, run, level);
-            run.Coins = StartCoins(c, level); // enough for a purchase at the first shop
+            run.Coins = StartCoins(c, level) + run.Loadout.RunStartCoins; // enough for a purchase at the first shop (+ City boons)
+            run.SkipNegativeEvents += run.Loadout.SkipNegativeEvents;
+            run.AwakeningReductionPct += run.Loadout.AwakeningSlowPct;
             s.Run.Active = run;
             GrantSignature(ctx, run, cmd.SignatureId, signatures);
             RefreshMaxHp(c, run);

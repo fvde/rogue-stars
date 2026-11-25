@@ -132,17 +132,18 @@ public class LiveOpsTests
     }
 
     /// <summary>Engine whose Diamond Mine never fills its storage (production integrals are compared exactly).</summary>
-    private static (GameEngine, GameState, OwnedBlueprint) DiamondMineAt(long buildAt)
+    private static (GameEngine, GameState, CityBuilding) DiamondMineAt(long buildAt)
     {
         var c = new ContentDb();
-        c.Blueprints["bp_diamond_mine"].BaseStorage = 1e12;
+        c.CityTuning.StorageHours = 1e9;
         var e = new GameEngine(c) { Cloner = TestHelpers.Clone };
         var s = e.NewPlayer("p1", buildAt, 42);
         s.Flags.Add(Features.DevUnlockAllFlag);
         RogueStars.Rules.Tests.City.Kit.UnlockAll(e, s);
         s.Wallet.Add(Currencies.Ore, 1_000_000); s.Wallet.Add(Currencies.Biomass, 1_000_000);
-        long done = RogueStars.Rules.Tests.City.Kit.BuildActive(e, ref s, "bp_diamond_mine", 0, 0, buildAt);
-        var mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        long done = RogueStars.Rules.Tests.City.Kit.BuildActive(e, ref s, "bp_diamond_mine", buildAt, out var uid);
+        RogueStars.Rules.Tests.City.Kit.Staff(e, ref s, uid, "alien_zib", done);
+        var mine = CitySystem.Building(s, uid)!;
         mine.Stored = 0;
         mine.LastSettleMs = done;
         return (e, s, mine);
@@ -159,7 +160,7 @@ public class LiveOpsTests
         double before = mine.Stored;
         Assert.DoesNotContain(s.Modifiers, m => m.Source == "event:diamond_rain");
         Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, DiamondRainStart + 2 * H);
-        mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        mine = CitySystem.Building(s, mine.Uid)!;
         Assert.Equal(before + rate * (1 + 2 * 2), mine.Stored, 6);
     }
 
@@ -173,7 +174,7 @@ public class LiveOpsTests
         double rate = CitySystem.BaseRatePerHour(s, e.Content, mine);
         double before = mine.Stored;
         Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, next);
-        mine = CitySystem.Owned(s, "bp_diamond_mine")!;
+        mine = CitySystem.Building(s, mine.Uid)!;
         Assert.Equal(before + rate * (1 + 4 * 24 * 2 + 1), mine.Stored, 6);
         Assert.DoesNotContain(s.Modifiers, m => m.Source == "event:diamond_rain");
         // A later settle does not resurrect the finished occurrence.

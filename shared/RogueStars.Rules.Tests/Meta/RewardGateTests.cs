@@ -276,11 +276,12 @@ public class RewardGateTests
         s.Wallet.Add(Currencies.Ore, 10_000); s.Wallet.Add(Currencies.Biomass, 10_000);
         var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = t };
         Assert.True(ctx.Grant(new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1)));
-        Ok(e, ref s, new CityBuild { BlueprintId = "bp_grain_farm", X = 4, Y = 4 }, t);
-        Ok(e, ref s, new TimerSpeedUp { TimerId = CitySystem.Owned(s, "bp_grain_farm")!.TimerId, Method = SpeedUpMethod.Diamonds }, t);
+        string farm = (string)Ok(e, ref s, new CityPlace { BlueprintId = "bp_grain_farm", X = 11, Y = 9 }, t).Payload!;
+        Ok(e, ref s, new TimerSpeedUp { TimerId = CitySystem.Building(s, farm)!.TimerId, Method = SpeedUpMethod.Diamonds }, t);
+        s.Aliens.Owned["alien_zib"] = new OwnedAlien { TypeId = "alien_zib", WorkBuildingId = farm }; // a worker runs the farm
         Ok(e, ref s, new CityCollect(), t + 5 * 60 * 60 * 1000L);
         Assert.Equal(0, Bal(s, Currencies.Grain)); // Grain is for aliens (day 7): the farm keeps it
-        double stored = CitySystem.Owned(s, "bp_grain_farm")!.Stored;
+        double stored = CitySystem.Building(s, farm)!.Stored;
         Assert.True(stored >= 1);
         Unlock(s, Features.Aliens);
         Ok(e, ref s, new CityCollect(), t + 5 * 60 * 60 * 1000L + 1);

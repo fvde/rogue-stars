@@ -159,3 +159,5 @@ Meta content now reads the keys the owning workstreams actually write:
 - `reactor_jobs_started` — Shard Reactor jobs started — City/ShardReactor
 - `reactor_shards_in` — source shards fused in the Shard Reactor — City/ShardReactor
 - `reactor_shards_out` — target shards the Shard Reactor paid out — City/ShardReactor
+- `city_digs` — patches dug (City redesign: replaces `city_areas_unlocked`, which is no longer counted) — City
+- `city_chances_popped` — chances popped on pull buildings (Research Scrolls, Incoming Transmissions, Meteor Drops) — City

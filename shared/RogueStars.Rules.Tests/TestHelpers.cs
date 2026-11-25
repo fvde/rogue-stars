@@ -41,4 +41,21 @@ public static class TestHelpers
     }
 
     public static GameState NewLockedPlayer(GameEngine engine, long seed = 42) => engine.NewPlayer("p1", T0, seed);
+
+    /// <summary>
+    /// Research needs a running Laboratory building (City design): puts a built Laboratory straight into the state (no layout
+    /// rules) and staffs it with a Zib. Returns its uid.
+    /// </summary>
+    public static string WithLaboratory(GameEngine engine, GameState s, int stars = 1, int level = 1)
+    {
+        var ctx = new CommandContext { State = s, Content = engine.Content, Engine = engine, NowMs = T0 };
+        if (RogueStars.Rules.Systems.CitySystem.Owned(s, ContentDb.LaboratoryId) == null) ctx.Grant(new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1));
+        RogueStars.Rules.Systems.CitySystem.Owned(s, ContentDb.LaboratoryId).Stars = stars;
+        string uid = ContentDb.LaboratoryId + "#1";
+        s.City.Buildings.Add(new RogueStars.Rules.Systems.CityBuilding { Uid = uid, BlueprintId = ContentDb.LaboratoryId, X = 11, Y = 8, Placed = true, Level = level, LastSettleMs = T0 });
+        if (RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_zib") == null) ctx.Grant(new Reward(RewardKinds.Alien, "alien_zib", 1));
+        RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_zib").WorkBuildingId = uid;
+        RogueStars.Rules.Systems.CityLayout.Invalidate(s);
+        return uid;
+    }
 }

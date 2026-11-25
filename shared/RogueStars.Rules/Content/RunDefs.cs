@@ -823,7 +823,7 @@ namespace RogueStars.Rules.Content
     /// Laboratory pacing. The k-th research level a player starts (k = levels researched or running, beyond the default
     /// ones) takes <c>BaseHours × Growth^k</c> nominal hours and costs <c>ceil(DataBase × hours^DataExponent)</c> Data,
     /// whatever the node: every research makes the next one longer and dearer. Durations are shortened by the Laboratory building boon
-    /// (CitySystem.ResearchSpeedPct) and lengthened ×AnnexDurationMult in the Research Annex slot.
+    /// (CitySystem.ResearchSpeedPct, Laboratory levels).
     /// Sizing (docs/design/GDD.md §5, docs/balance/progression-report.md): ~28.7k nominal hours and ~93k Data in total.
     /// </summary>
     [Serializable]
@@ -833,10 +833,10 @@ namespace RogueStars.Rules.Content
         public double Growth = 1.0355;
         /// <summary>Data cost of the k-th research: DataBase × Hours(k)^DataExponent (early research relatively dearer).</summary>
         public double DataBase = 14, DataExponent = 0.75;
-        /// <summary>Main slot + at most this many Research Annex slots.</summary>
-        public int MaxSlots = 2;
-        /// <summary>Research started in the Annex slot (main slot busy) takes this many times longer.</summary>
-        public double AnnexDurationMult = 2;
+        /// <summary>At most this many research slots (the Laboratory building: 1, +1 at 5★ and 10★).</summary>
+        public int MaxSlots = 3;
+        /// <summary>Research started while the first slot is busy takes this many times longer (1: every Laboratory slot is equal).</summary>
+        public double AnnexDurationMult = 1;
 
         public double Hours(int k) => BaseHours * Math.Pow(Growth, Math.Max(0, k));
         public long DataCost(int k) => (long)Math.Ceiling(DataBase * Math.Pow(Hours(k), DataExponent) - 1e-9);

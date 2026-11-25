@@ -17,7 +17,8 @@ public class BreedingTests
         GrantAlien(e, s, "alien_blorp");
         GrantAlien(e, s, "alien_mossling");
         GrantAlien(e, s, "alien_emberkit");
-        long t = BuildActive(e, ref s, "bp_breeding_pen", 4, 4, T0);
+        long t = BuildActive(e, ref s, "bp_breeding_pen", T0, out var pen);
+        Staff(e, ref s, pen, "alien_zib", t);
         return (e, s, t);
     }
 
@@ -29,14 +30,16 @@ public class BreedingTests
         GrantAlien(e, s, "alien_blorp");
         GrantAlien(e, s, "alien_mossling");
         Assert.Equal("no Breeding Pen", Fail(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_mossling" }, T0));
-        long t = BuildActive(e, ref s, "bp_breeding_pen", 4, 4, T0);
+        long t = BuildActive(e, ref s, "bp_breeding_pen", T0, out var pen);
+        Assert.Equal("no Breeding Pen", Fail(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_mossling" }, t)); // unstaffed
+        Staff(e, ref s, pen, "alien_zib", t);
         Assert.Equal("parents must be two different aliens", Fail(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_blorp" }, t));
         Assert.Equal("parent not owned", Fail(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_solarch" }, t));
         long grain = s.Wallet.Get(Currencies.Grain);
         var r = Ok(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_mossling" }, t);
-        Assert.Equal(grain - 200, s.Wallet.Get(Currencies.Grain));
+        Assert.Equal(grain - 100, s.Wallet.Get(Currencies.Grain));
         var job = BreedingSystem.Job(s, (string)r.Payload!);
-        Assert.Equal(2 * Hour, TimerSystem.Get(s, job.TimerId).DurationMs);
+        Assert.Equal((long)Math.Ceiling(2 * Hour / 1.1), TimerSystem.Get(s, job.TimerId).DurationMs); // the Pen: +10% speed
         Assert.Equal("all breeding slots busy", Fail(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_mossling" }, t));
         Assert.Equal(1, s.Counter("breeds_started"));
     }
@@ -45,15 +48,19 @@ public class BreedingTests
     public void DurationAndCost_ByRarity_SpeedFromBuildingsAndModifiers()
     {
         var (e, s, t) = WithPen();
-        Assert.Equal(500, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_frostmite"));
-        Assert.Equal(200, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_emberkit")); // aliens pass: Emberkit is a Common
-        Assert.Equal(4 * Hour, BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
-        CitySystem.Owned(s, "bp_breeding_pen").Level = 6; // +10% speed
+        Assert.Equal(250, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_frostmite"));
+        Assert.Equal(100, BreedingSystem.GrainCost(e.Content, "alien_blorp", "alien_emberkit")); // aliens pass: Emberkit is a Common
+        Assert.Equal(new long[] { 100, 250, 600, 1500, 4000 }, e.Content.BreedingTuning.GrainCost);
         Assert.Equal((long)Math.Ceiling(4 * Hour / 1.1), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
+        Kit.B(s, "bp_breeding_pen").Level = 6; // +10% × 1.55
+        Assert.Equal((long)Math.Ceiling(4 * Hour / 1.155), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
         s.Modifiers.Add(new Modifier { Target = "breeding_speed", Multiplier = 2 });
-        Assert.Equal((long)Math.Ceiling(4 * Hour / 2.2), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
-        CitySystem.Owned(s, "bp_breeding_pen").Level = 10; // second slot
+        Assert.Equal((long)Math.Ceiling(4 * Hour / 2.31), BreedingSystem.DurationMs(s, e.Content, "alien_blorp", "alien_frostmite", t));
+        Assert.Equal(1, BreedingSystem.Slots(s, e.Content));
+        CitySystem.Owned(s, "bp_breeding_pen").Stars = 5; // second slot
         Assert.Equal(2, BreedingSystem.Slots(s, e.Content));
+        CitySystem.Owned(s, "bp_breeding_pen").Stars = 10;
+        Assert.Equal(3, BreedingSystem.Slots(s, e.Content));
     }
 
     [Fact]
@@ -70,7 +77,7 @@ public class BreedingTests
         Assert.Contains(child.TypeId, new[] { "alien_blorp", "alien_mossling" });
         Assert.Empty(s.Breeding.Jobs);
         Assert.Empty(s.Timers.Active);
-        Assert.Equal(3, s.Aliens.Owned.Count);
+        Assert.Equal(4, s.Aliens.Owned.Count); // three parents + the Pen's worker
         Assert.Equal("unknown breeding job", Fail(e, ref s, new BreedCollect { JobId = job }, t + Hour));
     }
 
@@ -105,7 +112,7 @@ public class BreedingTests
         Assert.Equal(child.Traits, a.Traits);
         Assert.Equal(2, a.Stars);
         Assert.Equal(1, a.Generation);
-        Assert.Equal(3, s.Aliens.Owned.Count);
+        Assert.Equal(4, s.Aliens.Owned.Count); // three parents + the Pen's worker
         Assert.Empty(s.Breeding.Pending);
         Assert.Equal("unknown child", Fail(e, ref s, new BreedResolve { ChildId = child.Id, Keep = BreedKeep.Replace }, t + 2 * Hour));
     }
@@ -119,7 +126,7 @@ public class BreedingTests
         var genes = TestHelpers.Clone(AlienSystem.Owned(s, child.TypeId).Genes);
         Ok(e, ref s, new BreedResolve { ChildId = child.Id, Keep = BreedKeep.Discard }, t + 2 * Hour);
         Assert.Equal(1, s.Wallet.Get(Currencies.AlienShards(child.TypeId)));
-        Assert.Equal(grain + 60, s.Wallet.Get(Currencies.Grain));
+        Assert.Equal(grain + 30, s.Wallet.Get(Currencies.Grain)); // 30% of the 100 Grain
         Assert.Equal(genes.Atk, AlienSystem.Owned(s, child.TypeId).Genes.Atk);
         Assert.Equal(1, s.Counter("breeds_discarded"));
     }
@@ -200,11 +207,13 @@ public class BreedingTests
     {
         var (e, s, t) = WithPen();
         Assert.Equal(0, BreedingSystem.QualityBonus(s, e.Content));
-        t = BuildActive(e, ref s, "bp_gene_lab", 6, 6, t);
-        Assert.Equal(2, BreedingSystem.QualityBonus(s, e.Content), 6);
+        t = BuildActive(e, ref s, "bp_gene_lab", t, out var gene);
+        Staff(e, ref s, gene, "alien_pebblehorn", t);
+        double q = 5 * (1 + CityLayout.PlacementPct(s, e.Content, gene) / 100);
+        Assert.Equal(q, BreedingSystem.QualityBonus(s, e.Content), 6);
         var r = Ok(e, ref s, new BreedStart { ParentA = "alien_blorp", ParentB = "alien_mossling" }, t);
-        Assert.Equal(2, BreedingSystem.Job(s, (string)r.Payload!).QualityBonus, 6);
-        // Gene Lab also speeds breeding by 5%.
-        Assert.Equal((long)Math.Ceiling(2 * Hour / 1.05), TimerSystem.Get(s, BreedingSystem.Job(s, (string)r.Payload!).TimerId).DurationMs);
+        Assert.Equal(q, BreedingSystem.Job(s, (string)r.Payload!).QualityBonus, 6);
+        // The Gene Lab no longer speeds breeding (the Pen has it).
+        Assert.Equal((long)Math.Ceiling(2 * Hour / 1.1), TimerSystem.Get(s, BreedingSystem.Job(s, (string)r.Payload!).TimerId).DurationMs);
     }
 }

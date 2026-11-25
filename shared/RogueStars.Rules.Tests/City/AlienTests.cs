@@ -128,15 +128,14 @@ public class AlienTests
     }
 
     [Fact]
-    public void Squad_GatedBySlots_AndFillsLoadout()
+    public void Squad_IsTheLaunchPod_AndFillsLoadout()
     {
         var e = TestHelpers.Engine();
         var s = Rich(e);
         GrantAlien(e, s, "alien_zib");
         GrantAlien(e, s, "alien_blorp");
-        Assert.Equal("not enough squad slots", Fail(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_zib" } }, T0));
         Ok(e, ref s, new AlienSetSquad(), T0); // empty squad always allowed
-        long t = BuildActive(e, ref s, "bp_housing_pod", 4, 4, T0);
+        long t = BuildAt(e, ref s, ContentDb.LaunchPodId, 11, 9, T0, out var pod);
         Assert.Equal("alien not owned", Fail(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_solarch" } }, t));
         Assert.Equal("not enough squad slots", Fail(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_zib", "alien_blorp" } }, t));
         Ok(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_zib" } }, t);
@@ -147,15 +146,15 @@ public class AlienTests
         Assert.Equal(new[] { "ask_zib_1" }, ca.SkillIds);
         Assert.Equal(0, ca.Stats.Value(StatId.Hp)); // aliens pass: sidekicks have no stats but Speed
         Assert.Equal(37, ca.Stats.Value(StatId.Speed) / (ca.Traits.Contains(ContentDb.TraitSwift) ? 1.15 : 1), 6);
-        Assert.Equal(1, ca.Stars);
 
-        CitySystem.Owned(s, "bp_housing_pod").Level = 12; // second slot
+        CitySystem.Owned(s, ContentDb.LaunchPodId).Stars = 5; // second seat
         Assert.Equal("duplicate alien in squad", Fail(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_zib", "alien_zib" } }, t));
         Ok(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_blorp", "alien_zib" } }, t);
         Assert.Equal(new[] { "alien_blorp", "alien_zib" }, e.BuildLoadout(s, t).Aliens.Select(x => x.AlienTypeId));
+        Assert.All(new[] { "alien_blorp", "alien_zib" }, id => Assert.Equal(pod, AlienSystem.Owned(s, id).WorkBuildingId));
 
-        // Losing the slot (building stored) shrinks the active squad without touching the saved order.
-        CitySystem.Owned(s, "bp_housing_pod").Level = 1;
+        // Losing the seat (stars lowered) shrinks the active squad without touching the saved order.
+        CitySystem.Owned(s, ContentDb.LaunchPodId).Stars = 1;
         Assert.Equal(new[] { "alien_blorp" }, e.BuildLoadout(s, t).Aliens.Select(x => x.AlienTypeId));
     }
 
@@ -164,25 +163,27 @@ public class AlienTests
     {
         var e = TestHelpers.Engine();
         var s = Rich(e);
+        UnlockAll(e, s);
         GrantAlien(e, s, "alien_zib");
         GrantAlien(e, s, "alien_blorp");
         GrantAlien(e, s, "alien_mossling");
-        Assert.Equal("building not active", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = "bp_ore_mine" }, T0));
-        long t = BuildActive(e, ref s, "bp_ore_mine", 4, 4, T0);         // common: 1 slot
-        t = BuildActive(e, ref s, "bp_fuel_refinery", 5, 4, t);          // rare: 2 slots
-        t = BuildActive(e, ref s, "bp_laboratory", 7, 7, t);             // utility: no workers
-        Assert.Equal("alien not owned", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_solarch", BlueprintId = "bp_ore_mine" }, t));
-        Assert.Equal("building has no worker slots", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = "bp_laboratory" }, t));
-        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = "bp_ore_mine" }, t);
-        Assert.Equal("already working there", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = "bp_ore_mine" }, t));
-        Assert.Equal("no free worker slot", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_blorp", BlueprintId = "bp_ore_mine" }, t));
+        Assert.Equal("building not built", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BuildingUid = "bp_ore_mine#1" }, T0));
+        long t = BuildActive(e, ref s, "bp_ore_mine", T0, out var mine);          // common: 1 slot
+        t = BuildActive(e, ref s, "bp_fuel_refinery", t, out var refinery);     // rare: 2 slots
+        t = BuildActive(e, ref s, "bp_gene_lab", t, out var gene);              // others: 1 slot
+        Assert.Equal("alien not owned", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_solarch", BuildingUid = mine }, t));
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BuildingUid = mine }, t);
+        Assert.Equal("already working there", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BuildingUid = mine }, t));
+        Assert.Equal("no free worker slot", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = mine }, t));
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = gene }, t);
+        Assert.Equal("no free worker slot", Fail(e, ref s, new AlienAssign { AlienTypeId = "alien_mossling", BuildingUid = gene }, t));
         // Moving to another building frees the old slot (an alien works in one building at a time).
-        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = "bp_fuel_refinery" }, t);
-        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_blorp", BlueprintId = "bp_ore_mine" }, t);
-        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_mossling", BlueprintId = "bp_fuel_refinery" }, t);
-        Assert.Equal(new[] { "alien_mossling", "alien_zib" }, CitySystem.Workers(s, "bp_fuel_refinery").Select(a => a.TypeId));
-        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BlueprintId = null }, t);
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BuildingUid = refinery }, t);
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = mine }, t);
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_mossling", BuildingUid = refinery }, t);
+        Assert.Equal(new[] { "alien_mossling", "alien_zib" }, CitySystem.Workers(s, refinery).Select(a => a.TypeId));
+        Ok(e, ref s, new AlienAssign { AlienTypeId = "alien_zib", BuildingUid = null }, t);
         Assert.Null(AlienSystem.Owned(s, "alien_zib").WorkBuildingId);
-        Assert.Single(CitySystem.Workers(s, "bp_fuel_refinery"));
+        Assert.Single(CitySystem.Workers(s, refinery));
     }
 }

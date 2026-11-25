@@ -22,31 +22,60 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class CityState
     {
-        /// <summary>Unlocked city area ids (content order).</summary>
-        public List<string> UnlockedAreas = new List<string>();
-        /// <summary>
-        /// Owned blueprints keyed by blueprint id. A blueprint is also its building: each blueprint can be
-        /// built once; level, placement and production storage live here.
-        /// </summary>
+        /// <summary>City layout version: 0 = a save from before the City redesign (reset once by CitySystem), 1 = current.</summary>
+        public int Version;
+        /// <summary>Owned blueprints keyed by blueprint id: stars (shared by every copy). Buildings live in <see cref="Buildings"/>.</summary>
         public Dictionary<string, OwnedBlueprint> Blueprints = new Dictionary<string, OwnedBlueprint>();
+        /// <summary>Built copies (placed or stored), in build order.</summary>
+        public List<CityBuilding> Buildings = new List<CityBuilding>();
+        /// <summary>Dug patch ids, in dig order.</summary>
+        public List<string> DugPatches = new List<string>();
+        /// <summary>Street cells (y × GridWidth + x).</summary>
+        public List<int> Streets = new List<int>();
+        /// <summary>Patch being dug (its timer: DigTimerId), or null.</summary>
+        public string DigPatchId;
+        public string DigTimerId;
+        /// <summary>Digs that cost nothing and finish at once (granted by the redesign reset: one per old area unlocked).</summary>
+        public int FreeDigs;
+        /// <summary>Bumped on every layout change (placement-bonus cache key).</summary>
+        public int LayoutRev;
         /// <summary>Currency that gets the boosted production share; null/empty = no priority.</summary>
         public string PriorityCurrency;
+        /// <summary>Legacy (before the City redesign): unlocked area ids; read once by the reset (free digs).</summary>
+        public List<string> UnlockedAreas = new List<string>();
+
+        [NonSerialized] internal object LayoutCache;
     }
 
     [Serializable]
     public sealed class OwnedBlueprint
     {
         public string Id;
-        /// <summary>1..10, raised with blueprint shards.</summary>
+        /// <summary>1..10, raised with blueprint shards; shared by every copy.</summary>
         public int Stars = 1;
-        /// <summary>Building level; 0 = never constructed (construction pending or not started).</summary>
+        /// <summary>Legacy (before the City redesign): the one building's level; read once by the reset.</summary>
         public int Level;
-        /// <summary>True while the building occupies cells on the grid. Demolish = put back into storage (level kept).</summary>
-        public bool Placed;
+    }
+
+    /// <summary>One built copy of a blueprint.</summary>
+    [Serializable]
+    public sealed class CityBuilding
+    {
+        /// <summary>"&lt;blueprintId&gt;#&lt;n&gt;" (n = 1..copies).</summary>
+        public string Uid;
+        public string BlueprintId;
         public int X;
         public int Y;
+        /// <summary>Footprint swapped (2×1 ↔ 1×2, 3×2 ↔ 2×3).</summary>
+        public bool Rotated;
+        /// <summary>True while on the land; false = in storage (level kept).</summary>
+        public bool Placed;
+        /// <summary>1..10; 0 = first construction still running.</summary>
+        public int Level;
         /// <summary>Uncollected production (fractional remainder kept across collects).</summary>
         public double Stored;
+        /// <summary>Pull buildings: chances piled up (fraction = progress to the next).</summary>
+        public double Chances;
         public long LastSettleMs;
         /// <summary>Running construction/upgrade timer id, or null.</summary>
         public string TimerId;
@@ -76,7 +105,7 @@ namespace RogueStars.Rules.Systems
         public AlienGenes Genes = new AlienGenes();
         /// <summary>Up to 3 trait ids.</summary>
         public List<string> Traits = new List<string>();
-        /// <summary>Blueprint id of the building this alien works in, or null.</summary>
+        /// <summary>Uid of the building this alien works in (CityBuilding.Uid), or null. The Launch Pod's aliens are the squad.</summary>
         public string WorkBuildingId;
         /// <summary>0 = pulled; +1 per bred replacement.</summary>
         public int Generation;
@@ -87,7 +116,7 @@ namespace RogueStars.Rules.Systems
     {
         /// <summary>One alien per alien type, keyed by type id.</summary>
         public Dictionary<string, OwnedAlien> Owned = new Dictionary<string, OwnedAlien>();
-        /// <summary>Squad order (alien type ids). Only the first CitySystem.SquadSlots entries fight.</summary>
+        /// <summary>Squad order (alien type ids); members are the aliens working in the Launch Pod (AlienSystem.ActiveSquad).</summary>
         public List<string> Squad = new List<string>();
     }
 
@@ -127,9 +156,9 @@ namespace RogueStars.Rules.Systems
     public sealed class GameTimer
     {
         public string Id;
-        /// <summary>Owner-defined kind, e.g. "city_build", "city_upgrade", "breeding", "lab_research".</summary>
+        /// <summary>Owner-defined kind, e.g. "city_build", "city_upgrade", "city_dig", "breeding", "lab_research".</summary>
         public string Kind;
-        /// <summary>Owner-defined reference (blueprint id, breeding job id, skill id...).</summary>
+        /// <summary>Owner-defined reference (building uid, patch id, breeding job id, skill id...).</summary>
         public string RefId;
         public long StartMs;
         public long EndsMs;

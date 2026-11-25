@@ -7,7 +7,7 @@ namespace RogueStars.Rules.Content
     public sealed class BreedingTuningDef
     {
         /// <summary>Grain cost by the higher parent rarity.</summary>
-        public long[] GrainCost = { 200, 500, 1200, 3000, 8000 };
+        public long[] GrainCost = { 100, 250, 600, 1500, 4000 };
         /// <summary>Breeding duration in hours by the higher parent rarity.</summary>
         public double[] DurationHours = { 2, 4, 8, 12, 24 };
         /// <summary>Child gene = lerp(parentA, parentB, u) ± GeneVariance + quality bonus, clamped to AlienTuning gene bounds.</summary>

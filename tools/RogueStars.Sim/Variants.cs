@@ -99,7 +99,10 @@ public static class Variants
                     foreach (var r in l.CompletionRewards) if (r.Id == Currencies.Biomass) r.Amount /= 2;
                 foreach (var t in c.RunLootTables.Values)
                     foreach (var e in t.Entries) if (e.Id == Currencies.Biomass) { e.Min /= 2; e.Max /= 2; }
-                c.Blueprints["bp_biomass_farm"].BaseRatePerHour = 60; c.Blueprints["bp_spore_vats"].BaseRatePerHour = 150;
+                c.Blueprints["bp_biomass_farm"].BaseRatePerHour = 60;
+                break;
+            case "city_rates_x2": // City design §6 "Balance": doubles every producer's placed rate (the open ×2 question)
+                foreach (var d in c.Blueprints.Values) if (d.ProduceCurrency != null) d.BaseRatePerHour *= 2;
                 break;
             default: throw new ArgumentException("unknown variant " + v);
         }

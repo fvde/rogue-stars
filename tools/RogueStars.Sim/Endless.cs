@@ -51,10 +51,10 @@ public static class Endless
         r[0] = Per(WormSystem.NextLevelCost(s, c), Currencies.Biomass, frontier);
 
         long building = long.MaxValue;
-        foreach (var b in s.City.Blueprints.Values)
+        foreach (var b in s.City.Buildings)
         {
-            if (!CitySystem.IsActive(b) || b.Level >= CitySystem.MaxLevel(c, b)) continue;
-            long ore = CitySystem.UpgradeCost(c, c.Blueprint(b.Id), b.Level).Where(x => x.Currency == Currencies.Ore).Sum(x => x.Amount);
+            if (!CitySystem.IsBuilt(b) || b.Level >= CitySystem.MaxLevel(c)) continue;
+            long ore = CitySystem.UpgradeCost(c, c.Blueprint(b.BlueprintId), b.Level).Where(x => x.Currency == Currencies.Ore).Sum(x => x.Amount);
             if (ore > 0) building = Math.Min(building, ore);
         }
         if (building != long.MaxValue) r[1] = Per(building, Currencies.Ore, frontier);

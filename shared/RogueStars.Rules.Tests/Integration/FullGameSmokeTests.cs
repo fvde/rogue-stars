@@ -62,7 +62,8 @@ public class FullGameSmokeTests
         {
             foreach (var kv in S.Wallet.Balances) Assert.True(kv.Value >= 0, "negative balance " + kv.Key);
             foreach (var kv in S.Counters) Assert.True(kv.Value >= 0, "negative counter " + kv.Key);
-            foreach (var b in S.City.Blueprints.Values) Assert.True(b.Stored >= 0);
+            foreach (var b in S.City.Buildings) Assert.True(b.Stored >= 0 && b.Chances >= 0);
+            Assert.True(CityLayout.Check(CityLayout.Grid(S, E.Content)).Ok);
         }
 
         /// <summary>Stand-in for the rewards of many further runs (one real run is played in the smoke test).</summary>
@@ -78,11 +79,25 @@ public class FullGameSmokeTests
             Do(new TimerSpeedUp { TimerId = timerId, Method = SpeedUpMethod.Diamonds });
         }
 
-        public void Build(string bp, int x, int y)
+        /// <summary>Places a new copy at the planner's spot (paving streets first if needed); rushed unless <paramref name="rush"/> is false.</summary>
+        public string Build(string bp, bool rush = true)
         {
-            Do(new CityBuild { BlueprintId = bp, X = x, Y = y });
-            Rush(CitySystem.Owned(S, bp).TimerId);
-            Assert.True(CitySystem.IsActive(CitySystem.Owned(S, bp)), bp);
+            var plan = CityPlanner.Find(S, E.Content, bp);
+            Assert.NotNull(plan);
+            if (plan.Streets.Count > 0) Do(new CityStreets { Adds = new List<int>(plan.Streets) });
+            string uid = (string)Do(new CityPlace { BlueprintId = bp, X = plan.X, Y = plan.Y, Rotated = plan.Rotated }).Payload!;
+            if (!rush) return uid;
+            Rush(CitySystem.Building(S, uid).TimerId);
+            Assert.True(CitySystem.IsBuilt(CitySystem.Building(S, uid)), bp);
+            return uid;
+        }
+
+        /// <summary>Uses free digs (stand-in for saved-up digs) on patches that touch the land.</summary>
+        public void DigFree(int n)
+        {
+            S.City.FreeDigs += n;
+            for (int i = 0; i < n; i++)
+                Do(new CityDig { PatchId = E.Content.CityPatches.First(pa => CitySystem.DigBlockReason(S, E.Content, pa.Id) == null).Id });
         }
     }
 
@@ -119,12 +134,13 @@ public class FullGameSmokeTests
             p.Do(new PartEquip { Uid = part.Uid, Slot = slot });
         }
 
-        // Level 8 (the City opens at level 6) with the Biomass Farm blueprint and the stashed Biomass; first collection.
-        p.S.Counters[Requirements.MainLevelCounter] = 8;
+        // Level 16 (aliens at 6, the City at 15) with the Biomass Farm blueprint and the stashed Biomass; an alien runs the farm.
+        p.S.Counters[Requirements.MainLevelCounter] = 16;
         Assert.Contains(Features.BiomassFarm, p.PlayUntilDay(2));
         Assert.True(p.S.Wallet.Get(Currencies.Biomass) > 0);
         Assert.NotEmpty(RewardGate.ReleasedAt(p.S, Features.BiomassFarm));
-        p.Build("bp_biomass_farm", 4, 4);
+        string farm = p.Build("bp_biomass_farm");
+        p.Do(new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = farm });
         var collected = (Dictionary<string, long>)p.Do(new CityCollect(), 2 * Hour).Payload!;
         Assert.True(collected[Currencies.Biomass] > 0);
 
@@ -133,7 +149,7 @@ public class FullGameSmokeTests
         p.S.Counters[Requirements.MainLevelCounter] = 34;
         p.RunRewards(200_000, 200_000, 100_000);
         var unlockEvents = p.PlayUntilDay(14);
-        Assert.Contains(Features.Aliens, unlockEvents);
+        Assert.Contains(Features.Breeding, unlockEvents);
         Assert.Contains(Features.Mounts, unlockEvents);
         Assert.NotNull(AlienSystem.Owned(p.S, "alien_blorp"));
 
@@ -157,12 +173,13 @@ public class FullGameSmokeTests
         p.Do(new PartLevelUp { Uid = arm, Levels = 3 });
 
         // City: housing (squad slot), grain farm with an alien worker, squad, breeding.
-        p.Build("bp_housing_pod", 5, 4);
-        p.Build("bp_grain_farm", 4, 5);
-        p.Do(new AlienAssign { AlienTypeId = "alien_blorp", BlueprintId = "bp_grain_farm" });
+        p.Build(ContentDb.LaunchPodId);
+        string grainFarm = p.Build("bp_grain_farm");
+        p.Do(new AlienAssign { AlienTypeId = "alien_blorp", BuildingUid = grainFarm });
         var aliens = p.S.Aliens.Owned.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
         p.Do(new AlienSetSquad { AlienTypeIds = { aliens[0] } });
-        p.Build("bp_breeding_pen", 6, 4);
+        string pen = p.Build("bp_breeding_pen");
+        p.Do(new AlienAssign { AlienTypeId = aliens[1], BuildingUid = pen });
         string job = (string)p.Do(new BreedStart { ParentA = aliens[0], ParentB = aliens[1] }).Payload!;
         p.Rush(BreedingSystem.Job(p.S, job).TimerId);
         string child = (string)p.Do(new BreedCollect { JobId = job }).Payload!;
@@ -220,9 +237,12 @@ public class FullGameSmokeTests
         p.Do(new PurchaseComplete { ProductId = p.E.Content.Shop.MonthlyPassProductId, ReceiptId = "dev:rt-2" });
         foreach (var t in new[] { GachaType.Part, GachaType.Blueprint, GachaType.Alien })
             p.Do(new GachaPull { PullType = t, Count = 10, Payment = GachaPayment.Diamonds });
-        p.Build("bp_biomass_farm", 4, 4);
-        p.Build("bp_housing_pod", 5, 4);
+        p.DigFree(4);
+        p.Build("bp_biomass_farm");
+        p.Build(ContentDb.LaunchPodId);
         p.Do(new AlienSetSquad { AlienTypeIds = { "alien_blorp" } });
+        string lab = p.Build(ContentDb.LaboratoryId);
+        p.Do(new AlienAssign { AlienTypeId = p.S.Aliens.Owned.Keys.Where(k => k != "alien_blorp").OrderBy(k => k, StringComparer.Ordinal).First(), BuildingUid = lab });
         p.Do(new SummonPull { EventType = SummonEventType.Hero, Count = 10, Payment = SummonPayment.Tickets });
         // a hero copy (heroes only come from the summon events; here a server mail stands in for a lucky draw)
         string heroMail = (string)p.Do(new MailPush { Title = "Hero", Body = "", Rewards = { new Reward(RewardKinds.Hero, "hero_star_knight", 1), new Reward(RewardKinds.Mount, "mount_scout_saucer", 1) } }).Payload!;
@@ -233,7 +253,7 @@ public class FullGameSmokeTests
         p.Do(new LobbyPopupShown { PopupId = "news" });
         p.Do(new ShopBuyItem { ItemId = "daily_free_gift" });
         p.Do(new CityCollect(), 5 * Hour); // settles planetary events/modifiers too
-        p.Do(new CityBuild { BlueprintId = "bp_grain_farm", X = 4, Y = 5 }); // timer left running
+        p.Build("bp_grain_farm", rush: false);                               // timer left running
         p.Do(new LabResearch { ResearchId = "res_burning_soul" });          // research timer running
         p.Do(new RunStart { LevelId = "ember_wastes_1" });                   // a run in progress (board, RNG, loadout)
         for (int i = 0; i < 5 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });

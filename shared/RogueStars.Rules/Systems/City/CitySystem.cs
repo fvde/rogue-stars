@@ -13,34 +13,51 @@ namespace RogueStars.Rules.Systems
         public double TickSpeedPercent;
     }
 
+    /// <summary>One popped chance: building, token currency and pulls granted.</summary>
+    [Serializable]
+    public sealed class CityPopResult
+    {
+        public string Uid;
+        public string Currency;
+        public int Pulls;
+    }
+
     /// <summary>
-    /// City: a grid of areas unlocked one by one; blueprints (one building each) are placed, constructed and
-    /// upgraded on timers; blueprint stars 1–10 on the shared shard table (pull batches of 50) with star milestones; production buildings
-    /// settle lazily from timestamps into capped storage; boon buildings feed runs (meta skills, draft rerolls,
-    /// squad slots), stamina and other systems (breeding, laboratory).
-    ///
-    /// Production per hour of a building =
-    ///   BaseRatePerHour × (1 + LevelProductionPct×(level−1)/100) × (1 + StarProductionPct×(stars−1)/100)
-    ///   × (1 + (star-milestone production % + global production boons % + worker bonus %)/100)
-    ///   × priority factor (+PriorityBoostPct for the priority currency, −PriorityPenaltyPct for others)
-    ///   × ModifierMath.Multiplier(state.Modifiers, "production:&lt;currency&gt;", t)   (integrated piecewise over modifier windows)
-    /// Storage cap = BaseStorage × level/star growth × (1 + storage milestone %/100). Collect pays whole units.
+    /// City (docs: City design, owner-approved): land you dig, streets you paint, buildings that want good neighbours.
+    /// <list type="bullet">
+    /// <item>Blueprints (stars 1–10, shared by every copy) and their buildings (copies by rarity: C3 R3 E2 L2 M1, Launch Pod 1). Each
+    /// copy has its own level 1–10, timers, storage and workers.</item>
+    /// <item>Value of a building = placed value × (1 + level ladder + star ladder); each ladder +10% per step and +15% at 5 and 10
+    /// (3× at max). The placement skill (<see cref="CityLayout"/>) multiplies the building's main number (cap +30%).</item>
+    /// <item>A building runs (produces, gives its boon) only while placed, built and staffed by at least one alien. The Launch Pod's
+    /// aliens are the run squad (its worker slots are the squad slots).</item>
+    /// <item>Layout edits are one command each (place / move / store / streets / dig), validated by <see cref="CityLayout.Validate"/>.</item>
+    /// </list>
+    /// Production per hour = BaseRatePerHour × growth × (1 + placement%) × (1 + (Command Spire% + worker bonus%)/100) × priority
+    /// × ModifierMath.Multiplier("production:&lt;currency&gt;") (integrated piecewise over modifier windows). Storage = StorageHours ×
+    /// BaseRatePerHour × growth. Pull buildings make chances instead (<see cref="ChancesPerDay"/>), popped with CityPop.
     /// </summary>
     public static class CitySystem
     {
         public const string TimerBuild = "city_build";
         public const string TimerUpgrade = "city_upgrade";
+        public const string TimerDig = "city_dig";
         public const int MaxStars = 10;
+        /// <summary>CityState.Version of the redesigned city.</summary>
+        public const int LayoutVersion = 1;
         private const double HourMs = 3_600_000.0;
+        private const double DayMs = 24 * HourMs;
 
         public static void Register(GameEngine e)
         {
-            e.Register<CityUnlockArea>(HandleUnlockArea);
-            e.Register<CityBuild>(HandleBuild);
+            e.Register<CityPlace>(HandlePlace);
             e.Register<CityMove>(HandleMove);
-            e.Register<CityDemolish>(HandleDemolish);
+            e.Register<CityStore>(HandleStore);
+            e.Register<CityStreets>(HandleStreets);
+            e.Register<CityDig>(HandleDig);
             e.Register<CityUpgrade>(HandleUpgrade);
             e.Register<CityCollect>(HandleCollect);
+            e.Register<CityPop>(HandlePop);
             e.Register<CitySetPriority>(HandleSetPriority);
             e.Register<BlueprintStarUp>(HandleStarUp);
             e.RegisterNewPlayer(InitNewPlayer);
@@ -49,6 +66,7 @@ namespace RogueStars.Rules.Systems
             e.Rewards.Register(RewardKinds.Blueprint, GrantBlueprint);
             TimerSystem.RegisterCompletion(e, TimerBuild, CompleteBuild);
             TimerSystem.RegisterCompletion(e, TimerUpgrade, CompleteUpgrade);
+            TimerSystem.RegisterCompletion(e, TimerDig, CompleteDig);
             // Stamina cap/regen boons feed Progression's regen engine (EconomySystem is registered before City).
             EconomySystem.RegisterRegenBonusProvider(e, (s, c, now, currency) =>
             {
@@ -58,7 +76,7 @@ namespace RogueStars.Rules.Systems
             });
         }
 
-        // ---- queries ----------------------------------------------------------------------------
+        // ---- blueprints and buildings ---------------------------------------------------------------
 
         /// <summary>Owned blueprints in deterministic (ordinal id) order.</summary>
         public static List<OwnedBlueprint> SortedBlueprints(GameState state)
@@ -71,93 +89,145 @@ namespace RogueStars.Rules.Systems
         public static OwnedBlueprint Owned(GameState state, string blueprintId) =>
             blueprintId != null && state.City.Blueprints.TryGetValue(blueprintId, out var b) ? b : null;
 
-        /// <summary>A building is active (produces, gives boons) when placed and constructed.</summary>
-        public static bool IsActive(OwnedBlueprint b) => b != null && b.Placed && b.Level >= 1;
+        public static int Stars(GameState state, string blueprintId) => Owned(state, blueprintId)?.Stars ?? 1;
 
-        public static bool IsAreaUnlocked(GameState state, string areaId) => state.City.UnlockedAreas.Contains(areaId);
-
-        /// <summary>The next area that can be unlocked (lowest Order not yet unlocked), or null.</summary>
-        public static CityAreaDef NextArea(GameState state, ContentDb content)
+        public static CityBuilding Building(GameState state, string uid)
         {
-            CityAreaDef best = null;
-            foreach (var a in content.CityAreas)
-                if (!IsAreaUnlocked(state, a.Id) && (best == null || a.Order < best.Order)) best = a;
-            return best;
-        }
-
-        public static CityAreaDef AreaAt(ContentDb content, int x, int y)
-        {
-            foreach (var a in content.CityAreas)
-                if (x >= a.X && x < a.X + a.Width && y >= a.Y && y < a.Y + a.Height) return a;
+            if (uid == null) return null;
+            foreach (var b in state.City.Buildings) if (b.Uid == uid) return b;
             return null;
         }
 
-        /// <summary>Null if the footprint fits (inside unlocked areas, no overlap), else the reason.</summary>
-        public static string PlacementError(GameState state, ContentDb content, BlueprintDef def, int x, int y, string ignoreId = null)
+        /// <summary>Copies of a blueprint (build order).</summary>
+        public static List<CityBuilding> Copies(GameState state, string blueprintId)
         {
-            var t = content.CityTuning;
-            if (x < 0 || y < 0 || x + def.Width > t.GridWidth || y + def.Height > t.GridHeight) return "outside the city grid";
-            for (int cx = x; cx < x + def.Width; cx++)
-                for (int cy = y; cy < y + def.Height; cy++)
-                {
-                    var area = AreaAt(content, cx, cy);
-                    if (area == null || !IsAreaUnlocked(state, area.Id)) return "area locked";
-                }
-            foreach (var other in state.City.Blueprints.Values)
+            var list = new List<CityBuilding>();
+            foreach (var b in state.City.Buildings) if (b.BlueprintId == blueprintId) list.Add(b);
+            return list;
+        }
+
+        /// <summary>Copies built (placed, stored or under construction).</summary>
+        public static int CopiesBuilt(GameState state, string blueprintId)
+        {
+            int n = 0;
+            foreach (var b in state.City.Buildings) if (b.BlueprintId == blueprintId) n++;
+            return n;
+        }
+
+        /// <summary>The Launch Pod (null until built).</summary>
+        public static CityBuilding LaunchPod(GameState state)
+        {
+            foreach (var b in state.City.Buildings) if (b.BlueprintId == ContentDb.LaunchPodId) return b;
+            return null;
+        }
+
+        /// <summary>The first placed Laboratory copy (research is locked until one is placed and built), or null.</summary>
+        public static CityBuilding Laboratory(GameState state)
+        {
+            foreach (var b in state.City.Buildings) if (b.BlueprintId == ContentDb.LaboratoryId && b.Placed && b.Level >= 1) return b;
+            return null;
+        }
+
+        /// <summary>Placed and constructed (level ≥ 1).</summary>
+        public static bool IsBuilt(CityBuilding b) => b != null && b.Placed && b.Level >= 1;
+
+        /// <summary>
+        /// A building runs (produces / gives its boon) when placed, constructed and staffed by at least one alien. The Launch Pod runs
+        /// when built (its aliens are the squad).
+        /// </summary>
+        public static bool IsActive(GameState state, ContentDb content, CityBuilding b)
+        {
+            if (!IsBuilt(b)) return false;
+            if (b.BlueprintId == ContentDb.LaunchPodId) return true;
+            foreach (var a in state.Aliens.Owned.Values) if (a.WorkBuildingId == b.Uid) return true;
+            return false;
+        }
+
+        /// <summary>Next free uid "&lt;blueprintId&gt;#n" (n = 1..copies), or null when every copy is built.</summary>
+        public static string NextUid(GameState state, BlueprintDef def)
+        {
+            for (int n = 1; n <= def.Copies; n++)
             {
-                if (!other.Placed || other.Id == ignoreId) continue;
-                var od = content.Blueprint(other.Id);
-                if (od == null) continue;
-                bool overlap = x < other.X + od.Width && other.X < x + def.Width && y < other.Y + od.Height && other.Y < y + def.Height;
-                if (overlap) return "cells occupied";
+                string uid = def.Id + "#" + n;
+                if (Building(state, uid) == null) return uid;
             }
             return null;
         }
 
-        public static int MaxLevel(ContentDb content, OwnedBlueprint b) => content.CityTuning.MaxLevelBase + content.CityTuning.MaxLevelPerStar * b.Stars;
+        // ---- growth and costs -----------------------------------------------------------------------
 
+        /// <summary>Ladder bonus (fraction) at step n (1..10): +10% per step, +15% at 5 and 10. Ladder(1) = 0, Ladder(10) = 1.</summary>
+        public static double Ladder(ContentDb content, int n)
+        {
+            var t = content.CityTuning;
+            double v = 0;
+            for (int i = 2; i <= Math.Min(n, 10); i++) v += Array.IndexOf(t.LadderMilestones, i) >= 0 ? t.LadderMilestonePct : t.LadderStepPct;
+            return v / 100.0;
+        }
+
+        /// <summary>Growth multiplier of a boon: 1 + level ladder + star ladder (each only if the boon grows with it).</summary>
+        public static double Growth(ContentDb content, BuildingBoon boon, int level, int stars) =>
+            1 + (boon == null || boon.GrowsWithLevel ? Ladder(content, level) : 0) + (boon == null || boon.GrowsWithStars ? Ladder(content, stars) : 0);
+
+        public static int MaxLevel(ContentDb content) => content.CityTuning.MaxLevel;
+
+        /// <summary>Rounds a cost to clean numbers: under 100 to a multiple of 5, from 100 on to two significant digits (2 700, 8 400).</summary>
+        public static long NiceRound(double v)
+        {
+            if (v <= 0) return 0;
+            if (v < 20) return (long)Math.Round(v, MidpointRounding.AwayFromZero);
+            if (v < 100) return (long)(Math.Round(v / 5, MidpointRounding.AwayFromZero) * 5);
+            double mag = Math.Pow(10, Math.Floor(Math.Log10(v)) - 1);
+            return (long)(Math.Round(v / mag, MidpointRounding.AwayFromZero) * mag);
+        }
+
+        /// <summary>A "both" Biomass/Ore pair converted to the blueprint's cost type (Biomass only = 3× Biomass, Ore only = 1.5× Ore).</summary>
+        private static List<Cost> Costs(ContentDb content, BlueprintDef def, double biomass, double ore)
+        {
+            var t = content.CityTuning;
+            switch (def.CostType)
+            {
+                case BuildingCostType.Biomass: return new List<Cost> { new Cost(Currencies.Biomass, NiceRound(biomass * t.BiomassOnlyMult)) };
+                case BuildingCostType.Ore: return new List<Cost> { new Cost(Currencies.Ore, NiceRound(ore * t.OreOnlyMult)) };
+                default: return new List<Cost> { new Cost(Currencies.Biomass, NiceRound(biomass)), new Cost(Currencies.Ore, NiceRound(ore)) };
+            }
+        }
+
+        /// <summary>Cost of a new copy (rarity build cost in the blueprint's currencies).</summary>
         public static List<Cost> BuildCost(ContentDb content, BlueprintDef def)
         {
             var r = content.CityTuning.Rarity[(int)def.Rarity];
-            return new List<Cost>
-            {
-                new Cost(Currencies.Ore, (long)Math.Round(r.BuildOre * def.CostMult)),
-                new Cost(Currencies.Biomass, (long)Math.Round(r.BuildBiomass * def.CostMult)),
-            };
+            return Costs(content, def, r.BuildBiomass, r.BuildOre);
         }
 
-        /// <summary>Cost of upgrading from <paramref name="level"/> to level+1.</summary>
+        /// <summary>Cost of upgrading from <paramref name="level"/> to level+1: first level-up × LevelCostMult[level − 1].</summary>
         public static List<Cost> UpgradeCost(ContentDb content, BlueprintDef def, int level)
         {
-            var r = content.CityTuning.Rarity[(int)def.Rarity];
-            double g = Math.Pow(content.CityTuning.CostGrowth, Math.Max(0, level - 1)) * def.CostMult;
-            return new List<Cost>
-            {
-                new Cost(Currencies.Ore, (long)Math.Round(r.UpgradeOre * g)),
-                new Cost(Currencies.Biomass, (long)Math.Round(r.UpgradeBiomass * g)),
-            };
+            var t = content.CityTuning;
+            var r = t.Rarity[(int)def.Rarity];
+            double m = t.LevelCostMult[Math.Max(0, Math.Min(t.LevelCostMult.Length - 1, level - 1))];
+            return Costs(content, def, r.UpgradeBiomass * m, r.UpgradeOre * m);
         }
 
-        /// <summary>Speed divisor from BuildSpeedPct boons and the "build_speed" modifier.</summary>
-        private static double BuildSpeed(GameState state, ContentDb content, long nowMs) =>
-            (1 + BoonTotal(state, content, BoonKind.BuildSpeedPct) / 100.0) * ModifierMath.Multiplier(state.Modifiers, "build_speed", nowMs);
+        /// <summary>Speed divisor from the "build_speed" modifier.</summary>
+        private static double BuildSpeed(GameState state, long nowMs) => ModifierMath.Multiplier(state.Modifiers, "build_speed", nowMs);
 
         public static long BuildDurationMs(GameState state, ContentDb content, BlueprintDef def, long nowMs) =>
-            (long)Math.Ceiling(content.CityTuning.Rarity[(int)def.Rarity].BuildMs / BuildSpeed(state, content, nowMs));
+            (long)Math.Ceiling(content.CityTuning.Rarity[(int)def.Rarity].BuildMs / BuildSpeed(state, nowMs));
 
         public static long UpgradeDurationMs(GameState state, ContentDb content, BlueprintDef def, int level, long nowMs)
         {
             var r = content.CityTuning.Rarity[(int)def.Rarity];
             double ms = r.UpgradeMs * Math.Pow(content.CityTuning.TimeGrowth, Math.Max(0, level - 1));
-            return (long)Math.Ceiling(ms / BuildSpeed(state, content, nowMs));
+            return (long)Math.Ceiling(ms / BuildSpeed(state, nowMs));
         }
 
         /// <summary>Shards needed for the next star (the shared table, ContentDb.ShardStars), or 0 at max.</summary>
         public static long StarCost(ContentDb content, OwnedBlueprint b) => b.Stars >= MaxStars ? 0 : Math.Max(0, content.ShardStars.NextCost(b.Stars));
 
-        // ---- boons ------------------------------------------------------------------------------
+        // ---- boons ------------------------------------------------------------------------------------
 
-        /// <summary>Sum of reached star-milestone values of a kind for one blueprint.</summary>
+        /// <summary>Sum of reached star-unlock values of a kind for one blueprint.</summary>
         public static double MilestoneValue(BlueprintDef def, int stars, BoonKind kind)
         {
             double v = 0;
@@ -165,149 +235,92 @@ namespace RogueStars.Rules.Systems
             return v;
         }
 
-        /// <summary>Level-scaled boon value of a kind for one building (0 when inactive). Ignores worker requirements.</summary>
-        public static double LevelBoonValue(ContentDb content, BlueprintDef def, OwnedBlueprint b, BoonKind kind) => LevelBoonValue(null, content, def, b, kind);
-
-        /// <summary>True if the building has the workers a boon needs (BuildingBoon.RequiredWorkers of RequiredWorkerStars★+).</summary>
-        public static bool BoonStaffed(GameState state, BlueprintDef def, OwnedBlueprint b, BuildingBoon boon)
+        /// <summary>
+        /// Value of a boon kind of one building as if it runs (ignores staffing): Σ Base × growth (× (1 + placement%) + flat for the
+        /// placement boon), whole-number boons rounded down, plus reached star unlocks of that kind.
+        /// </summary>
+        public static double BoonValue(GameState state, ContentDb content, CityBuilding b, BoonKind kind)
         {
-            if (boon.RequiredWorkers <= 0) return true;
-            if (state == null) return false;
-            int n = 0;
-            foreach (var a in Workers(state, b.Id)) if (a.Stars >= boon.RequiredWorkerStars) n++;
-            return n >= boon.RequiredWorkers;
-        }
-
-        /// <summary>Level-scaled boon value of a kind for one building (0 when inactive or, with a state, unstaffed).</summary>
-        public static double LevelBoonValue(GameState state, ContentDb content, BlueprintDef def, OwnedBlueprint b, BoonKind kind)
-        {
-            if (!IsActive(b)) return 0;
+            var def = content.Blueprint(b?.BlueprintId);
+            if (def == null) return 0;
+            int stars = Stars(state, def.Id);
+            int level = Math.Max(1, b.Level);
             double v = 0;
             foreach (var boon in def.Boons)
             {
-                if (boon.Kind != kind || b.Level < boon.MinLevel) continue;
-                if (boon.RequiredWorkers > 0 && !BoonStaffed(state, def, b, boon)) continue;
-                double x = boon.Base + boon.PerLevel * (b.Level - boon.MinLevel);
-                if (boon.StarScaled) x *= 1 + content.CityTuning.BoonPerStarPct * (b.Stars - 1) / 100.0;
+                if (boon.Kind != kind) continue;
+                double x = boon.Base * Growth(content, boon, level, stars);
+                if (boon.Placement && b.Placed) x *= 1 + CityLayout.PlacementPct(state, content, b.Uid) / 100.0;
+                if (boon.Whole) x = Math.Floor(x + 1e-9);
+                if (boon.Placement && b.Placed) x += CityLayout.PlacementFlat(state, content, b.Uid);
                 v += x;
             }
+            if (kind != BoonKind.WorkerSlots) v += MilestoneValue(def, stars, kind);
             return v;
         }
 
-        /// <summary>True for kinds whose star milestones only affect the building itself.</summary>
-        private static bool IsLocalMilestone(BoonKind kind) =>
-            kind == BoonKind.ProductionPct || kind == BoonKind.StoragePct || kind == BoonKind.WorkerSlots;
-
-        /// <summary>
-        /// City-wide total of a boon kind over all active buildings (level boons + star milestones;
-        /// production/storage/worker-slot milestones are local to their building and excluded).
-        /// Used for StaminaCap, StaminaRegenPct, DraftRerolls, SquadSlots, BreedingSlots/SpeedPct/QualityPct,
-        /// ResearchSpeedPct (Laboratory), BuildSpeedPct, ProductionPct (global).
-        /// </summary>
+        /// <summary>City-wide total of a boon kind over every running building (copies add up).</summary>
         public static double BoonTotal(GameState state, ContentDb content, BoonKind kind)
         {
             double v = 0;
-            foreach (var b in SortedBlueprints(state))
-            {
-                if (!IsActive(b)) continue;
-                var def = content.Blueprint(b.Id);
-                if (def == null) continue;
-                v += LevelBoonValue(state, content, def, b, kind);
-                if (!IsLocalMilestone(kind)) v += MilestoneValue(def, b.Stars, kind);
-            }
+            foreach (var b in state.City.Buildings)
+                if (IsActive(state, content, b)) v += BoonValue(state, content, b, kind);
             return v;
         }
 
-        public static int SquadSlots(GameState state, ContentDb content) =>
-            Math.Min(content.CityTuning.MaxSquadSlots, (int)Math.Floor(BoonTotal(state, content, BoonKind.SquadSlots) + 1e-9));
+        /// <summary>Squad slots: the Launch Pod's seats (1, +1 at 5★ and 10★) once it is built; no other building gives any.</summary>
+        public static int SquadSlots(GameState state, ContentDb content)
+        {
+            var pod = LaunchPod(state);
+            if (!IsBuilt(pod)) return 0;
+            return Math.Min(content.CityTuning.MaxSquadSlots, WorkerSlots(state, content, pod));
+        }
 
-        public static int DraftRerolls(GameState state, ContentDb content) =>
-            (int)Math.Floor(BoonTotal(state, content, BoonKind.DraftRerolls) + 1e-9);
+        public static int DraftRerolls(GameState state, ContentDb content) => (int)Math.Floor(BoonTotal(state, content, BoonKind.DraftRerolls) + 1e-9);
 
-        /// <summary>Extra laboratory research slots from staffed buildings (Research Annex).</summary>
+        /// <summary>Laboratory research slots (1, +1 at 5★ and 10★) while the Laboratory runs; 0 otherwise.</summary>
         public static int ResearchSlots(GameState state, ContentDb content) => (int)Math.Floor(BoonTotal(state, content, BoonKind.ResearchSlots) + 1e-9);
 
-        /// <summary>Laboratory research speed-up percent from buildings (for the Run workstream).</summary>
+        /// <summary>Laboratory research speed-up percent (Laboratory levels only).</summary>
         public static double ResearchSpeedPct(GameState state, ContentDb content) => BoonTotal(state, content, BoonKind.ResearchSpeedPct);
 
-        /// <summary>
-        /// Stamina regen bonus provider (cap bonus + tick speed-up percent); registered with
-        /// EconomySystem.RegisterRegenBonusProvider in <see cref="Register"/>.
-        /// </summary>
+        /// <summary>Stamina regen bonus provider (cap bonus + tick speed-up percent).</summary>
         public static CityStaminaBonus StaminaBonus(GameState state, ContentDb content, long nowMs) => new CityStaminaBonus
         {
             CapBonus = (long)Math.Floor(BoonTotal(state, content, BoonKind.StaminaCap) + 1e-9),
             TickSpeedPercent = BoonTotal(state, content, BoonKind.StaminaRegenPct),
         };
 
-        /// <summary>Building boon skills (Source=Building) for runs: highest level tier per boon + star milestone skills, minus replaced ones.</summary>
-        public static List<string> RunSkillIds(GameState state, ContentDb content)
-        {
-            var ids = new List<string>();
-            var replaced = new HashSet<string>();
-            foreach (var b in SortedBlueprints(state))
-            {
-                if (!IsActive(b)) continue;
-                var def = content.Blueprint(b.Id);
-                if (def == null) continue;
-                foreach (var boon in def.Boons)
-                {
-                    if (boon.Kind != BoonKind.RunSkill) continue;
-                    string best = null;
-                    foreach (var tier in boon.SkillTiers) if (b.Level >= tier.MinLevel) best = tier.SkillId;
-                    if (best != null && !ids.Contains(best)) ids.Add(best);
-                }
-                foreach (var m in def.Milestones)
-                {
-                    if (m.Kind != BoonKind.RunSkill || b.Stars < m.Stars) continue;
-                    if (m.SkillId != null && !ids.Contains(m.SkillId)) ids.Add(m.SkillId);
-                    if (m.ReplacesSkillId != null) replaced.Add(m.ReplacesSkillId);
-                }
-            }
-            ids.RemoveAll(replaced.Contains);
-            return ids;
-        }
+        // ---- workers and production -------------------------------------------------------------------
 
-        /// <summary>
-        /// Collection bonus: every owned blueprint gives CollectionPctPerStar × stars percent of its stat (points of a point stat:
-        /// "+2% crit chance", "+2% alien power" — a percent of their zero base would be nothing).
-        /// </summary>
-        public static List<StatMod> CollectionBonus(GameState state, ContentDb content)
+        /// <summary>Worker slots of a building at its blueprint's stars (Launch Pod: squad slots).</summary>
+        public static int WorkerSlots(GameState state, ContentDb content, CityBuilding b)
         {
-            var mods = new List<StatMod>();
-            foreach (var b in SortedBlueprints(state))
-            {
-                var def = content.Blueprint(b.Id);
-                if (def == null || def.CollectionPctPerStar <= 0) continue;
-                mods.Add(StatMod.Bonus(def.CollectionStat, def.CollectionPctPerStar * b.Stars));
-            }
-            return mods;
-        }
-
-        // ---- production -------------------------------------------------------------------------
-
-        public static int WorkerSlots(ContentDb content, BlueprintDef def, OwnedBlueprint b)
-        {
+            var def = content.Blueprint(b?.BlueprintId);
             if (def == null) return 0;
-            if (def.Category != BuildingCategory.Production) return def.WorkerSlots + (b != null ? (int)MilestoneValue(def, b.Stars, BoonKind.WorkerSlots) : 0);
-            return content.CityTuning.Rarity[(int)def.Rarity].WorkerSlots + (int)MilestoneValue(def, b.Stars, BoonKind.WorkerSlots);
+            return WorkerSlots(def, Stars(state, def.Id));
         }
+
+        public static int WorkerSlots(BlueprintDef def, int stars) =>
+            def.WorkerSlots + (int)MilestoneValue(def, stars, BoonKind.WorkerSlots) + (int)MilestoneValue(def, stars, BoonKind.SquadSlots);
 
         /// <summary>Aliens working in a building (deterministic order).</summary>
-        public static List<OwnedAlien> Workers(GameState state, string blueprintId)
+        public static List<OwnedAlien> Workers(GameState state, string uid)
         {
             var list = new List<OwnedAlien>();
-            foreach (var a in state.Aliens.Owned.Values) if (a.WorkBuildingId == blueprintId) list.Add(a);
+            if (uid == null) return list;
+            foreach (var a in state.Aliens.Owned.Values) if (a.WorkBuildingId == uid) list.Add(a);
             list.Sort((x, y) => string.CompareOrdinal(x.TypeId, y.TypeId));
             return list;
         }
 
-        public static double WorkerBonusPct(GameState state, ContentDb content, OwnedBlueprint b)
+        /// <summary>Production bonus percent of a building's workers (production buildings; not pull buildings).</summary>
+        public static double WorkerBonusPct(GameState state, ContentDb content, CityBuilding b)
         {
-            var def = content.Blueprint(b.Id);
+            var def = content.Blueprint(b?.BlueprintId);
             if (def == null || def.ProduceCurrency == null) return 0;
             double v = 0;
-            foreach (var a in Workers(state, b.Id)) v += AlienSystem.WorkBonusPct(state, content, a, def.ProduceCurrency);
+            foreach (var a in Workers(state, b.Uid)) v += AlienSystem.WorkBonusPct(state, content, a, def.ProduceCurrency);
             return v;
         }
 
@@ -318,50 +331,96 @@ namespace RogueStars.Rules.Systems
             return p == currency ? 1 + content.CityTuning.PriorityBoostPct / 100.0 : 1 - content.CityTuning.PriorityPenaltyPct / 100.0;
         }
 
-        /// <summary>Production per hour before time-limited modifiers (0 when inactive or not a production building).</summary>
-        public static double BaseRatePerHour(GameState state, ContentDb content, OwnedBlueprint b)
+        /// <summary>Growth multiplier of a production building (level and star ladders).</summary>
+        public static double ProductionGrowth(GameState state, ContentDb content, CityBuilding b) =>
+            Growth(content, null, Math.Max(1, b.Level), Stars(state, b.BlueprintId));
+
+        /// <summary>Production per hour before time-limited modifiers (0 when not running or not a production building).</summary>
+        public static double BaseRatePerHour(GameState state, ContentDb content, CityBuilding b)
         {
-            var def = content.Blueprint(b?.Id);
-            if (def == null || def.ProduceCurrency == null || !IsActive(b)) return 0;
-            var t = content.CityTuning;
-            double rate = def.BaseRatePerHour
-                * (1 + t.LevelProductionPct * (b.Level - 1) / 100.0)
-                * (1 + t.StarProductionPct * (b.Stars - 1) / 100.0);
-            double pct = MilestoneValue(def, b.Stars, BoonKind.ProductionPct)
-                + BoonTotal(state, content, BoonKind.ProductionPct)
-                + WorkerBonusPct(state, content, b);
+            var def = content.Blueprint(b?.BlueprintId);
+            if (def == null || def.ProduceCurrency == null || !IsActive(state, content, b)) return 0;
+            double rate = def.BaseRatePerHour * ProductionGrowth(state, content, b) * (1 + CityLayout.PlacementPct(state, content, b.Uid) / 100.0);
+            double pct = BoonTotal(state, content, BoonKind.ProductionPct) + WorkerBonusPct(state, content, b);
             return rate * (1 + pct / 100.0) * PriorityFactor(state, content, def.ProduceCurrency);
         }
 
         /// <summary>Production per hour at a moment, including modifiers (for UI).</summary>
-        public static double ProductionPerHour(GameState state, ContentDb content, OwnedBlueprint b, long nowMs)
+        public static double ProductionPerHour(GameState state, ContentDb content, CityBuilding b, long nowMs)
         {
-            var def = content.Blueprint(b?.Id);
+            var def = content.Blueprint(b?.BlueprintId);
             if (def?.ProduceCurrency == null) return 0;
             return BaseRatePerHour(state, content, b) * ModifierMath.Multiplier(state.Modifiers, "production:" + def.ProduceCurrency, nowMs);
         }
 
-        public static double StorageCap(ContentDb content, OwnedBlueprint b)
+        /// <summary>Storage cap: StorageHours of the rate at the building's level and stars (before workers / placement).</summary>
+        public static double StorageCap(GameState state, ContentDb content, CityBuilding b)
         {
-            var def = content.Blueprint(b?.Id);
+            var def = content.Blueprint(b?.BlueprintId);
             if (def == null || def.ProduceCurrency == null || b.Level < 1) return 0;
-            var t = content.CityTuning;
-            return def.BaseStorage
-                * (1 + t.LevelStoragePct * (b.Level - 1) / 100.0)
-                * (1 + t.StarStoragePct * (b.Stars - 1) / 100.0)
-                * (1 + MilestoneValue(def, b.Stars, BoonKind.StoragePct) / 100.0);
+            return def.BaseRatePerHour * content.CityTuning.StorageHours * ProductionGrowth(state, content, b);
         }
 
-        /// <summary>Settle one building's production up to <paramref name="toMs"/> (piecewise over modifier windows, capped).</summary>
-        public static void SettleBuilding(GameState state, ContentDb content, OwnedBlueprint b, long toMs)
+        // ---- pull buildings (chances) -------------------------------------------------------------------
+
+        /// <summary>
+        /// Chances a pull building makes per day while it runs: BasePerDay × (1 + level ladder + StarSpeedPct per star 2..4)
+        /// × (1 + placement%). Aliens' work bonus and city production bonuses do not apply.
+        /// </summary>
+        public static double ChancesPerDay(GameState state, ContentDb content, CityBuilding b)
+        {
+            var def = content.Blueprint(b?.BlueprintId);
+            if (def?.Pull == null || !IsActive(state, content, b)) return 0;
+            return NominalChancesPerDay(content, def, b.Level, Stars(state, def.Id)) * (1 + CityLayout.PlacementPct(state, content, b.Uid) / 100.0);
+        }
+
+        /// <summary>Chances per day without placement (for cards and the sim).</summary>
+        public static double NominalChancesPerDay(ContentDb content, BlueprintDef def, int level, int stars)
+        {
+            var p = def.Pull;
+            int starSteps = Math.Max(0, Math.Min(stars, p.StarSpeedTo) - p.StarSpeedFrom + 1);
+            return p.BasePerDay * (1 + Ladder(content, Math.Max(1, level)) + starSteps * p.StarSpeedPct / 100.0);
+        }
+
+        /// <summary>Chances a pull building can hold: BaseStorage × (1 + level ladder), rounded down (3 → 6).</summary>
+        public static int ChanceStorage(ContentDb content, BlueprintDef def, int level) =>
+            def?.Pull == null ? 0 : (int)Math.Floor(def.Pull.BaseStorage * (1 + Ladder(content, Math.Max(1, level))) + 1e-9);
+
+        /// <summary>Pop odds in percent of 1 / 2 / 3 pulls at a star level.</summary>
+        public static double[] PopOdds(ContentDb content, int stars) => content.CityTuning.PopOdds[Math.Max(1, Math.Min(MaxStars, stars))];
+
+        /// <summary>Most pulls one pop can give (X): 1 up to 4★, 2 at 5★, 3 at 10★.</summary>
+        public static int MaxPullsPerPop(ContentDb content, int stars)
+        {
+            var odds = PopOdds(content, stars);
+            int x = 1;
+            for (int i = 0; i < odds.Length; i++) if (odds[i] > 0) x = i + 1;
+            return x;
+        }
+
+        /// <summary>Whole chances ready to pop on a building.</summary>
+        public static int ChancesReady(CityBuilding b) => b == null ? 0 : (int)Math.Floor(b.Chances + 1e-9);
+
+        // ---- settle -------------------------------------------------------------------------------------
+
+        /// <summary>Settle one building's production / chances up to <paramref name="toMs"/> (piecewise over modifier windows, capped).</summary>
+        public static void SettleBuilding(GameState state, ContentDb content, CityBuilding b, long toMs)
         {
             if (toMs <= b.LastSettleMs) return;
             long from = b.LastSettleMs;
             b.LastSettleMs = toMs;
-            var def = content.Blueprint(b.Id);
-            if (def?.ProduceCurrency == null || !IsActive(b)) return;
-            double cap = StorageCap(content, b);
-            if (b.Stored >= cap) return;
+            var def = content.Blueprint(b.BlueprintId);
+            if (def == null || !IsActive(state, content, b)) return;
+            if (def.Pull != null)
+            {
+                int cap = ChanceStorage(content, def, b.Level);
+                if (b.Chances >= cap) return;
+                b.Chances = Math.Min(cap, b.Chances + ChancesPerDay(state, content, b) * ((toMs - from) / DayMs));
+                return;
+            }
+            if (def.ProduceCurrency == null) return;
+            double storage = StorageCap(state, content, b);
+            if (b.Stored >= storage) return;
             double baseRate = BaseRatePerHour(state, content, b);
             if (baseRate <= 0) return;
 
@@ -382,32 +441,96 @@ namespace RogueStars.Rules.Systems
                 if (z <= a) continue;
                 gain += baseRate * ModifierMath.Multiplier(state.Modifiers, target, a) * ((z - a) / HourMs);
             }
-            b.Stored = Math.Min(cap, b.Stored + gain);
+            b.Stored = Math.Min(storage, b.Stored + gain);
         }
 
         public static void SettleAll(GameState state, ContentDb content, long toMs)
         {
-            foreach (var b in SortedBlueprints(state)) SettleBuilding(state, content, b, toMs);
+            foreach (var b in state.City.Buildings) SettleBuilding(state, content, b, toMs);
         }
 
-        // ---- engine hooks -------------------------------------------------------------------------
+        // ---- digging ------------------------------------------------------------------------------------
 
-        private static void InitNewPlayer(CommandContext ctx)
+        /// <summary>The next dig's number (1-based: dug patches + the running dig + 1).</summary>
+        public static int NextDigNumber(GameState state) => state.City.DugPatches.Count + (state.City.DigPatchId != null ? 1 : 0) + 1;
+
+        /// <summary>Cost row of dig number <paramref name="n"/> (1-based), or null past the table.</summary>
+        public static CityDigDef DigDef(ContentDb content, int n) => n >= 1 && n <= content.CityTuning.Digs.Count ? content.CityTuning.Digs[n - 1] : null;
+
+        public static List<Cost> DigCost(ContentDb content, int n)
         {
-            foreach (var a in ctx.Content.CityAreas)
-                if (a.UnlockCost.Count == 0 && a.RequiresCounter == null && !IsAreaUnlocked(ctx.State, a.Id))
-                    ctx.State.City.UnlockedAreas.Add(a.Id);
+            var d = DigDef(content, n);
+            var list = new List<Cost>();
+            if (d == null) return list;
+            if (d.Biomass > 0) list.Add(new Cost(Currencies.Biomass, d.Biomass));
+            if (d.Ore > 0) list.Add(new Cost(Currencies.Ore, d.Ore));
+            if (d.GearCores > 0) list.Add(new Cost(Currencies.GearCores, d.GearCores));
+            return list;
         }
+
+        /// <summary>Why a patch cannot be dug now (null = it can, resources permitting).</summary>
+        public static string DigBlockReason(GameState state, ContentDb content, string patchId)
+        {
+            var p = content.CityPatch(patchId);
+            if (p == null) return "unknown patch";
+            if (state.City.DugPatches.Contains(p.Id)) return "already dug";
+            if (state.City.DigPatchId != null) return state.City.DigPatchId == p.Id ? "already digging" : "a dig is running";
+            if (DigDef(content, NextDigNumber(state)) == null) return "no digs left";
+            if (!CityLayout.PatchTouchesLand(state, content, p)) return "must touch your land";
+            return null;
+        }
+
+        // ---- engine hooks -------------------------------------------------------------------------------
+
+        private static void InitNewPlayer(CommandContext ctx) => ctx.State.City.Version = LayoutVersion;
 
         private static void Settle(CommandContext ctx)
         {
-            TimerSystem.CompleteDue(ctx); // completes due construction/upgrades at their exact end time first
+            if (ctx.State.City.Version < LayoutVersion) Reset(ctx);
+            TimerSystem.CompleteDue(ctx); // completes due construction/upgrades/digs at their exact end time first
             SettleAll(ctx.State, ctx.Content, ctx.NowMs);
+        }
+
+        /// <summary>
+        /// The City redesign reset (pre-release, no layout migration): layouts reset, every built building goes to storage with its
+        /// level (capped at 10) and stars kept, land goes back to the start, plus one free dig per old area unlocked beyond the first.
+        /// Removed blueprints are dropped (their shards stay in the wallet); the Housing Pod becomes the Launch Pod.
+        /// </summary>
+        public static void Reset(CommandContext ctx)
+        {
+            var s = ctx.State; var c = ctx.Content; var city = s.City;
+            if (city.Blueprints.TryGetValue("bp_housing_pod", out var pod) && !city.Blueprints.ContainsKey(ContentDb.LaunchPodId))
+            {
+                city.Blueprints.Remove("bp_housing_pod");
+                pod.Id = ContentDb.LaunchPodId;
+                city.Blueprints[pod.Id] = pod;
+            }
+            var ids = new List<string>(city.Blueprints.Keys);
+            ids.Sort(StringComparer.Ordinal);
+            foreach (var id in ids)
+            {
+                var owned = city.Blueprints[id];
+                var def = c.Blueprint(id);
+                if (def == null) { city.Blueprints.Remove(id); continue; }
+                bool built = owned.Level >= 1 || TimerSystem.Find(s, TimerBuild, id) != null;
+                if (built && Building(s, id + "#1") == null)
+                    city.Buildings.Add(new CityBuilding { Uid = id + "#1", BlueprintId = id, Level = Math.Max(1, Math.Min(c.CityTuning.MaxLevel, owned.Level)), LastSettleMs = ctx.NowMs });
+                owned.Level = 0;
+            }
+            s.Timers.Active.RemoveAll(t => t.Kind == TimerBuild || t.Kind == TimerUpgrade || t.Kind == TimerDig);
+            foreach (var a in s.Aliens.Owned.Values) a.WorkBuildingId = null;
+            city.Streets.Clear();
+            city.DugPatches.Clear();
+            city.DigPatchId = null; city.DigTimerId = null;
+            city.FreeDigs += Math.Max(0, city.UnlockedAreas.Count - 1);
+            city.UnlockedAreas.Clear();
+            city.Version = LayoutVersion;
+            CityLayout.Invalidate(s);
         }
 
         private static void CompleteBuild(CommandContext ctx, GameTimer t)
         {
-            var b = Owned(ctx.State, t.RefId);
+            var b = Building(ctx.State, t.RefId);
             if (b == null) return;
             long at = Math.Min(t.EndsMs, ctx.NowMs);
             SettleAll(ctx.State, ctx.Content, at);
@@ -415,27 +538,50 @@ namespace RogueStars.Rules.Systems
             b.Level = Math.Max(1, b.Level);
             b.LastSettleMs = at;
             ctx.State.Count("city_buildings_built");
-            ctx.Emit("building_built", b.Id);
+            ctx.Emit("building_built", b.Uid);
         }
 
         private static void CompleteUpgrade(CommandContext ctx, GameTimer t)
         {
-            var b = Owned(ctx.State, t.RefId);
+            var b = Building(ctx.State, t.RefId);
             if (b == null) return;
             long at = Math.Min(t.EndsMs, ctx.NowMs);
             SettleAll(ctx.State, ctx.Content, at); // every building at the old rates (global boons may change)
             b.TimerId = null;
-            b.Level++;
+            b.Level = Math.Min(ctx.Content.CityTuning.MaxLevel, b.Level + 1);
             ctx.State.Count("city_building_upgrades");
-            ctx.Emit("building_upgraded", b.Id, b.Level.ToString());
+            ctx.Emit("building_upgraded", b.Uid, b.Level.ToString());
+        }
+
+        private static void CompleteDig(CommandContext ctx, GameTimer t)
+        {
+            var city = ctx.State.City;
+            if (city.DigPatchId != t.RefId) return;
+            SettleAll(ctx.State, ctx.Content, Math.Min(t.EndsMs, ctx.NowMs)); // placement bonuses (cliffside, open ground) change
+            FinishDig(ctx, t.RefId);
+        }
+
+        private static void FinishDig(CommandContext ctx, string patchId)
+        {
+            var city = ctx.State.City;
+            city.DigPatchId = null;
+            city.DigTimerId = null;
+            if (!city.DugPatches.Contains(patchId)) city.DugPatches.Add(patchId);
+            CityLayout.Invalidate(ctx.State);
+            ctx.State.Count("city_digs");
+            ctx.Emit("city_dug", patchId, city.DugPatches.Count.ToString());
         }
 
         private static void ContributeLoadout(GameState state, ContentDb content, long nowMs, CombatLoadout loadout)
         {
-            foreach (var id in RunSkillIds(state, content))
-                if (!loadout.MetaSkillIds.Contains(id)) loadout.MetaSkillIds.Add(id);
             loadout.DraftRerolls += DraftRerolls(state, content);
-            loadout.WormStats.AddAll(CollectionBonus(state, content));
+            loadout.RunStartCoins += (int)Math.Floor(BoonTotal(state, content, BoonKind.RunStartCoins) + 1e-9);
+            loadout.SkipNegativeEvents += (int)Math.Floor(BoonTotal(state, content, BoonKind.SkipNegativeEvents) + 1e-9);
+            loadout.AwakeningSlowPct += BoonTotal(state, content, BoonKind.AwakeningSlowPct);
+            double xp = BoonTotal(state, content, BoonKind.RunXpPct);
+            if (xp > 0) loadout.WormStats.Add(new StatMod(StatId.XpGain, xp));
+            double alienDmg = BoonTotal(state, content, BoonKind.AlienDamagePct);
+            if (alienDmg > 0) loadout.WormStats.Add(new StatMod(StatId.AlienPower, alienDmg));
         }
 
         /// <summary>
@@ -469,7 +615,7 @@ namespace RogueStars.Rules.Systems
 
         private static void Unlock(CommandContext ctx, BlueprintDef def)
         {
-            ctx.State.City.Blueprints[def.Id] = new OwnedBlueprint { Id = def.Id, Stars = 1, LastSettleMs = ctx.NowMs };
+            ctx.State.City.Blueprints[def.Id] = new OwnedBlueprint { Id = def.Id, Stars = 1 };
             ctx.State.Count("blueprints_obtained");
             ctx.Emit("blueprint_new", def.Id);
         }
@@ -487,88 +633,123 @@ namespace RogueStars.Rules.Systems
             return true;
         }
 
-        // ---- handlers -----------------------------------------------------------------------------
+        // ---- handlers -----------------------------------------------------------------------------------
 
-        private static CommandResult HandleUnlockArea(CityUnlockArea cmd, CommandContext ctx)
+        private static void RequireLayout(CommandContext ctx, CityEdit edit)
         {
-            var area = ctx.Content.CityArea(cmd.AreaId);
-            GameEngine.Require(area != null, "unknown area");
-            GameEngine.Require(!IsAreaUnlocked(ctx.State, area.Id), "area already unlocked");
-            var next = NextArea(ctx.State, ctx.Content);
-            GameEngine.Require(next != null && next.Id == area.Id, "areas unlock in order");
-            if (area.RequiresCounter != null)
-                GameEngine.Require(ctx.State.Counter(area.RequiresCounter) >= area.RequiresCounterValue, "area requirement not met");
-            GameEngine.Require(ctx.State.Wallet.TrySpend(area.UnlockCost), "not enough resources");
-            ctx.State.City.UnlockedAreas.Add(area.Id);
-            ctx.State.Count("city_areas_unlocked");
-            ctx.Emit("area_unlocked", area.Id);
-            return CommandResult.Success();
+            var check = CityLayout.Validate(ctx.State, ctx.Content, edit);
+            GameEngine.Require(check.Ok, check.Error);
         }
 
-        private static CommandResult HandleBuild(CityBuild cmd, CommandContext ctx)
+        private static CommandResult HandlePlace(CityPlace cmd, CommandContext ctx)
         {
-            var b = Owned(ctx.State, cmd.BlueprintId);
-            GameEngine.Require(b != null, "blueprint not owned");
-            var def = ctx.Content.Blueprint(b.Id);
+            var def = ctx.Content.Blueprint(cmd.BlueprintId);
             GameEngine.Require(def != null, "unknown blueprint");
-            GameEngine.Require(!b.Placed, "already placed");
-            string err = PlacementError(ctx.State, ctx.Content, def, cmd.X, cmd.Y);
-            GameEngine.Require(err == null, err);
-            if (b.Level == 0)
+            string uid = string.IsNullOrEmpty(cmd.Uid) ? null : cmd.Uid;
+            RequireLayout(ctx, CityEdit.Place(def.Id, cmd.X, cmd.Y, cmd.Rotated, uid));
+            CityBuilding b;
+            if (uid != null)
             {
-                GameEngine.Require(b.TimerId == null, "construction already running");
-                GameEngine.Require(ctx.State.Wallet.TrySpend(BuildCost(ctx.Content, def)), "not enough resources");
-                b.Placed = true; b.X = cmd.X; b.Y = cmd.Y;
-                var t = TimerSystem.Start(ctx, TimerBuild, b.Id, BuildDurationMs(ctx.State, ctx.Content, def, ctx.NowMs));
-                b.TimerId = t.Id;
-                ctx.Emit("building_placed", b.Id, cmd.X.ToString(), cmd.Y.ToString());
-                TimerSystem.CompleteDue(ctx);
+                b = Building(ctx.State, uid);
+                b.Placed = true; b.X = cmd.X; b.Y = cmd.Y; b.Rotated = cmd.Rotated;
+                b.LastSettleMs = ctx.NowMs;
             }
             else
             {
-                b.Placed = true; b.X = cmd.X; b.Y = cmd.Y;
-                b.LastSettleMs = ctx.NowMs;
-                ctx.Emit("building_placed", b.Id, cmd.X.ToString(), cmd.Y.ToString());
+                GameEngine.Require(ctx.State.Wallet.TrySpend(BuildCost(ctx.Content, def)), "not enough resources");
+                b = new CityBuilding { Uid = NextUid(ctx.State, def), BlueprintId = def.Id, X = cmd.X, Y = cmd.Y, Rotated = cmd.Rotated, Placed = true, LastSettleMs = ctx.NowMs };
+                ctx.State.City.Buildings.Add(b);
+                b.TimerId = TimerSystem.Start(ctx, TimerBuild, b.Uid, BuildDurationMs(ctx.State, ctx.Content, def, ctx.NowMs)).Id;
             }
-            return CommandResult.Success();
+            CityLayout.Invalidate(ctx.State);
+            ctx.Emit("building_placed", b.Uid, cmd.X.ToString(), cmd.Y.ToString());
+            TimerSystem.CompleteDue(ctx);
+            return CommandResult.Success(b.Uid);
         }
 
         private static CommandResult HandleMove(CityMove cmd, CommandContext ctx)
         {
-            var b = Owned(ctx.State, cmd.BlueprintId);
-            GameEngine.Require(b != null && b.Placed, "building not placed");
-            var def = ctx.Content.Blueprint(b.Id);
-            string err = PlacementError(ctx.State, ctx.Content, def, cmd.X, cmd.Y, b.Id);
-            GameEngine.Require(err == null, err);
-            b.X = cmd.X; b.Y = cmd.Y;
-            ctx.Emit("building_moved", b.Id, cmd.X.ToString(), cmd.Y.ToString());
+            RequireLayout(ctx, CityEdit.Move(cmd.Uid, cmd.X, cmd.Y, cmd.Rotated));
+            var b = Building(ctx.State, cmd.Uid);
+            b.X = cmd.X; b.Y = cmd.Y; b.Rotated = cmd.Rotated;
+            CityLayout.Invalidate(ctx.State);
+            ctx.Emit("building_moved", b.Uid, cmd.X.ToString(), cmd.Y.ToString());
             return CommandResult.Success();
         }
 
-        private static CommandResult HandleDemolish(CityDemolish cmd, CommandContext ctx)
+        /// <summary>
+        /// Store: back to the tray (level and stars kept, storage collected, workers idle). A new copy whose first construction is still
+        /// running is cancelled instead: its build cost is refunded and the copy removed (the editor's undo of a new build).
+        /// </summary>
+        private static CommandResult HandleStore(CityStore cmd, CommandContext ctx)
         {
-            var b = Owned(ctx.State, cmd.BlueprintId);
+            var b = Building(ctx.State, cmd.Uid);
             GameEngine.Require(b != null && b.Placed, "building not placed");
-            GameEngine.Require(b.TimerId == null, "cannot demolish while constructing or upgrading");
-            var def = ctx.Content.Blueprint(b.Id);
-            if (def?.ProduceCurrency != null) CollectInto(ctx, b, def, null);
-            foreach (var a in Workers(ctx.State, b.Id)) a.WorkBuildingId = null;
-            b.Placed = false;
-            b.Stored = 0;
-            ctx.Emit("building_demolished", b.Id);
+            var def = ctx.Content.Blueprint(b.BlueprintId);
+            bool cancelBuild = b.Level == 0;
+            GameEngine.Require(cancelBuild || b.TimerId == null, "cannot store while upgrading");
+            RequireLayout(ctx, CityEdit.Store(b.Uid));
+            foreach (var a in Workers(ctx.State, b.Uid)) a.WorkBuildingId = null;
+            if (cancelBuild)
+            {
+                if (b.TimerId != null) TimerSystem.Remove(ctx.State, b.TimerId);
+                foreach (var c in BuildCost(ctx.Content, def)) ctx.State.Wallet.Add(c.Currency, c.Amount);
+                ctx.State.City.Buildings.Remove(b);
+                ctx.Emit("building_cancelled", b.Uid);
+            }
+            else
+            {
+                if (def?.ProduceCurrency != null) CollectInto(ctx, b, def, null);
+                b.Placed = false;
+                b.Stored = 0;
+                ctx.Emit("building_stored", b.Uid);
+            }
+            CityLayout.Invalidate(ctx.State);
+            AlienSystem.SyncSquad(ctx.State);
+            return CommandResult.Success();
+        }
+
+        private static CommandResult HandleStreets(CityStreets cmd, CommandContext ctx)
+        {
+            var edit = CityEdit.Streets(cmd.Adds, cmd.Removes);
+            RequireLayout(ctx, edit);
+            foreach (var r in edit.Removes) ctx.State.City.Streets.Remove(r);
+            foreach (var a in edit.Adds) ctx.State.City.Streets.Add(a);
+            CityLayout.Invalidate(ctx.State);
+            ctx.Emit("city_streets", edit.Adds.Count.ToString(), edit.Removes.Count.ToString());
+            return CommandResult.Success();
+        }
+
+        private static CommandResult HandleDig(CityDig cmd, CommandContext ctx)
+        {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm);
+            string block = DigBlockReason(ctx.State, ctx.Content, cmd.PatchId);
+            GameEngine.Require(block == null, block);
+            var city = ctx.State.City;
+            if (city.FreeDigs > 0)
+            {
+                city.FreeDigs--;
+                FinishDig(ctx, cmd.PatchId);
+                return CommandResult.Success();
+            }
+            int n = NextDigNumber(ctx.State);
+            GameEngine.Require(ctx.State.Wallet.TrySpend(DigCost(ctx.Content, n)), "not enough resources");
+            city.DigPatchId = cmd.PatchId;
+            city.DigTimerId = TimerSystem.Start(ctx, TimerDig, cmd.PatchId, DigDef(ctx.Content, n).Ms).Id;
+            ctx.Emit("city_dig_started", cmd.PatchId, n.ToString());
+            TimerSystem.CompleteDue(ctx);
             return CommandResult.Success();
         }
 
         private static CommandResult HandleUpgrade(CityUpgrade cmd, CommandContext ctx)
         {
-            var b = Owned(ctx.State, cmd.BlueprintId);
-            GameEngine.Require(IsActive(b), "building not active");
+            var b = Building(ctx.State, cmd.Uid);
+            GameEngine.Require(IsBuilt(b), "building not built");
             GameEngine.Require(b.TimerId == null, "upgrade already running");
-            GameEngine.Require(b.Level < MaxLevel(ctx.Content, b), "max level for current stars");
-            var def = ctx.Content.Blueprint(b.Id);
+            GameEngine.Require(b.Level < MaxLevel(ctx.Content), "max level");
+            var def = ctx.Content.Blueprint(b.BlueprintId);
             GameEngine.Require(ctx.State.Wallet.TrySpend(UpgradeCost(ctx.Content, def, b.Level)), "not enough resources");
-            var t = TimerSystem.Start(ctx, TimerUpgrade, b.Id, UpgradeDurationMs(ctx.State, ctx.Content, def, b.Level, ctx.NowMs));
-            b.TimerId = t.Id;
+            b.TimerId = TimerSystem.Start(ctx, TimerUpgrade, b.Uid, UpgradeDurationMs(ctx.State, ctx.Content, def, b.Level, ctx.NowMs)).Id;
             TimerSystem.CompleteDue(ctx);
             return CommandResult.Success();
         }
@@ -576,26 +757,26 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleCollect(CityCollect cmd, CommandContext ctx)
         {
             var collected = new Dictionary<string, long>();
-            if (!string.IsNullOrEmpty(cmd.BlueprintId))
+            if (!string.IsNullOrEmpty(cmd.Uid))
             {
-                var b = Owned(ctx.State, cmd.BlueprintId);
-                GameEngine.Require(IsActive(b), "building not active");
-                var def = ctx.Content.Blueprint(b.Id);
+                var b = Building(ctx.State, cmd.Uid);
+                GameEngine.Require(IsBuilt(b), "building not built");
+                var def = ctx.Content.Blueprint(b.BlueprintId);
                 GameEngine.Require(def?.ProduceCurrency != null, "not a production building");
                 CollectInto(ctx, b, def, collected);
             }
             else
             {
-                foreach (var b in SortedBlueprints(ctx.State))
+                foreach (var b in ctx.State.City.Buildings)
                 {
-                    var def = ctx.Content.Blueprint(b.Id);
-                    if (IsActive(b) && def?.ProduceCurrency != null) CollectInto(ctx, b, def, collected);
+                    var def = ctx.Content.Blueprint(b.BlueprintId);
+                    if (IsBuilt(b) && def?.ProduceCurrency != null) CollectInto(ctx, b, def, collected);
                 }
             }
             return CommandResult.Success(collected);
         }
 
-        private static void CollectInto(CommandContext ctx, OwnedBlueprint b, BlueprintDef def, Dictionary<string, long> collected)
+        private static void CollectInto(CommandContext ctx, CityBuilding b, BlueprintDef def, Dictionary<string, long> collected)
         {
             long whole = (long)Math.Floor(b.Stored + 1e-9);
             if (whole <= 0) return;
@@ -605,7 +786,47 @@ namespace RogueStars.Rules.Systems
             ctx.State.Wallet.Add(def.ProduceCurrency, whole);
             ctx.State.Count("city_resources_collected", whole);
             if (collected != null) collected[def.ProduceCurrency] = (collected.TryGetValue(def.ProduceCurrency, out var c) ? c : 0) + whole;
-            ctx.Emit("city_collected", b.Id, def.ProduceCurrency, whole.ToString());
+            ctx.Emit("city_collected", b.Uid, def.ProduceCurrency, whole.ToString());
+        }
+
+        /// <summary>
+        /// Pop chances: Uid set and All false = one chance of that building; Uid set and All true = all of its chances; Uid empty = every
+        /// chance on every pull building ("pop all"). Each pop rolls 1..X pulls on the star odds (ctx.Rng). Payload: List&lt;CityPopResult&gt;.
+        /// </summary>
+        private static CommandResult HandlePop(CityPop cmd, CommandContext ctx)
+        {
+            var list = new List<CityBuilding>();
+            if (!string.IsNullOrEmpty(cmd.Uid))
+            {
+                var b = Building(ctx.State, cmd.Uid);
+                GameEngine.Require(b != null && ctx.Content.Blueprint(b.BlueprintId)?.Pull != null, "not a pull building");
+                GameEngine.Require(ChancesReady(b) >= 1, "nothing to pop");
+                list.Add(b);
+            }
+            else
+            {
+                foreach (var b in ctx.State.City.Buildings)
+                    if (ctx.Content.Blueprint(b.BlueprintId)?.Pull != null && ChancesReady(b) >= 1) list.Add(b);
+                GameEngine.Require(list.Count > 0, "nothing to pop");
+            }
+            bool all = string.IsNullOrEmpty(cmd.Uid) || cmd.All;
+            var results = new List<CityPopResult>();
+            foreach (var b in list)
+            {
+                var def = ctx.Content.Blueprint(b.BlueprintId);
+                var odds = PopOdds(ctx.Content, Stars(ctx.State, def.Id));
+                int n = all ? ChancesReady(b) : 1;
+                for (int i = 0; i < n; i++)
+                {
+                    b.Chances = Math.Max(0, b.Chances - 1);
+                    int pulls = 1 + ctx.Rng.PickWeighted(new List<double>(odds));
+                    ctx.Grant(Reward.Cur(def.Pull.TokenCurrency, pulls));
+                    ctx.State.Count("city_chances_popped");
+                    results.Add(new CityPopResult { Uid = b.Uid, Currency = def.Pull.TokenCurrency, Pulls = pulls });
+                    ctx.Emit("city_popped", b.Uid, def.Pull.TokenCurrency, pulls.ToString());
+                }
+            }
+            return CommandResult.Success(results);
         }
 
         private static CommandResult HandleSetPriority(CitySetPriority cmd, CommandContext ctx)
@@ -629,6 +850,7 @@ namespace RogueStars.Rules.Systems
             long cost = StarCost(ctx.Content, b);
             GameEngine.Require(ctx.State.Wallet.TrySpend(Currencies.BlueprintShards(b.Id), cost), "not enough shards");
             b.Stars++;
+            CityLayout.Invalidate(ctx.State);
             ctx.State.Count("blueprint_star_ups");
             ctx.Emit("blueprint_star_up", b.Id, b.Stars.ToString());
             return CommandResult.Success();

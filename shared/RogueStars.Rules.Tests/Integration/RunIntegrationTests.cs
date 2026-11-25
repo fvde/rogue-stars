@@ -113,22 +113,21 @@ public class RunIntegrationTests
         s.Wallet.Add(Currencies.Data, 1_000_000);
         s.Wallet.Add(Currencies.Ore, 1_000); s.Wallet.Add(Currencies.Biomass, 1_000); // the starting wallet no longer has them
         var def = e.Content.LabResearch["res_burning_soul"];
+        Assert.Equal("build the Laboratory in the City", e.Execute(ref s, new LabResearch { ResearchId = def.Id }, T0).Error);
+        string lab = TestHelpers.WithLaboratory(e, s);
         long nominal = LaboratorySystem.NextNominalMs(s, e.Content);
         Assert.True(e.Execute(ref s, new LabResearch { ResearchId = def.Id }, T0).Ok);
         var t1 = TimerSystem.Find(s, LaboratorySystem.TimerKind, def.Id)!;
-        Assert.Equal(nominal, t1.DurationMs);
+        Assert.Equal((long)Math.Ceiling(nominal / 1.1), t1.DurationMs); // Laboratory level 1: +10% speed
         Assert.True(e.Execute(ref s, new TimerSpeedUp { TimerId = t1.Id, Method = SpeedUpMethod.Free }, T0).Ok);
         long ready = LaboratorySystem.ReadyAtMs(s, def.Id);
-        Assert.True(ready < t1.StartMs + nominal);
+        Assert.True(ready < t1.StartMs + t1.DurationMs);
         Assert.True(e.Execute(ref s, new LabCollect { ResearchId = def.Id }, ready).Ok);
 
-        // Laboratory building boon shortens the next research.
-        var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = ready };
-        ctx.Grant(new Reward(RewardKinds.Blueprint, "bp_laboratory", 1));
-        Assert.True(e.Execute(ref s, new CityBuild { BlueprintId = "bp_laboratory", X = 5, Y = 5 }, ready).Ok);
-        e.Settle(s, ready + 10 * Min);
+        // Laboratory levels speed research up (+20% at level 10).
+        CitySystem.Building(s, lab).Level = 10;
         double pct = CitySystem.ResearchSpeedPct(s, e.Content);
-        Assert.True(pct > 0);
+        Assert.Equal(20, pct, 6);
         long nominal2 = LaboratorySystem.NextNominalMs(s, e.Content);
         Assert.True(nominal2 > nominal, "every research makes the next one longer");
         Assert.True(e.Execute(ref s, new LabResearch { ResearchId = def.Id }, ready + 10 * Min).Ok);

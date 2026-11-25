@@ -57,10 +57,14 @@ public static class TestCommands
             s.Wallet.Add(Currencies.Grain, 100_000);
             s.Wallet.Add(Currencies.AlienShards("alien_blorp"), 5_000);
             ctx.Grant(new Reward(RewardKinds.Blueprint, RogueStars.Rules.Content.ContentDb.ShardReactorId, 1));
-            var b = RogueStars.Rules.Systems.CitySystem.Owned(s, RogueStars.Rules.Content.ContentDb.ShardReactorId);
-            b.Placed = true; b.Level = 1; b.X = 4; b.Y = 4;
+            var b = new RogueStars.Rules.Systems.CityBuilding
+            {
+                Uid = RogueStars.Rules.Content.ContentDb.ShardReactorId + "#1", BlueprintId = RogueStars.Rules.Content.ContentDb.ShardReactorId,
+                Placed = true, Level = 1, X = 11, Y = 8, LastSettleMs = ctx.NowMs,
+            };
+            s.City.Buildings.Add(b);
             ctx.Grant(new Reward(RewardKinds.Alien, "alien_blorp", 1));
-            RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_blorp").WorkBuildingId = b.Id;
+            RogueStars.Rules.Systems.AlienSystem.Owned(s, "alien_blorp").WorkBuildingId = b.Uid;
             return CommandResult.Success();
         });
         e.Register<TestServerGrant>((c, ctx) =>

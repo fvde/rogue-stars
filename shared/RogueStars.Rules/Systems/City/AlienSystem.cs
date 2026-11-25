@@ -11,9 +11,8 @@ namespace RogueStars.Rules.Systems
     /// progression (every star is its own ability step; tier stars 3/5/7/10 change the effect); traits shape its tempo or effect;
     /// genes are stored and bred but inactive ("coming soon").
     ///
-    /// Work vs squad (design decision): an alien can work in one building AND be in the squad at the same time;
-    /// aliens in the active squad work at AlienTuning.SquadWorkFactor (50%). An alien works in at most one building.
-    /// Squad size is limited by CitySystem.SquadSlots (0 until the first housing building is built).
+    /// Work vs squad (City design): aliens are the only workers; a building runs only while at least one alien works in it. An alien
+    /// works in at most one building. The aliens in the Launch Pod are the squad (CitySystem.SquadSlots seats) and work nowhere else.
     /// </summary>
     public static class AlienSystem
     {
@@ -35,17 +34,38 @@ namespace RogueStars.Rules.Systems
         /// <summary>Shards needed for the next star (the shared table, ContentDb.ShardStars), or 0 at max.</summary>
         public static long StarCost(ContentDb content, OwnedAlien a) => a.Stars >= MaxStars ? 0 : Math.Max(0, content.ShardStars.NextCost(a.Stars));
 
-        /// <summary>Active squad: the first SquadSlots owned entries of the squad list.</summary>
+        /// <summary>Active squad: the aliens in the Launch Pod (squad order, then type id), at most SquadSlots.</summary>
         public static List<string> ActiveSquad(GameState state, ContentDb content)
         {
             int slots = CitySystem.SquadSlots(state, content);
             var list = new List<string>();
+            var pod = CitySystem.LaunchPod(state);
+            if (slots <= 0 || pod == null) return list;
             foreach (var id in state.Aliens.Squad)
             {
                 if (list.Count >= slots) break;
-                if (Owned(state, id) != null && !list.Contains(id)) list.Add(id);
+                var a = Owned(state, id);
+                if (a != null && a.WorkBuildingId == pod.Uid && !list.Contains(id)) list.Add(id);
+            }
+            foreach (var a in CitySystem.Workers(state, pod.Uid))
+            {
+                if (list.Count >= slots) break;
+                if (!list.Contains(a.TypeId)) list.Add(a.TypeId);
             }
             return list;
+        }
+
+        /// <summary>Keeps the squad order list in step with the Launch Pod's aliens (drops leavers, appends newcomers).</summary>
+        public static void SyncSquad(GameState state)
+        {
+            var pod = CitySystem.LaunchPod(state);
+            string uid = pod != null && pod.Placed ? pod.Uid : null;
+            if (pod != null && !pod.Placed)
+                foreach (var a in state.Aliens.Owned.Values) if (a.WorkBuildingId == pod.Uid) a.WorkBuildingId = null;
+            state.Aliens.Squad.RemoveAll(id => uid == null || Owned(state, id)?.WorkBuildingId != uid);
+            if (uid == null) return;
+            foreach (var a in CitySystem.Workers(state, uid))
+                if (!state.Aliens.Squad.Contains(a.TypeId)) state.Aliens.Squad.Add(a.TypeId);
         }
 
         /// <summary>
@@ -92,7 +112,7 @@ namespace RogueStars.Rules.Systems
             return list;
         }
 
-        /// <summary>Work power in percent before trait bonuses and squad factor: base × star growth (genes inactive).</summary>
+        /// <summary>Work power in percent before trait bonuses: base × star growth (genes inactive).</summary>
         public static double WorkPower(ContentDb content, OwnedAlien a)
         {
             var def = content.AlienType(a.TypeId);
@@ -110,7 +130,6 @@ namespace RogueStars.Rules.Systems
                 if (tr == null || tr.WorkPct == 0) continue;
                 if (tr.WorkCurrencies.Count == 0 || tr.WorkCurrencies.Contains(currency)) v += tr.WorkPct;
             }
-            if (ActiveSquad(state, content).Contains(a.TypeId)) v *= content.AlienTuning.SquadWorkFactor;
             return v;
         }
 
@@ -298,22 +317,23 @@ namespace RogueStars.Rules.Systems
             Features.Require(ctx.State, ctx.Content, Features.Aliens);
             var a = Owned(ctx.State, cmd.AlienTypeId);
             GameEngine.Require(a != null, "alien not owned");
-            if (string.IsNullOrEmpty(cmd.BlueprintId))
+            if (string.IsNullOrEmpty(cmd.BuildingUid))
             {
                 a.WorkBuildingId = null;
+                SyncSquad(ctx.State);
                 ctx.Emit("alien_unassigned", a.TypeId);
                 return CommandResult.Success();
             }
-            var b = CitySystem.Owned(ctx.State, cmd.BlueprintId);
-            GameEngine.Require(CitySystem.IsActive(b), "building not active");
-            var def = ctx.Content.Blueprint(b.Id);
-            int slots = CitySystem.WorkerSlots(ctx.Content, def, b);
+            var b = CitySystem.Building(ctx.State, cmd.BuildingUid);
+            GameEngine.Require(CitySystem.IsBuilt(b), "building not built");
+            int slots = CitySystem.WorkerSlots(ctx.State, ctx.Content, b);
             GameEngine.Require(slots > 0, "building has no worker slots");
-            GameEngine.Require(a.WorkBuildingId != b.Id, "already working there");
-            GameEngine.Require(CitySystem.Workers(ctx.State, b.Id).Count < slots, "no free worker slot");
-            a.WorkBuildingId = b.Id;
+            GameEngine.Require(a.WorkBuildingId != b.Uid, "already working there");
+            GameEngine.Require(CitySystem.Workers(ctx.State, b.Uid).Count < slots, "no free worker slot");
+            a.WorkBuildingId = b.Uid;
+            SyncSquad(ctx.State);
             ctx.State.Count("alien_assignments");
-            ctx.Emit("alien_assigned", a.TypeId, b.Id);
+            ctx.Emit("alien_assigned", a.TypeId, b.Uid);
             return CommandResult.Success();
         }
 
@@ -321,12 +341,19 @@ namespace RogueStars.Rules.Systems
         {
             Features.Require(ctx.State, ctx.Content, Features.AlienSquad);
             var ids = cmd.AlienTypeIds ?? new List<string>();
+            var pod = CitySystem.LaunchPod(ctx.State);
+            GameEngine.Require(ids.Count == 0 || CitySystem.IsBuilt(pod), "build the Launch Pod first");
             GameEngine.Require(ids.Count <= CitySystem.SquadSlots(ctx.State, ctx.Content), "not enough squad slots");
             var seen = new HashSet<string>();
             foreach (var id in ids)
             {
                 GameEngine.Require(Owned(ctx.State, id) != null, "alien not owned");
                 GameEngine.Require(seen.Add(id), "duplicate alien in squad");
+            }
+            if (pod != null)
+            {
+                foreach (var a in CitySystem.Workers(ctx.State, pod.Uid)) if (!seen.Contains(a.TypeId)) a.WorkBuildingId = null;
+                foreach (var id in ids) Owned(ctx.State, id).WorkBuildingId = pod.Uid;
             }
             ctx.State.Aliens.Squad = new List<string>(ids);
             ctx.Emit("squad_set", string.Join(",", ids));

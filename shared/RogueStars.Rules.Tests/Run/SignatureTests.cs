@@ -94,6 +94,7 @@ public class SignatureTests
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 3);
+        TestHelpers.WithLaboratory(e, s);
         Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_combo")!));
         Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!));
         Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("res_frost_nova")!)); // Ice lab skill needs the package

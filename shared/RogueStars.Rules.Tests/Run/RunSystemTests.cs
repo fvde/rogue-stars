@@ -515,6 +515,7 @@ public class LaboratoryTests
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e);
         var tuning = e.Content.LabTuning;
+        TestHelpers.WithLaboratory(e, s);
         s.Wallet.Balances.Remove(Currencies.Data);
         Assert.False(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }).Ok); // cannot afford
         s.Wallet.Add(Currencies.Data, 5000);
@@ -525,7 +526,7 @@ public class LaboratoryTests
         Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "pkg_combo" }).Error); // one slot
         Assert.False(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }).Ok); // not ready
         long ready = LaboratorySystem.ReadyAtMs(s, "res_burning_soul");
-        Assert.Equal(TestHelpers.T0 + (long)Math.Round(tuning.Hours(0) * 3_600_000), ready);
+        Assert.Equal(TestHelpers.T0 + LaboratorySystem.DurationMs(s, e.Content, (long)Math.Round(tuning.Hours(0) * 3_600_000)), ready);
         Assert.True(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }, ready).Ok);
         Assert.Contains("lab_burning_soul", e.BuildLoadout(s, ready).DraftPoolSkillIds);
 
@@ -555,6 +556,7 @@ public class LaboratoryTests
     {
         var e = TestHelpers.Engine();
         var s = TestHelpers.NewPlayer(e);
+        TestHelpers.WithLaboratory(e, s);
         s.Wallet.Add(Currencies.Data, 10_000_000);
         long t = TestHelpers.T0;
         void Research(string id, int levels)
@@ -584,39 +586,30 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void ResearchAnnex_SecondSlotWhileStaffed_RunsTwiceAsLong()
+    public void Laboratory_LockedUntilPlaced_SlotsByStars_SpeedByLevels()
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e);
         s.Wallet.Add(Currencies.Data, 1_000_000);
         long t = TestHelpers.T0;
+        Assert.Equal(0, LaboratorySystem.Slots(s, e.Content));
+        Assert.Equal("build the Laboratory in the City", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_hp_1" }, t).Error);
+        string lab = TestHelpers.WithLaboratory(e, s);
         Assert.Equal(1, LaboratorySystem.Slots(s, e.Content));
-        var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = t };
-        ctx.Grant(new Reward(RewardKinds.Blueprint, "bp_research_annex", 1));
-        foreach (var a in new[] { "alien_blorp", "alien_mossling" }) ctx.Grant(new Reward(RewardKinds.Alien, a, 1));
-        s.Wallet.Add(Currencies.Biomass, 10_000_000); s.Wallet.Add(Currencies.Ore, 10_000_000);
-        Assert.True(RunTestKit.Exec(e, ref s, new CityBuild { BlueprintId = "bp_research_annex", X = 4, Y = 4 }, t).Ok);
-        t += 30 * 24 * 3_600_000L;
-        e.Settle(s, t);
-        Assert.True(CitySystem.IsActive(CitySystem.Owned(s, "bp_research_annex")));
-        Assert.Equal(1, LaboratorySystem.Slots(s, e.Content)); // not staffed yet
-        foreach (var a in new[] { "alien_blorp", "alien_mossling" })
-        {
-            Assert.True(RunTestKit.Exec(e, ref s, new AlienAssign { AlienTypeId = a, BlueprintId = "bp_research_annex" }, t).Ok);
-            AlienSystem.Owned(s, a).Stars = 2;
-        }
-        Assert.Equal(1, LaboratorySystem.Slots(s, e.Content)); // workers below 3★
-        foreach (var a in new[] { "alien_blorp", "alien_mossling" }) AlienSystem.Owned(s, a).Stars = 3;
+        Assert.Equal(10, CitySystem.ResearchSpeedPct(s, e.Content), 6);
+        AlienSystem.Owned(s, "alien_zib").WorkBuildingId = null; // unstaffed: no slots
+        Assert.Equal("the Laboratory needs an alien", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_hp_1" }, t).Error);
+        AlienSystem.Owned(s, "alien_zib").WorkBuildingId = lab;
+        CitySystem.Owned(s, ContentDb.LaboratoryId).Stars = 5;
         Assert.Equal(2, LaboratorySystem.Slots(s, e.Content));
-
-        Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_hp_1" }, t).Ok);
-        Assert.True(LaboratorySystem.NextInAnnex(s, e.Content));
-        int k = LaboratorySystem.ResearchIndex(s, e.Content);
-        long expected = LaboratorySystem.DurationMs(s, e.Content, (long)Math.Round(e.Content.LabTuning.Hours(k) * e.Content.LabTuning.AnnexDurationMult * 3_600_000));
-        Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_atk_1" }, t).Ok);
-        Assert.True(LaboratorySystem.Entry(s, "lab_atk_1").InAnnex);
-        Assert.Equal(t + expected, LaboratorySystem.ReadyAtMs(s, "lab_atk_1"));
-        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_alien_power_1" }, t).Error);
+        CitySystem.Owned(s, ContentDb.LaboratoryId).Stars = 10;
+        Assert.Equal(3, LaboratorySystem.Slots(s, e.Content));
+        Assert.Equal(10, CitySystem.ResearchSpeedPct(s, e.Content), 6); // stars give slots, not speed
+        CitySystem.Building(s, lab).Level = 10;
+        Assert.Equal(20, CitySystem.ResearchSpeedPct(s, e.Content), 6);
+        for (int i = 0; i < 3; i++)
+            Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = new[] { "lab_hp_1", "lab_atk_1", "lab_alien_power_1" }[i] }, t).Ok);
+        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }, t).Error);
     }
 
     /// <summary>
@@ -638,15 +631,13 @@ public class LaboratoryTests
 
         var lab = c.Blueprints["bp_laboratory"];
         var boon = lab.Boons.Single(b => b.Kind == BoonKind.ResearchSpeedPct);
-        int maxLevel = c.CityTuning.MaxLevelBase + c.CityTuning.MaxLevelPerStar * 10;
-        double maxBoon = (boon.Base + boon.PerLevel * (maxLevel - boon.MinLevel)) * (1 + c.CityTuning.BoonPerStarPct * 9 / 100.0);
+        double maxBoon = boon.Base * CitySystem.Growth(c, boon, c.CityTuning.MaxLevel, 10); // levels only: +20% at level 10
         double ads = Math.Pow(1 - c.TimerTuning.AdReductionPct / 100.0, c.TimerTuning.MaxAdsPerTimer);
         double freeHoursPerDay = c.TimerTuning.FreeSpeedUpsPerDay * c.TimerTuning.FreeSpeedUpMs / 3_600_000.0;
         // Nominal research hours one slot clears in a year at best.
         double oneSlot = 365 * (24 + freeHoursPerDay) * (1 + maxBoon / 100.0) / ads;
-        double withAnnex = oneSlot + 365 * 24 * (1 + maxBoon / 100.0) / ads / c.LabTuning.AnnexDurationMult;
         Assert.True(total > oneSlot, $"tree {total:0} h vs one slot {oneSlot:0} h");
-        Assert.True(total > 0.7 * withAnnex, $"tree {total:0} h vs two slots {withAnnex:0} h"); // was total > withAnnex (38 nodes)
+        // A second slot needs a 5★ Laboratory (a single Mythic: months of pulls, City design "Mythic pace").
         // Without the building boon one slot needs about two years.
         double plain = 365 * (24 + freeHoursPerDay) / ads;
         Assert.InRange(total / plain, 1.35, 2.3); // ≈ 1.4 years with 36 nodes (≈ 2 with 38)

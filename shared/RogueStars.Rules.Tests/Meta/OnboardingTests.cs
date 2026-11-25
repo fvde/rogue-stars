@@ -19,9 +19,9 @@ public class OnboardingTests
     public static readonly (string id, int level)[] Schedule =
     {
         (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
-        (Features.BiomassFarm, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9), (Features.PartPulls, 10),
-        (Features.RunSignatures, 11), (Features.Shop, 12), (Features.Laboratory, 13), (Features.RunMinigames, 14), (Features.Aliens, 15),
-        (Features.AlienSquad, 16), (Features.GrainFarm, 17), (Features.Heroes, 18), (Features.AlienPulls, 19), (Features.Blueprints, 20),
+        (Features.Aliens, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9), (Features.PartPulls, 10),
+        (Features.RunSignatures, 11), (Features.Shop, 12), (Features.AlienPulls, 13), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
+        (Features.AlienSquad, 16), (Features.Laboratory, 17), (Features.Heroes, 18), (Features.GrainFarm, 19), (Features.Blueprints, 20),
         (Features.OreMine, 22), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
         (Features.Arena, 32), (Features.Breeding, 34), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
         (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.PackageCounter, 48), (Features.Forge, 50),
@@ -74,6 +74,7 @@ public class OnboardingTests
         Before(Features.Parts, Features.Runes, Features.Forge, Features.PartPulls, Features.WormLevel);
         Before(Features.WormLevel, Features.BiomassFarm); // the farm's Biomass has a use the moment it is built
         Before(Features.BiomassFarm, Features.GrainFarm, Features.OreMine, Features.AlienSquad, Features.Blueprints, Features.Breeding);
+        Before(Features.BiomassFarm, Features.Laboratory); // research needs the Laboratory building (City design)
         Before(Features.Laboratory, Features.PackageIce, Features.PackageLightning, Features.PackageCounter, Features.PackageAlien, Features.PackageTime);
         Before(Features.PackageIce, Features.PackageLightning);
         Before(Features.PackageLightning, Features.PackageCounter);

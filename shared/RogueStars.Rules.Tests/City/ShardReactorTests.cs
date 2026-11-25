@@ -17,13 +17,14 @@ public class ShardReactorTests
     {
         var e = TestHelpers.Engine();
         var s = Rich(e);
-        long t = BuildActive(e, ref s, R, 4, 4, T0);
+        UnlockAll(e, s);
+        long t = BuildActive(e, ref s, R, T0, out var uid);
         CitySystem.Owned(s, R).Stars = stars;
         string[] aliens = { "alien_blorp", "alien_mossling", "alien_pebblehorn" };
         for (int i = 0; i < workers; i++)
         {
             GrantAlien(e, s, aliens[i]);
-            Ok(e, ref s, new AlienAssign { AlienTypeId = aliens[i], BlueprintId = R }, t);
+            Ok(e, ref s, new AlienAssign { AlienTypeId = aliens[i], BuildingUid = uid }, t);
         }
         return (e, s, t);
     }
@@ -37,9 +38,10 @@ public class ShardReactorTests
         Assert.Equal("Shard Reactor", def.Name);
         Assert.Contains(c.GachaConfig.Types[GachaType.Blueprint].Tiers.Single(t => t.Tier == Rarity.Mythic).Pool, en => en.Id == R);
         Assert.Contains(c.GachaConfig.Rotations.Single(r => r.Type == GachaType.Blueprint).Themes, th => th.FeaturedId == R);
-        var b = new OwnedBlueprint { Id = R };
-        int Slots(int stars) { b.Stars = stars; return CitySystem.WorkerSlots(c, def, b); }
-        Assert.Equal((1, 1, 2, 2, 3, 3), (Slots(1), Slots(2), Slots(3), Slots(5), Slots(6), Slots(10)));
+        int Slots(int stars) => CitySystem.WorkerSlots(def, stars);
+        Assert.Equal((1, 1, 1, 2, 2, 3), (Slots(1), Slots(3), Slots(4), Slots(5), Slots(9), Slots(10)));
+        Assert.Null(def.Placement); // no placement skill; job speed is fixed
+        Assert.Equal(new long[] { 0, 50, 150, 400, 1000 }, c.ShardReactor.AlienFuelPerUnit);
         // whole numbers on every cost, ratio and duration
         var d = c.ShardReactor;
         Assert.Equal(new long[] { 0, 4, 16, 64, 256 }, d.RatioByGap);
@@ -119,13 +121,13 @@ public class ShardReactorTests
     {
         var (e, s, t) = Ready(workers: 1, stars: 1);
         s.Wallet.Add(Currencies.BlueprintShards("bp_ore_mine"), 100_000);
-        ReactorStart Job() => new ReactorStart { Kind = ReactorKind.Blueprint, SourceId = "bp_ore_mine", TargetId = "bp_spore_vats", Units = 1 };
+        ReactorStart Job() => new ReactorStart { Kind = ReactorKind.Blueprint, SourceId = "bp_ore_mine", TargetId = "bp_fuel_refinery", Units = 1 };
         Ok(e, ref s, Job(), t);
         Assert.Contains("busy", Fail(e, ref s, Job(), t));
         Assert.Equal(1, ShardReactorSystem.JobSlots(s, e.Content));
 
-        // 6★: three worker slots, three aliens → three parallel jobs
-        var (e2, s2, t2) = Ready(workers: 3, stars: 6);
+        // 10★: three worker slots, three aliens → three parallel jobs
+        var (e2, s2, t2) = Ready(workers: 3, stars: 10);
         s2.Wallet.Add(Currencies.BlueprintShards("bp_ore_mine"), 100_000);
         Assert.Equal(3, ShardReactorSystem.JobSlots(s2, e2.Content));
         for (int i = 0; i < 3; i++) Ok(e2, ref s2, Job(), t2);
@@ -149,7 +151,7 @@ public class ShardReactorTests
         s2.Wallet.Add(Currencies.AlienShards("alien_blorp"), 100);
         Assert.Contains("no alien", Fail(e2, ref s2, ok, t)); // nobody works there
         GrantAlien(e2, s2, "alien_mossling");
-        Ok(e2, ref s2, new AlienAssign { AlienTypeId = "alien_mossling", BlueprintId = R }, t);
+        Ok(e2, ref s2, new AlienAssign { AlienTypeId = "alien_mossling", BuildingUid = Kit.B(s2, R).Uid }, t);
         Assert.Contains("higher rarity", Fail(e2, ref s2, new ReactorStart { Kind = ReactorKind.Alien, SourceId = "alien_sporeling", TargetId = "alien_blorp" }, t));
         Assert.Contains("unknown", Fail(e2, ref s2, new ReactorStart { Kind = ReactorKind.Blueprint, SourceId = "alien_blorp", TargetId = "bp_command_spire" }, t));
         Assert.Contains("not enough", Fail(e2, ref s2, new ReactorStart { Kind = ReactorKind.Alien, SourceId = "alien_blorp", TargetId = "alien_sporeling", Units = 3 }, t));

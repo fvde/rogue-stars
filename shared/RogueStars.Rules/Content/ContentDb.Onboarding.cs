@@ -222,20 +222,21 @@ namespace RogueStars.Rules.Content
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
-            F(Features.BiomassFarm, "City: Biomass Farm", 6, 20, "build_biomass_farm", "Your first plot: the Biomass Farm grows Biomass while you are away.");
+            F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien arrives. Aliens run the City's buildings and fly in your squad.");
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             F(Features.Quests, "Daily Goals", 8, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
             F(Features.PartPulls, "Part Signal", 10, 30, null, "Tune in to the Part Signal for new parts. Your first pulls are on the house.");
             R(Features.RunSignatures, "Signature Choice", Campaign.SignatureChoiceFromLevel - 1, "Pick your run's signature skill from three.");
             F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");
-            F(Features.Laboratory, "Laboratory", 13, 30, "research_skill", "Research makes your worm permanently stronger or adds new skills to every run.");
+            F(Features.AlienPulls, "Alien Signal", 13, 30, null, "Call more aliens from across the galaxy.");
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
-            F(Features.Aliens, "Aliens", 15, 50, "meet_alien", "Your first alien arrives. Aliens fight in your squad and staff buildings.");
-            F(Features.AlienSquad, "Housing (Squad Slot 1)", 16, 30, null, "Build Housing to open your first squad slot: an alien fights beside the worm.");
-            F(Features.GrainFarm, "Grain Farm", 17, 20, null, "Grain feeds the colony: aliens and breeding run on it.");
+            // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
+            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "The City opens around your crash site: build the Biomass Farm and put an alien to work in it.");
+            F(Features.AlienSquad, "Launch Pod", 16, 30, null, "Build the Launch Pod: the aliens inside are your run squad.");
+            F(Features.Laboratory, "Laboratory", 17, 30, "research_skill", "Build the Laboratory in the City: research makes your worm stronger or adds new skills to every run.");
             F(Features.Heroes, "Heroes", 18, 50, "hero_summon", "Hero summon events open: pull for hero shards and copies. A hero adds its kit to every run.");
-            F(Features.AlienPulls, "Alien Signal", 19, 30, null, "Call more aliens from across the galaxy.");
+            F(Features.GrainFarm, "Grain Farm", 19, 20, null, "Grain feeds the colony: breeding runs on it.");
             F(Features.Blueprints, "Blueprint Signal", 20, 50, null, "Pull new building blueprints for the City.");
             F(Features.OreMine, "Ore Mine", 22, 20, null, "Ore powers part merges, the Replicator and upgrades.");
             F(Features.PackageIce, "Ice Package", 24, 0, null, "A new Laboratory package: research it to add Ice skills to your runs.", since: 2);
@@ -278,10 +279,10 @@ namespace RogueStars.Rules.Content
             G(Features.AlienPulls, Reward.Cur(Currencies.AlienTokens, 5));
             G(Features.Blueprints, Reward.Cur(Currencies.BlueprintTokens, 5));
             G(Features.GrainFarm, new Reward(RewardKinds.Blueprint, "bp_grain_farm", 1));
-            G(Features.Laboratory, new Reward(RewardKinds.Blueprint, "bp_laboratory", 1));
+            G(Features.Laboratory, new Reward(RewardKinds.Blueprint, LaboratoryId, 1));
             G(Features.Laboratory, Reward.Cur(Currencies.Data, 60)); // the first researches (later: daily chests, Dark Side)
             G(Features.Aliens, new Reward(RewardKinds.Alien, "alien_blorp", 1));
-            G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, "bp_housing_pod", 1));
+            G(Features.AlienSquad, new Reward(RewardKinds.Blueprint, LaunchPodId, 1));
             G(Features.OreMine, new Reward(RewardKinds.Blueprint, "bp_ore_mine", 1));
             G(Features.Heroes, Reward.Cur(Currencies.HeroTickets, 10)); // the first hero summon event's 10× pull (no starter hero: heroes only come from events)
             G(Features.Mounts, Reward.Cur(Currencies.MountTickets, 10)); // the first mount summon event's 10× pull
@@ -295,8 +296,8 @@ namespace RogueStars.Rules.Content
             T("equip_part", "Equip a part", "first_run", Features.Parts, 10);
             T("level_worm", "Level up the worm", "equip_part", Features.WormLevel, 10);
             T("build_biomass_farm", "Build the Biomass Farm", "equip_part", Features.BiomassFarm, 10);
-            T("research_skill", "Research a skill", "level_worm", Features.Laboratory, 10);
-            T("meet_alien", "Meet your first alien", "research_skill", Features.Aliens, 10);
+            T("research_skill", "Research a skill", "build_biomass_farm", Features.Laboratory, 10);
+            T("meet_alien", "Meet your first alien", "level_worm", Features.Aliens, 10);
             T("hero_summon", "Pull in the hero summon event", null, Features.Heroes, 10);
         }
 
@@ -333,9 +334,9 @@ namespace RogueStars.Rules.Content
                 "Your worm moves farther each roll.", "worm_move", Slide,
                 "Where the path forks, tap the way to go.", "fork", Tap);
             I(Features.BiomassFarm,
-                "Your city has its first plot.", "city", Pulse,
-                "Build the Biomass Farm on it.", "farm_build", Tap,
-                "It grows Biomass while you are away.", "biomass", Count);
+                "Your City grows around the crash site.", "city", Pulse,
+                "Paint streets and build next to them.", "farm_build", Tap,
+                "An alien must work in a building to run it.", "biomass", Count);
             I(Features.AutoRoll,
                 "Hold the dice to roll on its own.", "dice_hold", Tap,
                 "Auto waits for every choice and fight.", "auto_pause", Pulse,
@@ -360,7 +361,7 @@ namespace RogueStars.Rules.Content
                 "The Shop has offers and Diamond packs.", "shop", Bounce,
                 "A free gift waits there every day.", "gift", Tap);
             I(Features.Laboratory,
-                "Research makes your worm stronger for good.", "lab", Pulse,
+                "Build the Laboratory to start research.", "lab", Pulse,
                 "Research costs Data and takes time.", "data", Fill,
                 "Packages add new skills to your runs.", "package", Slide);
             I(Features.RunMinigames,
@@ -369,13 +370,13 @@ namespace RogueStars.Rules.Content
                 "Win a medal for coins or a skill.", "medal", Count);
             I(Features.Aliens,
                 "Your first alien has arrived.", "alien", Bounce,
-                "Aliens staff buildings and join your squad.", "alien_squad", Slide,
-                "Aliens run on Grain.", "grain", Count);
+                "Aliens run the City's buildings.", "alien_squad", Slide,
+                "Collect more before the City opens.", "grain", Count);
             I(Features.AlienSquad,
-                "Build Housing to open a squad slot.", "housing", Tap,
-                "A squad alien fights beside your worm.", "alien_fight", Slide);
+                "Build the Launch Pod for a squad seat.", "housing", Tap,
+                "Its aliens fight beside your worm.", "alien_fight", Slide);
             I(Features.GrainFarm,
-                "The Grain Farm grows Grain for your aliens.", "grain_farm", Pulse,
+                "The Grain Farm grows Grain for breeding.", "grain_farm", Pulse,
                 "Collect it in the City.", "grain", Count);
             I(Features.Heroes,
                 "Hero summon events are open.", "hero_event", Bounce,

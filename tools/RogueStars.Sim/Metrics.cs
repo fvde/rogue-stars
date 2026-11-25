@@ -19,7 +19,7 @@ public static class SystemEvents
         ("Mounts", new[] { "mount_stars", "mount_awakens", "mounts_unlocked" }),
         ("MountLevels", new[] { "mount_levels" }),
         ("Blueprints", new[] { "blueprint_star_ups", "blueprints_obtained" }),
-        ("Buildings", new[] { "city_building_upgrades", "city_buildings_built" }),
+        ("Buildings", new[] { "city_building_upgrades", "city_buildings_built", "city_digs" }),
         ("Aliens", new[] { "alien_star_ups", "aliens_obtained" }),
         ("Breeding", new[] { "breeds_kept", "breeds_discarded" }),
         ("Laboratory", new[] { "lab_research_completed" }),
@@ -155,16 +155,21 @@ public static class Metrics
         var bps = s.City.Blueprints.Values.ToList();
         A("blueprints_owned", bps.Count);
         A("blueprint_stars_avg", bps.Count == 0 ? 0 : bps.Average(b => b.Stars));
-        var active = bps.Where(CitySystem.IsActive).ToList();
-        A("buildings", active.Count);
-        A("building_level_avg", active.Count == 0 ? 0 : active.Average(b => b.Level));
-        A("city_areas", s.City.UnlockedAreas.Count);
+        var built = s.City.Buildings.Where(CitySystem.IsBuilt).ToList();
+        var active = built.Where(b => CitySystem.IsActive(s, c, b)).ToList();
+        A("buildings", built.Count);
+        A("buildings_running", active.Count);
+        A("building_level_avg", built.Count == 0 ? 0 : built.Average(b => b.Level));
+        A("city_digs", s.City.DugPatches.Count);
+        A("city_streets", s.City.Streets.Count);
+        A("city_placement_avg", built.Count == 0 ? 0 : built.Average(b => CityLayout.PlacementPct(s, c, b.Uid)));
+        A("city_chances_popped", s.Counter("city_chances_popped"));
         foreach (var cur in new[] { Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.Fuel, Currencies.GearCores, Currencies.HeroXp,
                      Currencies.AdvancementPlates, Currencies.Diamonds, Currencies.BlueprintTokens, Currencies.AlienTokens })
         {
             double ph = 0;
             foreach (var b in active)
-                if (c.Blueprint(b.Id).ProduceCurrency == cur) ph += CitySystem.ProductionPerHour(s, c, b, now);
+                if (c.Blueprint(b.BlueprintId).ProduceCurrency == cur) ph += CitySystem.ProductionPerHour(s, c, b, now);
             A("prod_h_" + cur, ph);
         }
 
