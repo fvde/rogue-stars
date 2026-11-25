@@ -60,12 +60,14 @@ namespace RogueStars.Client.App
             switch (type)
             {
                 case "reward": case "city_collected": case "stamina_refilled": case "purchase":            // T01–T04
-                case "building_built": case "building_upgraded": case "building_demolished":             // T06, T07, T09 (city hooks)
+                case "building_built": case "building_upgraded": case "building_stored":                 // T06, T07, T09 (City screen hooks)
+                case "building_demolished":
                 case "blueprint_star_up": case "alien_star_up": case "hero_star": case "mount_star":     // T12, T17, T23
                 case "part_equipped": case "part_merged": case "worm_talent_tier": case "lab_collected": // T26, T27, T31, T35
                 case "run_burrow_descend": case "run_cache_empty": case "boss_awaken":                   // T44, T47, T48
                     return FeedbackKind.Animation;
-                case "area_unlocked": case "breed_born": case "part_awakened": case "part_replicated":    // T10, T20, T28, T29
+                case "area_unlocked": case "city_dug":                                                     // T10 (the City crumbles the rubble)
+                case "breed_born": case "part_awakened": case "part_replicated":                         // T20, T28, T29
                 case "worm_level": case "returning_player": case "arena_week_end": case "planetary_event": // T30, T37, T40, T41
                 case "invasion_outcome": case "run_signature_awakened": case "run_encounter":            // T42, T45, T46
                     return FeedbackKind.Banner;
@@ -100,6 +102,7 @@ namespace RogueStars.Client.App
             switch (e.Type)
             {
                 case "area_unlocked": color = Theme.Good; sub = "City area unlocked"; return "NEW LAND!";
+                case "city_dug": color = Theme.Good; sub = c?.CityPatch(A(0))?.Name; return "NEW LAND!";
                 case "breed_born": color = Theme.Good; sub = "A baby " + (c?.AlienType(A(1))?.Name ?? "alien"); return "HATCHED!";
                 case "part_awakened": color = Theme.Warn; sub = Fmt.PartName(c, state, A(0)); return "AWAKENED!";
                 case "part_replicated":

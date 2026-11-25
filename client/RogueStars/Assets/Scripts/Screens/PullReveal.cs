@@ -57,6 +57,9 @@ namespace RogueStars.Client.Screens
         /// <summary>The modal root is named "Modal:" + Name.</summary>
         public string Name = "Reveal";
         public Color Accent = Theme.Purple;
+        /// <summary>A banner that replaces the rarity banner ("×3!" for a City pop of three pulls); null = the rarity rule.</summary>
+        public string Banner;
+        public string BannerSub;
     }
 
     /// <summary>
@@ -579,10 +582,10 @@ namespace RogueStars.Client.Screens
         private void Banner()
         {
             var best = PullReveal.Best(_items);
-            string text = PullReveal.BannerText(best);
+            string text = _o.Banner ?? PullReveal.BannerText(best);
             if (text == null || BannerShown) return;
             BannerShown = true;
-            RevealBanner.Show(_root, text, Theme.RarityColor(best), PullReveal.BestItem(_items)?.Name, 0.84f);
+            RevealBanner.Show(_root, text, Theme.RarityColor(best), _o.Banner != null ? _o.BannerSub : PullReveal.BestItem(_items)?.Name, 0.84f);
         }
 
         private void Cracks(int n, Color color)
