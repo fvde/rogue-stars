@@ -68,7 +68,8 @@ namespace RogueStars.Client.Screens
             if (next != null) Note(card, next).name = "NextStar";
             Note(card, ActsText(AlienSystem.ActsEvery(Content, a)) + " · numbers are % of the worm's ATK / max HP").name = "Acts";
             Note(card, TraitsLine(Content, a)).name = "Traits";
-            string work = a.WorkBuildingId != null ? "works at " + (Content.Blueprint(a.WorkBuildingId)?.Name ?? a.WorkBuildingId) : "idle";
+            var workAt = CitySystem.Building(State, a.WorkBuildingId);
+            string work = workAt != null ? "works at " + (Content.Blueprint(workAt.BlueprintId)?.Name ?? workAt.Uid) : "idle";
             bool inSquad = State.Aliens.Squad.Contains(a.TypeId);
             Note(card, "Work +" + Fmt.Whole(AlienSystem.WorkPower(Content, a)) + "% · " + work + (inSquad ? " · in squad" : ""));
 
@@ -85,7 +86,7 @@ namespace RogueStars.Client.Screens
 
         /// <summary>"Squad 2/3"; without housing slots (or fewer slots than members): "Squad 2 · build housing for slots" (AL1).</summary>
         public static string SquadTitle(int members, int slots) =>
-            slots <= 0 || members > slots ? "Squad " + members + " · build housing for slots" : "Squad " + members + "/" + slots;
+            slots <= 0 || members > slots ? "Squad " + members + " · build the Launch Pod for seats" : "Squad " + members + "/" + slots;
 
         /// <summary>A stable colour per alien id for the drawn critter of an alien without art (no two aliens share the same face).</summary>
         public static Color FallbackColor(string typeId)
@@ -193,22 +194,22 @@ namespace RogueStars.Client.Screens
         {
             Modal("Assign " + (Content.AlienType(a.TypeId)?.Name ?? a.TypeId), b =>
             {
-                Ui.Button(b, "Unassign (idle)", () => Run(new AlienAssign { AlienTypeId = a.TypeId, BlueprintId = null }), Theme.Button, -1, 80, a.WorkBuildingId != null);
+                Ui.Button(b, "Unassign (idle)", () => Run(new AlienAssign { AlienTypeId = a.TypeId, BuildingUid = null }), Theme.Button, -1, 80, a.WorkBuildingId != null);
                 int options = 0;
-                foreach (var owned in CitySystem.SortedBlueprints(State))
+                foreach (var building in State.City.Buildings)
                 {
-                    var bp = owned;
-                    var def = Content.Blueprint(bp.Id);
-                    if (def == null || !CitySystem.IsActive(bp)) continue;
-                    int slots = CitySystem.WorkerSlots(Content, def, bp);
+                    var bld = building;
+                    var def = Content.Blueprint(bld.BlueprintId);
+                    if (def == null || !CitySystem.IsBuilt(bld)) continue;
+                    int slots = CitySystem.WorkerSlots(State, Content, bld);
                     if (slots <= 0) continue;
-                    int used = CitySystem.Workers(State, bp.Id).Count;
+                    int used = CitySystem.Workers(State, bld.Uid).Count;
                     options++;
                     string bonus = def.ProduceCurrency != null ? " +" + Fmt.Pct(AlienSystem.WorkBonusPct(State, Content, a, def.ProduceCurrency)) : "";
-                    Ui.Button(b, def.Name + " (" + used + "/" + slots + ")" + bonus, () => Run(new AlienAssign { AlienTypeId = a.TypeId, BlueprintId = bp.Id }),
-                        Theme.Button, -1, 80, used < slots && a.WorkBuildingId != bp.Id);
+                    Ui.Button(b, def.Name + " " + bld.Uid.Substring(bld.Uid.IndexOf('#')) + " (" + used + "/" + slots + ")" + bonus,
+                        () => Run(new AlienAssign { AlienTypeId = a.TypeId, BuildingUid = bld.Uid }), Theme.Button, -1, 80, used < slots && a.WorkBuildingId != bld.Uid);
                 }
-                if (options == 0) Note(b, "No active building with worker slots.");
+                if (options == 0) Note(b, "No built building with worker slots.");
             }, new ModalButton("Close", null));
         }
     }

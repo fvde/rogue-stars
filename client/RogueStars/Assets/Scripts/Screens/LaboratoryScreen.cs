@@ -249,33 +249,29 @@ namespace RogueStars.Client.Screens
             int slots = LaboratorySystem.Slots(State, Content), running = LaboratorySystem.Running(State);
             KeyValue(card, "Data", Fmt.Num(State.Wallet.Get(Currencies.Data)), Theme.CurrencyColor(Currencies.Data));
             long cost = LaboratorySystem.NextDataCost(State, Content);
-            bool annex = LaboratorySystem.NextInAnnex(State, Content);
-            string where = running >= slots ? " · all slots busy" : annex ? " (Annex ×" + Fmt.OneDecimal(Content.LabTuning.AnnexDurationMult) + ")" : "";
+            string where = running >= slots ? " · all slots busy" : "";
             KeyValue(card, "Next research", Fmt.Num(cost) + " Data · " + Fmt.Duration(LaboratorySystem.NextDurationMs(State, Content)) + where,
                 State.Wallet.CanAfford(Currencies.Data, cost) ? Theme.Text : Theme.Bad).name = "NextResearch";
             KeyValue(card, "Slots", running + "/" + slots + " busy · speed +" + Fmt.Pct(CitySystem.ResearchSpeedPct(State, Content)) + " · draft skills " + LaboratorySystem.ActiveSkillIds(State, Content).Count);
-            var st = AnnexStatus(State, Content, out bool active);
-            Ui.Label(card, st, Theme.FontSmall, active ? Theme.Good : Theme.Warn).name = "AnnexStatus";
+            var st = BuildingStatus(State, Content, out bool active);
+            Ui.Label(card, st, Theme.FontSmall, active ? Theme.Good : Theme.Warn).name = "LabBuilding";
         }
 
-        /// <summary>Research Annex requirement and staffing (second research slot), e.g. "Research Annex: staffed 1/2 (aliens 3★+)".</summary>
-        public static string AnnexStatus(GameState s, ContentDb c, out bool active)
+        /// <summary>
+        /// The Laboratory building (City): research is locked until it is placed; its slots (1, +1 at 5★ and 10★) need an alien
+        /// working in it; its levels speed research up.
+        /// </summary>
+        public static string BuildingStatus(GameState s, ContentDb c, out bool active)
         {
             active = false;
-            foreach (var def in c.Blueprints.Values)
-                foreach (var boon in def.Boons)
-                {
-                    if (boon.Kind != BoonKind.ResearchSlots) continue;
-                    string need = boon.RequiredWorkers > 0 ? boon.RequiredWorkers + " alien workers of " + boon.RequiredWorkerStars + "★+" : "no workers";
-                    var b = CitySystem.Owned(s, def.Id);
-                    if (b == null) return def.Name + " (" + def.Rarity + " blueprint, needs " + need + "): not owned — second research slot.";
-                    if (!CitySystem.IsActive(b) || b.Level < boon.MinLevel) return def.Name + ": build it (needs " + need + ") for a second research slot.";
-                    int staffed = 0, workers = 0;
-                    foreach (var a in CitySystem.Workers(s, def.Id)) { workers++; if (a.Stars >= boon.RequiredWorkerStars) staffed++; }
-                    if (staffed >= boon.RequiredWorkers) { active = true; return def.Name + ": staffed " + staffed + "/" + boon.RequiredWorkers + " — second slot active (research there takes ×" + Fmt.OneDecimal(c.LabTuning.AnnexDurationMult) + ")."; }
-                    return def.Name + ": staffed " + staffed + "/" + boon.RequiredWorkers + " (needs " + need + (workers > staffed ? "; " + (workers - staffed) + " worker(s) below " + boon.RequiredWorkerStars + "★" : "") + ") — slot inactive.";
-                }
-            return "No second research slot in this content.";
+            var def = c.Blueprint(ContentDb.LaboratoryId);
+            if (def == null) return "No Laboratory building in this content.";
+            if (CitySystem.Owned(s, def.Id) == null) return def.Name + " (" + def.Rarity + " blueprint): not owned — research is locked until it is built.";
+            var b = CitySystem.Laboratory(s);
+            if (b == null) return def.Name + ": build it in the City to research.";
+            if (!CitySystem.IsActive(s, c, b)) return def.Name + ": needs an alien worker (no research slots while empty).";
+            active = true;
+            return def.Name + ": " + CitySystem.ResearchSlots(s, c) + " research slot(s) (+1 at 5★ and 10★) · Lv " + b.Level + " speed +" + Fmt.Pct(CitySystem.ResearchSpeedPct(s, c)) + ".";
         }
 
         private void ActiveSlots(RectTransform body)
@@ -665,7 +661,7 @@ namespace RogueStars.Client.Screens
                 }
                 else if (e.Level < def.Levels.Count)
                 {
-                    string when = Fmt.Duration(LaboratorySystem.NextDurationMs(State, Content)) + (block == null && LaboratorySystem.NextInAnnex(State, Content) ? " in the Annex" : "");
+                    string when = Fmt.Duration(LaboratorySystem.NextDurationMs(State, Content));
                     string reason = block != null ? BlockText(block, def) : !afford ? "Needs " + Fmt.Num(cost - State.Wallet.Get(Currencies.Data)) + " more Data" : null;
                     var btn = Ui.ButtonWithReason(b, "Research Lv " + (e.Level + 1) + "\n<size=22>" + Fmt.Num(cost) + " Data · " + when + "</size>",
                         () => Run(new LabResearch { ResearchId = id }, _ => Reopen(id)), Theme.Accent, -1, 90, reason == null, reason, 28);

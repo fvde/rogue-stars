@@ -25,6 +25,17 @@ namespace RogueStars.Client.Tests
             _f = new AppFixture();
         }
 
+        /// <summary>Research needs a running Laboratory building (City): a built Laboratory in the state, staffed by a Zib.</summary>
+        private void LabReady()
+        {
+            _f.Service.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1), new Reward(RewardKinds.Alien, "alien_zib", 1) });
+            var b = new CityBuilding { Uid = ContentDb.LaboratoryId + "#1", BlueprintId = ContentDb.LaboratoryId, Placed = true, Level = 1, X = 11, Y = 8 };
+            S.City.Buildings.Add(b);
+            AlienSystem.Owned(S, "alien_zib").WorkBuildingId = b.Uid;
+            CityLayout.Invalidate(S);
+            _f.Service.Refresh(_ => { });
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -263,6 +274,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void LabTree_WholeTree_LaysOutByDependency_WithoutOverlaps()
         {
+            LabReady();
             var layout = LabTreeLayout.Build(C);
             var rects = new List<KeyValuePair<string, Rect>>(layout.Nodes);
             Assert.That(rects.Count, Is.EqualTo(C.LabResearch.Count), "every node is placed once");
@@ -307,6 +319,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_Tree_DrawsEveryNodeOnce_AndALineForEveryDependency_PannableBothWays()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
@@ -336,6 +349,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_NodeDetail_UsesStatNames_AndARequirementRowPerPrerequisite()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
@@ -357,6 +371,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_NodeStates_LockedAvailableResearchingResearched()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             GrantCurrency(Currencies.Data, 10_000);
             Assert.That(LaboratoryScreen.NodeState(S, C, C.LabNode("lab_atk_1")), Is.EqualTo(LabNodeState.Available));
@@ -386,6 +401,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_ResearchFromTheNodeModal_UsesNextCostAndDuration_AndShowsTheSlot()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             GrantCurrency(Currencies.Data, 10_000);
             _f.App.Open("laboratory");
@@ -395,9 +411,9 @@ namespace RogueStars.Client.Tests
             screen.ShowBranch("offense");
             Assert.That(screen.Layout.Nodes.Count, Is.GreaterThan(5));
             Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1"), Is.Not.Null, "stat node drawn in the offense lane");
-            Text annex = null;
-            foreach (var t in screen.Root.GetComponentsInChildren<Text>(true)) if (t.name == "AnnexStatus") annex = t;
-            Assert.That(annex.text, Does.Contain("Research Annex"));
+            Text lab = null;
+            foreach (var t in screen.Root.GetComponentsInChildren<Text>(true)) if (t.name == "LabBuilding") lab = t;
+            Assert.That(lab.text, Does.Contain("research slot"));
 
             long cost = LaboratorySystem.NextDataCost(S, C);
             long duration = LaboratorySystem.NextDurationMs(S, C);
@@ -430,6 +446,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_PackagesAreDistinctNodes_WithSignatureAndSkillCount()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
@@ -446,6 +463,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Laboratory_SkillNodesToggle_StatNodesDoNot()
         {
+            LabReady();
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
@@ -473,17 +491,15 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AnnexStatus_ExplainsTheRequirement()
+        public void LabBuildingStatus_ExplainsWhatResearchNeeds()
         {
-            Assert.That(LaboratoryScreen.AnnexStatus(S, C, out bool active), Does.Contain("not owned"));
+            Assert.That(LaboratoryScreen.BuildingStatus(S, C, out bool active), Does.Contain("not owned"));
             Assert.That(active, Is.False);
-            _f.Service.DevGrant(new[] { new Reward(RewardKinds.Blueprint, "bp_research_annex", 1) });
-            Assert.That(LaboratoryScreen.AnnexStatus(S, C, out active), Does.Contain("build it"));
-            Assert.That(active, Is.False);
-            _f.App.Open("city");
-            bool banner = false;
-            foreach (var rt in _f.App.Router.Current.Root.GetComponentsInChildren<RectTransform>(true)) if (rt.name == "StaffingBanner") banner = true;
-            Assert.That(banner, Is.True, "city shows the Research Annex staffing hint");
+            _f.Service.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1) });
+            Assert.That(LaboratoryScreen.BuildingStatus(S, C, out active), Does.Contain("build it"));
+            LabReady();
+            Assert.That(LaboratoryScreen.BuildingStatus(S, C, out active), Does.Contain("research slot"));
+            Assert.That(active, Is.True);
         }
 
         // ---- arena shop / currencies / portals ---------------------------------------------------------

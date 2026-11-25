@@ -185,10 +185,10 @@ namespace RogueStars.Client.Tests
         {
             Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             S.Counters[Requirements.MainLevelCounter] = 4;
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — clear level 6"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens — clear level 6"));
             Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("4/6"));
             S.Counters[Requirements.MainLevelCounter] = 6; // met: the next command records it
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("City: Biomass Farm — unlocking now"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens — unlocking now"));
             Assert.That(Named(Hub.Root, "Figure"), Is.Null);
         }
 
@@ -197,10 +197,12 @@ namespace RogueStars.Client.Tests
         {
             ClearLevel1();
             Celebrated(Features.Parts);
-            S.Counters[Requirements.MainLevelCounter] = 6; // no calendar gate: everything up to level 6 at once
+            S.Counters[Requirements.MainLevelCounter] = 15; // no calendar gate: everything up to level 15 (the City) at once
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
-            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
+            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AutoRoll,
+                Features.Quests, Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.Shop, Features.AlienPulls,
+                Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
             Assert.That(moment.FeatureIds, Is.EqualTo(new[] { Features.BiomassFarm }));
@@ -208,7 +210,7 @@ namespace RogueStars.Client.Tests
             Assert.That(moment.Action, Is.Null, "the guided action waits on the last panel");
             moment.ShowPage(moment.PageCount - 1);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("BUILD THE FARM"));
-            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 7: Auto Roll"));
+            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 16: Launch Pod"));
             moment.Claim();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
             Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.BiomassFarm));

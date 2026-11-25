@@ -123,7 +123,7 @@ namespace RogueStars.Client.Tests
             Assert.That(texts.Any(t => t.StartsWith("Lv ") || t.StartsWith("Lv up")), Is.False, string.Join(" | ", texts));
             Assert.That(texts.Any(t => t.StartsWith("Genes")), Is.False, "genes stay hidden until they exist (AL1)");
             Assert.That(texts.Any(t => t.Contains("hero_xp") || t.Contains("blueprint_tokens")), Is.False, "display names, never ids (AL1)");
-            Assert.That(AliensScreen.SquadTitle(2, 0), Is.EqualTo("Squad 2 · build housing for slots"));
+            Assert.That(AliensScreen.SquadTitle(2, 0), Is.EqualTo("Squad 2 · build the Launch Pod for seats"));
             Assert.That(AliensScreen.TraitText(c.AlienTrait("trait_scholar")), Is.EqualTo("+15% Hero XP, Blueprint Tokens and Alien Tokens production when working."));
             Assert.That(texts.Any(t => t.Contains("deals 25% less")), Is.True, "3★ Stone Guard");
             Assert.That(texts.Any(t => t.StartsWith("Breed")), Is.True, "a Breed shortcut (Grain's sink)");
@@ -135,7 +135,7 @@ namespace RogueStars.Client.Tests
             var c = _f.Service.Content;
             Assert.That(BreedingScreen.OddsText(c, "alien_blorp", "alien_solarch"), Is.EqualTo("50% Blorp (1 shard if released) · 50% Solarch (2 shards if released)"));
             var child = new PendingChild { TypeId = "alien_solarch", ParentA = "alien_blorp", ParentB = "alien_solarch" };
-            Assert.That(BreedingScreen.ReleaseText(c, child), Is.EqualTo("+2 Solarch shards and 900 Grain back"));
+            Assert.That(BreedingScreen.ReleaseText(c, child), Is.EqualTo("+2 Solarch shards and 450 Grain back"));
             _f.Service.State.Aliens.Owned["alien_blorp"] = new OwnedAlien { TypeId = "alien_blorp" };
             _f.Service.State.Aliens.Owned["alien_zib"] = new OwnedAlien { TypeId = "alien_zib" };
             _f.App.Router.Push(new BreedingScreen("alien_blorp"));

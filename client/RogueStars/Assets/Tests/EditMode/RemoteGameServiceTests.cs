@@ -42,7 +42,7 @@ namespace RogueStars.Client.Tests
             }
             if (req.Url.EndsWith("/v1/session"))
                 return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_device1\",\"created\":true,\"serverTimeMs\":" + (TestUtil.T0 + 5000) +
-                                               ",\"version\":3,\"state\":" + WireState() + ",\"commands\":[\"CityBuild\",\"LoginClaim\"]}");
+                                               ",\"version\":3,\"state\":" + WireState() + ",\"commands\":[\"CityPlace\",\"LoginClaim\"]}");
             return FakeTransport.Json(404, "{\"ok\":false,\"error\":\"not_found\"}");
         }
 
@@ -68,7 +68,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_svc.IsConnected, Is.True);
             Assert.That(_svc.PlayerId, Is.EqualTo("dev_device1"));
             Assert.That(_svc.Version, Is.EqualTo(3));
-            Assert.That(_svc.AllowedCommands, Is.EquivalentTo(new[] { "CityBuild", "LoginClaim" }));
+            Assert.That(_svc.AllowedCommands, Is.EquivalentTo(new[] { "CityPlace", "LoginClaim" }));
             Assert.That(_svc.State.DisplayName, Is.EqualTo("Server Worm"));
             Assert.That(_svc.State.Wallet.Get(Currencies.ArenaTickets), Is.EqualTo(_serverState.Wallet.Get(Currencies.ArenaTickets)), "currency keys are not re-cased");
             Assert.That(_svc.State.Rng.S1, Is.EqualTo(_serverState.Rng.S1));
@@ -88,13 +88,13 @@ namespace RogueStars.Client.Tests
             _svc.StateChanged += () => changed++;
 
             CommandResult result = null;
-            _svc.Execute(new CityCollect { BlueprintId = "biomass_farm" }, r => result = r);
+            _svc.Execute(new CityCollect { Uid = "bp_biomass_farm#1" }, r => result = r);
 
             var body = JObject.Parse(_http.Requests[2].Body);
             Assert.That(_http.Requests[2].Url, Is.EqualTo("http://test:8080/v1/command"));
             Assert.That((string)body["type"], Is.EqualTo("CityCollect"));
             Assert.That((string)body["requestId"], Is.Not.Empty);
-            Assert.That((string)body["args"]["blueprintId"], Is.EqualTo("biomass_farm"));
+            Assert.That((string)body["args"]["uid"], Is.EqualTo("bp_biomass_farm#1"));
             Assert.That(body["args"]["type"], Is.Null);
             Assert.That(body["args"]["requestId"], Is.Null);
 
@@ -126,7 +126,7 @@ namespace RogueStars.Client.Tests
             var before = _svc.State;
             _http.Handler = req => FakeTransport.Json(200, "{\"ok\":false,\"error\":\"not enough resources\"}");
             CommandResult result = null;
-            _svc.Execute(new CityUpgrade { BlueprintId = "x" }, r => result = r);
+            _svc.Execute(new CityUpgrade { Uid = "x" }, r => result = r);
             Assert.That(result.Ok, Is.False);
             Assert.That(result.Error, Is.EqualTo("not enough resources"));
             Assert.That(_svc.State, Is.SameAs(before));

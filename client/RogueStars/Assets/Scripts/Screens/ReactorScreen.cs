@@ -34,14 +34,14 @@ namespace RogueStars.Client.Screens
         {
             Note(body, Intro).name = "Intro";
             var b = ShardReactorSystem.Building(State, Content);
-            if (b == null) { Note(body, "Win the Shard Reactor (Mythic blueprint) in the Blueprint Signal to build it.").name = "NotOwned"; return; }
-            if (!CitySystem.IsActive(b)) { Note(body, "Place and finish building the Shard Reactor in the City first.").name = "NotBuilt"; return; }
+            if (CitySystem.Owned(State, ContentDb.ShardReactorId) == null) { Note(body, "Win the Shard Reactor (Mythic blueprint) in the Blueprint Signal to build it.").name = "NotOwned"; return; }
+            if (!CitySystem.IsBuilt(b)) { Note(body, "Place and finish building the Shard Reactor in the City first.").name = "NotBuilt"; return; }
 
             int slots = ShardReactorSystem.JobSlots(State, Content), workers = ShardReactorSystem.WorkerSlots(State, Content);
             var head = Ui.Row(body, 56, 10, null, 0, "Slots");
             Ui.Label(head, "Jobs " + State.Reactor.Jobs.Count + "/" + slots, Theme.FontLarge, Theme.Text).name = "JobCount";
-            Ui.Label(head, "Worker slots " + workers + " · " + Fmt.Stars(b.Stars), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
-            Note(body, "Workers: " + CitySystem.Workers(State, b.Id).Count + "/" + workers + " (+1 slot at 3★ and at 6★) · Grain "
+            Ui.Label(head, "Worker slots " + workers + " · " + Fmt.Stars(CitySystem.Stars(State, b.BlueprintId)), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
+            Note(body, "Workers: " + CitySystem.Workers(State, b.Uid).Count + "/" + workers + " (+1 slot at 5★ and at 10★) · Grain "
                        + W(State.Wallet.Get(Currencies.Grain)) + " · Ore " + W(State.Wallet.Get(Currencies.Ore)));
             if (slots == 0) Ui.Button(body, "Assign an alien to work here", () => App.Open("aliens"), Theme.Accent, -1, 76).name = "ManageAliens";
 

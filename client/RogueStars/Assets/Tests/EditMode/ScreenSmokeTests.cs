@@ -120,12 +120,13 @@ namespace RogueStars.Client.Tests
             int placed = 0;
             foreach (var b in CitySystem.SortedBlueprints(s.State))
             {
-                var def = s.Content.Blueprint(b.Id);
+                var plan = CityPlanner.Find(s.State, s.Content, b.Id);
                 bool done = false;
-                for (int y = 0; y < s.Content.CityTuning.GridHeight && !done; y++)
-                    for (int x = 0; x < s.Content.CityTuning.GridWidth && !done; x++)
-                        if (CitySystem.PlacementError(s.State, s.Content, def, x, y) == null)
-                            done = s.ExecuteNow(new CityBuild { BlueprintId = b.Id, X = x, Y = y }).Ok;
+                if (plan != null)
+                {
+                    if (plan.Streets.Count > 0) s.ExecuteNow(new CityStreets { Adds = plan.Streets });
+                    done = s.ExecuteNow(new CityPlace { BlueprintId = b.Id, X = plan.X, Y = plan.Y, Rotated = plan.Rotated }).Ok;
+                }
                 if (done && ++placed == 3) _f.Clock.Advance(7L * 24 * 3600 * 1000); // first three finish
                 if (placed >= 5) break;
             }

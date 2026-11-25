@@ -93,9 +93,9 @@ namespace RogueStars.Client.Tests
             UnlockAll();
             _f.Service.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.ShardReactorId, 1), new Reward(RewardKinds.Alien, "alien_blorp", 1),
                 new Reward(RewardKinds.Alien, "alien_mossling", 1), Reward.Cur(Currencies.Grain, 50_000), Reward.Cur(Currencies.Diamonds, 5_000) });
-            var b = CitySystem.Owned(S, ContentDb.ShardReactorId);
-            b.Placed = true; b.Level = 1; b.X = 4; b.Y = 4;
-            if (workers > 0) AlienSystem.Owned(S, "alien_mossling").WorkBuildingId = b.Id;
+            var b = new CityBuilding { Uid = ContentDb.ShardReactorId + "#1", BlueprintId = ContentDb.ShardReactorId, Placed = true, Level = 1, X = 11, Y = 8 };
+            S.City.Buildings.Add(b);
+            if (workers > 0) AlienSystem.Owned(S, "alien_mossling").WorkBuildingId = b.Uid;
             S.Wallet.Add(Currencies.AlienShards("alien_blorp"), 6_000);
             _f.Service.Refresh(_ => { });
         }
@@ -162,7 +162,7 @@ namespace RogueStars.Client.Tests
             ReactorReady();
             var city = new CityScreen();
             _f.App.Router.Push(city);
-            city.Select(ContentDb.ShardReactorId);
+            city.Select(ContentDb.ShardReactorId + "#1");
             Find(city.Root.transform, "OpenReactor").onClick.Invoke();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<ReactorScreen>());
         }

@@ -37,7 +37,7 @@ namespace RogueStars.Client.Tests
             // Rewards follow use: the starting arena tickets wait in the reward stash until the Arena unlocks.
             Assert.That(s.State.Wallet.Get(Currencies.ArenaTickets), Is.EqualTo(0));
             Assert.That(RogueStars.Rules.Systems.RewardGate.Stashed(s.State, Currencies.ArenaTickets), Is.GreaterThan(0));
-            Assert.That(s.State.City.UnlockedAreas, Is.Not.Empty);
+            Assert.That(s.State.City.Version, Is.EqualTo(CitySystem.LayoutVersion));
             Assert.That(File.Exists(s.SavePath), Is.True);
             Assert.That(s.Content.Shop.AllowDevReceipts, Is.True, "offline content enables dev receipts");
         }
@@ -64,7 +64,7 @@ namespace RogueStars.Client.Tests
             var s = Connected();
             string before = JsonConvert.SerializeObject(s.State, ClientJson.Storage);
             CommandResult result = null;
-            s.Execute(new CityUpgrade { BlueprintId = "does_not_exist" }, r => result = r);
+            s.Execute(new CityUpgrade { Uid = "does_not_exist" }, r => result = r);
             Assert.That(result.Ok, Is.False);
             Assert.That(result.Error, Is.Not.Empty);
             Assert.That(JsonConvert.SerializeObject(s.State, ClientJson.Storage), Is.EqualTo(before));
@@ -119,22 +119,20 @@ namespace RogueStars.Client.Tests
             string bp = null;
             foreach (var b in CitySystem.SortedBlueprints(s.State))
             {
-                var def = s.Content.Blueprint(b.Id);
-                for (int y = 0; y < s.Content.CityTuning.GridHeight && bp == null; y++)
-                    for (int x = 0; x < s.Content.CityTuning.GridWidth && bp == null; x++)
-                        if (CitySystem.PlacementError(s.State, s.Content, def, x, y) == null)
-                        {
-                            Assert.That(s.ExecuteNow(new CityBuild { BlueprintId = b.Id, X = x, Y = y }).Ok, Is.True);
-                            bp = b.Id;
-                        }
-                if (bp != null) break;
+                var plan = CityPlanner.Find(s.State, s.Content, b.Id);
+                if (plan == null || !s.State.Wallet.CanAfford(CitySystem.BuildCost(s.Content, s.Content.Blueprint(b.Id)))) continue;
+                if (plan.Streets.Count > 0) Assert.That(s.ExecuteNow(new CityStreets { Adds = plan.Streets }).Ok, Is.True);
+                var r = s.ExecuteNow(new CityPlace { BlueprintId = b.Id, X = plan.X, Y = plan.Y, Rotated = plan.Rotated });
+                Assert.That(r.Ok, Is.True, r.Error);
+                bp = (string)r.Payload;
+                break;
             }
             Assert.That(bp, Is.Not.Null, "some blueprint can be placed");
-            Assert.That(CitySystem.Owned(s.State, bp).Level, Is.EqualTo(0).Or.EqualTo(1));
+            Assert.That(CitySystem.Building(s.State, bp).Level, Is.EqualTo(0).Or.EqualTo(1));
             _clock.Advance(30L * 24 * 3600 * 1000);
             s.Refresh(_ => { });
-            Assert.That(CitySystem.Owned(s.State, bp).Level, Is.EqualTo(1));
-            Assert.That(CitySystem.Owned(s.State, bp).TimerId, Is.Null);
+            Assert.That(CitySystem.Building(s.State, bp).Level, Is.EqualTo(1));
+            Assert.That(CitySystem.Building(s.State, bp).TimerId, Is.Null);
         }
 
         [Test]

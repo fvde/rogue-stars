@@ -98,10 +98,11 @@ namespace RogueStars.Client.PlayTests
 
             // ---- Shard Reactor (the service swaps its state object on every command: always read _svc.State) ----
             s = _svc.State;
-            var b = CitySystem.Owned(s, ContentDb.ShardReactorId);
-            b.Placed = true; b.Level = 1; b.X = 4; b.Y = 4; b.Stars = 3; // 3★: two worker slots
-            AlienSystem.Owned(s, "alien_mossling").WorkBuildingId = b.Id;
-            AlienSystem.Owned(s, "alien_pebblehorn").WorkBuildingId = b.Id;
+            CitySystem.Owned(s, ContentDb.ShardReactorId).Stars = 5; // 5★: two worker slots
+            var b = new CityBuilding { Uid = ContentDb.ShardReactorId + "#1", BlueprintId = ContentDb.ShardReactorId, Placed = true, Level = 1, X = 11, Y = 8 };
+            s.City.Buildings.Add(b);
+            AlienSystem.Owned(s, "alien_mossling").WorkBuildingId = b.Uid;
+            AlienSystem.Owned(s, "alien_pebblehorn").WorkBuildingId = b.Uid;
             s.Wallet.Add(Currencies.AlienShards("alien_blorp"), 6_000);
             s.Wallet.Add(Currencies.BlueprintShards("bp_ore_mine"), 1_200);
             _svc.Refresh(_ => { });
@@ -120,7 +121,7 @@ namespace RogueStars.Client.PlayTests
             Assert.That(_svc.State.Reactor.Jobs.Count, Is.EqualTo(1));
             // a second job: Common blueprint shards into a Rare blueprint, 3 units
             _app.Router.Pop();
-            reactor = new ReactorScreen(ReactorKind.Blueprint, "bp_ore_mine", "bp_spore_vats", 3);
+            reactor = new ReactorScreen(ReactorKind.Blueprint, "bp_ore_mine", "bp_fuel_refinery", 3);
             _app.Router.Push(reactor);
             yield return Wait(0.3f);
             Click(reactor.Root, "Start");

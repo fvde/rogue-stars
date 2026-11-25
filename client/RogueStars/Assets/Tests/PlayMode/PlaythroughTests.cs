@@ -230,6 +230,14 @@ namespace RogueStars.Client.PlayTests
             Ui.Clear(_app.ModalLayer);
             _app.Router.Pop();
 
+            // Research needs a running Laboratory building (City redesign): a built one, staffed (test shortcut, no layout).
+            if (CitySystem.Laboratory(_svc.State) == null)
+            {
+                _svc.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1), new Reward(RewardKinds.Alien, "alien_zib", 1) });
+                var lab = new CityBuilding { Uid = ContentDb.LaboratoryId + "#9", BlueprintId = ContentDb.LaboratoryId, Placed = true, Level = 1, X = 0, Y = 0 };
+                _svc.State.City.Buildings.Add(lab);
+                AlienSystem.Owned(_svc.State, "alien_zib").WorkBuildingId = lab.Uid;
+            }
             var research = _svc.ExecuteNow(new LabResearch { ResearchId = "lab_atk_1" });
             Assert.That(research.Ok, Is.True, research.Error);
             _app.Open("laboratory");
@@ -550,13 +558,14 @@ namespace RogueStars.Client.PlayTests
             int placed = 0;
             foreach (var b in CitySystem.SortedBlueprints(_svc.State))
             {
-                if (b.Placed) continue;
-                var def = _svc.Content.Blueprint(b.Id);
+                if (CitySystem.CopiesBuilt(_svc.State, b.Id) > 0) continue;
+                var plan = CityPlanner.Find(_svc.State, _svc.Content, b.Id);
                 bool done = false;
-                for (int y = 0; y < _svc.Content.CityTuning.GridHeight && !done; y++)
-                    for (int x = 0; x < _svc.Content.CityTuning.GridWidth && !done; x++)
-                        if (CitySystem.PlacementError(_svc.State, _svc.Content, def, x, y) == null)
-                            done = _svc.ExecuteNow(new CityBuild { BlueprintId = b.Id, X = x, Y = y }).Ok;
+                if (plan != null)
+                {
+                    if (plan.Streets.Count > 0) _svc.ExecuteNow(new CityStreets { Adds = plan.Streets });
+                    done = _svc.ExecuteNow(new CityPlace { BlueprintId = b.Id, X = plan.X, Y = plan.Y, Rotated = plan.Rotated }).Ok;
+                }
                 if (done && ++placed >= count) break;
             }
         }
