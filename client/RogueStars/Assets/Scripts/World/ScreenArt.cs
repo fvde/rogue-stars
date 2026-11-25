@@ -26,7 +26,12 @@ namespace RogueStars.Client.World
         public static Sprite Result(string id) => ArtCatalog.Result(id) ?? Drawn("result:" + id, () => DrawResult(id));
         public static Sprite Planet(int stage) => ArtCatalog.Planet(stage) ?? Drawn("planet:" + Mathf.Clamp(stage, 1, 5), () => DrawPlanet(Mathf.Clamp(stage, 1, 5)));
         public static Sprite HubIcon(string id) => ArtCatalog.HubIcon(id) ?? Drawn("hub:" + id, () => DrawHubIcon(id));
-        public static Sprite Sky(int stage) => ArtCatalog.HubSceneArt("sky_stage" + stage) ?? ArtCatalog.HubSceneArt("sky") ?? Drawn("sky", DrawSky);
+        /// <summary>
+        /// The home backdrop for a sky state (<see cref="ArtCatalog.SkyStates"/>: day, night, event, invasion): <c>Art/Hub/Scene/sky_&lt;state&gt;</c>,
+        /// else the day sky, else the older per-stage / generic sky, else drawn.
+        /// </summary>
+        public static Sprite Sky(string state, int stage) => ArtCatalog.HubSceneArt("sky_" + (state ?? ArtCatalog.SkyDay)) ?? ArtCatalog.HubSceneArt("sky_" + ArtCatalog.SkyDay)
+            ?? ArtCatalog.HubSceneArt("sky_stage" + stage) ?? ArtCatalog.HubSceneArt("sky") ?? Drawn("sky", DrawSky);
 
         /// <summary>A soft round glow (white, alpha falling off to the edge) for tinted halos behind props.</summary>
         public static Sprite Glow() => Drawn("glow", () =>

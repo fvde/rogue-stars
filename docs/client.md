@@ -863,6 +863,44 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   full, the loadout carries the new squad, level-up starts its timer, all before the City; the Aliens moment holds both features
   and ends on the Aliens screen); screenshots `CrashSiteShowcaseTests` (explicit PlayMode, `-testFilter CrashSiteShowcaseTests`).
 
+## Art import 2026-11-25 (owner-approved list `~/AI/out/art-state.json`, branch `art-import`)
+- **Importer** (`ArtImportRules.PlanSlice`, `tools/art/slice-picks.json`): a pick's category may carry a package generation
+  suffix (`slice-hud2/exp`, `slice-markers4/elite`, `run-icons2/…`, `run-result2/…`: `BaseCategory` strips the digits, the
+  destination is the base category's folder); a value starting with `~/` or `/` is a file anywhere (the full-frame
+  originals under `~/AI/out`), a value with `../` reaches another package (`hero/hero_worm`: `../hub-icons/tab_worm/S_s5001.png`).
+  New categories: `hub-icons` → `Art/Hub/Icons` (trimmed), `hub-scene` → `Art/Hub/Scene` (full frame), `run-result` →
+  `Art/Result`, `board-ground` → `Art/Slice/Ground`, `hero` → `Art/Hero` (kept square). A full import also re-copies
+  older picks whose source differs from the curated files in git (set pieces, run props imported from a staging root):
+  revert those (`git checkout -- Assets/Art/Resources/Art/Slice/SetPieces Assets/Art/Resources/Art/Run/Props`).
+- **Worm**: the body `Art/Hero/hero_worm` = `hub-icons/tab_worm/S_s5001` (legless, walking left like the old one; board
+  token, battle, home planet, rest scene, Worm screen). It now imports as **standing art** (`ArtImportSettings.IsStanding`,
+  version 4): its pivot is the ground contact, so the board token stands on its tile. The icon worm `Art/Hub/Icons/tab_worm`
+  = `C_s5002`: the Worm tab and the top bar's avatar (`ArtCatalog.WormIcon()`).
+- **Home**: icons `tab_worm`, `shop` (side_shop), `pass` (side_pass), `event` (side_event; live events), `patrol`
+  (quick_harvest: Farm Patrol), `chapter_rewards` (quick_chest), `profile_level` (the top bar's level badge: a star behind
+  the number), `play_button` (a rocket launching off START's left edge, `PlayRocket`; nothing drawn without the art).
+  Backdrops `Art/Hub/Scene/sky_day|night|event|invasion` from `~/AI/out/pkg-hub-scene2` (day/night s5211; event/invasion
+  s5212 — their s5211 have a white frame round the picture). `HubScreen.SkyState`: an invasion running → invasion, another
+  live event → event, else night 19–6 h local time, else day (`HubScreen.SkyOverride` for tests / screenshots). The sky
+  covers the hub at its own aspect (`AspectRatioFitter` envelope, clipped by a `RectMask2D`).
+- **HUD** `Art/Slice/Hud/`: skull, heart, coin, book (slice-hud L) and exp, dice, pedestal, boss_rail_top, cog (slice-hud2 L).
+  `pedestal` is imported but the dice stand keeps its code-drawn pedestal: the red key cap is drawn by the same camera and
+  sits exactly on it (`DiceStand`); the round drum art does not fit the rectangular cap.
+- **Reward icons** `Art/Run/Icons/`: blessing, coins_big, coins_small, heal, reroll, sale_tag, skill_book, upgrade (run-icons2 N).
+  **Max HP** has no icon: `ArtCatalog.RunIcon("max_hp")` falls back to the HUD heart. **Curse** is not imported yet (its
+  arrow is being removed).
+- **Result** `Art/Result/` crown, crest_broken, banner, banner_defeat (run-result2 N_s6511, the lowest approved seed).
+- **Elite marker** `Art/Slice/Markers/elite` = slice-markers4 I_s5132 (the enemy marker waits for its straightened redo).
+- **Ground chunks** `Art/Slice/Ground/<id>` and `<id>_2` (ground_corner, ground_large, ground_long, ground_small; seeds
+  5901 / 5902), `ArtCatalog.SliceGround` / `SliceGroundIds`: imported for board decoration, not drawn yet (the island under
+  the board is a generated mask, no obvious slot for iso chunks).
+- **Battle backgrounds (test only, not shipped)**: `ArtImportShowcaseTests` puts each side-view candidate of
+  `~/AI/out/pkg-slice-battle2` (`$ROGUESTARS_BATTLE_BG_DIR`) behind a real fight through a swapped `ArtCatalog.Loader`
+  (`ai_battlebg_<file>`); `Art/Slice/Battle/battle_meadow` stays absent (the drawn arena).
+- **Captures**: `ArtImportShowcaseTests` (**Explicit**, `-testFilter ArtImportShowcaseTests`): `ai_hub_day|night|event|invasion`,
+  `ai_worm`, `ai_board`, `ai_battle_hud`, `ai_battlebg_*`, `ai_result_victory|defeat` into `$ROGUESTARS_SHOTS_DIR` (default
+  `client/RogueStars/Screenshots/art-import/`). Tests: `ArtImportTests` (EditMode), `GroundContactTests` (the hero's pivot).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.
