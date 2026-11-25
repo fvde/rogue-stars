@@ -618,7 +618,8 @@ namespace RogueStars.Client.Screens
             var hud = _hudShown ?? (run != null ? RunPresentation.Hud(Content, run) : default(RunHudStats));
             return new BattleHudContext
             {
-                // Q2: once the run is over the battle shows the worm's account stats (no level badge / XP bar)
+                // Q2: battles with no run behind them show the worm's account stats (no level badge / XP bar);
+                // the run's own final battle is marked InRun again in BuildFinished
                 Hud = hud, HasStats = run != null, InRun = run != null, Coins = run?.Coins ?? -1, SkillCount = run != null ? RunSystem.BuildSize(run) : _skillCount,
                 Skills = new List<string>(_lastSkills), Levels = new Dictionary<string, int>(_lastSkillLevels),
                 Rolls = run != null ? RollText(Content, run) : null,
@@ -1118,6 +1119,9 @@ namespace RogueStars.Client.Screens
                 _anim = UiSequence.On(Root.gameObject);
                 _anim.Clear();
                 var ctx = BattleContext();
+                // the run's final battle (boss kill or defeat) is still a run battle: the server settled the run
+                // before playback, but the HUD keeps the run's level, XP and stats as last shown
+                if (_hudShown.HasValue) { ctx.InRun = true; ctx.HasStats = true; }
                 _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(battle, ctx)));
             }
             _toResult = true;

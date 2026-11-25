@@ -45,6 +45,38 @@ namespace RogueStars.Client.Tests
             return steps;
         }
 
+        [Test]
+        public void EveryBattleOfARun_IncludingTheFinalOne_KeepsTheRunHud()
+        {
+            StartFirstRun();
+            _f.App.Router.Push(new RunScreen());
+            int battles = 0, steps = 0, final = 0;
+            while (_f.Service.State.Run.Active != null && steps < 3000)
+            {
+                var r = _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
+                Assert.That(r.Ok, Is.True, r.Error);
+                steps++;
+                while (_f.App.Router.Current is BattlePlaybackScreen b)
+                {
+                    Assert.That(b.Context == null || b.Context.InRun, Is.True, "a run battle lost its run HUD");
+                    battles++;
+                    b.PlayAll();
+                    _f.App.Router.Pop();
+                }
+            }
+            // the run's final battle is pushed by the "Run finished" view on its next frames
+            for (int i = 0; i < 5 && !(_f.App.Router.Current is RunResultScreen); i++)
+            {
+                if (_f.App.Router.Current is BattlePlaybackScreen fb)
+                {
+                    Assert.That(fb.Context != null && fb.Context.InRun, Is.True, "the final battle shows the run HUD");
+                    final++; fb.PlayAll(); _f.App.Router.Pop(); continue;
+                }
+                _f.App.Router.Current.Frame(0.1f);
+            }
+            Assert.That(battles + final, Is.GreaterThan(0));
+        }
+
         private int CloseBattles()
         {
             int n = 0;

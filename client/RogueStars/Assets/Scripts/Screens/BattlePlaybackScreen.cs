@@ -95,6 +95,8 @@ namespace RogueStars.Client.Screens
 
         // ---- design A: top strip + skill strip ----
         private BattleHudContext _ctx;
+        /// <summary>What the HUD shows (tests).</summary>
+        public BattleHudContext Context => _ctx;
         private readonly SkillFireQueue _fires = new SkillFireQueue();
         private readonly Dictionary<string, RectTransform> _skillTiles = new Dictionary<string, RectTransform>();
         private readonly Dictionary<string, int> _fireCounts = new Dictionary<string, int>();
