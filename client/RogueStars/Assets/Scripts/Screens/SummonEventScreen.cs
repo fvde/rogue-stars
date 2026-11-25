@@ -327,7 +327,7 @@ namespace RogueStars.Client.Screens
                         var ev = SummonEventSystem.CurrentEvent(State, Content, Type, Now);
                         names.Add(SummonView.RewardName(SummonEventSystem.Resolve(new Reward(e.Kind, e.Id, e.Amount), ev?.FeaturedId), Content));
                     }
-                    Ui.Label(b, t.Tier + " " + (t.Weight / total * 100).ToString("0.##") + "%: " + string.Join(", ", names), 22, Theme.RarityColor(t.Tier));
+                    Ui.Label(b, t.Tier + " " + Fmt.Odds(t.Weight / total * 100) + ": " + string.Join(", ", names), 22, Theme.RarityColor(t.Tier));
                 }
                 if (def.Gacha.TenPullGuarantee) Note(b, "10× Draw: at least one " + def.Gacha.TenPullMinTier + " or better.");
             });

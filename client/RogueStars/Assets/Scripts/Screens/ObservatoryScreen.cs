@@ -167,7 +167,7 @@ namespace RogueStars.Client.Screens
                 n++;
                 bool good = m.Multiplier >= 1;
                 var row = Ui.Row(body, 80, 10, Theme.Panel, 12);
-                Ui.Label(row, (m.Description ?? m.Target) + "  ×" + m.Multiplier.ToString("0.##") + "\n<size=22>" + m.Source + "</size>", Theme.FontSmall, Theme.ValenceColor(good ? Valence.Positive : Valence.Negative));
+                Ui.Label(row, (m.Description ?? m.Target) + "  ×" + Fmt.OneDecimal(m.Multiplier) + "\n<size=22>" + m.Source + "</size>", Theme.FontSmall, Theme.ValenceColor(good ? Valence.Positive : Valence.Negative));
                 Live(Ui.Label(row, "", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight), () => m.EndMs == 0 ? "permanent" : Fmt.Duration(m.EndMs - Now));
             }
             if (n == 0) Note(body, "No modifiers active.");
@@ -176,7 +176,7 @@ namespace RogueStars.Client.Screens
         private static string Describe(List<ModifierDef> mods)
         {
             var parts = new List<string>();
-            foreach (var m in mods) parts.Add(m.Description ?? (m.Target + " ×" + m.Multiplier.ToString("0.##")));
+            foreach (var m in mods) parts.Add(m.Description ?? (m.Target + " ×" + Fmt.OneDecimal(m.Multiplier)));
             return parts.Count == 0 ? "—" : string.Join(", ", parts);
         }
     }

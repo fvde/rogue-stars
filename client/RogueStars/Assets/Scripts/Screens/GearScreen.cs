@@ -602,7 +602,7 @@ namespace RogueStars.Client.Screens
         {
             var def = Content.PartsConfig.Runes.TryGetValue(r.DefId, out var d) ? d : null;
             var stat = PartsSystem.RuneStat(Content, r);
-            string v = stat == null ? "" : stat.Percent != 0 ? "+" + Fmt.Pct(stat.Percent) : "+" + stat.Flat.ToString("0");
+            string v = stat == null ? "" : stat.Percent != 0 ? "+" + Fmt.Pct(stat.Percent) : "+" + Fmt.Whole(stat.Flat);
             return (def?.Name ?? r.DefId) + " " + v;
         }
 

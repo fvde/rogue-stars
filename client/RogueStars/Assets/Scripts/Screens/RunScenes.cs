@@ -127,7 +127,7 @@ namespace RogueStars.Client.Screens
                 double v = fx.Value, a = Math.Abs(v);
                 switch (fx.Kind)
                 {
-                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain +" + a.ToString("0") + " coins" : "Lose −" + a.ToString("0") + " coins"); break;
+                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain +" + Fmt.Whole(a) + " coins" : "Lose −" + Fmt.Whole(a) + " coins"); break;
                     case RunEffectKind.HealPct: Add(true, "Restore +" + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.DamagePct: Add(false, "Lose −" + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.StatPercent:
@@ -143,13 +143,13 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.LoseRandomSkill: Add(false, "Lose a random skill"); break;
                     case RunEffectKind.Loot: Add(true, "+" + Math.Max(1, (int)v) + " account loot"); break;
                     case RunEffectKind.PendingReward: Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot") + " (account loot)"); break;
-                    case RunEffectKind.Meter: Add(v < 0, v < 0 ? "Boss sleeps −" + a.ToString("0") : "Boss wakes +" + a.ToString("0")); break;
+                    case RunEffectKind.Meter: Add(v < 0, v < 0 ? "Boss sleeps −" + Fmt.Whole(a) : "Boss wakes +" + Fmt.Whole(a)); break;
                     case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + (v < 0 ? "−" : "+") + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
                     case RunEffectKind.BossStatPct: Add(false, "Boss +" + Fmt.Pct(a) + " ATK"); break;
                     case RunEffectKind.Battle: Add(false, "Fight " + (fx.Param != null && fx.Param.StartsWith("elite") ? "an elite" : "a foe")); break;
-                    case RunEffectKind.Xp: Add(true, "Gain +" + a.ToString("0") + " XP"); break;
-                    case RunEffectKind.Shards: Add(true, "Gain +" + a.ToString("0") + " portal shard" + (a == 1 ? "" : "s")); break;
-                    case RunEffectKind.Danger: Add(false, "Danger +" + a.ToString("0")); break;
+                    case RunEffectKind.Xp: Add(true, "Gain +" + Fmt.Whole(a) + " XP"); break;
+                    case RunEffectKind.Shards: Add(true, "Gain +" + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s")); break;
+                    case RunEffectKind.Danger: Add(false, "Danger +" + Fmt.Whole(a)); break;
                     case RunEffectKind.StrengthenEnemies: Add(false, "Enemies nearby +" + Fmt.Pct(a)); break;
                 }
             }

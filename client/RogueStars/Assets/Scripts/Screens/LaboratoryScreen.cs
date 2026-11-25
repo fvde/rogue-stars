@@ -147,7 +147,7 @@ namespace RogueStars.Client.Screens
             KeyValue(card, "Data", Fmt.Num(State.Wallet.Get(Currencies.Data)), Theme.CurrencyColor(Currencies.Data));
             long cost = LaboratorySystem.NextDataCost(State, Content);
             bool annex = LaboratorySystem.NextInAnnex(State, Content);
-            string where = running >= slots ? " · all slots busy" : annex ? " (Annex ×" + Content.LabTuning.AnnexDurationMult.ToString("0.#") + ")" : "";
+            string where = running >= slots ? " · all slots busy" : annex ? " (Annex ×" + Fmt.OneDecimal(Content.LabTuning.AnnexDurationMult) + ")" : "";
             KeyValue(card, "Next research", Fmt.Num(cost) + " Data · " + Fmt.Duration(LaboratorySystem.NextDurationMs(State, Content)) + where,
                 State.Wallet.CanAfford(Currencies.Data, cost) ? Theme.Text : Theme.Bad).name = "NextResearch";
             KeyValue(card, "Slots", running + "/" + slots + " busy · speed +" + Fmt.Pct(CitySystem.ResearchSpeedPct(State, Content)) + " · draft skills " + LaboratorySystem.ActiveSkillIds(State, Content).Count);
@@ -170,7 +170,7 @@ namespace RogueStars.Client.Screens
                     if (!CitySystem.IsActive(b) || b.Level < boon.MinLevel) return def.Name + ": build it (needs " + need + ") for a second research slot.";
                     int staffed = 0, workers = 0;
                     foreach (var a in CitySystem.Workers(s, def.Id)) { workers++; if (a.Stars >= boon.RequiredWorkerStars) staffed++; }
-                    if (staffed >= boon.RequiredWorkers) { active = true; return def.Name + ": staffed " + staffed + "/" + boon.RequiredWorkers + " — second slot active (research there takes ×" + c.LabTuning.AnnexDurationMult.ToString("0.#") + ")."; }
+                    if (staffed >= boon.RequiredWorkers) { active = true; return def.Name + ": staffed " + staffed + "/" + boon.RequiredWorkers + " — second slot active (research there takes ×" + Fmt.OneDecimal(c.LabTuning.AnnexDurationMult) + ")."; }
                     return def.Name + ": staffed " + staffed + "/" + boon.RequiredWorkers + " (needs " + need + (workers > staffed ? "; " + (workers - staffed) + " worker(s) below " + boon.RequiredWorkerStars + "★" : "") + ") — slot inactive.";
                 }
             return "No second research slot in this content.";
@@ -396,7 +396,7 @@ namespace RogueStars.Client.Screens
                 return sig == null ? lv.SkillId : "Signature " + sig.Name + " — " + Fmt.SkillFull(sig);
             }
             var parts = new List<string>();
-            foreach (var m in lv.Stats) parts.Add(m.Stat + " " + (m.Percent != 0 ? "+" + Fmt.Pct(m.Percent) : "+" + m.Flat.ToString("0.#")));
+            foreach (var m in lv.Stats) parts.Add(m.Stat + " " + (m.Percent != 0 ? "+" + Fmt.Pct(m.Percent) : "+" + Fmt.OneDecimal(m.Flat)));
             return string.Join(", ", parts);
         }
     }

@@ -9,14 +9,16 @@ namespace RogueStars.Client.App
     /// <summary>Display formatting for numbers, durations, currencies and rewards.</summary>
     public static class Fmt
     {
-        public static string Num(double v)
-        {
-            double a = System.Math.Abs(v);
-            if (a >= 1e9) return (v / 1e9).ToString("0.##", CultureInfo.InvariantCulture) + "B";
-            if (a >= 1e6) return (v / 1e6).ToString("0.##", CultureInfo.InvariantCulture) + "M";
-            if (a >= 1e4) return (v / 1e3).ToString("0.#", CultureInfo.InvariantCulture) + "K";
-            return ((long)System.Math.Floor(v)).ToString(CultureInfo.InvariantCulture);
-        }
+        /// <summary>An amount (balances, costs, rewards): <see cref="NumMode.Abbrev"/>.</summary>
+        public static string Num(double v) => NumFmt.Abbrev(v);
+
+        /// <summary>A number in the given mode (G3: Whole by default; OneDecimal for small rates; Abbrev for amounts).</summary>
+        public static string N(double v, NumMode mode = NumMode.Whole) => NumFmt.Format(v, mode);
+
+        public static string Whole(double v) => NumFmt.Whole(v);
+
+        /// <summary>Rates and percentages: one decimal only below 10, no trailing ".0".</summary>
+        public static string OneDecimal(double v) => NumFmt.OneDecimal(v);
 
         public static string Duration(long ms)
         {
@@ -29,7 +31,10 @@ namespace RogueStars.Client.App
             return sec + "s";
         }
 
-        public static string Pct(double v) => v.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+        public static string Pct(double v) => NumFmt.OneDecimal(v) + "%";
+
+        /// <summary>Drop odds: like <see cref="Pct"/>, but a tiny non-zero chance reads "&lt;0.1%" instead of "0%".</summary>
+        public static string Odds(double pct) => pct > 0 && pct < 0.05 ? "<0.1%" : Pct(pct);
 
         private static readonly Dictionary<string, string> Names = new Dictionary<string, string>
         {

@@ -14,11 +14,34 @@ namespace RogueStars.Client.UiKit
     public static class Ui
     {
         private static Font _font;
+        private static Font _body;
+        private static bool _bodyTried;
         private static Font _display;
         private static bool _displayTried;
 
-        /// <summary>Body font (readable at small sizes).</summary>
+        /// <summary>The built-in system font: only the fallback for glyphs Fredoka lacks (★ ☆ ✓ →).</summary>
         public static Font Font => _font != null ? _font : (_font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+
+        /// <summary>Rounded body font (Fredoka Regular, SIL OFL) — the default for all Ui text (G6); falls back to <see cref="Font"/>.</summary>
+        public static Font BodyFont
+        {
+            get
+            {
+                if (_body != null) return _body;
+                if (!_bodyTried) { _bodyTried = true; _body = Resources.Load<Font>("Fonts/Fredoka-Regular"); }
+                return _body != null ? _body : Font;
+            }
+        }
+
+        /// <summary>The body font when it has every glyph of <paramref name="text"/>, else the system font.</summary>
+        public static Font BodyFontFor(string text)
+        {
+            var b = BodyFont;
+            if (b == Font || string.IsNullOrEmpty(text)) return b;
+            foreach (char c in text)
+                if (c > 0x7E && !char.IsWhiteSpace(c) && !DisplayHas(c)) return Font;
+            return b;
+        }
 
         /// <summary>Rounded display font for titles, buttons and numbers (Fredoka Bold, SIL OFL; falls back to the body font).</summary>
         public static Font DisplayFont
@@ -171,7 +194,7 @@ namespace RogueStars.Client.UiKit
         {
             var rt = Rect(parent, name);
             var t = rt.gameObject.AddComponent<Text>();
-            t.font = Font;
+            t.font = BodyFontFor(text);
             t.fontSize = Theme.Type(size);
             t.color = color ?? Theme.Text;
             t.alignment = align;
@@ -247,12 +270,11 @@ namespace RogueStars.Client.UiKit
             float radius = Mathf.Min(Theme.RadiusButton, height / 2);
             var lipImg = UiShapes.Round(root.gameObject.AddComponent<Image>(), radius);
             var face = UiShapes.Round(Stretch(Rect(root, "Face"), 0, 0, 0, lip).gameObject.AddComponent<Image>(), radius);
-            face.color = faceColor;
-            lipImg.color = lip > 0 ? LipColor(faceColor, interactable) : new Color(0, 0, 0, 0);
+            Image shine = null;
             if (chunky && faceColor.a > 0.5f && Theme.TextOn(faceColor) == Theme.OnAccent)
             {
-                // soft highlight on bright faces (the wireframes' top-to-bottom gradient)
-                var shine = UiShapes.Round(Panel(face.transform, new Color(1, 1, 1, 0.13f), "Shine"), Mathf.Max(4, radius - 8));
+                // soft highlight on bright faces (the wireframes' top-to-bottom gradient); hidden while disabled (G4)
+                shine = UiShapes.Round(Panel(face.transform, new Color(1, 1, 1, 0.13f), "Shine"), Mathf.Max(4, radius - 8));
                 shine.raycastTarget = false;
                 var srt = shine.rectTransform;
                 srt.anchorMin = new Vector2(0, 0.55f); srt.anchorMax = Vector2.one;
@@ -263,22 +285,50 @@ namespace RogueStars.Client.UiKit
             var colors = btn.colors;
             colors.highlightedColor = new Color(1.08f, 1.08f, 1.08f);
             colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
-            colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.85f);
+            colors.disabledColor = Color.white; // the disabled look is the flat face colour itself (UiButtonLook)
+            colors.fadeDuration = 0;
             btn.colors = colors;
-            btn.interactable = interactable;
             if (onClick != null) btn.onClick.AddListener(() => onClick());
-            var label = Label(face.transform, text, fontSize, interactable ? Theme.TextOn(faceColor) : Theme.TextDim, TextAnchor.MiddleCenter);
+            var label = Label(face.transform, text, fontSize, Theme.TextOn(faceColor), TextAnchor.MiddleCenter);
             label.font = FontFor(text);
             label.lineSpacing = 0.9f;
             Stretch(label.rectTransform, 10, 2, 10, 2);
             Size(btn, width, height, width < 0 ? 1 : 0);
+            btn.interactable = interactable;
+            var look = root.gameObject.AddComponent<UiButtonLook>();
+            look.Init(btn, face, lipImg, shine, label, faceColor, lip > 0);
             return btn;
+        }
+
+        /// <summary>
+        /// A chunky button with a one-line reason under it while disabled (G4: "Needs 100 shards"). The reason label is named
+        /// "DisabledReason"; enabled buttons get no reason.
+        /// </summary>
+        public static Button ButtonWithReason(Transform parent, string text, Action onClick, Color? color, float width, float height, bool interactable, string reason, int fontSize = Theme.FontNormal)
+        {
+            if (interactable || string.IsNullOrEmpty(reason)) return Button(parent, text, onClick, color, width, height, interactable, fontSize);
+            var col = Column(parent, 4, 0, null, "ButtonWithReason");
+            col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+            Size(col, width, -1, width < 0 ? 1 : 0);
+            var b = Button(col, text, onClick, color, width, height, false, fontSize);
+            DisabledReason(col, reason);
+            return b;
+        }
+
+        /// <summary>The one-line reason under a disabled button (G4).</summary>
+        public static Text DisabledReason(Transform parent, string reason)
+        {
+            var t = Label(parent, reason, 20, Theme.TextDim, TextAnchor.MiddleCenter, "DisabledReason");
+            Size(t, -1, 30, 1);
+            return t;
         }
 
         /// <summary>Recolour a button made by <see cref="Button"/> (face, lip, caption contrast).</summary>
         public static void SetButtonColor(Button b, Color face)
         {
             if (b == null) return;
+            var look = b.GetComponent<UiButtonLook>();
+            if (look != null) { look.SetFace(face); return; }
             if (b.targetGraphic != null) b.targetGraphic.color = face;
             var lip = b.GetComponent<Image>();
             if (lip != null && lip != b.targetGraphic && lip.color.a > 0) lip.color = LipColor(face, b.interactable);
@@ -286,7 +336,7 @@ namespace RogueStars.Client.UiKit
             if (label != null && b.interactable) label.color = Theme.TextOn(face);
         }
 
-        private static Color LipColor(Color face, bool interactable)
+        internal static Color LipColor(Color face, bool interactable)
         {
             if (face.a < 0.5f) return new Color(0, 0, 0, 0);
             var c = face == Theme.Accent ? Theme.AccentLip : Theme.Shade(face, 0.55f);

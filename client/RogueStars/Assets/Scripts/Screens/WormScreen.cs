@@ -167,7 +167,7 @@ namespace RogueStars.Client.Screens
                 if (rank < btn.MaxRank) allCapped = false;
                 long c = btn.RankCost(rank);
                 var row = Ui.Row(card, 80, 10);
-                string per = btn.PerRank == null ? "" : " (+" + (btn.PerRank.Percent != 0 ? Fmt.Pct(btn.PerRank.Percent) : btn.PerRank.Flat.ToString("0")) + " " + btn.PerRank.Stat + ")";
+                string per = btn.PerRank == null ? "" : " (+" + (btn.PerRank.Percent != 0 ? Fmt.Pct(btn.PerRank.Percent) : Fmt.Whole(btn.PerRank.Flat)) + " " + btn.PerRank.Stat + ")";
                 Ui.Label(row, btn.Key.ToUpperInvariant() + per + "  " + rank + "/" + btn.MaxRank, Theme.FontSmall);
                 Ui.Button(row, rank >= btn.MaxRank ? "Max" : Fmt.Num(c) + " BIO", () => Run(new WormTalentUpgrade { Button = btn.Key, Ranks = 1 }), Theme.Good, 240, 70,
                     levelOk && rank < btn.MaxRank && State.Wallet.CanAfford(Currencies.Biomass, c), 26);

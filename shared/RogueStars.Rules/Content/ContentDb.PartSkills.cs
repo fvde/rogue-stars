@@ -325,7 +325,7 @@ namespace RogueStars.Rules.Content
         {
             // Descriptions mark scaled amounts as {n}.
             s.Description = System.Text.RegularExpressions.Regex.Replace(s.Description ?? "", @"\{(\d+(?:\.\d+)?)\}",
-                m => R(double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * k).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                m => NumFmt.OneDecimal(R(double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * k)));
             foreach (var m in s.Stats) { m.Flat = R(m.Flat * k); m.Percent = R(m.Percent * k); }
             foreach (var t in s.Triggers)
             {

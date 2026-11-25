@@ -176,7 +176,7 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(col, 8, 4, 8, 4);
             var vl = col.GetComponent<VerticalLayoutGroup>();
             vl.childAlignment = TextAnchor.MiddleCenter; vl.childForceExpandWidth = false; vl.childControlWidth = true;
-            var ink = interactable ? Theme.TextOn(face) : Theme.TextDim;
+            var ink = interactable ? Theme.TextOn(face) : new Color(Theme.Text.r, Theme.Text.g, Theme.Text.b, UiButtonLook.DisabledTextAlpha);
             if (!string.IsNullOrEmpty(caption))
             {
                 var t = Ui.Display(col, caption, icon != null || count != null ? 40 : 38, ink, TextAnchor.MiddleCenter, "Caption");

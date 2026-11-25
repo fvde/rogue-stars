@@ -1410,7 +1410,7 @@ namespace RogueStars.Client.Screens
             if (_heroRage == null) return;
             double rageMax = Content.Combat.RageMax;
             _heroRage.Set(Frac(_hero.RageNow, rageMax));
-            _heroRageText.text = (rageMax > 0 ? (100 * _hero.RageNow / rageMax).ToString("0") : "0") + "%";
+            _heroRageText.text = (rageMax > 0 ? Fmt.Whole(100 * _hero.RageNow / rageMax) : "0") + "%";
             Ui.Clear(_heroChips);
             if (_hero.ShieldNow > 0) Ui.Chip(_heroChips, "SHIELD " + Fmt.Num(_hero.ShieldNow), Theme.Hex(0x12303A), Theme.Hex(0xB8F0FF), 20, 40);
             foreach (var kv in _hero.Statuses)

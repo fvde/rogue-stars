@@ -143,6 +143,6 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        private static string Num(double v) => v.ToString(Math.Abs(v - Math.Round(v)) < 1e-9 ? "0" : "0.#", CultureInfo.InvariantCulture);
+        private static string Num(double v) => NumFmt.OneDecimal(v);
     }
 }

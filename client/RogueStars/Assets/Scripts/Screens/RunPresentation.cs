@@ -235,7 +235,7 @@ namespace RogueStars.Client.Screens
                 }
                 case TileCategory.Pickup:
                     if (def.Coins > 0) list.Add(new LandingPopup("+" + def.Coins + " coins", Theme.Gold, PopupKind.Coins));
-                    if (def.Value > 0) list.Add(new LandingPopup("+" + def.Value.ToString("0") + " XP", Theme.Premium, PopupKind.Xp));
+                    if (def.Value > 0) list.Add(new LandingPopup("+" + Fmt.Whole(def.Value) + " XP", Theme.Premium, PopupKind.Xp));
                     break;
                 case TileCategory.Shard:
                     list.Add(new LandingPopup("+1 shard", Theme.Purple, PopupKind.Shard));
@@ -247,7 +247,7 @@ namespace RogueStars.Client.Screens
                     break;
                 case TileCategory.BossTile:
                     if (Math.Abs(def.MeterDelta) > 0.01)
-                        list.Add(new LandingPopup("Boss " + (def.MeterDelta > 0 ? "+" : "−") + Math.Abs(def.MeterDelta).ToString("0.#") + "% awake", def.MeterDelta > 0 ? Theme.Bad : Theme.Good, PopupKind.Boss));
+                        list.Add(new LandingPopup("Boss " + (def.MeterDelta > 0 ? "+" : "−") + Fmt.Whole(Math.Abs(def.MeterDelta)) + "% awake", def.MeterDelta > 0 ? Theme.Bad : Theme.Good, PopupKind.Boss));
                     if (def.BossStatPct > 0) list.Add(new LandingPopup("Boss +" + Fmt.Pct(def.BossStatPct) + " stronger", Theme.Bad, PopupKind.Boss));
                     if (def.Coins > 0) list.Add(new LandingPopup("+" + def.Coins + " coins", Theme.Gold, PopupKind.Coins));
                     break;
@@ -271,26 +271,26 @@ namespace RogueStars.Client.Screens
             var good = l.Good ? Theme.Good : Theme.Bad;
             switch (l.Kind)
             {
-                case OutcomeKind.Coins: return new LandingPopup(sign + a.ToString("0") + " coins", l.Good ? Theme.Gold : Theme.Bad, l.Good ? PopupKind.Coins : PopupKind.Hurt);
+                case OutcomeKind.Coins: return new LandingPopup(sign + Fmt.Whole(a) + " coins", l.Good ? Theme.Gold : Theme.Bad, l.Good ? PopupKind.Coins : PopupKind.Hurt);
                 case OutcomeKind.Hp: return new LandingPopup(sign + Fmt.Num(a) + " HP", good, l.Good ? PopupKind.Heal : PopupKind.Hurt);
                 case OutcomeKind.Stat: return new LandingPopup(sign + Fmt.Pct(a) + " " + StatName(l.Id), good, PopupKind.Stat);
                 case OutcomeKind.SkillGained: return new LandingPopup("New skill: " + (c.Skill(l.Id)?.Name ?? l.Id), SkillColor(c, l.Id), PopupKind.Text);
                 case OutcomeKind.SkillLost: return new LandingPopup("Lost " + (c.Skill(l.Id)?.Name ?? l.Id), Theme.Bad, PopupKind.Hurt);
-                case OutcomeKind.SkillLevel: return new LandingPopup(c.Skill(l.Id) != null ? SkillText.Title(c, c.Skill(l.Id), (int)a) : l.Id + " Lv " + a.ToString("0"), SkillColor(c, l.Id), PopupKind.Text);
-                case OutcomeKind.Xp: return new LandingPopup("+" + a.ToString("0") + " XP", Theme.Premium, PopupKind.Xp);
+                case OutcomeKind.SkillLevel: return new LandingPopup(c.Skill(l.Id) != null ? SkillText.Title(c, c.Skill(l.Id), (int)a) : l.Id + " Lv " + Fmt.Whole(a), SkillColor(c, l.Id), PopupKind.Text);
+                case OutcomeKind.Xp: return new LandingPopup("+" + Fmt.Whole(a) + " XP", Theme.Premium, PopupKind.Xp);
                 case OutcomeKind.LevelUp: return new LandingPopup("LEVEL UP!", Theme.Gold, PopupKind.LevelUp);
-                case OutcomeKind.Shards: return new LandingPopup(sign + a.ToString("0") + " shard" + (a == 1 ? "" : "s"), Theme.Purple, PopupKind.Shard);
+                case OutcomeKind.Shards: return new LandingPopup(sign + Fmt.Whole(a) + " shard" + (a == 1 ? "" : "s"), Theme.Purple, PopupKind.Shard);
                 case OutcomeKind.AccountLoot: return new LandingPopup("+" + (l.Reward != null ? Fmt.Reward(l.Reward, c) : l.Id), Theme.Gold, PopupKind.Loot);
-                case OutcomeKind.Awakening: return new LandingPopup("Boss " + sign + a.ToString("0.#") + "% awake", good, PopupKind.Boss);
+                case OutcomeKind.Awakening: return new LandingPopup("Boss " + sign + Fmt.Whole(a) + "% awake", good, PopupKind.Boss);
                 case OutcomeKind.AwakenRate: return new LandingPopup("Boss wakes " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower"), good, PopupKind.Boss);
                 case OutcomeKind.BossStat: return new LandingPopup("Boss " + sign + Fmt.Pct(a) + " stronger", good, PopupKind.Boss);
-                case OutcomeKind.Danger: return new LandingPopup("Danger " + sign + a.ToString("0"), good, PopupKind.Text);
+                case OutcomeKind.Danger: return new LandingPopup("Danger " + sign + Fmt.Whole(a), good, PopupKind.Text);
                 case OutcomeKind.Battle: return null; // the battle playback is the feedback
                 case OutcomeKind.SkillRoll: return new LandingPopup("Skill roll!", Theme.Purple, PopupKind.Text);
                 case OutcomeKind.Nothing: return null;
                 case OutcomeKind.Empty: return new LandingPopup("Quiet… nothing here", Theme.TextDim, PopupKind.Text);
                 case OutcomeKind.Avoided: return new LandingPopup("Avoided!", Theme.Good, PopupKind.Text);
-                case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + a.ToString("0"), Theme.Warn, PopupKind.Text);
+                case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + Fmt.Whole(a), Theme.Warn, PopupKind.Text);
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
         }

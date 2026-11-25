@@ -192,7 +192,7 @@ namespace RogueStars.Client.Screens
             {
                 if (boon.RequiredWorkers > 0) { StaffingHint(card, def, b, boon); continue; }
                 if (b.Level >= boon.MinLevel)
-                    Note(card, Fmt.Humanize(boon.Kind.ToString()) + ": " + CitySystem.LevelBoonValue(Content, def, b, boon.Kind).ToString("0.##"));
+                    Note(card, Fmt.Humanize(boon.Kind.ToString()) + ": " + Fmt.OneDecimal(CitySystem.LevelBoonValue(Content, def, b, boon.Kind)));
             }
 
             if (b.TimerId != null) TimerControls(card, b.TimerId, b.Level == 0 ? "Construction" : "Upgrade");

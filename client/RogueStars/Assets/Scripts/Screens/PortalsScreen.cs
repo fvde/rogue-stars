@@ -69,7 +69,7 @@ namespace RogueStars.Client.Screens
             if (!RunSystem.BiomassSurgeActive(s, c, now)) return null;
             int left = RunSystem.BiomassBonusRunsLeft(s, c, now);
             var t = c.RunTuning;
-            var label = Ui.Label(parent, "Biomass surge: " + left + "/" + t.DailyBiomassBonusRuns + " left today — won Main/Overcharged runs pay Biomass ×" + t.DailyBiomassBonusMult.ToString("0.#"),
+            var label = Ui.Label(parent, "Biomass surge: " + left + "/" + t.DailyBiomassBonusRuns + " left today — won Main/Overcharged runs pay Biomass ×" + Fmt.OneDecimal(t.DailyBiomassBonusMult),
                 Theme.FontSmall, left > 0 ? Theme.CurrencyColor(Currencies.Biomass) : Theme.TextDim);
             label.name = "BiomassSurge";
             return label;

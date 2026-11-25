@@ -162,12 +162,12 @@ namespace RogueStars.Client.Screens
             {
                 foreach (var tier in odds.Tiers)
                 {
-                    Ui.Label(b, tier.Tier + ": " + tier.Percent.ToString("0.##") + "%", Theme.FontNormal, Theme.RarityColor(tier.Tier));
+                    Ui.Label(b, tier.Tier + ": " + Fmt.Odds(tier.Percent), Theme.FontNormal, Theme.RarityColor(tier.Tier));
                     var items = new List<string>();
                     foreach (var it in tier.Items)
                     {
                         if (items.Count >= 6) { items.Add("…"); break; }
-                        items.Add(Fmt.Reward(new Reward(it.Kind, it.Id, it.Amount, it.Rarity), Content) + (it.Featured ? " (featured)" : "") + " " + it.Percent.ToString("0.###") + "%");
+                        items.Add(Fmt.Reward(new Reward(it.Kind, it.Id, it.Amount, it.Rarity), Content) + (it.Featured ? " (featured)" : "") + " " + Fmt.Odds(it.Percent));
                     }
                     Ui.Label(b, string.Join(", ", items), 20, Theme.TextDim);
                 }

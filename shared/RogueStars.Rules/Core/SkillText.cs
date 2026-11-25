@@ -653,7 +653,7 @@ namespace RogueStars.Rules.Core
         private static string StatusLabel(string id) => Enum.TryParse(id, out StatusId st) ? StatusName(st) : id;
 
         private static string Signed(double v) => (v > 0 ? "+" : "") + Num(v);
-        private static string Num(double v) => v.ToString(Math.Abs(v - Math.Round(v)) < 1e-9 ? "0" : "0.#", CultureInfo.InvariantCulture);
+        private static string Num(double v) => NumFmt.OneDecimal(v);
 
         /// <summary>"OnRageAttack" / "low_hp" → "on rage attack" / "low hp".</summary>
         public static string Words(string id)

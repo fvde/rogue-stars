@@ -74,7 +74,7 @@ namespace RogueStars.Client.Screens
             Note(card, GenesLine).name = "Genes";
             string work = a.WorkBuildingId != null ? "works at " + (Content.Blueprint(a.WorkBuildingId)?.Name ?? a.WorkBuildingId) : "idle";
             bool inSquad = State.Aliens.Squad.Contains(a.TypeId);
-            Note(card, "Work +" + AlienSystem.WorkPower(Content, a).ToString("0.#") + "% · " + work + (inSquad ? " · in squad" : ""));
+            Note(card, "Work +" + Fmt.Whole(AlienSystem.WorkPower(Content, a)) + "% · " + work + (inSquad ? " · in squad" : ""));
 
             var row = Ui.Row(card, 80, 8);
             long shards = State.Wallet.Get(Currencies.AlienShards(a.TypeId));
@@ -162,7 +162,7 @@ namespace RogueStars.Client.Screens
         {
             if (double.IsInfinity(every) || every <= 0) return "never acts";
             double r = Math.Max(1, Math.Round(every * 2) / 2);
-            return r <= 1 ? "acts every turn" : "acts about every " + r.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " turns";
+            return r <= 1 ? "acts every turn" : "acts about every " + Fmt.OneDecimal(r) + " turns";
         }
 
         private void ToggleSquad(string typeId, int slots)

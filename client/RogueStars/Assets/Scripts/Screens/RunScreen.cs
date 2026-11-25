@@ -130,7 +130,7 @@ namespace RogueStars.Client.Screens
             {
                 var run = State?.Run.Active;
                 if (run == null) return null;
-                return RollText(Content, run) + " · Boss " + run.Awakening.ToString("0") + "% awake · Threat " + run.Threat
+                return RollText(Content, run) + " · Boss " + Fmt.Whole(run.Awakening) + "% awake · Threat " + run.Threat
                        + (run.Mode != RunMode.Normal ? " · " + run.Mode : "") + (run.Mode == RunMode.Burrow ? " floor " + run.Floor : "");
             }
         }
@@ -260,7 +260,7 @@ namespace RogueStars.Client.Screens
                             break;
                         case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "ACCOUNT LOOT (paid on clear)"); break;
                         case RunEffectKind.AwakenRatePct: Add(fx.Value < 0, fx.Value < 0 ? "Boss wakes slower" : "RISK boss wakes " + Fmt.Pct(fx.Value) + " faster"); break;
-                        case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Math.Abs(fx.Value).ToString("0") + " coins"); break;
+                        case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Fmt.Whole(Math.Abs(fx.Value)) + " coins"); break;
                         case RunEffectKind.Xp: Add(true, "+XP"); break;
                         case RunEffectKind.Shards: Add(true, "+shards"); break;
                         case RunEffectKind.BossStatPct: Add(false, "RISK boss +" + Fmt.Pct(fx.Value)); break;
@@ -1331,24 +1331,24 @@ namespace RogueStars.Client.Screens
             double a = Math.Abs(l.Amount);
             switch (l.Kind)
             {
-                case OutcomeKind.Coins: return sign + a.ToString("0") + " coins";
+                case OutcomeKind.Coins: return sign + Fmt.Whole(a) + " coins";
                 case OutcomeKind.Hp: return sign + Fmt.Num(a) + " HP";
                 case OutcomeKind.Stat:
                     return sign + Fmt.Pct(a) + " " + (l.Id == "Hp" ? "max HP" : l.Id == "Atk" ? "ATK" : l.Id == "Def" ? "DEF" : l.Id) + " for the run";
                 case OutcomeKind.SkillGained: return "New skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLost: return "Lost skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
-                case OutcomeKind.SkillLevel: return (content.Skill(l.Id)?.Name ?? l.Id) + " → level " + a.ToString("0");
-                case OutcomeKind.Xp: return "+" + a.ToString("0") + " XP";
-                case OutcomeKind.LevelUp: return "Level up! +" + a.ToString("0") + " skill draft" + (a > 1 ? "s" : "");
-                case OutcomeKind.Shards: return sign + a.ToString("0") + " portal shard" + (a == 1 ? "" : "s");
+                case OutcomeKind.SkillLevel: return (content.Skill(l.Id)?.Name ?? l.Id) + " → level " + Fmt.Whole(a);
+                case OutcomeKind.Xp: return "+" + Fmt.Whole(a) + " XP";
+                case OutcomeKind.LevelUp: return "Level up! +" + Fmt.Whole(a) + " skill draft" + (a > 1 ? "s" : "");
+                case OutcomeKind.Shards: return sign + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s");
                 case OutcomeKind.AccountLoot:
                     return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — account loot, paid when you beat the boss";
-                case OutcomeKind.Awakening: return "Boss awakening " + sign + a.ToString("0.#");
+                case OutcomeKind.Awakening: return "Boss awakening " + sign + Fmt.Whole(a);
                 case OutcomeKind.AwakenRate: return "Boss awakens " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower") + " for the rest of the run";
                 case OutcomeKind.BossStat: return "Boss " + sign + Fmt.Pct(a) + " stronger";
-                case OutcomeKind.Danger: return "Danger " + sign + a.ToString("0");
+                case OutcomeKind.Danger: return "Danger " + sign + Fmt.Whole(a);
                 case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
-                case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + a.ToString("0") + " (" + l.Id + " odds)";
+                case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + Fmt.Whole(a) + " (" + l.Id + " odds)";
                 default: return "Nothing happened.";
             }
         }

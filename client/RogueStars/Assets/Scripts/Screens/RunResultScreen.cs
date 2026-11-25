@@ -166,7 +166,7 @@ namespace RogueStars.Client.Screens
             }
             if (sum.BiomassBonus && RewardGate.CurrencyHasUse(State, Content, Currencies.Biomass, Now))
             {
-                var surge = SliceKit.Chunky(frame, "Biomass surge ×" + Content.RunTuning.DailyBiomassBonusMult.ToString("0.#") + " applied", (int)(32 * s), Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter, "SurgeApplied");
+                var surge = SliceKit.Chunky(frame, "Biomass surge ×" + Fmt.OneDecimal(Content.RunTuning.DailyBiomassBonusMult) + " applied", (int)(32 * s), Theme.CurrencyColor(Currencies.Biomass), TextAnchor.MiddleCenter, "SurgeApplied");
                 RunScenes.At(surge.rectTransform, s, 540, 1660, 900, 44);
             }
             DoubleRewards(frame, s, sum);
