@@ -186,7 +186,13 @@ namespace RogueStars.Client.PlayTests
             Ui.Clear(_app.ModalLayer);
 
             // C4: the squad wanders around the worm on the hub
+            foreach (var id in S.Onboarding.Unlocked.Keys.ToList()) S.Onboarding.Celebrated.Add(id); // no unlock moments over the shot
             _app.Router.Reset(new HubScreen());
+            for (int k = 0; k < 6; k++) // unlock moments (owned blueprints unlock their features): back out = snoozed for the session
+            {
+                yield return Wait(0.4f);
+                while (_app.Router.Current is UnlockScreen) _app.Router.Pop();
+            }
             var hub = (HubScreen)_app.Router.Current;
             Assert.That(hub.Squad, Is.Not.Null);
             hub.Squad.Sim.Roll = () => 0.05;

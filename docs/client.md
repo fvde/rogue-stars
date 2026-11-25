@@ -176,7 +176,7 @@ AppBootstrap (only object in Main.unity)
 | Summon events | `heroes` (mounts from `mounts`) | `SummonEventScreen` (hub's left column "Summon", entry `HubLayout.LeftColumn` id `summon`; also from Heroes / Mounts): hero / mount tabs, top bar (featured name, Diamonds, exchange tokens, tickets), stage with the featured art under a spotlight, time left, "Yours · n★", side column Exchange / Packs / Pass / Tasks with badges (`SummonView`), Luck gem + "? Luck x/max" (odds modal) + the Luck rule, pull milestones (tap to claim), footer Skip Animation, 1× / 10× Draw (ticket have/need, the Diamond price when short), back, "Next: …"; draw result sheet (rarity cards, FEATURED / NEW / ★n badges, Luck after, tokens, Again); Packs sheet (daily ad ticket: "Free" while ads are disabled; paid packs "Coming soon" outside the offered product set); Tasks sheet (progress bars, CLAIM / GO → portals or Signals, Claim all); `SummonExchangeScreen` (3-column grid, event limits); `SummonPassScreen` (free / premium per day, premium "Coming soon", Claim All). Art: `World/SummonArt` (ArtCatalog `Art/Summon/...`, code-drawn fallbacks; keys in docs/design/summon-events.md). Screenshots: `SummonShowcaseTests` (explicit PlayMode, `-testFilter SummonShowcaseTests`, `$ROGUESTARS_SHOTS_DIR`) |
 | Laboratory | `laboratory` | header: Data, next research cost/duration (`LaboratorySystem.NextDataCost`/`NextDurationMs`), slots busy, Laboratory building status (`LaboratoryScreen.BuildingStatus`: owned / built / staffed, slots by stars, speed by level); active research slots with Diamonds/ad/free speed-ups and collect; **tree** per branch (offense/defense/elements/command, `LabTreeLayout`: one row per tier, nodes ordered by their prerequisites, no overlaps): stat nodes steel-edged, skill nodes family-coloured with a SKILL band and on/off, edges gold = ALL prerequisites, thin = ANY; node modal: effect now/next, ANY/ALL prerequisites (other branches named), research button with the block reason, draft-pool toggle for skill nodes |
 | Heroes / Mounts | `heroes` / `mounts` | unlock from shards, stars, levels (Hero XP / Fuel), awakening (mounts), equip, trait/weapon skills by star |
-| City | `biomass_farm` | interim screen (the City redesign screen replaces it): COLLECT ALL, Pop all, Streets mode (tap to pave / erase), production priority, dig info + timer; 20×20 land (rubble patches open a dig pop-up, plaza, streets, features, buildings with Lv / stored / chances / Zz); building card (level, stars, placement skill and whether it is met, output or chances + Pop one, boon values, upgrade, move with rotate, store / cancel, star up, workers); tray of stored copies and new copies (built/cap). Edits go through `CityLayout.Validate` (docs/design/city.md) |
+| City | `biomass_farm` | `CityScreen` (City design version A, see "City screen" below): the iso diorama (`World/CityWorld`) under a slim dock (Build, Workers, Output, COLLECT ALL); tap a building = its card in place (level, stars, placement bonus + reason, worker slots, output / chances / boons, upgrade with cost type, Move / Store / star up, Reactor / Laboratory); tap rubble = dig pop-up; chance badges pop through the shared pull reveal; Build / long press = edit mode with C's rail (tablets: always) |
 | Aliens | `aliens` | list by rarity (aliens pass: no levels, no stats): ability card of the current star and the next star's change, act frequency, synergy badges, traits, genes "Coming soon", star up (shards), Breed shortcut (opens the pen with it as parent A), assign to building, squad toggle; squad card: Freeze-vs-Chill hint, the one-time "levels refunded" note |
 | Breeding Pen | `breeding` | Grain's only sink and the targeted shard source: pick parents (cost/duration preview, "50% A · 50% B" with the release shards), jobs with timers, collect, replace (new traits) / discard (shards) modal; genes "Coming soon" |
 | Observatory | `invasions` | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
@@ -811,6 +811,38 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   board's wooden chest marker.
 - **Small fixes**: the vendor's Skills button moved off the counter's crate; Last Light reads "Below 30% HP: every hit
   crits. You can't heal." (rules test: no skill line ends on a comma / colon / semicolon).
+
+## City screen (branch `city-client`, docs/design/city.md)
+- **Diorama** (`World/CityWorld`, like `WorldBoard`): layer 29, own camera → RenderTexture under the uGUI HUD. Map cell (x, y) sits at
+  `Iso.Cell(H−1−y, W−1−x)`. The land (two-tone checker, rubble on undug patches with diggable ones lighter, stone plaza, springs,
+  cliff walls under open front edges, streets as a 16-variant autotile from the 4-neighbour mask `StreetTiles.Mask`, contact
+  shadows) is ONE baked texture (`World/CityArt.cs`: `CityTerrain`, 64 px/unit), re-baked only when the layout changes; the grid
+  overlay is a second, half-resolution texture (15% / 40% in edit mode). Buildings use approved set pieces / markers / props as
+  stand-ins (`CityArt.BuildingArtKey`), fire + saucer on the plaza, crystal / ruin features. Budget ≤ 180 active sprites
+  (`CityWorld.ActiveSprites`, tested on a full city at night); walkers and FX pooled; one updater (`CityWorldDriver`); the root
+  goes inactive while the screen is hidden. Zoom stops: overview 12.5 / edit 9 units wide; pinch settles on the closer one,
+  double tap centres, pan clamped to the land.
+- **Life** (`World/CityLife.cs` `WalkerSim`, pure): one walker per working alien, building door → fireplace on the cached BFS
+  route (`App/CityEditor.cs` `CityRoutes`, per layout rev) with its goods icon, pops them at the fire (the bar pill ticks), walks
+  back; idle aliens wander the plaza (sit by the fire at night); social events (heart, high five, scuffle, gossip, dance: half a
+  tile, 1 in 3, same pair 60 s, one every 6 s, 1.5 s stop); level-up party (confetti, nearby walkers hop), scaffold + sparks while
+  building, poof + bounce when built, drill bot drives to a dig and puffs dust, rubble crumbles tile by tile from the land's edge;
+  fixed 20-minute day / night (`CityDayNight`: 12 / 2 / 5 / 1 min, wall clock) with lamps, lit windows of staffed buildings, a
+  brighter fire; a bred child walks out of the pen with half an eggshell for one lap.
+- **Edit mode** (`Screens/CityScreen.Edit.cs`): every edit is one command applied at once, Done just leaves; Undo = reverse command
+  (`CityUndo`, 50 steps, edit mode only; undoing a new build sends CityStore = cancel + refund). The ghost (`CityGhost`, the rules'
+  `CityLayout.Preview`) floats one tile above the finger, green / red tiles, a chip with the reason or the bonus ("+20% output ·
+  Open Ground"); an invalid drop waits (✓ when fixed, ✕ / drop on the rail cancels), ⟳ rotates. Streets: a stroke grows out of
+  the network (`StreetStroke`: skipped tiles filled, backing up takes the last tile back) and is ONE CityStreets; erasing what
+  would cut something off is refused and flashes it red. Rail: Streets, stored copies, new copies (cost, n/cap; at the cap
+  dimmed "3/3 placed"); tap = ghost on `CityPlanner.Find`'s spot, drag = ghost under the finger.
+- **Feedback** (G1): T05 / T08 silent, T06 scaffold drops + poof, T07 level badge pops + party, T09 the building shrinks and flies to
+  the Build button / rail, T10 `city_dug` = "NEW LAND!" banner + crumble, T18 the assigned alien walks from the fire into its
+  building; collected goods fly from the building; a pop's tokens fly after the reveal closes.
+- **Pop**: `CityScreen.ShowPopReveal` (shared `PullReveal`): one card per chance, ×1 Rare / ×2 Epic sparks / ×3 Legendary held +
+  crack + "×3!" banner (`RevealOptions.Banner`).
+- **Hub (C4)**: `Screens/HubSquad` — the Launch Pod squad walks the planet's top arc around the worm with the same `WalkerSim`.
+- Tests: `CityEditorTests` (EditMode); screenshots `CityShowcaseTests` (explicit PlayMode, `-testFilter CityShowcaseTests`).
 
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
