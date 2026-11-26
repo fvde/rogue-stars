@@ -103,8 +103,9 @@ def label(path):
     parts = path.split(os.sep)
     name = os.path.splitext(parts[-1])[0]
     subject = parts[-2]
-    if "__" in name:  # raw generator output: subject__variant__model__seed
-        s, v, _m, seed = name.split("__")
+    if "__" in name:  # raw generator output subject__variant__model__seed, or processed subject__variant__seed
+        bits = name.split("__")
+        s, v, seed = bits[0], bits[1], bits[-1]
         return f"{s} · {v} · {seed}"
     return f"{subject} · {name}"
 
