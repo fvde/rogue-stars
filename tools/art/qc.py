@@ -132,8 +132,34 @@ def before_after_sheet(rows, prefix, per_page=10):
     return paths
 
 
+def approved_subjects():
+    """{collection title: subjects with an approved image} from art-state.json."""
+    import review_page as R
+    try:
+        art = json.load(open(P.ART_STATE))
+    except (OSError, ValueError):
+        return {}
+    return {c["title"]: {R.subject_of(f) for f in R.files(c.get("approved"))} for c in art["collections"]}
+
+
 def pending(st):
-    return sorted((o for o in st["items"].values() if o.get("stage") == "pending-qc"), key=lambda o: o.get("updated", ""))
+    """Items waiting for the gate. Items whose subject the owner approved meanwhile are retired ('superseded'), unless
+    their collection collects alternatives."""
+    done = approved_subjects()
+    try:
+        alts = {c["title"]: c.get("alternatives") for c in json.load(open(P.ART_STATE))["collections"]}
+    except (OSError, ValueError):
+        alts = {}
+    out = []
+    for o in st["items"].values():
+        if o.get("stage") != "pending-qc":
+            continue
+        a = alts.get(o.get("collection"))
+        if o.get("subject") in done.get(o.get("collection"), set()) and not (a is True or (isinstance(a, list) and o["subject"] in a)):
+            o["stage"] = "superseded"
+            continue
+        out.append(o)
+    return sorted(out, key=lambda o: o.get("updated", ""))
 
 
 def add_candidate(it):
@@ -162,8 +188,10 @@ def main():
     s = sub.add_parser("dismiss"); s.add_argument("ids", nargs="+")
     a = ap.parse_args()
     if a.cmd in ("sheet", "list"):
-        st = P.load_state()
-        items = pending(st)
+        with P.locked():
+            st = P.load_state()
+            items = pending(st)
+            P.save_state(st)
         if a.cmd == "list":
             for it in items:
                 print(f'{it["id"]}  [{it["category"]}]  {it.get("prompt", "")[:140]}' + (f'  FLAGS: {"; ".join(it["flags"])}' if it.get("flags") else ""))

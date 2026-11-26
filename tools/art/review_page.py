@@ -155,9 +155,12 @@ def reconcile(state):
         appr = files(c.get("approved"))
         done = {subject_of(f) for f in appr}
         rej = set(os.path.expanduser(p) for p in c.get("rejected", []))
+        alts = c.get("alternatives")
         for f in files(c.get("candidates")):
             if f in rej or f in appr:
                 continue
+            if alts is True or (isinstance(alts, list) and subject_of(f) in alts):
+                continue  # this collection collects alternatives of approved subjects on purpose
             if subject_of(f) in done:
                 c.setdefault("rejected", []).append(f)
                 archived += 1

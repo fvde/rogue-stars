@@ -24,6 +24,9 @@ Stages (state in ~/AI/out/pipeline-state.json, one entry per image id <package>.
   7 retry once        a failed attempt queues ONE retry with a simplified prompt + stronger negatives + new seed (night.sh
                       runs retries before continuing the queue); a failed retry goes to the review page's Failures section
   8 success           qc pass adds the processed image (~/AI/out/processed/...) to its art-state.json collection as a candidate
+  edits of approved art: `land-cleaned` takes finished Kontext cleanups (~/AI/out/cleaned, from approved-cleanup.txt),
+                      runs cut-out + defect removal + size spec + audit and replaces the approved asset (old one backed up
+                      to ~/AI/assets-backup); night.sh calls it at every package boundary
 """
 import argparse, contextlib, fcntl, glob, json, os, re, sys, time
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
@@ -662,7 +665,9 @@ def process(raw, key, prompt, st=None, dry=False, out_dir=None, use_clip=True):
             res["reasons"].append(f'prompt not achieved (CLIP ranks it {sc["clip_rank"]}/{sc["clip_n"]} among the package subjects)')
         elif sc and sc["clip_rank"] > 1 and sc["clip_n"] >= 3:
             res["flags"].append(f'CLIP rank {sc["clip_rank"]}/{sc["clip_n"]}')
-        if sc and sc.get("clip_text", 0) >= T["clip_text_flag"]:
+        if sc and sc.get("clip_text", 0) >= T["audit_text"]:
+            res["reasons"].append(f'possible text or letters (CLIP {sc["clip_text"]:.2f})')
+        elif sc and sc.get("clip_text", 0) >= T["clip_text_flag"]:
             res["flags"].append(f'possible text (CLIP {sc["clip_text"]:.2f})')
 
     if spec.get("cutout") is False:
@@ -909,6 +914,8 @@ def cmd_ingest(a):
             print("skip (no package):", raw); continue
         prompt = (existing or {}).get("prompt") or prompt_for(key, {**p, "raw": raw})[0]
         res = process(raw, key, prompt, st=st, use_clip=not a.no_clip)
+        if getattr(a, "collection", None):
+            res["collection"] = a.collection
         if existing:
             res["id"] = existing["id"]
         with locked():
@@ -945,7 +952,6 @@ def cmd_sweep(a):
 
 
 def cmd_backfill(a):
-    a.package = None
     cmd_ingest(a)
 
 
@@ -966,6 +972,84 @@ def cmd_dry_run(a):
     print("sheet:", before_after_sheet(rows, os.path.join(a.out, "before-after")))
 
 
+CLEANUP_LIST = os.path.expanduser("~/AI/out/approved-cleanup.txt")
+CLEANED = os.path.expanduser("~/AI/out/cleaned")
+ASSETS = os.path.expanduser("~/AI/assets")
+BACKUP = os.path.expanduser("~/AI/assets-backup")
+
+
+def approved_target(raw):
+    """The approved ~/AI/assets file that a raw generator image (an approved-cleanup.txt line) stands for."""
+    p = parse_raw(raw)
+    if not p:
+        return None
+    if raw.startswith(ASSETS + os.sep):
+        return raw
+    cat = os.path.basename(os.path.dirname(raw)).removeprefix("pkg-")
+    want = os.path.join(ASSETS, cat, p["subject"], f'{p["variant"]}_s{p["seed"]}.png')
+    try:
+        art = json.load(open(ART_STATE))
+    except (OSError, ValueError):
+        return None
+    approved = {os.path.expanduser(x) for c in art["collections"] for x in c.get("approved", []) or []}
+    return want if want in approved else None
+
+
+def cmd_land_cleaned(a):
+    """Stage for owner-requested edits of APPROVED art: the 23:00 Kontext cleanup writes ~/AI/out/cleaned/<pkg>/<raw
+    name>.png; each new result is cut out, cleaned, resized to its category spec and audited (inspect_final). A clean
+    result replaces the approved asset in place (the previous file goes to ~/AI/assets-backup/<same path>); a result
+    with problems is left alone and reported (pipeline-state.json "landed")."""
+    import shutil
+    try:
+        lines = [l.rstrip("\n") for l in open(CLEANUP_LIST) if l.strip()]
+    except OSError:
+        return
+    with locked():
+        st = load_state()
+    landed = st.setdefault("landed", {})
+    work = os.path.join(OUT, "pipeline", "landing")
+    for line in lines:
+        raw = os.path.expanduser(line.split("|", 1)[0])
+        done = os.path.join(CLEANED, os.path.basename(os.path.dirname(raw)), os.path.basename(raw))
+        if not os.path.exists(done):
+            continue
+        mt = os.path.getmtime(done)
+        if landed.get(done, {}).get("mtime") == mt:
+            continue
+        rec = {"mtime": mt, "when": time.strftime("%Y-%m-%d %H:%M")}
+        if a.baseline:
+            landed[done] = {**rec, "status": "baseline"}
+            continue
+        target = approved_target(raw)
+        key = key_for_raw(raw)
+        if not target or not key:
+            rec.update(status="skipped", reason="no approved ~/AI/assets file for it (or unknown package)")
+        else:
+            cat, _coll = category_of(key)
+            res = process(done, key, "", st=None, out_dir=work, use_clip=False)
+            probs = [r for r in res["reasons"] if not r.startswith("near-duplicate")]
+            if not probs and os.path.exists(res["processed"]):
+                probs = inspect_final(res["processed"], cat, text=False)
+            if probs:
+                rec.update(status="rejected", target=target, reason="; ".join(probs), result=res["processed"])
+            else:
+                bk = os.path.join(BACKUP, os.path.relpath(target, ASSETS))
+                if os.path.exists(bk):
+                    bk = bk[:-4] + time.strftime("-%Y%m%d%H%M") + ".png"
+                os.makedirs(os.path.dirname(bk), exist_ok=True)
+                if os.path.exists(target):
+                    shutil.copy2(target, bk)
+                shutil.copy(res["processed"], target)
+                rec.update(status="landed", target=target, backup=bk, edits=res["edits"])
+        landed[done] = rec
+        print(f'cleanup {os.path.basename(done)}: {rec["status"]}' + (f' ({rec.get("reason")})' if rec.get("reason") else ""), flush=True)
+    with locked():
+        st2 = load_state()
+        st2["landed"] = {**st2.get("landed", {}), **landed}
+        save_state(st2)
+
+
 def cmd_status(a):
     st = load_state()
     from collections import Counter
@@ -980,11 +1064,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("ingest"); s.add_argument("raw", nargs="+"); s.add_argument("--package"); s.add_argument("--no-clip", action="store_true"); s.set_defaults(f=cmd_ingest)
-    s = sub.add_parser("backfill"); s.add_argument("raw", nargs="+"); s.add_argument("--no-clip", action="store_true"); s.set_defaults(f=cmd_backfill)
+    s = sub.add_parser("backfill"); s.add_argument("raw", nargs="+"); s.add_argument("--no-clip", action="store_true")
+    s.add_argument("--package", help="package key (default: found from the folder and subject)")
+    s.add_argument("--collection", help="art-state collection title overriding categories.json"); s.set_defaults(f=cmd_backfill)
     s = sub.add_parser("retry-sheet"); s.add_argument("path"); s.set_defaults(f=cmd_retry_sheet)
     s = sub.add_parser("sweep"); s.add_argument("--no-clip", action="store_true"); s.set_defaults(f=cmd_sweep)
     s = sub.add_parser("dry-run"); s.add_argument("raw", nargs="+"); s.add_argument("--out", required=True); s.add_argument("--package"); s.add_argument("--no-clip", action="store_true"); s.set_defaults(f=cmd_dry_run)
     s = sub.add_parser("status"); s.set_defaults(f=cmd_status)
+    s = sub.add_parser("land-cleaned"); s.add_argument("--baseline", action="store_true", help="mark existing cleanups as handled (no replacement)")
+    s.set_defaults(f=cmd_land_cleaned)
     a = ap.parse_args()
     a.f(a)
 

@@ -17,6 +17,7 @@ mkdir -p "$HOME/AI/out/pipeline"
 ORDER="${ORDER:-status-icons2-redo slice-markers6 aliens3-redo enemies3-redo aliens3 enemies3 bosses status-icons2 summon-icons buildings skills-v3 hub-planet2 run-result2 hub-scene2 slice-battle2 board-ground slice-markers4 run-props2 run-icons3 slice-hud2 hub-icons2 slice-hud slice-scatter mounts hero-skins run-icons2 requeue-1 run-characters run-props run-icons run-result hub-planet hub-scene hub-icons slice-texture slice-battle currencies avatar-frames simple-redo tile-redo grounds decor parts}"
 
 retries() {
+  $PIPE land-cleaned 2>/dev/null   # finished 23:00 cleanups of approved art -> checked, replace the approved asset
   $PIPE sweep 2>/dev/null
   n=$($PIPE retry-sheet "$RS" 2>/dev/null | tail -1)
   if [[ -f "$RS" && "$n" != "0" ]]; then

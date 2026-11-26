@@ -15,6 +15,7 @@ Errors:
     outside the expected folders (candidates: ~/AI/out/processed only)
   - approved entries whose file is missing
   - the same image (perceptual hash) shown more than once anywhere on the page / near-identical candidates of a subject
+    (a collection with "similar_ok": true may hold deliberately similar APPROVED images, e.g. planet stages)
   - a subject that is approved and still has visible candidates (unless the collection lists it under "alternatives")
   - the same subject in two collections
   - candidates with a detected defect (shadow ellipse, white fill, possible text, pedestal, touching the edge) or not
@@ -96,6 +97,7 @@ def audit(state, secs, sheet=True):
             err(f"subject '{sub}' appears in several sections: {', '.join(sorted(colls))}",
                 *[f for t, _k, f in shown if R.subject_of(f) == sub])
     # the same picture twice anywhere on the page
+    similar_ok = {c["title"] for c in state["collections"] if c.get("similar_ok")}
     hashes = []
     for title, kind, f in shown:
         key = f"{f}|{os.path.getmtime(f) if os.path.exists(f) else 0}"
@@ -106,7 +108,7 @@ def audit(state, secs, sheet=True):
             except OSError:
                 continue
         for (t2, k2, f2, h2) in hashes:
-            if P.hamming(h, h2) <= P.T["dup_hamming"]:
+            if P.hamming(h, h2) <= P.T["dup_hamming"] and not (kind == k2 == "approved" and title == t2 in similar_ok):
                 err(f"same image twice: {f2} ({t2}, {k2}) and {f} ({title}, {kind})", f, f2)
                 break
         hashes.append((title, kind, f, h))
