@@ -40,7 +40,9 @@ public class RunDepthTests(ITestOutputHelper output)
         output.WriteLine($"{levelId}: gains {gains:0.0} (min {runs.Min(r => r.Gains.Count)}, max {runs.Max(r => r.Gains.Count)}), drafts {drafts:0.0}, mythic {mythic:0.0}, minibosses {runs.Average(r => r.Minibosses):0.0}, shop buys {shop:0.0}");
         Assert.InRange(gains, 20, 40);
         Assert.InRange(drafts, 7, 11);
-        Assert.InRange(shop, 10, 22);
+        // 9 (was 10): playtest 0.1.325's 3 skill offers per shop let the bot buy the pricier Legendary more often with the same
+        // coins (ember_wastes_1: 10.3 → 9.9 buys); coin income is unchanged
+        Assert.InRange(shop, 9, 22);
         Assert.All(runs, r => Assert.Equal(r.Minibosses, r.Gains.Count(g => g.Source == "mythic")));  // one mythic choice per miniboss
         Assert.All(runs, r => Assert.True(r.Minibosses <= 2, "two minibosses per run (playtest 0.1.308)"));
         Assert.True(runs.Average(r => r.Minibosses) >= 1.8, "both lairs stand on the path and stop the worm");
@@ -150,9 +152,9 @@ public class RunDepthTests(ITestOutputHelper output)
         // the cheapest and the typical offer: a run's coins pay for 10–20 of them
         double typical = (2 * table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Legendary] + table.StatPrice) / 4.0;
         output.WriteLine($"shop buys {buys:0.0}; typical offer {typical:0} coins");
-        Assert.InRange(buys, 10, 22);
-        Assert.Equal(1, table.SupportOffers);
-        Assert.Equal(2, table.SkillOffers); // 3 offers at a time (playtest 0.1.308)
+        Assert.InRange(buys, 9, 22); // 9 (was 10): 3 skill offers per shop (playtest 0.1.325) buy pricier skills with the same coins (10.2 → 9.9)
+        Assert.Equal(1, table.StatPerkOffers);
+        Assert.Equal(3, table.SkillOffers); // 3 skills + the support offers (playtest 0.1.325)
     }
 
     [Fact]

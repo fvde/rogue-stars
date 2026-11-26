@@ -111,7 +111,7 @@ public class AutoModeTests
             Assert.True(RunTestKit.Exec(e, ref a, Farm).Ok);
         }
         Assert.Equal(RunPhase.AwaitRoll, a.Run.Active!.Phase);                  // left once nothing more is worth buying
-        Assert.True(a.Run.Active.ShopBuys >= 3, "rich: bought the heal and both skills on offer (3 offers at a time)");
+        Assert.True(a.Run.Active.ShopBuys >= 4, "rich: bought the heal and the skills on offer (3 skills + heal + stat perk)");
         Assert.Contains(a.Run.Active.Gains, g => g.Source == "shop" && g.SkillId != null);
 
         var b = AtShop(e);                                                     // broke: leaves without buying

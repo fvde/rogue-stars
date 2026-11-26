@@ -356,7 +356,7 @@ namespace RogueStars.Rules.Systems
             Require(run.Coins >= price, "not enough run coins");
             run.Coins -= price;
             run.ShopRerolls++;
-            FillShop(ctx.Content, run);
+            FillShop(ctx.Content, run, true);
         }
 
         /// <summary>

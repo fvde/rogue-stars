@@ -168,10 +168,10 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.App.Router.Current, Is.SameAs(board));
         }
 
-        // ---- 5. three shop offers ---------------------------------------------------------------------------------
+        // ---- 5. shop offers (playtest 0.1.325: 3 skills + the support offers) ---------------------------------------
 
         [Test]
-        public void Shop_ShowsThreeOffers_AndARerollKeepsThree()
+        public void Shop_ShowsThreeSkillsAndAStatPerk_AndARerollKeepsThem()
         {
             var run = StartRun("shop");
             run.Coins = 5000;
@@ -181,12 +181,13 @@ namespace RogueStars.Client.Tests
             screen.Rebuild();
             Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Shop));
             int Slots() => _f.App.ModalLayer.GetComponentsInChildren<Transform>(true).Count(t => t.name.StartsWith("OfferSlot:"));
-            Assert.That(S.Run.Active.Shop.Count, Is.EqualTo(3));
-            Assert.That(Slots(), Is.EqualTo(3), "three offers on screen");
+            Assert.That(S.Run.Active.Shop.Count, Is.EqualTo(4));
+            Assert.That(S.Run.Active.Shop.Count(o => o.Kind == ShopOfferKind.Skill), Is.EqualTo(3));
+            Assert.That(Slots(), Is.EqualTo(4), "three skills and a stat perk on screen (full HP: no heal)");
             var reroll = _f.App.ModalLayer.GetComponentsInChildren<Button>(true).First(b => b.name.StartsWith("Button:Reroll"));
             reroll.onClick.Invoke();
-            Assert.That(S.Run.Active.Shop.Count, Is.EqualTo(3));
-            Assert.That(Slots(), Is.EqualTo(3), "a reroll keeps three");
+            Assert.That(S.Run.Active.Shop.Count, Is.EqualTo(4));
+            Assert.That(Slots(), Is.EqualTo(4), "a reroll keeps them");
         }
 
         // ---- 6. minibosses on the path ----------------------------------------------------------------------------

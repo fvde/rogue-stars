@@ -195,8 +195,14 @@ public class DeadEffectsTests
         if (extra != null) worm.Extra.AddRange(extra);
         var e = RunTestKit.Engine(worm, content);
         var s = RunTestKit.StartRun(e, seed: seed);
-        RunTestKit.AutoToEnd(e, ref s);
-        string json = JsonSerializer.Serialize(new object[] { s.Run.LastSummary!, s.Wallet, s.Counters }, TestHelpers.Json);
+        long coins = 0; // the run coins left at the end count too (a rich auto run may buy the same with a few coins more)
+        for (int i = 0; i < 800 && s.Run.Active != null; i++)
+        {
+            coins = s.Run.Active.Coins;
+            Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true }).Ok);
+        }
+        Assert.Null(s.Run.Active);
+        string json = JsonSerializer.Serialize(new object[] { s.Run.LastSummary!, s.Wallet, s.Counters, coins }, TestHelpers.Json);
         return skillId == null ? json : json.Replace("\"" + skillId + "\"", "\"\"");
     }
 
@@ -239,6 +245,12 @@ public class DeadEffectsTests
             {
                 board++;
                 for (long seed = 1; seed <= 6 && !changed; seed++) changed = RunSignature(s.Id, seed) != RunBase(seed);
+                // crit-kill payouts (Plunder) need crits: the strong test worm one-shots without any, so the build decides
+                if (!changed && s.Triggers.Any(t => t.If != null && t.If.Contains("crit")))
+                {
+                    var crits = new[] { StatMod.Bonus(StatId.CritChance, 50) };
+                    for (long seed = 1; seed <= 4 && !changed; seed++) changed = RunSignature(s.Id, seed, null, crits) != RunSignature(null, seed, null, crits);
+                }
             }
             if (!changed) failures.Add(s.Id + " (" + s.Source + "): " + (ActsInBattle(s) ? "no battle changed" : "no run changed"));
         }

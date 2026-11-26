@@ -1260,9 +1260,15 @@ namespace RogueStars.Rules.Systems
             ctx.Emit("run_shop");
         }
 
-        private static void FillShop(ContentDb c, ActiveRun run)
+        /// <summary>
+        /// Fills the shop: <see cref="ShopTableDef.SkillOffers"/> skills, then the support offers on top (the heal while hurt, the
+        /// stat perks). A reroll (<paramref name="reroll"/>) draws new skills and keeps the support offers as they are (a bought
+        /// heal or perk stays sold: rerolls refresh the skills, not the support).
+        /// </summary>
+        private static void FillShop(ContentDb c, ActiveRun run, bool reroll = false)
         {
             var table = ShopTable(c, run);
+            var kept = reroll ? run.Shop.FindAll(o => o.Kind != ShopOfferKind.Skill) : null;
             run.Shop.Clear();
             var pool = RunDraft.Eligible(c, run);
             long cheapest = CheapestSkillPrice(table);
@@ -1285,15 +1291,12 @@ namespace RogueStars.Rules.Systems
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Skill, SkillId = s.Id, Price = table.SkillPrices.TryGetValue(s.Rarity, out var p) ? p : 50 });
             }
             ApplySale(table, run);
-            // support slots: the heal while the worm is hurt, otherwise (and for the other slots) distinct stat perks
-            int support = table.SupportOffers;
-            if (support > 0 && run.WormHp < run.WormMaxHp * table.HealOfferBelowPct / 100.0)
-            {
+            if (kept != null) { run.Shop.AddRange(kept); return; }
+            // support offers on top of the skills (playtest 0.1.325): the heal while the worm is hurt, and always the stat perks
+            if (run.WormHp < run.WormMaxHp * table.HealOfferBelowPct / 100.0)
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
-                support--;
-            }
             var stats = new List<StatMod>(table.StatOffers);
-            for (int i = 0; i < support && stats.Count > 0; i++)
+            for (int i = 0; i < table.StatPerkOffers && stats.Count > 0; i++)
             {
                 int k = run.Rng.Range(0, stats.Count);
                 var m = stats[k];

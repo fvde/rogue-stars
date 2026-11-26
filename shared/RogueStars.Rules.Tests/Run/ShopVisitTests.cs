@@ -58,9 +58,9 @@ public class ShopVisitTests
     }
 
     [Fact]
-    public void Shop_OffersThreeOptionsAtATime_AndEveryRerollKeepsThree()
+    public void Shop_OffersThreeSkills_PlusTheSupportOffers_AndEveryRerollKeepsThem()
     {
-        // playtest 0.1.308: two skills and one support offer (the heal while hurt, else a stat perk)
+        // playtest 0.1.325: 3 skills, a stat perk on top, and the heal as well while the worm is below 60% HP
         var e = RunTestKit.Engine();
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
@@ -68,21 +68,38 @@ public class ShopVisitTests
         run.Coins = 5000;
         Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
         Assert.Equal(RunPhase.Shop, s.Run.Active!.Phase);
-        Assert.Equal(3, s.Run.Active.Shop.Count);
-        Assert.Equal(2, s.Run.Active.Shop.Count(o => o.Kind == ShopOfferKind.Skill));
-        Assert.Equal(ShopOfferKind.Stat, s.Run.Active.Shop[2].Kind); // full HP: a stat perk, no heal
+        void FullHpFill(ActiveRun r)
+        {
+            Assert.Equal(4, r.Shop.Count);
+            Assert.Equal(3, r.Shop.Count(o => o.Kind == ShopOfferKind.Skill));
+            Assert.Equal(3, r.Shop.Where(o => o.Kind == ShopOfferKind.Skill).Select(o => o.SkillId).Distinct().Count());
+            Assert.Equal(ShopOfferKind.Stat, r.Shop[3].Kind); // full HP: a stat perk, no heal
+        }
+        FullHpFill(s.Run.Active);
         for (int i = 0; i < 4; i++)
         {
+            var perk = s.Run.Active!.Shop[3].Stat.Stat;
             Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
-            Assert.Equal(3, s.Run.Active!.Shop.Count);
+            FullHpFill(s.Run.Active!); // a reroll refreshes the skills and keeps the support offers
+            Assert.Equal(perk, s.Run.Active!.Shop[3].Stat.Stat);
         }
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopLeave()).Ok);
 
-        // hurt: the support slot is the heal
+        // hurt: the heal comes on top of the stat perk (and stays after a reroll)
         s.Run.Active!.WormHp = s.Run.Active.WormMaxHp * 0.3;
         Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
         Assert.Equal(RunPhase.Shop, s.Run.Active!.Phase);
-        Assert.Equal(3, s.Run.Active.Shop.Count);
-        Assert.Equal(ShopOfferKind.Heal, s.Run.Active.Shop[2].Kind);
+        void HurtFill(ActiveRun r)
+        {
+            Assert.Equal(5, r.Shop.Count);
+            Assert.Equal(3, r.Shop.Count(o => o.Kind == ShopOfferKind.Skill));
+            Assert.Equal(ShopOfferKind.Heal, r.Shop[3].Kind);
+            Assert.Equal(ShopOfferKind.Stat, r.Shop[4].Kind);
+        }
+        HurtFill(s.Run.Active);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopBuy { Index = 3 }).Ok); // the heal
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
+        HurtFill(s.Run.Active!);
+        Assert.True(s.Run.Active!.Shop[3].Sold); // a bought heal stays bought: rerolls refresh the skills only
     }
 }

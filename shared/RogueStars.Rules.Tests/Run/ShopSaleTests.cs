@@ -9,7 +9,7 @@ public class ShopSaleTests
 {
     private static void Fill(ContentDb c, ActiveRun run) =>
         typeof(RunSystem).GetMethod("FillShop", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-            .Invoke(null, new object[] { c, run });
+            .Invoke(null, new object[] { c, run, false });
 
     [Fact]
     public void SomeFills_HaveOneSkillOnSale_AtHalfPrice()
