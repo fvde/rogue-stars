@@ -50,9 +50,9 @@ namespace RogueStars.Client.Screens
             var animCard = Card(body);
             animCard.name = "AnimCard";
             Section(animCard, "Animation");
-            Note(animCard, "Creatures and props move on every screen. Turn it down on a slow phone: everything draws still and nothing is updated.");
-            Ui.Button(animCard, AnimSettings.Reduced ? "Reduced animation: ON" : "Reduced animation: off", () => { AnimSettings.Reduced = !AnimSettings.Reduced; Rebuild(); },
-                AnimSettings.Reduced ? Theme.Accent : Theme.Button).name = "ReducedAnim";
+            Note(animCard, "Auto turns the animation down on a slow phone (little memory or few cores). Reduced: everything draws still and nothing is updated.");
+            Ui.Button(animCard, "Animation: " + AnimSettings.Label(AnimSettings.Level, AnimSettings.Reduced), () => { AnimSettings.Level = AnimSettings.Next(AnimSettings.Level); Rebuild(); },
+                AnimSettings.Level == AnimLevel.Auto ? Theme.Button : Theme.Accent).name = "AnimLevel";
 
             // Owner dev tools: offline in the editor/development builds, online only when the server's allowlist says so (session devTools).
             var tools = Session.Service?.DevTools;

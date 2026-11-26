@@ -91,6 +91,58 @@ namespace RogueStars.Client.Tests
             Assert.That(((CityScreen)_f.App.Router.Current).CampMode, Is.True);
         }
 
+        private static Rect WorldRect(RectTransform rt)
+        {
+            var c = new Vector3[4]; rt.GetWorldCorners(c);
+            return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y);
+        }
+
+        [Test]
+        public void TappingTheWorm_PlaysCelebrate_WithACooldown_AndNeverCoversTheButtons()
+        {
+            ReachLevel(6);
+            var hub = Hub;
+            var tap = hub.WormTap;
+            Assert.That(tap, Is.Not.Null);
+            Assert.That(tap.Creature, Is.Not.Null);
+            Assert.That(tap.Creature.Motion.Clip, Is.Not.EqualTo(RogueStars.Client.World.Anim.CreatureClip.Celebrate));
+            Assert.That(tap.Tap(10f), Is.True);
+            Assert.That(tap.Creature.Motion.Clip, Is.EqualTo(RogueStars.Client.World.Anim.CreatureClip.Celebrate));
+            Assert.That(tap.Tap(10.5f), Is.False, "cooldown");
+            Assert.That(tap.Tap(11.4f), Is.False);
+            Assert.That(tap.Tap(11.6f), Is.True);
+            Assert.That(tap.Plays, Is.EqualTo(2));
+            // the tap button works through the UI event path too
+            var btn = tap.GetComponent<Button>();
+            Assert.That(btn, Is.Not.Null);
+            // the target stays clear of every other button (crash-site pod, tabs, feature row ...)
+            var mine = WorldRect((RectTransform)tap.transform);
+            foreach (var b in hub.Root.GetComponentsInChildren<Button>(true))
+            {
+                if (b.gameObject == tap.gameObject || b.name == "CrashSite:Area" || b.transform.IsChildOf(tap.transform)) continue;
+                if (b.GetComponentInParent<HubCreatureTap>() != null) continue; // squad walkers' own targets
+                Assert.That(mine.Overlaps(WorldRect((RectTransform)b.transform)), Is.False, "worm tap target overlaps " + b.name);
+            }
+            // the pod button still opens the City
+            hub.PodButton.onClick.Invoke();
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
+        }
+
+        [Test]
+        public void TappingASquadAlien_PlaysItsCelebrateClip()
+        {
+            ReachLevel(6);
+            var hub = Hub;
+            Assert.That(hub.Squad, Is.Not.Null);
+            Assert.That(hub.Squad.Taps.Count, Is.EqualTo(1));
+            foreach (var kv in hub.Squad.Taps)
+            {
+                Assert.That(kv.Value.Tap(5f), Is.True);
+                Assert.That(kv.Value.Creature.Motion.Clip, Is.EqualTo(RogueStars.Client.World.Anim.CreatureClip.Celebrate));
+                Assert.That(kv.Value.Tap(5.2f), Is.False);
+            }
+        }
+
         [Test]
         public void CampMode_ShowsNoDockActions_NoDigs_NoEdits_OnlyTheNote()
         {

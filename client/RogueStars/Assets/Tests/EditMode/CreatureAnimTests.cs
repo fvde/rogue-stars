@@ -494,24 +494,58 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Settings_ReducedAnimationToggle_IsSavedAndSwitchesEverythingToStatic()
+        public void AnimLevel_AutoResolvesByDevice_FullAndReducedForce()
+        {
+            var weakRam = new DeviceSpecs(2048, 8, 4000);
+            var weakCpu = new DeviceSpecs(8000, 2, 4000);
+            var weakGpu = new DeviceSpecs(8000, 8, 512);
+            var strong = new DeviceSpecs(8000, 8, 4000);
+            var unknown = new DeviceSpecs(0, 0, 0);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, weakRam), Is.True);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, weakCpu), Is.True);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, weakGpu), Is.True);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, strong), Is.False);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, unknown), Is.False, "unknown specs: Full");
+            Assert.That(AnimSettings.Resolve(AnimLevel.Auto, new DeviceSpecs(3700, 6, 3700)), Is.False, "a 4 GB phone is Full");
+            Assert.That(AnimSettings.Resolve(AnimLevel.Full, weakRam), Is.False);
+            Assert.That(AnimSettings.Resolve(AnimLevel.Reduced, strong), Is.True);
+            Assert.That(AnimSettings.Label(AnimLevel.Auto, false), Is.EqualTo("Auto (Full)"));
+            Assert.That(AnimSettings.Label(AnimLevel.Auto, true), Is.EqualTo("Auto (Reduced)"));
+            Assert.That(AnimSettings.Label(AnimLevel.Reduced, false), Is.EqualTo("Reduced"));
+        }
+
+        [Test]
+        public void Settings_AnimationLevel_CyclesIsSavedAndTakesEffectAtOnce()
         {
             AnimSettings.Override = null;
-            AnimSettings.Reduced = false;
-            PlayerPrefs.DeleteKey(AnimSettings.Key);
+            PlayerPrefs.DeleteKey(AnimSettings.Key); PlayerPrefs.DeleteKey("rs.reducedAnim");
+            AnimSettings.ResetCache();
+            AnimSettings.Device = new DeviceSpecs(2048, 8, 4000); // a weak phone
             try
             {
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Auto), "default (an old reduced toggle value is simply ignored)");
+                Assert.That(AnimSettings.Reduced, Is.True, "Auto on a weak phone");
                 _f.App.Router.Push(new SettingsScreen());
-                var screen = _f.App.Router.Current;
-                Button toggle = null;
-                foreach (var b in screen.Root.GetComponentsInChildren<Button>(true)) if (b.name == "ReducedAnim") toggle = b;
-                Assert.That(toggle, Is.Not.Null, "Settings has the reduced animation switch");
-                Assert.That(AnimSettings.Reduced, Is.False);
-                toggle.onClick.Invoke();
-                Assert.That(AnimSettings.Reduced, Is.True);
+                Button Toggle() { foreach (var b in _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "AnimLevel") return b; return null; }
+                string Text() => Toggle().GetComponentInChildren<Text>().text;
+                Assert.That(Toggle(), Is.Not.Null, "Settings has the animation level control");
+                Assert.That(Text(), Does.Contain("Auto (Reduced)"));
+                Toggle().onClick.Invoke();
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Full));
+                Assert.That(AnimSettings.Reduced, Is.False, "Full forces it on the weak phone, at once");
                 Assert.That(PlayerPrefs.GetInt(AnimSettings.Key), Is.EqualTo(1), "saved per device");
+                Assert.That(Text(), Does.Contain("Full"));
+                Toggle().onClick.Invoke();
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Reduced));
+                Assert.That(AnimSettings.Reduced, Is.True);
+                Toggle().onClick.Invoke();
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Auto));
+                AnimSettings.ResetCache(); // a fresh start reads the saved value
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Auto));
+                AnimSettings.Level = AnimLevel.Reduced; AnimSettings.ResetCache();
+                Assert.That(AnimSettings.Level, Is.EqualTo(AnimLevel.Reduced), "persisted");
             }
-            finally { PlayerPrefs.DeleteKey(AnimSettings.Key); AnimSettings.Reduced = false; PlayerPrefs.DeleteKey(AnimSettings.Key); AnimSettings.Override = false; }
+            finally { PlayerPrefs.DeleteKey(AnimSettings.Key); AnimSettings.ResetCache(); AnimSettings.Device = null; AnimSettings.Override = false; }
         }
     }
 }

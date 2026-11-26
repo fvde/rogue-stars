@@ -75,7 +75,7 @@ namespace RogueStars.Client.Tests
             Assert.That(buttons, Does.Contain("PlayButton"));
             Assert.That(buttons, Does.Contain("Tab:planet"));
             Assert.That(S.Mail.Inbox, Is.Not.Empty, "the welcome mail waits until after the first run");
-            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet").ToList();
+            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet" && n != "TapTarget").ToList();
             Assert.That(others, Is.Empty, "nothing else on the day-1 hub, not even greyed out: " + string.Join(", ", others));
             Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("1 more level to the next feature"));
             Assert.That(Named(hub.Root, "Figure"), Is.Null);

@@ -25,6 +25,8 @@ namespace RogueStars.Client.Screens
         private readonly List<KeyValuePair<Walker, RectTransform>> _views = new List<KeyValuePair<Walker, RectTransform>>();
         private readonly Dictionary<Walker, UiCreature> _anims = new Dictionary<Walker, UiCreature>();
         private RectTransform _layer;
+        /// <summary>The tap target of each walker (tap: celebrate + hearts).</summary>
+        public readonly Dictionary<Walker, HubCreatureTap> Taps = new Dictionary<Walker, HubCreatureTap>();
 
         /// <summary>Walkers shown (tests).</summary>
         public int Count => _views.Count;
@@ -72,7 +74,7 @@ namespace RogueStars.Client.Screens
                 rt.sizeDelta = new Vector2(size, size);
                 hs._views.Add(new KeyValuePair<Walker, RectTransform>(w, rt));
                 var anim = UiCreature.Attach(img);
-                if (anim != null) hs._anims[w] = anim;
+                if (anim != null) { hs._anims[w] = anim; hs.Taps[w] = HubCreatureTap.Add(img, anim, layer, scale, 0.7f, 0.85f); }
             }
             hs.Place();
             return hs;

@@ -941,9 +941,15 @@ upright creature and **shaders** for props and buildings. Namespace `RogueStars.
   gives the renderer its own material instance (own `_Phase`: batching ignores the object matrix) and the extras; applied on the run board
   (set pieces, scatter, markers), the City (buildings once built, plaza fire, saucer, features) and the UI scene props (`RunScenes`: shader
   only). GPU only: no script per frame; particles pause when culled.
-- **Reduced animation** (Settings, per device, PlayerPrefs `rs.reducedAnim`, `AnimSettings.Reduced`): every host draws its plain sprite
-  / material and updates nothing; toggling takes effect at once (`AnimSettings.Changed`). Hosts also stop while hidden (inactive
-  hierarchy, culled by a mask, off screen via `Renderer.isVisible`).
+- **Animation level** (Settings "Animation: Auto (Full) / Full / Reduced", one button cycling Auto -> Full -> Reduced; per device, PlayerPrefs
+  `rs.animLevel`, default Auto; the old boolean `rs.reducedAnim` is ignored, pre-release): `AnimSettings.Level`; `AnimSettings.Reduced` is what it
+  resolves to now. Auto = Reduced on a weak device (`AnimSettings.IsWeak(DeviceSpecs)`: `SystemInfo.systemMemorySize` < 3500 MB (a "4 GB" phone
+  reports ~3.6 GB), fewer than 4 processors, or a GPU memory under 1000 MB when reported), else Full; unknown specs = Full. Reduced: every host
+  draws its plain sprite / material and updates nothing; a change takes effect at once (`AnimSettings.Changed`). Hosts also stop while hidden
+  (inactive hierarchy, culled by a mask, off screen via `Renderer.isVisible`).
+- **Hub taps** (`HubCreatureTap`): tapping the hub worm (`HubScreen.WormTap`) or a wandering squad alien (`HubSquad.Taps`) plays its Celebrate clip
+  with three heart bubbles + a sparkle burst; 1.5 s cooldown per creature; no sound. The target is a transparent button over the creature's
+  middle (60-70 % of its width), clear of the crash-site pod / area buttons and the hub's buttons (test).
 - **Budget**: 102 vertices and one draw call per creature, pooled world meshes, no per-frame allocation in `SpineRig.Deform` /
   `CreatureMotion.Tick` (test), idle-only cards throttled to 20 Hz, the beaten stop ticking once collapsed. Measured in the editor (Mono,
   Apple Silicon): a 7-creature battle = 714 vertices, deform + mesh update ~0.06 ms per creature per tick (0.46 ms for 7 x 8 ticks);
