@@ -1,0 +1,15 @@
+{
+  "name": "pkg-aliens3",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1021,
+    1022
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple creatures, text, watermark, blurry, photo, human",
+  "subjects": {
+    "alien_chronoslug": "Chronoslug, a cute round snail-slug alien with a big clock face on its shell, two antennae and a sleepy smile, epic time-controller"
+  }
+}
