@@ -246,6 +246,18 @@ namespace RogueStars.Client.UiKit
             }
         }
 
+        /// <summary>
+        /// Border / landed colour of a board tile: <see cref="TileAccent(TileCategory, TileValence)"/>, except tiles that cost the
+        /// player (curses, traps) are red and a boss tile that only helps (World.IsoArt.FriendlyBossTile) is green (playtest 0.1.308).
+        /// </summary>
+        public static Color TileAccent(TileDef def)
+        {
+            if (def == null) return Border;
+            if (def.Category == TileCategory.StatDebuff || def.Category == TileCategory.Hazard) return Bad;
+            if (RogueStars.Client.World.IsoArt.FriendlyBossTile(def)) return Good;
+            return TileAccent(def.Category, def.Valence);
+        }
+
         /// <summary>Border/label colour of a board tile: by category (wireframe colours), else by valence.</summary>
         public static Color TileAccent(TileCategory c, TileValence v)
         {

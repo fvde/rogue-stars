@@ -48,16 +48,30 @@ namespace RogueStars.Client.World
             switch (f)
             {
                 // colour is used sparingly: slate stone by default, soft accents only on special tiles
-                case TileFace.Boost: return new Color32(0xD6, 0x8E, 0x84, 255);
+                // playtest 0.1.308: red means it costs you. Buffs are green; curses and traps are red (the boss's tiles dark red)
+                case TileFace.Boost: return new Color32(0x9E, 0xCC, 0x6C, 255);
                 case TileFace.Event: return new Color32(0x8C, 0xC0, 0xB6, 255);
                 case TileFace.Special: return new Color32(0x9C, 0xB2, 0xC2, 255);
-                case TileFace.Hazard: return new Color32(0x8A, 0x70, 0x66, 255);
-                case TileFace.Curse: return new Color32(0x86, 0x7C, 0x9C, 255);
+                case TileFace.Hazard: return new Color32(0xB8, 0x5E, 0x50, 255);
+                case TileFace.Curse: return new Color32(0xCC, 0x6A, 0x66, 255);
                 case TileFace.Boss: return new Color32(0x8C, 0x5A, 0x62, 255);
                 case TileFace.Floor: return new Color32(0x86, 0xA8, 0xA2, 255);
                 default: return new Color32(0x72, 0x76, 0x96, 255);
             }
         }
+
+        /// <summary>
+        /// The block face of a tile on the board: its kind's face, except a boss tile that only helps the player (it slows the
+        /// boss and makes it no stronger, e.g. Cooling Pool) is drawn as a boost: a red face always costs the player.
+        /// </summary>
+        public static TileFace FaceOf(TileDef def) =>
+            def == null ? TileFace.Stone : def.Category == TileCategory.BossTile && FriendlyBossTile(def) ? TileFace.Boost : FaceOf(def.Category);
+
+        /// <summary>A boss tile that is good for the player: it slows the boss's awakening and makes the boss no stronger.</summary>
+        public static bool FriendlyBossTile(TileDef def) => def != null && def.Category == TileCategory.BossTile && def.MeterDelta < 0 && def.BossStatPct <= 0;
+
+        /// <summary>The red faces (curse, trap, the boss's tiles): landing there costs the player (tested).</summary>
+        public static bool IsRedFace(TileFace f) => f == TileFace.Curse || f == TileFace.Hazard || f == TileFace.Boss;
 
         /// <summary>The block face of a tile kind on the board.</summary>
         public static TileFace FaceOf(TileCategory c)
@@ -108,7 +122,7 @@ namespace RogueStars.Client.World
                 case "rest": return 1.35f;
                 case "shop": return 1.4f;
                 case "boss": return 1.5f; // × 1.25 on the gate: ~2.5× the enemy skull, the run's own boss
-                case "miniboss": return 1.22f;
+                case "miniboss": return 1.6f; // playtest 0.1.308: the run's two minibosses stand on the path, readable from afar
                 case "elite": return 1.0f;
                 case "omen": return 0.82f;
                 case "portal": return 1.4f;
