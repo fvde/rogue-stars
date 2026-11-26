@@ -901,6 +901,34 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   `ai_worm`, `ai_board`, `ai_battle_hud`, `ai_battlebg_*`, `ai_result_victory|defeat` into `$ROGUESTARS_SHOTS_DIR` (default
   `client/RogueStars/Screenshots/art-import/`). Tests: `ArtImportTests` (EditMode), `GroundContactTests` (the hero's pivot).
 
+## Animation pilot (branch `anim-pilot`, not wired into the game)
+
+Four proofs of concept for choosing an animation pipeline, all under `Assets/Scripts/World/Anim/` (namespace
+`RogueStars.Client.World.Anim`), shaders in `Assets/Art/Shaders/Anim/`, assets in `Assets/Art/Resources/Art/Anim/`:
+- **Worm, code spine bend** (`SpineWorm` + `WormMotion`): the hero sprite as a 7×19-vertex grid bent along a code bone chain
+  rooted at the sprite's ground contact (pose = lean, travelling wave, head curl, stretch, squash, flash). States: idle
+  (breathing sway), move (`HopTo`: slither + hop arc, take-off stretch, landing squash), attack (rear up, lunge), hit
+  (recoil, white flash, damped wobble), happy (fast wiggle + bounces). No new art.
+- **Cut-out rigs** (`CutoutRig`, `CutoutClips`): `alien_blorp` (body, eye, two legs) and `alien_pebblehorn` (body, eye, ear,
+  horn, two arms, two legs) split by `tools/anim/cutout.py` along the cartoon outlines (connected fills between the black
+  lines, outline pixels to the nearest part) into `Art/Anim/Rigs/<id>/<part>.png` + `rig.json` (rect centre and joint pivot in
+  source px). Hidden areas: one Kontext edit (pebblehorn without arms) fills under the arms, a smooth normalized-convolution
+  fill under the blob's eye, flat dark in the biped's eye sockets. Clips (idle, attack, hit, death, celebrate) address parts
+  by role, so every rig with the same roles shares them. Unity's 2D Animation 16.0.1 resolves and compiles on 6000.6
+  (pulls Collections 6.6 + Burst 2.0; checked in a scratch project, not added here): only needed for skinned meshes.
+- **Shader props** (`AnimProp`, materials written by `Editor/AnimPilotAssets.Create`): `RogueStars/Anim/FlameFlicker`
+  (masked noise displacement + flicker, mask `Art/Anim/Props/campfire_flame_mask.png`), `GlowPulse` (additive procedural
+  glow), `Ember` (particle dot) via `AnimProp.Embers`, `Sway` (height-weighted shear, per-object phase; `SwayTree`,
+  `SwayMushroom`), all on padded quads (`_Pad`) so displaced pixels never clip.
+- **AI-video flipbook** (`RogueStars/Anim/Flipbook`, frame from `_Time`): LTX-Video 2B 0.9.8 distilled image-to-video in a
+  local ComfyUI (`tools/anim/ltx.py`, `--cpu-vae` on Apple Silicon: the MPS VAE encode fails) on the portal marker, 49 frames,
+  then `tools/anim/process.py`: crossfade loop, the ring kept from the original art (only a disk inside animates), original
+  alpha as the cut-out, 37 frames at 24 fps in a 7×6 sheet `Art/Anim/Portal/portal_loop.png`.
+
+Recording: `AnimPilotShowcaseTests` (**Explicit**, PlayMode, needs graphics: `-testFilter AnimPilotShowcaseTests`) writes
+300 frames (10 s, 30 fps, 2400×720) and `stats.txt` into `$ROGUESTARS_SHOTS_DIR` (default `Screenshots/anim-pilot/`);
+`tools/anim/make_media.py <frames> <out>` labels them and writes one MP4 + GIF per technique and a combined one (ffmpeg).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.

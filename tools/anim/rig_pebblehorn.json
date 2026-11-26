@@ -1,0 +1,124 @@
+{
+ "id": "alien_pebblehorn",
+ "src": "client/RogueStars/Assets/Art/Resources/Art/Aliens/alien_pebblehorn.png",
+ "fill": "~/AI/anim-pilot/rig/pebblehorn_noarms.png",
+ "review": "~/AI/anim-pilot/rig/pebblehorn_parts.png",
+ "origin": [
+  225,
+  440
+ ],
+ "drop": [
+  25,
+  26
+ ],
+ "outline": 12,
+ "parts": [
+  {
+   "name": "legL",
+   "regions": [
+    19,
+    22,
+    23
+   ],
+   "pivot": [
+    150,
+    340
+   ],
+   "order": 0
+  },
+  {
+   "name": "legR",
+   "regions": [
+    21,
+    24
+   ],
+   "pivot": [
+    300,
+    365
+   ],
+   "order": 1
+  },
+  {
+   "name": "body",
+   "pivot": [
+    222,
+    335
+   ],
+   "order": 3,
+   "flat_fill": [
+    26,
+    24,
+    30
+   ],
+   "flat_fill_under": [
+    "eye"
+   ]
+  },
+  {
+   "name": "ear",
+   "regions": [
+    4
+   ],
+   "pivot": [
+    78,
+    178
+   ],
+   "parent": "body",
+   "order": 2
+  },
+  {
+   "name": "horn",
+   "regions": [
+    2,
+    3
+   ],
+   "pivot": [
+    345,
+    150
+   ],
+   "parent": "body",
+   "order": 4
+  },
+  {
+   "name": "eye",
+   "regions": [
+    5,
+    8
+   ],
+   "pivot": [
+    205,
+    190
+   ],
+   "parent": "body",
+   "order": 5
+  },
+  {
+   "name": "armB",
+   "regions": [
+    13,
+    7
+   ],
+   "pivot": [
+    345,
+    262
+   ],
+   "parent": "body",
+   "order": 6,
+   "hide_fill": true
+  },
+  {
+   "name": "armF",
+   "regions": [
+    16,
+    18
+   ],
+   "pivot": [
+    243,
+    300
+   ],
+   "parent": "body",
+   "order": 7,
+   "hide_fill": true
+  }
+ ]
+}

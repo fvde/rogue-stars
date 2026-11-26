@@ -1,0 +1,47 @@
+{
+ "id": "alien_blorp",
+ "originX": 240,
+ "originY": 462,
+ "parts": [
+  {
+   "name": "legL",
+   "role": "legL",
+   "parent": "",
+   "cx": 165.0,
+   "cy": 434.5,
+   "px": 162,
+   "py": 418,
+   "order": 0
+  },
+  {
+   "name": "legR",
+   "role": "legR",
+   "parent": "",
+   "cx": 307.5,
+   "cy": 433.0,
+   "px": 308,
+   "py": 418,
+   "order": 1
+  },
+  {
+   "name": "body",
+   "role": "body",
+   "parent": "",
+   "cx": 256.5,
+   "cy": 236.0,
+   "px": 255,
+   "py": 422,
+   "order": 2
+  },
+  {
+   "name": "eye",
+   "role": "eye",
+   "parent": "body",
+   "cx": 216.5,
+   "cy": 211.5,
+   "px": 216,
+   "py": 211,
+   "order": 3
+  }
+ ]
+}

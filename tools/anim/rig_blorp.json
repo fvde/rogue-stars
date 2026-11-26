@@ -1,0 +1,64 @@
+{
+ "id": "alien_blorp",
+ "src": "client/RogueStars/Assets/Art/Resources/Art/Aliens/alien_blorp.png",
+ "review": "~/AI/anim-pilot/rig/blorp_parts.png",
+ "origin": [
+  240,
+  462
+ ],
+ "drop": [],
+ "outline": 14,
+ "parts": [
+  {
+   "name": "legL",
+   "regions": [
+    5
+   ],
+   "pivot": [
+    162,
+    418
+   ],
+   "outline_below": 424,
+   "order": 0,
+   "extend_up": 24
+  },
+  {
+   "name": "legR",
+   "regions": [
+    4
+   ],
+   "pivot": [
+    308,
+    418
+   ],
+   "outline_below": 424,
+   "order": 1,
+   "extend_up": 24
+  },
+  {
+   "name": "body",
+   "pivot": [
+    255,
+    422
+   ],
+   "order": 2,
+   "diffuse_under": [
+    "eye"
+   ]
+  },
+  {
+   "name": "eye",
+   "circle": [
+    216,
+    211,
+    66
+   ],
+   "pivot": [
+    216,
+    211
+   ],
+   "parent": "body",
+   "order": 3
+  }
+ ]
+}
