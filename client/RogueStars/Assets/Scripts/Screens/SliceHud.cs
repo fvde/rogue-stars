@@ -95,6 +95,9 @@ namespace RogueStars.Client.Screens
     {
         public RectTransform Root;
         public Button Cog;
+        /// <summary>The pause cog: reference size, a cool grey tint (the art is grey on a dark strip) and the dark hub disc over the art's white hole.</summary>
+        public const float CogSize = 84, CogHubFraction = 0.46f;
+        public static readonly Color CogTint = new Color32(0xD2, 0xD8, 0xEA, 255);
         public Image XpFill, HpFill;
         public Text Level, HpText, Atk, Def, Coins, Skills;
         public RectTransform CoinsChip, AtkPill, DefPill;
@@ -165,9 +168,23 @@ namespace RogueStars.Client.Screens
             // cog (pause)
             var cog = Ui.Button(root, "", onCog, new Color(0, 0, 0, 0), 70 * s, 70 * s, true, 20);
             cog.name = "PauseButton";
-            SliceKit.Place((RectTransform)cog.transform, s, 1022, 204, 72, 72);
+            SliceKit.Place((RectTransform)cog.transform, s, 1022, 204, CogSize, CogSize);
             var face = cog.transform.Find("Face");
-            if (face != null) { var fi = face.GetComponent<Image>(); if (fi != null) { fi.sprite = HudArt.Icon("cog"); fi.type = Image.Type.Simple; fi.color = Color.white; fi.preserveAspect = true; } }
+            if (face != null)
+            {
+                var fi = face.GetComponent<Image>();
+                if (fi != null)
+                {
+                    fi.sprite = HudArt.Icon("cog"); fi.type = Image.Type.Simple; fi.color = CogTint; fi.preserveAspect = true;
+                    // the imported cog has an opaque white hole that read as a white blob at HUD size: a dark hub disc over it
+                    var hub = Ui.Panel(face, SliceKit.PillDark, "CogHub");
+                    hub.sprite = UiShapes.Circle; hub.raycastTarget = false;
+                    var hr = hub.rectTransform;
+                    hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0.495f);
+                    hr.sizeDelta = new Vector2(CogSize * s * CogHubFraction, CogSize * s * CogHubFraction);
+                    hr.anchoredPosition = Vector2.zero;
+                }
+            }
             foreach (Transform c in cog.transform) if (c.name != "Face") c.gameObject.SetActive(false);
             h.Cog = cog;
 

@@ -184,9 +184,9 @@ namespace RogueStars.Client.Screens
                 var e = entry;
                 right.Add(y =>
                 {
-                    // the pass's tier goes into its label (H5: a chip over the icon hid the star)
-                    string label = e.Id == "pass" ? e.Label + " · T" + ShopSystem.SeasonLevel(State, Content) : e.Label;
-                    SideIcon(995, y, e.Id, label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
+                    SideIcon(995, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
+                    // the pass shows its tier as a small "Lv n" chip under the icon (was a cryptic "T0" in the label)
+                    if (e.Id == "pass") timer.text = "Lv " + ShopSystem.SeasonLevel(State, Content);
                     if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); badge.text = unread > 0 ? unread.ToString() : ""; }
                     else if (e.Id == "offer") Live(timer, OfferTimer);
                 });

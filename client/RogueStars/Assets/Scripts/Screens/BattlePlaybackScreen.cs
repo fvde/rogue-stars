@@ -16,7 +16,7 @@ namespace RogueStars.Client.Screens
     /// right. Each entry drives code tweens (no packages): the attacker lunges toward its target, the target flashes and
     /// shakes, floating damage numbers rise (crits bigger with "CRIT"), dodge / heal / shield / status / resist / stun
     /// popups, HP bars tween down, status chips (BURN 2), knocked-out fighters fade, a turn-order strip shows who acts
-    /// next. Speed ×1/×2, ×3 with the monthly pass (marked PASS otherwise). Sidekicks (aliens, drones) stand along the left edge,
+    /// next. One speed button cycling ×0.5/×1/×2, ×3 with the monthly pass (skipped otherwise). Sidekicks (aliens, drones) stand along the left edge,
     /// are never hit and act on their own turns: a hop and flash, their ability's name floating up, then its effect; a blocking
     /// sidekick raises a guard on the worm (shield chip with the count) and dashes in front of it when it intercepts a hit.
     /// Bar values come straight from the log entries (TargetHp/Shield/Rage, ActorShield/Rage). <see cref="PlayAll"/> /
@@ -48,10 +48,12 @@ namespace RogueStars.Client.Screens
             public long GuardPct;
             /// <summary>Damage numbers / words floating over this fighter right now (they stack upwards).</summary>
             public int LivePopups;
+            /// <summary>The worm's art faces left: it is mirrored while it looks right (<see cref="WormFacing"/>).</summary>
+            public bool MirrorsWorm, Flip;
             public bool Sidekick => Info.Side == BattleSide.Player && (Info.Role == CombatRole.Alien || Info.Role == CombatRole.Summon);
         }
 
-        private static int _speed = 1;
+        private static float _speed = PlaySpeed.Default;
 
         private readonly BattleResult _battle;
         private readonly List<FighterView> _views = new List<FighterView>();
@@ -75,7 +77,7 @@ namespace RogueStars.Client.Screens
         private bool _built;
         private RectTransform _feed;
         private readonly Queue<GameObject> _feedLines = new Queue<GameObject>();
-        private readonly List<Button> _speedButtons = new List<Button>();
+        private Text _speedText;
         private FighterView _hero;
         private UiBar _heroRage;
         private Text _heroRageText;
@@ -130,22 +132,24 @@ namespace RogueStars.Client.Screens
         /// <summary>The top strip as text (tests).</summary>
         public string HudText => _hud?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
-        public int Speed => _speed;
+        public float Speed => _speed;
+        /// <summary>The speed button's label (tests).</summary>
+        public string SpeedLabel => _speedText != null ? _speedText.text : null;
+        /// <summary>One tap on the speed button: the next speed (×0.5 → ×1 → ×2 → ×3 with the pass → ×0.5).</summary>
+        public void CycleSpeed()
+        {
+            _speed = PlaySpeed.Next(_speed, ShopSystem.HasBattleSpeed3(State, Content, Now));
+            if (_speedText != null) _speedText.text = PlaySpeed.Label(_speed);
+        }
         public float StepSeconds => 0.55f / _speed / Mathf.Max(0.01f, TimeScale);
         /// <summary>Animation time for one beat of an entry (lunge, hit, bar) at the current speed.</summary>
-        private float Beat => Instant ? 0 : Mathf.Min(0.42f, StepSeconds * 0.8f);
-
-        private void RecolorSpeed()
-        {
-            for (int i = 0; i < _speedButtons.Count; i++) Ui.SetButtonColor(_speedButtons[i], _speed == i + 1 ? Theme.Accent : Theme.Track);
-        }
+        private float Beat => Instant ? 0 : Mathf.Min(0.42f / Mathf.Min(1f, _speed), StepSeconds * 0.8f); // the cap grows at ×0.5 so a beat still fills its step
 
         // ---- build -------------------------------------------------------------------------------
 
         protected override void Build(RectTransform body)
         {
             if (_built) { _next = 0; _views.Clear(); _feedLines.Clear(); SkillFires.Clear(); _fireCounts.Clear(); _heroBuffs.Clear(); _roundNow = 0; }
-            _speedButtons.Clear();
             _built = true;
             if (_battle == null) { Note(body, "No battle to show."); return; }
             var bl = body.GetComponent<VerticalLayoutGroup>();
@@ -249,29 +253,10 @@ namespace RogueStars.Client.Screens
             SliceKit.Place(_banner.rectTransform, s, 540, 860, 1000, 180);
             _banner.gameObject.SetActive(false);
 
-            // bottom row: speed chips, Continue (at the end), battle log
+            // bottom row: the speed button, Continue (at the end), battle log
             bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
-            // one dark speed pill bottom-left (the board's speed chip look): the ">>" icon, then the x1 / x2 / x3 segments
-            var speedPill = SliceKit.Pill(holder, s, 212, SpeedPillY, 404, 104, new Color32(0x3A, 0x2E, 0x58, 245), "SpeedPill", true);
-            var spIcon = Ui.Panel(speedPill.transform, Color.white, "SpeedIcon");
-            spIcon.sprite = HudArt.Icon("speed");
-            spIcon.preserveAspect = true;
-            spIcon.raycastTarget = false;
-            spIcon.rectTransform.anchorMin = spIcon.rectTransform.anchorMax = new Vector2(0.13f, 0.5f);
-            spIcon.rectTransform.sizeDelta = new Vector2(58 * s, 58 * s);
-            spIcon.rectTransform.anchoredPosition = Vector2.zero;
-            for (int sp = 1; sp <= 3; sp++)
-            {
-                int v = sp;
-                bool allowed = sp < 3 || x3;
-                var b = Ui.Button(holder, "", () => { _speed = v; RecolorSpeed(); }, _speed == sp ? Theme.Accent : (Color)new Color32(0x3A, 0x2E, 0x58, 245), 78 * s, 74 * s, allowed, 20);
-                b.name = "Speed" + sp;
-                SliceKit.Place((RectTransform)b.transform, s, 118 + sp * 82, 2290, 78, 74, true);
-                UiShapes.Outline((RectTransform)b.transform, SliceKit.PillEdge, 20 * s, 3);
-                var t = SliceKit.Chunky(b.transform, "x" + sp + (allowed ? "" : "\n<size=" + (int)(14 * s) + ">PASS</size>"), (int)(34 * s), Color.white, TextAnchor.MiddleCenter, "SpeedText");
-                Ui.Stretch(t.rectTransform);
-                _speedButtons.Add(b);
-            }
+            _speed = PlaySpeed.Valid(_speed, x3);
+            _speedText = PlaySpeed.BuildChip(holder, s, 142, SpeedPillY, 214, 104, CycleSpeed, _speed);
             _endPanel = Ui.Rect(holder, "EndPanel");
             SliceKit.Place(_endPanel, s, 640, 2290, 340, 104, true);
             var cont = Ui.Button(_endPanel, "Continue", Close, Theme.Accent, 340 * s, 104 * s, true, (int)(50 * s));
@@ -288,8 +273,6 @@ namespace RogueStars.Client.Screens
             Ui.Caption(_feed, "Battle log", Theme.Gold);
             _feed.gameObject.SetActive(false);
             logButton.onClick.AddListener(() => { _feed.gameObject.SetActive(!_feed.gameObject.activeSelf); _feed.SetAsLastSibling(); });
-            if (_speed == 3 && !x3) _speed = 2;
-            RecolorSpeed();
             SkillGrid(holder, s, arenaRefH);
             foreach (var v in _views) Refresh(v, Content.Combat.RageMax, false);
             RefreshHero();
@@ -620,6 +603,9 @@ namespace RogueStars.Client.Screens
             if (hero == null && f.Role != CombatRole.Mount) UiShapes.Outline(srt, f.Role == CombatRole.Worm ? Theme.WormLight : color, radius, 6);
             v.Sprite = srt;
             v.SpriteImage = body;
+            // the worm's art faces left but the enemies stand on the right: it starts turned to them and follows its target (Face)
+            v.MirrorsWorm = f.Role == CombatRole.Worm && hero != null;
+            if (v.MirrorsWorm) SetFlip(v, WormFacing.Flip(StagePosition(BattleSide.Player, 0, 1).x, StagePosition(BattleSide.Enemy, 0, 1).x, false));
             v.SpriteColor = body.color;
             v.FlashColor = hero != null ? new Color(1f, 0.45f, 0.42f) : Color.white; // a sprite cannot get whiter: it flashes red
             if (f.Role != CombatRole.Worm && f.Role != CombatRole.Mount && hero == null)
@@ -803,6 +789,7 @@ namespace RogueStars.Client.Screens
             var target = View(e.Target) ?? actor;
             double rageMax = Content.Combat.RageMax;
             bool attack = IsAttack(e.Action);
+            if (attack && actor != null && target != null && target != actor) Face(actor, target);
             if (animate && attack && actor != null && target != null && target != actor) Lunge(actor, target, e.Action == BattleAction.Rage);
             switch (e.Action)
             {
@@ -975,6 +962,22 @@ namespace RogueStars.Client.Screens
         }
 
         // ---- animations (play mode; complete at once in EditMode / Instant) -------------------------------
+
+        /// <summary>The worm's mirror state (tests): true = turned right, towards the enemies.</summary>
+        public bool WormFlipped => _hero != null && _hero.Flip;
+
+        private static void SetFlip(FighterView v, bool flip)
+        {
+            v.Flip = flip;
+            if (v.Sprite != null) v.Sprite.localScale = new Vector3(WormFacing.ScaleX(flip), 1, 1); // about the sprite's own pivot: ground contact stays
+        }
+
+        /// <summary>The worm turns to its target (left or right of it on the stage); the mount seated under it turns with it.</summary>
+        private static void Face(FighterView actor, FighterView target)
+        {
+            if (!actor.MirrorsWorm || target == null) return;
+            SetFlip(actor, WormFacing.Flip(actor.Root.anchoredPosition.x, target.Root.anchoredPosition.x, actor.Flip));
+        }
 
         private void Lunge(FighterView actor, FighterView target, bool rage)
         {

@@ -167,23 +167,31 @@ namespace RogueStars.Client.App
 
         public void Update(float dt)
         {
-            Feedback.Tick(dt);
-            Session.Tick(dt);
-            Router.Current?.Frame(dt);
+            // The HUD clock (regen timers, the periodic state refresh) must never depend on a screen behaving: a screen that
+            // throws in Frame/Tick used to abort this method before Bar.Tick and the refresh, freezing stamina at 0 for good.
+            Guard(() => Feedback.Tick(dt));
+            Guard(() => Session.Tick(dt));
+            Guard(() => Router.Current?.Frame(dt));
             _tick += dt;
             if (_tick >= 0.5f)
             {
                 _tick = 0;
-                Router.Tick();
-                Bar.Tick();
+                Guard(() => Router.Tick());
+                Guard(() => Bar.Tick());
             }
             _sinceRefresh += dt;
             float interval = Session.IsOnline ? 30f : 5f;
             if (_sinceRefresh >= interval && Session.IsReady && Session.InFlight == 0)
             {
                 _sinceRefresh = 0;
-                Session.Service.Refresh(_ => { });
+                Guard(() => Session.Service.Refresh(_ => { })); // its change event rebuilds the current screen: a throwing screen must not escape
             }
+        }
+
+        private static void Guard(Action step)
+        {
+            try { step(); }
+            catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
         }
 
         /// <summary>Navigate to a catalog screen by id.</summary>

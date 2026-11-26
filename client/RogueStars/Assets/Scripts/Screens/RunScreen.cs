@@ -86,8 +86,8 @@ namespace RogueStars.Client.Screens
         public static bool InstantOutcomes;
         /// <summary>Duration of the spinning chance indicator.</summary>
         public const float ChanceSpinSeconds = 1.3f;
-        /// <summary>Board animation speed (the speed chip: ×1, ×2, ×3 for dice, hops and landings).</summary>
-        public static int BoardSpeed = 1;
+        /// <summary>Board animation speed (the speed chip: ×0.5, ×1, ×2, ×3 for dice, hops and landings).</summary>
+        public static float BoardSpeed = PlaySpeed.Default;
         /// <summary>Hop arc height in world units.</summary>
         public const float HopArc = 0.55f;
         /// <summary>The worm's visual middle above its feet (world units): what the follow camera frames.</summary>
@@ -186,7 +186,7 @@ namespace RogueStars.Client.Screens
         public bool AutoPaused => _auto && State.Run.Active != null && WaitsForPlayer(State.Run.Active);
         public bool Animating => _anim != null && _anim.Busy;
         /// <summary>The board animations' speed now (the speed chip; 4 while a tap fast-forwards).</summary>
-        private float AnimSpeed => _anim != null ? Mathf.Max(1, _anim.Speed) : Mathf.Max(1, BoardSpeed);
+        private float AnimSpeed => _anim != null ? Mathf.Max(0.25f, _anim.Speed) : Mathf.Max(0.25f, BoardSpeed);
         /// <summary>The world board (tests, captures).</summary>
         public WorldBoard World => _world;
 
@@ -380,7 +380,7 @@ namespace RogueStars.Client.Screens
 
             _anim = UiSequence.On(Root.gameObject);
             _anim.Clear();
-            _anim.Speed = Mathf.Max(1, BoardSpeed);
+            _anim.Speed = Mathf.Max(0.25f, BoardSpeed);
             bool moving = path.Count > 1 && _world?.Token != null;
             if (moving) LastPopups.Clear();
             if (moving || rolled) ReturnCamera(); // a roll / a new move: the view eases back to the worm
@@ -396,6 +396,7 @@ namespace RogueStars.Client.Screens
                     var to = WorldBoard.TopOf(toTile);
                     Vector2 cFrom = WorldBoard.CellOf(fromTile), cTo = WorldBoard.CellOf(toTile);
                     bool last = i == path.Count - 1;
+                    _anim.Call(() => _world?.FaceToken(from.x, to.x)); // the worm looks where it is going
                     _anim.Then(hop, t =>
                     {
                         // board-game hop: eased step, arc, squash at take-off and landing, stretched in the air
@@ -1030,21 +1031,8 @@ namespace RogueStars.Client.Screens
             hold.OnHold = HoldDice; // Auto Roll unlocks with a level (GDD §16); before it a hold says when
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
 
-            // speed chip (×1 / ×2 / ×3 board animations)
-            var speed = Ui.Button(root, "", CycleSpeed, new Color32(0x3A, 0x2E, 0x58, 245), 210 * s, 110 * s, true, 20);
-            speed.name = "SpeedChip";
-            SliceKit.Place((RectTransform)speed.transform, s, 142, 2284, 214, 112, true);
-            UiShapes.Outline((RectTransform)speed.transform, SliceKit.PillEdge, 28 * s, 5);
-            var sIcon = Ui.Panel(speed.transform, Color.white, "SpeedIcon");
-            sIcon.sprite = HudArt.Icon("speed");
-            sIcon.preserveAspect = true;
-            sIcon.raycastTarget = false;
-            sIcon.rectTransform.anchorMin = sIcon.rectTransform.anchorMax = new Vector2(0.3f, 0.5f);
-            sIcon.rectTransform.sizeDelta = new Vector2(64 * s, 64 * s);
-            sIcon.rectTransform.anchoredPosition = Vector2.zero;
-            var sText = SliceKit.Chunky(speed.transform, "x" + Mathf.Max(1, BoardSpeed), (int)(48 * s), Color.white, TextAnchor.MiddleCenter, "SpeedText");
-            sText.rectTransform.anchorMin = sText.rectTransform.anchorMax = new Vector2(0.7f, 0.5f);
-            sText.rectTransform.sizeDelta = new Vector2(100 * s, 60 * s);
+            // speed chip (board animations ×0.5 / ×1 / ×2 / ×3, one button cycling through them)
+            PlaySpeed.BuildChip(root, s, 142, 2284, 214, 112, CycleSpeed, BoardSpeed);
 
             // the skills book (count badge) bottom-right
             var book = Ui.Button(root, "", () => SkillsModal(run), new Color(0, 0, 0, 0), 150 * s, 160 * s, true, 20);
@@ -1081,10 +1069,10 @@ namespace RogueStars.Client.Screens
             foreach (var go in _boardBook) if (go != null && go.activeSelf == covered) go.SetActive(!covered);
         }
 
-        /// <summary>The speed chip: board animations ×1 → ×2 → ×3 → ×1.</summary>
+        /// <summary>The speed chip: board animations ×0.5 → ×1 → ×2 → ×3 → ×0.5.</summary>
         public void CycleSpeed()
         {
-            BoardSpeed = BoardSpeed >= 3 ? 1 : BoardSpeed + 1;
+            BoardSpeed = PlaySpeed.Next(BoardSpeed, true);
             if (_anim != null) _anim.Speed = BoardSpeed;
             Rebuild();
         }

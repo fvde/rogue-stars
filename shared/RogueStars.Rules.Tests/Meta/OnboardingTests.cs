@@ -21,8 +21,8 @@ public class OnboardingTests
     /// </summary>
     public static readonly (string id, int level)[] Schedule =
     {
-        (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
-        (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.Quests, 8), (Features.RunCampfire, 9),
+        (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.Quests, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
+        (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9),
         (Features.RunSignatures, 11), (Features.Shop, 12), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
         (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
         (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
@@ -45,8 +45,8 @@ public class OnboardingTests
 
     /// <summary>The unlock moments in schedule order: each group's ids (the Aliens moment = Aliens + Launch Pod).</summary>
     private static List<(string[] ids, int level)> Moments() =>
-        Schedule.Where(x => !Grouped.ContainsKey(x.id))
-            .Select(x => (Schedule.Where(y => y.id == x.id || Grouped.TryGetValue(y.id, out var g) && g == x.id).Select(y => y.id).ToArray(), x.level)).ToList();
+        Schedule.Where(x => !Grouped.ContainsKey(x.id)).Select(x => x.level).Distinct()
+            .Select(level => (Schedule.Where(y => y.level == level).Select(y => y.id).ToArray(), level)).ToList();
 
     private static List<FeatureDef> LevelFeatures(ContentDb c) => c.FeatureOrder.Where(f => Features.UnlockLevel(f) > 0).ToList();
 
@@ -81,6 +81,19 @@ public class OnboardingTests
     }
 
     [Fact]
+    public void DailyGoals_UnlockAtLevel3_WithTheWorm_NotLater()
+    {
+        var e = Engine(); var s = Player(e);
+        Assert.Equal(3, Features.UnlockLevel(e.Content.Feature(Features.Quests)!));
+        s.Counters[Requirements.MainLevelCounter] = 2;
+        Assert.DoesNotContain(Features.Quests, Tick(e, ref s, TestHelpers.T0));
+        Assert.False(Features.IsUnlocked(s, e.Content, Features.Quests));
+        s.Counters[Requirements.MainLevelCounter] = 3;
+        Assert.Contains(Features.Quests, Tick(e, ref s, TestHelpers.T0 + D));
+        Assert.True(Features.IsUnlocked(s, e.Content, Features.Quests));
+    }
+
+    [Fact]
     public void Schedule_IsSpacedOut_OnePerLevelEarly_WiderLater()
     {
         var levels = LevelFeatures(ContentDb.Default).Where(f => f.GroupId == f.Id).Select(f => (int)Features.UnlockLevel(f)).ToList();
@@ -88,7 +101,8 @@ public class OnboardingTests
         for (int i = 1; i < levels.Count; i++)
         {
             int gap = levels[i] - levels[i - 1];
-            Assert.True(gap >= 1, "two features at level " + levels[i]);
+            // Level 3 brings two moments (owner, 2026-11-26: Daily Goals unlock with the worm level, was level 8); every other level one.
+            Assert.True(gap >= 1 || levels[i] == 3, "two features at level " + levels[i]);
             // Was one per level to 20 / two to 50: the Signals now come with Parts / Aliens / the City and the buildings with their
             // blueprints (owner, 2026-11-25), which leaves level gaps up to 6 (Heroes 18 → Ice package 24).
             int max = levels[i] <= 24 ? 6 : 4;

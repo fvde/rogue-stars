@@ -116,3 +116,40 @@ public class EconomyTests
         Assert.Equal(2, s.Counter("stamina_refills"));
     }
 }
+
+public class StaminaAtZeroTests
+{
+    private const long Tick = 6 * 60_000;
+
+    [Fact]
+    public void StaminaAtZero_RegeneratesOnePerInterval()
+    {
+        var e = ProgressionKit.Engine(); var s = TestHelpers.NewLockedPlayer(e);
+        long t = TestHelpers.T0 + 3_600_000;
+        e.Settle(s, t);
+        Assert.True(s.Wallet.TrySpend(Currencies.Stamina, s.Wallet.Get(Currencies.Stamina)));
+        Assert.Equal(0, s.Wallet.Get(Currencies.Stamina));
+        e.Settle(s, t + Tick - 1000);
+        Assert.Equal(0, s.Wallet.Get(Currencies.Stamina)); // not before the interval
+        e.Settle(s, t + Tick + 1000);
+        Assert.Equal(1, s.Wallet.Get(Currencies.Stamina));
+        e.Settle(s, t + 3 * Tick + 1000);
+        Assert.Equal(3, s.Wallet.Get(Currencies.Stamina));
+    }
+
+    [Fact]
+    public void StaminaAtZero_WithALastTickAheadOfTheClock_DoesNotFreeze()
+    {
+        // A save or jump made on a later clock (or a clock moved back) left the last tick in the future: regen used to wait
+        // for the clock to catch up (elapsed < 0), so the counter sat at 0.
+        var e = ProgressionKit.Engine(); var s = TestHelpers.NewLockedPlayer(e);
+        long t = TestHelpers.T0;
+        e.Settle(s, t);
+        s.Wallet.Balances[Currencies.Stamina] = 0;
+        s.Wallet.Regen[Currencies.Stamina].LastTickMs = t + 5 * 3_600_000;
+        e.Settle(s, t); // the clock is behind: the tick restarts from now
+        Assert.Equal(t, s.Wallet.Regen[Currencies.Stamina].LastTickMs);
+        e.Settle(s, t + 2 * Tick + 1000);
+        Assert.Equal(2, s.Wallet.Get(Currencies.Stamina));
+    }
+}
