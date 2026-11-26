@@ -24,7 +24,7 @@ for f in args:
     box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
     if max(box[2] - box[0], box[3] - box[1]) >= fill - 12:
         continue  # the solid art already fills the canvas
-    orig = f[:-4] + ".orig.png"
+    orig = f.replace(os.path.expanduser("~/AI/assets/"), os.path.expanduser("~/AI/assets-backup/"))[:-4] + ".orig.png"; os.makedirs(os.path.dirname(orig), exist_ok=True)
     if not os.path.exists(orig):
         shutil.copy(f, orig)
     a[~solid, 3] = 0
