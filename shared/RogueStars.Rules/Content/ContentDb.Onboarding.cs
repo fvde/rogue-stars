@@ -242,7 +242,7 @@ namespace RogueStars.Rules.Content
             squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
-            R(Features.RunSignatures, "Signature Choice", Campaign.SignatureChoiceFromLevel - 1, "Pick your run's signature skill from three.");
+            R(Features.RunSignatures, "Signature Awakening", Campaign.SignatureChoiceFromLevel - 1, "Collect skills of your signature's synergy to awaken it.");
             F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
             // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
@@ -358,9 +358,9 @@ namespace RogueStars.Rules.Content
                 "Campfires now burn on the board.", "campfire", Pulse,
                 "Rest to heal, or train a skill.", "campfire_choice", Tap);
             I(Features.RunSignatures,
-                "Every run has a signature skill.", "signature", Pulse,
-                "Now you pick it: one of three.", "signature_pick", Tap,
-                "Collect skills of its kind to awaken it.", "signature_awake", Fill);
+                "Every run starts with a signature: one of three.", "signature_pick", Tap,
+                "Collect skills of its kind to awaken it.", "signature_awake", Fill,
+                "Awake, its effect grows.", "signature", Pulse);
             I(Features.Shop,
                 "The Shop has offers and Diamond packs.", "shop", Bounce,
                 "A free gift waits there every day.", "gift", Tap);

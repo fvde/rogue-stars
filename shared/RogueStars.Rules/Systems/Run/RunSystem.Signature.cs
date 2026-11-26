@@ -7,8 +7,8 @@ namespace RogueStars.Rules.Systems
 {
     /// <summary>
     /// Signature skills (owner design, signatures pass). Every run starts with one signature, picked from
-    /// RunTuning.SignatureChoices random signatures of the synergies the player has unlocked (starters + Laboratory packages;
-    /// with exactly three unlocked all three are offered). The offer is a pure function of the player id, the run counter and
+    /// RunTuning.SignatureChoices distinct random signatures of the synergies the player has unlocked (starters + Laboratory
+    /// packages; with exactly three unlocked all three are offered), from the first run on (playtest 0.1.325). The offer is a pure function of the player id, the run counter and
     /// the unlocked synergies, so the client shows exactly what the server validates; RunStart.SignatureId picks one, an empty
     /// id (auto mode, bots, old clients) takes the first. The signature awakens as the build commits: level 2 at 3 owned skills of
     /// its synergy, level 3 at 6 (RunTuning.SignatureAwakenAt; the signature itself not counted). Its one effect only grows
@@ -30,8 +30,8 @@ namespace RogueStars.Rules.Systems
             }
             var rng = new Rng(0x5167UL ^ state.Run.SignatureSeed).Fork("signature:" + state.Run.RunsStarted);
             rng.Shuffle(pool);
-            // Before the Signature Choice unlock (GDD §16) the run gets the first one: a single offer, no pick screen.
-            int choices = Features.IsUnlocked(state, content, Features.RunSignatures) ? content.RunTuning.SignatureChoices : 1;
+            // Every run starts with the pick (playtest 0.1.325: from the first run on, never a random signature).
+            int choices = content.RunTuning.SignatureChoices;
             if (pool.Count > choices) pool.RemoveRange(choices, pool.Count - choices);
             return pool;
         }

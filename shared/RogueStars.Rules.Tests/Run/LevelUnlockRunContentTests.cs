@@ -82,7 +82,7 @@ public class LevelUnlockRunContentTests
             Assert.Empty(s.Parts.Equipped);
             var r = e.Execute(ref s, new RunStart { PortalId = l1.PortalId, LevelId = l1.Id, Mode = RunMode.Normal }, TestHelpers.T0);
             Assert.True(r.Ok, r.Error);
-            Assert.Single(RunSystem.Signatures(s.Run.Active)); // the first offered signature, no pick screen yet
+            Assert.Single(RunSystem.Signatures(s.Run.Active)); // the first of the three offered (no SignatureId: the auto pick)
             for (int i = 0; i < 500 && s.Run.Active != null; i++)
             {
                 var step = e.Execute(ref s, new RunAutoStep { Farming = true, FarmShops = true }, TestHelpers.T0);
@@ -99,16 +99,24 @@ public class LevelUnlockRunContentTests
     }
 
     [Fact]
-    public void SignatureChoice_IsOneOffer_UntilItsUnlock_ThenThree()
+    public void SignatureChoice_IsThreeDistinctSignatures_FromTheFirstRun()
     {
-        var e = new GameEngine(C);
-        var s = e.NewPlayer("p", TestHelpers.T0, 3);
-        Assert.Single(RunSystem.SignatureOffer(e, s, TestHelpers.T0));
-        s.Onboarding.Unlocked[Features.RunSignatures] = TestHelpers.T0;
-        var three = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
-        Assert.Equal(C.RunTuning.SignatureChoices, three.Count);
-        s.Onboarding.Unlocked.Remove(Features.RunSignatures);
-        Assert.Equal(three[0], RunSystem.SignatureOffer(e, s, TestHelpers.T0)[0]); // the single offer is the first of the three
+        // playtest 0.1.325: every run starts with the pick, the tutorial run too (never a random signature)
+        for (int seed = 1; seed <= 20; seed++)
+        {
+            var e = new GameEngine(C);
+            var s = e.NewPlayer("p", TestHelpers.T0, seed);
+            Assert.False(Features.IsUnlocked(s, C, Features.RunSignatures));
+            var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
+            Assert.Equal(C.RunTuning.SignatureChoices, offer.Count);
+            Assert.Equal(offer.Count, offer.Distinct().Count());
+            Assert.All(offer, id => Assert.True(C.Skill(id)!.Signature));
+            Assert.Equal(offer, RunSystem.SignatureOffer(e, s, TestHelpers.T0)); // deterministic: what the client shows is what the server validates
+            var l1 = C.MainLevel(1)!;
+            var pick = offer[seed % offer.Count];
+            Assert.True(e.Execute(ref s, new RunStart { PortalId = l1.PortalId, LevelId = l1.Id, SignatureId = pick }, TestHelpers.T0).Ok);
+            Assert.Equal(new[] { pick }, RunSystem.Signatures(s.Run.Active));
+        }
     }
 
     [Fact]

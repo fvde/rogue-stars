@@ -574,7 +574,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
 | 9 | Campfires from level 10 (`run_campfire`) | Play |
 | 10 | Part Signal (`part_pulls`); the first pulls are on the house | Tune in |
-| 11 | Signature choice (1 of 3) from level 12 (`run_signatures`; before it the run gets the first offered signature) | Play |
+| 11 | Signature awakening explained (`run_signatures`, intro only: every run, the first one included, starts by picking 1 of 3 signatures; playtest 0.1.325) | Play |
 | 12 | Shop (`shop`) | Open the shop |
 | 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
 | 14 | Alien Arcade mini-games from level 15 (`run_minigames`) | Play |
