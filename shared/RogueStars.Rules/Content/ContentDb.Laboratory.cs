@@ -58,6 +58,14 @@ namespace RogueStars.Rules.Content
             LabStat("lab_atk_2", "Hyper Servos", Off, 4, StatId.Atk, true, 1, Any("res_bloodletting", "lab_crit_damage", "lab_combo"), false);
             LabStat("lab_boss_damage", "Titan Studies", Off, 5, StatId.BossDamage, false, 2,
                 new[] { new LabPrereq("lab_atk_2", 3), new LabPrereq("lab_elemental_mastery", 2) }, true);
+            // Mythic unlock (owner, 2026-11-26): a capstone beside Titan Studies. Shatter's battle-long stacks (owner: reset every
+            // battle, max 15) count the worm's hits and its aliens' hits on a frozen enemy; offered only with a Freeze source.
+            LabMythic("res_shatter", "Shatter", SkillFamily.Ice, Off, 5,
+                new[] { new LabPrereq("lab_atk_2", 3), new LabPrereq("res_frost_nova", 3) }, b =>
+                b.Needs("freeze").Desc("Every blow on the ice makes you stronger.")
+                 .Add(Tg(TriggerKind.OnHit, EffectKind.BuffStat, target: TargetKind.Self, @if: "has:Freeze", param: "stack:15", stat: new StatMod(StatId.Atk, 0, 10)))
+                 .Add(Tg(TriggerKind.OnSidekickHit, EffectKind.BuffStat, target: TargetKind.Self, @if: "has:Freeze", param: "stack:15", stat: new StatMod(StatId.Atk, 0, 10)))
+                 .Text("Each hit by you or an alien on a frozen enemy: +{b0}% ATK this battle (max 15 stacks)."));
 
             // ---- defense ----
             RunLab("res_second_wind", "Second Wind", true, SkillFamily.None, Rarity.Rare, Def, 1, null, false, (b, lv) =>
@@ -105,6 +113,14 @@ namespace RogueStars.Rules.Content
                  .Status(TriggerKind.OnRoundStart, 30 + 10 * lv, StatusId.Heat, 1, TargetKind.AllEnemies)
                  .Status(TriggerKind.OnRoundStart, 30 + 10 * lv, StatusId.Shock, 1, TargetKind.AllEnemies)
                  .Status(TriggerKind.OnRoundStart, 30 + 10 * lv, StatusId.Poison, 1 + lv / 2, TargetKind.AllEnemies));
+            // Mythic unlock (owner, 2026-11-26): a capstone beside Elemental Storm. Plague counts the stacks of each status the player
+            // side inflicts while the run owns it (ActiveRun.PlagueStacks, run-scoped); every 20 of one status give every enemy of
+            // the run's later battles one opening stack of it (RunSystem.PlagueOpening).
+            LabMythic("res_plague", "Plague", SkillFamily.None, Ele, 5,
+                new[] { new LabPrereq("lab_status_chance", 3), new LabPrereq("res_toxic_cloud", 3) }, b =>
+                b.Desc("Every affliction spreads to the next fight.")
+                 .Add(Tg(TriggerKind.Passive, EffectKind.Rule, 20, TargetKind.Self, param: "plague"))
+                 .Text("Every {v0} stacks of a status you inflict: later enemies of this run begin with 1 more stack of it."));
 
             // ---- command (squad, mount, loot) ----
             RunLab("res_pack_tactics", "Pack Tactics", false, SkillFamily.AlienSynergy, Rarity.Epic, Cmd, 1, Pkg("pkg_alien"), true, (b, lv) =>
@@ -162,6 +178,21 @@ namespace RogueStars.Rules.Content
                 def.Levels.Add(new LabLevelDef { SkillId = sid });
             }
             def.Description = Skills[baseId].Description;
+        }
+
+        /// <summary>
+        /// Mythic node (owner, 2026-11-26): one research level puts a Mythic (Laboratory source) into the run's Mythic choice pool
+        /// (RunDraft.IsMythicEligible via CombatLoadout.DraftPoolSkillIds); Mythics never level, so the node has one level, like a
+        /// package. Capstone placement: two prerequisites at level 3 (all).
+        /// </summary>
+        private void LabMythic(string researchId, string name, SkillFamily family, string branch, int tier, LabPrereq[] requires, Action<RunSkillBuilder> fill)
+        {
+            var def = NewLabNode(researchId, name, LabNodeKind.Skill, branch, tier, requires, true, false);
+            string sid = "lab_" + researchId.Substring(4);
+            var b = RunSkill(sid, name, family, Rarity.Mythic, SkillSource.Laboratory);
+            fill(b);
+            def.Levels.Add(new LabLevelDef { SkillId = sid });
+            def.Description = "Mythic: " + Skills[sid].Description;
         }
 
         /// <summary>Stat node: level n gives n × <paramref name="step"/> (percent or flat points) of one stat.</summary>

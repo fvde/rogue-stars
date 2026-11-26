@@ -118,10 +118,11 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
   miniboss lair is placed in each of the first two segments only (trunk tiles, never bypassed by a fork) and is a forced
   stop, so the worm always fights it and the player sees it coming (its crowned-skull marker, a "!" over it ahead). The
   awakening clock sends no minibosses any more (`RunTuning.MinibossAtMeter` empty; the old ambush step stays in the code
-  unused). A lair pays its fight's XP and coins. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
-  three generic, family gates waived for this choice; Mythics never level, so owned ones are not offered again). The pool
-  is every Mythic of the run's unlocked synergies (starters Fire / Radiation / Bleed + researched ones) and the generic
-  ones; owned synergies and signature synergies weigh more, but **every choice shows at least one Mythic outside the
+  unused). A lair pays its fight's XP and coins. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (three per synergy plus
+  generic ones, family gates waived for this choice; Mythics never level, so owned ones are not offered again). The pool
+  is every Mythic of the run's unlocked synergies (starters Fire / Radiation / Bleed + researched ones), the generic
+  ones (always open, no synergy: Overkill, Last Light, Catalyst, **Horrifying Presence**, **Beast**) and the Laboratory
+  Mythics the player has researched (**Plague**, **Shatter**; toggleable like lab skills); owned synergies and signature synergies weigh more, but **every choice shows at least one Mythic outside the
   signature synergies** (playtest 0.1.308: a focused build saw all-signature choices ~37% of the time).
 - **Skill tiers and levels** (owner decision, playtest): run skills have exactly **three fixed tiers — Common, Legendary,
   Mythic** — and never upgrade into another tier (the old upgrade chains are one skill each). A skill drafted, bought or
@@ -268,22 +269,34 @@ StatusChance, StatusResist, BossDamage, ElementDamage(per element), AlienPower, 
   tiers only: Common, Legendary, Mythic** (§3.3).
 - Level-up in a run → draft "choose 1 of 3" (rerolls from meta). A hidden legendary pity guarantees a
   Legendary after N level-ups without one. Run skills have prerequisites and family gating (no upgrade chains).
-- **Laboratory:** one branching tree of 36 nodes in four branches (offense, defense, elements, command). **Skill
+- **Laboratory:** one branching tree of 38 nodes in four branches (offense, defense, elements, command). **Skill
   nodes** unlock skills into the run draft pool and upgrade them (toggle on/off for the draft pool); **stat nodes**
   give permanent loadout bonuses of +1% to +10% per node (HP, ATK, DEF, crit chance/damage, combo, counter, dodge,
   damage reduction, shield power, rage gain, element damage, status chance, boss damage, alien power, mount power, loot
   luck). Both kinds are mixed in every branch, so the player chooses between raw stats and new skills; a node of row
-  n+1 needs any node of row n at level 2, capstones need two nodes (all). Five levels per node.
+  n+1 needs any node of row n at level 2, capstones need two nodes (all). Five levels per node, except the two **Mythic nodes** (owner, 2026-11-26), one level
+  each, capstones of row 5 (two nodes at level 3): **Plague** (elements; Catalyst Glands + Fallout Cloud) and **Shatter**
+  (offense; Hyper Servos + Frost Nova). Researching one puts its Mythic into the miniboss Mythic choice (see the Mythic
+  skill list at the end of this section).
   - **Cost:** research costs **Data** (no Biomass/Ore). Every research makes the next one longer: the k-th research
-    level takes h = 1.5 h × 1.0355^k nominal and costs 14·h^0.75 Data (`LabTuningDef`). The whole tree (187 levels
-    beyond the three default ones) is ≈ 28.7k nominal hours and ≈ 95k Data.
+    level takes h = 1.5 h × 1.0355^k nominal and costs 14·h^0.75 Data (`LabTuningDef`). The whole tree (189 levels
+    beyond the three default ones) is ≈ 30.8k nominal hours and ≈ 100k Data.
   - **Size:** with one slot, all three ad speed-ups per timer (×0.85³) and the daily free speed-up (30 min), the tree
-    takes ≈ 2 years (1.97); even with the strongest Laboratory building boon (+27%) and a Research Annex from day 1 a
-    year of perfect timing clears at most ≈ 27.5k of the 28.7k hours (checked by `Tree_CannotBeFinishedInYearOne_…`).
+    takes ≈ 2.1 years; even with the strongest Laboratory building boon (+27%) and a Research Annex from day 1 a
+    year of perfect timing clears at most ≈ 27.5k of the 30.8k hours (checked by `Tree_CannotBeFinishedInYearOne_…`).
   - **Research Annex** (Mythic blueprint): a second, concurrent research slot while two alien workers of 3★ or more
     staff it; research in the Annex takes twice as long.
   - **Data:** Dark Side clears (main source, grows with the Dark Side level), the Laboratory unlock grant and the arena shop
     (the point chests paid a trickle until 2026-11-26).
+- **Mythic skill list:** every run skill with its card text is generated into docs/design/run-skill-levels.md. The owner's
+  four Mythics of 2026-11-26:
+  - **Horrifying Presence** (generic, always open): every enemy is stunned in round 1.
+  - **Beast** (generic, always open): +30% counter, combo and crit chance.
+  - **Shatter** (Laboratory, Ice; offered once the run can freeze): each hit by the worm or an alien on a frozen enemy gives
+    +10% ATK for the rest of that battle, up to 15 stacks (+150%); no decay, reset at the next battle. (The older Ice Mythic
+    with the thaw-and-blast effect, `mythic_shatter`, is now called **Thaw Blast**.)
+  - **Plague** (Laboratory): for every 20 stacks of a status the player side inflicts while the run owns Plague, enemies of
+    every later battle of the run start with one more stack of that status (run-scoped count).
 
 ## 6. Worm progression (built for years)
 ### 6.1 Worm level

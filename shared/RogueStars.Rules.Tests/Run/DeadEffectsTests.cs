@@ -225,7 +225,7 @@ public class DeadEffectsTests
         foreach (var s in skills)
         {
             bool changed = false;
-            if (ActsInBattle(s))
+            if (ActsInBattle(s) && !SkillTuningTests.IsBoardSkill(s)) // Plague: a run-scoped carry, its own run tests
             {
                 battle++;
                 var ctx = s.Source is SkillSource.Mount or SkillSource.Hero ? KitContext(c, s.Id) : SkillTuningTests.Context(c, s);

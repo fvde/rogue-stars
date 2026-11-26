@@ -643,14 +643,14 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void Tree_Has36NodesInFourBranches_MixingStatsAndSkills_PlusSixPackages()
+    public void Tree_Has38NodesInFourBranches_MixingStatsAndSkills_PlusSixPackages()
     {
         var c = ContentDb.Default;
-        Assert.Equal(42, c.LabResearch.Count);
+        Assert.Equal(44, c.LabResearch.Count); // + the Mythic nodes Plague and Shatter (owner, 2026-11-26)
         var packages = c.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).ToList();
         Assert.Equal(6, packages.Count); // Time (skill redesign) after Alien
         Assert.All(packages, p => Assert.Equal("packages", p.Branch));
-        Assert.Equal(36, c.LabResearch.Values.Count(d => d.Branch != "packages"));
+        Assert.Equal(38, c.LabResearch.Values.Count(d => d.Branch != "packages"));
         foreach (var branch in new[] { "offense", "defense", "elements", "command" })
         {
             var nodes = c.LabResearch.Values.Where(d => d.Branch == branch).ToList();

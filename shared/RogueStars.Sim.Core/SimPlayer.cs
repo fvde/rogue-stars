@@ -359,6 +359,8 @@ namespace RogueStars.Sim
         /// <summary>Skills gained (new skills, any source), skill level-ups, picks by source, shop purchases by kind, minibosses beaten.</summary>
         public int SkillsGained, SkillLevels, DraftPicks, MythicPicks, ShopSkills, ShopPerks, ShopHeals, Minibosses;
         public long CoinsEarned, CoinsSpent;
+        /// <summary>Mythic choices: every skill id offered (one entry per offer) and the ones picked (run-length report's Mythic table).</summary>
+        public List<string> MythicOffered = new List<string>(), MythicTaken = new List<string>();
         public RunTimeTally Tally = new RunTimeTally();
         /// <summary>Skills and perks the run added to the build: every new skill or skill level, every stat perk bought.</summary>
         public int BuildGains => SkillsGained + SkillLevels + ShopPerks;

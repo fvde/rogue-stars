@@ -78,6 +78,33 @@ public static class RunLength
         sb.AppendLine(SidekickBreakdown(runs));
         sb.AppendLine();
         sb.AppendLine(KitBreakdown(runs));
+        sb.AppendLine();
+        sb.AppendLine(MythicBreakdown(runs));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Mythic choices (miniboss rewards): per Mythic how often a choice offered it, how often the bot picked it when offered,
+    /// and the win rate of the runs that picked it (all non-Burrow runs; the bot picks by RunDraft.PickScore).
+    /// </summary>
+    public static string MythicBreakdown(List<RunRecord> runs)
+    {
+        var sb = new StringBuilder();
+        var l = runs.Where(r => r.Mode != RunMode.Burrow).ToList();
+        int choices = l.Sum(r => r.Tally.MythicDrafts);
+        sb.AppendLine($"Mythic choices ({choices} choices in {l.Count} runs; picked % = picks / offers; won = runs that picked it):");
+        sb.AppendLine();
+        sb.AppendLine("| Mythic | offered | picked | picked % | won |");
+        sb.AppendLine("|---|---|---|---|---|");
+        var ids = l.SelectMany(r => r.MythicOffered).Concat(l.SelectMany(r => r.MythicTaken)).Distinct().ToList();
+        foreach (var id in ids.OrderByDescending(id => l.Sum(r => r.MythicTaken.Count(x => x == id))).ThenBy(id => id, StringComparer.Ordinal))
+        {
+            int offered = l.Sum(r => r.MythicOffered.Count(x => x == id));
+            int picked = l.Sum(r => r.MythicTaken.Count(x => x == id));
+            var with = l.Where(r => r.MythicTaken.Contains(id)).ToList();
+            sb.AppendLine($"| {id} | {offered} | {picked} | {(offered > 0 ? 100.0 * picked / offered : double.NaN):0}% | "
+                + $"{(with.Count > 0 ? 100.0 * with.Count(r => r.Won) / with.Count : double.NaN):0}% |");
+        }
         return sb.ToString();
     }
 

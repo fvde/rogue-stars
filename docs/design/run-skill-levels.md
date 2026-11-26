@@ -81,7 +81,9 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | Each run level up: +2% → +3% ATK and +2% → +3% HP for the rest of the run. |
 | Overclocked Core | `gen_overclocked` | Legendary | Run | 1 | +25% ATK. -15% max HP. |
 | | | | | 2 | +25% → +40% ATK. -15% max HP. |
+| Beast | `mythic_beast` | Mythic | Run | 1 | +30% counter chance. +30% combo chance. +30% crit chance. |
 | Catalyst | `mythic_catalyst` | Mythic | Run | 1 | Enemies with 3+ different statuses gain 1 stack of each whenever you hit them. |
+| Horrifying Presence | `mythic_horrifying_presence` | Mythic | Run | 1 | Every enemy is stunned in round 1. |
 | Last Light | `mythic_last_light` | Mythic | Run | 1 | Below 30% HP: every hit crits. You can't heal. |
 | Overkill | `mythic_overkill` | Mythic | Run | 1 | Damage beyond an enemy's HP carries over to the next enemy. |
 | Ember Strikes | `fire_ember` | Common | Run · Fire | 1 | On crit: 30% chance to apply Heat ×3. |
@@ -116,7 +118,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Permafrost | `ice_permafrost` | Legendary | Run · Ice | 1 | Chill no longer wears off on enemies with 5+ stacks. +25% ice damage. |
 | | | | | 2 | Chill no longer wears off on enemies with 5+ stacks. +25% → +40% ice damage. |
 | Cold Fusion | `mythic_cold_fusion` | Mythic | Run · Ice | 1 | Chill stops cooling Heat. Enemies with both Heat and Chill take +40% damage from you. |
-| Shatter | `mythic_shatter` | Mythic | Run · Ice | 1 | Hitting a frozen enemy shatters the ice: it thaws, and all other enemies take 150% ATK. |
+| Thaw Blast | `mythic_shatter` | Mythic | Run · Ice | 1 | Hitting a frozen enemy shatters the ice: it thaws, and all other enemies take 150% ATK. |
 | Winter's Grip | `mythic_winters_grip` | Mythic | Run · Ice | 1 | Chilled enemies can't crit, combo or counter. |
 | Conductor Coil | `light_conductor` | Common | Run · Lightning | 1 | +15% Arc damage. |
 | | | | | 2 | +15% → +25% Arc damage. |
@@ -284,6 +286,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | Each roll: 50% → 80% chance to roll 1 extra die next roll. |
 | Lucky Dice V | `lab_lucky_dice_5` | Legendary | Laboratory | 1 | Each roll: 60% chance to roll 1 extra die next roll. |
 | | | | | 2 | Each roll: 60% → 96% chance to roll 1 extra die next roll. |
+| Plague | `lab_plague` | Mythic | Laboratory | 1 | Every 20 stacks of a status you inflict: later enemies of this run begin with 1 more stack of it. |
 | Burning Soul | `lab_burning_soul` | Legendary | Laboratory · Fire | 1 | Battle start: apply Heat ×2 to all enemies. |
 | | | | | 2 | Battle start: apply Heat ×2 → ×3 to all enemies. |
 | Burning Soul II | `lab_burning_soul_2` | Legendary | Laboratory · Fire | 1 | Battle start: apply Heat ×3 to all enemies. |
@@ -304,6 +307,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 90% → 144% ATK to each. |
 | Frost Nova V | `lab_frost_nova_5` | Legendary | Laboratory · Ice | 1 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 100% ATK to each. |
 | | | | | 2 | If your rage attack crits, cast Frost Nova: Freeze all enemies and deal 100% → 160% ATK to each. |
+| Shatter | `lab_shatter` | Mythic | Laboratory · Ice | 1 | Each hit by you or an alien on a frozen enemy: +10% ATK this battle (max 15 stacks). |
 | Overload | `lab_overload` | Legendary | Laboratory · Lightning | 1 | On crit: 50% chance to apply Shock to all enemies. |
 | | | | | 2 | On crit: 50% → 80% chance to apply Shock to all enemies. |
 | Overload II | `lab_overload_2` | Legendary | Laboratory · Lightning | 1 | On crit: 60% chance to apply Shock to all enemies. |

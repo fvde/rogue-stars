@@ -183,6 +183,7 @@ namespace RogueStars.Sim
             var tally = new RunTimeTally();
             int skillsGained = 0, draftPicks = 0, mythicPicks = 0, shopSkills = 0, shopPerks = 0, shopHeals = 0, skillLevels = 0, minibosses = 0;
             bool mythicOpen = false;
+            var mythicOffered = new List<string>(); var mythicTaken = new List<string>();
             long wormDmg = 0, kickDmg = 0, mountDmg = 0;
             // hero and mount kits: what the run fought with (id and star / kit step)
             string heroTag = S.Run.Active?.Loadout?.HeroId, mountTag = S.Run.Active?.Loadout?.MountId;
@@ -206,8 +207,14 @@ namespace RogueStars.Sim
                     {
                         case "run_roll": rolls++; tally.Rolls++; tally.Steps += int.Parse(ev.Args[0]); break;
                         case "run_draft": drafts++; tally.Drafts++; mythicOpen = false; break;
-                        case "run_mythic_draft": tally.MythicDrafts++; mythicOpen = true; break;
-                        case "run_draft_pick": if (mythicOpen) mythicPicks++; else draftPicks++; mythicOpen = false; break;
+                        case "run_mythic_draft":
+                            tally.MythicDrafts++; mythicOpen = true;
+                            if (ev.Args.Count > 0) mythicOffered.AddRange(ev.Args[0].Split(',', StringSplitOptions.RemoveEmptyEntries));
+                            break;
+                        case "run_draft_pick":
+                            if (mythicOpen) { mythicPicks++; if (ev.Args.Count > 0) mythicTaken.Add(ev.Args[0]); } else draftPicks++;
+                            mythicOpen = false;
+                            break;
                         case "run_event": tally.Events++; break;
                         case "run_shop": tally.ShopVisits++; break;
                         case "run_shop_buy":
@@ -285,7 +292,7 @@ namespace RogueStars.Sim
                     LootOffers = S.Run.LastSummary.AccountLootOffers, XpTotal = S.Run.LastSummary.XpTotal,
                     Minutes = minutes, Granted = new List<Reward>(S.Run.LastSummary.Granted), Tally = tally,
                     CoinsEarned = coinsEarned, CoinsSpent = coinsSpent, SkillsGained = skillsGained, SkillLevels = skillLevels, DraftPicks = draftPicks,
-                    MythicPicks = mythicPicks, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
+                    MythicPicks = mythicPicks, MythicOffered = mythicOffered, MythicTaken = mythicTaken, ShopSkills = shopSkills, ShopPerks = shopPerks, ShopHeals = shopHeals, Minibosses = minibosses,
                     Signature = signature, DamageDealt = dealt, DamageTaken = taken, BattleRounds = battleRounds, Supernovas = novas,
                     WormDamage = wormDmg, SidekickDamage = kickDmg, AlienDamage = alienDmg, MountDamage = mountDmg, Hero = heroTag, Mount = mountTag,
                 });
