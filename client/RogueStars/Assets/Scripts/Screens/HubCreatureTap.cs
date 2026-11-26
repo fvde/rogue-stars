@@ -35,6 +35,7 @@ namespace RogueStars.Client.Screens
             var tap = hit.gameObject.AddComponent<HubCreatureTap>();
             tap.Creature = creature; tap.Layer = layer; tap.Scale = scale;
             var b = hit.gameObject.AddComponent<Button>();
+            hit.raycastTarget = AnimSettings.Enabled; // inert while animation is deferred: never eats a tap
             b.targetGraphic = hit; b.transition = Selectable.Transition.None;
             b.onClick.AddListener(() => tap.Tap(Time.unscaledTime));
             return tap;
@@ -43,7 +44,7 @@ namespace RogueStars.Client.Screens
         /// <summary>A tap at time <paramref name="now"/>: true when it played (not within the cooldown of the last one).</summary>
         public bool Tap(float now)
         {
-            if (now < _next) return false;
+            if (!AnimSettings.Enabled || now < _next) return false; // animation deferred: no celebrate, no hearts
             _next = now + Cooldown;
             Plays++;
             if (Creature != null) Creature.Play(CreatureClip.Celebrate);

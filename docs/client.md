@@ -383,6 +383,7 @@ design A (the board, tray and footer described in *Screens* above are superseded
   `.fix` files had background trapped inside the object cleared (between legs, inside the tree's loop, a window),
   `.us` files had the pale baked ground shadow removed. Import settings (`ArtImportSettings`): sprites, no mips, max
   1024 for `Art/Run`, markers and set pieces, compressed.
+- **Import 2026-11-26** (owner "use this"): set pieces burrow_mound, crystal_spire, giant_mushroom, ruined_arch, time_clock = comic redraws `~/AI/out/cleaned/setpieces/*.png` cut out with the export_assets cutout into `~/AI/assets/slice-setpieces/<id>/comic.png`; props campfire_big (`run-props3` s6321) and abandoned_cart (s6323). White backgrounds trapped inside / baked pale shadows were cleared as `.fix.png` for hub icons shop, patrol, tab_worm, HUD cog, reward coins_small; `ArtImportTests.ImportedIcons_HaveNoOpaqueWhiteBackground` scans all Hub / HUD / Result / Reward icons.
 - **Captures**: `SliceShowcaseTests` (**Explicit**) renders `s1_board_start`, `s1_board_mid`, `s1_board_zoomed` (pinched
   out and dragged), `s2_levelup`, `s2_levelup_tooltip`, `s3_battle`, `s3_battle_later`, `s3_battle_tooltip` at 1080×2400 (or `$ROGUESTARS_SHOT_SIZE`, e.g.
   `1440x3200`) into `$ROGUESTARS_SHOTS_DIR` (default `client/RogueStars/Screenshots/slice/`).
@@ -901,6 +902,8 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   `client/RogueStars/Screenshots/art-import/`). Tests: `ArtImportTests` (EditMode), `GroundContactTests` (the hero's pivot).
 
 ## Animation (branch `anim-integrate`; owner decisions 2026-11-26)
+
+**DEFERRED COMPLETELY (owner, 2026-11-26): `AnimSettings.Enabled = false`.** Everything below stays in the code but is off for everyone: `AnimSettings.Reduced` is always true (creatures and props draw plain static sprites, nothing ticks, no prop shaders / particles), hub creature taps are inert (`HubCreatureTap.Tap` returns false, the target does not raycast) and the Settings "Animation" card is not built. Tests switch `Enabled` on in SetUp to keep testing the machinery (`CreatureAnimTests`, `CrashSiteHubTests`) and assert that nothing animates with it off.
 
 Two techniques shipped, both code and shaders (no video, no cut-out rigs, no 2D Animation package): **a code spine** for every
 upright creature and **shaders** for props and buildings. Namespace `RogueStars.Client.World.Anim` (`Scripts/World/Anim/`), shaders

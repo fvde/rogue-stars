@@ -47,12 +47,15 @@ namespace RogueStars.Client.Screens
             Section(runCard, "Run auto mode");
             Note(runCard, "Hold the dice to keep rolling. Auto only rolls: every fight, chest, event, shop and choice waits for your tap, then rolling goes on. Tap anywhere to stop.");
 
+            if (AnimSettings.Enabled) // animation is deferred (AnimSettings.Enabled = false): no control
+            {
             var animCard = Card(body);
             animCard.name = "AnimCard";
             Section(animCard, "Animation");
             Note(animCard, "Auto turns the animation down on a slow phone (little memory or few cores). Reduced: everything draws still and nothing is updated.");
             Ui.Button(animCard, "Animation: " + AnimSettings.Label(AnimSettings.Level, AnimSettings.Reduced), () => { AnimSettings.Level = AnimSettings.Next(AnimSettings.Level); Rebuild(); },
                 AnimSettings.Level == AnimLevel.Auto ? Theme.Button : Theme.Accent).name = "AnimLevel";
+            }
 
             // Owner dev tools: offline in the editor/development builds, online only when the server's allowlist says so (session devTools).
             var tools = Session.Service?.DevTools;

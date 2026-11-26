@@ -20,6 +20,13 @@ namespace RogueStars.Client.World.Anim
     /// </summary>
     public static class AnimSettings
     {
+        /// <summary>
+        /// Master switch (owner decision 2026-11-26: animation deferred completely). False = <see cref="Reduced"/> is always true:
+        /// creatures and props draw as plain static sprites, nothing ticks, hub creature taps are inert, the Settings control is hidden.
+        /// The machinery stays in place; tests switch it on (it is a static field, not a const, only so tests can override it).
+        /// </summary>
+        public static bool Enabled = false;
+
         public const string Key = "rs.animLevel";
         /// <summary>Below this much RAM (MB; a "4 GB" phone reports ~3.6 GB) the device counts as weak.</summary>
         public const int LowMemoryMb = 3500;
@@ -65,7 +72,7 @@ namespace RogueStars.Client.World.Anim
         public static AnimLevel Next(AnimLevel l) => (AnimLevel)(((int)l + 1) % 3);
 
         /// <summary>What the level resolves to on this device right now.</summary>
-        public static bool Reduced => _override ?? Resolve(Level, _device ?? DeviceSpecs.Current);
+        public static bool Reduced => !Enabled || (_override ?? Resolve(Level, _device ?? DeviceSpecs.Current));
 
         /// <summary>"Auto (Full)", "Full", "Reduced".</summary>
         public static string Label(AnimLevel l, bool resolvedReduced) => l == AnimLevel.Auto ? "Auto (" + (resolvedReduced ? "Reduced" : "Full") + ")" : l.ToString();

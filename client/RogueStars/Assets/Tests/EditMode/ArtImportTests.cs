@@ -180,6 +180,87 @@ namespace RogueStars.Client.Tests
         private static Transform Named(Transform root, string name) =>
             root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == name) ?? throw new AssertionException(name + " not found");
 
+        // ---- white backgrounds in imported icons ----
+        private static readonly string[] IconFolders = { "Hub/Icons", "Slice/Hud", "Result", "Run/Icons" };
+        /// <summary>Icons whose art is designed white (dice faces, the sale tag's paper, the banner's pennant).</summary>
+        private static readonly HashSet<string> DesignedWhite = new HashSet<string> { "dice", "sale_tag", "banner" };
+
+        private static bool[] Morph(bool[] src, int w, int h, int r, bool erode)
+        {
+            var tmp = new bool[src.Length]; var dst = new bool[src.Length];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    bool acc = erode;
+                    for (int k = -r; k <= r && (erode ? acc : !acc); k++)
+                    {
+                        int xx = x + k; bool v = xx >= 0 && xx < w && src[y * w + xx];
+                        if (erode) acc &= v; else acc |= v;
+                    }
+                    tmp[y * w + x] = acc;
+                }
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    bool acc = erode;
+                    for (int k = -r; k <= r && (erode ? acc : !acc); k++)
+                    {
+                        int yy = y + k; bool v = yy >= 0 && yy < h && tmp[yy * w + x];
+                        if (erode) acc &= v; else acc |= v;
+                    }
+                    dst[y * w + x] = acc;
+                }
+            return dst;
+        }
+
+        /// <summary>Thick (9 px opened) opaque near-white regions of an icon file: (area, area touching transparency within 4 px, opaque pixels).</summary>
+        private static (int thick, int nearTransparent, int opaque) WhiteStats(string path)
+        {
+            var tex = new Texture2D(2, 2);
+            try
+            {
+                Assert.That(ImageConversion.LoadImage(tex, File.ReadAllBytes(path)), Is.True, path);
+                int w = tex.width, h = tex.height; var px = tex.GetPixels32();
+                var white = new bool[px.Length]; var transp = new bool[px.Length]; int opaque = 0;
+                for (int i = 0; i < px.Length; i++)
+                {
+                    var c = px[i];
+                    if (c.a >= 200)
+                    {
+                        opaque++;
+                        int mn = Mathf.Min(c.r, Mathf.Min(c.g, c.b)), mx = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+                        white[i] = mn >= 225 && mx - mn <= 22;
+                    }
+                    transp[i] = c.a < 128;
+                }
+                var thick = Morph(Morph(white, w, h, 4, true), w, h, 4, false);
+                var near = Morph(transp, w, h, 4, false);
+                int t = 0, n = 0;
+                for (int i = 0; i < px.Length; i++) { if (thick[i]) { t++; if (near[i]) n++; } }
+                return (t, n, opaque);
+            }
+            finally { Object.DestroyImmediate(tex); }
+        }
+
+        [Test]
+        public void ImportedIcons_HaveNoOpaqueWhiteBackground()
+        {
+            var root = Path.GetFullPath(Path.Combine(Application.dataPath, "Art/Resources/Art"));
+            int checkedCount = 0; var bad = new List<string>();
+            foreach (var folder in IconFolders)
+                foreach (var f in Directory.GetFiles(Path.Combine(root, folder), "*.png"))
+                {
+                    var id = Path.GetFileNameWithoutExtension(f); checkedCount++;
+                    var (thick, near, opaque) = WhiteStats(f);
+                    // a baked pale ground shadow / background halo: thick near-white pixels right against transparency
+                    if (near > 150) bad.Add(folder + "/" + id + ": " + near + " opaque near-white px against transparency");
+                    // a white background trapped inside the art (basket, stall window, gear hole)
+                    if (!DesignedWhite.Contains(id) && thick > 0.10f * opaque) bad.Add(folder + "/" + id + ": " + (100 * thick / opaque) + "% thick near-white");
+                }
+            Assert.That(checkedCount, Is.GreaterThan(25));
+            Assert.That(bad, Is.Empty, string.Join("\n", bad));
+        }
+
         private static Image Image(Transform root, string name) => Named(root, name).GetComponent<Image>();
     }
 }

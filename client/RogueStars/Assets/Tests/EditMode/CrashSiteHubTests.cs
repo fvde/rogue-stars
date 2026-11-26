@@ -21,8 +21,8 @@ namespace RogueStars.Client.Tests
         private GameState S => _f.Service.State;
         private ContentDb C => _f.Service.Content;
 
-        [SetUp] public void SetUp() => _f = new AppFixture();
-        [TearDown] public void TearDown() => _f.Dispose();
+        [SetUp] public void SetUp() { _f = new AppFixture(); RogueStars.Client.World.Anim.AnimSettings.Enabled = true; } // the tap machinery is tested with animation on (it ships off)
+        [TearDown] public void TearDown() { RogueStars.Client.World.Anim.AnimSettings.Enabled = false; _f.Dispose(); }
 
         private HubScreen Hub
         {
@@ -126,6 +126,18 @@ namespace RogueStars.Client.Tests
             // the pod button still opens the City
             hub.PodButton.onClick.Invoke();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
+        }
+
+        [Test]
+        public void AnimationDisabled_HubTapsAreInert()
+        {
+            RogueStars.Client.World.Anim.AnimSettings.Enabled = false;
+            ReachLevel(6);
+            var hub = Hub;
+            Assert.That(hub.WormTap.Tap(10f), Is.False);
+            Assert.That(hub.WormTap.Plays, Is.EqualTo(0));
+            Assert.That(hub.WormTap.GetComponent<Image>().raycastTarget, Is.False, "never eats a tap");
+            Assert.That(hub.WormTap.Creature.Motion.Clip, Is.Not.EqualTo(RogueStars.Client.World.Anim.CreatureClip.Celebrate));
         }
 
         [Test]

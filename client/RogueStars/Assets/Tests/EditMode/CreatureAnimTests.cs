@@ -27,6 +27,7 @@ namespace RogueStars.Client.Tests
         public void SetUp()
         {
             _f = new AppFixture();
+            AnimSettings.Enabled = true; // the machinery is tested with animation on (it ships off)
             AnimSettings.Override = false;
             SpineRig.ClearCache();
             AnimBounds.ClearCache();
@@ -36,6 +37,7 @@ namespace RogueStars.Client.Tests
         [TearDown]
         public void TearDown()
         {
+            AnimSettings.Enabled = false;
             AnimSettings.Override = null;
             BattlePlaybackScreen.Instant = false;
             ArtCatalog.Loader = null;
@@ -491,6 +493,25 @@ namespace RogueStars.Client.Tests
             var asr = autoGo.AddComponent<SpriteRenderer>(); asr.sprite = Creature("chest_common");
             var afx = PropFx.Apply(asr, PropFx.LookOfBuilding("bp_plate_foundry"));
             Assert.That(afx.Instance.GetFloat("_AutoMask"), Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void AnimationDisabled_EverythingIsStatic_AndNothingAnimates()
+        {
+            AnimSettings.Enabled = false;
+            AnimSettings.Override = false; // even a forced "Full" cannot switch it on
+            Assert.That(AnimSettings.Reduced, Is.True);
+            var host = new GameObject("host", typeof(RectTransform)).GetComponent<RectTransform>(); _junk.Add(host.gameObject);
+            var img = new GameObject("img", typeof(RectTransform), typeof(UnityEngine.UI.Image)).GetComponent<UnityEngine.UI.Image>();
+            img.transform.SetParent(host, false); _junk.Add(img.gameObject);
+            var tex = new Texture2D(8, 8); _junk.Add(tex);
+            img.sprite = Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0)); _junk.Add(img.sprite);
+            var c = UiCreature.Attach(img);
+            Assert.That(img.enabled, Is.True, "the plain sprite draws");
+            c.Play(CreatureClip.Attack);
+            c.Tick(0.2f);
+            Assert.That(img.enabled, Is.True);
+            Assert.That(AnimSettings.Reduced, Is.True);
         }
 
         [Test]
