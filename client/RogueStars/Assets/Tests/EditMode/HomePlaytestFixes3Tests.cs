@@ -92,12 +92,12 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void NextTeaser_ShowsTheFeatureSilhouette_NotAQuestionMark()
+        public void NextTeaser_NamesNoFeature_OnlyTheLevelsToGo()
         {
             var hub = Hub;
             var teaser = hub.Root.GetComponentsInChildren<RectTransform>(true).First(t => t.name == "Teaser");
-            Assert.That(teaser.GetComponentsInChildren<Image>(true).Any(i => i.name == "Icon" && i.sprite != null), Is.True);
-            Assert.That(teaser.GetComponentsInChildren<Text>(true).Any(t => t.text == "?"), Is.False);
+            Assert.That(teaser.GetComponentsInChildren<Image>(true).Any(i => i.name == "Icon" && i.sprite != null), Is.False, "no feature art: a surprise");
+            Assert.That(teaser.GetComponentsInChildren<Text>(true).Any(t => t.text.Contains("to the next feature") || t.text.Contains("is unlocking")), Is.True);
         }
 
         [Test]
