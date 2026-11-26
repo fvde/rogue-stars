@@ -94,6 +94,31 @@ def round_tag(reg, f):
     return "R0" if r == 0 else f"R{r}"
 
 
+def subject_of(path):
+    """The thing a picture shows: raw 'alien_zib__S__flux__s1011.png' -> alien_zib; export '.../alien_zib/S_s1011.png' -> alien_zib."""
+    name = os.path.splitext(os.path.basename(path))[0]
+    if "__" in name:
+        return name.split("__")[0]
+    return os.path.basename(os.path.dirname(path))
+
+
+def reconcile(state):
+    """Owner's rule: once an image is approved, every other candidate of the same subject in that collection is rejected and
+    archived (never shown again, files stay on disk). Returns the number of candidates archived; the state is updated in place."""
+    archived = 0
+    for c in state["collections"]:
+        appr = files(c.get("approved"))
+        done = {subject_of(f) for f in appr}
+        rej = set(os.path.expanduser(p) for p in c.get("rejected", []))
+        for f in files(c.get("candidates")):
+            if f in rej or f in appr:
+                continue
+            if subject_of(f) in done:
+                c.setdefault("rejected", []).append(f)
+                archived += 1
+    return archived
+
+
 def queue_table():
     """Progress of every package in tools/art/night.sh's order: done / expected images and a rough ETA."""
     import re
@@ -155,6 +180,10 @@ def prompt_tables(state):
 
 def main():
     state = json.load(open(os.path.expanduser(sys.argv[1])))
+    n_arch = reconcile(state)
+    if n_arch:
+        json.dump(state, open(os.path.expanduser(sys.argv[1]), "w"), indent=1)
+        print("archived", n_arch, "candidates of already approved subjects")
     reg = load_registry()
     _all_appr = [f for c in state["collections"] for f in files(c.get("approved"))]
     _rej = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
