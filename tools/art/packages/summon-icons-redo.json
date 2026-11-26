@@ -1,0 +1,15 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency or menu icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-summon-icons",
+  "seeds": [
+    6903,
+    6904
+  ],
+  "subjects": {
+    "luck_gem": "a pink cut gem drawn in bold comic cartoon style with a thick black outline, flat bright colors, hard-edged two-tone cel shading and one white highlight"
+  }
+}
