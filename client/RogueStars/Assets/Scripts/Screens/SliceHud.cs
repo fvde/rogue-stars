@@ -139,6 +139,9 @@ namespace RogueStars.Client.Screens
         private string _level = "";
 
         /// <summary>Builds the top HUD over <paramref name="parent"/> (a full-screen rect of width <paramref name="width"/>).</summary>
+        /// <summary>Reference px (1080 wide): the level pill's centre / width and the HP heart's centre / size (they must not overlap).</summary>
+        public const float LevelPillX = 128, LevelPillW = 144, HeartX = 254, HeartSize = 76;
+
         public static SliceHud Build(RectTransform parent, float width, Action onCog, Action onLevel, bool coins)
         {
             var h = new SliceHud { Scale = width / 1080f };
@@ -147,8 +150,9 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(root);
             h.Root = root;
 
-            // level: EXP hexagon over a dark pill with the XP fill
-            var lvl = SliceKit.Pill(root, s, 140, 208, 156, 64, SliceKit.PillDark, "RunLevel");
+            // level: EXP hexagon over a dark pill with the XP fill (playtest 0.1.325: the pill ends clear of the HP heart, the
+            // level text shrinks to fit it instead of spilling under the heart)
+            var lvl = SliceKit.Pill(root, s, LevelPillX, 208, LevelPillW, 64, SliceKit.PillDark, "RunLevel");
             var xpTrack = Ui.Rect(lvl.transform.Find("Face"), "XpTrack");
             Ui.Stretch(xpTrack);
             var xp = Ui.RoundPanel(xpTrack, new Color32(0x6E, 0xD2, 0xF6, 255), 22 * s, "XpFill");
@@ -158,8 +162,10 @@ namespace RogueStars.Client.Screens
             xp.fillOrigin = 0;
             Ui.Stretch(xp.rectTransform);
             h.XpFill = xp;
-            var lvText = SliceKit.Chunky(lvl.transform, "Lv. 1", (int)(46 * s), Color.white, TextAnchor.MiddleLeft, "LvNumber");
-            Ui.Stretch(lvText.rectTransform, 46 * s, 0, 6, 2);
+            var lvText = SliceKit.Chunky(lvl.transform, "Lv. 1", (int)(42 * s), Color.white, TextAnchor.MiddleCenter, "LvNumber");
+            Ui.Stretch(lvText.rectTransform, 40 * s, 0, 8 * s, 2);
+            lvText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            lvText.resizeTextForBestFit = true; lvText.resizeTextMaxSize = lvText.fontSize; lvText.resizeTextMinSize = Mathf.Max(10, (int)(26 * s));
             h.Level = lvText;
             var lvBtn = lvl.gameObject.AddComponent<Button>();
             lvBtn.targetGraphic = lvl;
@@ -182,7 +188,7 @@ namespace RogueStars.Client.Screens
             shine.rectTransform.offsetMin = new Vector2(14 * s, 0); shine.rectTransform.offsetMax = new Vector2(-14 * s, 0);
             h.HpText = SliceKit.Chunky(hp.transform, "", (int)(44 * s), Color.white, TextAnchor.MiddleCenter, "HpText");
             Ui.Stretch(h.HpText.rectTransform, 40 * s, 0, 6, 2);
-            SliceKit.Icon(root, "heart", s, 250, 204, 78, false, "HeartIcon");
+            SliceKit.Icon(root, "heart", s, HeartX, 204, HeartSize, false, "HeartIcon");
 
             // ATK / DEF pills
             h.AtkPill = SliceKit.Pill(root, s, 712, 208, 152, 60, SliceKit.PillDark, "AtkPill").rectTransform;
