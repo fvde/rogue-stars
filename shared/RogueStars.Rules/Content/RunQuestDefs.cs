@@ -147,6 +147,8 @@ namespace RogueStars.Rules.Content
         public string Portrait;
         /// <summary>Name of the account bonus the boons build (journal, outcome lines): e.g. "Starglint".</summary>
         public string BonusName;
+        /// <summary>Character concept for the review doc and the art brief: look, voice and the story's premise.</summary>
+        public string Look, Voice, Premise;
         /// <summary>Order among the chains (the encounter goes to the first unfinished chain).</summary>
         public int Order;
         public string StartNode;

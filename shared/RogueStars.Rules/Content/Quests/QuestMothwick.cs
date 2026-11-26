@@ -14,6 +14,13 @@ namespace RogueStars.Rules.Content.Quests
         {
             var q = new QuestBuilder(Id, "Mothwick", "the Lost Courier", "quest_mothwick", "Starglint", 1, 30, "m01");
             const string Wait = "Not now";
+            q.Quest.Look = "A round, fuzzy lilac moth the size of a teacup: big soft pale purple wings, huge shiny black eyes, feathery antennae, "
+                + "an oversized blue courier cap that keeps slipping over one eye, a little mail satchel, and a glass lantern with a tiny star inside.";
+            q.Quest.Voice = "Polite, flustered and very proper: delivery jargon (“Signature here, please!”, “Delivery rule forty-two”), “Dear me!”, "
+                + "apologises a lot, bravest when he is most scared. Light, warm humour; never mean.";
+            q.Quest.Premise = "Mothwick of the Interplanetary Post crash-lands with a parcel addressed to “The Worm Who Fell”: a lantern with Pim, a baby "
+                + "star who fell from the sky. Pim must go home to the Top of the Sky. On the way: the Hollow Postmaster, who lost Pim long ago "
+                + "and wants her back, and a small mystery about where the worm itself came from. Pim's thanks is Starglint: extra coins on every coin you find.";
 
             // ---- Act 1: the parcel (chapters 1–8) -------------------------------------------------------------
             q.Story("m01", 1, "A Very Lost Moth",
