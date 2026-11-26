@@ -65,10 +65,8 @@ namespace RogueStars.Client.Screens
             var portal = level != null ? Content.Portal(level.PortalId) : null;
 
             // the dimmed arena behind everything
-            var bg = Ui.Panel(holder, Color.white, "Backdrop");
-            bg.sprite = ArtCatalog.SliceBattle("battle_meadow") ?? HudArt.Arena();
-            bg.raycastTarget = false;
-            Ui.Stretch(bg.rectTransform);
+            var bgBox = SliceKit.Backdrop(holder, ArtCatalog.BattleBackground(null), frameH, "Backdrop");
+            Ui.Stretch(bgBox.transform.parent as RectTransform);
             var dim = Ui.Panel(holder, won ? new Color(0.03f, 0.03f, 0.06f, 0.86f) : new Color(0.06f, 0.02f, 0.04f, 0.9f), "Dim");
             dim.raycastTarget = false;
             Ui.Stretch(dim.rectTransform);

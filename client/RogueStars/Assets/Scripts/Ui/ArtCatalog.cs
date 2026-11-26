@@ -269,6 +269,11 @@ namespace RogueStars.Client.UiKit
         public static Sprite SliceHud(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceHudFolder + "/" + id);
         public static Sprite SliceTexture(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceTextures + "/" + id);
         public static Sprite SliceBattle(string id) => string.IsNullOrEmpty(id) ? null : Load(SliceBattleFolder + "/" + id);
+        /// <summary>Id of the shared side-view battle background (<c>Art/Slice/Battle/battle_meadow</c>), used for every biome for now.</summary>
+        public const string BattleDefault = "battle_meadow";
+        /// <summary>The side-view battle background of a biome: <c>battle_&lt;biome&gt;</c> when imported, else the shared default; null = the drawn arena.</summary>
+        public static Sprite BattleBackground(string biomeId) =>
+            (string.IsNullOrEmpty(biomeId) ? null : SliceBattle("battle_" + biomeId)) ?? SliceBattle(BattleDefault);
         /// <summary>The battle mount's art (by mount id, else the generic one), or null (the drawn hover saucer).</summary>
         public static Sprite SliceMount(string mountId) => (string.IsNullOrEmpty(mountId) ? null : Load(SliceMounts + "/" + mountId)) ?? Load(SliceMounts + "/mount");
         public static Sprite SkillIcon(string skillId) => string.IsNullOrEmpty(skillId) ? null : Load(SkillFolder + "/" + skillId);

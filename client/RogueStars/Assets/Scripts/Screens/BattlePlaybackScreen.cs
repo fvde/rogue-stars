@@ -89,6 +89,8 @@ namespace RogueStars.Client.Screens
 
         /// <summary>Stage height and fighter card size (canvas units).</summary>
         public const float StageH = 1060;
+        /// <summary>Reference px the battle backdrop slides up (tuned so the grass sits under the fighters).</summary>
+        public const float BackdropShift = 200;
         public static readonly Vector2 ViewSize = new Vector2(360, 500);
         /// <summary>Height of a fighter's feet over its card's bottom (the bars and statuses sit under it).</summary>
         public const float SpriteBase = 96;
@@ -171,12 +173,15 @@ namespace RogueStars.Client.Screens
 
             // the arena (top ~62%): a 3/4 top-down biome floor, big fighters, enemies right, the worm and its companions left
             float arenaRefH = 1480;
-            var arena = Ui.Panel(holder, Color.white, "Arena");
-            arena.sprite = ArtCatalog.SliceBattle("battle_meadow") ?? HudArt.Arena();
-            arena.raycastTarget = false;
-            arena.rectTransform.anchorMin = new Vector2(0, 1); arena.rectTransform.anchorMax = new Vector2(1, 1);
-            arena.rectTransform.pivot = new Vector2(0.5f, 1);
-            arena.rectTransform.sizeDelta = new Vector2(0, arenaRefH * s); arena.rectTransform.anchoredPosition = Vector2.zero;
+            // the shared side-view meadow (every biome for now) covers the arena box at its own aspect; zoomed and slid up so
+            // the fighters stand on the grass and the glowing crack at the art's foot is cropped away
+            SliceKit.Backdrop(holder, ArtCatalog.BattleBackground(null), arenaRefH * s, "Arena", 1.3f, BackdropShift * s);
+            var hudShade = Ui.Panel(holder, Color.white, "HudShade");
+            hudShade.sprite = HudArt.Gradient(new Color32(0x08, 0x0A, 0x14, 0), new Color32(0x08, 0x0A, 0x14, 150));
+            hudShade.raycastTarget = false;
+            hudShade.rectTransform.anchorMin = new Vector2(0, 1); hudShade.rectTransform.anchorMax = new Vector2(1, 1);
+            hudShade.rectTransform.pivot = new Vector2(0.5f, 1);
+            hudShade.rectTransform.sizeDelta = new Vector2(0, 460 * s); hudShade.rectTransform.anchoredPosition = Vector2.zero;
             _stage = Ui.Rect(holder, "Fighters");
             _stage.anchorMin = new Vector2(0.5f, 1); _stage.anchorMax = new Vector2(0.5f, 1);
             _stage.pivot = new Vector2(0.5f, 0.5f);

@@ -894,11 +894,14 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 - **Ground chunks** `Art/Slice/Ground/<id>` and `<id>_2` (ground_corner, ground_large, ground_long, ground_small; seeds
   5901 / 5902), `ArtCatalog.SliceGround` / `SliceGroundIds`: imported for board decoration, not drawn yet (the island under
   the board is a generated mask, no obvious slot for iso chunks).
-- **Battle backgrounds (test only, not shipped)**: `ArtImportShowcaseTests` puts each side-view candidate of
-  `~/AI/out/pkg-slice-battle2` (`$ROGUESTARS_BATTLE_BG_DIR`) behind a real fight through a swapped `ArtCatalog.Loader`
-  (`ai_battlebg_<file>`); `Art/Slice/Battle/battle_meadow` stays absent (the drawn arena).
+- **Battle background (shipped)**: `Art/Slice/Battle/battle_meadow` = `~/AI/out/pkg-slice-battle2/battle_meadow__V__flux__s5711.png`
+  (owner-approved, side-view meadow, full frame 1024x1344, `slice-picks.json` `slice-battle/battle_meadow`). `ArtCatalog.BattleBackground(biome)`
+  returns `battle_<biome>` when imported, else the shared default (every biome for now; no art: the drawn `HudArt.Arena`).
+  `SliceKit.Backdrop` covers a box at the art's own aspect, never stretched, with a zoom and a shift-up; the battle screen uses
+  zoom 1.3 / `BattlePlaybackScreen.BackdropShift` 200 so the fighters stand on the grass and the glowing crack at the art's foot is
+  cropped away, plus a dark gradient behind the top HUD. The run-result backdrop and the rest / event stage use the same art.
 - **Captures**: `ArtImportShowcaseTests` (**Explicit**, `-testFilter ArtImportShowcaseTests`): `ai_hub_day|night|event|invasion`,
-  `ai_worm`, `ai_board`, `ai_battle_hud`, `ai_battlebg_*`, `ai_result_victory|defeat` into `$ROGUESTARS_SHOTS_DIR` (default
+  `ai_worm`, `ai_board`, `ai_battle_hud`, `ai_battlebg_run|kit_<W>x<H>` (`$ROGUESTARS_SHOT_SIZE`, 1080x2400 / 1080x1920), `ai_result_victory|defeat` into `$ROGUESTARS_SHOTS_DIR` (default
   `client/RogueStars/Screenshots/art-import/`). Tests: `ArtImportTests` (EditMode), `GroundContactTests` (the hero's pivot).
 
 ## Animation (branch `anim-integrate`; owner decisions 2026-11-26)
