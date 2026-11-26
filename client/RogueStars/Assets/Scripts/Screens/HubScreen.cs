@@ -430,7 +430,7 @@ namespace RogueStars.Client.Screens
             var next = Features.Next(State, Content, Now);
             if (next != null)
             {
-                var teaser = HubKit.Teaser(col, "NEXT", TeaserText(next), TeaserFigure(next), new Color(0.11f, 0.1f, 0.26f, 0.92f), "Teaser", TeaserIcon(Content, next));
+                var teaser = HubKit.Teaser(col, null, TeaserText(next), null, new Color(0.11f, 0.1f, 0.26f, 0.92f), "Teaser"); // no names or art: what unlocks next is a surprise
                 Ui.Size(teaser, -1, 120, 1);
                 cards.Add(teaser.gameObject);
             }
@@ -448,21 +448,11 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>The next unlock's art as a locked silhouette (H4: was a "?" box).</summary>
-        public static Sprite TeaserIcon(ContentDb content, NextUnlock n)
+        /// <summary>"3 more levels to the next feature": the hub never names what unlocks next (a surprise).</summary>
+        public static string TeaserText(NextUnlock n)
         {
-            if (n == null || n.Ids.Count == 0) return null;
-            var f = content.Feature(n.Ids[0]);
-            return f == null || string.IsNullOrEmpty(f.Art) ? null : IntroArt.Sprite(f.Art);
-        }
-        /// <summary>"Laboratory — clear level 13".</summary>
-        public static string TeaserText(NextUnlock n) => n.Name + " — " + n.Text;
-
-        /// <summary>Level progress (2/5) until the level is cleared (level unlocks: no calendar gate).</summary>
-        public static string TeaserFigure(NextUnlock n)
-        {
-            if (!n.LevelMet && n.Level > 0) return n.CurrentLevel + "/" + n.Level;
-            return null;
+            if (n.LevelsToGo <= 0) return "A new feature is unlocking";
+            return n.LevelsToGo == 1 ? "1 more level to the next feature" : n.LevelsToGo + " more levels to the next feature";
         }
 
         /// <summary>

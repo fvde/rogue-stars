@@ -77,8 +77,8 @@ namespace RogueStars.Client.Tests
             Assert.That(S.Mail.Inbox, Is.Not.Empty, "the welcome mail waits until after the first run");
             var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet").ToList();
             Assert.That(others, Is.Empty, "nothing else on the day-1 hub, not even greyed out: " + string.Join(", ", others));
-            Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("Parts — clear level 1"));
-            Assert.That(Named(hub.Root, "Figure").text, Is.EqualTo("0/1"));
+            Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("1 more level to the next feature"));
+            Assert.That(Named(hub.Root, "Figure"), Is.Null);
 
             // Rewards follow use: a brand-new account holds stamina and Diamonds (stamina refills) only, and shows just those.
             var chips = _f.Canvas.GetComponentsInChildren<Text>(true).Where(t => t.name.StartsWith("Chip:")).Select(t => t.name).ToList();
@@ -185,10 +185,10 @@ namespace RogueStars.Client.Tests
         {
             Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             S.Counters[Requirements.MainLevelCounter] = 4;
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens + Launch Pod — clear level 6"));
-            Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("4/6"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("2 more levels to the next feature"));
+            Assert.That(Named(Hub.Root, "Figure"), Is.Null);
             S.Counters[Requirements.MainLevelCounter] = 6; // met: the next command records it
-            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens + Launch Pod — unlocking now"));
+            Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("A new feature is unlocking"));
             Assert.That(Named(Hub.Root, "Figure"), Is.Null);
         }
 
@@ -210,7 +210,7 @@ namespace RogueStars.Client.Tests
             Assert.That(moment.Action, Is.Null, "the guided action waits on the last panel");
             moment.ShowPage(moment.PageCount - 1);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("BUILD THE FARM"));
-            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("Next at level 18: Heroes"));
+            Assert.That(Named(moment.Root, "TeaserText").text, Is.EqualTo("3 more levels to the next feature"));
             moment.Claim();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
             Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.BiomassFarm));

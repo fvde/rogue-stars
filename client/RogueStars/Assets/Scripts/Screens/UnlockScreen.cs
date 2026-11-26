@@ -221,14 +221,7 @@ namespace RogueStars.Client.Screens
             Action.name = "UnlockAction";
             var next = Features.Next(State, Content, Now);
             if (next != null)
-                HubKit.Teaser(Footer, null, TeaserLine(next), null, HubKit.CardDeep, "UnlockTeaser", HubScreen.TeaserIcon(Content, next));
-        }
-
-        /// <summary>"Next at level 16: Housing" style line for the bottom of the moment.</summary>
-        public static string TeaserLine(NextUnlock n)
-        {
-            string at = n.LevelMet || n.Level <= 0 ? "" : " at level " + n.Level;
-            return "Next" + at + ": " + n.Name;
+                HubKit.Teaser(Footer, null, HubScreen.TeaserText(next), null, HubKit.CardDeep, "UnlockTeaser");
         }
 
         /// <summary>Claim every pending member of the group (unlock gifts), then open the feature in place of this screen.</summary>
