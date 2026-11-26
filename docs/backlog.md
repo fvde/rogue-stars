@@ -39,6 +39,7 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | D13 | **Playtest 0.1.251 findings** | Owner is reviewing; do not re-report. |
 | D14 | **The cut-out sprite pedestal on the dice button is code-drawn** | The imported pedestal art does not fit the button shape. |
 | D16 | **Camp mode (levels 6 to 14) is sparse**: large empty land, pod uses a burrow-mound stand-in and sits behind the saucer | Real pod art and a tighter camp layout come with the building art. |
+| D17 | **"Watch 1 ad" daily quest needs an "ads enabled" gate** | `d_ad` requires the Shop feature and hides while `ShopConfig.AdsDisabled` is set (the only ad notion the rules have). When ads ship, give it a real gate (ad gateway ready, ad placement available to the player) instead of the global flag. The early daily track (100 points) never depends on it. |
 
 ## 3. How to use this file
 

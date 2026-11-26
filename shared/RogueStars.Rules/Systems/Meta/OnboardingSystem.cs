@@ -192,7 +192,6 @@ namespace RogueStars.Rules.Systems
     public static class Features
     {
         public const string Parts = "parts";
-        public const string Quests = "quests";
         public const string BiomassFarm = "biomass_farm";
         public const string WormLevel = "worm_level";
         public const string GrainFarm = "grain_farm";

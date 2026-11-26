@@ -21,7 +21,7 @@ public class OnboardingTests
     /// </summary>
     public static readonly (string id, int level)[] Schedule =
     {
-        (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.Quests, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
+        (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
         (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9),
         (Features.RunSignatures, 11), (Features.Shop, 12), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
         (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
@@ -81,16 +81,16 @@ public class OnboardingTests
     }
 
     [Fact]
-    public void DailyGoals_UnlockAtLevel3_WithTheWorm_NotLater()
+    public void DailyQuests_AreNoFeature_NoUnlockMoment_NoIntro_NoGift()
     {
         var e = Engine(); var s = Player(e);
-        Assert.Equal(3, Features.UnlockLevel(e.Content.Feature(Features.Quests)!));
-        s.Counters[Requirements.MainLevelCounter] = 2;
-        Assert.DoesNotContain(Features.Quests, Tick(e, ref s, TestHelpers.T0));
-        Assert.False(Features.IsUnlocked(s, e.Content, Features.Quests));
-        s.Counters[Requirements.MainLevelCounter] = 3;
-        Assert.Contains(Features.Quests, Tick(e, ref s, TestHelpers.T0 + D));
-        Assert.True(Features.IsUnlocked(s, e.Content, Features.Quests));
+        Assert.Null(e.Content.Feature("quests")); // simply there: no feature record, no intro, no teaser entry, no unlock grant
+        Assert.DoesNotContain(e.Content.FeatureOrder, f => f.Name.Contains("Quest") || f.Name.Contains("Goal"));
+        Assert.Empty(Tick(e, ref s, TestHelpers.T0));
+        s.Counters[Requirements.MainLevelCounter] = 1;
+        Assert.Equal(new[] { Features.Parts }, Tick(e, ref s, TestHelpers.T0 + D)); // level 1: Parts only, one moment
+        Assert.Equal(new[] { Features.Parts }, OnboardingSystem.PendingCelebrations(s, e.Content));
+        Assert.Equal(new[] { Features.RunShop }, Features.Next(s, e.Content, TestHelpers.T0 + D)!.Ids);
     }
 
     [Fact]
@@ -101,8 +101,7 @@ public class OnboardingTests
         for (int i = 1; i < levels.Count; i++)
         {
             int gap = levels[i] - levels[i - 1];
-            // Level 3 brings two moments (owner, 2026-11-26: Daily Goals unlock with the worm level, was level 8); every other level one.
-            Assert.True(gap >= 1 || levels[i] == 3, "two features at level " + levels[i]);
+            Assert.True(gap >= 1, "two moments at level " + levels[i]);
             // Was one per level to 20 / two to 50: the Signals now come with Parts / Aliens / the City and the buildings with their
             // blueprints (owner, 2026-11-25), which leaves level gaps up to 6 (Heroes 18 → Ice package 24).
             int max = levels[i] <= 24 ? 6 : 4;
@@ -138,7 +137,6 @@ public class OnboardingTests
         Before(Features.Guilds, Features.Invasions);
         Before(Features.PartPulls, Features.AlienPulls, Features.Blueprints);
         Before(Features.RunShop, Features.Shop);
-        Before(Features.Quests, Features.SeasonPass);
         // Lab packages: each package node needs its feature; the Combo package comes with the Laboratory.
         Assert.Null(c.LabNode("pkg_combo")!.RequiresFeature);
         foreach (var (node, feature) in new[] { ("pkg_ice", Features.PackageIce), ("pkg_lightning", Features.PackageLightning),
@@ -302,15 +300,15 @@ public class OnboardingTests
         s.Onboarding.Version = 0;
         s.Counters[Requirements.MainLevelCounter] = 20;
         long old = TestHelpers.T0 - 2 * D;
-        foreach (var id in new[] { Features.Parts, Features.Quests, Features.BiomassFarm, Features.WormLevel, Features.Arena })
+        foreach (var id in new[] { Features.Parts, Features.BiomassFarm, Features.WormLevel, Features.Arena })
             s.Onboarding.Unlocked[id] = old; // Arena: as if a dev cheat had opened it early: never re-locked
-        s.Onboarding.Celebrated.UnionWith(new[] { Features.Parts, Features.Quests, Features.BiomassFarm, Features.WormLevel, Features.Arena });
+        s.Onboarding.Celebrated.UnionWith(new[] { Features.Parts, Features.BiomassFarm, Features.WormLevel, Features.Arena });
         long dia = Bal(s, Currencies.Diamonds);
 
         var unlocked = Tick(e, ref s, TestHelpers.T0);
         Assert.Equal(e.Content.Onboarding.Version, s.Onboarding.Version);
         // kept, with their old unlock times
-        foreach (var id in new[] { Features.Parts, Features.Quests, Features.BiomassFarm, Features.WormLevel, Features.Arena })
+        foreach (var id in new[] { Features.Parts, Features.BiomassFarm, Features.WormLevel, Features.Arena })
             Assert.Equal(old, s.Onboarding.Unlocked[id]);
         // features the save's content already had (run content, auto roll): recorded and celebrated at once, no unlock moment
         foreach (var id in new[] { Features.RunShop, Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire,
@@ -322,7 +320,7 @@ public class OnboardingTests
         }
         Assert.False(Features.IsUnlocked(s, e.Content, Features.PackageIce)); // level 24: later, with its own moment
         // features that are new to this player at its level: normal unlock moments, in order
-        var expected = Schedule.Where(x => x.level <= 20 && e.Content.Feature(x.id)!.Since == 1 && !new[] { Features.Parts, Features.Quests,
+        var expected = Schedule.Where(x => x.level <= 20 && e.Content.Feature(x.id)!.Since == 1 && !new[] { Features.Parts,
             Features.BiomassFarm, Features.WormLevel }.Contains(x.id)).Select(x => x.id).ToList();
         Assert.Equal(expected, unlocked);
         Assert.Equal(expected, OnboardingSystem.PendingCelebrations(s, e.Content));

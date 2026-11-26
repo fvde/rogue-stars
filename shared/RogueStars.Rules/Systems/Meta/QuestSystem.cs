@@ -29,6 +29,7 @@ namespace RogueStars.Rules.Systems
         public static long Progress(GameState s, QuestDef q)
         {
             long cur = s.Counter(q.CounterKey);
+            if (q.Every > 0) return Math.Max(0, cur - Claimed(s, q) * q.Every); // distance covered since the last claimed milestone
             Dictionary<string, long> baseline = q.Kind == QuestKind.Daily ? s.Quests.DailyBaseline
                 : q.Kind == QuestKind.Weekly ? s.Quests.WeeklyBaseline : null;
             if (baseline != null && baseline.TryGetValue(q.CounterKey, out var b)) cur -= b;
@@ -46,6 +47,7 @@ namespace RogueStars.Rules.Systems
         public static bool IsAvailable(GameState s, ContentDb content, QuestDef q, long nowMs)
         {
             if (q.Feature != null && !Features.IsUnlocked(s, content, q.Feature)) return false;
+            if (q.NeedsAds && content.Shop.AdsDisabled) return false;
             if (q.Kind == QuestKind.NewPlayer)
                 return NewPlayerEventOpen(s, content, nowMs) && NewPlayerDay(s, content, nowMs) >= q.Day;
             return true;
@@ -53,8 +55,17 @@ namespace RogueStars.Rules.Systems
 
         public static bool IsComplete(GameState s, QuestDef q) => Progress(s, q) >= q.Target;
 
+        /// <summary>Repeating achievements: milestones already claimed.</summary>
+        public static long Claimed(GameState s, QuestDef q) => s.Quests.AchievementClaims.TryGetValue(q.Id, out var n) ? n : 0;
+
+        /// <summary>Repeating achievements: milestones reached and not claimed yet.</summary>
+        public static long Pending(GameState s, QuestDef q) => q.Every > 0 ? Math.Max(0, s.Counter(q.CounterKey) / q.Every - Claimed(s, q)) : 0;
+
+        /// <summary>Repeating achievements: the counter value of the next unclaimed milestone (shown by the UI).</summary>
+        public static long NextMilestone(GameState s, QuestDef q) => (Claimed(s, q) + 1) * q.Every;
+
         public static bool CanClaim(GameState s, ContentDb content, QuestDef q, long nowMs) =>
-            IsAvailable(s, content, q, nowMs) && !s.Quests.Claimed.Contains(q.Id) && IsComplete(s, q);
+            IsAvailable(s, content, q, nowMs) && (q.Every > 0 || !s.Quests.Claimed.Contains(q.Id)) && IsComplete(s, q);
 
         /// <summary>Visible quests of a kind (content order is dictionary insertion; sorted by id for stability).</summary>
         public static List<QuestDef> Visible(GameState s, ContentDb content, QuestKind kind, long nowMs)
@@ -120,12 +131,14 @@ namespace RogueStars.Rules.Systems
         private static void Claim(CommandContext ctx, QuestDef def)
         {
             var s = ctx.State;
-            s.Quests.Claimed.Add(def.Id);
+            long times = 1;
+            if (def.Every > 0) { times = Pending(s, def); s.Quests.AchievementClaims[def.Id] = Claimed(s, def) + times; }
+            else s.Quests.Claimed.Add(def.Id);
             if (def.Kind == QuestKind.Daily) { s.Quests.DailyPoints += def.Points; s.Count("daily_quests_claimed"); }
             else if (def.Kind == QuestKind.Weekly) { s.Quests.WeeklyPoints += def.Points; s.Count("weekly_quests_claimed"); }
-            else if (def.Kind == QuestKind.Achievement) s.Count("achievements_claimed");
+            else if (def.Kind == QuestKind.Achievement) s.Count("achievements_claimed", times);
             ShopSystem.AddSeasonXp(s, def.SeasonXp);
-            ctx.GrantAll(def.Rewards);
+            foreach (var r in def.Rewards) ctx.Grant(new Reward(r.Kind, r.Id, r.Amount * times, r.Rarity));
             ctx.Emit("quest_claimed", def.Id);
         }
 
@@ -134,7 +147,7 @@ namespace RogueStars.Rules.Systems
             var def = ctx.Content.Quest(cmd.QuestId);
             GameEngine.Require(def != null, "unknown quest");
             GameEngine.Require(IsAvailable(ctx.State, ctx.Content, def, ctx.NowMs), "quest not available");
-            GameEngine.Require(!ctx.State.Quests.Claimed.Contains(def.Id), "already claimed");
+            GameEngine.Require(def.Every > 0 || !ctx.State.Quests.Claimed.Contains(def.Id), "already claimed");
             GameEngine.Require(IsComplete(ctx.State, def), "quest not complete");
             Claim(ctx, def);
             return CommandResult.Success();
@@ -162,7 +175,40 @@ namespace RogueStars.Rules.Systems
             GameEngine.Require(!s.Quests.ChestsClaimed.Contains(key), "already claimed");
             s.Quests.ChestsClaimed.Add(key);
             ctx.GrantAll(chest.Rewards);
+            GrantChestTokens(ctx, chest);
             return CommandResult.Success();
+        }
+
+        /// <summary>The pull token currencies of the Signals the player has unlocked (Part first; before any, just Part).</summary>
+        public static List<string> UnlockedTokenTypes(GameState s, ContentDb c)
+        {
+            var list = new List<string>();
+            if (Features.IsUnlocked(s, c, Features.PartPulls)) list.Add(Currencies.PartTokens);
+            if (Features.IsUnlocked(s, c, Features.AlienPulls)) list.Add(Currencies.AlienTokens);
+            if (Features.IsUnlocked(s, c, Features.Blueprints)) list.Add(Currencies.BlueprintTokens);
+            if (list.Count == 0) list.Add(Currencies.PartTokens);
+            return list;
+        }
+
+        private static void GrantChestTokens(CommandContext ctx, PointChestDef chest)
+        {
+            var s = ctx.State;
+            s.Quests.LastChestTokens.Clear();
+            var types = UnlockedTokenTypes(s, ctx.Content);
+            if (chest.RandomTokens > 0)
+            {
+                // A fork of the player stream by chest and period: deterministic, and the stream itself is not consumed.
+                var rng = ctx.Rng.Fork("quest_chest:" + chest.Track + ":" + chest.Points + ":" +
+                    (chest.Track == PointTrack.Daily ? s.Quests.DailyIndex : s.Quests.WeeklyIndex));
+                for (int i = 0; i < chest.RandomTokens; i++)
+                {
+                    string cur = rng.Pick(types);
+                    s.Quests.LastChestTokens.Add(cur);
+                    ctx.Grant(Reward.Cur(cur, 1));
+                }
+            }
+            if (chest.TokensEachType > 0)
+                foreach (var cur in types) ctx.Grant(Reward.Cur(cur, chest.TokensEachType));
         }
 
         private static CommandResult HandleLogin(LoginClaim cmd, CommandContext ctx)

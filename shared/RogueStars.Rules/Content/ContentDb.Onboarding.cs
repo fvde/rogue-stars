@@ -223,16 +223,16 @@ namespace RogueStars.Rules.Content
             }
 
             // GDD §16 level unlocks: every feature unlocks at a main level cleared (the player level: Requirements.MainLevelCounter),
-            // never by calendar day, one new thing per level up to level 20 (level 3 brings two: the worm and the daily goals), then every 2 levels, then every 3–4. Systems come
+            // never by calendar day, one new thing per level up to level 20 (level 1: Parts), then every 2 levels, then every 3–4. Systems come
             // before what depends on them and every reward kind waits for its use (RewardGate). Run content is introduced
             // after the level before the first board that has it. Main level numbers are global (portal 1 = levels 1..10, ...).
             // Unlocks come with pulls (owner, 2026-11-25): Parts open the Part Signal, Aliens the Alien Signal, the City the Blueprint
             // Signal (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
             F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones at the Part Signal: your first 10× pull is free.");
+            // Daily Quests are no feature (owner, 2026-11-26): no unlock moment, intro or gift. The hub shows their button once Parts
+            // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button), see HubLayout.
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
-            // Daily goals from level 3 (owner, 2026-11-26): the first reason to come back tomorrow, earlier than before (was level 8).
-            F(Features.Quests, "Daily Goals", 3, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
             // The crash site comes first (owner, 2026-11-25): the Aliens unlock brings the Launch Pod, built on the crash site at once, so
@@ -259,7 +259,7 @@ namespace RogueStars.Rules.Content
             F(Features.Funds, "Funds", 30, 0, null, "Growth funds pay out Diamonds as you clear main levels.");
             F(Features.Arena, "Arena", 32, 50, null, "Fight other players' worms for league points and Arena Medals.");
             B(Features.Breeding, "Breeding Pen", "bp_breeding_pen", 50, null, "Breed two aliens for a child with better genes.");
-            F(Features.SeasonPass, "Season Pass", 36, 0, null, "Earn pass points from daily goals for a track of rewards every season.");
+            F(Features.SeasonPass, "Season Pass", 36, 0, null, "Earn pass points from daily quests for a track of rewards every season.");
             F(Features.PackageLightning, "Lightning Package", 38, 0, null, "A new Laboratory package: research it to add Lightning skills to your runs.", since: 2);
             F(Features.Overcharged, "Overcharged Levels", 40, 50, null, "Replay cleared levels with harder modifiers for bigger rewards.");
             F(Features.Guilds, "Guilds", 42, 50, null, "Join a guild: chat, a guild shop and invasions together.");
@@ -354,11 +354,6 @@ namespace RogueStars.Rules.Content
                 "Hold the dice to roll on its own.", "dice_hold", Tap,
                 "Auto waits for every choice and fight.", "auto_pause", Pulse,
                 "Tap anywhere to stop it.", "tap_stop", Tap);
-            I(Features.Quests,
-                "Every day brings new goals.", "goals", Slide,
-                "Goals fill your point bar.", "points", Fill,
-                "Open the chests on the bar.", "chest", Bounce,
-                "Log in each day for the 7-day calendar.", "calendar", Pulse);
             I(Features.RunCampfire,
                 "Campfires now burn on the board.", "campfire", Pulse,
                 "Rest to heal, or train a skill.", "campfire_choice", Tap);
@@ -416,7 +411,7 @@ namespace RogueStars.Rules.Content
                 "Breed two aliens in the Breeding Pen.", "breeding", Pulse,
                 "The child can get better genes.", "genes", Fill);
             I(Features.SeasonPass,
-                "Daily goals give pass points.", "pass_points", Count,
+                "Daily quests give pass points.", "pass_points", Count,
                 "Points climb a track of rewards each season.", "pass_track", Fill);
             I(Features.PackageLightning,
                 "A new package is ready in the Laboratory.", "package", Pulse,

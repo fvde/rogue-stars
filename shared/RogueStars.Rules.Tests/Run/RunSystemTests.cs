@@ -490,9 +490,8 @@ public class DarkSideTests
         var last = c.RunLevel(dark.LevelIds[^1])!;
         Assert.True(last.CompletionRewards.Single(r => r.Id == Currencies.Data).Amount >= 10 * c.RunLevel(dark.LevelIds[0])!.CompletionRewards.Single(r => r.Id == Currencies.Data).Amount);
         Assert.True(last.Threat > c.Campaign.ThreatAt(350));
-        // Main portals pay no Data; the quest track pays a trickle.
+        // Main portals pay no Data (the quest chests none either since 2026-11-26).
         Assert.All(c.RunLevels.Values.Where(l => l.PortalId != "dark_side"), l => Assert.DoesNotContain(l.CompletionRewards, r => r.Id == Currencies.Data));
-        Assert.Contains(c.PointChests, ch => ch.Rewards.Any(r => r.Id == Currencies.Data));
     }
 }
 

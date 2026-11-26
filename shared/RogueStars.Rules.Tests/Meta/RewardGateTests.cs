@@ -170,12 +170,12 @@ public class RewardGateTests
     }
 
     [Fact]
-    public void QuestChest_DataBeforeTheLaboratory_IsStashedUpToTheCap_TheRestDropped()
+    public void QuestChest_GearCoresBeforeAPartNeedsThem_AreStashedUpToTheCap_TheRestDropped()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
-        var use = e.Content.CurrencyUse(Currencies.Data)!;
-        var chest = e.Content.PointChests.First(c => c.Rewards.Any(r => r.Id == Currencies.Data));
-        long perChest = chest.Rewards.Single(r => r.Id == Currencies.Data).Amount;
+        var use = e.Content.CurrencyUse(Currencies.GearCores)!; // no part needs them yet
+        var chest = e.Content.PointChests.First(c => c.Rewards.Any(r => r.Id == Currencies.GearCores));
+        long perChest = chest.Rewards.Single(r => r.Id == Currencies.GearCores).Amount;
         long got = 0;
         e.Settle(s, t); // daily/weekly point reset happens here, not between the claims below
         while (got <= use.StashCap)
@@ -185,9 +185,9 @@ public class RewardGateTests
             Ok(e, ref s, new QuestClaimChest { Track = chest.Track, Points = chest.Points }, t);
             got += perChest;
         }
-        Assert.Equal(0, Bal(s, Currencies.Data));
-        Assert.Equal(use.StashCap, RewardGate.Stashed(s, Currencies.Data));
-        Assert.Equal(got - use.StashCap, s.Stash.Dropped[Currencies.Data]);
+        Assert.Equal(0, Bal(s, Currencies.GearCores));
+        Assert.Equal(use.StashCap, RewardGate.Stashed(s, Currencies.GearCores));
+        Assert.Equal(got - use.StashCap, s.Stash.Dropped[Currencies.GearCores]);
     }
 
     [Fact]

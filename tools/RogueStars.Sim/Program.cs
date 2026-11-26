@@ -3,6 +3,7 @@ using RogueStars.Sim;
 
 // Usage: dotnet run --project tools/RogueStars.Sim -c Release -- [--days 730] [--seeds 3] [--profiles Active:F2P,Active:Whale]
 //        --inventory [--seeds 3]: median wallet of a new F2P player at the end of day 1 / 3 / 7 per time profile
+//        --quests [--days 8] [--seeds 5]: first-days state per profile (levels, counters, quest points claimed) for the quest reachability check
 //        --unlocks [--days 30] [--seeds 3]: onboarding unlock day/level per feature (Casual, Active ~1 h/day, Hardcore binge)
 //        [--out docs/balance] [--label after] [--quiet] [--variant no_lab_stats,old_biomass]
 var opts = Args.Parse(args);
@@ -17,6 +18,12 @@ if (opts.Has("counter-rates"))
 {
     // Median daily counter deltas per profile (summon event task thresholds, docs/design/summon-events.md).
     Console.WriteLine(CounterRates.Markdown(opts.Int("days", 60), opts.Int("seeds", 3), opts.Str("profiles", "Casual:F2P,Active:F2P,Hardcore:Whale")));
+    return;
+}
+if (opts.Has("quests"))
+{
+    // Quest reachability: median state per day of the first days (docs/balance/daily-quests.md).
+    Console.WriteLine(QuestReport.Markdown(opts.Int("days", 8), opts.Int("seeds", 5), opts.Str("profiles", "Casual:F2P,Active:F2P,Hardcore:F2P")));
     return;
 }
 if (opts.Has("summon"))

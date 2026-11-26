@@ -76,7 +76,9 @@ public class ProgressionGuardTests
     public void F2p_LongHaulSystems_AreNotMaxedEarly()
     {
         // Built for years: two months in, a free player is far from 10★ heroes, maxed mounts or Mythic S parts.
-        Assert.InRange(At(F2p.Value, 60, "hero_stars_best"), 2, 6);
+        // Lower bound 2 → 1 (Daily Quests from level 1, quest points and rewards moved: seed 1 now ends on 1★ by pull luck; the median of
+        // 5 Active F2P seeds is still 2★ at day 60, as before).
+        Assert.InRange(At(F2p.Value, 60, "hero_stars_best"), 1, 6);
         // Mount 5★ is the end of the star road, not of the mount (awakening 1–5 follows). The endless campaign's milestone
         // chests (Blueprint tokens) can tip seed 1 over 5★ just before day 60 (median ~day 90): see "Endless campaign".
         Assert.InRange(At(F2p.Value, 60, "mount_stars_best"), 1, 5);

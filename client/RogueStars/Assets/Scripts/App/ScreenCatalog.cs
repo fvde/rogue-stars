@@ -39,7 +39,7 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "city", Title = "City", FeatureId = Features.AlienSquad, Workstream = "City", Create = () => new CityScreen() },
             new ScreenEntry { Id = "aliens", Title = "Aliens", FeatureId = Features.Aliens, Workstream = "City", Create = () => new AliensScreen() },
             new ScreenEntry { Id = "breeding", Title = "Breeding Pen", FeatureId = Features.Breeding, Workstream = "City", Create = () => new BreedingScreen() },
-            new ScreenEntry { Id = "quests", Title = "Quests", FeatureId = Features.Quests, Workstream = "Meta", Create = () => new QuestsScreen() },
+            new ScreenEntry { Id = "quests", Title = "Daily Quests", FeatureId = Features.Parts, Workstream = "Meta", Create = () => new QuestsScreen() },
             new ScreenEntry { Id = "shop", Title = "Shop", FeatureId = Features.Shop, Workstream = "Meta", Create = () => new ShopScreen() },
             new ScreenEntry { Id = "mail", Title = "Mail", Workstream = "Meta", Create = () => new MailScreen() },
             new ScreenEntry { Id = "observatory", Title = "Observatory", FeatureId = Features.Invasions, Workstream = "Meta", Create = () => new ObservatoryScreen() },

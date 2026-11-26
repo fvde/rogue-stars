@@ -276,8 +276,8 @@ StatusChance, StatusResist, BossDamage, ElementDamage(per element), AlienPower, 
     year of perfect timing clears at most ≈ 27.5k of the 28.7k hours (checked by `Tree_CannotBeFinishedInYearOne_…`).
   - **Research Annex** (Mythic blueprint): a second, concurrent research slot while two alien workers of 3★ or more
     staff it; research in the Annex takes twice as long.
-  - **Data:** Dark Side clears (main source, grows with the Dark Side level), daily/weekly point chests (trickle so the
-    lab works before the Dark Side), the Laboratory unlock grant and the arena shop.
+  - **Data:** Dark Side clears (main source, grows with the Dark Side level), the Laboratory unlock grant and the arena shop
+    (the point chests paid a trickle until 2026-11-26).
 
 ## 6. Worm progression (built for years)
 ### 6.1 Worm level
@@ -429,7 +429,7 @@ converted step by step (docs/design/pull-system.md).
 | Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
 | Grain | Breeding, Shard Reactor alien jobs |
 | Ore | Parts level, Mythic+ merges, buildings |
-| Data | Laboratory research (Dark Side clears, daily/weekly chests, arena shop) |
+| Data | Laboratory research (Dark Side clears, arena shop) |
 | Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
 | Arena Medals | Arena shop (arena fights and weekly rank) |
 | Gear Cores, Advancement Plates | Part level / cap |
@@ -511,11 +511,20 @@ Daily login (7-day cycles, no streak loss), daily/weekly quests and achievements
 new-player 7-day event, mailbox, idle production (city), push notification hooks (local), returning-player
 gifts. Lobby popups capped.
 
+**Daily Quests** are there from the first cleared level (no feature, unlock moment, intro or gift; the hub button shows with Parts), so
+every quest makes sense the moment it is offered (`docs/balance/daily-quests.md`): a quest is hidden until the feature that makes it
+possible (its `Feature` field: the Shop for "Buy 1 shop item" and the ad quest, the City for building quests, the Arena, Breeding,
+Invasions), the **early quests alone fill both point tracks** (daily 100, weekly 500: no ad, shop, arena or City needed; later quests are
+extra points). Daily and weekly quests pay **points only**: the bar's five chests are the reward (Stamina, Diamonds 100 a day / 500 a
+week, Biomass, Ore, Gear Cores; the daily top chest 3 pull tickets of random unlocked Signals; the weekly 400 chest 5 tickets of each
+unlocked Signal; one Part awakening core in the weekly top chest). Achievements are linear repeating milestones (Diamonds per 100 enemies,
+10 bosses, 10 mini-games; 10 pull tickets per 100 pulls of a type). The ad quest hides while ads are disabled (`ShopConfig.AdsDisabled`).
+
 ## 16. Onboarding / unlock order
 Level unlocks (owner decision 2026-11-24): **nothing limits progression by calendar day.** Every feature unlocks at a
 **player level = the main campaign level cleared** (`main_level_max`, `RequirementKind.MainLevel`; the worm level is itself
 a feature, so the campaign level is the account's level). How fast the player gets there is up to them: there is no
-account-day gate and no "one unlock per day" limit (daily resets, daily goals, timers and event schedules stay). The
+account-day gate and no "one unlock per day" limit (daily resets, daily quests, timers and event schedules stay). The
 features are spaced out for a steady stream of new things: **one per level up to level 20, then every 2 levels, then
 every 3–4**; systems come before what depends on them and every reward waits for its use (§13.1). Run content is
 introduced the same way, after the level before the first board that has it (the level's own fields, `ContentDb.Campaign`).
@@ -524,10 +533,9 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | Level | Unlock (feature id) | Guided action |
 |---|---|---|
 | – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
-| 1 | Parts / Worm tab (`parts`): equip the three starter parts | Equip your parts |
+| 1 | Parts / Worm tab (`parts`): equip the three starter parts. Daily Quests and the 7-day calendar are there from here on, with no unlock moment of their own (owner, 2026-11-26) | Equip your parts |
 | 2 | Shops on the board from level 3 (`run_shop`) | Play |
 | 3 | Worm level & talents (`worm_level`) | Level up the worm |
-| 3 | Daily goals and the 7-day calendar (`quests`; its own unlock moment right after the worm's, owner 2026-11-26) | See today's goals |
 | 4 | Minibosses & Mythics from level 5: the lair and the awakening clock (`run_miniboss`) | Play |
 | 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
 | 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |

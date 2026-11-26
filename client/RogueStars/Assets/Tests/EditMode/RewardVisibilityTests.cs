@@ -145,7 +145,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Quests_LoginCalendar_HidesLockedCurrencies()
         {
-            Unlock(Features.Parts, Features.Quests);
+            Unlock(Features.Parts);
             _f.App.Open("quests");
             var all = AllTabTexts("Login", "Newbie");
             Assert.That(all.Any(t => t.Contains("Blueprint Tokens") || t.Contains("Alien Tokens") || t.Contains("Data")), Is.False, string.Join(" | ", all.Where(t => t.Contains("Day"))));
@@ -154,7 +154,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Shop_HidesOffersAndItemsForLockedFeatures()
         {
-            Unlock(Features.Parts, Features.Quests, Features.PartPulls, Features.Shop);
+            Unlock(Features.Parts, Features.PartPulls, Features.Shop);
             _f.App.Open("shop");
             var all = AllTabTexts("Offers", "Diamonds", "Passes", "Forever", "Items", "Ads");
             Assert.That(all.Any(t => t.Contains("Fuel") || t.Contains("Hero XP") || t.Contains("Grain") || t.Contains("Arena Tickets")), Is.False,

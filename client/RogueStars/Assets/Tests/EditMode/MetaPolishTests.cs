@@ -105,5 +105,43 @@ namespace RogueStars.Client.Tests
             var claim = root.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.StartsWith("Claim:") && !b.interactable);
             if (claim != null) Assert.That(claim.transform.parent.GetComponentsInChildren<Text>(true).Any(t => t.name == "DisabledReason"), Is.True);
         }
+
+        [Test]
+        public void DailyQuests_ShowPointsOnly_TheChestsPay_AndAchievementsNameTheNextMilestone()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.App.Open("quests");
+            Assert.That(_f.App.Router.Current.Title, Is.EqualTo("Daily Quests"));
+            var daily = _f.App.Router.Current.Root.GetComponentsInChildren<Text>(true).Where(t => t.name.StartsWith("Reward:d_")).ToList();
+            Assert.That(daily, Is.Not.Empty);
+            foreach (var t in daily) Assert.That(t.text, Does.StartWith("+").And.EndWith(" pts"), t.name);
+            // the weekly tab too, then the achievements: reward and the next milestone
+            var screen = (RogueStars.Client.Screens.QuestsScreen)_f.App.Router.Current;
+            var chest = _f.Service.Content.PointChests.First(c => c.RandomTokens > 0);
+            Assert.That(screen.ChestText(chest), Does.Contain("3 pull tickets").And.Contain("random Signal"));
+            var tabs = _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true).ToList();
+            var ach = tabs.First(b => b.GetComponentInChildren<Text>()?.text == "Achieve");
+            ach.onClick.Invoke();
+            var texts = _f.App.Router.Current.Root.GetComponentsInChildren<Text>(true).Where(t => t.name.StartsWith("Reward:a_")).Select(t => t.text).ToList();
+            Assert.That(texts, Is.Not.Empty);
+            Assert.That(texts.All(t => t.Contains("next at")), Is.True, string.Join(" | ", texts));
+        }
+
+        [Test]
+        public void DailyTopChest_OpensWithThreeTicketsFlippingOut()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.Service.State.Quests.DailyPoints = 100;
+            _f.App.Open("quests");
+            var screen = (RogueStars.Client.Screens.QuestsScreen)_f.App.Router.Current;
+            var chest = _f.Service.Content.PointChests.First(c => c.RandomTokens > 0);
+            screen.OpenChest(PointTrack.Daily, chest);
+            Assert.That(_f.Service.State.Quests.LastChestTokens.Count, Is.EqualTo(3));
+            Assert.That(_f.Service.State.Quests.ChestsClaimed, Does.Contain("Daily:100"));
+            var all = _f.Service.State.Quests.LastChestTokens;
+            Assert.That(all.All(t => t == Currencies.PartTokens || t == Currencies.AlienTokens || t == Currencies.BlueprintTokens), Is.True);
+            var items = PullReveal.FromRewards(all.Select(t => Reward.Cur(t, 1)), _f.Service.Content);
+            Assert.That(items.Count, Is.EqualTo(3), "three tickets flip out");
+        }
     }
 }
