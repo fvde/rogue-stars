@@ -1,0 +1,17 @@
+{
+  "name": "pkg-slice-markers6",
+  "width": 512,
+  "height": 512,
+  "seeds": [
+    5161,
+    5162,
+    5163,
+    5164
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", seen straight from the front, filled with energy all the way to the middle, one single object, centered, isolated on a plain pure white background, no text",
+  "negative": "empty ring, hollow ring, hole in the middle, base, pedestal, stand, platform, ground, frame, arch, doorway, stone, runes, creatures, scenery, multiple objects, text, letters, watermark, blurry, photo",
+  "subjects": {
+    "portal": "a simple magic portal: a round swirling vortex of glowing blue and purple energy spiralling into a bright center, cartoon game icon"
+  }
+}
