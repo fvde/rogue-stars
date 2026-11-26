@@ -282,9 +282,11 @@ design A (the board, tray and footer described in *Screens* above are superseded
   `BoardView` RawImage under the HUD (renders only in play mode on a real GPU). `Iso` = projection (step 0.84 × 0.58 world
   units, a ~1.45 : 1 dimetric matching the references) and painter's order (`Iso.Order`: larger x + y first); the view is
   `WorldBoard.ViewWidth` = 9 units wide (~5.4 tiles across a 1080-px screen, 120 px per unit) with a slight vignette.
-  The path stands on one continuous **plinth**: `IsoArt.Block(face, height, mask)` takes the neighbour mask
-  (`IsoArt.PlinthMask`, path cells and set-piece floors of one height), so corner seams appear only where the plinth turns
-  or ends; walls carry a lit cap, a carved band of hooked spiral keys (repeats every 28 px of screen x, seamless across
+  The path stands on one continuous **plinth** at one elevation (the rules' raised sections, `RunTile.Height`, are drawn
+  flat: a step at a turn read as one tile cutting into the next): `IsoArt.Block(face, height, mask)` takes the neighbour
+  mask (`IsoArt.PlinthMask`, path cells, set-piece floors and filled pits) and draws wall faces only on exposed front
+  edges (`IsoArt.ExposedWalls`), so corner seams appear only where the plinth turns or ends; pits between runs (a
+  hairpin's notch, the bay inside a tight U: `WorldBoard.PlinthPockets`, gaps ≤ `PocketGap` cells) get plinth floor; walls carry a lit cap, a carved band of hooked spiral keys (repeats every 28 px of screen x, seamless across
   cells), the base ledge, ambient occlusion and a soft contact shadow on the ground; slabs are inset with thin grout.
   Palette: slate stone by default, soft accents only on special tiles (salmon boost, teal event, pale special).
   The **island**: `WorldBoard.IslandField` (chamfer distance from the plinth, radius `IslandRadius` wobbled by noise)
@@ -294,8 +296,9 @@ design A (the board, tray and footer described in *Screens* above are superseded
   where they never stand in front of the path; every prop, marker and the worm gets a soft shadow
   (`IsoArt.SoftShadow`). Drawn: tiles in a depth
   window around the worm (22 behind, 46 ahead; only trail + arena once the arena opens), each a `Block` (slab sides +
-  platform wall with the glyph trim, taller when raised) and a `Top` (face colour per kind, engraving: boost chevrons,
-  event "?", hazard spikes, curse chevrons backwards), the kind's **marker** prop standing on it (`IsoArt.MarkerOf`:
+  platform wall with the glyph trim on exposed edges) and a `Top` (face colour per kind, engraving: boost and curse
+  chevrons pointing from the tile to the next tile in walking order, `WorldBoard.PathHeading`: corners point the new way,
+  forks down their first arm; event "?", hazard spikes), the kind's **marker** prop standing on it (`IsoArt.MarkerOf`:
   enemy, elite, miniboss, boss, event, mystery = item, chest, rest = campfire, shop, minigame, portal = start, reward =
   loot/shard; hidden under the worm; beaten enemies / taken pickups leave on landing), set pieces on slot floors
   (`WorldBoard.SetPieceFor`: loops get the portal well / spire / mushroom, hairpins the standing ones), scatter props on
@@ -984,3 +987,13 @@ upright creature and **shaders** for props and buildings. Namespace `RogueStars.
   that only helps (`IsoArt.FriendlyBossTile`) is drawn as a boost (`IsoArt.FaceOf(TileDef)`, `Theme.TileAccent(TileDef)`).
 - **Battle "NEXT" strip** sits on a `Kit.Plate` (near-opaque, light rim, drop shadow) with an outlined label (`Kit.Legible`).
 - Screenshots: `Playtest308ShowcaseTests` (PlayMode, Explicit, `ROGUESTARS_SHOTS_DIR`).
+
+## Board path fix (client)
+- **Arrows point forward**: boost and curse chevrons point from their tile to the next tile in walking order
+  (`WorldBoard.PathHeading`: next cell − this cell; a corner points the new way, a fork down its first arm, the path's end
+  the way it is entered), never by the tile's entering heading (`RunTile.Dir`) and never backwards for curses.
+- **One walkway**: the path is drawn at one elevation (raised sections flat), wall faces only on exposed front edges
+  (`IsoArt.ExposedWalls`), pits between runs filled with plinth floor (`WorldBoard.PlinthPockets`).
+- Tests: `BoardPathTests` (EditMode: arrow per step incl. all eight turns, walls per neighbour mask, pits). Screenshots:
+  `BoardPathShowcaseTests` (PlayMode, Explicit, `ROGUESTARS_SHOTS_DIR`): a meander with every turn and chevrons on every
+  corner, plus seeded boards of levels 2 / 6 / 11 / 17 at three places along the main path.

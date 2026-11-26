@@ -144,8 +144,21 @@ namespace RogueStars.Client.World
         /// <summary>Neighbour bits of a plinth cell (a neighbour on the same height): the walls run on / are covered there.</summary>
         public const int NbBackLeft = 1, NbBackRight = 2, NbFrontLeft = 4, NbFrontRight = 8;
 
+        /// <summary>How far (px of screen x) a wall face reaches past a cell edge where the wall runs on into the next cell.</summary>
+        private const float Overlap = 2;
+
         /// <summary>Ground shadow under the plinth's walls (px below the wall foot).</summary>
         private const float ShadowPx = 22;
+
+        /// <summary>The block's two front wall faces (<see cref="ExposedWalls"/>): left = under its front-left edge, right = front-right.</summary>
+        public const int WallLeft = 1, WallRight = 2;
+
+        /// <summary>
+        /// The wall faces a plinth cell shows: only the front edges with no plinth cell in front of them. Back edges are never
+        /// seen; a front edge with a neighbour is the joint between two cells (the neighbour's top and walls stand there).
+        /// </summary>
+        public static int ExposedWalls(int mask) =>
+            ((mask & NbFrontLeft) == 0 ? WallLeft : 0) | ((mask & NbFrontRight) == 0 ? WallRight : 0);
 
         /// <summary>
         /// The neighbour mask of plinth cell (x, y) (<see cref="NbBackLeft"/> …): which side neighbours stand on the same
@@ -176,12 +189,16 @@ namespace RogueStars.Client.World
                 float py = cy - slabPx;
                 var L = V(cx - SX, py); var B = V(cx, py - SY); var R = V(cx + SX, py); var T = V(cx, py + SY);
                 var Ld = V(L.x, L.y - wall); var Bd = V(B.x, B.y - wall); var Rd = V(R.x, R.y - wall);
-                bool leftOpen = (mask & NbFrontLeft) == 0, rightOpen = (mask & NbFrontRight) == 0;
+                int walls = ExposedWalls(mask);
+                bool leftOpen = (walls & WallLeft) != 0, rightOpen = (walls & WallRight) != 0;
                 // contact shadow on the ground under the open walls (light from the top left: deeper on the right)
                 if (leftOpen) GroundShadow(p, Ld, Bd, ShadowPx * 0.55f, 0.3f);
                 if (rightOpen) GroundShadow(p, Bd, Rd, ShadowPx, 0.42f);
-                WallFace(p, L, B, wall, WallLight, true);
-                WallFace(p, B, R, wall, WallDark, false);
+                // wall faces only on the exposed edges: a joint to the next cell has none (nothing to overlap or cut in)
+                // where a wall runs on into the neighbour's, it reaches a little past the cell edge so the two sprites
+                // overlap (no filtered seam line between cells); a free end stops at the edge under its ink seam
+                if (leftOpen) WallFace(p, L, B, wall, WallLight, true, (mask & NbBackLeft) != 0 ? Overlap : 0, (mask & NbFrontRight) != 0 ? Overlap : 0);
+                if (rightOpen) WallFace(p, B, R, wall, WallDark, false, (mask & NbFrontLeft) != 0 ? Overlap : 0, (mask & NbBackRight) != 0 ? Overlap : 0);
                 var ink = new Color(Ink.r, Ink.g, Ink.b, 0.85f);
                 if (leftOpen) p.Line(Ld, Bd, 3, Ink);
                 if (rightOpen) p.Line(Bd, Rd, 3, Ink);
@@ -245,10 +262,11 @@ namespace RogueStars.Client.World
         /// spiral keys between two rails, plain stone, the base ledge and ambient occlusion where it meets the ground. The key
         /// repeats every 28 px of screen x (3 per cell), so neighbouring walls continue it seamlessly.
         /// </summary>
-        private static void WallFace(IsoPaint p, Vector2 a, Vector2 b, float depth, Color baseCol, bool left)
+        private static void WallFace(IsoPaint p, Vector2 a, Vector2 b, float depth, Color baseCol, bool left, float extA = 0, float extB = 0)
         {
             var e = b - a;
-            p.Poly(new[] { a, b, V(b.x, b.y - depth), V(a.x, a.y - depth) }, (x, y) =>
+            var a2 = a - e / e.x * extA; var b2 = b + e / e.x * extB; // reach extA / extB px of screen x past the ends
+            p.Poly(new[] { a2, b2, V(b2.x, b2.y - depth), V(a2.x, a2.y - depth) }, (x, y) =>
             {
                 float u = (x - a.x) / e.x;               // 0..1 along the edge
                 float v = a.y + e.y * u - y;             // px below the top edge
@@ -273,7 +291,21 @@ namespace RogueStars.Client.World
             });
         }
 
-        /// <summary>The top face of a tile (pivot = its centre): bevel, outline, a socket for the marker, the kind's engraving.</summary>
+        /// <summary>
+        /// Screen direction (sprite pixels, y up, normalised) of a grid heading (0 +Y up-left, 1 +X up-right, 2 −Y
+        /// down-right, 3 −X down-left): the way a tile's chevrons point.
+        /// </summary>
+        public static Vector2 ChevronDir(int heading)
+        {
+            var st = Iso.Step(heading);
+            return new Vector2((st.x - st.y) * SX, (st.x + st.y) * SY).normalized;
+        }
+
+        /// <summary>
+        /// The top face of a tile (pivot = its centre): bevel, outline, a socket for the marker, the kind's engraving. Boost
+        /// and curse chevrons point along <paramref name="heading"/>: the way the path goes on from the tile
+        /// (WorldBoard.PathHeading).
+        /// </summary>
         public static Sprite Top(TileFace face, int heading)
         {
             heading &= 3;
@@ -318,9 +350,8 @@ namespace RogueStars.Client.World
                     case TileFace.Boost:
                     case TileFace.Curse:
                     {
-                        // two chevrons pointing along the path (curse: against it)
-                        var st = Iso.Step(face == TileFace.Curse ? heading + 2 : heading);
-                        var dir = new Vector2((st.x - st.y) * SX, (st.x + st.y) * SY).normalized;
+                        // two chevrons pointing the way the path goes on (boost and curse alike)
+                        var dir = ChevronDir(heading);
                         var side = new Vector2(-dir.y * 1.45f, dir.x * 0.7f);
                         for (int i = 0; i < 2; i++)
                         {
