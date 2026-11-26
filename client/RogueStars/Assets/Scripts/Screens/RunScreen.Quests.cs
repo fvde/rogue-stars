@@ -99,7 +99,7 @@ namespace RogueStars.Client.Screens
                 crt.anchorMin = crt.anchorMax = new Vector2(1, 0.5f); crt.pivot = new Vector2(1, 0.5f);
                 crt.sizeDelta = new Vector2(320 * s, 86 * s); crt.anchoredPosition = new Vector2(-24 * s, 0);
                 UiShapes.Outline(crt, SliceKit.Ink, 28 * s, 4);
-                var ct = SliceKit.Chunky(chip.transform, v.Chip, (int)(34 * s), Theme.TextOn(v.ChipColor) == Theme.OnAccent ? (Color)SliceKit.Ink : Color.white, TextAnchor.MiddleCenter, "ChipText");
+                var ct = SliceKit.Chunky(chip.transform, v.Chip, (int)(34 * s), Color.white, TextAnchor.MiddleCenter, "ChipText");
                 Ui.Stretch(ct.rectTransform, 10 * s, 6 * s, 10 * s, 6 * s);
                 ct.horizontalOverflow = HorizontalWrapMode.Wrap; ct.resizeTextForBestFit = true; ct.resizeTextMaxSize = ct.fontSize; ct.resizeTextMinSize = (int)(22 * s);
             }

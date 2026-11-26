@@ -292,7 +292,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Avoided: return new LandingPopup("Avoided!", Theme.Good, PopupKind.Text);
                 case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + Fmt.Whole(a), Theme.Warn, PopupKind.Text);
                 case OutcomeKind.CoinBonus: return new LandingPopup("+" + Fmt.Whole(a) + " " + (l.Id ?? "bonus"), Theme.Gold, PopupKind.Coins); // the quest coin bonus
-                case OutcomeKind.QuestStep: return null; // shown on the result sheet
+                case OutcomeKind.QuestStep: return new LandingPopup(l.Good ? "Story moves on!" : "The story waits", l.Good ? Theme.Gold : Theme.TextDim, PopupKind.Text);
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
         }
