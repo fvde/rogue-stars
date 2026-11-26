@@ -17,10 +17,8 @@ public class QuestTests
         Assert.Equal(2, QuestSystem.Progress(s, q));
         Fail(e, ref s, new QuestClaim { QuestId = "d_runs" }, t);
         s.Count("runs_completed");
-        long dia = Bal(s, Currencies.Diamonds);
         Ok(e, ref s, new QuestClaim { QuestId = "d_runs" }, t);
-        Assert.Equal(dia + 10, Bal(s, Currencies.Diamonds));
-        Assert.Equal(20, s.Quests.DailyPoints);
+        Assert.Equal(25, s.Quests.DailyPoints);
         Fail(e, ref s, new QuestClaim { QuestId = "d_runs" }, t + H);
 
         // 23:59:59 same day: still claimed. 00:00 UTC: progress and claim reset.
@@ -44,7 +42,7 @@ public class QuestTests
         Assert.Equal(0, QuestSystem.Progress(s, q));
         s.Count("runs_completed", 20);
         Ok(e, ref s, new QuestClaim { QuestId = "w_runs" }, Monday + H);
-        Assert.Equal(100, s.Quests.WeeklyPoints);
+                Assert.Equal(150, s.Quests.WeeklyPoints);
         Assert.Equal(100 + 35 * 20, ShopSystem.SeasonXp(s, e.Content)); // quest season XP + counter XP (runs ×20)
     }
 
@@ -78,11 +76,13 @@ public class QuestTests
     public void Achievements_UseAbsoluteCounters_NeverReset()
     {
         var e = Engine(); var s = Player(e);
-        s.Count("runs_completed", 10);
-        Ok(e, ref s, new QuestClaim { QuestId = "a_runs_10" }, TestHelpers.T0);
+        s.Count("run_bosses_killed", 10);
+        Ok(e, ref s, new QuestClaim { QuestId = "a_bosses" }, TestHelpers.T0);
         e.Settle(s, Monday + 7 * D);
-        Fail(e, ref s, new QuestClaim { QuestId = "a_runs_10" }, Monday + 7 * D);
-        Assert.Equal(10, QuestSystem.Progress(s, e.Content.Quest("a_runs_50")!));
+        Fail(e, ref s, new QuestClaim { QuestId = "a_bosses" }, Monday + 7 * D);
+        Assert.Equal(0, QuestSystem.Progress(s, e.Content.Quest("a_bosses")!)); // the next milestone (20) starts from the claimed one
+        s.Count("run_bosses_killed", 10);
+        Ok(e, ref s, new QuestClaim { QuestId = "a_bosses" }, Monday + 7 * D);
     }
 
     [Fact]

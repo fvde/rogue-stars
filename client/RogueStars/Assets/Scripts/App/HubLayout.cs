@@ -43,11 +43,11 @@ namespace RogueStars.Client.App
             return list;
         }
 
-        /// <summary>Left column, above the live events: daily goals once unlocked.</summary>
+        /// <summary>Left column, above the live events: daily quests once unlocked.</summary>
         public static List<Entry> LeftColumn(GameState s, ContentDb c)
         {
             var list = new List<Entry>();
-            if (Features.IsUnlocked(s, c, Features.Quests)) list.Add(new Entry("quests", "Goals", "!", "quests"));
+            if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("quests", "Daily Quests", "!", "quests"));
             // Summon events (hero / mount): from the Heroes unlock. Badge: SummonView.HubBadge (screens-pass merge: show it).
             if (Features.IsUnlocked(s, c, Features.Heroes)) list.Add(new Entry("summon", "Summon", "&", "summon"));
             return list;
@@ -149,7 +149,6 @@ namespace RogueStars.Client.App
             switch (featureId)
             {
                 case Features.Parts: return new Entry(featureId, "EQUIP YOUR PARTS", null, "worm");
-                case Features.Quests: return new Entry(featureId, "SEE TODAY'S GOALS", null, "quests");
                 case Features.BiomassFarm: return new Entry(featureId, "BUILD THE FARM", null, "city");
                 case Features.WormLevel: return new Entry(featureId, "LEVEL UP THE WORM", null, "worm");
                 case Features.Shop: return new Entry(featureId, "OPEN THE SHOP", null, "shop");
@@ -187,7 +186,6 @@ namespace RogueStars.Client.App
             switch (featureId)
             {
                 case Features.Parts: case Features.WormLevel: return "~";
-                case Features.Quests: return "!";
                 case Features.BiomassFarm: case Features.GrainFarm: case Features.OreMine: return "#";
                 case Features.Shop: case Features.Funds: return "$";
                 case Features.Laboratory: return "Lab";

@@ -1,6 +1,7 @@
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
 
@@ -12,8 +13,7 @@ namespace RogueStars.Client.Screens
         private static readonly string[] Tabs = { "Daily", "Weekly", "Achieve", "Login", "Newbie" };
         private int _tab;
 
-        public override string Title => "Quests";
-        public override string[] IntroFeatures => new[] { Features.Quests };
+        public override string Title => "Daily Quests";
 
         protected override void Build(RectTransform body)
         {
@@ -36,14 +36,17 @@ namespace RogueStars.Client.Screens
             foreach (var quest in list)
             {
                 var q = quest;
-                bool claimed = State.Quests.Claimed.Contains(q.Id);
+                bool claimed = q.Every == 0 && State.Quests.Claimed.Contains(q.Id);
                 long progress = QuestSystem.Progress(State, q);
                 var card = Card(body, claimed ? Theme.Panel : Theme.PanelAlt);
                 Ui.Label(card, q.Name, Theme.FontNormal, claimed ? Theme.TextDim : Theme.Text);
                 Ui.Bar(card, q.Target > 0 ? (float)progress / q.Target : 1, claimed ? Theme.Locked : Theme.Good, System.Math.Min(progress, q.Target) + " / " + q.Target);
                 var row = Ui.Row(card, !claimed && !QuestSystem.CanClaim(State, Content, q, Now) ? 116 : 80);
-                string extra = (q.Points > 0 ? "  +" + q.Points + " pts" : "") + (q.SeasonXp > 0 ? "  +" + q.SeasonXp + " season XP" : "");
-                Ui.Label(row, Fmt.Rewards(q.Rewards, Content, State, Now) + extra, Theme.FontSmall, Theme.TextDim);
+                // Daily and weekly quests pay points only (the bar's chests are the reward); achievements and the new-player quests pay
+                // their reward, and a repeating achievement names its next milestone.
+                string line = q.Points > 0 ? "+" + q.Points + " pts" : Fmt.Rewards(q.Rewards, Content, State, Now);
+                if (q.Every > 0) line += "   ·   next at " + QuestSystem.NextMilestone(State, q);
+                Ui.Label(row, line, Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleLeft, "Reward:" + q.Id);
                 if (claimed) Ui.Label(row, "Claimed", Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
                 else
                 {
@@ -66,19 +69,36 @@ namespace RogueStars.Client.Screens
                 var c = chest;
                 bool claimed = State.Quests.ChestsClaimed.Contains(track + ":" + c.Points);
                 bool ready = points >= c.Points && !claimed;
-                ChestTile(row, c.Points, claimed, ready, () => Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, Fmt.Rewards(c.Rewards, Content, State, Now), Theme.FontNormal),
+                ChestTile(row, c.Points, claimed, ready, () => Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, ChestText(c), Theme.FontNormal),
                         ready ? new[] { new ModalButton("Open", () => OpenChest(track, c), Theme.Good), new ModalButton("Close", null) }
                               : new[] { new ModalButton("Close", null) }));
             }
         }
 
-        /// <summary>Opens a point chest and shows its contents through the shared reveal (SG1: chests use the pull ceremony).</summary>
+        /// <summary>What a chest holds, as text (the random pull tickets are named by their rule).</summary>
+        public string ChestText(PointChestDef c)
+        {
+            string text = Fmt.Rewards(c.Rewards, Content, State, Now);
+            if (c.RandomTokens > 0) text += "\n+" + c.RandomTokens + " pull tickets, each a random Signal you have unlocked";
+            if (c.TokensEachType > 0) text += "\n+" + c.TokensEachType + " pull tickets of every Signal you have unlocked";
+            return text;
+        }
+
+        /// <summary>
+        /// Opens a point chest and shows its contents through the shared reveal (SG1: chests use the pull ceremony): the daily top chest's
+        /// three random tickets flip out one by one (the rules store the draw in <c>QuestState.LastChestTokens</c>).
+        /// </summary>
         public void OpenChest(PointTrack track, PointChestDef c)
         {
             var shown = RewardGate.Usable(State, Content, c.Rewards, Now);
+            var types = QuestSystem.UnlockedTokenTypes(State, Content);
             Run(new QuestClaimChest { Track = track, Points = c.Points }, r =>
             {
-                if (r.Ok) PullReveal.Show(App.ModalLayer, PullReveal.FromRewards(shown, Content), new RevealOptions { Title = track + " chest", Skip = SummonEventScreen.SkipAnimation });
+                if (!r.Ok) return;
+                var all = new System.Collections.Generic.List<Reward>(shown);
+                foreach (var t in State.Quests.LastChestTokens) all.Add(Reward.Cur(t, 1));
+                if (c.TokensEachType > 0) foreach (var t in types) all.Add(Reward.Cur(t, c.TokensEachType));
+                PullReveal.Show(App.ModalLayer, PullReveal.FromRewards(all, Content), new RevealOptions { Title = track + " chest", Skip = SummonEventScreen.SkipAnimation });
             });
         }
 

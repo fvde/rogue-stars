@@ -129,10 +129,28 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void DailyQuests_AreNoFeature_NoUnlockMoment_ButTheButtonShowsOnceLevel1IsCleared()
+        {
+            Assert.That(C.Feature("quests"), Is.Null, "no feature record, intro, gift or teaser entry");
+            Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:quests"), "day 1: nothing but the play button before level 1 is cleared");
+            ClearLevel1();
+            Assert.That(HubLayout.PendingGroup(S, C), Is.EqualTo(new[] { Features.Parts }), "the only moment is Parts");
+            Celebrated(Features.Parts);
+            var hub = Hub;
+            Assert.That(ButtonNames(hub.Root), Does.Contain("Side:quests"));
+            var side = hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Side:quests");
+            Assert.That(side.GetComponentsInChildren<Text>(true).Any(t => t.text == "Daily Quests"), Is.True, "the hub button label");
+            side.onClick.Invoke();
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<QuestsScreen>());
+            Assert.That(_f.App.Router.Current.Title, Is.EqualTo("Daily Quests"), "the screen title");
+            Assert.That(_f.App.Router.Current.IntroFeatures, Is.Null, "no \"?\" intro");
+        }
+
+        [Test]
         public void TabsAndSideIcons_AppearAsFeaturesUnlock()
         {
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet" }));
-            Unlock(Features.Parts, Features.Quests);
+            Unlock(Features.Parts);
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:signals" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:quests"));
             Unlock(Features.BiomassFarm);
@@ -162,7 +180,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void EveryUnlockedScreen_IsReachableFromTheHub()
         {
-            Unlock(Features.Parts, Features.Quests, Features.BiomassFarm, Features.Laboratory, Features.Aliens);
+            Unlock(Features.Parts, Features.BiomassFarm, Features.Laboratory, Features.Aliens);
             var reachable = HubLayout.Reachable(S, C, _f.Service.NowMs);
             foreach (var e in ScreenCatalog.All)
                 if (e.FeatureId == null || Features.IsUnlocked(S, C, e.FeatureId))
@@ -183,7 +201,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Teaser_ShowsTheLevelToClear_NeverADay()
         {
-            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.Quests, Features.RunMiniboss, Features.RunTwoDice); // Daily Goals unlock at level 3
+            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             S.Counters[Requirements.MainLevelCounter] = 4;
             Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("2 more levels to the next feature"));
             Assert.That(Named(Hub.Root, "Figure"), Is.Null);
@@ -201,7 +219,7 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
             Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
-                Features.Quests, Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.Shop, Features.AlienPulls,
+                Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.Shop, Features.AlienPulls,
                 Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;

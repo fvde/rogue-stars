@@ -207,11 +207,11 @@ public class FullGameSmokeTests
         p.Do(new MailClaim { MailId = mountMail });
         p.Do(new MountEquip { MountId = "mount_scout_saucer" });
 
-        // Quests: login, part pull, ad (No-token ad fails, a real token works).
+        // Quests: login and ad (the part pull quest is gone: a pull costs tokens; No-token ad fails, a real token works).
         p.Do(new LoginClaim()); // a new day since the unlock days above
         p.Do(new BuyStamina { Method = StaminaRefillMethod.Ad, AdToken = "ad-1" });
         p.Do(new QuestClaimAll());
-        Assert.True(p.S.Counter("daily_quests_claimed") >= 3);
+        Assert.True(p.S.Counter("daily_quests_claimed") >= 2);
 
         // Soft-currency shop and a timed collection later the same day.
         p.Do(new ShopBuyItem { ItemId = "daily_free_gift" });

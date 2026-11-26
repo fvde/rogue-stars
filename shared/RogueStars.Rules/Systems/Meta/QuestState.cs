@@ -27,6 +27,11 @@ namespace RogueStars.Rules.Systems
         /// <summary>Claimed point chests: "Daily:20", "Weekly:300" (cleared at reset).</summary>
         public HashSet<string> ChestsClaimed = new HashSet<string>();
 
+        /// <summary>Repeating achievements: milestones claimed so far per achievement id (milestone n is at n × QuestDef.Every).</summary>
+        public Dictionary<string, long> AchievementClaims = new Dictionary<string, long>();
+        /// <summary>The random pull tokens (currency ids) the last point chest paid: the client's chest-open animation reads them.</summary>
+        public List<string> LastChestTokens = new List<string>();
+
         // Daily login (7-day cycle without streak loss)
         public int LoginCycleIndex;
         public long LastLoginDay = long.MinValue;

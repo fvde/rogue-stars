@@ -13,7 +13,7 @@ namespace RogueStars.Client.Screens
 {
     /// <summary>
     /// Home (reference home, with our planet as the centrepiece): the season bar on top (once the pass unlocks), feature
-    /// columns left (daily goals, live events) and right (shop, offer, pass, mail, more) with badges and timers, the frontier
+    /// columns left (daily quests, live events) and right (shop, offer, pass, mail, more) with badges and timers, the frontier
     /// portal, the next level's title and "Longest survived: N rolls", the home planet (art by growth stage, else drawn)
     /// with the worm on it, the feature row (map, chapter rewards, patrol, challenges as they exist), the guide (goal,
     /// next-unlock teaser), the big START button with its stamina cost, and the bottom tab bar with
@@ -237,7 +237,7 @@ namespace RogueStars.Client.Screens
             return b;
         }
 
-        /// <summary>Claimable daily/weekly goals as a badge count ("2"), empty when none.</summary>
+        /// <summary>Claimable daily/weekly quests as a badge count ("2"), empty when none.</summary>
         private string QuestCount()
         {
             int n = 0;
