@@ -93,6 +93,20 @@ namespace RogueStars.Client.PlayTests
                 yield return OpenTab("Stats");
                 yield return Shot("w3_worm_stats");
             }
+            if (Want("shop"))
+            {
+                _app.Router.Reset(new HubScreen());
+                _app.Open("shop");
+                yield return Wait(0.6f);
+                yield return Shot("s1_shop_offers");
+                yield return Scroll(0f);
+                yield return Shot("s1b_shop_offers_scrolled");
+                foreach (var tab in new[] { "Diamonds", "Passes", "Forever", "Items", "Ads" })
+                {
+                    yield return OpenTab(tab);
+                    yield return Shot("s2_shop_" + tab.ToLowerInvariant());
+                }
+            }
         }
 
         private IEnumerator Scroll(float pos)

@@ -386,7 +386,7 @@ namespace RogueStars.Client.UiKit
         // ---- progress -------------------------------------------------------------------------------------------
 
         /// <summary>Progress pill: dark track, gradient fill, chunky label centred on it (<c>pill_track</c>/<c>pill_fill</c> slots).</summary>
-        public static UiBar ProgressPill(Transform parent, float value, string label, Color fill, float height = 36) => Ui.Bar(parent, value, fill, label, height);
+        public static UiBar ProgressPill(Transform parent, float value, Color fill, string label = null, float height = 36) => Ui.Bar(parent, value, fill, label, height);
 
         /// <summary>
         /// A row of stat pills (icon disc + value): the stat bar under the worm and the aliens' bonus row. Entries are
