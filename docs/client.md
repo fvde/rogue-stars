@@ -988,6 +988,16 @@ upright creature and **shaders** for props and buildings. Namespace `RogueStars.
 - **Battle "NEXT" strip** sits on a `Kit.Plate` (near-opaque, light rim, drop shadow) with an outlined label (`Kit.Legible`).
 - Screenshots: `Playtest308ShowcaseTests` (PlayMode, Explicit, `ROGUESTARS_SHOTS_DIR`).
 
+## Playtest 0.1.325 (client)
+- **Signature pick on every run**, the first one included (`SignaturePick.StartRun`: the offer always has 3 cards now).
+- **Shop**: 3 skill cards plus the utility tiles (a stat perk, and the heal while the worm is below 60% HP); a reroll flips
+  only the skill cards' offers (the rules keep the support offers).
+- **Forks** whose ways land on one tile are no choice (rules: `RunSystem.SameLanding`): the board just moves.
+- **Battle**: no `RoleGlow` ellipse under enemies drawn from a family sprite (it read as a red shadow floating below them).
+- **Run HUD**: the level / EXP pill (`SliceHud.LevelPillX/W`) ends clear of the HP heart (`HeartX`), the level text
+  best-fits inside its pill instead of spilling under the heart.
+- Screenshots: `Playtest325ShowcaseTests` (PlayMode, Explicit, `ROGUESTARS_SHOTS_DIR`); tests: `Playtest325Tests` (EditMode).
+
 ## Board path fix (client)
 - **Arrows point forward**: boost and curse chevrons point from their tile to the next tile in walking order
   (`WorldBoard.PathHeading`: next cell − this cell; a corner points the new way, a fork down its first arm, the path's end

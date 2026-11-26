@@ -13,8 +13,8 @@ namespace RogueStars.Client.Tests
 {
     /// <summary>
     /// GDD §16 tutorial run (main level 1): coach marks with a hand pointer for rolling, picking a skill on level-up and
-    /// beating the boss, nothing else; "Skip tips" turns them off; later runs have none. The first run has no signature
-    /// pick and no auto roll yet (both level unlocks).
+    /// beating the boss, nothing else; "Skip tips" turns them off; later runs have none. The first run starts with the
+    /// signature pick like every run (playtest 0.1.325) and has no auto roll yet (a level unlock).
     /// </summary>
     public sealed class TutorialRunTests
     {
@@ -103,12 +103,22 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.CoachMark, Is.Null);
         }
 
-        [Test]
-        public void FirstRun_NoSignaturePick_NoAutoRoll_UntilTheirUnlocks()
+        /// <summary>Level 1 from the client: the signature pick shows (playtest 0.1.325: every run, the first one too), its first card starts the run.</summary>
+        private void StartFirstRun()
         {
             var level = C.MainLevel(1);
             SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, _ => { });
-            Assert.That(S.Run.Active, Is.Not.Null, "one signature on offer: the run starts at once");
+            Assert.That(S.Run.Active, Is.Null, "the run waits for the signature pick");
+            var card = _f.App.ModalLayer.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.StartsWith("Button:Signature:"));
+            Assert.That(card, Is.Not.Null, "three signature cards");
+            card.onClick.Invoke();
+            Assert.That(S.Run.Active, Is.Not.Null);
+        }
+
+        [Test]
+        public void FirstRun_PicksItsSignature_NoAutoRoll_UntilItsUnlock()
+        {
+            StartFirstRun();
             Assert.That(RunSystem.Signatures(S.Run.Active).Count, Is.EqualTo(1));
             var screen = Open();
             var roll = FindNamed(screen.Root, "RollButton");
@@ -132,8 +142,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void HoldOnDiceCap_StartsAuto_OnceUnlocked()
         {
-            var level = C.MainLevel(1);
-            SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, _ => { });
+            StartFirstRun();
             S.Onboarding.Unlocked[Features.AutoRoll] = _f.Service.NowMs;
             var screen = Open();
             var cap = (RectTransform)FindNamed(screen.Root, "Cap");
