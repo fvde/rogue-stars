@@ -103,7 +103,6 @@ namespace RogueStars.Client.Screens
             BuildColumns();
             BuildCentre();
             BuildBottom();
-            RefreshPodCard();
         }
 
         /// <summary>Places by centre and size in reference px; <paramref name="fromBottom"/>: y is the distance from the bottom edge.</summary>
@@ -557,7 +556,7 @@ namespace RogueStars.Client.Screens
                 face.raycastTarget = false;
                 Ui.Stretch(face.rectTransform, 5 * _s, 5 * _s, 5 * _s, 5 * _s);
                 var img = Ui.Panel(face.transform, Color.white, "Icon");
-                img.sprite = ScreenArt.HubIcon("tab_" + e.Id); img.preserveAspect = true; img.raycastTarget = false;
+                img.sprite = e.Icon == HubLayout.CampIcon ? CityArt.Saucer() : ScreenArt.HubIcon(e.Icon); img.preserveAspect = true; img.raycastTarget = false;
                 Ui.Stretch(img.rectTransform, 30 * _s, active ? 14 * _s : 16 * _s, 30 * _s, active ? 80 * _s : 62 * _s);
                 // every tab is labelled (H1); the active one is taller with a bigger label
                 var l = SliceKit.Chunky(face.transform, e.Label, (int)((active ? 40 : 30) * _s), active ? Color.white : new Color32(0xD8, 0xD2, 0xF0, 255), TextAnchor.LowerCenter, "Label");
@@ -592,7 +591,7 @@ namespace RogueStars.Client.Screens
         /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
         private bool IsNewToday(string tabId)
         {
-            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.BiomassFarm : tabId == "signals" ? Features.PartPulls : tabId == "arena" ? Features.Arena : null;
+            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "signals" ? Features.PartPulls : tabId == "arena" ? Features.Arena : null;
             if (feature == null || !State.Onboarding.Unlocked.TryGetValue(feature, out long at)) return false;
             return GameClock.DayIndex(Content, at) == GameClock.DayIndex(Content, Now);
         }

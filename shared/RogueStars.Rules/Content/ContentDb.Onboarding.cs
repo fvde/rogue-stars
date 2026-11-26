@@ -382,7 +382,7 @@ namespace RogueStars.Rules.Content
             I(Features.AlienSquad,
                 "A Launch Pod landed at your crash site.", "housing", Pulse,
                 "Aliens in its seat join your runs.", "alien_fight", Slide,
-                "Tap the pod on your planet to pick your squad.", "alien_squad", Tap);
+                "Tap the Camp tab and the pod to pick your squad.", "alien_squad", Tap);
             I(Features.GrainFarm,
                 "The Grain Farm grows Grain for breeding.", "grain_farm", Pulse,
                 "Collect it in the City.", "grain", Count);

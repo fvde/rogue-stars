@@ -678,7 +678,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandlePlace(CityPlace cmd, CommandContext ctx)
         {
-            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode (levels 6-14): only the crash site stands, no layout edits
             var def = ctx.Content.Blueprint(cmd.BlueprintId);
             GameEngine.Require(def != null, "unknown blueprint");
             string uid = string.IsNullOrEmpty(cmd.Uid) ? null : cmd.Uid;
@@ -705,7 +705,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleMove(CityMove cmd, CommandContext ctx)
         {
-            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode (levels 6-14): only the crash site stands, no layout edits
             RequireLayout(ctx, CityEdit.Move(cmd.Uid, cmd.X, cmd.Y, cmd.Rotated));
             var b = Building(ctx.State, cmd.Uid);
             b.X = cmd.X; b.Y = cmd.Y; b.Rotated = cmd.Rotated;
@@ -720,7 +720,7 @@ namespace RogueStars.Rules.Systems
         /// </summary>
         private static CommandResult HandleStore(CityStore cmd, CommandContext ctx)
         {
-            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode (levels 6-14): only the crash site stands, no layout edits
             var b = Building(ctx.State, cmd.Uid);
             GameEngine.Require(b != null && b.Placed, "building not placed");
             var def = ctx.Content.Blueprint(b.BlueprintId);
@@ -749,7 +749,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStreets(CityStreets cmd, CommandContext ctx)
         {
-            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // before the City only the crash site stands (no layout edits)
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode (levels 6-14): only the crash site stands, no layout edits
             var edit = CityEdit.Streets(cmd.Adds, cmd.Removes);
             RequireLayout(ctx, edit);
             foreach (var r in edit.Removes) ctx.State.City.Streets.Remove(r);
@@ -782,6 +782,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleUpgrade(CityUpgrade cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode (levels 6-14): the pod is not upgradable yet
             var b = Building(ctx.State, cmd.Uid);
             GameEngine.Require(IsBuilt(b), "building not built");
             GameEngine.Require(b.TimerId == null, "upgrade already running");
@@ -884,6 +885,7 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleStarUp(BlueprintStarUp cmd, CommandContext ctx)
         {
+            Features.Require(ctx.State, ctx.Content, Features.BiomassFarm); // camp mode: no star-ups before the City
             var b = Owned(ctx.State, cmd.BlueprintId);
             GameEngine.Require(b != null, "blueprint not owned");
             GameEngine.Require(b.Stars < MaxStars, "max stars");

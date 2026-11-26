@@ -20,17 +20,23 @@ namespace RogueStars.Client.App
             public string Glyph;
             /// <summary>ScreenCatalog id opened by the entry (null = none, e.g. the Planet tab itself).</summary>
             public string ScreenId;
-            public Entry(string id, string label, string glyph, string screenId) { Id = id; Label = label; Glyph = glyph; ScreenId = screenId; }
+            /// <summary>Hub icon id (<c>tab_&lt;id&gt;</c> by default; the camp tab shows the crashed saucer, "camp").</summary>
+            public string Icon;
+            public Entry(string id, string label, string glyph, string screenId) { Id = id; Label = label; Glyph = glyph; ScreenId = screenId; Icon = "tab_" + id; }
         }
 
         public const string PlanetTab = "planet";
+        /// <summary>The camp tab's icon id: the crashed saucer (art from <c>CityArt.Saucer</c>).</summary>
+        public const string CampIcon = "camp";
 
         /// <summary>Bottom tabs (daily features) in display order; the Planet is always there, the rest as they unlock.</summary>
         public static List<Entry> Tabs(GameState s, ContentDb c)
         {
             var list = new List<Entry>();
             if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("worm", "Worm", "~", "worm"));
+            // one entry for the camp (level 6-14: crash site + Launch Pod) and the City (from 15): same screen, other icon
             if (Features.IsUnlocked(s, c, Features.BiomassFarm)) list.Add(new Entry("city", "City", "#", "city"));
+            else if (Features.IsUnlocked(s, c, Features.AlienSquad)) list.Add(new Entry("city", "Camp", "#", "city") { Icon = CampIcon });
             list.Add(new Entry(PlanetTab, "Planet", "O", null));
             if (Features.IsUnlocked(s, c, Features.PartPulls)) list.Add(new Entry("signals", "Signals", "))", "signals"));
             if (Features.IsUnlocked(s, c, Features.Arena)) list.Add(new Entry("arena", "Arena", "X", "arena"));

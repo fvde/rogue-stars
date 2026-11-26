@@ -74,7 +74,7 @@ public class CrashSiteTests
     }
 
     [Fact]
-    public void BeforeTheCity_TheSquadSeatIsUsable_LevelUpWorks_ButNoLayoutEdits()
+    public void BeforeTheCity_TheSquadSeatIsUsable_ButNothingElse()
     {
         var e = Engine(); var s = Player(e);
         long t = TestHelpers.T0;
@@ -93,13 +93,13 @@ public class CrashSiteTests
         Ok(e, ref s, new AlienSetSquad { AlienTypeIds = { "alien_blorp" } }, t + 4);
         Assert.Equal(new[] { "alien_blorp" }, AlienSystem.ActiveSquad(s, e.Content));
 
-        // level-up with its cost type (Biomass only)
-        var cost = CitySystem.UpgradeCost(e.Content, e.Content.Blueprint(ContentDb.LaunchPodId)!, 1);
-        Assert.Equal(Currencies.Biomass, Assert.Single(cost).Currency);
-        s.Wallet.Add(Currencies.Biomass, cost[0].Amount);
-        Ok(e, ref s, new CityUpgrade { Uid = pod.Uid }, t + 5);
-        Ok(e, ref s, new LobbyPopupShown { PopupId = "later" }, t + D);
-        Assert.Equal(2, CitySystem.LaunchPod(s)!.Level);
+        // camp mode: the pod cannot be upgraded or starred before the City
+        s.Wallet.Add(Currencies.Biomass, 100_000);
+        s.Wallet.Add(Currencies.BlueprintShards(ContentDb.LaunchPodId), 1000);
+        Assert.Equal("feature locked", Fail(e, ref s, new CityUpgrade { Uid = pod.Uid }, t + 5));
+        Assert.Equal("feature locked", Fail(e, ref s, new BlueprintStarUp { BlueprintId = ContentDb.LaunchPodId }, t + 6));
+        Assert.Equal("feature locked", Fail(e, ref s, new CityDig { PatchId = "patch_a" }, t + 7));
+        Assert.Equal(1, CitySystem.LaunchPod(s)!.Level);
 
         // no layout edits before the City: the crash site stays as it is
         Assert.Equal("feature locked", Fail(e, ref s, new CityStore { Uid = pod.Uid }, t + D));
@@ -133,6 +133,19 @@ public class CrashSiteTests
         foreach (var cell in plan.Streets) Ok(e, ref s, new CityStreets { Adds = { cell } }, TestHelpers.T0 + 3000);
         Ok(e, ref s, new CityPlace { BlueprintId = "bp_biomass_farm", X = plan.X, Y = plan.Y, Rotated = plan.Rotated }, TestHelpers.T0 + 3000);
         Assert.True(CityLayout.Check(CityLayout.Grid(s, e.Content)).Ok);
+
+        // at the City the pod upgrades, stars up and moves like any building
+        long t2 = TestHelpers.T0 + 4000;
+        var pod2 = CitySystem.LaunchPod(s)!;
+        s.Wallet.Add(Currencies.Biomass, 100_000);
+        Ok(e, ref s, new CityUpgrade { Uid = pod2.Uid }, t2);
+        Ok(e, ref s, new LobbyPopupShown { PopupId = "up" }, t2 + D);
+        Assert.Equal(2, CitySystem.LaunchPod(s)!.Level);
+        s.Wallet.Add(Currencies.BlueprintShards(ContentDb.LaunchPodId), 1000);
+        Ok(e, ref s, new BlueprintStarUp { BlueprintId = ContentDb.LaunchPodId }, t2 + D + 1);
+        Assert.Equal(2, CitySystem.Owned(s, ContentDb.LaunchPodId)!.Stars);
+        Ok(e, ref s, new CityStore { Uid = pod2.Uid }, t2 + D + 2);
+        Assert.False(CitySystem.LaunchPod(s)!.Placed);
     }
 
     [Fact]

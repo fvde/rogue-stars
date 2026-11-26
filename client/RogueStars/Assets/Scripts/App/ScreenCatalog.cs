@@ -36,7 +36,7 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "mounts", Title = "Mounts", FeatureId = Features.Mounts, Workstream = "Progression", Create = () => new MountsScreen() },
             // Summon events (heroes, then mounts): the hub's left column ("Summon").
             new ScreenEntry { Id = "summon", Title = "Summon Events", FeatureId = Features.Heroes, Workstream = "Meta", Create = () => new SummonEventScreen() },
-            new ScreenEntry { Id = "city", Title = "City", FeatureId = Features.BiomassFarm, Workstream = "City", Create = () => new CityScreen() },
+            new ScreenEntry { Id = "city", Title = "City", FeatureId = Features.AlienSquad, Workstream = "City", Create = () => new CityScreen() },
             new ScreenEntry { Id = "aliens", Title = "Aliens", FeatureId = Features.Aliens, Workstream = "City", Create = () => new AliensScreen() },
             new ScreenEntry { Id = "breeding", Title = "Breeding Pen", FeatureId = Features.Breeding, Workstream = "City", Create = () => new BreedingScreen() },
             new ScreenEntry { Id = "quests", Title = "Quests", FeatureId = Features.Quests, Workstream = "Meta", Create = () => new QuestsScreen() },

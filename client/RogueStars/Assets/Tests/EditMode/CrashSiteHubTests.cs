@@ -13,7 +13,7 @@ namespace RogueStars.Client.Tests
 {
     /// <summary>
     /// "The crash site comes first" (owner, 2026-11-25): from the Aliens unlock the hub's planet shows the crash site (fireplace, saucer,
-    /// the Launch Pod) with the squad walking around it; the pod opens its building card, where the squad is managed before the City.
+    /// the Launch Pod) with the squad walking around it; the Camp tab and the props open the City screen in camp mode (the pod's seats), the full City from level 15.
     /// </summary>
     public sealed class CrashSiteHubTests
     {
@@ -57,65 +57,102 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void AfterTheAliens_TheHubShowsTheCrashSite_PodAndSquad_CityStillLocked()
+        public void AfterTheAliens_TheHubShowsTheCrashSiteProps_AndTheCampIcon()
         {
             ReachLevel(6);
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.Aliens), Is.True);
             Assert.That(Features.IsUnlocked(S, C, Features.BiomassFarm), Is.False);
             var hub = Hub;
-            foreach (var n in new[] { "CrashSite", "CrashSite:Saucer", "CrashSite:Fire", "CrashSite:Pod", "PodBadge" })
+            foreach (var n in new[] { "CrashSite", "CrashSite:Saucer", "CrashSite:Fire", "CrashSite:Pod" })
                 Assert.That(Has(hub.Root, n), Is.True, n);
-            Assert.That(hub.PodButton, Is.Not.Null);
+            Assert.That(Has(hub.Root, "PodBadge"), Is.False, "no planet-integrated pod card any more");
             Assert.That(hub.Squad, Is.Not.Null, "the squad walks around the crash site");
             Assert.That(hub.Squad.Count, Is.EqualTo(1));
-            Assert.That(hub.Root.GetComponentsInChildren<Text>(true).First(t => t.name == "PodBadgeText").text, Is.EqualTo("Squad 1/1"));
-            Assert.That(hub.Root.GetComponentsInChildren<Button>(true).Any(b => b.name == "Tab:city"), Is.False, "the City stays locked");
+            // one entry for the camp: the tab "Camp" with the saucer art
+            var tab = Btn(hub.Root, "Tab:city");
+            Assert.That(tab, Is.Not.Null, "the camp tab shows from level 6");
+            Assert.That(tab.GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text == "Camp"), Is.True);
+            Assert.That(HubLayout.Tabs(S, C).First(e => e.Id == "city").Icon, Is.EqualTo(HubLayout.CampIcon));
         }
 
         [Test]
-        public void ThePod_OpensItsCard_SeatsBoonLevelUpStarUp()
+        public void TheTab_AndTheCrashSiteProps_OpenTheCityScreenInCampMode()
         {
             ReachLevel(6);
             var hub = Hub;
+            Btn(hub.Root, "Tab:city").onClick.Invoke();
+            var city = _f.App.Router.Current as CityScreen;
+            Assert.That(city, Is.Not.Null);
+            Assert.That(city.CampMode, Is.True);
+            _f.App.Router.Pop();
+            hub = Hub;
             hub.PodButton.onClick.Invoke();
-            Assert.That(hub.PodCard, Is.Not.Null);
-            Assert.That(hub.PodCard.IsOpen, Is.True);
-            var card = hub.PodCard.Body;
-            Assert.That(card.GetComponentsInChildren<Text>(true).First(t => t.name == "Name").text, Is.EqualTo("Launch Pod"));
-            Assert.That(Btn(card, "Seat:alien_blorp"), Is.Not.Null);
-            Assert.That(Has(card, "Boon:" + BoonKind.AlienDamagePct), Is.True);
-            Assert.That(Btn(card, "Upgrade"), Is.Not.Null);
-            Assert.That(card.GetComponentsInChildren<Text>(true).First(t => t.name == "CostType").text, Does.Contain("Biomass"));
-            Assert.That(Btn(card, "StarUp"), Is.Not.Null);
-            Assert.That(card.GetComponentsInChildren<Text>(true).First(t => t.name == "CityNote").text, Does.Contain("level 15"));
-            Btn(card, "CloseCard").onClick.Invoke();
-            Assert.That(hub.PodCard, Is.Null);
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<CityScreen>());
+            Assert.That(((CityScreen)_f.App.Router.Current).CampMode, Is.True);
         }
 
         [Test]
-        public void SquadAssignment_WorksFromThePodCard_BeforeTheCity()
+        public void CampMode_ShowsNoDockActions_NoDigs_NoEdits_OnlyTheNote()
+        {
+            ReachLevel(6);
+            _f.App.Open("city");
+            var city = (CityScreen)_f.App.Router.Current;
+            city.ForceTablet = true; // even a tablet gets no build rail
+            city.Rebuild();
+            foreach (var n in new[] { "Dock", "Dock:Build", "Dock:Workers", "Dock:Output", "CollectAll", "Rail" })
+                Assert.That(Has(city.Root, n), Is.False, n);
+            Assert.That(city.Root.GetComponentsInChildren<Text>(true).First(t => t.name == "CampNoteText").text, Is.EqualTo("The camp grows into a city at level 15"));
+            city.EnterEdit();
+            Assert.That(city.EditMode, Is.False);
+            city.OpenDig("patch_a");
+            Assert.That(city.DigPatch, Is.Null);
+            Assert.That(Has(city.Root, "DigPopup"), Is.False);
+        }
+
+        [Test]
+        public void CampMode_ThePodCard_ShowsOnlyTheSeats_AndSeatingWorks()
         {
             ReachLevel(6);
             _f.Service.DevGrant(new List<Reward> { new Reward(RewardKinds.Alien, "alien_zib", 1), Reward.Cur(Currencies.Biomass, 10_000) });
-            var hub = Hub;
-            hub.OpenPodCard();
-            // free the seat: Blorp leaves the squad
-            Btn(hub.PodCard.Body, "Seat:alien_blorp").onClick.Invoke();
+            _f.App.Open("city");
+            var city = (CityScreen)_f.App.Router.Current;
+            string uid = CitySystem.LaunchPod(S).Uid;
+            city.Select(uid);
+            var card = city.Root.GetComponentsInChildren<RectTransform>(true).First(t => t.name == "BuildingCard");
+            Assert.That(card.GetComponentsInChildren<Text>(true).First(t => t.name == "Name").text, Is.EqualTo("Launch Pod"));
+            Assert.That(Btn(card, "Worker:alien_blorp"), Is.Not.Null);
+            foreach (var n in new[] { "Upgrade", "StarUp", "Move", "Store", "UpgradeRow", "Actions", "LevelLine", "Output" })
+                Assert.That(Has(card, n), Is.False, n);
+            // free the seat, seat Zib
+            Btn(card, "Worker:alien_blorp").onClick.Invoke();
             Assert.That(AlienSystem.ActiveSquad(S, C), Is.Empty);
-            Assert.That(hub.PodCard.IsOpen, Is.True, "the card stays open and refreshes");
-            Assert.That(Has(hub.PodCard.Body, "EmptySeat"), Is.True);
-            // seat Zib
-            var pick = Btn(hub.PodCard.Body, "Pick:alien_zib");
-            Assert.That(pick.interactable, Is.True);
-            pick.onClick.Invoke();
+            card = city.Root.GetComponentsInChildren<RectTransform>(true).First(t => t.name == "BuildingCard");
+            Btn(card, "Pick:alien_zib").onClick.Invoke();
             Assert.That(AlienSystem.ActiveSquad(S, C), Is.EqualTo(new[] { "alien_zib" }));
-            Assert.That(Btn(hub.PodCard.Body, "Seat:alien_zib"), Is.Not.Null);
-            Assert.That(Btn(hub.PodCard.Body, "Pick:alien_blorp").interactable, Is.False, "seats full");
-            Assert.That(_f.Service.Engine.BuildLoadout(S, _f.Service.NowMs).Aliens.Select(a => a.AlienTypeId), Is.EqualTo(new[] { "alien_zib" }), "the squad joins runs");
-            // level up with Biomass
-            Btn(hub.PodCard.Body, "Upgrade").onClick.Invoke();
-            Assert.That(CitySystem.LaunchPod(S).TimerId, Is.Not.Null);
-            Assert.That(Features.IsUnlocked(S, C, Features.BiomassFarm), Is.False);
+            Assert.That(CitySystem.LaunchPod(S).TimerId, Is.Null);
+        }
+
+        [Test]
+        public void AtTheCity_TheSameEntryShowsTheCityIcon_AndEverythingUnlocks()
+        {
+            ReachLevel(6);
+            Assert.That(HubLayout.Tabs(S, C).First(e => e.Id == "city").Icon, Is.EqualTo(HubLayout.CampIcon));
+            ReachLevel(15);
+            Assert.That(Features.IsUnlocked(S, C, Features.BiomassFarm), Is.True);
+            var hub = Hub;
+            var entry = HubLayout.Tabs(S, C).First(e => e.Id == "city");
+            Assert.That(entry.Icon, Is.EqualTo("tab_city"));
+            Assert.That(entry.Label, Is.EqualTo("City"));
+            Assert.That(Btn(hub.Root, "Tab:city").GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text == "City"), Is.True);
+            Btn(hub.Root, "Tab:city").onClick.Invoke();
+            var city = (CityScreen)_f.App.Router.Current;
+            Assert.That(city.CampMode, Is.False);
+            foreach (var n in new[] { "Dock:Build", "Dock:Workers", "Dock:Output", "CollectAll" })
+                Assert.That(Has(city.Root, n), Is.True, n);
+            city.Select(CitySystem.LaunchPod(S).Uid);
+            var card = city.Root.GetComponentsInChildren<RectTransform>(true).First(t => t.name == "BuildingCard");
+            foreach (var n in new[] { "Upgrade", "Move", "Store" })
+                Assert.That(Has(card, n), Is.True, n);
         }
 
         [Test]

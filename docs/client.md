@@ -176,7 +176,7 @@ AppBootstrap (only object in Main.unity)
 | Summon events | `heroes` (mounts from `mounts`) | `SummonEventScreen` (hub's left column "Summon", entry `HubLayout.LeftColumn` id `summon`; also from Heroes / Mounts): hero / mount tabs, top bar (featured name, Diamonds, exchange tokens, tickets), stage with the featured art under a spotlight, time left, "Yours · n★", side column Exchange / Packs / Pass / Tasks with badges (`SummonView`), Luck gem + "? Luck x/max" (odds modal) + the Luck rule, pull milestones (tap to claim), footer Skip Animation, 1× / 10× Draw (ticket have/need, the Diamond price when short), back, "Next: …"; draw result sheet (rarity cards, FEATURED / NEW / ★n badges, Luck after, tokens, Again); Packs sheet (daily ad ticket: "Free" while ads are disabled; paid packs "Coming soon" outside the offered product set); Tasks sheet (progress bars, CLAIM / GO → portals or Signals, Claim all); `SummonExchangeScreen` (3-column grid, event limits); `SummonPassScreen` (free / premium per day, premium "Coming soon", Claim All). Art: `World/SummonArt` (ArtCatalog `Art/Summon/...`, code-drawn fallbacks; keys in docs/design/summon-events.md). Screenshots: `SummonShowcaseTests` (explicit PlayMode, `-testFilter SummonShowcaseTests`, `$ROGUESTARS_SHOTS_DIR`) |
 | Laboratory | `laboratory` | header: Data, next research cost/duration (`LaboratorySystem.NextDataCost`/`NextDurationMs`), slots busy, Laboratory building status (`LaboratoryScreen.BuildingStatus`: owned / built / staffed, slots by stars, speed by level); active research slots with Diamonds/ad/free speed-ups and collect; **tree** per branch (offense/defense/elements/command, `LabTreeLayout`: one row per tier, nodes ordered by their prerequisites, no overlaps): stat nodes steel-edged, skill nodes family-coloured with a SKILL band and on/off, edges gold = ALL prerequisites, thin = ANY; node modal: effect now/next, ANY/ALL prerequisites (other branches named), research button with the block reason, draft-pool toggle for skill nodes |
 | Heroes / Mounts | `heroes` / `mounts` | unlock from shards, stars, levels (Hero XP / Fuel), awakening (mounts), equip, trait/weapon skills by star |
-| City | `biomass_farm` | `CityScreen` (City design version A, see "City screen" below): the iso diorama (`World/CityWorld`) under a slim dock (Build, Workers, Output, COLLECT ALL); tap a building = its card in place (level, stars, placement bonus + reason, worker slots, output / chances / boons, upgrade with cost type, Move / Store / star up, Reactor / Laboratory); tap rubble = dig pop-up; chance badges pop through the shared pull reveal; Build / long press = edit mode with C's rail (tablets: always) |
+| City | `biomass_farm` | `CityScreen` (City design version A, see "City screen" below; from level 6 until the City unlock in camp mode, see "Camp mode"): the iso diorama (`World/CityWorld`) under a slim dock (Build, Workers, Output, COLLECT ALL); tap a building = its card in place (level, stars, placement bonus + reason, worker slots, output / chances / boons, upgrade with cost type, Move / Store / star up, Reactor / Laboratory); tap rubble = dig pop-up; chance badges pop through the shared pull reveal; Build / long press = edit mode with C's rail (tablets: always) |
 | Aliens | `aliens` | list by rarity (aliens pass: no levels, no stats): ability card of the current star and the next star's change, act frequency, synergy badges, traits, genes "Coming soon", star up (shards), Breed shortcut (opens the pen with it as parent A), assign to building, squad toggle; squad card: Freeze-vs-Chill hint, the one-time "levels refunded" note |
 | Breeding Pen | `breeding` | Grain's only sink and the targeted shard source: pick parents (cost/duration preview, "50% A · 50% B" with the release shards), jobs with timers, collect, replace (new traits) / discard (shards) modal; genes "Coming soon" |
 | Observatory | `invasions` | one invasion list (`ObservatoryScreen.MergeInvasions`: rules calendar occurrences matched by `occurrenceId` with the service's attackable instances, server-pushed extras appended with their content names) with Attack per invasion, planetary events, upcoming, modifier stack with countdowns |
@@ -844,24 +844,23 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 - **Hub (C4)**: `Screens/HubSquad` — the Launch Pod squad walks the planet's top arc around the worm with the same `WalkerSim`.
 - Tests: `CityEditorTests` (EditMode); screenshots `CityShowcaseTests` (explicit PlayMode, `-testFilter CityShowcaseTests`).
 
-## Crash site on the hub (branch `crash-site`, docs/design/city.md "The crash site comes first")
-- From the Aliens unlock (level 6) the rules build the Launch Pod on the crash site. The hub's planet shows the crash site on its
-  top arc (`Screens/HubScreen.CrashSite.cs`): the crashed saucer and the fireplace (`CityArt.Saucer / Fire`, glow) left of the worm,
-  the pod (`CityArt.Building`) right of it with a "Squad n/m" badge (red and pulsing "+" while a seat is free and an alien could
-  take it); the squad walks around them (C4 `HubSquad`). Shown while the pod is built (`HubScreen.CrashSiteVisible`), also after
-  the City.
-- Tapping the pod opens its card (`HubScreen.OpenPodCard`, a `Ui.Sheet` "LaunchPodCard" that refreshes with the hub on every state
-  change): name, level, stars, the seats (an alien in a seat: tap = `AlienAssign` to none; empty seats "+"), up to six other aliens
-  (tap = `AlienAssign` to the pod, disabled while full; after the City their workplace is shown), the boon (alien damage), Level up
-  with its cost type (Biomass; the timer controls while it runs), ★ Star up (blueprint shards) and, before the City, "The crash
-  site grows into your City at level 15." No Move / Store: layout edits wait for the City.
+## Camp mode and the crash site on the hub (branch `camp-mode`, docs/design/city.md "The crash site comes first")
+- **One entry** (`HubLayout.Tabs`): from the Launch Pod unlock (level 6) the tab "Camp" with the crashed-saucer icon (`HubLayout.CampIcon`,
+  `CityArt.Saucer`); from the City unlock (level 15) the same tab id `city` reads "City" with the `tab_city` art. Both open `CityScreen`
+  (`ScreenCatalog` gates it by the Launch Pod feature).
+- **Camp mode** (`CityScreen.CampMode` = City feature not unlocked, `CityScreen.Camp.cs`): the same diorama, no dock (a note "The camp
+  grows into a city at level 15" instead), no build rail, no dig pop-up (`OpenDig`, rubble taps ignored), no edit mode (`EnterEdit`,
+  long press ignored), the header says "Camp" without rates. Tap the pod = its card with only the seats (`CampSeats`: tap a squad
+  alien to free its seat, tap another to seat it); no level, Level up, Star up, Move or Store. The rules refuse those commands anyway.
+- **Hub props** (`Screens/HubScreen.CrashSite.cs`): the crashed saucer, the fireplace and the pod on the planet's top arc with the squad
+  walking around (C4 `HubSquad`); only decoration and one shortcut button (`PodButton`, `HubScreen.OpenCity`) to the City screen.
+  Shown while the pod is built. No planet pod card, no seat badge any more.
 - The Aliens unlock moment is one group "Aliens + Launch Pod" (2 + 3 panels; MEET YOUR ALIEN → Aliens screen); an old save that
-  gets its pod on load sees the Launch Pod's own moment (MEET YOUR SQUAD → Aliens screen). The City moment frames the crash site
-  growing into a City; the City screen opens with the pod already standing next to the plaza.
-- Tests: `CrashSiteHubTests` (EditMode: no crash site before the Aliens; fireplace, saucer, pod, badge and one walker after, City
-  tab still hidden; the pod card's seats, boon, Biomass level-up, star-up and City note; free a seat, seat another alien, seats
-  full, the loadout carries the new squad, level-up starts its timer, all before the City; the Aliens moment holds both features
-  and ends on the Aliens screen); screenshots `CrashSiteShowcaseTests` (explicit PlayMode, `-testFilter CrashSiteShowcaseTests`).
+  gets its pod on load sees the Launch Pod's own moment (MEET YOUR SQUAD → Aliens screen). The City moment frames the camp
+  growing into a City.
+- Tests: `CrashSiteHubTests` (EditMode: no crash site before the Aliens; props, squad, Camp tab and icon after; tab and props open the City
+  in camp mode; camp mode shows no dock actions, dig or edit; the pod card has only seats and seating works; at level 15 the same
+  entry shows the City icon and everything is on); screenshots `CrashSiteShowcaseTests` (explicit PlayMode, `-testFilter CrashSiteShowcaseTests`).
 
 ## Art import 2026-11-25 (owner-approved list `~/AI/out/art-state.json`, branch `art-import`)
 - **Importer** (`ArtImportRules.PlanSlice`, `tools/art/slice-picks.json`): a pick's category may carry a package generation

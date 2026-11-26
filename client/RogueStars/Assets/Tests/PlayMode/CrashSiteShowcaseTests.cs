@@ -92,12 +92,24 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(2.5f);
             yield return Shot("crash_03_hub_crash_site_squad");
 
-            // the pod's card
-            hub.OpenPodCard();
+            // the Camp tab opens the City screen in camp mode: plaza, fireplace, saucer, pod and the squad
+            Reach(14);
+            CelebrateAll();
+            _app.Router.Reset(new HubScreen());
+            yield return Wait(0.5f);
+            yield return Shot("camp_01_hub_level14_camp_icon");
+            var hubTab = ((HubScreen)_app.Router.Current).Root.GetComponentsInChildren<Button>(true).First(x => x.name == "Tab:city");
+            hubTab.onClick.Invoke();
+            yield return Wait(0.8f);
+            var camp = (CityScreen)_app.Router.Current;
+            Assert.That(camp.CampMode, Is.True);
+            camp.Focus(9.5f, 9.5f, CityWorld.OverviewWidth);
+            yield return Wait(3f);
+            yield return Shot("camp_02_city_camp_mode");
+            camp.Select(CitySystem.LaunchPod(S).Uid);
             yield return Wait(0.6f);
-            Assert.That(hub.PodCard.IsOpen, Is.True);
-            yield return Shot("crash_04_pod_card");
-            hub.PodCard.Close();
+            yield return Shot("camp_03_pod_card_camp_mode");
+            _app.Router.Pop();
 
             // level 15: the City moment (the crash site grows into a City), then the City with the pod already standing
             Reach(15);
@@ -121,6 +133,13 @@ namespace RogueStars.Client.PlayTests
             cs.Focus(pod.X + 0.5f, pod.Y + 0.5f, CityWorld.OverviewWidth);
             yield return Wait(3f);
             yield return Shot("crash_06_city_after_unlock");
+            cs.Select(CitySystem.LaunchPod(S).Uid);
+            yield return Wait(0.6f);
+            yield return Shot("camp_05_full_city_pod_card");
+            _app.Router.Pop();
+            _app.Router.Reset(new HubScreen());
+            yield return Wait(0.5f);
+            yield return Shot("camp_04_hub_level15_city_icon");
         }
 
         private void Reach(int level)
