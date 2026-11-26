@@ -81,6 +81,41 @@ namespace RogueStars.Client.UiKit
             return img;
         }
 
+        /// <summary>Fill and rim of a <see cref="Plate"/>: near-opaque dark plum, a light rim (reads on light and dark art).</summary>
+        public static readonly Color PlateFill = new Color32(0x14, 0x10, 0x22, 236);
+        public static readonly Color PlateRim = new Color(1f, 0.93f, 0.78f, 0.7f);
+
+        /// <summary>
+        /// A solid backing plate for HUD pieces floating over art (battle backgrounds, the board): the near-opaque dark
+        /// <see cref="PlateFill"/>, a light rim and a drop shadow, so whatever sits on it reads on every background (sprite slot
+        /// <c>plate</c>). Free-positioned, no layout, never takes input.
+        /// </summary>
+        public static Image Plate(Transform parent, float radius = 24, string name = "Plate")
+        {
+            var img = Ui.Panel(parent, PlateFill, name);
+            img.raycastTarget = false;
+            var le = img.GetComponent<LayoutElement>() ?? img.gameObject.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+            Decorate(img, radius, "plate", true, 1.1f, 0.9f);
+            var sh = img.GetComponent<Shadow>();
+            if (sh != null) { sh.effectColor = new Color(0, 0, 0, 0.55f); sh.effectDistance = new Vector2(0, -6); }
+            UiShapes.Outline(img.rectTransform, PlateRim, radius, 3);
+            return img;
+        }
+
+        /// <summary>Makes a text read on any background: a dark outline and a drop shadow (HUD labels over art).</summary>
+        public static Text Legible(Text text)
+        {
+            if (text == null) return null;
+            if (text.GetComponent<Outline>() == null)
+            {
+                var o = text.gameObject.AddComponent<Outline>();
+                o.effectColor = new Color(0.06f, 0.04f, 0.1f, 0.95f);
+                o.effectDistance = new Vector2(2, -2);
+            }
+            return text;
+        }
+
         /// <summary>A card: padded column on the tone's surface (panel, raised panel, inset well).</summary>
         public static RectTransform Card(Transform parent, KitTone tone = KitTone.Card, int padding = 24, float spacing = 10, string name = "Card")
         {

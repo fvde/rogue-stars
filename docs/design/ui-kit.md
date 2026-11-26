@@ -40,6 +40,7 @@ Shared pieces first (they unblock every screen), then the screen-specific ones.
 | `gem` | rarity gem on cards | 40x40, simple | Tinted with the rarity colour. |
 | `slot_reward` | reward slots, tier cards | 128x128, border 32 | Square slot. |
 | `node_hex`, `node_hex_ring` | skill-tree nodes, progression perks | 128x128, simple (pointy-top hexagon, ring 9% thick) | Fill tinted by node colour; ring tinted dark/gold. |
+| `plate` | HUD backing over art (battle turn order "NEXT" strip) | 128x64, border 28 | Near-opaque dark plum, light rim, drop shadow: whatever sits on it reads on every background (`Kit.Plate`; `Kit.Legible` outlines a label). |
 | `backdrop_menu` | every screen behind the scroll | 1080x2400 | Dark warm, subtle pattern, readable under cards. |
 | `backdrop_worm`, `panel_stage` | worm stage behind the portrait | 512x640, border 64 | Soft spotlight. |
 | `backdrop_aliens` | aliens stage | 1080x620 | Illustrated stage with three pedestal spots (see Aliens). |
@@ -52,5 +53,5 @@ Procedural-only helpers (no sprite): connector lines (`Kit.Line`), the gradient,
 `Kit.Surface/Card/RarityCard/Gem` (panels), `Kit.Button/BackButton` (buttons), `Kit.TabChips` (chip tabs; labels never wrap, `KitFit`),
 `Kit.BottomTabBar` (main tab bar with the raised active tab; screens opt in with `ActiveMainTab`), `Kit.Ribbon`,
 `Kit.CurrencyChip`, `Kit.LevelBadge/NotifyDot/CornerBadge/Pill`, `Kit.ProgressPill`, `Kit.StatPills`, `Kit.HexNode`, `Kit.RewardSlot`,
-`Kit.Backdrop`, `Kit.Line`, `Kit.Title` (outlined display text). `UiScreen` builds the header (back button, title) and the screen
+`Kit.Backdrop`, `Kit.Line`, `Kit.Title` (outlined display text), `Kit.Plate` + `Kit.Legible` (HUD backing and outlined labels over art). `UiScreen` builds the header (back button, title) and the screen
 backdrop from the kit.

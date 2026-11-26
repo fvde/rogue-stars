@@ -164,7 +164,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void BattlePlayback_WaitsForContinue_ThenAutoRollsOn()
+        public void BattlePlayback_AWonFightReturnsToTheBoardByItself_ThenAutoRollsOn()
         {
             var run = StartRun("enemy_1");
             run.WormHp = 1e12; run.WormMaxHp = 1e12;
@@ -175,12 +175,13 @@ namespace RogueStars.Client.Tests
             playback.PlayAll();
             Assert.That(playback.Finished, Is.True);
             long rolls = S.Counter("run_rolls");
-            for (int i = 0; i < 30; i++) { _f.App.Update(1f); screen.Frame(1f); }
-            Assert.That(_f.App.Router.Current, Is.SameAs(playback), "the finished fight waits for Continue");
+            // playtest 0.1.308: no Continue gate after a win: a short VICTORY beat, then back to the board by itself
+            Assert.That(playback.AutoClosing, Is.True, "a won run battle counts down to the board");
+            Assert.That(FindNamed(playback.Root, "EndPanel").gameObject.activeSelf, Is.False, "no Continue button after a win");
             Assert.That(S.Counter("run_rolls"), Is.EqualTo(rolls), "no roll under the playback");
             Assert.That(FindNamed(_f.App.ModalLayer, "Button:"), Is.Null, "no tap-to-stop overlay over the playback");
-            playback.Continue();
-            Assert.That(_f.App.Router.Current, Is.SameAs(screen));
+            _f.App.Update(BattlePlaybackScreen.WinBeatSeconds * 4);
+            Assert.That(_f.App.Router.Current, Is.SameAs(screen), "back on the board");
             Assert.That(screen.Auto, Is.True);
             // the fight's XP may have opened a level-up draft: the player picks (auto never does)
             for (int i = 0; i < 5 && S.Run.Active.Phase == RunPhase.Draft; i++)

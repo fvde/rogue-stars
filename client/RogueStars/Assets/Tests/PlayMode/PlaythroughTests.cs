@@ -315,7 +315,7 @@ namespace RogueStars.Client.PlayTests
                         battleShot = true;
                     }
                     BattlePlaybackScreen.TimeScale = 12;
-                    // a playback never closes itself (auto mode only rolls): the player taps Continue
+                    // a won run battle closes itself after its VICTORY beat (playtest 0.1.308); Continue skips the beat (a defeat needs it)
                     b.PlayAll(); b.Continue();
                 }
                 var active = _svc.State.Run.Active;

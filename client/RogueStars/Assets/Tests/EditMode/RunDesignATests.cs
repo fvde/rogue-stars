@@ -159,25 +159,28 @@ namespace RogueStars.Client.Tests
         [Test]
         public void BossClock_MarkersAt25_50_75_PassedOnesBright()
         {
+            // playtest 0.1.308: one skull pip per miniboss of the run (two lairs on the path), bright once beaten
             var run = StartRun();
+            run.LevelId = C.MainLevel(C.Campaign.MinibossesFromLevel).Id;
             var clock = RunPresentation.BossClock(C, run);
-            Assert.That(clock.Markers.Count, Is.EqualTo(C.RunTuning.MinibossAtMeter.Count));
-            Assert.That(clock.Markers.ConvertAll(m => m.At), Is.EqualTo(new List<float> { 0.25f, 0.5f, 0.75f }));
-            Assert.That(clock.Markers.TrueForAll(m => !m.Passed), Is.True, "a fresh run passed none");
+            Assert.That(clock.Markers.Count, Is.EqualTo(C.RunTuning.MinibossesPerRun));
+            Assert.That(clock.Markers.ConvertAll(m => m.At), Is.EqualTo(new List<float> { 1f / 3, 2f / 3 }).Within(1e-4f));
+            Assert.That(clock.Markers.TrueForAll(m => !m.Passed), Is.True, "a fresh run beat none");
             Assert.That(clock.RollText, Is.EqualTo(RunScreen.RollText(C, run)));
 
             run.Awakening = 55;
+            run.MinibossesDefeated = 1;
             clock = RunPresentation.BossClock(C, run);
             Assert.That(clock.Fill, Is.EqualTo(0.55f).Within(1e-4f));
-            Assert.That(clock.Markers.ConvertAll(m => m.Passed), Is.EqualTo(new List<bool> { true, true, false }));
+            Assert.That(clock.Markers.ConvertAll(m => m.Passed), Is.EqualTo(new List<bool> { true, false }));
 
             var screen = Open();
             var c = FindNamed(screen.Root, "BossClock");
             Assert.That(Texts(c), Does.Contain(SliceHud.ShortRoll(RunScreen.RollText(C, run))).And.Contain("BOSS"));
             var m0 = FindNamed(c, "MinibossMarker:0").GetComponent<Image>().color;
-            var m2 = FindNamed(c, "MinibossMarker:2").GetComponent<Image>().color;
-            Assert.That(m0.a, Is.EqualTo(1f), "passed marker is bright");
-            Assert.That(m2.a, Is.LessThan(0.6f), "an upcoming marker is dim");
+            var m1 = FindNamed(c, "MinibossMarker:1").GetComponent<Image>().color;
+            Assert.That(m0.a, Is.EqualTo(1f), "a beaten miniboss's pip is bright");
+            Assert.That(m1.a, Is.LessThan(0.6f), "an upcoming one is dim");
             Assert.That(((RectTransform)FindNamed(c, "MinibossMarker:1")).anchoredPosition.y, Is.GreaterThan(((RectTransform)FindNamed(c, "MinibossMarker:0")).anchoredPosition.y), "the rail climbs to the boss");
             Assert.That(FindNamed(c, "ClockFill"), Is.Not.Null);
 
@@ -290,7 +293,9 @@ namespace RogueStars.Client.Tests
             var run = StartRun();
             run.Skills.Add(sk[0].Id); run.Skills.Add(sk[1].Id);
             var battle = HandBattle(sk[0].Id, sk[1].Id, sk[2].Id);
-            var screen = new BattlePlaybackScreen(battle);
+            var ctx = BattleHudContext.FromRun(run, C);
+            ctx.InRun = false; // stays open after the win (a won run battle returns to the board by itself, playtest 0.1.308)
+            var screen = new BattlePlaybackScreen(battle, ctx);
             _f.App.Router.Push(screen);
             var started = new List<string>();
             screen.FireQueue.Started += (k, l) => started.Add(k + "=" + l);
@@ -321,12 +326,12 @@ namespace RogueStars.Client.Tests
             // faster playback = shorter fires
             for (int guard = 0; guard < 100 && !screen.Finished; guard++) screen.Frame(screen.StepSeconds);
             Assert.That(screen.FireCount(sk[0].Id), Is.EqualTo(2));
-            while (screen.Speed != 1f) FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
+            while (screen.Speed != 1f) screen.CycleSpeed(); // the shared speed (the board's button)
             float x1 = screen.FireSeconds;
-            FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke(); // x1 -> x2
+            screen.CycleSpeed(); // x1 -> x2
             Assert.That(screen.Speed, Is.EqualTo(2f));
             Assert.That(screen.FireSeconds, Is.LessThan(x1));
-            while (screen.Speed != 1f) FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
+            while (screen.Speed != 1f) screen.CycleSpeed(); // the shared speed (the board's button)
             for (int i = 0; i < 20; i++) screen.Frame(1);
             Assert.That(screen.FireQueue.Busy, Is.False, "the queue drains after the fight");
             Assert.That(FindNamed(screen.Root, "FireFlash"), Is.Null, "no flash left behind");
@@ -446,12 +451,13 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.SkillScroll, Is.Not.Null);
             Assert.That(screen.SkillScroll.vertical, Is.True);
             var view = (RectTransform)FindNamed(strip, "SkillViewport");
-            var speed = (RectTransform)FindNamed(screen.Root, "SpeedChip");
+            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Null, "one speed control: the board's (playtest 0.1.308)");
+            var log = (RectTransform)FindNamed(screen.Root, "Button:Battle log");
             var corners = new Vector3[4];
             view.GetWorldCorners(corners);
             float viewBottom = corners[0].y;
-            speed.GetWorldCorners(corners);
-            Assert.That(viewBottom, Is.GreaterThanOrEqualTo(corners[1].y - 0.01f), "the skill area ends above the speed control");
+            log.GetWorldCorners(corners);
+            Assert.That(viewBottom, Is.GreaterThanOrEqualTo(corners[1].y - 0.01f), "the skill area ends above the control bar");
         }
 
         [Test]

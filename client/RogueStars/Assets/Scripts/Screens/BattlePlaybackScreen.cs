@@ -56,7 +56,8 @@ namespace RogueStars.Client.Screens
             public bool Sidekick => Info.Side == BattleSide.Player && (Info.Role == CombatRole.Alien || Info.Role == CombatRole.Summon);
         }
 
-        private static float _speed = PlaySpeed.Default;
+        /// <summary>The shared play speed (PlaySpeed.Current) as allowed for this player (×3 with the pass), read at build.</summary>
+        private float _speed = PlaySpeed.Default;
 
         private readonly BattleResult _battle;
         private readonly List<FighterView> _views = new List<FighterView>();
@@ -80,7 +81,6 @@ namespace RogueStars.Client.Screens
         private bool _built;
         private RectTransform _feed;
         private readonly Queue<GameObject> _feedLines = new Queue<GameObject>();
-        private Text _speedText;
         private FighterView _hero;
         private UiBar _heroRage;
         private Text _heroRageText;
@@ -116,7 +116,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Every skill firing played so far, in order ("Magma Tail · Burn ×2"; tests).</summary>
         public readonly List<string> SkillFires = new List<string>();
 
-        /// <summary>A fight's playback; it always waits for the player's Continue (auto mode only rolls the dice).</summary>
+        /// <summary>A fight's playback; a won run battle returns to the board by itself, a lost one waits for Continue.</summary>
         public BattlePlaybackScreen(BattleResult battle, BattleHudContext context = null)
         {
             _battle = battle;
@@ -138,14 +138,10 @@ namespace RogueStars.Client.Screens
         public string HudText => _hud?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
         public float Speed => _speed;
-        /// <summary>The speed button's label (tests).</summary>
-        public string SpeedLabel => _speedText != null ? _speedText.text : null;
-        /// <summary>One tap on the speed button: the next speed (×0.5 → ×1 → ×2 → ×3 with the pass → ×0.5).</summary>
-        public void CycleSpeed()
-        {
-            _speed = PlaySpeed.Next(_speed, ShopSystem.HasBattleSpeed3(State, Content, Now));
-            if (_speedText != null) _speedText.text = PlaySpeed.Label(_speed);
-        }
+        /// <summary>The speed the battle plays at, as the board's speed button shows it (tests).</summary>
+        public string SpeedLabel => PlaySpeed.Label(_speed);
+        /// <summary>The next speed of the shared setting (the board's speed button; tests): the battle follows at once.</summary>
+        public void CycleSpeed() => _speed = PlaySpeed.Cycle(ShopSystem.HasBattleSpeed3(State, Content, Now));
         public float StepSeconds => 0.55f / _speed / Mathf.Max(0.01f, TimeScale);
         /// <summary>Animation time for one beat of an entry (lunge, hit, bar) at the current speed.</summary>
         private float Beat => Instant ? 0 : Mathf.Min(0.42f / Mathf.Min(1f, _speed), StepSeconds * 0.8f); // the cap grows at ×0.5 so a beat still fills its step
@@ -251,9 +247,13 @@ namespace RogueStars.Client.Screens
             skipIcon.raycastTarget = false;
             Ui.Stretch(skipIcon.rectTransform, 30 * s, 10 * s, 30 * s, 10 * s);
 
-            // turn order: who acts next (small pips under the round)
+            // turn order: who acts next (portraits under the round) on a solid kit plate, so it reads on every battle
+            // background (playtest 0.1.308: barely visible on light arenas)
+            float orderX = _kitMount != null ? 620 : 540; // clear of the mount's pill on the left
+            var plate = Kit.Plate(holder, 26 * s, "TurnOrderPlate");
+            SliceKit.Place(plate.rectTransform, s, orderX, 374, 500, 78);
             _order = Ui.Row(holder, 40 * s, 8 * s, null, 0, "TurnOrder");
-            SliceKit.Place(_order, s, 540, 356, 400, 36);
+            SliceKit.Place(_order, s, orderX, 374, 480, 62);
             _order.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
             _order.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
 
@@ -261,10 +261,9 @@ namespace RogueStars.Client.Screens
             SliceKit.Place(_banner.rectTransform, s, 540, 860, 1000, 180);
             _banner.gameObject.SetActive(false);
 
-            // bottom row: the speed button, Continue (at the end), battle log
-            bool x3 = ShopSystem.HasBattleSpeed3(State, Content, Now);
-            _speed = PlaySpeed.Valid(_speed, x3);
-            _speedText = PlaySpeed.BuildChip(holder, s, 142, SpeedPillY, 214, 104, CycleSpeed, _speed);
+            // bottom row: Continue (at the end of a lost fight), battle log. No speed button here (playtest 0.1.308): the
+            // battle plays at the one shared speed the board's button sets (PlaySpeed.Current)
+            _speed = PlaySpeed.Allowed(ShopSystem.HasBattleSpeed3(State, Content, Now));
             _endPanel = Ui.Rect(holder, "EndPanel");
             SliceKit.Place(_endPanel, s, 640, 2290, 340, 104, true);
             var cont = Ui.Button(_endPanel, "Continue", Close, Theme.Accent, 340 * s, 104 * s, true, (int)(50 * s));
@@ -760,6 +759,13 @@ namespace RogueStars.Client.Screens
         {
             if (_battle == null || Root == null) return;
             _fires.Tick(dt); // skill tiles play their queued fires, also after the last entry
+            if (_autoClose >= 0)
+            {
+                // a won run battle goes straight back to the board after its VICTORY beat (playtest 0.1.308: no Continue gate)
+                _autoClose -= dt;
+                if (_autoClose <= 0) { _autoClose = -1; Close(); }
+                return;
+            }
             if (Finished) return;
             if (Instant) { PlayAll(); return; }
             _timer += dt;
@@ -1256,9 +1262,10 @@ namespace RogueStars.Client.Screens
             if (_order == null) return;
             Ui.Clear(_order);
             NextActors.Clear();
-            var caption = Ui.Label(_order, "NEXT", 22, Theme.TextDim);
+            var caption = Kit.Legible(Ui.Label(_order, "NEXT", 24, Theme.Cream));
             caption.fontStyle = FontStyle.Bold;
-            Ui.Size(caption, 80, -1, 0);
+            caption.horizontalOverflow = HorizontalWrapMode.Overflow;
+            Ui.Size(caption, 84, -1, 0);
             int last = -2, shown = 0;
             for (int i = _next; i < _battle.Log.Count && shown < 6; i++)
             {
@@ -1520,7 +1527,10 @@ namespace RogueStars.Client.Screens
                 _banner.gameObject.SetActive(true);
                 if (Application.isPlaying && !Instant) UiTween.PopIn(_banner, 0.3f);
             }
-            if (_endPanel != null) _endPanel.gameObject.SetActive(true);
+            // playtest 0.1.308: a won run battle returns to the board by itself after a short VICTORY beat; a lost one (and a
+            // fight outside a run: arena, kit trials) keeps the Continue button (the defeat / revive flow follows it)
+            if (won && _ctx != null && _ctx.InRun) _autoClose = Instant ? 0 : WinBeatSeconds / Mathf.Max(0.5f, _speed * TimeScale);
+            else if (_endPanel != null) _endPanel.gameObject.SetActive(true);
             foreach (var v in _views)
                 if (!v.Dead && v.Visible && CreatureEvents.End(won, v.Info.Side == BattleSide.Player) is CreatureClip c) Clip(v, c);
         }
@@ -1549,6 +1559,12 @@ namespace RogueStars.Client.Screens
             foreach (var v in _views) v.LivePopups = 0;
             _abilityLane = 0;
         }
+
+        /// <summary>Seconds the VICTORY banner shows at ×1 before a won run battle returns to the board on its own.</summary>
+        public const float WinBeatSeconds = 0.9f;
+        private float _autoClose = -1;
+        /// <summary>A won run battle is counting down to return to the board by itself (tests).</summary>
+        public bool AutoClosing => _autoClose >= 0;
 
         /// <summary>The end panel's Continue button: back to the run.</summary>
         public void Continue() => Close();
