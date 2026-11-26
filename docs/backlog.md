@@ -23,10 +23,10 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 
 | ID | Topic | Why it is open |
 |---|---|---|
-| D1 | **Part icons** (30 parts have no dedicated icon) | On hold until the general parts review. |
+| D1 | **Part icons** (all 31 parts have no dedicated icon, and the client has no part-icon lookup: part tiles are text-only) | On hold until the general parts review; needs a code slot on every part tile as well as the art. |
 | D2 | **Parts review**: Gear Cores as a second currency, the "Legs" slot on a legless worm | Owner review pending. |
 | D3 | **Building art**: all buildings use stand-in set pieces and markers | Real building sprites (1x1, 2x1, 2x2, 3x2, 3x3) and "lights on" overlays are an art task. |
-| D4 | **12 aliens have no sprite** (coloured placeholders) | Art queue. |
+| D4 | **13 of 21 alien species have no sprite** (coloured placeholders) | Art queue (3 approved, being imported). |
 | D5 | **Skill icons**: skills show letters or stars | Art queue (skills-v2, about 160 icons). |
 | D6 | **Shard Reactor screen** (empty state, selected chip colour) | Fix with the building UI work. |
 | D7 | **Rolling shop offer names** ("Special Offer · Step N") | Rework later. |
@@ -40,6 +40,10 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | D16 | **Camp mode (levels 6 to 14) is sparse**: large empty land, pod uses a burrow-mound stand-in and sits behind the saucer | Real pod art and a tighter camp layout come with the building art. |
 | D17 | **"Watch 1 ad" daily quest needs an "ads enabled" gate** | `d_ad` requires the Shop feature and hides while `ShopConfig.AdsDisabled` is set (the only ad notion the rules have). When ads ship, give it a real gate (ad gateway ready, ad placement available to the player) instead of the global flag. The early daily track (100 points) never depends on it. |
 | D15 | **Animation** | Deferred completely (owner, 2026-11-26); code is behind `AnimSettings.Enabled` (false: static sprites, no taps, no Settings control). |
+
+| D18 | **Menu UI redesign, remaining screens** | Menu audit: docs/design/menu-ui-audit.md. Worm, Shop, Laboratory, Aliens and Quests are being redesigned on a shared UI kit (docs/design/ui-kit.md). The rest waits: Observatory, Breeding Pen / Shard Reactor, Heroes + Mounts (merge into one layout), the "More" menu, Guild/Arena (F2/F1), run overlays and mini-games. |
+| D19 | **Menu art kit** (P0 first): 27 currency icons, panel/card/modal frames, button skins (7 colours), rarity frames and gems, 13 hub icons, worm slot silhouettes, tab bar, headers, backgrounds, progress bars, shop pack illustrations (~16), hero/mount portraits (9+9), rune icons | Art queue after the kit sprite names are fixed (see ui-kit.md). Currency icons are the most visible placeholder everywhere. |
+| D20 | **Shop tab "Diamonds" wraps onto two lines** with 6 tabs | Fixed by the Shop redesign. |
 
 ## 3. How to use this file
 
