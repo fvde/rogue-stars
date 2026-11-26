@@ -160,7 +160,7 @@ Rarity is shown in square brackets at the start of the effect column.
 | `ice_deep_freeze` | Deep Freeze | [Legendary] Deep cold locks an enemy in ice. | a large glowing blue ice block with a red cube frozen inside, bright halo and golden trim |
 | `ice_permafrost` | Permafrost | [Legendary] Deep cold stays. | a large crown of jagged glacier ice spires on frozen ground, glowing halo and golden trim |
 | `mythic_cold_fusion` | Cold Fusion | [Mythic] Fire and ice, together. | a huge swirling orb half roaring flame and half glittering ice, golden crown, gold sparkles |
-| `mythic_shatter` | Shatter | [Mythic] Break the ice. | a huge ice dragon head shattering into many flying crystal shards, golden crown, gold sparkles |
+| `mythic_shatter` | Thaw Blast | [Mythic] Break the ice. | a huge ice dragon head shattering into many flying crystal shards, golden crown, gold sparkles |
 | `mythic_winters_grip` | Winter's Grip | [Mythic] Cold steals their tricks. | a huge icy clawed giant hand crushing a glowing orb with a frost aura, golden crown, gold sparkles |
 | `light_conductor` | Conductor Coil | [Common] Stronger Arcs. | a small copper wire coil with a few yellow sparks |
 | `light_overclock` | Overclock | [Common] Fully shocked enemies arc again. | a small yellow lightning bolt looping in a circle |

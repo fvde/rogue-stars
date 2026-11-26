@@ -97,6 +97,8 @@ namespace RogueStars.Rules.Systems
         public double StartShield;
         /// <summary>Rage at battle start (Ambush Instinct: landing on an enemy tile).</summary>
         public double StartRage;
+        /// <summary>Statuses every enemy starts the battle with, applied by this fighter (Plague: status name → stacks); null = none.</summary>
+        public Dictionary<string, int> OpeningStatuses;
         /// <summary>Threat multiplier used for enemy summons (keeps summons on the same curve).</summary>
         public double ThreatScale = 1;
     }
@@ -180,6 +182,8 @@ namespace RogueStars.Rules.Systems
         public double WormMaxHp;
         /// <summary>Run coins the player side earned in the battle (Void Pirate's Plunder); the run adds them.</summary>
         public long RunCoins;
+        /// <summary>Plague: stacks the player side added to enemies, per status name (only while its worm owns Plague; else null).</summary>
+        public Dictionary<string, int> StacksInflicted;
 
         public bool PlayerWon() => Winner == BattleSide.Player;
     }

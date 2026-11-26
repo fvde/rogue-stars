@@ -442,6 +442,30 @@ namespace RogueStars.Rules.Systems
                 if (c.Enemies.TryGetValue(e.Id, out var d)) { xp += d.Xp; coins += d.Coins; }
         }
 
+        /// <summary>Plague (lab Mythic): its threshold (stacks per opening stack) if the run owns it, else 0.</summary>
+        public static int PlagueEvery(ContentDb c, ActiveRun run)
+        {
+            foreach (var id in run.Skills)
+            {
+                var s = c.Skill(id);
+                if (s == null) continue;
+                foreach (var t in s.Triggers)
+                    if (t.Effect == EffectKind.Rule && t.Param == "plague" && t.Value >= 1) return (int)t.Value;
+            }
+            return 0;
+        }
+
+        /// <summary>Plague's opening stacks for the run's next battle: per status, one stack for every PlagueEvery inflicted this run.</summary>
+        public static Dictionary<string, int> PlagueOpening(ContentDb c, ActiveRun run)
+        {
+            var res = new Dictionary<string, int>();
+            int every = PlagueEvery(c, run);
+            if (every <= 0) return res;
+            foreach (var kv in run.PlagueStacks)
+                if (kv.Value >= every) res[kv.Key] = kv.Value / every;
+            return res;
+        }
+
         /// <summary>Runs a battle with the run's worm. On loss the run enters Defeated (revive or give up).</summary>
         private static bool Fight(CommandContext ctx, ActiveRun run, List<CombatantSpec> enemies, string kind, int xp, long coins, List<RunEffect> followUp)
         {
@@ -451,10 +475,15 @@ namespace RogueStars.Rules.Systems
             setup.Player[setup.Player.Count - 1].StartHp = run.WormHp;
             setup.Player[setup.Player.Count - 1].StartRage = run.PendingStartRage;
             run.PendingStartRage = 0;
+            var opening = PlagueOpening(c, run);
+            if (opening.Count > 0) setup.Player[setup.Player.Count - 1].OpeningStatuses = opening;
             setup.Enemy.AddRange(enemies);
             var result = BattleSimulator.Simulate(setup, c, run.Rng.Fork("battle:" + run.BattleCount));
             run.BattleCount++;
             run.LastBattle = result;
+            if (result.StacksInflicted != null)
+                foreach (var kv in result.StacksInflicted)
+                    run.PlagueStacks[kv.Key] = (run.PlagueStacks.TryGetValue(kv.Key, out var had) ? had : 0) + kv.Value;
             if (result.RunCoins > 0) run.Coins += result.RunCoins; // Plunder (Void Pirate): crit kills pay run coins
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;

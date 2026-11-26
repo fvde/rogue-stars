@@ -226,7 +226,8 @@ namespace RogueStars.Rules.Core
             string needs = NeedsText(s.Needs);
             if (needs != null) lines.Add("Offered once your run has " + needs + ".");
             if (RunTuning.RunTier(s.Rarity) == Rarity.Mythic)
-                lines.Add("Mythic: a reward for beating a miniboss." + (t.MaxSkillLevelOf(Rarity.Mythic) <= 1 ? " It never levels up." : ""));
+                lines.Add("Mythic: a reward for beating a miniboss" + (s.Source == SkillSource.Laboratory ? ", once researched in the Laboratory." : ".")
+                    + (t.MaxSkillLevelOf(Rarity.Mythic) <= 1 ? " It never levels up." : ""));
             return lines;
         }
 
@@ -389,6 +390,7 @@ namespace RogueStars.Rules.Core
                     case "echo_strongest": set.Add(Echo); break;
                     case "dot_ticks": set.Add(Radiation); set.Add(Bleed); break;
                     case "decay": set.Add(Heat); set.Add(Radiation); set.Add(Bleed); set.Add(Exposed); break;
+                    case "plague": set.Add(Statuses); break;
                 }
                 return;
             }

@@ -30,11 +30,14 @@ public class SkillRedesignContentTests
         Assert.True(bad.Count == 0, string.Join("\n", bad));
     }
 
-    /// <summary>Owner: Legendaries and Mythics are never a plain "+X% stat": each carries a trigger, rule or conditional bonus.</summary>
+    /// <summary>
+    /// Owner: Legendaries and Mythics are never a plain "+X% stat": each carries a trigger, rule or conditional bonus. The one
+    /// exception is the owner's own Beast (2026-11-26: "+30% counter, combo and crit rate").
+    /// </summary>
     [Fact]
     public void NoLegendaryOrMythic_IsAPlainStatStick()
     {
-        foreach (var s in RunPool().Where(s => s.Rarity is Rarity.Legendary or Rarity.Mythic))
+        foreach (var s in RunPool().Where(s => s.Rarity is Rarity.Legendary or Rarity.Mythic && s.Id != "mythic_beast"))
             Assert.True(s.Triggers.Count > 0 || s.Stats.Any(SkillLeveling.IsCost), s.Id + " is a plain stat package"); // a trade-off (Overclocked Core) counts
     }
 

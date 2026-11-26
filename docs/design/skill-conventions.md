@@ -362,7 +362,16 @@ awakening +, boss buffs, battles, strengthening enemies). Deliberate trades (cos
   ×1.5 / ×2. It is never drafted, bought, levelled by drafts or events, or lost to "lose a random skill". Drafts, Mythic choices
   and shops weight its synergy ×`SignatureFamilyWeight` (1.4) and the synergy slot offers it from the first draft.
 - **One Mythic pool:** Mythics are never in the normal draft or the shop and have no family / prerequisite gates; every miniboss
-  choice draws from all Mythics of the unlocked synergies plus the generic ones (owned synergies weighted).
+  choice draws from all Mythics of the unlocked synergies plus the generic ones (owned synergies weighted) and the researched
+  Laboratory Mythics (Source Laboratory, in `CombatLoadout.DraftPoolSkillIds` like lab skills; one-level nodes, `LabMythic`).
+- **The owner's four Mythics (2026-11-26):** **Horrifying Presence** (generic): every enemy is stunned in round 1 (a battle-start
+  Stun, so status resist and the Stun re-apply cooldown apply). **Beast** (generic): +30 counter, combo and crit chance; the
+  one Mythic allowed to be a stat package (owner). **Shatter** (lab, Ice, `Needs("freeze")`): each hit of the worm (OnHit) or of
+  one of its aliens (OnSidekickHit, once per action) on a frozen enemy gives +10% ATK for the battle (`stack:15`: max +150%,
+  no decay; reset every battle, owner). **Plague** (lab, generic): run-scoped. While the run owns it, the battle counts the
+  stacks the player side adds to enemies per status (`BattleResult.StacksInflicted`, Plague's own opening stacks excluded);
+  the run adds them up (`ActiveRun.PlagueStacks`), and every 20 of a status give every enemy of each later battle one opening
+  stack of it (`RunSystem.PlagueOpening` → `CombatantSpec.OpeningStatuses`, applied before battle-start triggers).
 - **Heat (Fire):** permanent stacks (max 10). At 10 the fighter goes **Supernova** (`StatusDef.BurstAtStacks`): every targetable
   fighter of its side (itself included) takes `BurstAtkPct` 250% of the heater's ATK × (1 + fire damage %) × (1 + `SupernovaDamage`
   %), DR and damage-taken statuses apply; the heater's side's worm takes `BurstRecoilPct` 12% of its max HP × (1 − `SupernovaGuard`

@@ -406,7 +406,8 @@ namespace RogueStars.Rules.Content
                 .Add(Tg(TriggerKind.OnStatusConsumed, EffectKind.ApplyStatus, status: StatusId.Poison, stacks: 3, param: "Bleed;per_unit"))
                 .Text("Whenever Bleed is consumed, the enemy gains 3 Radiation per stack.");
             // Ice
-            RunSkill("mythic_shatter", "Shatter", SkillFamily.Ice, Rarity.Mythic).Needs("freeze").Desc("Break the ice.")
+            // renamed from "Shatter" (2026-11-26): the name went to the Laboratory Mythic Shatter (lab_shatter); id and art kept
+            RunSkill("mythic_shatter", "Thaw Blast", SkillFamily.Ice, Rarity.Mythic).Needs("freeze").Desc("Break the ice.")
                 .Add(Tg(Hit, EffectKind.Damage, 150, TargetKind.AllOtherEnemies, "has:Freeze"))
                 .Add(Tg(Hit, EffectKind.RemoveStatus, 0, @if: "has:Freeze", status: StatusId.Freeze, stacks: 0))
                 .Text("Hitting a frozen enemy shatters the ice: it thaws, and all other enemies take {v0}% ATK.");
@@ -477,6 +478,14 @@ namespace RogueStars.Rules.Content
             RunSkill("mythic_catalyst", "Catalyst", SkillFamily.None, Rarity.Mythic).Desc("Afflictions feed each other.")
                 .Add(Tg(Hit, EffectKind.StackAll, @if: "statuses:3"))
                 .Text("Enemies with 3+ different statuses gain 1 stack of each whenever you hit them.");
+            // owner (2026-11-26): two generic Mythics, open without any unlock or synergy
+            RunSkill("mythic_horrifying_presence", "Horrifying Presence", SkillFamily.None, Rarity.Mythic).Desc("Terror holds them still.")
+                .Add(Tg(TriggerKind.OnBattleStart, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, status: StatusId.Stun, grow: GrowKind.Fixed))
+                .Text("Every enemy is stunned in round 1.");
+            // owner asked for a three-rate package: the one Mythic allowed to be stats only (SkillRedesignContentTests)
+            RunSkill("mythic_beast", "Beast", SkillFamily.None, Rarity.Mythic).Desc("Unleash the beast.")
+                .Stat(StatId.CounterChance, 30).Stat(StatId.ComboChance, 30).Stat(StatId.CritChance, 30)
+                .Text("+{p0}% counter chance|+{p1}% combo chance|+{p2}% crit chance");
             // Time (R13; Loop replaces Chrono Shell)
             RunSkill("mythic_borrowed_time", "Borrowed Time", SkillFamily.Time, Rarity.Mythic).Desc("Live faster, pay later.")
                 .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "extra_turn"))

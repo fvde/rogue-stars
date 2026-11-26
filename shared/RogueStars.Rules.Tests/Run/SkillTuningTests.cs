@@ -190,7 +190,8 @@ public class SkillTuningTests
     // ---- 3. every skill does something --------------------------------------------------------------------------
 
     /// <summary>Board skills: proven by their own run tests below; every other draftable skill acts in battle.</summary>
-    private static readonly HashSet<string> BoardSkills = new() { "gen_wealth", "gen_pathfinder", "gen_camper", "gen_growth", "gen_calm_mind", "gen_scholar", "gen_ambush" };
+    private static readonly HashSet<string> BoardSkills = new() { "gen_wealth", "gen_pathfinder", "gen_camper", "gen_growth", "gen_calm_mind", "gen_scholar", "gen_ambush",
+        "lab_plague" }; // run-scoped: counts this run's stacks, opens later battles (MythicFourTests)
 
     internal static bool IsBoardSkill(SkillDef s) => BoardSkills.Contains(s.Id) || s.Id.StartsWith("lab_lucky_dice", StringComparison.Ordinal);
 
@@ -559,7 +560,7 @@ public class SkillTuningTests
     public void EveryDraftableSkill_IsCoveredByAnOutcomeTest()
     {
         // battle skills run through EveryBattleSkill_…; the board skills have their own tests above
-        foreach (var s in Pool(C).Where(IsBoardSkill).Where(s => s.Id != "gen_scholar"))
+        foreach (var s in Pool(C).Where(IsBoardSkill).Where(s => s.Id != "gen_scholar" && s.Id != "lab_plague")) // Plague: MythicFourTests
             Assert.Contains(s.Triggers, t => t.When is TriggerKind.OnBattleWon or TriggerKind.OnTilePass or TriggerKind.OnTileLand
                 or TriggerKind.OnLevelUp or TriggerKind.OnRunStart or TriggerKind.OnRoll);
         Assert.Equal(new[] { "gen_scholar" }, Pool(C).Where(IsBoardSkill).Where(s => s.Triggers.Count == 0).Select(s => s.Id));

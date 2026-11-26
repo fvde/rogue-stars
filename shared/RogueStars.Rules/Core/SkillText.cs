@@ -458,6 +458,7 @@ namespace RogueStars.Rules.Core
                 case "lose_turn_every": return "every " + Ordinal(int.TryParse(arg, out var lt) ? lt : 4) + " round you lose your turn";
                 case "dot_ticks": return "Status damage ticks " + (arg == "2" ? "twice" : arg + " times") + " per round";
                 case "decay": return "permanent stacks decay by " + arg + " each round";
+                case "plague": return "Every " + v + " stacks of a status you inflict: later enemies of this run begin with 1 more stack of it";
                 default: return Words(name);
             }
         }

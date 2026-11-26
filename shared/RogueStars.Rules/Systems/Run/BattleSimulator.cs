@@ -211,6 +211,8 @@ namespace RogueStars.Rules.Systems
         public double ArcLoopPct, BasicAoePct, ComboFalloffPct, ComboCap, LastLightPct;
         public int ProcCap, LoseTurnEvery, DotTicks, Decay;
         public string OverkillSkill;
+        /// <summary>Plague (lab Mythic): the skill that counts the side's inflicted stacks (BattleResult.StacksInflicted); null = none.</summary>
+        public string PlagueSkill;
 
         public StatusRules Of(StatusId id) => S[(int)id] ?? None;
 
@@ -266,6 +268,7 @@ namespace RogueStars.Rules.Systems
                 case "lose_turn_every": LoseTurnEvery = (int)arg; break;
                 case "dot_ticks": DotTicks = (int)arg; break;
                 case "decay": Decay = (int)arg; break;
+                case "plague": PlagueSkill = skillId; break;
                 default: AddKitRule(name, arg, t.Value, skillId); break;
             }
         }
@@ -602,6 +605,7 @@ namespace RogueStars.Rules.Systems
             foreach (var f in F) { Res.Fighters[f.Index].StartShield = Round0(f.Shield); Res.Fighters[f.Index].StartRage = Round0(f.Rage); }
             int cap = _setup.RoundCap > 0 ? _setup.RoundCap : T.RoundCap;
             CheckOver();
+            if (!Over) ApplyOpeningStatuses(); // Plague
             if (!Over)
                 foreach (var f in TurnOrder()) { if (Over) break; if (f.Alive) Fire(f, TriggerKind.OnBattleStart, null); }
             // Eager (aliens pass): a sidekick's first action comes at battle start (its charge then starts empty)
@@ -2555,6 +2559,7 @@ namespace RogueStars.Rules.Systems
             if (def.Clears != StatusId.None) RemoveStacks(src, tg, def.Clears, 0, skillId); // CC pass: any Freeze resets the target's Chill to 0
             if (def.Cools != StatusId.None && !sr.NoCool) RemoveStacks(src, tg, def.Cools, stacks, skillId); // Chill cools Heat (Cold Fusion: not)
             int now = st.Stacks;
+            if (now > prev) CountPlague(src, tg, id, now - prev, skillId);
             if (now > prev && tg.Statuses.Contains(st))
             {
                 int saved = _thrPrev;
@@ -2565,6 +2570,45 @@ namespace RogueStars.Rules.Systems
             int burst = BurstAtOf(def, SRules(st));
             if (burst > 0 && st.Stacks >= burst && tg.Statuses.Contains(st) && tg.Alive) Supernova(tg, st, def);
             Fire(src, TriggerKind.OnStatusApplied, tg, id, stacks);
+        }
+
+        /// <summary>
+        /// Plague (lab Mythic): stacks the player side adds to enemies while its worm owns Plague are counted per status
+        /// (BattleResult.StacksInflicted; the run adds them up). Plague's own opening stacks don't count.
+        /// </summary>
+        private void CountPlague(Fighter src, Fighter tg, StatusId id, int added, string skillId)
+        {
+            if (src == null || src.Side != BattleSide.Player || tg.Side != BattleSide.Enemy) return;
+            var rs = RulesOf(src);
+            if (rs == null || rs.PlagueSkill == null || skillId == rs.PlagueSkill) return;
+            var map = Res.StacksInflicted ?? (Res.StacksInflicted = new Dictionary<string, int>());
+            string key = id.ToString();
+            map[key] = (map.TryGetValue(key, out var n) ? n : 0) + added;
+        }
+
+        /// <summary>
+        /// Plague's opening stacks (CombatantSpec.OpeningStatuses on the player side): every enemy present at battle start gains
+        /// them, with the fighter as their source, before any battle-start trigger.
+        /// </summary>
+        private void ApplyOpeningStatuses()
+        {
+            for (int i = 0, n = F.Count; i < n; i++)
+            {
+                var f = F[i];
+                var open = f.Spec.OpeningStatuses;
+                if (f.Side != BattleSide.Player || !f.Alive || open == null || open.Count == 0) continue;
+                var ids = new List<StatusId>();
+                foreach (var kv in open) if (kv.Value > 0 && Enum.TryParse(kv.Key, out StatusId sid) && sid != StatusId.None) ids.Add(sid);
+                ids.Sort();
+                string skill = RulesOf(f)?.PlagueSkill;
+                foreach (var sid in ids)
+                    for (int e = 0; e < n; e++)
+                    {
+                        if (Over) return;
+                        var tg = F[e];
+                        if (tg.Side == BattleSide.Enemy && tg.Alive && tg.Targetable) ApplyStatus(f, tg, sid, open[sid.ToString()], 0, skill);
+                    }
+            }
         }
 
         /// <summary>

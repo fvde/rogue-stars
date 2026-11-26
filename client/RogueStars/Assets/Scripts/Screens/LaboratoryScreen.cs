@@ -466,7 +466,7 @@ namespace RogueStars.Client.Screens
             int lv = Mathf.Clamp(e.Level + 1, 1, def.Levels.Count);
             if (def.Levels.Count == 0) return "";
             var level = def.Levels[lv - 1];
-            if (def.Kind == LabNodeKind.Skill) return "Draft skill";
+            if (def.Kind == LabNodeKind.Skill) return Content.Skill(level.SkillId)?.Rarity == Rarity.Mythic ? "Mythic skill" : "Draft skill"; // Plague, Shatter: miniboss Mythic choice
             if (level.Stats.Count == 0) return "";
             var first = StatLine(level.Stats[0]);
             return level.Stats.Count <= 2 ? StatsText(level.Stats) : first + " +" + (level.Stats.Count - 1) + " more";
