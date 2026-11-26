@@ -64,7 +64,8 @@ def label(path):
     return f"{subject} · {name}"
 
 
-REG = os.path.expanduser("~/AI/out/art-rounds.json")
+OUT = os.path.expanduser(os.environ.get("ART_OUT", "~/AI/out"))  # ART_OUT: a scratch copy for tests
+REG = os.path.join(OUT, "art-rounds.json")
 
 
 def load_registry():
@@ -119,62 +120,115 @@ def reconcile(state):
 
 
 def queue_table():
-    """Progress of every package in tools/art/night.sh's order: done / expected images and a rough ETA."""
-    import re
+    """Progress of every package in tools/art/night.sh's order, counted per package from exactly the jobs gen.py
+    enumerates for it (several packages share an output folder, and variants_from packages render one variant per
+    subject), the package generating right now (from ~/AI/out/night-slice.log) and the art pipeline's counts."""
+    import re, sys
     root = os.path.expanduser("~/Projects/rogue-stars/tools/art")
+    sys.path.insert(0, root)
     try:
+        import gen
         order = re.search(r'ORDER="\$\{ORDER:-([^}]*)\}"', open(os.path.join(root, "night.sh")).read()).group(1).split()
     except Exception:
         return ""
-    rows, total_left, secs = [], 0, 0
+    out_root = os.path.expanduser("~/AI/out")
+    # where night.sh is: the last "== pass N <pkg> done" line -> the next package in ORDER is generating now
+    cur_pass, last_done = 1, None
+    try:
+        for line in open(os.path.join(out_root, "night-slice.log"), errors="ignore"):
+            m = re.match(r"== pass (\d) (\S+) done", line)
+            if m:
+                cur_pass, last_done = int(m.group(1)), m.group(2)
+            elif line.startswith("== ") and "switch to cleanup" in line:
+                pass
+    except OSError:
+        pass
+    if last_done in order:
+        k = order.index(last_done) + 1
+        if k >= len(order):
+            cur_pass, k = cur_pass + 1, 0
+        current = order[k] if cur_pass <= 2 else None
+    else:
+        current = order[0]
+    rows, finished = [], []
     for name in order:
         try:
             d = json.load(open(os.path.join(root, "packages", name + ".json")))
         except Exception:
             continue
-        nv = len(d.get("variants", []) or [])
-        if not nv and d.get("variants_from"):
-            try:
-                nv = len(json.load(open(os.path.expanduser(d["variants_from"])))["variants"])
-            except Exception:
-                nv = 1
-        exp = len(d.get("subjects", {})) * len(d.get("seeds", [1])) * max(nv, 1)
-        out = os.path.expanduser("~/AI/out/" + d.get("name", "pkg-" + name))
-        done = len([f for f in glob.glob(out + "/*.png")]) if os.path.isdir(out) else 0
-        done = min(done, exp)
+        if cur_pass == 2:
+            d = dict(d, seeds=[s + 50 for s in d.get("seeds", [1])])
+        try:
+            jobs = gen.enumerate_jobs(d, out_root)
+        except Exception:
+            continue
+        folder = os.path.join(out_root, d.get("name", "pkg-" + name))
+        exp = len(jobs)
+        done = sum(os.path.exists(os.path.join(v.get("folder", folder), f"{s}__{k}__{m}__s{sd}.png")) for s, k, m, sd, _p, v in jobs)
         per = 95 if d.get("width", 1024) <= 512 else 110 if d.get("width", 1024) <= 768 else 200
-        left = exp - done
-        rows.append((name, done, exp, left * per))
-    rows = [r for r in rows if r[2] - r[1] > 0]
+        if done >= exp and name != current:
+            finished.append(name)
+        else:
+            rows.append((name, done, exp, (exp - done) * per))
     shown, later = rows[:11], rows[11:]
     total_left = sum(r[2] - r[1] for r in shown); secs = sum(r[3] for r in shown)
     later_n = sum(r[2] - r[1] for r in later)
-    rows = [r[:3] for r in shown]
+    trs = "".join(f'<tr{" class=now" if n == current else ""}><td>{html.escape(n)}{" <b>generating now</b>" if n == current else ""}</td><td>{dn}/{ex}</td>'
+                  f'<td><div class="bar"><i style="width:{100*dn//max(ex,1)}%"></i></div></td></tr>' for n, dn, ex, _ in shown)
+    try:
+        import collections
+        ps = json.load(open(os.path.join(out_root, "pipeline-state.json")))["items"].values()
+        c = collections.Counter(o.get("stage") for o in ps)
+        pipe = (f' Pipeline: {c.get("pending-qc", 0)} waiting for the QC gate, {c.get("retry-queued", 0)} retries queued, '
+                f'{c.get("passed", 0)} passed.')
+    except Exception:
+        pipe = ""
+    fin = f'<p class="note">Finished (pass {cur_pass}): {html.escape(", ".join(finished))}.</p>' if finished else ""
     if not rows:
+        return f'<section><h2>Generation queue</h2><p class="note">Pass {cur_pass}: every package is generated.{pipe}</p>{fin}</section>'
+    return (f'<section><h2>Generation queue</h2><p class="note">Pass {cur_pass}, in night.sh order (top = generating now). About {total_left} images left in this list (roughly {secs/3600:.1f} h); {later_n} more are queued behind it. '
+            f'Counts are this pass\'s jobs of each package.{pipe}</p><table class="q"><tr><th>Package</th><th>Done</th><th></th></tr>{trs}</table>{fin}</section>')
+
+
+PIPELINE_TEXT = [
+    ("Queue order", "Images are generated in the queue's order, package by package and subject by subject."),
+    ("Prompt check", "Each new image is checked against its prompt: plain white background, nothing cut off by the image edge, one main object, and a local image-text model (CLIP) compares it with the package's other subjects and looks for written text."),
+    ("Defect removal", "The background is cut away, then ground shadows, loose shadow pieces, white gaps (between legs, inside rings, cog holes) and specks are removed automatically. Every automatic edit is checked; if it would damage the art, the image fails instead. Pedestals, bases and ground slabs are never edited away: the image fails."),
+    ("Resize", "The clean image is scaled to its category's game size (icons 512 px with a 458 px object, creatures 512 px bottom-aligned at 470 px, markers/props/tiles trimmed at their in-game size)."),
+    ("Final check", "Transparent background, no defect left, size correct, not a near-copy of another image of the same subject, not blank, not touching the edge."),
+    ("Look check", "Images that pass are looked at by the hourly coordinator (does it match the prompt, does it look right) and passed or failed."),
+    ("One retry", "A failed image is generated once more with a shorter, simpler prompt and stronger 'no pedestal, no base, no ground, no shadow, plain white background, single object' wording and a new seed."),
+    ("Result", "Only images that passed every step appear below as candidates. If the retry fails as well, both attempts are shown in the Failures section with their prompts and reasons; there is no third automatic attempt."),
+]
+
+
+def pipeline_section():
+    lis = "".join(f"<li><b>{html.escape(k)}</b> — {html.escape(v)}</li>" for k, v in PIPELINE_TEXT)
+    return f'<section id="art-pipeline"><h2>Art pipeline</h2><ol class="pipe">{lis}</ol></section>'
+
+
+def failures_section():
+    """Items whose retry failed too (~/AI/out/pipeline-state.json, final), each with both attempts, prompts and reasons."""
+    try:
+        items = json.load(open(os.path.join(OUT, "pipeline-state.json")))["items"]
+    except (OSError, ValueError):
         return ""
-    trs = "".join(f'<tr><td>{html.escape(n)}</td><td>{dn}/{ex}</td><td><div class="bar"><i style="width:{100*dn//ex}%"></i></div></td></tr>' for n, dn, ex in rows)
-    return (f'<section><h2>Generation queue</h2><p class="note">Next in line, in order. About {total_left} images left in this list (roughly {secs/3600:.1f} h); {later_n} more are queued behind it (parts, mounts, heroes and others). '
-            f'Counts are raw images (all variants and seeds).</p><table class="q"><tr><th>Package</th><th>Done</th><th></th></tr>{trs}</table></section>')
-
-
-def prompt_tables(state):
-    out = []
-    for t in state.get("prompt_tables", []):
-        try:
-            sub = json.load(open(os.path.expanduser(t["package"])))["subjects"]
-        except Exception:
-            continue
-        names = {}
-        try:
-            for line in open(os.path.expanduser(t.get("doc", ""))):
-                if line.startswith("| `"):
-                    c = [x.strip() for x in line.strip().strip("|").split("|")]
-                    names[c[0].strip("`")] = (c[1], c[2])
-        except Exception:
-            pass
-        trs = "".join(f'<tr id="prompt-{html.escape(k)}"><td><code>{html.escape(k)}</code></td><td>{html.escape(names.get(k, ("", ""))[0])}</td><td>{html.escape(names.get(k, ("", ""))[1])}</td><td>{html.escape(v)}</td></tr>' for k, v in sub.items())
-        out.append(f'<section><h2>{html.escape(t["title"])}</h2><p class="note">{html.escape(t.get("note", ""))}</p><div class="ts"><table class="q"><tr><th>id</th><th>name</th><th>effect</th><th>prompt subject</th></tr>{trs}</table></div></section>')
-    return "".join(out)
+    finals = [o for o in items.values() if o.get("final") and not o.get("dismissed")]
+    if not finals:
+        return ""
+    cards = []
+    for r in sorted(finals, key=lambda o: o.get("updated", "")):
+        first = items.get(r.get("parent") or "", {})
+        figs = []
+        for n, it in (("1st attempt", first), ("retry", r)):
+            img = it.get("processed") if it.get("processed") and os.path.exists(it["processed"]) else it.get("raw")
+            src = thumb(img) if img and os.path.exists(img) else ""
+            figs.append(f'<figure class="fail" id="{fig_id("fail", img or it.get("id", n))}"><img src="{src}" alt="{html.escape(it.get("id", ""))}">'
+                        f'<figcaption><b>{n}</b> {html.escape(it.get("id", ""))}<br><i>prompt:</i> {html.escape(it.get("prompt", ""))}'
+                        f'<br><i>why:</i> {html.escape("; ".join(it.get("reasons", [])))}</figcaption></figure>')
+        cards.append(f'<div class="failpair"><h3 class="bad">{html.escape(r.get("subject", ""))} <small>{html.escape(r.get("collection") or "")}</small></h3><div class="grid2">{"".join(figs)}</div></div>')
+    return (f'<section id="failures"><h2>Failures <small>{len(finals)}</small></h2><p class="note">These failed twice (first attempt and the one '
+            f'simplified retry). Nothing more is generated for them automatically; comment to give new directions.</p>{"".join(cards)}</section>')
 
 
 def main():
@@ -241,12 +295,14 @@ figure.ok{{border-color:var(--ok)}} figure.new.anim{{border-color:var(--new)}}
 figure img{{width:100%;aspect-ratio:1;object-fit:contain;border-radius:6px;
   background:repeating-conic-gradient(#d8d8d8 0 25%,#f4f4f4 0 50%) 0 0/16px 16px}}
 b.rt{{color:var(--new);margin-right:4px}} figure.ok b.rt{{color:var(--ok)}}
-table.q{{border-collapse:collapse;width:100%;font-size:13px}} table.q th,table.q td{{text-align:left;padding:5px 8px;border-bottom:1px solid #3a3040;vertical-align:top}} table.q th{{color:var(--mut)}}
+table.q{{border-collapse:collapse;width:100%;font-size:13px}} table.q th,table.q td{{text-align:left;padding:5px 8px;border-bottom:1px solid #3a3040;vertical-align:top}} table.q th{{color:var(--mut)}} tr.now td{{color:var(--new)}} tr.now b{{font-size:11px;margin-left:6px}}
 .bar{{height:8px;background:#3a3040;border-radius:4px;min-width:120px}} .bar i{{display:block;height:8px;background:var(--ok);border-radius:4px}} .ts{{overflow-x:auto}} code{{background:#2a2230;padding:1px 5px;border-radius:4px}}
+ol.pipe{{margin:6px 0 0;padding-left:22px;color:var(--fg)}} ol.pipe li{{margin:3px 0}} ol.pipe b{{color:var(--new)}}
+h3.bad{{color:#ff6e6e}} figure.fail{{border-color:#ff6e6e}} .grid2{{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}}
 figcaption{{font-size:12px;color:var(--mut);margin-top:4px;word-break:break-word}}
 </style>
-<main><h1>Art review</h1>{queue_table()}{prompt_tables(state)}<p class="note">Green = approved; orange = new candidates. Every image carries its round (R1, R2, …; R0 = approved earlier). Comment on a single image to pick or reject it, or name a round ("R3: all rejected") to clear it.</p>
-{''.join(body)}</main>"""
+<main><h1>Art review</h1>{pipeline_section()}{queue_table()}<p class="note">Green = approved; orange = new candidates. Every image carries its round (R1, R2, …; R0 = approved earlier). Comment on a single image to pick or reject it, or name a round ("R3: all rejected") to clear it.</p>
+{''.join(body)}{failures_section()}</main>"""
     open(os.path.expanduser(sys.argv[2]), "w").write(page)
     print("ok", sum(len(files(c.get('approved'))) for c in state['collections']), "approved,",
           sum(len(animated(c.get('animated'))) + len(animated(c.get('animated_approved'))) for c in state['collections']), "animated,",

@@ -15,7 +15,10 @@ A prompt sheet is JSON:
       "subjects": {"key": "subject text", ...}
     }
 Every subject x style x model x seed becomes one image: <out>/<name>/<subject>__<style>__<model>__s<seed>.png.
-Existing files are skipped, so an interrupted batch resumes. When done, <out>/<name>/index.html is a contact sheet and
+Existing files are skipped, so an interrupted batch resumes. A sheet may instead carry an explicit "jobs" list
+(the art pipeline's retry sheet): [{"name", "subject", "variant", "model", "seed", "prompt", "negative", "width", "height"}].
+Every image gets a sidecar <image>.json with its prompt. --after CMD runs CMD <image> after each new image (the art
+pipeline: tools/art/pipeline.py ingest). When done, <out>/<name>/index.html is a contact sheet and
 <out>/<name>/jpg/ holds 1024px JPEG copies for sharing. Stdlib only (Pillow optional, for the JPEG copies).
 """
 import argparse, json, os, sys, time, urllib.request, urllib.error, uuid, html
@@ -127,22 +130,17 @@ def contact_sheet(folder, sheet):
         fh.write(page)
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("sheet")
-    ap.add_argument("--out", default=os.path.expanduser("~/AI/out"))
-    ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--seeds", help="comma-separated seeds overriding the sheet's (e.g. a second overnight pass)")
-    a = ap.parse_args()
-    sheet = json.load(open(a.sheet))
-    if a.seeds:
-        sheet["seeds"] = [int(x) for x in a.seeds.split(",")]
-    folder = os.path.join(a.out, sheet["name"])
-    os.makedirs(folder, exist_ok=True)
+def enumerate_jobs(sheet, out):
+    """Every (subject, variant key, model, seed, prompt, variant dict) the sheet renders, in render order. Shared with
+    review_page.py's queue table so its counts match exactly what gen.py produces."""
     w, h = sheet.get("width", 768), sheet.get("height", 1344)
     jobs = []
-    if "variants_from" in sheet:
+    if "jobs" in sheet:
+        for j in sheet["jobs"]:
+            jobs.append((j["subject"], j["variant"], j.get("model", "flux"), j["seed"], j["prompt"],
+                         {"negative": j.get("negative", ""), "width": j.get("width", w), "height": j.get("height", h),
+                          "folder": os.path.join(out, j["name"])}))
+    elif "variants_from" in sheet:
         # Content package + separate style direction: variants are assigned round-robin over the subjects (shifted per
         # seed), so a package always spans every variant without rendering every subject in every style.
         direction = json.load(open(os.path.expanduser(sheet["variants_from"])))
@@ -165,9 +163,30 @@ def main():
                 for skey, style in sheet["styles"].items():
                     for subj, subject in sheet["subjects"].items():
                         jobs.append((subj, skey, model, seed, subject + ", " + style, {}))
+    return jobs
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("sheet")
+    ap.add_argument("--out", default=os.path.expanduser("~/AI/out"))
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--seeds", help="comma-separated seeds overriding the sheet's (e.g. a second overnight pass)")
+    ap.add_argument("--after", help="command run with the image path appended after each new image (art pipeline hook)")
+    a = ap.parse_args()
+    sheet = json.load(open(a.sheet))
+    if a.seeds:
+        sheet["seeds"] = [int(x) for x in a.seeds.split(",")]
+    folder = os.path.join(a.out, sheet["name"])
+    os.makedirs(folder, exist_ok=True)
+    w, h = sheet.get("width", 768), sheet.get("height", 1344)
+    jobs = enumerate_jobs(sheet, a.out)
     done = 0
     for subj, skey, model, seed, prompt, v in jobs:
-        dest = os.path.join(folder, f"{subj}__{skey}__{model}__s{seed}.png")
+        jf = v.get("folder", folder)
+        os.makedirs(jf, exist_ok=True)
+        dest = os.path.join(jf, f"{subj}__{skey}__{model}__s{seed}.png")
         neg = v.get("negative", sheet.get("negative", ""))
         vw, vh = v.get("width", w), v.get("height", h)
         if os.path.exists(dest):
@@ -193,9 +212,15 @@ def main():
             continue
         with open(dest, "wb") as fh:
             fh.write(png)
+        with open(dest[:-4] + ".json", "w") as fh:
+            json.dump({"prompt": prompt, "negative": neg, "model": model, "seed": seed, "width": vw, "height": vh,
+                       "sheet": os.path.abspath(a.sheet)}, fh)
         done += 1
         print(f"{done:4d} {time.time() - t:6.1f}s {os.path.basename(dest)}", flush=True)
-    if not a.dry_run:
+        if a.after:
+            import shlex, subprocess
+            subprocess.run(shlex.split(a.after) + [dest], check=False)
+    if not a.dry_run and "jobs" not in sheet:
         contact_sheet(folder, sheet)
         print("contact sheet:", os.path.join(folder, "index.html"))
 
