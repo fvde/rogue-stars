@@ -4,6 +4,7 @@ using RogueStars.Client.Screens;
 using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Systems;
+using RogueStars.Client.World.Anim;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -92,6 +93,8 @@ namespace RogueStars.Client.World
         public Transform TokenBody { get; private set; }
         public Transform TokenShadow { get; private set; }
         private SpriteRenderer _tokenSprite;
+        /// <summary>The worm's code animation (idle sway; slither while it hops). Null without the hero art.</summary>
+        public WorldCreature TokenCreature { get; private set; }
         private SpriteRenderer _vignette;
         /// <summary>Set pieces / scatter props placed by the last build (tests).</summary>
         public readonly List<string> SetPiecesDrawn = new List<string>();
@@ -292,6 +295,7 @@ namespace RogueStars.Client.World
             ScatterCount = 0;
             ExclaimCount = 0;
             Token = TokenBody = TokenShadow = null;
+            TokenCreature = null;
 
             var centre = run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)];
             int cd = Depth(centre);
@@ -343,7 +347,8 @@ namespace RogueStars.Client.World
                 }
                 else
                 {
-                    Fit(go, sprite, fpW * 0.9f, Mathf.Min(3.0f, 1.1f + (s.W + s.H) * 0.4f), Iso.Order(s.X, s.Y) + 4, true, out float bw);
+                    var piece = Fit(go, sprite, fpW * 0.9f, Mathf.Min(3.0f, 1.1f + (s.W + s.H) * 0.4f), Iso.Order(s.X, s.Y) + 4, true, out float bw);
+                    PropFx.Apply(piece, PropFx.LookOfSprite(sprite)); // glow pulse, sway, swirl, smoke by art
                     ContactShadow(go, bw, fpW * 0.35f, fpW * 0.95f, Iso.Order(s.X, s.Y) + 3);
                 }
                 SetPiecesDrawn.Add(id);
@@ -373,6 +378,7 @@ namespace RogueStars.Client.World
                 int order = Iso.Order(cell.x + off.x, cell.y + off.y) + 3;
                 var sr = Fit(go, IsoArt.Scatter(sid), size * (IsoArt.IsLargeScatter(sid) ? 0.9f : 1.7f), size, order, true, out float bw, Hash(seed, cell.x, cell.y, 5) < 0.5f);
                 if (sr.sprite != null) ContactShadow(go, bw, 0.2f, 1.4f, order - 1);
+                PropFx.Apply(sr, PropFx.LookOfSprite(sr.sprite));
                 ScatterCount++;
             }
 
@@ -423,6 +429,8 @@ namespace RogueStars.Client.World
                     bool boss = marker == "boss";
                     var sprite = boss ? IsoArt.BossMarker(content, run.BossId) : IsoArt.Marker(marker);
                     view.Marker = Fit(mgo, sprite, boss ? IsoArt.BossMarkerWidth : Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true, out float bw);
+                    if (boss) WorldCreature.Attach(view.Marker); // the boss waiting on its tile breathes
+                    else PropFx.Apply(view.Marker, PropFx.LookOfSprite(sprite)); // the portal swirls, event / mystery markers glow
                     view.MarkerShadow = ContactShadow(mgo, bw, Iso.TileW * 0.3f, Iso.TileW * (boss ? 0.95f : 0.72f), order + 2);
                     if (look.Gate) mgo.transform.localScale = Vector3.one * 1.25f;
                 }
@@ -453,6 +461,7 @@ namespace RogueStars.Client.World
             wormGo.transform.SetParent(body.transform, false);
             _tokenSprite = hero != null ? Fit(wormGo, hero, 2.4f, WormHeight, 0, true) : Fit(wormGo, IsoArt.Marker("portal"), 1.6f, 1.2f, 0, true);
             if (Application.isPlaying) { var bob = wormGo.AddComponent<WorldBob>(); bob.Amplitude = 0.035f; bob.Period = 1.6f; }
+            TokenCreature = hero != null ? WorldCreature.Attach(_tokenSprite, true) : null;
             PlaceToken(TopOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), CellOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), Vector2.one);
         }
 
@@ -613,6 +622,7 @@ namespace RogueStars.Client.World
         public void LiftToken(float lift)
         {
             if (TokenBody != null) TokenBody.localPosition = new Vector3(0, lift, 0);
+            TokenCreature?.Loop(lift > 0.001f ? CreatureClip.Move : CreatureClip.Idle);
         }
 
         // ---- sprite helpers ------------------------------------------------------------------------------------------

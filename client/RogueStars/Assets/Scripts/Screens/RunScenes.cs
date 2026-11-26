@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -299,6 +300,7 @@ namespace RogueStars.Client.Screens
             At(worm.rectTransform, s, 380, 640, 400, 400);
             mount.transform.SetAsLastSibling(); // the saucer's rim in front of the worm's tail
             UiBob.On(worm.rectTransform, 6 * s, 1.6f);
+            UiCreature.Attach(worm);
             var aliens = run?.Loadout?.Aliens ?? new List<CombatAlien>();
             for (int i = 0; i < aliens.Count && i < 3; i++)
             {
@@ -308,6 +310,7 @@ namespace RogueStars.Client.Screens
                 img.sprite = ArtCatalog.Alien(a.AlienTypeId) ?? HudArt.AlienCritter(Theme.FamilyColor(fam));
                 img.preserveAspect = true; img.raycastTarget = false;
                 At(img.rectTransform, s, 78, 620 + i * 165, 160, 160);
+                UiCreature.Attach(img, true);
             }
             if (prop != null)
             {
@@ -316,6 +319,7 @@ namespace RogueStars.Client.Screens
                 At(glow.rectTransform, s, 810, 800, propSize * 1.1f, propSize * 0.4f);
                 var p = Ui.Panel(frame, Color.white, "Prop");
                 p.sprite = prop; p.preserveAspect = true; p.raycastTarget = false;
+                PropFx.Apply(p, PropFx.LookOfSprite(prop)); // the campfire flickers, the shrine glows (shader, UI material)
                 At(p.rectTransform, s, 810, 640, propSize, propSize);
             }
             var hud = SliceHud.Build(frame, RefW * s, onCog, null, true);

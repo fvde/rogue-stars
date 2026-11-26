@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
@@ -53,6 +54,7 @@ namespace RogueStars.Client.Screens
             var img = portrait.gameObject.AddComponent<Image>();
             img.sprite = HeaderSprite(State);
             img.preserveAspect = true; img.raycastTarget = false;
+            UiCreature.Attach(img);
             var names = Ui.Column(who, 0, 0, null, "Names");
             names.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
             Ui.Size(names, -1, -1, 1);

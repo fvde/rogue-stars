@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RogueStars.Client.World.Anim;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
@@ -319,6 +320,7 @@ namespace RogueStars.Client.Screens
             worm.sprite = ArtCatalog.Hero() ?? HudArt.AlienCritter(HubKit.Pink); worm.preserveAspect = true; worm.raycastTarget = false;
             At(worm.rectTransform, 540, cy - size * 0.36f - size * 0.12f, size * 0.34f, size * 0.34f);
             UiBob.On(worm.rectTransform, 6 * _s, 1.8f);
+            UiCreature.Attach(worm); // the worm breathes and sways (code spine)
             // C4: the squad wanders around the worm (the City's walkers and social events)
             Squad = HubSquad.Build(_frame, _squadSim, AlienSystem.ActiveSquad(State, Content), Content, new Vector2(540, cy), size * 0.33f, _s);
             if (!parts)

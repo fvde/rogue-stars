@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
+using RogueStars.Client.World.Anim;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -31,6 +32,8 @@ namespace RogueStars.Client.Screens
             public RectTransform Root;
             public RectTransform Sprite;
             public Image SpriteImage;
+            /// <summary>The creature's code animation (null: the lettered box, a mount, reduced animation off-screen).</summary>
+            public UiCreature Anim;
             public Color SpriteColor;
             public Color FlashColor = Color.white;
             public Vector2 Home;
@@ -621,6 +624,7 @@ namespace RogueStars.Client.Screens
             v.Sprite = srt;
             v.SpriteImage = body;
             v.SpriteColor = body.color;
+            if (hero != null && f.Role != CombatRole.Mount) { v.Anim = UiCreature.Attach(body); if (v.Anim != null) v.Anim.AimScreen = player ? 1 : -1; }
             v.FlashColor = hero != null ? new Color(1f, 0.45f, 0.42f) : Color.white; // a sprite cannot get whiter: it flashes red
             if (f.Role != CombatRole.Worm && f.Role != CombatRole.Mount && hero == null)
             {
@@ -978,6 +982,7 @@ namespace RogueStars.Client.Screens
 
         private void Lunge(FighterView actor, FighterView target, bool rage)
         {
+            Clip(actor, CreatureClip.Attack, target);
             var from = actor.Home;
             var delta = target.Root.anchoredPosition - actor.Root.anchoredPosition;
             var reach = Vector2.ClampMagnitude(delta * (rage ? 0.55f : 0.4f), rage ? 300 : 200);
@@ -995,6 +1000,7 @@ namespace RogueStars.Client.Screens
 
         private void Hit(FighterView v, bool crit)
         {
+            Clip(v, CreatureClip.Hit);
             var sprite = v.Sprite;
             var img = v.SpriteImage;
             var baseColor = v.SpriteColor;
@@ -1011,6 +1017,7 @@ namespace RogueStars.Client.Screens
 
         private void Dodge(FighterView v)
         {
+            Clip(v, CreatureClip.Move, null, CreatureEvents.HopSeconds * 0.6f);
             var sprite = v.Sprite;
             var home = new Vector2(0, SpriteBase);
             float dir = v.Info.Side == BattleSide.Player ? -1 : 1;
@@ -1021,6 +1028,7 @@ namespace RogueStars.Client.Screens
         /// <summary>A sidekick's turn: a small hop and a bright flash on its sprite.</summary>
         private void Hop(FighterView v)
         {
+            Clip(v, CreatureClip.Move, null, CreatureEvents.HopSeconds);
             var sprite = v.Sprite;
             var img = v.SpriteImage;
             var baseColor = v.SpriteColor;
@@ -1120,6 +1128,7 @@ namespace RogueStars.Client.Screens
                 if (_hud.CoinsChip != null) RunFx.Burst(_fireLayer, from, LayerPoint(_hud.CoinsChip), new Color32(0xB8, 0xD8, 0xF6, 255), 6, 30 * _scale, 0.15f);
             }
             v.Dead = true;
+            Clip(v, CreatureClip.Death);
             v.SpriteImage.color = Theme.Locked;
             var g = v.Group;
             if (!animate) { g.alpha = 0.35f; return; }
@@ -1504,7 +1513,25 @@ namespace RogueStars.Client.Screens
                 if (Application.isPlaying && !Instant) UiTween.PopIn(_banner, 0.3f);
             }
             if (_endPanel != null) _endPanel.gameObject.SetActive(true);
+            foreach (var v in _views)
+                if (!v.Dead && v.Visible && CreatureEvents.End(won, v.Info.Side == BattleSide.Player) is CreatureClip c) Clip(v, c);
         }
+
+        /// <summary>Plays a creature clip on a fighter (tests read <see cref="ClipCount"/>); <paramref name="toward"/> sets the direction of attacks.</summary>
+        private void Clip(FighterView v, CreatureClip clip, FighterView toward = null, float seconds = 0)
+        {
+            if (v?.Anim == null) return;
+            v.Anim.SetTimeScale(Mathf.Max(0.5f, _speed * TimeScale) * 1.5f);
+            if (toward != null) v.Anim.AimScreen = toward.Root.anchoredPosition.x >= v.Root.anchoredPosition.x ? 1 : -1;
+            v.Anim.Play(clip, seconds);
+            ClipCounts[(int)clip]++;
+        }
+
+        /// <summary>Creature clips started so far per <see cref="CreatureClip"/> (tests, screenshots).</summary>
+        public readonly int[] ClipCounts = new int[6];
+
+        /// <summary>The code animation of fighter <paramref name="index"/> (tests).</summary>
+        public UiCreature AnimOf(int index) => View(index)?.Anim;
 
         /// <summary>BT5: no stale numbers or banners after the battle ends.</summary>
         private void ClearFx()

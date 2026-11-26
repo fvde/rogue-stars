@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
+using RogueStars.Client.World.Anim;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -38,6 +39,8 @@ namespace RogueStars.Client.World
             public string Uid;
             public GameObject Go;
             public SpriteRenderer Body, Scaffold, Glow;
+            /// <summary>The building's shader look (sway, glow pulse, smoke...), applied once it is built.</summary>
+            public PropFxRef Fx;
             public Sprite Sprite;
             public Vector2 Foot;
             public float Height;
@@ -55,6 +58,9 @@ namespace RogueStars.Client.World
             public string Alien, Goods;
             public Vector2 LastScreen;
             public bool Left;
+            /// <summary>The walker's code animation: Move while walking, Idle otherwise, Celebrate on a cheer.</summary>
+            public WorldCreature Anim;
+            public WalkerState LastState = WalkerState.Waiting;
         }
 
         private sealed class Fx
@@ -331,6 +337,8 @@ namespace RogueStars.Client.World
                 _fireGlow.transform.localScale = Vector3.one * 2.6f;
                 _fire = Standing("Fire", CityArt.Fire(), fire, 1.25f, 1.3f, Order(t.FireX, t.FireY) + 5);
                 _saucer = Standing("Saucer", CityArt.Saucer(), Pos(t.PlazaX + 0.1f, t.PlazaY + 0.1f), 2.0f, 1.3f, Order(t.PlazaX, t.PlazaY) + 4);
+                PropFx.Apply(_fire, PropFx.LookOfSprite(_fire.sprite));
+                PropFx.Apply(_saucer, PropFx.LookOfSprite(_saucer.sprite));
             }
         }
 
@@ -346,6 +354,7 @@ namespace RogueStars.Client.World
                     bool dug = s.City.DugPatches.Contains(p.Id);
                     var sr = Standing("Feature:" + f.Kind, sprite, Pos(f.X, f.Y), 1.3f, f.Kind == "crystal" ? 1.5f : 1.2f, Order(f.X, f.Y) + 5);
                     if (!dug) sr.color = new Color(0.62f, 0.58f, 0.7f, 1);
+                    PropFx.Apply(sr, PropFx.LookOfSprite(sprite));
                     _features.Add(sr);
                 }
         }
@@ -370,7 +379,9 @@ namespace RogueStars.Client.World
                 var sprite = CityArt.Building(it.Def);
                 float height = CityArt.BuildingHeight(it.W, it.H);
                 float fpW = (it.W + it.H) * Iso.StepX;
-                if (v.Sprite != sprite || v.Order != order || v.Foot != foot || v.Body == null)
+                bool refit = v.Sprite != sprite || v.Order != order || v.Foot != foot || v.Body == null;
+                bool spriteChanged = v.Sprite != sprite;
+                if (refit)
                 {
                     v.Go.transform.localPosition = foot;
                     if (v.Body == null)
@@ -388,6 +399,8 @@ namespace RogueStars.Client.World
                 }
                 v.Rect = new RectInt(it.X, it.Y, it.W, it.H);
                 v.Built = b.Level >= 1;
+                // a finished building moves (per blueprint: sway, glow pulse, smoke); a site under construction stays still
+                if (v.Built && (v.Fx == null || spriteChanged)) v.Fx = PropFx.Apply(v.Body, PropFx.LookOfBuilding(it.Def?.Id));
                 v.Active = CitySystem.IsActive(s, c, b);
                 bool timer = b.TimerId != null;
                 if (timer && v.Scaffold == null)
@@ -698,6 +711,7 @@ namespace RogueStars.Client.World
                 float k = WalkerHeight / Mathf.Max(0.01f, sprite.bounds.size.y);
                 v.Body.transform.localScale = new Vector3(k, k, 1);
                 v.Body.transform.localPosition = new Vector3(-sprite.bounds.center.x * k, -sprite.bounds.min.y * k, 0);
+                v.Anim = WorldCreature.Attach(v.Body, true);
             }
             _walkers[w.Id] = v;
             return v;
@@ -734,6 +748,12 @@ namespace RogueStars.Client.World
                 else if (w.State == WalkerState.Sitting) v.Left = world.x > _lastFire.x;
                 v.LastScreen = world;
                 v.Body.flipX = v.Left;
+                if (v.Anim != null)
+                {
+                    if (w.State == WalkerState.Cheer && v.LastState != WalkerState.Cheer) v.Anim.Play(CreatureClip.Celebrate);
+                    else v.Anim.Loop(w.State == WalkerState.Walking ? CreatureClip.Move : CreatureClip.Idle);
+                    v.LastState = w.State;
+                }
                 bool carry = w.Carrying && w.Goods != null && w.State != WalkerState.Inside;
                 v.Carry.gameObject.SetActive(carry);
                 if (carry && v.Goods != w.Goods)

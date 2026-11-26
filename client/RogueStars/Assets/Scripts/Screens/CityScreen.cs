@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
@@ -613,6 +614,7 @@ namespace RogueStars.Client.Screens
                     sb.name = "Worker:" + id;
                     var img = SummonKit.Img(sb.transform, ArtCatalog.Alien(id) ?? HudArt.AlienCritter(Theme.Good), "Alien");
                     Ui.Stretch(img.rectTransform, 6, 6, 6, 6);
+                    UiCreature.Attach(img, true);
                 }
                 else
                 {
@@ -971,6 +973,7 @@ namespace RogueStars.Client.Screens
                 chip.rectTransform.sizeDelta = new Vector2(150, 164);
                 var img = SummonKit.Img(chip.transform, ArtCatalog.Alien(a.TypeId) ?? HudArt.AlienCritter(Theme.Good), "Art");
                 SummonKit.Place(img, new Vector2(0.5f, 1), new Vector2(0, -6), new Vector2(100, 100));
+                UiCreature.Attach(img, true);
                 string where = string.IsNullOrEmpty(a.WorkBuildingId) ? "idle" : Content.Blueprint(CitySystem.Building(State, a.WorkBuildingId)?.BlueprintId)?.Name ?? "";
                 var t = Ui.Label(chip.transform, (Content.AlienType(a.TypeId)?.Name ?? a.TypeId) + "\n<size=18>" + where + "</size>", 20, Color.white, TextAnchor.MiddleCenter, "Name");
                 SummonKit.Place(t, new Vector2(0.5f, 0), new Vector2(0, 4), new Vector2(146, 56));

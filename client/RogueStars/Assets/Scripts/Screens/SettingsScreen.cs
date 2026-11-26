@@ -2,6 +2,7 @@ using System;
 using RogueStars.Client.App;
 using RogueStars.Client.Services;
 using RogueStars.Client.UiKit;
+using RogueStars.Client.World.Anim;
 using RogueStars.Rules.Systems;
 using UnityEngine;
 using UnityEngine.UI;
@@ -45,6 +46,13 @@ namespace RogueStars.Client.Screens
             var runCard = Card(body);
             Section(runCard, "Run auto mode");
             Note(runCard, "Hold the dice to keep rolling. Auto only rolls: every fight, chest, event, shop and choice waits for your tap, then rolling goes on. Tap anywhere to stop.");
+
+            var animCard = Card(body);
+            animCard.name = "AnimCard";
+            Section(animCard, "Animation");
+            Note(animCard, "Creatures and props move on every screen. Turn it down on a slow phone: everything draws still and nothing is updated.");
+            Ui.Button(animCard, AnimSettings.Reduced ? "Reduced animation: ON" : "Reduced animation: off", () => { AnimSettings.Reduced = !AnimSettings.Reduced; Rebuild(); },
+                AnimSettings.Reduced ? Theme.Accent : Theme.Button).name = "ReducedAnim";
 
             // Owner dev tools: offline in the editor/development builds, online only when the server's allowlist says so (session devTools).
             var tools = Session.Service?.DevTools;

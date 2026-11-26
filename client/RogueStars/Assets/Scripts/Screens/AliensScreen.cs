@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
@@ -59,6 +60,7 @@ namespace RogueStars.Client.Screens
             portrait.preserveAspect = true;
             portrait.raycastTarget = false;
             Ui.Size(portrait, 104, 104, 0, 0);
+            UiCreature.Attach(portrait, true); // idle sway only on the cards
             Ui.Label(head, (def?.Name ?? a.TypeId) + "  " + Fmt.Stars(a.Stars), Theme.FontNormal, Color.Lerp(color, Color.white, 0.4f));
             Ui.Label(head, SynergyLine(def), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight, "Synergies");
             // its one ability at its star, what the next star changes, and how often it acts (Speed)
