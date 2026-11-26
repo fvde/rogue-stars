@@ -39,7 +39,7 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
 
 ## 3. Review page and comments
 
-- Page: https://claude.ai/artifact/J5RWyKtvAC2aMYELpdXxPx — publish with the Artifact tool, same URL, after every change. Watch it for comments (ArtifactComments watch) and act on every comment sent to Claude; read ALL threads, including ones not sent to Claude.
+- Page: https://claude.ai/artifact/J5RWyKtvAC2aMYELpdXxPx — it was created in another session, so publishing works like this: first `Artifact` with `action: "read"` and that `url` (once per session), then `Artifact` publish with `file_path` = your built page AND `url` = that same link (never publish without `url`, that would create a second page). Watch it for comments with `ArtifactComments` `action: "watch"` and the `url` (auto-replies only arm when the owner gave the link in his own message) and act on every comment sent to Claude; read ALL threads, including ones not sent to Claude.
 - "good" / "ok" / "this one" / "yes" on an image = approve; "no" / "remove" = reject. One approved image per subject; approving archives the other candidates of that subject.
 - Approve: add the file to the collection's approved list in `~/AI/out/art-state.json` (or `tools/art/accept.py`), rebuild, publish, resolve the thread.
 - Approved + edit request ("remove the fire", "remove the pedestal", "comic cel-shade look"): approve, append `<raw path>|<instruction>` to `~/AI/out/approved-cleanup.txt`; the 23:00 Kontext run edits it and `land-cleaned` lands it. Resolve the thread when the edited version is on the page.
