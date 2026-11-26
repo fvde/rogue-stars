@@ -6,8 +6,8 @@
     1411
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
-  "suffix": ", single huge boss monster, full body, imposing, facing left, centered, isolated on a plain white background, no scenery",
-  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
+  "suffix": ", single huge boss monster, full body, imposing, facing left, centered, isolated on a plain white background, no ground, no shadow, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, ground shadow, drop shadow",
   "subjects": {
     "boss_magma_tyrant": "Magma Tyrant, a towering lava titan with a crown of volcanic spikes and molten fists",
     "boss_frost_leviathan": "Frost Leviathan, a colossal ice sea serpent with glacier armor and frozen breath",

@@ -6,8 +6,8 @@
     1321
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
-  "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no scenery",
-  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
+  "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no fire, no flames, no ground, no shadow, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow",
   "subjects": {
     "null_shade": "Null Shade, a flickering shadow figure with a hollow face, with all four legs clearly visible"
   }
