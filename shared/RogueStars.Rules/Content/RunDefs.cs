@@ -448,7 +448,8 @@ namespace RogueStars.Rules.Content
     public sealed class ShopTableDef
     {
         public string Id;
-        public int SkillOffers = 3;
+        /// <summary>Skill offers per shop fill (playtest 0.1.308: a shop shows 3 offers in all, SkillOffers + SupportOffers).</summary>
+        public int SkillOffers = 2;
         public Dictionary<Rarity, double> RarityWeights = new Dictionary<Rarity, double>();
         public Dictionary<Rarity, long> SkillPrices = new Dictionary<Rarity, long>();
         public double HealPct = 35;
@@ -456,8 +457,13 @@ namespace RogueStars.Rules.Content
         public List<StatMod> StatOffers = new List<StatMod>();
         public long StatPrice = 40;
         public long RerollBase = 10, RerollStep = 10;
-        /// <summary>Distinct stat perks per shop (from StatOffers).</summary>
-        public int StatOfferCount = 1;
+        /// <summary>
+        /// Support offers per shop fill next to the skills: the heal while the worm is below <see cref="HealOfferBelowPct"/> of
+        /// its max HP (one slot), the other slots distinct stat perks (from StatOffers).
+        /// </summary>
+        public int SupportOffers = 1;
+        /// <summary>The heal takes a support slot only while the worm's HP is below this % of its max (else a stat perk).</summary>
+        public double HealOfferBelowPct = 60;
         /// <summary>Chance (%) that one skill offer of a shop fill is on SALE at <see cref="SalePct"/> off (its list price is shown struck through).</summary>
         public double SaleChancePct = 20;
         public double SalePct = 50;

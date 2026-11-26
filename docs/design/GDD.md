@@ -76,7 +76,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
 | Campfire | **Rest** (restore 35% HP) or **Train** (improve 1 owned skill **of the player's choice**: one level, or a chain's lower tier into its upgrade; signatures and maxed skills cannot train; nothing to train = coins; auto picks the lowest-level skill, earliest gained on ties); either strengthens nearby enemy tiles |
-| Shop (force stop) | Two per segment. 4 skills (owned ones offered as level-ups), 2 stat perks and a heal for run coins; reroll with rising price |
+| Shop (force stop) | Two per segment. 3 offers at a time: 2 skills (owned ones offered as level-ups) and the heal (worm below 60% HP) or a stat perk, for run coins; reroll with rising price (again 3 offers) |
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
@@ -131,8 +131,10 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
   No generic ATK / HP per level. `SkillText.Effects(content, skill, level)` / `Title` ("Spiked Hide Lv 2/3") show the
   leveled numbers; an owned skill offered again shows the target level ("Keen Eye Lv 2") and the upgrade inline
   (`SkillText.Upgrade`: "+15% → +25% crit chance").
-- **Shops:** two per segment (forced stops), 4 skills (owned ones as level-ups at lower weight), 2 different stat perks
-  (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and a heal. Prices: skills
+- **Shops:** two per segment (forced stops), **3 offers at a time** (playtest 0.1.308; every reroll again 3): 2 skills
+  (owned ones as level-ups at lower weight) and one support offer (`ShopTableDef.SupportOffers`): the heal while the worm is
+  below 60% HP (`HealOfferBelowPct`), else a stat perk (+8% ATK, +10% HP, +10% DEF, +5% crit, +8% Speed, +4% life steal,
+  +4% damage reduction). Prices: skills
   **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
   reroll. A run **starts with the cheapest skill price + 30 coins** (`RunSystem.StartCoins`) and its first shop leads with a
   Common skill, so the first shop always allows a purchase. **SALE:** with 20% (`ShopTableDef.SaleChancePct`) one skill

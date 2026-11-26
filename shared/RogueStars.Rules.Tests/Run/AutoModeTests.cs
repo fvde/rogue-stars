@@ -91,8 +91,8 @@ public class AutoModeTests
             RunTestKit.LineBoard(run, new[] { "shop" }.Concat(Enumerable.Repeat("empty", 20)).ToArray());
             run.ExtraDicePermanent = 5;
             run.Coins = 1000;
+            run.WormHp = 1;                                        // low HP: the shop offers the heal, the bot heuristic takes it
             Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);
-            s.Run.Active!.WormHp = 1;                              // low HP: the bot heuristic would heal
             return s;
         }
         var e = RunTestKit.Engine();
@@ -111,8 +111,7 @@ public class AutoModeTests
             Assert.True(RunTestKit.Exec(e, ref a, Farm).Ok);
         }
         Assert.Equal(RunPhase.AwaitRoll, a.Run.Active!.Phase);                  // left once nothing more is worth buying
-        Assert.True(a.Run.Active.ShopBuys >= 5, "rich: bought every skill and perk on offer");
-        Assert.Contains(a.Run.Active.Gains, g => g.Source == "shop" && g.Stat != null);
+        Assert.True(a.Run.Active.ShopBuys >= 3, "rich: bought the heal and both skills on offer (3 offers at a time)");
         Assert.Contains(a.Run.Active.Gains, g => g.Source == "shop" && g.SkillId != null);
 
         var b = AtShop(e);                                                     // broke: leaves without buying

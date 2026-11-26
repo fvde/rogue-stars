@@ -1216,9 +1216,15 @@ namespace RogueStars.Rules.Systems
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Skill, SkillId = s.Id, Price = table.SkillPrices.TryGetValue(s.Rarity, out var p) ? p : 50 });
             }
             ApplySale(table, run);
-            run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
+            // support slots: the heal while the worm is hurt, otherwise (and for the other slots) distinct stat perks
+            int support = table.SupportOffers;
+            if (support > 0 && run.WormHp < run.WormMaxHp * table.HealOfferBelowPct / 100.0)
+            {
+                run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
+                support--;
+            }
             var stats = new List<StatMod>(table.StatOffers);
-            for (int i = 0; i < table.StatOfferCount && stats.Count > 0; i++)
+            for (int i = 0; i < support && stats.Count > 0; i++)
             {
                 int k = run.Rng.Range(0, stats.Count);
                 var m = stats[k];

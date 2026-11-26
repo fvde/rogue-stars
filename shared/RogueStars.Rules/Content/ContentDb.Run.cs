@@ -481,7 +481,7 @@ namespace RogueStars.Rules.Content
             // three run tiers: Legendary = 2× Common, Mythic = 3× Common (the old odds folded: C+R, E+L, M)
             std.RarityWeights[Rarity.Common] = 75; std.RarityWeights[Rarity.Legendary] = 24; std.RarityWeights[Rarity.Mythic] = 1;
             std.SkillPrices[Rarity.Common] = 40; std.SkillPrices[Rarity.Legendary] = 80; std.SkillPrices[Rarity.Mythic] = 120;
-            std.SkillOffers = 4; std.StatOfferCount = 2;
+            std.SkillOffers = 2; std.SupportOffers = 1; // 3 offers at a time (playtest 0.1.308), rerolls too
             std.StatOffers.Add(new StatMod(StatId.Atk, 0, 8));
             std.StatOffers.Add(new StatMod(StatId.Hp, 0, 10));
             std.StatOffers.Add(new StatMod(StatId.Def, 0, 10));
@@ -491,7 +491,7 @@ namespace RogueStars.Rules.Content
             std.StatOffers.Add(new StatMod(StatId.DamageReduction, 4));
             RunShopTables[std.Id] = std;
 
-            var dark = new ShopTableDef { Id = "shop_dark", HealPct = 25, HealPrice = 45, StatPrice = 60, RerollBase = 20, RerollStep = 15, SkillOffers = std.SkillOffers, StatOfferCount = std.StatOfferCount };
+            var dark = new ShopTableDef { Id = "shop_dark", HealPct = 25, HealPrice = 45, StatPrice = 60, RerollBase = 20, RerollStep = 15, SkillOffers = std.SkillOffers, SupportOffers = std.SupportOffers, HealOfferBelowPct = std.HealOfferBelowPct };
             foreach (var kv in std.RarityWeights) dark.RarityWeights[kv.Key] = kv.Value;
             dark.RarityWeights[Rarity.Legendary] = 28; dark.RarityWeights[Rarity.Mythic] = 3;
             dark.SkillPrices[Rarity.Common] = 60; dark.SkillPrices[Rarity.Legendary] = 120; dark.SkillPrices[Rarity.Mythic] = 180; // ×1.5

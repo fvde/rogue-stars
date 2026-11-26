@@ -148,8 +148,8 @@ public class RunDepthTests(ITestOutputHelper output)
         double typical = (2 * table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Legendary] + table.StatPrice) / 4.0;
         output.WriteLine($"shop buys {buys:0.0}; typical offer {typical:0} coins");
         Assert.InRange(buys, 10, 22);
-        Assert.Equal(2, table.StatOfferCount);
-        Assert.Equal(4, table.SkillOffers);
+        Assert.Equal(1, table.SupportOffers);
+        Assert.Equal(2, table.SkillOffers); // 3 offers at a time (playtest 0.1.308)
     }
 
     [Fact]
