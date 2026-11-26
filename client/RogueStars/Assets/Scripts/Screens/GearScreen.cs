@@ -59,11 +59,15 @@ namespace RogueStars.Client.Screens
             _slotFilter = GearGuide.FilterFor(slot);
             _rarityFilter = -1;
             _scrollToInventory = true;
+            ShowInventoryView();
             Rebuild();
         }
 
         /// <summary>Scroll to the inventory after the next build (Ore's "Go").</summary>
-        public void FocusInventory() { _scrollToInventory = true; Rebuild(); }
+        public void FocusInventory() { _scrollToInventory = true; ShowInventoryView(); Rebuild(); }
+
+        /// <summary>The screen switches to the view that holds the inventory (the Worm's Parts sub-tab).</summary>
+        protected virtual void ShowInventoryView() { }
 
         // ---- inventory -----------------------------------------------------------------------------
 
@@ -73,8 +77,7 @@ namespace RogueStars.Client.Screens
             var head = Ui.Row(body, 72, 12, null, 0, "InventoryHead");
             _inventoryAnchor = head;
             Section(head, title + " · " + State.Parts.Items.Count);
-            var ore = Ui.Button(head, "ORE " + Fmt.Num(State.Wallet.Get(Currencies.Ore)), () => App.Bar.ShowCurrency(Currencies.Ore), Theme.Button, 250, 64, true, 24);
-            ore.name = "OreChip";
+            Kit.CurrencyChip(head, Currencies.Ore, Fmt.Num(State.Wallet.Get(Currencies.Ore)), () => App.Bar.ShowCurrency(Currencies.Ore), "OreChip");
 
             var labels = new List<string>();
             foreach (var f in GearGuide.SlotFilters)
@@ -83,17 +86,18 @@ namespace RogueStars.Client.Screens
                 foreach (var p in State.Parts.Items.Values) if (GearGuide.Matches(PartsSystem.Def(Content, p), f)) n++;
                 labels.Add(GearGuide.SlotFilterLabel(f) + "\n<size=20>" + n + "</size>");
             }
-            var tabs = Ui.TabBar(body, labels, Array.IndexOf(GearGuide.SlotFilters, _slotFilter), i => SetFilter(GearGuide.SlotFilters[i], _rarityFilter, _sort), 92);
+            var tabs = Kit.TabChips(body, labels, Array.IndexOf(GearGuide.SlotFilters, _slotFilter), i => SetFilter(GearGuide.SlotFilters[i], _rarityFilter, _sort), 92);
             for (int i = 0; i < tabs.Buttons.Count; i++) tabs.Buttons[i].name = "Filter:" + GearGuide.SlotFilters[i];
 
             var tools = Ui.Row(body, 72, 10, null, 0, "InventoryTools");
             var sortLabels = new List<string>();
             foreach (var s in GearGuide.Sorts) sortLabels.Add(GearGuide.SortLabel(s));
-            var sorts = Ui.TabBar(tools, sortLabels, Array.IndexOf(GearGuide.Sorts, _sort), i => SetFilter(_slotFilter, _rarityFilter, GearGuide.Sorts[i]), 72);
+            var sorts = Kit.TabChips(tools, sortLabels, Array.IndexOf(GearGuide.Sorts, _sort), i => SetFilter(_slotFilter, _rarityFilter, GearGuide.Sorts[i]), 72);
             for (int i = 0; i < sorts.Buttons.Count; i++) sorts.Buttons[i].name = "Sort:" + GearGuide.Sorts[i];
             Ui.Size(sorts.Buttons[0].transform.parent, -1, 72, 1);
             string rarityText = _rarityFilter < 0 ? "Any rarity" : RarityName(Content, _rarityFilter);
             var rb = Ui.Button(tools, rarityText, RarityPicker, _rarityFilter < 0 ? Theme.Button : Color.Lerp(RarityColor(_rarityFilter), Theme.Panel, 0.4f), 260, 72, true, 24);
+            KitFit.On(rb.GetComponentInChildren<Text>(), 14);
             rb.name = "RarityFilter";
 
             var list = GearGuide.Inventory(State, Content, _slotFilter, _rarityFilter, _sort);
@@ -121,7 +125,7 @@ namespace RogueStars.Client.Screens
         protected virtual void InventoryFooterExtras(RectTransform row) { }
 
         /// <summary>Tile grid: three columns of 296 + 2 × 14 = 916 ≤ the 930-unit body (978 − 2 × 24 padding).</summary>
-        public const float TileWidth = 296, TileHeight = 232, TileGap = 14;
+        public const float TileWidth = 296, TileHeight = 262, TileGap = 14;
 
         /// <summary>One part tile: slot, name, rarity and level, EQUIPPED / slot, LOCKED, and the ▲ badge when it can level up now.</summary>
         private void PartTile(Transform grid, PartItem p)
@@ -131,11 +135,15 @@ namespace RogueStars.Client.Screens
             var slot = GearGuide.EquippedSlot(State, p.Uid);
             bool eq = slot.HasValue;
             // equipped: green outline; spare: the rarity colour
-            Ui.CardButton(grid, "Part:" + p.Uid, Color.Lerp(Theme.Panel, rc, eq ? 0.34f : 0.2f), eq ? Theme.Good : Color.Lerp(rc, Theme.Panel, 0.2f), () => Detail(p.Uid), out var c, 30, 16, 4);
-            Ui.Label(c, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · " + def.Style.ToString().ToUpperInvariant() : ""), 20, Theme.TextDim, TextAnchor.MiddleLeft, "Kind").fontStyle = FontStyle.Bold;
+            Kit.RarityCard(grid, "Part:" + p.Uid, rc, () => Detail(p.Uid), out var c, 30, 16, 4, eq, null, eq ? 0.38f : 0.26f);
+            var kindRow = Ui.Row(c, 30, 0, null, 0, "KindRow");
+            Ui.Spacer(kindRow, 34).GetComponent<LayoutElement>().flexibleWidth = 0; // room for the rarity gem
+            Ui.Label(kindRow, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · " + def.Style.ToString().ToUpperInvariant() : ""), 20, Theme.TextDim, TextAnchor.MiddleLeft, "Kind").fontStyle = FontStyle.Bold;
             var name = Ui.Display(c, PartName(Content, p), 28, Color.Lerp(rc, Color.white, 0.6f), TextAnchor.UpperLeft, "Name");
             Ui.Size(name, -1, 66, 1);
-            Ui.Label(c, RarityName(Content, p.Rarity) + " · Lv " + p.Level + "/" + PartsSystem.LevelCap(Content, p), 22, Theme.Text, TextAnchor.MiddleLeft, "Level");
+            var lvRow = Ui.Row(c, 38, 8, null, 0, "Level");
+            var lvb = Kit.LevelBadge(lvRow, "Lv " + p.Level + "/" + PartsSystem.LevelCap(Content, p), Color.white, 34);
+            Ui.Label(lvRow, RarityName(Content, p.Rarity), 20, Theme.TextDim, TextAnchor.MiddleLeft, "RarityName");
             var chips = Ui.ChipRow(c, 38, 6);
             if (eq) Ui.Chip(chips, slot.Value == PartSlot.LeftArm ? "LEFT ARM" : slot.Value == PartSlot.RightArm ? "RIGHT ARM" : "EQUIPPED", Theme.Good, Theme.OnAccent, 18, 36, null, "Equipped");
             if (Locks.Contains(p.Uid)) Ui.Chip(chips, "LOCKED", null, Theme.Warn, 18, 36, null, "Locked");
@@ -146,15 +154,7 @@ namespace RogueStars.Client.Screens
         /// <summary>A round green badge in the top-right corner of a card (outside its layout).</summary>
         protected static void Badge(Transform card, string text, string name)
         {
-            var b = Ui.Dot(card, Theme.Good, 52, name);
-            b.GetComponent<LayoutElement>().ignoreLayout = true;
-            var rt = b.rectTransform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1, 1);
-            rt.sizeDelta = new Vector2(52, 52);
-            rt.anchoredPosition = new Vector2(-8, -8);
-            var t = Ui.Label(b.transform, text, 26, Theme.OnAccent, TextAnchor.MiddleCenter, "BadgeText");
-            t.fontStyle = FontStyle.Bold;
-            Ui.Stretch(t.rectTransform);
+            Kit.CornerBadge(card, text, Theme.Good, name);
         }
 
         private void RarityPicker()
