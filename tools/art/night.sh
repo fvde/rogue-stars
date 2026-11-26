@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 [[ -f tools/art/prompts/direction.json ]] || { echo "missing tools/art/prompts/direction.json" >&2; exit 1; }
 curl -sf 127.0.0.1:8188/system_stats >/dev/null || { echo "ComfyUI not running on :8188" >&2; exit 1; }
 PY="arch -arm64 $HOME/AI/ComfyUI/.venv/bin/python"
-ORDER="${ORDER:-skills-v2 aliens3 enemies3 bosses status-icons2 summon-icons sidekicks buildings hub-planet2 run-result2 hub-scene2 slice-battle2 board-ground slice-markers4 run-props2 run-icons3 slice-hud2 hub-icons2 slice-hud slice-scatter mounts hero-skins run-icons2 requeue-1 run-characters run-props run-icons run-result hub-planet hub-scene hub-icons slice-texture slice-battle currencies avatar-frames simple-redo tile-redo grounds decor parts}"
+ORDER="${ORDER:-skills-v2 planet-ships planet-props aliens3 enemies3 bosses status-icons2 summon-icons sidekicks buildings hub-planet2 run-result2 hub-scene2 slice-battle2 board-ground slice-markers4 run-props2 run-icons3 slice-hud2 hub-icons2 slice-hud slice-scatter mounts hero-skins run-icons2 requeue-1 run-characters run-props run-icons run-result hub-planet hub-scene hub-icons slice-texture slice-battle currencies avatar-frames simple-redo tile-redo grounds decor parts}"
 for pass in 1 2; do
   for p in $ORDER; do
     sheet=tools/art/packages/$p.json

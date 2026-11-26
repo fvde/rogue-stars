@@ -1,0 +1,24 @@
+{
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    6411,
+    6412
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text, no ground, no shadow",
+  "negative": "scenery, planet, multiple objects, text, letters, watermark, blurry, photo, realistic, people",
+  "name": "pkg-planet-props",
+  "subjects": {
+    "pp_hut": "a small cartoon alien hut with a straw roof",
+    "pp_tower": "a small cartoon stone watchtower with a flag",
+    "pp_windmill": "a small cartoon windmill",
+    "pp_farm": "a small cartoon farm field patch with a little barn",
+    "pp_market": "a small cartoon market stall with a striped awning",
+    "pp_lab": "a small cartoon laboratory with a glass dome",
+    "pp_pad": "a small cartoon landing pad with a tiny rocket",
+    "pp_towerblock": "a small cartoon tall tower building with lit windows",
+    "pp_bridge": "a small cartoon curved bridge",
+    "pp_spaceport": "a cartoon spaceport terminal with a radar dish"
+  }
+}

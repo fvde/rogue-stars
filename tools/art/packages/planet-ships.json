@@ -1,0 +1,20 @@
+{
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    6411,
+    6412
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text, no ground, no shadow",
+  "negative": "scenery, planet, multiple objects, text, letters, watermark, blurry, photo, realistic, people",
+  "name": "pkg-planet-ships",
+  "subjects": {
+    "ship_scout": "a tiny cartoon scout spaceship, round pod with a small window and little fins",
+    "ship_shuttle": "a small cartoon passenger shuttle spaceship with two engines",
+    "ship_cargo": "a chunky cartoon cargo freighter spaceship with a boxy hull",
+    "ship_saucer": "a small cartoon flying saucer with a dome and a ring of lights",
+    "ship_rocket": "a cheerful cartoon rocket with fins and a flame",
+    "ship_mother": "a larger cartoon mothership with a wide hull and glowing windows"
+  }
+}
