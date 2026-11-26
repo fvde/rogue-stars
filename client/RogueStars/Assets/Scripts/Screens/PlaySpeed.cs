@@ -6,13 +6,48 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// The play speed options shared by the battle playback and the run board: ONE button shows the current speed and a tap
-    /// moves to the next one, ×0.5 → ×1 → ×2 → ×3 → ×0.5 (×3 only when allowed: the monthly pass in battle).
+    /// The play speed: ONE setting for the run board and the battle playback (playtest 0.1.308), ONE button on the board shows
+    /// it and a tap moves to the next one, ×0.5 → ×1 → ×2 → ×3 → ×0.5 (×3 only with the monthly pass).
     /// </summary>
     public static class PlaySpeed
     {
         public static readonly float[] Options = { 0.5f, 1f, 2f, 3f };
         public const float Slowest = 0.5f, Default = 1f, Fastest = 3f;
+
+        /// <summary>PlayerPrefs key of the one speed setting (board movement and battle playback, playtest 0.1.308).</summary>
+        public const string PrefKey = "rs.play_speed";
+        private static float? _current;
+
+        /// <summary>
+        /// THE play speed (playtest 0.1.308: one toggle for board movement and battle playback), kept per device. The speed
+        /// button on the board cycles it; battles play at it (×3 only with the monthly pass, see <see cref="Allowed"/>).
+        /// </summary>
+        public static float Current
+        {
+            get
+            {
+                if (_current == null)
+                {
+                    float stored = Default;
+                    try { stored = PlayerPrefs.GetFloat(PrefKey, Default); } catch (Exception) { }
+                    _current = Valid(stored, true);
+                }
+                return _current.Value;
+            }
+            set
+            {
+                float v = Valid(value, true);
+                if (_current.HasValue && Mathf.Approximately(_current.Value, v)) return;
+                _current = v;
+                try { PlayerPrefs.SetFloat(PrefKey, _current.Value); PlayerPrefs.Save(); } catch (Exception) { }
+            }
+        }
+
+        /// <summary>The speed in effect: <see cref="Current"/>, ×3 only when <paramref name="allowFastest"/> (the monthly pass).</summary>
+        public static float Allowed(bool allowFastest) => Valid(Current, allowFastest);
+
+        /// <summary>One tap on the speed button: the next speed of the shared setting (×3 only when allowed).</summary>
+        public static float Cycle(bool allowFastest) => Current = Next(Allowed(allowFastest), allowFastest);
 
         /// <summary>The speed after <paramref name="current"/>; ×3 is skipped while <paramref name="allowFastest"/> is false.</summary>
         public static float Next(float current, bool allowFastest)

@@ -64,24 +64,20 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Battle_OneSpeedButton_ShowsTheCurrentSpeed_AndCyclesOnTap()
+        public void Battle_FollowsTheOneSpeedSetting_AndCyclesThroughIt()
         {
+            // playtest 0.1.308: the battle has no speed button of its own; it plays at the board's speed (PlaySpeed.Current)
             var screen = new BattlePlaybackScreen(Battle((0, 2, BattleAction.Basic)));
             _f.App.Router.Push(screen);
-            var chip = Find(screen.Root, "SpeedChip");
-            Assert.That(chip, Is.Not.Null);
-            Assert.That(chip.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(chip.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(1), "ONE button, no segments inside it");
-            Assert.That(Find(screen.Root, "Speed1"), Is.Null);
-            Assert.That(Find(screen.Root, "Speed2"), Is.Null);
-            Assert.That(Find(screen.Root, "Speed3"), Is.Null);
+            Assert.That(Find(screen.Root, "SpeedChip"), Is.Null);
             bool passUser = ShopSystem.HasBattleSpeed3(S, C, _f.Clock.NowMs);
             var seen = new List<string>();
             for (int i = 0; i < 4; i++)
             {
                 seen.Add(screen.SpeedLabel);
-                Assert.That(Find(chip, "SpeedText").GetComponent<Text>().text, Is.EqualTo(PlaySpeed.Label(screen.Speed)), "the button always shows the current speed");
-                chip.GetComponent<Button>().onClick.Invoke();
+                Assert.That(screen.SpeedLabel, Is.EqualTo(PlaySpeed.Label(screen.Speed)));
+                Assert.That(screen.Speed, Is.EqualTo(PlaySpeed.Allowed(passUser)), "the battle follows the shared setting");
+                screen.CycleSpeed();
             }
             Assert.That(seen.All(l => l == "x0.5" || l == "x1" || l == "x2" || l == "x3"));
             Assert.That(seen.Contains("x3"), Is.EqualTo(passUser), "x3 only with the pass requirement");
@@ -93,10 +89,9 @@ namespace RogueStars.Client.Tests
             var battle = Battle((0, 2, BattleAction.Basic), (2, 0, BattleAction.Basic), (0, 2, BattleAction.Basic), (0, 1, BattleAction.Skill));
             var screen = new BattlePlaybackScreen(battle);
             _f.App.Router.Push(screen);
-            var chip = Find(screen.Root, "SpeedChip").GetComponent<Button>();
-            while (screen.Speed != 1f) chip.onClick.Invoke();
+            while (screen.Speed != 1f) screen.CycleSpeed();
             float step1 = screen.StepSeconds, fire1 = screen.FireSeconds;
-            while (screen.Speed != 0.5f) chip.onClick.Invoke();
+            while (screen.Speed != 0.5f) screen.CycleSpeed();
             Assert.That(screen.StepSeconds, Is.EqualTo(step1 * 2).Within(1e-4f), "a log step takes twice as long");
             Assert.That(screen.FireSeconds, Is.EqualTo(fire1 * 2).Within(1e-4f), "a skill fire too: same step-to-fire ratio as x1");
             // frames of exactly one step each advance the playback one entry at a time and it ends
@@ -106,7 +101,7 @@ namespace RogueStars.Client.Tests
             Assert.That(frames, Is.EqualTo(battle.Log.Count));
             for (int i = 0; i < 6; i++) screen.Frame(1f); // the fire queue drains at x0.5 too
             Assert.That(screen.FireQueue.Busy, Is.False);
-            while (screen.Speed != 1f) chip.onClick.Invoke();
+            while (screen.Speed != 1f) screen.CycleSpeed();
         }
 
         [Test]
@@ -123,7 +118,9 @@ namespace RogueStars.Client.Tests
                 seen.Add(PlaySpeed.Label(RunScreen.BoardSpeed));
                 chip.GetComponent<Button>().onClick.Invoke();
             }
-            Assert.That(seen, Is.EqualTo(new[] { "x1", "x2", "x3", "x0.5" }));
+            bool pass = ShopSystem.HasBattleSpeed3(S, C, _f.Clock.NowMs);
+            Assert.That(seen, Is.EqualTo(pass ? new[] { "x1", "x2", "x3", "x0.5" } : new[] { "x1", "x2", "x0.5", "x1" }), "x3 with the monthly pass (one setting with battles)");
+            while (RunScreen.BoardSpeed != 1f) Find(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
             Assert.That(RunScreen.BoardSpeed, Is.EqualTo(1f), "and back to x1");
         }
 

@@ -248,7 +248,7 @@ namespace RogueStars.Client.Tests
                 if (!f.Alive && f.SummonedBy < 0) Assert.That(root.GetComponent<CanvasGroup>().alpha, Is.LessThan(0.5f), f.Name + " faded out");
             }
             Assert.That(FindNamed(screen.Root, "Popup"), Is.Null);
-            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Not.Null, "one speed button");
+            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Null, "one speed setting: the board's button (playtest 0.1.308)");
             Assert.That(FindNamed(screen.Root, "Speed3"), Is.Null, "no row of speed buttons any more");
         }
     }

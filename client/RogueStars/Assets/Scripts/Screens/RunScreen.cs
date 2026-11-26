@@ -86,8 +86,8 @@ namespace RogueStars.Client.Screens
         public static bool InstantOutcomes;
         /// <summary>Duration of the spinning chance indicator.</summary>
         public const float ChanceSpinSeconds = 1.3f;
-        /// <summary>Board animation speed (the speed chip: ×0.5, ×1, ×2, ×3 for dice, hops and landings).</summary>
-        public static float BoardSpeed = PlaySpeed.Default;
+        /// <summary>Board animation speed = THE play speed (PlaySpeed.Current: the speed chip, ×0.5 … ×3 for dice, hops, landings and battles).</summary>
+        public static float BoardSpeed { get => PlaySpeed.Current; set => PlaySpeed.Current = value; }
         /// <summary>Hop arc height in world units.</summary>
         public const float HopArc = 0.55f;
         /// <summary>The worm's visual middle above its feet (world units): what the follow camera frames.</summary>
@@ -260,7 +260,7 @@ namespace RogueStars.Client.Screens
             return new TileLook
             {
                 Label = def != null ? Theme.TileLabel(cat) : "",
-                Accent = def != null ? Theme.TileAccent(cat, def.Valence) : Theme.Border,
+                Accent = def != null ? Theme.TileAccent(def) : Theme.Border,
                 Current = t.Id == run.Position,
                 Visited = t.Id != run.Position && run.Trail.Contains(t.Id),
                 Landed = t.TimesResolved > 0,
@@ -1031,7 +1031,8 @@ namespace RogueStars.Client.Screens
             hold.OnHold = HoldDice; // Auto Roll unlocks with a level (GDD §16); before it a hold says when
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
 
-            // speed chip (board animations ×0.5 / ×1 / ×2 / ×3, one button cycling through them)
+            // speed chip: THE play speed (board and battles, ×0.5 / ×1 / ×2 / ×3 with the pass), one button cycling through them
+            BoardSpeed = PlaySpeed.Allowed(ShopSystem.HasBattleSpeed3(State, Content, Now));
             PlaySpeed.BuildChip(root, s, 142, 2284, 214, 112, CycleSpeed, BoardSpeed);
 
             // the skills book (count badge) bottom-right
@@ -1069,10 +1070,10 @@ namespace RogueStars.Client.Screens
             foreach (var go in _boardBook) if (go != null && go.activeSelf == covered) go.SetActive(!covered);
         }
 
-        /// <summary>The speed chip: board animations ×0.5 → ×1 → ×2 → ×3 → ×0.5.</summary>
+        /// <summary>The speed chip: the shared play speed (board and battles) ×0.5 → ×1 → ×2 → ×3 (with the pass) → ×0.5.</summary>
         public void CycleSpeed()
         {
-            BoardSpeed = PlaySpeed.Next(BoardSpeed, true);
+            PlaySpeed.Cycle(ShopSystem.HasBattleSpeed3(State, Content, Now));
             if (_anim != null) _anim.Speed = BoardSpeed;
             Rebuild();
         }
