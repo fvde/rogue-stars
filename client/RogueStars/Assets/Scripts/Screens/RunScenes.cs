@@ -281,12 +281,7 @@ namespace RogueStars.Client.Screens
         /// </summary>
         public static SliceHud Stage(RectTransform root, RectTransform frame, float s, ContentDb c, ActiveRun run, Sprite prop, Action onSkills, Action onCog, float propSize = 420)
         {
-            var arena = Ui.Panel(root, Color.white, "Stage");
-            arena.sprite = ArtCatalog.SliceBattle("battle_meadow") ?? HudArt.Arena();
-            arena.raycastTarget = false;
-            var art = arena.rectTransform;
-            art.anchorMin = new Vector2(0, 1); art.anchorMax = new Vector2(1, 1); art.pivot = new Vector2(0.5f, 1);
-            art.sizeDelta = new Vector2(0, SceneBottom * s); art.anchoredPosition = Vector2.zero;
+            SliceKit.Backdrop(root, ArtCatalog.BattleBackground(null), SceneBottom * s, "Stage");
             frame.SetAsLastSibling(); // the frame's contents over the full-width backdrops
 
             // the hero group: the worm seated on its mount, sidekicks along the left edge

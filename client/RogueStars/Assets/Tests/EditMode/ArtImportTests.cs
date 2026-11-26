@@ -102,7 +102,8 @@ namespace RogueStars.Client.Tests
             foreach (var s in ArtCatalog.SkyStates) Assert.That(ArtCatalog.HubSceneArt("sky_" + s), Is.Not.Null, "sky_" + s);
             foreach (var g in ArtCatalog.SliceGroundIds) Assert.That(ArtCatalog.SliceGround(g), Is.Not.Null, g);
             Assert.That(ArtCatalog.SliceMarker("elite"), Is.Not.Null);
-            Assert.That(ArtCatalog.SliceBattle("battle_meadow"), Is.Null, "the side-view battle backgrounds are only tested, not shipped");
+            Assert.That(ArtCatalog.SliceBattle(ArtCatalog.BattleDefault), Is.Not.Null, "the shared side-view battle background ships");
+            Assert.That(ArtCatalog.BattleBackground("any_biome_without_art"), Is.SameAs(ArtCatalog.SliceBattle(ArtCatalog.BattleDefault)), "no per-biome art: the default");
         }
 
         [Test]

@@ -108,22 +108,17 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("ai_battle_hud");
             _app.Router.Pop();
 
-            // 5. the battle-background test: each candidate behind the same fight (not imported, not shipped)
-            string bgDir = Environment.GetEnvironmentVariable("ROGUESTARS_BATTLE_BG_DIR")
-                           ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AI/out/pkg-slice-battle2");
-            var files = Directory.Exists(bgDir) ? new List<string>(Directory.GetFiles(bgDir, "*.png")) : new List<string>();
-            files.Sort(StringComparer.Ordinal);
-            var real = ArtCatalog.Loader;
-            foreach (var file in files)
-            {
-                var candidate = LoadSprite(file);
-                ArtCatalog.Loader = p => p == ArtCatalog.SliceBattleFolder + "/battle_meadow" ? candidate : real(p);
-                _app.Router.Push(new BattlePlaybackScreen(battle, ctx));
-                yield return Wait(1.4f);
-                yield return Shot("ai_battlebg_" + Path.GetFileNameWithoutExtension(file).Replace("__flux", "").Replace("__", "_"));
-                _app.Router.Pop();
-            }
-            ArtCatalog.Loader = null;
+            // 5. the shared battle background: a normal run battle (above, ai_battle_hud) and a kit battle (no run behind it)
+            _app.Router.Push(new BattlePlaybackScreen(battle, ctx));
+            yield return Wait(1.0f);
+            AssertArenaUsesBackground();
+            yield return Shot("ai_battlebg_run_" + W + "x" + H);
+            _app.Router.Pop();
+            _app.Router.Push(new BattlePlaybackScreen(battle, BattleHudContext.FromRun(null, c)));
+            yield return Wait(1.0f);
+            AssertArenaUsesBackground();
+            yield return Shot("ai_battlebg_kit_" + W + "x" + H);
+            _app.Router.Pop();
 
             // 6. run result (victory, defeat)
             _svc.State.Run.LastSummary = Summary(level, true);
@@ -136,6 +131,16 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(1.4f);
             yield return Shot("ai_result_defeat");
             _app.Router.Pop();
+        }
+
+        private static void AssertArenaUsesBackground()
+        {
+            var bg = ArtCatalog.BattleBackground(null);
+            Assert.That(bg, Is.Not.Null, "the battle background is imported");
+            bool found = false;
+            foreach (var img in UnityEngine.Object.FindObjectsByType<UnityEngine.UI.Image>(FindObjectsSortMode.None))
+                if (img.name == "Art" && img.transform.parent != null && img.transform.parent.name == "Arena" && img.sprite == bg) found = true;
+            Assert.That(found, Is.True, "the battle screen's Arena shows the shared battle background");
         }
 
         private Sprite LoadSprite(string file)

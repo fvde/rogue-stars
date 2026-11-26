@@ -49,6 +49,35 @@ namespace RogueStars.Client.Screens
             return rt;
         }
 
+        /// <summary>
+        /// A full-width backdrop clipped to <paramref name="height"/> px from the top of <paramref name="parent"/>: a sprite covers
+        /// the box at its own aspect (never stretched), <paramref name="zoom"/> enlarges it about the top centre and
+        /// <paramref name="shiftUp"/> (px) slides it up, so the art's lower edge can be cropped away. No sprite: the drawn arena.
+        /// </summary>
+        public static Image Backdrop(RectTransform parent, Sprite sprite, float height, string name, float zoom = 1f, float shiftUp = 0f)
+        {
+            var box = Ui.Rect(parent, name);
+            box.anchorMin = new Vector2(0, 1); box.anchorMax = new Vector2(1, 1); box.pivot = new Vector2(0.5f, 1);
+            box.sizeDelta = new Vector2(0, height); box.anchoredPosition = Vector2.zero;
+            box.gameObject.AddComponent<RectMask2D>();
+            var img = Ui.Panel(box, Color.white, "Art");
+            img.raycastTarget = false;
+            var rt = img.rectTransform;
+            float width = parent.rect.width;
+            if (sprite == null || sprite.rect.height <= 0 || width <= 0)
+            {
+                img.sprite = sprite ?? HudArt.Arena();
+                Ui.Stretch(rt);
+                return img;
+            }
+            img.sprite = sprite;
+            float k = Mathf.Max(width / sprite.rect.width, height / sprite.rect.height) * zoom;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1); rt.pivot = new Vector2(0.5f, 1);
+            rt.sizeDelta = new Vector2(sprite.rect.width * k, sprite.rect.height * k);
+            rt.anchoredPosition = new Vector2(0, shiftUp);
+            return img;
+        }
+
         /// <summary>An icon image (HudArt) at a reference position.</summary>
         public static Image Icon(RectTransform parent, string id, float scale, float x, float y, float size, bool fromBottom = false, string name = null)
         {
