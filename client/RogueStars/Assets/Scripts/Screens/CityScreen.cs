@@ -62,6 +62,12 @@ namespace RogueStars.Client.Screens
         public string DigPatch => _digPatch;
         public bool WorkersOpen => _workersOpen;
 
+        /// <summary>
+        /// Camp mode (levels 6-14, before the City feature): only the crash-site plaza with the fireplace, the saucer and the Launch Pod on
+        /// the start land. No digging, building, streets, workers on other buildings or output; the pod's card shows only its seats.
+        /// </summary>
+        public bool CampMode => Session != null && !Session.IsUnlocked(Features.BiomassFarm);
+
         // ---- building ----------------------------------------------------------------------------------------------------
 
         protected override void Build(RectTransform body)
@@ -117,11 +123,19 @@ namespace RogueStars.Client.Screens
             if (_edit) BuildEdit();
             else
             {
-                Dock();
-                if (IsTablet) Rail(false);
-                if (_workersOpen) WorkersStrip();
-                if (_selected != null) Card();
-                if (_digPatch != null) DigPopup();
+                if (CampMode)
+                {
+                    CampNote();
+                    if (_selected != null) Card();
+                }
+                else
+                {
+                    Dock();
+                    if (IsTablet) Rail(false);
+                    if (_workersOpen) WorkersStrip();
+                    if (_selected != null) Card();
+                    if (_digPatch != null) DigPopup();
+                }
             }
             UpdatePins();
         }
@@ -358,10 +372,10 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(row, 22, 0, 18, 0);
             var hl = row.GetComponent<HorizontalLayoutGroup>();
             hl.childForceExpandWidth = false; hl.childAlignment = TextAnchor.MiddleLeft;
-            var title = SliceKit.Chunky(row, "City", 40, Color.white, TextAnchor.MiddleLeft, "Title");
+            var title = SliceKit.Chunky(row, CampMode ? "Camp" : "City", 40, Color.white, TextAnchor.MiddleLeft, "Title");
             Ui.Size(title, 100, 88, 0);
             int shown = 0;
-            foreach (var kv in Rates(State, Content, Now))
+            foreach (var kv in CampMode ? new SortedDictionary<string, double>() : Rates(State, Content, Now))
             {
                 if (shown >= 2 || kv.Value <= 0) continue;
                 if (kv.Key != Currencies.Biomass && kv.Key != Currencies.Ore && shown > 0) continue;
@@ -469,14 +483,14 @@ namespace RogueStars.Client.Screens
             // the building's sprite stands above its footprint: test the tile under the finger and the one below it
             string uid = BuildingAt(c.x, c.y) ?? BuildingAt(c.x + 1, c.y + 1);
             if (uid != null) { Select(uid); return; }
-            var patch = PatchAt(c.x, c.y);
+            var patch = CampMode ? null : PatchAt(c.x, c.y);
             if (patch != null) { OpenDig(patch.Id); return; }
             if (_selected != null || _digPatch != null || _workersOpen) { _selected = null; _digPatch = null; _workersOpen = false; Rebuild(); }
         }
 
         internal void LongPress(Vector2 px)
         {
-            if (_edit) return;
+            if (_edit || CampMode) return;
             var c = CellAt(px);
             string uid = BuildingAt(c.x, c.y) ?? BuildingAt(c.x + 1, c.y + 1);
             if (uid == null) return;
@@ -551,12 +565,32 @@ namespace RogueStars.Client.Screens
             var name = SliceKit.Chunky(head, def.Name, 38, Color.white, TextAnchor.MiddleLeft, "Name");
             Ui.Size(name, -1, 64, 1);
             name.horizontalOverflow = HorizontalWrapMode.Wrap; name.resizeTextForBestFit = true; name.resizeTextMinSize = 24; name.resizeTextMaxSize = 38;
-            var tag = Ui.Chip(head, def.Rarity + " · " + CitySystem.CopiesBuilt(State, def.Id) + "/" + def.Copies, Theme.RarityColor(def.Rarity), Color.white, 22, 44);
+            var tag = Ui.Chip(head, CampMode ? "Camp" : def.Rarity + " · " + CitySystem.CopiesBuilt(State, def.Id) + "/" + def.Copies, Theme.RarityColor(def.Rarity), Color.white, 22, 44);
             tag.name = "RarityTag";
             Ui.Button(head, "✕", () => { _selected = null; Rebuild(); }, new Color(0.25f, 0.2f, 0.4f, 1), 56, 56, true, 28).name = "CloseCard";
 
-            Ui.Label(card, "Lv " + b.Level + "/" + CitySystem.MaxLevel(Content) + "   " + Fmt.Stars(stars) + "   " + def.Category, Theme.FontSmall, Theme.Gold, TextAnchor.MiddleLeft, "LevelLine");
+            if (!CampMode) Ui.Label(card, "Lv " + b.Level + "/" + CitySystem.MaxLevel(Content) + "   " + Fmt.Stars(stars) + "   " + def.Category, Theme.FontSmall, Theme.Gold, TextAnchor.MiddleLeft, "LevelLine");
 
+            if (CampMode) CampSeats(card, b, def);
+            else FullCardBody(card, b, def, stars);
+
+            // place the card above the building (under it when there is no room), inside the view
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(card);
+            float ch = card.rect.height;
+            var at = _world.ToOverlay(anchor.Value, _size);
+            float x = Mathf.Clamp(at.x, w / 2 + 16, _size.x - w / 2 - 16);
+            float y = at.y + 24;
+            float top = -150, bottom = -_size.y + 200;
+            if (y + ch > top) y = Mathf.Min(top - ch, at.y - 260 - ch);
+            y = Mathf.Max(y, bottom);
+            card.anchoredPosition = new Vector2(x, y);
+            ScaleIn(card);
+        }
+
+        /// <summary>The City card's body: placement, workers, output / chances / boons, upgrade, Move / Store / star-up, building screens.</summary>
+        private void FullCardBody(RectTransform card, CityBuilding b, BlueprintDef def, int stars)
+        {
             var placement = PlacementLine(State, Content, b, out bool met);
             if (placement != null)
             {
@@ -669,19 +703,6 @@ namespace RogueStars.Client.Screens
                 Ui.Button(card, "Open the Shard Reactor", () => App.Router.Push(new ReactorScreen()), Theme.Purple, -1, 72, CitySystem.IsActive(State, Content, b), 26).name = "OpenReactor";
             if (def.Id == ContentDb.LaboratoryId)
                 Ui.Button(card, "Open the Laboratory", () => App.Open("laboratory"), Theme.Purple, -1, 72, CitySystem.IsActive(State, Content, b), 26).name = "OpenLaboratory";
-
-            // place the card above the building (under it when there is no room), inside the view
-            Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(card);
-            float ch = card.rect.height;
-            var at = _world.ToOverlay(anchor.Value, _size);
-            float x = Mathf.Clamp(at.x, w / 2 + 16, _size.x - w / 2 - 16);
-            float y = at.y + 24;
-            float top = -150, bottom = -_size.y + 200;
-            if (y + ch > top) y = Mathf.Min(top - ch, at.y - 260 - ch);
-            y = Mathf.Max(y, bottom);
-            card.anchoredPosition = new Vector2(x, y);
-            ScaleIn(card);
         }
 
         private static void ScaleIn(RectTransform rt)
@@ -695,6 +716,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Frames a rubble patch and opens its dig pop-up (what is inside, the dig's cost and timer).</summary>
         public void OpenDig(string patchId)
         {
+            if (CampMode) return;
             _digPatch = patchId;
             _selected = null;
             _workersOpen = false;

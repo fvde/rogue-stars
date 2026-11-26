@@ -102,7 +102,7 @@ namespace RogueStars.Sim
 
             // Upgrades, cheapest first, each within a share of the balance above the dig reserve.
             var cands = S.City.Buildings
-                .Where(b => CitySystem.IsBuilt(b) && b.TimerId == null && b.Level < CitySystem.MaxLevel(C))
+                .Where(b => Unlocked(Features.BiomassFarm) && CitySystem.IsBuilt(b) && b.TimerId == null && b.Level < CitySystem.MaxLevel(C))
                 .Select(b => (b, cost: CitySystem.UpgradeCost(C, C.Blueprint(b.BlueprintId), b.Level)))
                 .OrderBy(x => x.cost.Sum(c => c.Amount)).ThenBy(x => x.b.Uid, StringComparer.Ordinal).ToList();
             for (int i = 0; i < cands.Count; i++)
@@ -111,6 +111,7 @@ namespace RogueStars.Sim
                 if (!cost.All(c => c.Amount <= (Bal(c.Currency) - DigReserve(c.Currency) - BuildReserve(c.Currency) - (c.Currency == Currencies.Ore ? _oreReserve : 0)) * (i == 0 ? 1.0 : CityShare))) continue;
                 Exec(new CityUpgrade { Uid = b.Uid });
             }
+            if (Unlocked(Features.BiomassFarm)) // camp mode (levels 6-14): no star-ups
             foreach (var b in CitySystem.SortedBlueprints(S))
                 while (CitySystem.StarCost(C, b) > 0 && Bal(Currencies.BlueprintShards(b.Id)) >= CitySystem.StarCost(C, b) && Ok(new BlueprintStarUp { BlueprintId = b.Id })) { }
             SpeedUpTimers();
@@ -280,7 +281,7 @@ namespace RogueStars.Sim
 
         /// <summary>
         /// From the Aliens unlock (level 6) the rules build the Launch Pod on the crash site (CitySystem.EnsureCrashSitePod): the squad
-        /// below is set from then on, before the City; City() levels the pod too (its upgrades need no City).
+        /// below is set from then on, before the City; the pod is neither upgraded nor starred before the City (camp mode).
         /// </summary>
         private void Aliens()
         {

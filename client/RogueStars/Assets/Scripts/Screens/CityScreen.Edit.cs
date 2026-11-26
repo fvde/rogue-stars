@@ -47,6 +47,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Build: edit mode — the camera zooms one step in, the grid goes from 15% to 40%.</summary>
         public void EnterEdit()
         {
+            if (CampMode) return; // camp mode: no layout edits
             _edit = true;
             _selected = null;
             _digPatch = null;

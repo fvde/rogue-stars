@@ -43,12 +43,16 @@ at the end of every unlock check (`OnboardingSystem.CheckUnlocks`), so a save th
 load the same way (no migration; its Launch Pod feature unlocks then with its own moment). Dev unlock-all states without a
 recorded Aliens unlock get none.
 
-* **Before the City** the City screen stays locked and layout edits (`CityPlace / CityMove / CityStore / CityStreets`) are
-  refused ("feature locked"): the crash site stays as it is. What works: the seats (`AlienAssign` to / from the pod,
-  `AlienSetSquad`), `CityUpgrade` (Biomass only, the pod's cost type) and `BlueprintStarUp` (blueprint shards wait for the City,
-  RewardGate, so in practice no stars before it). The hub shows the fireplace, the saucer and the pod on the planet with the squad
-  walking around (C4 walkers); tapping the pod opens its card (docs/client.md "Crash site").
-* **At the City** (level 15) the City opens with the pod already standing on the crash site and the land around it buildable.
+* **Camp mode (levels 6-14, owner 2026-11-26).** The City screen exists from level 6 in a restricted "camp" mode: only the crash-site
+  plaza with the fireplace, the saucer and the Launch Pod on the start land, the squad aliens walking around. No digging, no Build
+  mode, streets, Workers (other buildings), Output or Collect; the only interaction is the pod's card with its seats. The rules
+  refuse everything else before the City feature unlocks ("feature locked"): `CityUpgrade` (and with it level-ups), `BlueprintStarUp`,
+  `CityMove`, `CityStore`, `CityPlace`, `CityStreets`, `CityDig`, for the pod and every other building. Only the seats work:
+  `AlienAssign` to / from the pod and `AlienSetSquad`. The pod can neither be upgraded, starred nor moved yet.
+* **One hub entry.** The hub has one tab for it: the "Camp" tab with the crashed-saucer icon from level 6, the "City" tab with the
+  City icon from level 15 (same screen). The crash-site props on the planet are decoration and a shortcut to the same screen.
+* **At the City** (level 15) the camp becomes the full City: the pod already stands on the crash site, the land around it is buildable,
+  and the pod can be moved, upgraded and starred like any building.
   A pulled Launch Pod later is a batch of shards (one copy).
 * **Features:** the Launch Pod feature (`alien_squad`) is no longer a building feature: it unlocks at level 6 in the Aliens' group
   (one unlock moment "Aliens + Launch Pod": the Aliens' 2 panels, then the pod's 3; the Aliens' 50 Diamonds and the pod's 30).
