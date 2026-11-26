@@ -1,85 +1,341 @@
 {
   "_doc": "Art pipeline output spec per category (tools/art/pipeline.py). canvas: square transparent canvas size (null = trimmed sprite, no canvas). long_side: target length of the object's longer side in px. align: center | bottom. margin_bottom: px below the object when bottom-aligned. pad: transparent px around a trimmed sprite. cutout false = full-frame art (backgrounds): no background removal, only resized to max_side. Sizes match the sprites already in client/RogueStars/Assets/Art/Resources/Art/** where such sprites exist.",
   "categories": {
-    "icon":      {"canvas": 512, "long_side": 458, "align": "center", "note": "skill, status, HUD, summon, reward, menu, currency, emblem icons"},
-    "creature":  {"canvas": 512, "long_side": 470, "align": "bottom", "margin_bottom": 12, "note": "aliens, enemies, bosses, sidekicks, mounts, hero skins"},
-    "planet":    {"canvas": 512, "long_side": 458, "align": "center", "note": "home planet stages (Hub/Planet)"},
-    "eyecandy":  {"canvas": 512, "long_side": 458, "align": "center", "note": "planet spaceships and meteors"},
-    "marker":    {"canvas": null, "long_side": 458, "pad": 3, "note": "tile markers (Slice/Markers, trimmed, long side ~462 incl. padding)"},
-    "tile":      {"canvas": null, "long_side": 456, "pad": 3, "note": "ground chunks and board tiles (Slice/Ground, Boards/*/tiles)"},
-    "prop":      {"canvas": null, "long_side": 572, "pad": 3, "note": "run props, set pieces, scatter, decor, buildings (Run/Props, Slice/SetPieces)"},
-    "character": {"canvas": null, "long_side": 686, "pad": 3, "note": "run NPC characters (Run/Characters, 691 px tall)"},
-    "fullframe": {"cutout": false, "max_side": 1344, "note": "backgrounds, boards, textures, loading art: kept full frame"}
+    "icon": {
+      "canvas": 512,
+      "long_side": 458,
+      "align": "center",
+      "note": "skill, status, HUD, summon, reward, menu, currency, emblem icons"
+    },
+    "creature": {
+      "canvas": 512,
+      "long_side": 470,
+      "align": "bottom",
+      "margin_bottom": 12,
+      "note": "aliens, enemies, bosses, sidekicks, mounts, hero skins"
+    },
+    "planet": {
+      "canvas": 512,
+      "long_side": 458,
+      "align": "center",
+      "note": "home planet stages (Hub/Planet)"
+    },
+    "eyecandy": {
+      "canvas": 512,
+      "long_side": 458,
+      "align": "center",
+      "note": "planet spaceships and meteors"
+    },
+    "marker": {
+      "canvas": null,
+      "long_side": 458,
+      "pad": 3,
+      "note": "tile markers (Slice/Markers, trimmed, long side ~462 incl. padding)"
+    },
+    "tile": {
+      "canvas": null,
+      "long_side": 456,
+      "pad": 3,
+      "note": "ground chunks and board tiles (Slice/Ground, Boards/*/tiles)"
+    },
+    "prop": {
+      "canvas": null,
+      "long_side": 572,
+      "pad": 3,
+      "note": "run props, set pieces, scatter, decor, buildings (Run/Props, Slice/SetPieces)"
+    },
+    "character": {
+      "canvas": null,
+      "long_side": 686,
+      "pad": 3,
+      "note": "run NPC characters (Run/Characters, 691 px tall)"
+    },
+    "fullframe": {
+      "cutout": false,
+      "max_side": 1344,
+      "note": "backgrounds, boards, textures, loading art: kept full frame"
+    }
   },
   "packages": {
-    "status-icons2-redo": ["icon", "Status icons"],
-    "status-icons2":      ["icon", "Status icons"],
-    "summon-icons":       ["icon", "Summon & menu icons"],
-    "skills-v3":          ["icon", "Skill icons"],
-    "skills-v2":          ["icon", "Skill icons"],
-    "skills":             ["icon", "Skill icons"],
-    "slice-skills":       ["icon", "Skill icons"],
-    "hub-icons":          ["icon", "Home tab and side icons"],
-    "hub-icons2":         ["icon", "Home tab and side icons"],
-    "run-icons":          ["icon", "Reward icons"],
-    "run-icons2":         ["icon", "Reward icons"],
-    "run-icons3":         ["icon", "Reward icons"],
-    "requeue-icons":      ["icon", "Reward icons"],
-    "slice-hud":          ["icon", "HUD icons"],
-    "slice-hud2":         ["icon", "HUD icons"],
-    "slice-hud3":         ["icon", "HUD icons"],
-    "run-result":         ["icon", "Victory / defeat emblems"],
-    "run-result2":        ["icon", "Victory / defeat emblems"],
-    "currencies":         ["icon", "Currencies"],
-    "avatar-frames":      ["icon", "Avatar frames"],
-    "parts":              ["icon", "Hero parts"],
-    "aliens":             ["creature", "Aliens (12 without a sprite)"],
-    "aliens3":            ["creature", "Aliens (12 without a sprite)"],
-    "aliens3-redo":       ["creature", "Aliens (12 without a sprite)"],
-    "enemies":            ["creature", "Enemies (13 without a sprite)"],
-    "enemies3":           ["creature", "Enemies (13 without a sprite)"],
-    "enemies3-redo":      ["creature", "Enemies (13 without a sprite)"],
-    "bosses":             ["creature", "Bosses"],
-    "sidekicks":          ["creature", "Sidekicks"],
-    "simple-redo":        ["creature", "Aliens (12 without a sprite)"],
-    "mounts":             ["creature", "Mounts"],
-    "hero-skins":         ["creature", "Hero skins"],
-    "hub-planet":         ["planet", "Home planet stages"],
-    "hub-planet2":        ["planet", "Home planet stages"],
-    "planet-ships":       ["eyecandy", "Planet eye candy: spaceships"],
-    "planet-meteors":     ["eyecandy", "Planet eye candy: meteors"],
-    "slice-markers":      ["marker", "Tile markers"],
-    "slice-markers2":     ["marker", "Tile markers"],
-    "slice-markers4":     ["marker", "Tile markers"],
-    "slice-markers5":     ["marker", "Tile markers"],
-    "slice-markers6":     ["marker", "Tile markers"],
-    "board-ground":       ["tile", "Board ground chunks"],
-    "board-tile-sprites": ["tile", "Board ground chunks"],
-    "tile-redo":          ["tile", "Board ground chunks"],
-    "run-props":          ["prop", "Run props"],
-    "run-props2":         ["prop", "Run props"],
-    "run-props3":         ["prop", "Run props"],
-    "requeue-1":          ["prop", "Run props"],
-    "slice-setpieces":    ["prop", "Board set pieces"],
-    "slice-scatter":      ["prop", "Board set pieces"],
-    "decor":              ["prop", "Board set pieces"],
-    "planet-props":       ["prop", "Planet buildings (for stages 5-10)"],
-    "buildings":          ["prop", "Buildings (City)"],
-    "run-characters":     ["character", "Run characters"],
-    "boards":             ["fullframe", "Boards"],
-    "grounds":            ["fullframe", "Board ground textures"],
-    "hub-scene":          ["fullframe", "Home space backgrounds"],
-    "hub-scene2":         ["fullframe", "Home space backgrounds"],
-    "slice-battle":       ["fullframe", "Battle backgrounds"],
-    "slice-battle2":      ["fullframe", "Battle backgrounds"],
-    "slice-texture":      ["fullframe", "Board ground textures"],
-    "extras/biomes":      ["fullframe", "Biome backgrounds"],
-    "extras/loading":     ["fullframe", "Loading screens"],
-    "extras/board-tiles": ["tile", "Board ground chunks"],
-    "extras/collectibles":["icon", "Collectibles"],
-    "extras/events":      ["icon", "Event icons"],
-    "extras/minigames":   ["icon", "Minigame sprites"],
-    "extras/shop":        ["icon", "Shop icons"],
-    "extras/status-icons":["icon", "Status icons"]
+    "status-icons2-redo": [
+      "icon",
+      "Status icons"
+    ],
+    "status-icons2": [
+      "icon",
+      "Status icons"
+    ],
+    "summon-icons": [
+      "icon",
+      "Summon & menu icons"
+    ],
+    "skills-v3": [
+      "icon",
+      "Skill icons"
+    ],
+    "skills-v2": [
+      "icon",
+      "Skill icons"
+    ],
+    "skills": [
+      "icon",
+      "Skill icons"
+    ],
+    "slice-skills": [
+      "icon",
+      "Skill icons"
+    ],
+    "hub-icons": [
+      "icon",
+      "Home tab and side icons"
+    ],
+    "hub-icons2": [
+      "icon",
+      "Home tab and side icons"
+    ],
+    "run-icons": [
+      "icon",
+      "Reward icons"
+    ],
+    "run-icons2": [
+      "icon",
+      "Reward icons"
+    ],
+    "run-icons3": [
+      "icon",
+      "Reward icons"
+    ],
+    "requeue-icons": [
+      "icon",
+      "Reward icons"
+    ],
+    "slice-hud": [
+      "icon",
+      "HUD icons"
+    ],
+    "slice-hud2": [
+      "icon",
+      "HUD icons"
+    ],
+    "slice-hud3": [
+      "icon",
+      "HUD icons"
+    ],
+    "run-result": [
+      "icon",
+      "Victory / defeat emblems"
+    ],
+    "run-result2": [
+      "icon",
+      "Victory / defeat emblems"
+    ],
+    "currencies": [
+      "icon",
+      "Currencies"
+    ],
+    "avatar-frames": [
+      "icon",
+      "Avatar frames"
+    ],
+    "parts": [
+      "icon",
+      "Hero parts"
+    ],
+    "aliens": [
+      "creature",
+      "Aliens (12 without a sprite)"
+    ],
+    "aliens3": [
+      "creature",
+      "Aliens (12 without a sprite)"
+    ],
+    "aliens3-redo": [
+      "creature",
+      "Aliens (12 without a sprite)"
+    ],
+    "enemies": [
+      "creature",
+      "Enemies (13 without a sprite)"
+    ],
+    "enemies3": [
+      "creature",
+      "Enemies (13 without a sprite)"
+    ],
+    "enemies3-redo": [
+      "creature",
+      "Enemies (13 without a sprite)"
+    ],
+    "bosses": [
+      "creature",
+      "Bosses"
+    ],
+    "sidekicks": [
+      "creature",
+      "Sidekicks"
+    ],
+    "simple-redo": [
+      "creature",
+      "Aliens (12 without a sprite)"
+    ],
+    "mounts": [
+      "creature",
+      "Mounts"
+    ],
+    "hero-skins": [
+      "creature",
+      "Hero skins"
+    ],
+    "hub-planet": [
+      "planet",
+      "Home planet stages"
+    ],
+    "hub-planet2": [
+      "planet",
+      "Home planet stages"
+    ],
+    "planet-ships": [
+      "eyecandy",
+      "Planet eye candy: spaceships"
+    ],
+    "planet-meteors": [
+      "eyecandy",
+      "Planet eye candy: meteors"
+    ],
+    "slice-markers": [
+      "marker",
+      "Tile markers"
+    ],
+    "slice-markers2": [
+      "marker",
+      "Tile markers"
+    ],
+    "slice-markers4": [
+      "marker",
+      "Tile markers"
+    ],
+    "slice-markers5": [
+      "marker",
+      "Tile markers"
+    ],
+    "slice-markers6": [
+      "marker",
+      "Tile markers"
+    ],
+    "board-ground": [
+      "tile",
+      "Board ground chunks"
+    ],
+    "board-tile-sprites": [
+      "tile",
+      "Board ground chunks"
+    ],
+    "tile-redo": [
+      "tile",
+      "Board ground chunks"
+    ],
+    "run-props": [
+      "prop",
+      "Run props"
+    ],
+    "run-props2": [
+      "prop",
+      "Run props"
+    ],
+    "run-props3": [
+      "prop",
+      "Run props"
+    ],
+    "requeue-1": [
+      "prop",
+      "Run props"
+    ],
+    "slice-setpieces": [
+      "prop",
+      "Board set pieces"
+    ],
+    "slice-scatter": [
+      "prop",
+      "Board set pieces"
+    ],
+    "decor": [
+      "prop",
+      "Board set pieces"
+    ],
+    "planet-props": [
+      "prop",
+      "Planet buildings (for stages 5-10)"
+    ],
+    "buildings": [
+      "prop",
+      "Buildings (City)"
+    ],
+    "run-characters": [
+      "character",
+      "Run characters"
+    ],
+    "boards": [
+      "fullframe",
+      "Boards"
+    ],
+    "grounds": [
+      "fullframe",
+      "Board ground textures"
+    ],
+    "hub-scene": [
+      "fullframe",
+      "Home space backgrounds"
+    ],
+    "hub-scene2": [
+      "fullframe",
+      "Home space backgrounds"
+    ],
+    "slice-battle": [
+      "fullframe",
+      "Battle backgrounds"
+    ],
+    "slice-battle2": [
+      "fullframe",
+      "Battle backgrounds"
+    ],
+    "slice-texture": [
+      "fullframe",
+      "Board ground textures"
+    ],
+    "extras/biomes": [
+      "fullframe",
+      "Biome backgrounds"
+    ],
+    "extras/loading": [
+      "fullframe",
+      "Loading screens"
+    ],
+    "extras/board-tiles": [
+      "tile",
+      "Board ground chunks"
+    ],
+    "extras/collectibles": [
+      "icon",
+      "Collectibles"
+    ],
+    "extras/events": [
+      "icon",
+      "Event icons"
+    ],
+    "extras/minigames": [
+      "icon",
+      "Minigame sprites"
+    ],
+    "extras/shop": [
+      "icon",
+      "Shop icons"
+    ],
+    "extras/status-icons": [
+      "icon",
+      "Status icons"
+    ],
+    "summon-icons-redo": [
+      "icon",
+      "Summon & menu icons"
+    ]
   }
 }
