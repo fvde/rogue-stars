@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
@@ -143,7 +144,7 @@ namespace RogueStars.Client.Screens
                 {
                     var art = ArtCatalog.Alien(r.Id);
                     if (art == null) return null;
-                    return box => Ui.Stretch(SummonKit.Img(box, art, "AlienSprite").rectTransform);
+                    return box => { var im = SummonKit.Img(box, art, "AlienSprite"); Ui.Stretch(im.rectTransform); UiCreature.Attach(im, true); };
                 }
                 case RewardKinds.Hero:
                 case RewardKinds.HeroShards:

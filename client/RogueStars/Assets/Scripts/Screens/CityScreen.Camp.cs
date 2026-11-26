@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RogueStars.Client.World.Anim;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
@@ -35,6 +36,7 @@ namespace RogueStars.Client.Screens
                     sb.name = "Worker:" + id;
                     var img = SummonKit.Img(sb.transform, ArtCatalog.Alien(id) ?? HudArt.AlienCritter(Theme.Good), "Alien");
                     Ui.Stretch(img.rectTransform, 6, 6, 6, 6);
+                    UiCreature.Attach(img, true);
                 }
                 else Ui.Button(seats, "+", null, new Color(0.3f, 0.26f, 0.5f, 1), 92, 92, false, 40).name = "EmptySlot";
             }
@@ -56,6 +58,7 @@ namespace RogueStars.Client.Screens
                     ab.name = "Pick:" + id;
                     var img = SummonKit.Img(ab.transform, ArtCatalog.Alien(id) ?? HudArt.AlienCritter(Theme.Good), "Art");
                     SummonKit.Place(img, new Vector2(0.5f, 1), new Vector2(0, -6), new Vector2(92, 92));
+                    UiCreature.Attach(img, true);
                     var t = Ui.Label(ab.transform, Content.AlienType(id)?.Name ?? id, 18, Color.white, TextAnchor.MiddleCenter, "Name");
                     SummonKit.Place(t, new Vector2(0.5f, 0), new Vector2(0, 2), new Vector2(116, 40));
                 }

@@ -16,7 +16,6 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | F1 | **Arena** | Needs spec + design + prompts | A first version exists in the rules (ArenaSystem, weekly league, tickets) but has no real design. Needs: matchmaking idea, rewards, the screen, art. |
 | F2 | **Guilds** | Needs spec + design + prompts | A first version exists (GuildSystem, chat, marks, weekly shop). Needs: roles, guild goals/events, the screen, art. |
 | F3 | **Permanent tile improvements** | Idea, needs spec | A special run event: pay a high price, or beat an extra-strong miniboss, to make a tile type slightly better forever (for example a bit more loot or a better chest chance on that tile). Needs: which tiles, how strong, how it stacks, how it shows on the board, a cap, how it relates to the Laboratory. |
-| F4 | **Animation pipeline** | Proof of concept done | Shaders for props, code spine for the worm and limbless creatures, cut-out rigs for a few key aliens, AI-video loops for a few hero effects. Needs the owner's decision which to adopt (branch `anim-pilot`). |
 | F5 | **Genes** | "Coming soon" | Breeding genes and the Gene Lab. Parked until the rest of breeding is settled. |
 | F6 | **Weather and the worm visiting the plaza** | Idea (City doc section 7) | Not built. |
 

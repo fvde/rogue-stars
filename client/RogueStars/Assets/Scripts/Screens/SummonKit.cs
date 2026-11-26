@@ -1,4 +1,5 @@
 using System;
+using RogueStars.Client.World.Anim;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
@@ -108,6 +109,7 @@ namespace RogueStars.Client.Screens
             }
             var art = Img(root, SummonArt.Featured(type, id), "Art");
             Ui.Stretch(art.rectTransform);
+            if (!outfit) UiCreature.Attach(art, true); // the cape and hat of an outfit sit on fixed spots: only whole art breathes
             if (outfit)
             {
                 var hat = Img(root, SummonArt.HeroOutfit(id, false), "HeroHat");

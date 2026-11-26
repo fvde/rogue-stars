@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RogueStars.Client.World.Anim;
 using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
 using RogueStars.Rules.Content;
@@ -22,6 +23,7 @@ namespace RogueStars.Client.Screens
         public Vector2 Centre;
         public float Radius, Scale = 1;
         private readonly List<KeyValuePair<Walker, RectTransform>> _views = new List<KeyValuePair<Walker, RectTransform>>();
+        private readonly Dictionary<Walker, UiCreature> _anims = new Dictionary<Walker, UiCreature>();
         private RectTransform _layer;
 
         /// <summary>Walkers shown (tests).</summary>
@@ -69,6 +71,8 @@ namespace RogueStars.Client.Screens
                 float size = radius * 2 * AlienSize * scale;
                 rt.sizeDelta = new Vector2(size, size);
                 hs._views.Add(new KeyValuePair<Walker, RectTransform>(w, rt));
+                var anim = UiCreature.Attach(img);
+                if (anim != null) hs._anims[w] = anim;
             }
             hs.Place();
             return hs;
@@ -105,6 +109,7 @@ namespace RogueStars.Client.Screens
                 float bob = Application.isPlaying && w.State == WalkerState.Walking ? Mathf.Abs(Mathf.Sin(Time.unscaledTime * 6 + w.Phase)) * 4 : 0;
                 rt.anchoredPosition = new Vector2(x * Scale, -(y - bob) * Scale);
                 rt.localScale = new Vector3(w.FacingLeft ? -1 : 1, 1, 1);
+                if (_anims.TryGetValue(w, out var anim)) anim.Loop(w.State == WalkerState.Walking ? CreatureClip.Move : CreatureClip.Idle);
             }
         }
 

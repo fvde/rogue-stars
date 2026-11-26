@@ -6,7 +6,12 @@ review comments anchor to one image).
     arch -arm64 ~/AI/ComfyUI/.venv/bin/python tools/art/review_page.py ~/AI/out/art-state.json out.html
 
 State file: {"collections": [{"title", "note", "approved": [paths/globs], "candidates": [paths/globs],
-"rejected": [paths]}]}. Paths may use ~ and globs. Needs Pillow (ComfyUI venv).
+"animated": [globs of looping .webp/.gif previews], "animated_approved": [globs], "rejected": [paths]}]}. Paths may use ~ and
+globs. Needs Pillow (ComfyUI venv).
+
+Animated previews (short looping WebP/GIF, e.g. ~/AI/out/anim-review/*.webp from the game's shader animation capture) are
+embedded as they are (never re-encoded, so they keep animating), one figure per item with its own id (so a comment anchors to
+a single item); they are "new" unless listed under animated_approved. Every figure carries a stable id (slug of the file).
 """
 import base64, glob, html, io, json, os, sys
 from PIL import Image
@@ -20,6 +25,25 @@ def files(patterns):
         hits = sorted(glob.glob(os.path.expanduser(p)))
         out += [h for h in hits if h.lower().endswith(".png") and not h.endswith("review.png")]
     return out
+
+
+def animated(patterns):
+    out = []
+    for p in patterns or []:
+        hits = sorted(glob.glob(os.path.expanduser(p)))
+        out += [h for h in hits if h.lower().endswith((".webp", ".gif"))]
+    return out
+
+
+def embed(path):
+    """An animated file as a data URI, untouched (a thumbnail would flatten it to one frame)."""
+    mime = "gif" if path.lower().endswith(".gif") else "webp"
+    return f"data:image/{mime};base64," + base64.b64encode(open(path, "rb").read()).decode()
+
+
+def fig_id(prefix, path):
+    slug = "".join(ch if ch.isalnum() else "-" for ch in os.path.splitext(os.path.basename(path))[0]).strip("-").lower()
+    return f"{prefix}-{slug}"
 
 
 def thumb(path):
@@ -47,7 +71,9 @@ def main():
     for c in state["collections"]:
         appr = files(c.get("approved"))
         cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
-        if not appr and not cand:
+        anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
+        anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
+        if not appr and not cand and not anim_ok and not anim_new:
             continue
         sec = [f'<section><h2>{html.escape(c["title"])}</h2>']
         if c.get("note"):
@@ -58,8 +84,18 @@ def main():
             cls = "ok" if kind.startswith("Approved") else "new"
             sec.append(f'<h3 class="{cls}">{kind} <small>{len(items)}</small></h3><div class="grid">')
             for f in items:
-                sec.append(f'<figure class="{cls}"><img src="{thumb(f)}" alt="{html.escape(label(f))}">'
+                sec.append(f'<figure class="{cls}" id="{fig_id("img", f)}"><img src="{thumb(f)}" alt="{html.escape(label(f))}">'
                            f'<figcaption>{html.escape(label(f))}</figcaption></figure>')
+            sec.append("</div>")
+        for kind, items in (("Animated, approved", anim_ok), ("Animated, new — pick", anim_new)):
+            if not items:
+                continue
+            cls = "ok" if "approved" in kind else "new"
+            sec.append(f'<h3 class="{cls}">{kind} <small>{len(items)}</small></h3><div class="grid anim">')
+            for f in items:
+                name = os.path.splitext(os.path.basename(f))[0]
+                sec.append(f'<figure class="{cls} anim" id="{fig_id("anim", f)}"><img src="{embed(f)}" alt="{html.escape(name)}" loading="lazy">'
+                           f'<figcaption>{html.escape(name)}</figcaption></figure>')
             sec.append("</div>")
         sec.append("</section>")
         body.append("".join(sec))
@@ -72,8 +108,10 @@ main{{max-width:1200px;margin:0 auto;padding-block:20px 48px;padding-left:max(16
 h2{{margin:34px 0 4px}} h3{{font-size:15px;margin:14px 0 8px}} h3.ok{{color:var(--ok)}} h3.new{{color:var(--new)}} h3 small{{color:var(--mut)}}
 .note{{color:var(--mut);margin:0}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}}
+.grid.anim{{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}}
+figure.anim img{{aspect-ratio:auto;max-height:340px}}
 figure{{margin:0;background:var(--card);border-radius:10px;padding:6px;border:2px solid transparent}}
-figure.ok{{border-color:var(--ok)}}
+figure.ok{{border-color:var(--ok)}} figure.new.anim{{border-color:var(--new)}}
 figure img{{width:100%;aspect-ratio:1;object-fit:contain;border-radius:6px;
   background:repeating-conic-gradient(#d8d8d8 0 25%,#f4f4f4 0 50%) 0 0/16px 16px}}
 figcaption{{font-size:12px;color:var(--mut);margin-top:4px;word-break:break-word}}
@@ -81,7 +119,9 @@ figcaption{{font-size:12px;color:var(--mut);margin-top:4px;word-break:break-word
 <main><h1>Art review</h1><p class="note">Green = approved; orange = new candidates. Comment on a single image to pick or reject it. Older rounds are no longer shown.</p>
 {''.join(body)}</main>"""
     open(os.path.expanduser(sys.argv[2]), "w").write(page)
-    print("ok", sum(len(files(c.get('approved'))) for c in state['collections']), "approved")
+    print("ok", sum(len(files(c.get('approved'))) for c in state['collections']), "approved,",
+          sum(len(animated(c.get('animated'))) + len(animated(c.get('animated_approved'))) for c in state['collections']), "animated,",
+          round(os.path.getsize(os.path.expanduser(sys.argv[2])) / 1e6, 2), "MB")
 
 
 if __name__ == "__main__":

@@ -900,6 +900,63 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   `ai_worm`, `ai_board`, `ai_battle_hud`, `ai_battlebg_*`, `ai_result_victory|defeat` into `$ROGUESTARS_SHOTS_DIR` (default
   `client/RogueStars/Screenshots/art-import/`). Tests: `ArtImportTests` (EditMode), `GroundContactTests` (the hero's pivot).
 
+## Animation (branch `anim-integrate`; owner decisions 2026-11-26)
+
+Two techniques shipped, both code and shaders (no video, no cut-out rigs, no 2D Animation package): **a code spine** for every
+upright creature and **shaders** for props and buildings. Namespace `RogueStars.Client.World.Anim` (`Scripts/World/Anim/`), shaders
+`Assets/Art/Shaders/Anim/`, base materials `Art/Resources/Art/Anim/Materials/` (written by `Tools/Art/Anim Materials` =
+`Editor/AnimAssets.Create`).
+
+- **Creatures** (the worm, ALL aliens, ALL enemies incl. elites and bosses, sidekick drones, city / hub walkers):
+  `SpineRig` turns a sprite into a 6×17 = **102-vertex** grid over its alpha bounds, bent along a vertical spine rooted at the feet
+  (rows sit on the spine and turn with it: lean, travelling wave, head curl, stretch, squash; no seams, no extra art).
+  `CreatureMotion` (plain C#, pure function of the clip clock, no allocation) plays the clips **idle** (breathing sway), **move**
+  (slither + hop squash-stretch; flyers hover), **attack** (rear up + lunge toward the target; styles lunge / slam / swoop),
+  **hit** (recoil + flash), **death** (collapse, held), **celebrate** (wiggle + hops); one-shots return to idle with a 0.12 s blend.
+  `CreatureSpecs`: defaults from the alpha bounds' aspect (tall = bendy, wide = squashy slam) and a small override table by sprite name
+  (`spark_drone`, `alien_glimmerfly`, `elite_rift_echo`, `elite_storm_caller` hover and swoop; `glacier_golem`, `elite_lava_brute`,
+  `alien_voidmaw`, `alien_gravitoad` slam; amplitude / speed / bend / squash per species).
+  Alpha bounds come from `Resources/Art/anim_bounds.json` (imported art is not CPU-readable; `Tools/Art/Build Anim Bounds` /
+  `AnimBoundsBuilder.Build` rewrites it, and it re-runs when art in Hero / Enemies / Aliens / Sidekicks / Run/Characters is imported;
+  `CreatureAnimTests` fails when a creature sprite is missing); readable textures (code-drawn sprites) are measured, anything else gets
+  its whole rect (still animates, just a taller spine).
+  Hosts: `UiCreature` (a `MaskableGraphic` child of the sprite's `Image`: same rect, so click areas, parent-scale flips (the worm's
+  mirror toward its target) and stage layout keep working; the Image stays but does not draw, its colour drives the mesh, so hit
+  flashes and the death tint work) and `WorldCreature` (a pooled mesh under the sprite's `SpriteRenderer`, which stays disabled but
+  supplies sprite, sort order, colour, flipX; the board token, boss marker, City walkers).
+  **Wired**: battle playback (`BattlePlaybackScreen`: every fighter; clips mapped by `CreatureEvents`: attack-type entries play
+  Attack on the actor aimed at its target and Hit on the target (Dodge: a sidestep), a sidekick turn / guard / ability hops, a
+  Death entry collapses (also in skip mode), the victory banner makes the surviving player side celebrate; playback speed scales
+  the clips), the hub (worm + crash-site squad: Move while walking), the Worm screen portrait, the Aliens screen cards (idle only,
+  20 Hz), the Rest scene (worm + sidekicks), summon / signal reveal art (whole art, not outfits), Camp / City worker chips, the board
+  token (slithers while hopping: its hop arc stays `RunScreen`'s) and boss marker, City walkers (Move / Idle / Celebrate on a cheer).
+- **Props and buildings** (`PropFx`): five reusable shaders - `FlameFlicker` (masked noise displacement + flicker; `_AutoMask` finds
+  flames by warm bright colour, else a mask texture), `Sway` (height-weighted shear), `Pulse` (breathing glow on the bright, saturated
+  pixels: colour mask; `_Whole` mixes in the whole sprite), `Shimmer` (a highlight band sweeping across), `Swirl` (the portal vortex
+  inside a disc, a shader instead of the video) - plus `GlowPulse` (additive disc), `Ember` and `Puff` particles (`AnimProp.Embers`,
+  `AnimProp.Smoke`). Tables: `PropFx.Props` by sprite name (campfire flame + embers + glow, alien tree / mushrooms sway, crystals and
+  shrine pulse, saucer pulse + smoke, wreck smoke, portal swirl, event / mystery / minigame markers glow) and `PropFx.Buildings` by blueprint
+  id for the City stand-ins (farms and domes sway, labs / reactor / beacons / spires / mines pulse, refinery / foundry / ore mine / launch pod smoke,
+  foundry fire by colour, stamina well swirl); `CreatureAnimTests` checks that every `CityArt.BuildingArtKey` id has a look. `PropFx.Apply`
+  gives the renderer its own material instance (own `_Phase`: batching ignores the object matrix) and the extras; applied on the run board
+  (set pieces, scatter, markers), the City (buildings once built, plaza fire, saucer, features) and the UI scene props (`RunScenes`: shader
+  only). GPU only: no script per frame; particles pause when culled.
+- **Reduced animation** (Settings, per device, PlayerPrefs `rs.reducedAnim`, `AnimSettings.Reduced`): every host draws its plain sprite
+  / material and updates nothing; toggling takes effect at once (`AnimSettings.Changed`). Hosts also stop while hidden (inactive
+  hierarchy, culled by a mask, off screen via `Renderer.isVisible`).
+- **Budget**: 102 vertices and one draw call per creature, pooled world meshes, no per-frame allocation in `SpineRig.Deform` /
+  `CreatureMotion.Tick` (test), idle-only cards throttled to 20 Hz, the beaten stop ticking once collapsed. Measured in the editor (Mono,
+  Apple Silicon): a 7-creature battle = 714 vertices, deform + mesh update ~0.06 ms per creature per tick (0.46 ms for 7 x 8 ticks);
+  the City with 21 building looks, 5-13 walkers: 35 sprites (budget 180). Not yet measured on a low-end phone.
+- **Art review**: `AnimReviewCaptureTests` (**Explicit**, PlayMode, needs graphics) renders every animated prop / set piece / building
+  stand-in as a transparent frame sequence; `tools/art/anim_review_pack.py <frames> ~/AI/out/anim-review` cross-fades a seamless 2 s
+  loop and writes ~220 px WebPs; `tools/art/review_page.py` lists them from a collection's `"animated": [globs]` (and
+  `"animated_approved"`), one figure with its own id each.
+- **Captures**: `AnimShowcaseTests` (**Explicit**, `-testFilter AnimShowcaseTests`): hub, Worm, Aliens, board (+ hop), a battle as a frame
+  sequence (`battle_frames/`), City (+ reduced) and `anim_stats.txt` into `$ROGUESTARS_SHOTS_DIR` (default `Screenshots/anim-integrate/`).
+  Tests: `CreatureAnimTests` (EditMode: rig from alpha bounds, vertex budget, rest pose, bend directions, no allocation, clips, attack
+  styles, flyers hover, species defaults, event mapping, battle wiring, reduced fallback, hosts, board token, prop tables and instances, Settings toggle).
+
 ## Known gaps / TODO
 - Play Games sign-in needs the console setup of docs/setup.md step 3 (fingerprints, Play Games Services credentials, web
   client id); until then release builds sign in anonymously. Push notifications are not integrated.
