@@ -115,6 +115,39 @@ namespace RogueStars.Client.PlayTests
             }
         }
 
+        [UnityTest, Timeout(600000)]
+        public IEnumerator PointsBar()
+        {
+            SceneManager.LoadScene("Main");
+            yield return null;
+            yield return null;
+            _app = AppBootstrap.Current;
+            _dir = Path.Combine(Application.temporaryCachePath, "quests_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_dir);
+            _svc = new LocalGameService(_dir, "local_quests", "Wiggles", new ManualClock(T0), 11) { AdsDisabled = true };
+            _app.Start(_svc);
+            string env = Environment.GetEnvironmentVariable("ROGUESTARS_SHOTS_DIR");
+            _shots = !string.IsNullOrEmpty(env) ? env : Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Screenshots", "quests"));
+            Directory.CreateDirectory(_shots);
+            SetupCapture();
+            Reach(15);
+            CelebrateAll();
+            foreach (var pts in new long[] { 0, 55, 100 })
+            {
+                S.Quests.DailyPoints = pts;
+                _app.Open("quests");
+                yield return Wait(2.5f);
+                yield return Shot("bar_daily_" + pts);
+                _app.Router.Pop();
+            }
+            S.Quests.WeeklyPoints = 260;
+            _app.Open("quests");
+            yield return Wait(0.5f);
+            yield return OpenTab("Weekly");
+            yield return Wait(2f);
+            yield return Shot("bar_weekly_260");
+        }
+
         private IEnumerator OpenTab(string name)
         {
             var b = _app.Router.Current.Root.GetComponentsInChildren<Button>(true).First(x => x.GetComponentInChildren<Text>() != null && x.GetComponentInChildren<Text>().text == name);

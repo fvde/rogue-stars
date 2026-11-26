@@ -58,20 +58,64 @@ namespace RogueStars.Client.Screens
             }
         }
 
+        /// <summary>The chests' reach state: grey until the points reach the threshold, gold while unclaimed, opened once claimed.</summary>
+        public enum ChestState { Locked, Ready, Claimed }
+
+        public static ChestState StateOf(long points, long threshold, bool claimed) => claimed ? ChestState.Claimed : points >= threshold ? ChestState.Ready : ChestState.Locked;
+
+        /// <summary>Fill of the points bar: points over the top chest's threshold, clamped to 0..1.</summary>
+        public static float FillRatio(long points, long top) => top <= 0 ? 0 : Mathf.Clamp01((float)points / top);
+
+        /// <summary>Where a chest sits along the bar (0..1): proportional to its threshold, so the top chest ends the bar.</summary>
+        public static float ChestRatio(long threshold, long top) => top <= 0 ? 0 : Mathf.Clamp01((float)threshold / top);
+
+        private const float BarHeight = 52, ChestSize = 110, BarInset = 70;
+        private readonly System.Collections.Generic.Dictionary<PointTrack, float> _shownFill = new System.Collections.Generic.Dictionary<PointTrack, float>();
+
         private void Chests(RectTransform body, PointTrack track, long points)
         {
+            var chests = new System.Collections.Generic.List<PointChestDef>();
+            foreach (var chest in Content.PointChests) if (chest.Track == track) chests.Add(chest);
+            chests.Sort((a, b) => a.Points.CompareTo(b.Points));
+            long top = chests.Count == 0 ? 0 : chests[chests.Count - 1].Points;
             var card = Card(body, Theme.Header);
-            Ui.Display(card, track + " points: " + points, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "Points");
-            var row = Ui.Row(card, 150, 8, null, 0, "Chests");
-            foreach (var chest in Content.PointChests)
+            var head = Ui.Display(card, points + "<size=30>  /  " + top + " " + track.ToString().ToLowerInvariant() + " points</size>", Theme.FontLarge, Theme.Gold, TextAnchor.MiddleLeft, "Points");
+            head.supportRichText = true;
+            var region = Ui.Rect(card, "Chests");
+            Ui.Size(region, height: 200, flexWidth: 1);
+            var track_ = Ui.Rect(region, "Bar");
+            track_.anchorMin = new Vector2(0, 1); track_.anchorMax = new Vector2(1, 1); track_.pivot = new Vector2(0.5f, 0.5f);
+            track_.offsetMin = new Vector2(BarInset, -(80 + BarHeight / 2)); track_.offsetMax = new Vector2(-BarInset, -(80 - BarHeight / 2));
+            float r = BarHeight / 2;
+            var bg = UiShapes.Round(track_.gameObject.AddComponent<UnityEngine.UI.Image>(), r);
+            bg.color = Theme.Track;
+            bg.raycastTarget = false;
+            var fill = Ui.RoundPanel(track_, Theme.Good, r, "Fill");
+            fill.raycastTarget = false;
+            var frt = fill.rectTransform;
+            frt.anchorMin = Vector2.zero; frt.pivot = new Vector2(0, 0.5f);
+            frt.offsetMin = frt.offsetMax = Vector2.zero;
+            UiShapes.Outline(track_, Theme.TextDim, r, 5);
+            float target = FillRatio(points, top);
+            _shownFill.TryGetValue(track, out float from);
+            _shownFill[track] = target;
+            UiTweens.Play(fill.gameObject, "fill", 0.6f, t =>
             {
-                if (chest.Track != track) continue;
+                float v = Mathf.Lerp(from, target, 1 - (1 - t) * (1 - t));
+                frt.anchorMax = new Vector2(v, 1);
+                frt.offsetMax = Vector2.zero;
+                fill.gameObject.SetActive(v > 0.001f);
+            });
+            foreach (var chest in chests)
+            {
                 var c = chest;
                 bool claimed = State.Quests.ChestsClaimed.Contains(track + ":" + c.Points);
-                bool ready = points >= c.Points && !claimed;
-                ChestTile(row, c.Points, claimed, ready, () => Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, ChestText(c), Theme.FontNormal),
-                        ready ? new[] { new ModalButton("Open", () => OpenChest(track, c), Theme.Good), new ModalButton("Close", null) }
-                              : new[] { new ModalButton("Close", null) }));
+                var st = StateOf(points, c.Points, claimed);
+                ChestOnBar(track_, ChestRatio(c.Points, top), c.Points, st, () =>
+                {
+                    if (st == ChestState.Ready) OpenChest(track, c);
+                    else Modal(track + " chest · " + c.Points + " points", b => Ui.Label(b, ChestText(c), Theme.FontNormal), new[] { new ModalButton("Close", null) });
+                });
             }
         }
 
@@ -102,19 +146,31 @@ namespace RogueStars.Client.Screens
             });
         }
 
-        /// <summary>MS3: a chest icon (grey until reached, gold when ready, dimmed with a check once opened) with the points under it.</summary>
-        private static void ChestTile(Transform row, long pts, bool claimed, bool ready, System.Action onClick)
+        /// <summary>A chest icon sitting on the bar at <paramref name="ratio"/> (grey until reached, gold and pulsing when ready, dimmed with a check once opened) with its threshold under it.</summary>
+        private static void ChestOnBar(RectTransform bar, float ratio, long pts, ChestState st, System.Action onClick)
         {
-            var root = Ui.Rect(row, "Chest:" + pts);
-            Ui.Size(root, -1, 150, 1, 0);
+            bool ready = st == ChestState.Ready, claimed = st == ChestState.Claimed;
+            var root = Ui.Rect(bar, "Chest:" + pts);
+            root.anchorMin = root.anchorMax = new Vector2(ratio, 0.5f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.sizeDelta = new Vector2(ChestSize, ChestSize);
+            root.anchoredPosition = Vector2.zero;
             var img = SummonKit.Img(root, World.SummonArt.Icon("chest"), "Icon");
-            img.color = ready ? Theme.Gold : claimed ? new Color(0.55f, 0.5f, 0.45f, 0.6f) : new Color(0.62f, 0.62f, 0.66f, 1f);
+            Ui.Stretch(img.rectTransform);
+            img.color = ready ? Theme.Gold : claimed ? new Color(0.55f, 0.5f, 0.45f, 0.75f) : new Color(0.62f, 0.62f, 0.66f, 1f);
             img.raycastTarget = true;
-            SummonKit.Place(img, new Vector2(0.5f, 1), Vector2.zero, new Vector2(100, 100));
             if (ready) UiPulse.On(img, 0.06f, 1.2f, 1);
-            if (claimed) SummonKit.Place(SummonKit.Img(img.transform, World.SummonArt.Icon("check"), "Claimed"), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(60, 60));
+            if (claimed)
+            {
+                var chk = SummonKit.Img(root, World.SummonArt.Icon("check"), "Claimed");
+                chk.rectTransform.anchorMin = chk.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                chk.rectTransform.sizeDelta = new Vector2(56, 56);
+                chk.rectTransform.anchoredPosition = Vector2.zero;
+            }
             var t = Ui.Display(root, pts.ToString(), Theme.FontSmall, ready ? Theme.Gold : Theme.TextDim, TextAnchor.MiddleCenter, "Points");
-            SummonKit.Place(t, new Vector2(0.5f, 0), Vector2.zero, new Vector2(140, 44));
+            t.rectTransform.anchorMin = t.rectTransform.anchorMax = new Vector2(0.5f, 0);
+            t.rectTransform.sizeDelta = new Vector2(140, 44);
+            t.rectTransform.anchoredPosition = new Vector2(0, -22);
             var b = root.gameObject.AddComponent<UnityEngine.UI.Button>();
             b.targetGraphic = img;
             b.onClick.AddListener(() => onClick());

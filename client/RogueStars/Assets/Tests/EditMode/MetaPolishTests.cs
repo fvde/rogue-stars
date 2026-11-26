@@ -128,6 +128,38 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void QuestBar_ChestsSitProportionallyToTheirThresholds_FillFollowsPoints_AndStatesFollowReach()
+        {
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.ChestRatio(20, 100), Is.EqualTo(0.2f).Within(1e-5f));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.ChestRatio(100, 100), Is.EqualTo(1f));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.ChestRatio(300, 500), Is.EqualTo(0.6f).Within(1e-5f));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.FillRatio(55, 100), Is.EqualTo(0.55f).Within(1e-5f));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.FillRatio(250, 100), Is.EqualTo(1f), "clamped");
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.FillRatio(5, 0), Is.EqualTo(0f));
+            var S = RogueStars.Client.Screens.QuestsScreen.StateOf(50, 40, false);
+            Assert.That(S, Is.EqualTo(RogueStars.Client.Screens.QuestsScreen.ChestState.Ready));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.StateOf(50, 60, false), Is.EqualTo(RogueStars.Client.Screens.QuestsScreen.ChestState.Locked));
+            Assert.That(RogueStars.Client.Screens.QuestsScreen.StateOf(50, 40, true), Is.EqualTo(RogueStars.Client.Screens.QuestsScreen.ChestState.Claimed));
+        }
+
+        [Test]
+        public void QuestBar_DailyAndWeeklyScreensPlaceFiveChestsAlongTheBar()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            _f.Service.State.Quests.DailyPoints = 55;
+            _f.App.Open("quests");
+            var root = _f.App.Router.Current.Root;
+            var chests = root.GetComponentsInChildren<RectTransform>(true).Where(r => r.name.StartsWith("Chest:")).ToList();
+            Assert.That(chests.Count, Is.EqualTo(5));
+            foreach (var c in chests) Assert.That(c.anchorMin.x, Is.EqualTo(long.Parse(c.name.Substring(6)) / 100f).Within(1e-4f), c.name);
+            Assert.That(root.GetComponentsInChildren<Text>(true).First(t => t.name == "Points" && t.text.StartsWith("55")).text, Does.Contain("100"));
+            root.GetComponentsInChildren<Button>(true).First(b => b.GetComponentInChildren<Text>()?.text == "Weekly").onClick.Invoke();
+            chests = _f.App.Router.Current.Root.GetComponentsInChildren<RectTransform>(true).Where(r => r.name.StartsWith("Chest:")).ToList();
+            Assert.That(chests.Count, Is.EqualTo(5));
+            Assert.That(chests.Select(c => c.anchorMin.x).Max(), Is.EqualTo(1f).Within(1e-4f));
+        }
+
+        [Test]
         public void DailyTopChest_OpensWithThreeTicketsFlippingOut()
         {
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
