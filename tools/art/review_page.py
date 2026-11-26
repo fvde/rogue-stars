@@ -105,7 +105,7 @@ def main():
     rejected = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
     body = []
     for c in state["collections"]:
-        appr = files(c.get("approved"))
+        appr = [f for f in files(c.get("approved")) if f not in rejected]
         cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
         cand.sort(key=lambda f: reg["files"].get(f, 0))
         appr.sort(key=lambda f: reg["files"].get(f, 0))

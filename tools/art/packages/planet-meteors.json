@@ -1,0 +1,18 @@
+{
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    6421,
+    6422
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background, no text, no ground, no shadow",
+  "negative": "scenery, planet, multiple objects, text, letters, watermark, blurry, photo, realistic, people",
+  "name": "pkg-planet-meteors",
+  "subjects": {
+    "meteor_small": "a small cartoon meteor rock with a short glowing orange tail",
+    "meteor_big": "a big cartoon flaming meteor rock with a long tail of orange fire",
+    "comet": "a cartoon comet with an icy blue head and a long sparkling tail",
+    "shooting_star": "a cartoon shooting star with a gold glow and a short trail"
+  }
+}
