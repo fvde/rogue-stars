@@ -3,7 +3,8 @@
 
     accept.py <raw image> [<raw image> ...]
 
-For each picked raw generator image: finds its collection in ~/AI/out/art-state.json, cuts out the transparent version
+A pipeline candidate (~/AI/out/processed/..., already clean and sized) is copied to ~/AI/assets and approved as is.
+For each picked raw generator image (older flow): finds its collection in ~/AI/out/art-state.json, cuts out the transparent version
 (export_assets.py for its package, plus normalize_icons.py for 512 px icon packages), adds the transparent file to the
 collection's approved list and archives the raw one. The page builder then archives every other candidate of the same
 subject on its next build (review_page.py reconcile), so the page never keeps accepted-and-rejected leftovers.
@@ -29,8 +30,40 @@ def collection_of(path):
     return None
 
 
+def accept_processed(path):
+    """A pipeline candidate (~/AI/out/processed/<cat>/<subject>__<variant>__s<seed>.png) is already clean and sized:
+    copy it to ~/AI/assets/<cat>/<subject>/<variant>_s<seed>.png, approve that, archive the candidate path."""
+    import shutil
+    m = re.match(r".*/AI/out/processed/([^/]+)/(.+)__([A-Za-z0-9]+)__s(\d+)\.png$", path)
+    cat, sub, var, seed = m.groups()
+    out = f"{ASSETS}/{cat}/{sub}/{var}_s{seed}.png"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    shutil.copy(path, out)
+    c = collection_of(path)
+    if c is None:
+        print("no collection for", path)
+        return
+    c.setdefault("approved", []).append(out)
+    c.setdefault("rejected", []).append(path)
+    try:  # pipeline state: mark accepted
+        sys.path.insert(0, ROOT)
+        import pipeline as P
+        with P.locked():
+            ps = P.load_state()
+            for it in ps["items"].values():
+                if it.get("processed") == path:
+                    it["stage"] = "accepted"
+            P.save_state(ps)
+    except Exception as e:
+        print("pipeline state not updated:", e)
+    print("accepted", os.path.basename(out))
+
+
 for raw in sys.argv[1:]:
     raw = os.path.expanduser(raw)
+    if "/AI/out/processed/" in raw:
+        accept_processed(raw)
+        continue
     m = re.match(r".*/AI/out/(pkg-[^/]+)/([^/]+)__([A-Za-z0-9]+)__[^_]+__s(\d+)\.png$", raw)
     if not m:
         print("skip (not a raw generator file):", raw)

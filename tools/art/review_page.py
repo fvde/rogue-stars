@@ -3,7 +3,9 @@
 them every APPROVED asset of the same collection, so consistency can be judged; every image is its own element so
 review comments anchor to one image).
 
-    arch -arm64 ~/AI/ComfyUI/.venv/bin/python tools/art/review_page.py ~/AI/out/art-state.json out.html
+    arch -arm64 ~/AI/ComfyUI/.venv/bin/python tools/art/review_page.py ~/AI/out/art-state.json out.html [--force]
+
+The page is only written when the publish gate (audit_page.py) passes; --force writes it anyway (errors are printed).
 
 State file: {"collections": [{"title", "note", "approved": [paths/globs], "candidates": [paths/globs],
 "animated": [globs of looping .webp/.gif previews], "animated_approved": [globs], "rejected": [paths]}]}. Paths may use ~ and
@@ -19,11 +21,54 @@ from PIL import Image
 THUMB = 220
 
 
+ASSETS = os.path.expanduser("~/AI/assets") + os.sep
+CANON_ASSET = re.compile(r"^[A-Za-z0-9]+_s\d+\.png$")  # ~/AI/assets/<cat>/<subject>/<variant>_s<seed>.png
+
+
+def canonical(path):
+    """Safety net against backup/intermediate copies (*.orig.png, *.preclean.png, *.fix.png, ...) showing up as
+    duplicates: files in ~/AI/assets must be named <variant>_s<seed>.png, and no file anywhere may carry a second suffix."""
+    name = os.path.basename(path)
+    if re.search(r"\.[A-Za-z0-9-]+\.png$", name, re.I):
+        return False
+    if path.startswith(ASSETS) and not CANON_ASSET.match(name):
+        return False
+    return True
+
+
 def files(patterns):
     out = []
     for p in patterns or []:
         hits = sorted(glob.glob(os.path.expanduser(p)))
-        out += [h for h in hits if h.lower().endswith(".png") and not h.endswith("review.png")]
+        out += [h for h in hits if h.lower().endswith(".png") and not h.endswith("review.png") and canonical(h)]
+    return out
+
+
+def dedupe(cands, keep):
+    """Drop candidates that are near-identical (perceptual hash, art pipeline threshold) to an approved image or an
+    earlier candidate of the same subject."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import pipeline as P
+    except Exception:
+        return cands
+    seen = {}
+    for f in keep:
+        try:
+            seen.setdefault(subject_of(f), []).append(P.phash(Image.open(f)))
+        except Exception:
+            pass
+    out = []
+    for f in cands:
+        try:
+            h = P.phash(Image.open(f))
+        except Exception:
+            out.append(f); continue
+        hs = seen.setdefault(subject_of(f), [])
+        if any(P.hamming(h, x) <= P.T["dup_hamming"] for x in hs):
+            continue
+        hs.append(h)
+        out.append(f)
     return out
 
 
@@ -231,6 +276,25 @@ def failures_section():
             f'simplified retry). Nothing more is generated for them automatically; comment to give new directions.</p>{"".join(cards)}</section>')
 
 
+def sections(state, reg=None):
+    """Exactly what the page shows, per collection: (collection, approved, candidates, animated ok, animated new).
+    Shared with audit_page.py so the publish gate checks the same set."""
+    reg = reg or load_registry()
+    rejected = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
+    out = []
+    for c in state["collections"]:
+        appr = [f for f in files(c.get("approved")) if f not in rejected]
+        cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
+        cand.sort(key=lambda f: reg["files"].get(f, 0))
+        cand = dedupe(cand, appr)
+        appr.sort(key=lambda f: reg["files"].get(f, 0))
+        anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
+        anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
+        if appr or cand or anim_ok or anim_new:
+            out.append((c, appr, cand, anim_ok, anim_new))
+    return out
+
+
 def main():
     state = json.load(open(os.path.expanduser(sys.argv[1])))
     n_arch = reconcile(state)
@@ -243,17 +307,24 @@ def main():
     _all_cand = [f for c in state["collections"] for f in files(c.get("candidates")) if f not in _rej and f not in _all_appr]
     reg = assign_rounds(reg, _all_appr, _all_cand)
     json.dump(reg, open(REG, "w"), indent=1)
-    rejected = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
+    secs = sections(state, reg)
+    force = "--force" in sys.argv
+    try:
+        import audit_page
+        errors, sheets = audit_page.audit(state, secs)
+    except Exception as e:  # the gate itself must not silently pass
+        errors, sheets = [f"audit crashed: {e!r}"], []
+    for sh in sheets:
+        print("audit sheet:", sh)
+    if errors:
+        print(f"AUDIT FAILED ({len(errors)}):")
+        for e in errors:
+            print("  -", e)
+        if not force:
+            print("page NOT written (fix the state, or pass --force)")
+            sys.exit(1)
     body = []
-    for c in state["collections"]:
-        appr = [f for f in files(c.get("approved")) if f not in rejected]
-        cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
-        cand.sort(key=lambda f: reg["files"].get(f, 0))
-        appr.sort(key=lambda f: reg["files"].get(f, 0))
-        anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
-        anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
-        if not appr and not cand and not anim_ok and not anim_new:
-            continue
+    for c, appr, cand, anim_ok, anim_new in secs:
         sec = [f'<section><h2>{html.escape(c["title"])}</h2>']
         if c.get("note"):
             sec.append(f'<p class="note">{html.escape(c["note"])}</p>')
