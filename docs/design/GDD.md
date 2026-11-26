@@ -232,6 +232,18 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - Simulator: the bot plays GAME tiles with a configurable skill (`SimPlayer.MinigameSkill`, median player = Silver: 60%
   on it, 20% one tier below / above); counters `run_minigames_started/_played/_gold`.
 
+### 3.7 Run Quests (rare story characters)
+A rare character waits on the board about **one run in five** (pity: 0 / 5 / 15 / 25 / 35 / 55 / 80 / 100% by runs since the
+last meeting; never two runs in a row, never more than 8 apart; at most one per run; not in the Burrow; from main level 20,
+`run_quests`). The meeting is a visitor tile on the main path of the second segment (forced stop). Over ~30 meetings the
+character tells a story; each meeting is a node of a branching, re-merging story graph: ~50% **story** choices (always move
+on), ~20% **hard battles** (the level's miniboss +40% and more, with elites; declined or lost = the story waits; a lost quest
+battle never ends the run, the worm keeps 10% HP), ~20% **sacrifices** (100–300 run coins, a Legendary or Mythic skill of the
+player's choice, 50–80% of current HP, all run skills; refused or not affordable = the story waits) and ~10% **boons**
+(account-wide, forever: +1 run coin on every run-coin gain each). After the chain the character keeps visiting with friendly
+epilogue scenes (small coins / heal / free skill pick / max HP). First quest: Mothwick, the Lost Courier (Starglint, +3).
+Recipe and checklist: docs/design/run-quests/recipe.md; review doc: docs/design/run-quests/mothwick.md.
+
 ## 4. Combat (fully automatic, deterministic, seeded)
 - Battles are turn-based in rounds with a round cap; reaching the cap with enemies alive is a loss.
 - Combatants: the **Worm** (the only one that is attacked), squad **Aliens** and battle-scoped summons (drones) as
@@ -569,6 +581,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 16 | Housing → first squad slot (`alien_squad`) | Build housing |
 | 17 | Grain Farm (`grain_farm`) | Build the grain farm |
 | 18 | Heroes (`heroes`; the hero summon events, first event + 10 tickets; no starter hero) | Choose a hero |
+| 20 | Strangers on the Road: Run Quests (`run_quests`, §3.7; the Journal under "More") | Play |
 | 19 | Alien Signal (`alien_pulls`) | Call an alien |
 | 20 | Blueprint Signal (`blueprints`) | Pull a blueprint |
 | 22 | Ore Mine (`ore_mine`) | Build the ore mine |
