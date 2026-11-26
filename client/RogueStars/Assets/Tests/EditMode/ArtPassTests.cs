@@ -181,8 +181,9 @@ namespace RogueStars.Client.Tests
                 Assert.That(ArtCatalog.Enemy(id), Is.Not.Null, id);
             foreach (var id in new[] { "alien_blorp", "alien_clackclaw", "alien_frostmite", "alien_glimmerfly", "alien_gravitoad", "alien_pebblehorn", "alien_tidecaller", "alien_voidmaw" })
                 Assert.That(ArtCatalog.Alien(id), Is.Not.Null, id);
-            Assert.That(ArtCatalog.Enemy("null_shade"), Is.Null, "skipped: too featureless");
-            Assert.That(ArtCatalog.Enemy("magma_slug"), Is.Null, "skipped: blurry");
+            // the old rejected null_shade / magma_slug files stay skipped (ArtImportRules.Skip); their approved redos came with art import 3
+            Assert.That(ArtCatalog.Enemy("null_shade"), Is.Not.Null, "art import 3: the approved redo");
+            Assert.That(ArtCatalog.Enemy("magma_slug"), Is.Not.Null, "art import 3: the approved redo, without flames");
         }
 
         // ---- importer ----

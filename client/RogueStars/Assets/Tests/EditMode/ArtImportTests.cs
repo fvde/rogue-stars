@@ -118,15 +118,8 @@ namespace RogueStars.Client.Tests
         {
             "sig_bleed", "sig_fire", "sig_alien", "sig_counter", "ice_armor", "gen_pathfinder", "gen_giant_slayer", "gen_camper", "sig_radiation", "fire_kindle",
         };
-        /// <summary>Approved but waiting for a pending edit (flames / pedestal / text label): must not be imported yet.</summary>
-        private static readonly string[] HeldBack =
-        {
-            "Art/Enemies/magma_slug.png", "Art/Enemies/cinder_hound.png", "Art/Enemies/ash_wraith.png", "Art/Enemies/elite_burrow_horror.png",
-            "Art/Skills/gen_guard.png", "Art/Skills/gen_regen.png",
-        };
-
         [Test]
-        public void Batch2_PicksRouteToTheArtCatalogKeys_AndHoldBackThePendingEdits()
+        public void Batch2_PicksRouteToTheArtCatalogKeys()
         {
             var plan = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(File.ReadAllText(PicksPath)));
             var dests = plan.Select(i => i.Dest).ToList();
@@ -137,7 +130,6 @@ namespace RogueStars.Client.Tests
             want.AddRange(Batch2Skills.Select(i => "Art/Skills/" + i + ".png"));
             want.AddRange(new[] { 1, 2, 3, 4 }.Select(i => "Art/Hub/Planet/planet_stage" + i + ".png"));
             Assert.That(dests, Is.SupersetOf(want));
-            foreach (var h in HeldBack) Assert.That(dests, Has.None.EqualTo(h), h + " waits for its edit");
             Assert.That(plan.Find(i => i.Dest == "Art/Aliens/alien_chronoslug.png").Source, Does.EndWith("alien_chronoslug_v8/S_s1041.png"));
         }
 
@@ -151,7 +143,91 @@ namespace RogueStars.Client.Tests
             var content = _f.Service.Content;
             foreach (var id in Batch2Aliens) Assert.That(content.AlienType(id), Is.Not.Null, id + " is a real alien species");
             foreach (var id in Batch2Enemies) Assert.That(content.Enemies.ContainsKey(id), Is.True, id + " is a real enemy def");
-            foreach (var id in HeldBack) Assert.That(ArtCatalog.Load(id.Replace(".png", "")), Is.Null, id);
+        }
+
+        // ---- batch 3 (2026-11-26): bosses, status icons, summon / menu icons, the edited enemies, the drone, the portal marker ----
+
+        /// <summary>The enemies held back in batch 2 (now without fire / dirt) and the new null shade.</summary>
+        private static readonly string[] Batch3Enemies = { "magma_slug", "cinder_hound", "ash_wraith", "elite_burrow_horror", "null_shade" };
+        /// <summary>Boss sprites by their enemy def id (the battle and the boss gate, ArtCatalog.EnemyOrFamily).</summary>
+        private static readonly string[] Batch3Bosses = { "boss_frost_leviathan", "boss_gloop_matriarch" };
+        private static readonly string[] Batch3Status = { "bleed", "charm", "chill", "delay", "exposed", "freeze", "heat", "radiation", "stun", "guard", "shock" };
+        private static readonly string[] Batch3Summon = { "awaken_core", "exchange", "hero_sigil", "packs", "pass", "star", "tasks" };
+        /// <summary>
+        /// Approved but not shipped: a pending edit that has not landed (luck_gem), or a visible defect (ground shadow, white
+        /// fill / cut edge, text on the art, the clock that should be gone).
+        /// </summary>
+        private static readonly string[] Batch3HeldBack =
+        {
+            "Art/Summon/Icons/luck_gem.png", "Art/Summon/Icons/fuel.png", "Art/Summon/Icons/reactor.png",
+            "Art/Enemies/boss_magma_tyrant.png", "Art/Enemies/boss_void_maw.png", "Art/Enemies/boss_hollow_cantor.png", "Art/Enemies/boss_prism_tyrant.png", "Art/Enemies/boss_rust_queen.png",
+            "Art/Enemies/boss_storm_hive.png", "Art/Enemies/boss_elder_magma.png", "Art/Enemies/boss_chrono_wyrm.png",
+        };
+
+        [Test]
+        public void Batch3_PicksRouteToTheArtCatalogKeys_AndHoldBackTheRest()
+        {
+            var plan = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(File.ReadAllText(PicksPath)));
+            var dests = plan.Select(i => i.Dest).ToList();
+            Assert.That(dests, Is.Unique);
+            var want = new List<string>();
+            want.AddRange(Batch3Enemies.Concat(Batch3Bosses).Select(i => "Art/Enemies/" + i + ".png"));
+            want.AddRange(Batch3Status.Select(i => ArtCatalog.StatusFolder + "/" + i + ".png"));
+            want.AddRange(Batch3Summon.Select(i => SummonArt.IconFolder + "/" + i + ".png"));
+            want.AddRange(new[] { "Art/Sidekicks/sk_drone.png", "Art/Slice/Markers/portal.png", "Art/Skills/gen_guard.png", "Art/Skills/gen_regen.png" });
+            Assert.That(dests, Is.SupersetOf(want));
+            foreach (var h in Batch3HeldBack) Assert.That(dests, Has.None.EqualTo(h), h + " is held back");
+            string Src(string dest) => plan.Find(i => i.Dest == dest).Source.Replace('\\', '/');
+            Assert.That(Src("Art/Slice/Markers/portal.png"), Does.EndWith("slice-markers6/portal/N_s5161.png"), "the simpler portal redo");
+            Assert.That(Src("Art/Sidekicks/sk_drone.png"), Does.EndWith("aliens-alt/sk_drone__alt/C_s6101.png"));
+            Assert.That(Src("Art/Aliens/alien_shiverpup.png"), Does.EndWith("aliens-alt/alien_shiverpup__alt/S_s6101.png"), "the owner-picked second version stays");
+            Assert.That(Src("Art/Aliens/alien_swarmheart.png"), Does.EndWith("aliens-alt/alien_swarmheart__alt/C_s6101.png"), "the owner-picked second version stays");
+            Assert.That(Src(ArtCatalog.StatusFolder + "/shock.png"), Does.EndWith("status-icons2/shock/N_s7002.png"), "the bolt-only redo");
+            Assert.That(plan.Find(i => i.Dest == ArtCatalog.StatusFolder + "/bleed.png").Trim, Is.True, "icons are trimmed");
+            Assert.That(plan.Find(i => i.Dest == "Art/Enemies/boss_frost_leviathan.png").Trim, Is.False, "creatures stay square like their peers");
+        }
+
+        [Test]
+        public void Batch3_EverySpriteLoads_AndReachesItsConsumer()
+        {
+            var content = _f.Service.Content;
+            foreach (var id in Batch3Enemies) { Assert.That(ArtCatalog.Enemy(id), Is.Not.Null, id); Assert.That(content.Enemies.ContainsKey(id), Is.True, id + " is a real enemy def"); }
+            foreach (var id in Batch3Bosses)
+            {
+                Assert.That(ArtCatalog.Enemy(id), Is.Not.Null, id);
+                Assert.That(content.Enemies[id].Boss, Is.True, id + " is a boss def");
+                var boss = new BattleFighterInfo { Id = id, Role = CombatRole.Boss, Side = BattleSide.Enemy };
+                Assert.That(BattlePlaybackScreen.FighterSprite(boss, content, out bool family, out _), Is.SameAs(ArtCatalog.Enemy(id)), id + " fights with its own sprite");
+                Assert.That(family, Is.False, id);
+            }
+            foreach (var kv in content.RunBosses)
+                if (Batch3Bosses.Contains(kv.Value.EnemyId))
+                    Assert.That(IsoArt.BossMarker(content, kv.Key), Is.SameAs(ArtCatalog.Enemy(kv.Value.EnemyId)), kv.Key + ": the boss gate shows the boss");
+            // status icons: every status with art draws it in the battle chips (Poison = radiation, Burn = heat); Stagger keeps its glyph
+            foreach (var id in Batch3Status) Assert.That(ArtCatalog.StatusIcon(id), Is.Not.Null, id);
+            foreach (StatusId st in System.Enum.GetValues(typeof(StatusId)))
+            {
+                if (st == StatusId.None) continue;
+                var art = ArtCatalog.StatusIcon(ArtCatalog.StatusKey(st));
+                if (st == StatusId.Stagger) Assert.That(art, Is.Null, "no stagger art yet: the drawn spiral");
+                else Assert.That(StatusArt.Icon(st), Is.SameAs(art), st.ToString());
+            }
+            Assert.That(ArtCatalog.StatusKey(StatusId.Poison), Is.EqualTo("radiation"));
+            Assert.That(ArtCatalog.StatusKey(StatusId.Burn), Is.EqualTo("heat"));
+            // summon / menu icons: the summon screens, the shop and the resource bar (awaken cores)
+            foreach (var id in Batch3Summon) Assert.That(ArtCatalog.Load(SummonArt.IconFolder + "/" + id), Is.Not.Null, id);
+            foreach (var id in Batch3Summon) Assert.That(SummonArt.Icon(id), Is.SameAs(ArtCatalog.Load(SummonArt.IconFolder + "/" + id)), id);
+            Assert.That(SummonArt.IconOfCurrency(ProgressionCurrencies.PartAwakenCores), Is.EqualTo("awaken_core"));
+            Assert.That(SummonArt.IconOfCurrency(Currencies.GearCores), Is.EqualTo("core"), "gear cores keep their own icon");
+            Assert.That(SummonArt.IconOfCurrency(Currencies.HeroSigils), Is.EqualTo("hero_sigil"));
+            // the drone sidekick, the portal marker, the skill icons without their text label
+            var drone = new BattleFighterInfo { Id = "sk_drone", Role = CombatRole.Summon, Side = BattleSide.Player };
+            Assert.That(ArtCatalog.Sidekick("sk_drone"), Is.Not.Null);
+            Assert.That(BattlePlaybackScreen.FighterSprite(drone, content, out _, out _), Is.SameAs(ArtCatalog.Sidekick("sk_drone")));
+            Assert.That(ArtCatalog.SliceMarker("portal"), Is.Not.Null);
+            Assert.That(ArtCatalog.SkillIcon("gen_guard"), Is.Not.Null);
+            Assert.That(ArtCatalog.SkillIcon("gen_regen"), Is.Not.Null);
+            foreach (var id in Batch3HeldBack) Assert.That(ArtCatalog.Load(id.Replace(".png", "")), Is.Null, id);
         }
 
         [Test]
@@ -230,9 +306,15 @@ namespace RogueStars.Client.Tests
             root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == name) ?? throw new AssertionException(name + " not found");
 
         // ---- white backgrounds in imported icons ----
-        private static readonly string[] IconFolders = { "Hub/Icons", "Slice/Hud", "Result", "Run/Icons" };
-        /// <summary>Icons whose art is designed white (dice faces, the sale tag's paper, the banner's pennant).</summary>
-        private static readonly HashSet<string> DesignedWhite = new HashSet<string> { "dice", "sale_tag", "banner" };
+        private static readonly string[] IconFolders = { "Hub/Icons", "Slice/Hud", "Result", "Run/Icons", "Status", "Summon/Icons" };
+        /// <summary>
+        /// Icons whose art is designed white (dice faces, the sale tag's paper, the banner's pennant; batch 3, by folder: the
+        /// hourglass glass of Delay and the summon pass, the Exposed target's face, the Freeze ice cube's highlights).
+        /// </summary>
+        private static readonly HashSet<string> DesignedWhite = new HashSet<string>
+        {
+            "dice", "sale_tag", "banner", "Status/delay", "Status/exposed", "Status/freeze", "Summon/Icons/pass",
+        };
 
         private static bool[] Morph(bool[] src, int w, int h, int r, bool erode)
         {
@@ -304,7 +386,7 @@ namespace RogueStars.Client.Tests
                     // a baked pale ground shadow / background halo: thick near-white pixels right against transparency
                     if (near > 150) bad.Add(folder + "/" + id + ": " + near + " opaque near-white px against transparency");
                     // a white background trapped inside the art (basket, stall window, gear hole)
-                    if (!DesignedWhite.Contains(id) && thick > 0.10f * opaque) bad.Add(folder + "/" + id + ": " + (100 * thick / opaque) + "% thick near-white");
+                    if (!DesignedWhite.Contains(id) && !DesignedWhite.Contains(folder + "/" + id) && thick > 0.10f * opaque) bad.Add(folder + "/" + id + ": " + (100 * thick / opaque) + "% thick near-white");
                 }
             Assert.That(checkedCount, Is.GreaterThan(25));
             Assert.That(bad, Is.Empty, string.Join("\n", bad));

@@ -1395,7 +1395,7 @@ namespace RogueStars.Client.Screens
         private static void GuardChip(RectTransform chips, int guards, long pct)
         {
             var icon = Ui.Panel(chips, Color.white, "Guard");
-            icon.sprite = HudArt.Icon("shield");
+            icon.sprite = ArtCatalog.StatusIcon("guard") ?? HudArt.Icon("shield");
             icon.preserveAspect = true;
             icon.raycastTarget = false;
             Ui.Size(icon, pct > 0 ? 76 : 62, 62, 0);

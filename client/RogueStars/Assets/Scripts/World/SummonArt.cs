@@ -27,7 +27,7 @@ namespace RogueStars.Client.World
         {
             "hero_ticket", "mount_ticket", "hero_sigil", "mount_bolt", "luck_gem", "diamond", "exchange", "packs", "pass", "tasks",
             "shards", "hero_xp", "fuel", "token", "grain", "ore", "lock", "check", "ad", "star", "spotlight",
-            "biomass", "data", "core", "arena_ticket", "medal", "key", "wallet",
+            "biomass", "data", "core", "awaken_core", "arena_ticket", "medal", "key", "wallet",
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
@@ -60,7 +60,8 @@ namespace RogueStars.Client.World
             if (currency == Currencies.Ore) return "ore";
             if (currency == Currencies.Biomass) return "biomass";
             if (currency == Currencies.Data) return "data";
-            if (currency == Currencies.GearCores || currency == RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores) return "core";
+            if (currency == RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores) return "awaken_core";
+            if (currency == Currencies.GearCores) return "core";
             if (currency == Currencies.ArenaTickets || currency == Currencies.InvasionAttempts) return "arena_ticket";
             if (currency == Currencies.ArenaMedals || currency == Currencies.GuildMarks) return "medal";
             if (currency == Currencies.BurrowKeys) return "key";
@@ -332,6 +333,7 @@ namespace RogueStars.Client.World
                     break;
                 }
                 case "core":
+                case "awaken_core":
                 {
                     var o = (Color)new Color32(0xFF, 0x9A, 0x3C, 255);
                     p.Shape(Star(c, c, 58, 8, 0.78f), VGrad(Shade(o, -0.3f), Shade(o, 0.2f), 6, 122), Ink, 6);

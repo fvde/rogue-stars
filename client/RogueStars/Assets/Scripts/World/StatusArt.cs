@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using RogueStars.Client.UiKit;
 using RogueStars.Rules.Core;
 using UnityEngine;
 using static RogueStars.Client.World.IsoPaint;
@@ -6,7 +7,8 @@ using static RogueStars.Client.World.IsoPaint;
 namespace RogueStars.Client.World
 {
     /// <summary>
-    /// Battle status icons drawn in code (BT4; placeholder until art exists): Heat / Burn a flame, Chill a snowflake, Freeze
+    /// Battle status icons: the imported art (ArtCatalog <c>Art/Status/&lt;key&gt;</c>, <see cref="ArtCatalog.StatusKey"/>) first,
+    /// else drawn in code (BT4): Heat / Burn a flame, Chill a snowflake, Freeze
     /// an ice crystal, Radiation (Poison) a trefoil, Bleed a blood drop, Stun stars, Shock a bolt, Charm a heart, Exposed a
     /// cracked shield, Stagger a spiral, Delay an hourglass. White-on-transparent glyphs with a dark ink outline, tinted by
     /// the icon tile behind them.
@@ -18,6 +20,8 @@ namespace RogueStars.Client.World
 
         public static Sprite Icon(StatusId s)
         {
+            var art = ArtCatalog.StatusIcon(ArtCatalog.StatusKey(s));
+            if (art != null) return art;
             if (Cache.TryGetValue(s, out var sp) && sp != null) return sp;
             sp = Draw(s);
             Cache[s] = sp;
