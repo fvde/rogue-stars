@@ -233,7 +233,7 @@ namespace RogueStars.Rules.Content
             // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button), see HubLayout.
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
-            R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
+            R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "Two minibosses guard the path. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
             // The crash site comes first (owner, 2026-11-25): the Aliens unlock brings the Launch Pod, built on the crash site at once, so
             // the squad flies from level 6 (Launch Pod = the squad seats). Its feature unlocks with the Aliens in one moment (one group).
@@ -338,7 +338,7 @@ namespace RogueStars.Rules.Content
                 "Every level adds HP and attack.", "worm_up", Bounce,
                 "Levels open talents: perks that last forever.", "talents", Slide);
             I(Features.RunMiniboss,
-                "As the boss wakes, it sends minibosses.", "miniboss", Bounce,
+                "Two minibosses wait on the path: the crowned skulls.", "miniboss", Bounce,
                 "Beat a miniboss to open a Mythic chest.", "chest_mythic", Tap,
                 "Pick one Mythic: it changes the whole run.", "mythic", Pulse);
             I(Features.RunTwoDice,

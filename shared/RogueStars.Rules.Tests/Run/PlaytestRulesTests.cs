@@ -169,6 +169,35 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void NegativeTiles_AlwaysCostThePlayer_NeverAGain()
+    {
+        // playtest 0.1.308: a red tile showed a gain. Every curse / trap (TileValence.Negative) lands as a loss only.
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        var negatives = c.BoardTiles.Values.Where(d => d.Valence == TileValence.Negative).ToList();
+        Assert.Contains(negatives, d => d.Category == TileCategory.StatDebuff);
+        Assert.Contains(negatives, d => d.Category == TileCategory.Hazard);
+        foreach (var def in negatives)
+        {
+            Assert.True(def.Category is TileCategory.StatDebuff or TileCategory.Hazard, def.Id + " is " + def.Category);
+            if (def.Category == TileCategory.StatDebuff) Assert.True(def.Value < 0, def.Id + " lowers its stat");
+            var s = RunTestKit.StartRun(e);
+            var run = s.Run.Active!;
+            run.MinibossesSpawned = c.RunTuning.MinibossAtMeter.Count;
+            run.Coins = 200;
+            RunTestKit.LineBoard(run, Enumerable.Repeat(def.Id, 14).ToArray());
+            Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok, def.Id);
+            run = s.Run.Active!;
+            var landed = run.TileOutcomes.LastOrDefault(o => o.Tile == run.Position && o.Source != "pass");
+            Assert.NotNull(landed);
+            output.WriteLine($"{def.Id}: " + string.Join(", ", landed!.Lines.Select(l => l.Kind + " " + l.Amount + (l.Good ? " good" : " bad"))));
+            Assert.NotEmpty(landed.Lines);
+            Assert.All(landed.Lines, l => Assert.False(l.Good, def.Id + ": " + l.Kind + " " + l.Amount + " shows as a gain"));
+            Assert.All(landed.Lines, l => Assert.True(l.Amount <= 0 || l.Kind == OutcomeKind.StepPenalty, def.Id + ": " + l.Kind + " " + l.Amount));
+        }
+    }
+
+    [Fact]
     public void Pickups_OnPass_AndAvoidedHazards_AreReported()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
@@ -414,7 +443,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
                 Assert.True(r.Ok);
                 Assert.True(r.Events.Count(x => x.Type == "run_level_up") <= 1, $"seed {seed}: several level-ups in one step");
             }
-            Assert.InRange(s.Run.LastSummary.Level, 6, 14);
+            Assert.InRange(s.Run.LastSummary.Level, 6, 16); // 16: both miniboss lairs always stop the worm and pay their fight XP (0.1.308)
         }
     }
 

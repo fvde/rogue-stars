@@ -273,6 +273,7 @@ namespace RogueStars.Rules.Content
             RunTile("enemy_3", "Horde", TileCategory.Enemy, TileValence.Enemy).EnemyLevel = 3;
             RunTile("elite", "Elite", TileCategory.Elite, TileValence.Elite).EnemyLevel = 3;
             var mb = RunTile("miniboss", "Miniboss Lair", TileCategory.Miniboss, TileValence.Elite); mb.Once = true; mb.EnemyLevel = 3;
+            mb.ForceStop = true; // playtest 0.1.308: the run's two minibosses stand on the path and stop the worm (no clock ambushes)
             var b1 = RunTile("buff_atk", "Power Crystal", TileCategory.StatBuff, TileValence.Positive); b1.Stat = StatId.Atk; b1.Value = 6;
             var b2 = RunTile("buff_hp", "Life Bloom", TileCategory.StatBuff, TileValence.Positive); b2.Stat = StatId.Hp; b2.Value = 6;
             var b3 = RunTile("buff_def", "Iron Moss", TileCategory.StatBuff, TileValence.Positive); b3.Stat = StatId.Def; b3.Value = 8;

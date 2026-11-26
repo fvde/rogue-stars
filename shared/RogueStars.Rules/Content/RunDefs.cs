@@ -585,9 +585,17 @@ namespace RogueStars.Rules.Content
         public double SkillLevelChanceCap = 100;
         /// <summary>Weight factor of a level-up offer (an owned skill) against a new skill in drafts and shops.</summary>
         public double LevelUpOfferWeight = 0.6;
-        /// <summary>Awakening meter points at which a miniboss (a lieutenant of the boss) attacks after the move.</summary>
-        public List<double> MinibossAtMeter = new List<double> { 25, 50, 75 };
-        /// <summary>Run coins for a beaten clock miniboss on top of its enemy coins (it pays no XP: its reward is the mythic choice).</summary>
+        /// <summary>
+        /// Awakening meter points at which a miniboss (a lieutenant of the boss) attacks after the move. Empty since playtest
+        /// 0.1.308: every miniboss stands on the path (its lair tile, <see cref="MinibossesPerRun"/>) so the player sees it coming.
+        /// </summary>
+        public List<double> MinibossAtMeter = new List<double>();
+        /// <summary>
+        /// Miniboss lairs per run (playtest 0.1.308: 2). The level's lair (LevelDef.FixedTiles "miniboss") is placed in the first
+        /// segments of the board only, one per segment, until the run has this many.
+        /// </summary>
+        public int MinibossesPerRun = 2;
+        /// <summary>Run coins for a beaten miniboss on top of its enemy coins (it pays no XP: its reward is the mythic choice).</summary>
         public long MinibossCoins = 30;
         /// <summary>
         /// Board fights (enemies, elites, minibosses, event fights) get +this HP/ATK % per roll of the run so far: the boss's

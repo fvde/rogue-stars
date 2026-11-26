@@ -45,7 +45,9 @@ public class ProgressionGuardTests
     [InlineData("Parts", 7)]
     [InlineData("PartLevels", 20)] // 9 before the plateau fix; see progression-report.md "Plateau fix"
     [InlineData("Heroes", 25)]
-    [InlineData("Mounts", 21)]
+    // 21 → 24 (playtest 0.1.308): two minibosses per run (was ~3–4 Mythic choices) and 3-offer shops make runs a little
+    // weaker; Active F2P's longest Mounts gap went 17 → 23 days (shops alone: 21). Owner-requested, not a wall.
+    [InlineData("Mounts", 24)]
     // City redesign: 10 levels per building (3× growth); city progress now also comes in bigger steps (digs, new copies), so a
     // maxed-out stretch of up to two weeks between them is expected (docs/balance/data/analysis_city.md).
     [InlineData("Buildings", 14)]
@@ -122,7 +124,7 @@ public class ProgressionGuardTests
     public void Runs_BuildDeep_ShopALot_AndLast4To8Minutes()
     {
         // Run depth (docs/balance/progression-report.md, "Run depth"): a run that reaches the boss ends with 20–40 skills and
-        // perks (8–10 level-up drafts + a mythic choice per miniboss + shop buys + events), the shops sell 10–20 perks on
+        // perks (8–10 level-up drafts + a mythic choice per miniboss, two per run + shop buys + events), the shops sell 10–20 perks on
         // average (in-run coins only), and a run takes 4–8 minutes on average in the wall-clock model (RunClock: auto mode,
         // the player decides at every pause, battles at ×2). Burrow dives (10 floors in one run) are excluded.
         foreach (var r in new[] { F2p.Value, Whale.Value })
@@ -131,7 +133,7 @@ public class ProgressionGuardTests
             var boss = runs.Where(x => x.BossReached).ToList();
             Assert.InRange(boss.Average(x => x.BuildGains), 20, 40);
             Assert.InRange(boss.Average(x => x.ShopSkills + x.ShopPerks + x.ShopHeals), 10, 20);
-            Assert.InRange(boss.Average(x => x.MythicPicks), 2, 5);
+            Assert.InRange(boss.Average(x => x.MythicPicks), 1.5, 2); // two minibosses per run (playtest 0.1.308; early levels have none)
             // the board itself (mini-games excluded: GAME tiles add their own ~0.5 min, GDD §3.6)
             // (8.5: mini-game prizes add shop visits / skill-roll drafts on the board too)
             Assert.InRange(runs.Average(x => x.Minutes - x.Minigames * SimPlayer.MinigameSec / 60.0), 4, 8.5); // the player's battle speed: ×2 free, ×3 with the pass

@@ -42,7 +42,8 @@ public class RunDepthTests(ITestOutputHelper output)
         Assert.InRange(drafts, 7, 11);
         Assert.InRange(shop, 10, 22);
         Assert.All(runs, r => Assert.Equal(r.Minibosses, r.Gains.Count(g => g.Source == "mythic")));  // one mythic choice per miniboss
-        Assert.All(runs, r => Assert.True(r.Minibosses >= 3, "the clock's three minibosses"));
+        Assert.All(runs, r => Assert.True(r.Minibosses <= 2, "two minibosses per run (playtest 0.1.308)"));
+        Assert.True(runs.Average(r => r.Minibosses) >= 1.8, "both lairs stand on the path and stop the worm");
     }
 
     [Fact]
@@ -51,12 +52,14 @@ public class RunDepthTests(ITestOutputHelper output)
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
-        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        // playtest 0.1.308: the miniboss stands on the path (its lair stops the worm), no clock ambush
+        RunTestKit.LineBoard(run, new[] { "miniboss" }.Concat(Enumerable.Repeat("empty", 30)).ToArray());
         run.Awakening = 24.9;
-        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
-        Assert.Equal(RunPhase.Encounter, s.Run.Active!.Phase);
-        var r = RunTestKit.Exec(e, ref s, new RunAutoStep());
-        Assert.Contains(r.Events, ev => ev.Type == "run_battle" && ev.Args[0] == "ambush");
+        var r = RunTestKit.Exec(e, ref s, new RunRoll());
+        Assert.True(r.Ok);
+        Assert.Equal(1, s.Run.Active!.Position);                                      // the lair stopped the worm
+        Assert.Contains(r.Events, ev => ev.Type == "run_battle" && ev.Args[0] == "miniboss");
+        Assert.DoesNotContain(r.Events, ev => ev.Type == "run_encounter");
         run = s.Run.Active!;
         Assert.Equal(RunPhase.Draft, run.Phase);
         Assert.True(run.MythicDraft);

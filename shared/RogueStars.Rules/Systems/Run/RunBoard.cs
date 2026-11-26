@@ -139,8 +139,12 @@ namespace RogueStars.Rules.Systems
             foreach (var x in trunk) onTrunk.Add(x.Id);
             onTrunk.Remove(cur.Id);
             int last = path.Count - 1;
+            int lairs = 0;
+            foreach (var x in b.Tiles) if (x.TileId == "miniboss") lairs++;
             foreach (var ft in level.FixedTiles)
             {
+                // a run has RunTuning.MinibossesPerRun minibosses, all on the path: lairs only in the first segments
+                if (ft.TileId == "miniboss" && lairs >= t.MinibossesPerRun) continue;
                 int want = Math.Max(0, Math.Min(last, (int)Math.Round(ft.At * last)));
                 RunTile slot = null;
                 for (int d = 0; d <= last && slot == null; d++)
@@ -149,6 +153,7 @@ namespace RogueStars.Rules.Systems
                 if (slot == null) continue;
                 slot.TileId = ft.TileId;
                 slot.Fixed = true;
+                if (ft.TileId == "miniboss") lairs++;
             }
 
             // Dedicated boss tiles.

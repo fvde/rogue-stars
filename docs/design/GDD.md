@@ -51,7 +51,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 - Tile valence colours: positive, negative, enemy, elite, boss, special.
 - **Auto mode** (a level unlock, `auto_roll`, §16): holding Roll enables auto-roll; any tap interrupts. Auto only automates
   the **clear, choice-free** steps: rolling, moving, tiles without options (loot, stat buff/debuff, hazards, pickups, boss
-  tiles) and **starting the fights it meets** (a clock miniboss, the boss arena: no Fight! / Enter Arena tap while auto is
+  tiles) and **starting the fights it meets** (the boss arena: no Enter Arena tap while auto is
   on; manual play keeps the tap). The battle playback and every result sheet wait for the player's tap (playtest 0.1.200). At every **real decision** — shop (forced stop: the player can buy skills), skill draft, event,
   treasure (open or leave), campfire, branch, revive prompt, Burrow descend/cash-out, mini-game (§3.6) — auto **pauses**, shows the
   decision and hands control back; after the player decides it resumes by itself while auto is still on. The result screen of an event / chest / campfire / shop (§3.3) is shown for a moment and passed by
@@ -63,8 +63,8 @@ Aliens, Laboratory → stronger runs, harder portals.
   logic wants most, one purchase per step, never a reroll; leaves when nothing affordable is worth it). Rules:
   `RunSystem.Decision` / `RequiresPlayer`; `RunAutoStep` refuses a player decision unless `Farming` is set. Every event,
   chest and campfire is a player decision, even with a single option; a boon that keeps a negative event away and a
-  looted-out cache both show a result instead of being skipped silently. Encounters (a miniboss attacking, the boss
-  arena opening) are clear steps of their own, so every fight gets its own playback.
+  looted-out cache both show a result instead of being skipped silently. The boss arena opening is a clear step of its
+  own, so the boss fight gets its own playback (minibosses stand on the path, see §3.3).
 
 ### 3.2 Tile types (prototype set)
 | Tile | Effect |
@@ -80,7 +80,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
-| Miniboss | A lair per segment (fight on landing) plus three that attack with the awakening clock (25/50/75%). Each beaten miniboss grants a **MYTHIC choice** |
+| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). Each beaten miniboss grants a **MYTHIC choice** |
 | GAME (Alien Arcade) | A short skill mini-game (§3.6) for run coins or a skill roll; stops the worm when passed |
 
 **Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply
@@ -114,14 +114,15 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 ~3× the fights of the old short runs. Burrow floors are short (6 rolls, the boss comes at the roll limit).
 
 **Build depth** (playtest: a run should end with ~20–40 skills and perks; progression report "Run depth"):
-- **Minibosses:** three come with the awakening clock (at 25 / 50 / 75%, `RunTuning.MinibossAtMeter`): after that move
-  a lieutenant of the boss attacks (an Encounter step, its own fight). The segment's miniboss lair adds one when the worm
-  lands on it. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
+- **Minibosses:** **two per run** (playtest 0.1.308, `RunTuning.MinibossesPerRun`), both **on the path**: the level's
+  miniboss lair is placed in each of the first two segments only (trunk tiles, never bypassed by a fork) and is a forced
+  stop, so the worm always fights it and the player sees it coming (its crowned-skull marker, a "!" over it ahead). The
+  awakening clock sends no minibosses any more (`RunTuning.MinibossAtMeter` empty; the old ambush step stays in the code
+  unused). A lair pays its fight's XP and coins. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
   three generic, family gates waived for this choice; Mythics never level, so owned ones are not offered again). The pool
   is every Mythic of the run's unlocked synergies (starters Fire / Radiation / Bleed + researched ones) and the generic
   ones; owned synergies and signature synergies weigh more, but **every choice shows at least one Mythic outside the
-  signature synergies** (playtest 0.1.308: a focused build saw all-signature choices ~37% of the time). Minibosses
-  pay coins, no XP.
+  signature synergies** (playtest 0.1.308: a focused build saw all-signature choices ~37% of the time).
 - **Skill tiers and levels** (owner decision, playtest): run skills have exactly **three fixed tiers — Common, Legendary,
   Mythic** — and never upgrade into another tier (the old upgrade chains are one skill each). A skill drafted, bought or
   forged again levels up to its tier's cap: **Common Lv3, Legendary Lv2, Mythic Lv1** (`RunTuning.MaxSkillLevelOf`). A level
@@ -541,7 +542,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 1 | Parts / Worm tab (`parts`): equip the three starter parts. Daily Quests and the 7-day calendar are there from here on, with no unlock moment of their own (owner, 2026-11-26) | Equip your parts |
 | 2 | Shops on the board from level 3 (`run_shop`) | Play |
 | 3 | Worm level & talents (`worm_level`) | Level up the worm |
-| 4 | Minibosses & Mythics from level 5: the lair and the awakening clock (`run_miniboss`) | Play |
+| 4 | Minibosses & Mythics from level 5: two miniboss lairs on the path (`run_miniboss`) | Play |
 | 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
 | 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
