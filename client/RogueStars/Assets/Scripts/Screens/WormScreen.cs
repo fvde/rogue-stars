@@ -59,6 +59,9 @@ namespace RogueStars.Client.Screens
             { StatId.LifeSteal, ("LS", Theme.Hex(0xB1E04E)) },
         };
 
+        /// <summary>Three-letter badge text of a stat (HP, ATK, DEF ...).</summary>
+        public static string StatAbbr(StatId st) => StatLook.TryGetValue(st, out var l) ? l.abbr : st.ToString().Substring(0, 3).ToUpperInvariant();
+
         private static (string key, string abbr, Color color, string value) StatEntry(StatId st, double v)
         {
             var look = StatLook.TryGetValue(st, out var l) ? l : (st.ToString().Substring(0, 3).ToUpperInvariant(), Theme.TextDim);
