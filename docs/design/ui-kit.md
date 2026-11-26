@@ -25,7 +25,7 @@ Shared pieces first (they unblock every screen), then the screen-specific ones.
 | `panel` | every card, modal box, list row | 256x256, border 64 | Soft inner shading, light rim. Tinted with the card colour. |
 | `panel_raised`, `panel_well` | highlighted card, inset well | 256x256, border 64 | Raised = brighter rim; well = inner shadow. |
 | `button` (+ optional `button_primary`, `_secondary`, `_positive`, `_danger`, `_premium`, `_accent`, `_gold`, `button_lip`) | every button | 256x112, border 40 (lip: 256x112 flat colour strip, border 40) | Face only (the lip is a second image below it). Pressed/disabled are code tints; per-colour sprites optional. |
-| `tab_chip`-style chips | sub-tabs, filters, shop tabs | use `button` | Active chip = gold tint, inactive = dark tint (code). |
+| (chip tabs use `button`) | sub-tabs, filters, shop and quest tabs | - | Active chip = gold tint, inactive = dark tint (code); labels shrink to one line. |
 | `bottom_bar` | main tab bar background | 1080x150, border 0/40 | Plum strip. |
 | `bottom_tab`, `bottom_tab_active` | main tab bar tabs | 200x160, border 50; active 200x200 with a rounded raised top | Active tab is taller; the icon sits above the label. |
 | `ribbon`, `ribbon_tail` | ribbon section headers | ribbon 256x96 border 40; tail 128x80 (swallow tail, mirrored in code) | Tinted per ribbon colour. |
@@ -42,7 +42,8 @@ Shared pieces first (they unblock every screen), then the screen-specific ones.
 | `node_hex`, `node_hex_ring` | skill-tree nodes, progression perks | 128x128, simple (pointy-top hexagon, ring 9% thick) | Fill tinted by node colour; ring tinted dark/gold. |
 | `backdrop_menu` | every screen behind the scroll | 1080x2400 | Dark warm, subtle pattern, readable under cards. |
 | `backdrop_worm`, `panel_stage` | worm stage behind the portrait | 512x640, border 64 | Soft spotlight. |
-| `backdrop_aliens` | aliens stage | 1080x620 | Illustrated stage (see Aliens). |
+| `backdrop_aliens` | aliens stage | 1080x620 | Illustrated stage with three pedestal spots (see Aliens). |
+| `backdrop_lab` | laboratory tree window | 1080x1500 | Purple, faint pattern; the hex nodes and gold lines sit on it. |
 
 Procedural-only helpers (no sprite): connector lines (`Kit.Line`), the gradient, the shadow.
 

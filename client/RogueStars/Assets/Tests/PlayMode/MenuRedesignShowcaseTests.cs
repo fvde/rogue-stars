@@ -155,6 +155,26 @@ namespace RogueStars.Client.PlayTests
                 yield return Scroll(0f);
                 yield return Shot("a2_aliens_scrolled");
             }
+            if (Want("quests"))
+            {
+                S.Count("login_days"); S.Count("runs_completed", 3); S.Count("run_skills_drafted", 6); S.Count("run_battles_won", 4);
+                S.Quests.DailyPoints = 55;
+                S.Quests.WeeklyPoints = 130;
+                _svc.Refresh(_ => { });
+                _app.Router.Reset(new HubScreen());
+                _app.Open("quests");
+                yield return Wait(2.2f);
+                yield return Shot("q1_quests_daily");
+                yield return Scroll(0f);
+                yield return Shot("q1b_quests_daily_scrolled");
+                yield return Scroll(1f);
+                foreach (var tab in new[] { "Weekly", "Achieve", "Login", "Newbie" })
+                {
+                    yield return OpenTab(tab);
+                    yield return Wait(1.5f);
+                    yield return Shot("q2_quests_" + tab.ToLowerInvariant());
+                }
+            }
         }
 
         private IEnumerator Scroll(float pos)
