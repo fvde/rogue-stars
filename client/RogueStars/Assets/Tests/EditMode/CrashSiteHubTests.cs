@@ -101,7 +101,7 @@ namespace RogueStars.Client.Tests
             city.Rebuild();
             foreach (var n in new[] { "Dock", "Dock:Build", "Dock:Workers", "Dock:Output", "CollectAll", "Rail" })
                 Assert.That(Has(city.Root, n), Is.False, n);
-            Assert.That(city.Root.GetComponentsInChildren<Text>(true).First(t => t.name == "CampNoteText").text, Is.EqualTo("The camp grows into a city at level 15"));
+            Assert.That(Has(city.Root, "CampNote"), Is.False, "no hint about the City: it is a surprise at level 15");
             city.EnterEdit();
             Assert.That(city.EditMode, Is.False);
             city.OpenDig("patch_a");

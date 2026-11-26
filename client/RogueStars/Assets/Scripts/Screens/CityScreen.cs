@@ -125,7 +125,6 @@ namespace RogueStars.Client.Screens
             {
                 if (CampMode)
                 {
-                    CampNote();
                     if (_selected != null) Card();
                 }
                 else

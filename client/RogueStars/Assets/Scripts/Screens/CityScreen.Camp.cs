@@ -16,20 +16,6 @@ namespace RogueStars.Client.Screens
     /// </summary>
     public sealed partial class CityScreen
     {
-        /// <summary>The line under the diorama in camp mode instead of the dock.</summary>
-        private void CampNote()
-        {
-            long at = Features.UnlockLevel(Content.Feature(Features.BiomassFarm));
-            var note = Ui.RoundPanel(_overlay, new Color(0.1f, 0.07f, 0.2f, 0.88f), 36, "CampNote");
-            note.raycastTarget = false;
-            var rt = note.rectTransform;
-            rt.anchorMin = new Vector2(0, 0); rt.anchorMax = new Vector2(1, 0); rt.pivot = new Vector2(0.5f, 0);
-            rt.sizeDelta = new Vector2(-48, 120); rt.anchoredPosition = new Vector2(0, 40);
-            var t = SliceKit.Chunky(note.transform, "The camp grows into a city at level " + at, 34, HubKit.Cyan, TextAnchor.MiddleCenter, "CampNoteText");
-            Ui.Stretch(t.rectTransform, 16, 8, 16, 8);
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-        }
-
         /// <summary>The Launch Pod card in camp mode: the seats (tap a squad alien to free its seat, tap one below to seat it) and nothing else.</summary>
         private void CampSeats(RectTransform card, CityBuilding b, BlueprintDef def)
         {
