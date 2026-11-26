@@ -223,7 +223,7 @@ namespace RogueStars.Rules.Content
             }
 
             // GDD §16 level unlocks: every feature unlocks at a main level cleared (the player level: Requirements.MainLevelCounter),
-            // never by calendar day, one new thing per level up to level 20, then every 2 levels, then every 3–4. Systems come
+            // never by calendar day, one new thing per level up to level 20 (level 3 brings two: the worm and the daily goals), then every 2 levels, then every 3–4. Systems come
             // before what depends on them and every reward kind waits for its use (RewardGate). Run content is introduced
             // after the level before the first board that has it. Main level numbers are global (portal 1 = levels 1..10, ...).
             // Unlocks come with pulls (owner, 2026-11-25): Parts open the Part Signal, Aliens the Alien Signal, the City the Blueprint
@@ -231,6 +231,8 @@ namespace RogueStars.Rules.Content
             F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones at the Part Signal: your first 10× pull is free.");
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
+            // Daily goals from level 3 (owner, 2026-11-26): the first reason to come back tomorrow, earlier than before (was level 8).
+            F(Features.Quests, "Daily Goals", 3, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "The waking boss sends minibosses. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
             // The crash site comes first (owner, 2026-11-25): the Aliens unlock brings the Launch Pod, built on the crash site at once, so
@@ -239,7 +241,6 @@ namespace RogueStars.Rules.Content
             var squad = F(Features.AlienSquad, "Launch Pod", 6, 30, null, "The Launch Pod stands at your crash site: the aliens in its seats are your run squad.");
             squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
-            F(Features.Quests, "Daily Goals", 8, 0, null, "Daily and weekly goals with point chests, plus a 7-day login calendar.");
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
             R(Features.RunSignatures, "Signature Choice", Campaign.SignatureChoiceFromLevel - 1, "Pick your run's signature skill from three.");
             F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");

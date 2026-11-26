@@ -183,7 +183,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Teaser_ShowsTheLevelToClear_NeverADay()
         {
-            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
+            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.Quests, Features.RunMiniboss, Features.RunTwoDice); // Daily Goals unlock at level 3
             S.Counters[Requirements.MainLevelCounter] = 4;
             Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("Aliens + Launch Pod — clear level 6"));
             Assert.That(Named(Hub.Root, "Figure").text, Is.EqualTo("4/6"));

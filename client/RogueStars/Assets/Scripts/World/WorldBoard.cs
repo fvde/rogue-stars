@@ -451,7 +451,8 @@ namespace RogueStars.Client.World
             var hero = ArtCatalog.Hero();
             var wormGo = new GameObject("Worm") { layer = Layer };
             wormGo.transform.SetParent(body.transform, false);
-            _tokenSprite = hero != null ? Fit(wormGo, hero, 2.4f, WormHeight, 0, true) : Fit(wormGo, IsoArt.Marker("portal"), 1.6f, 1.2f, 0, true);
+            _tokenSprite = hero != null ? Fit(wormGo, hero, 2.4f, WormHeight, 0, true, TokenFlip) : Fit(wormGo, IsoArt.Marker("portal"), 1.6f, 1.2f, 0, true);
+            _tokenArt = hero;
             if (Application.isPlaying) { var bob = wormGo.AddComponent<WorldBob>(); bob.Amplitude = 0.035f; bob.Period = 1.6f; }
             PlaceToken(TopOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), CellOf(run.Tiles[Mathf.Clamp(tokenTile, 0, run.Tiles.Count - 1)]), Vector2.one);
         }
@@ -595,6 +596,32 @@ namespace RogueStars.Client.World
             var rim = NewSprite("IslandRim", mask, rect.min + new Vector2(0, -0.06f), -31995);
             rim.color = new Color32(0x9C, 0xCC, 0xA4, 255);
             return field;
+        }
+
+        /// <summary>The worm art is mirrored (it faces right, the direction it moves; <see cref="WormFacing"/>). Kept across rebuilds.</summary>
+        public bool TokenFlip { get; private set; }
+        private Sprite _tokenArt;
+
+        /// <summary>Turns the worm to look from <paramref name="fromX"/> towards <paramref name="toX"/> (board x); keeps its ground contact.</summary>
+        public void FaceToken(float fromX, float toX)
+        {
+            bool flip = WormFacing.Flip(fromX, toX, TokenFlip);
+            if (flip == TokenFlip) return;
+            TokenFlip = flip;
+            ApplyTokenFlip();
+        }
+
+        private void ApplyTokenFlip()
+        {
+            if (_tokenSprite == null || _tokenArt == null) return;
+            _tokenSprite.flipX = TokenFlip;
+            // the contact point stays on the token's origin (flipX mirrors about the sprite pivot; same maths as Fit)
+            var c = SpriteContact.Of(_tokenArt);
+            float ppu = _tokenArt.pixelsPerUnit;
+            float cx = (c.X - _tokenArt.pivot.x) / ppu, cy = (c.Y - _tokenArt.pivot.y) / ppu;
+            if (TokenFlip) cx = -cx;
+            float k = _tokenSprite.transform.localScale.x;
+            _tokenSprite.transform.localPosition = new Vector3(-cx * k, -cy * k, 0);
         }
 
         /// <summary>Moves the worm (board-local top-face point, fractional grid cell for its draw order, squash scale).</summary>

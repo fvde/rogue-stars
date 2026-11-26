@@ -146,10 +146,11 @@ namespace RogueStars.Client.Tests
             var rb = (RectTransform)FindNamed(holder, "RollButton");
             Assert.That(rb.anchorMin.y, Is.EqualTo(0f), "anchored to the bottom");
             Assert.That(rb.anchoredPosition.y + rb.sizeDelta.y / 2, Is.LessThan(2400 * 0.3f * screen.BodyFrame.rect.width / 1080f), "the dice button sits in the bottom of the screen");
-            // the speed chip cycles x1 -> x2 -> x3 -> x1
-            int before = RunScreen.BoardSpeed;
+            // the speed chip cycles x0.5 -> x1 -> x2 -> x3 -> x0.5 (PlaySpeedTests has the full cycle)
+            RunScreen.BoardSpeed = 1;
             FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
-            Assert.That(RunScreen.BoardSpeed, Is.EqualTo(before >= 3 ? 1 : before + 1));
+            Assert.That(RunScreen.BoardSpeed, Is.EqualTo(2f));
+            Assert.That(FindNamed(FindNamed(screen.Root, "SpeedChip"), "SpeedText").GetComponent<Text>().text, Is.EqualTo("x2"));
             RunScreen.BoardSpeed = 1;
         }
 
@@ -320,10 +321,12 @@ namespace RogueStars.Client.Tests
             // faster playback = shorter fires
             for (int guard = 0; guard < 100 && !screen.Finished; guard++) screen.Frame(screen.StepSeconds);
             Assert.That(screen.FireCount(sk[0].Id), Is.EqualTo(2));
+            while (screen.Speed != 1f) FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
             float x1 = screen.FireSeconds;
-            FindNamed(screen.Root, "Speed2").GetComponent<Button>().onClick.Invoke();
+            FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke(); // x1 -> x2
+            Assert.That(screen.Speed, Is.EqualTo(2f));
             Assert.That(screen.FireSeconds, Is.LessThan(x1));
-            FindNamed(screen.Root, "Speed1").GetComponent<Button>().onClick.Invoke();
+            while (screen.Speed != 1f) FindNamed(screen.Root, "SpeedChip").GetComponent<Button>().onClick.Invoke();
             for (int i = 0; i < 20; i++) screen.Frame(1);
             Assert.That(screen.FireQueue.Busy, Is.False, "the queue drains after the fight");
             Assert.That(FindNamed(screen.Root, "FireFlash"), Is.Null, "no flash left behind");
@@ -443,7 +446,7 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.SkillScroll, Is.Not.Null);
             Assert.That(screen.SkillScroll.vertical, Is.True);
             var view = (RectTransform)FindNamed(strip, "SkillViewport");
-            var speed = (RectTransform)FindNamed(screen.Root, "Speed1");
+            var speed = (RectTransform)FindNamed(screen.Root, "SpeedChip");
             var corners = new Vector3[4];
             view.GetWorldCorners(corners);
             float viewBottom = corners[0].y;

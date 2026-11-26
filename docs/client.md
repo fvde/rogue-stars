@@ -338,7 +338,7 @@ design A (the board, tray and footer described in *Screens* above are superseded
   tap = roll / fight / reopen the decision, hold = auto; caption `RunScreen.DiceCaption` engraved on the cap's front wall
   (`DiceStand.FrontWall01`); two white dice printed into its top plane (`DiceStand.TopPlane`: the camera's squash),
   `DicePrint` → `FooterDice`: the last roll, a one-die roll beside its opposite face, `RunScreen.PrintedDice`),
-  `SpeedChip` (board animations ×1/×2/×3, `RunScreen.BoardSpeed`), the
+  `SpeedChip` (board animations ×0.5/×1/×2/×3, one button cycling through them on a tap, `PlaySpeed`, `RunScreen.BoardSpeed`), the
   skills book (`SkillsButton`, count badge `SkillCount`). No skill tray, no footer, no Loot / AUTO buttons. Chunky text:
   `SliceKit.Chunky` (Fredoka, white, double dark outline + drop).
 - **Cards** (`Screens/SliceCards`): the draft is a full-screen overlay over the dimmed board: hero, gold "LEVEL UP!"
@@ -356,7 +356,7 @@ design A (the board, tray and footer described in *Screens* above are superseded
   "Round n/N", `SkipButton`; huge outlined damage numbers; EXP gems and coins burst from a beaten enemy to the HUD; a
   firing skill's label floats in the arena over the worm. Bottom (a dark gradient panel): a 5-column grid of tier-framed
   skill icons without labels right under the arena (`Slot:<id>`, 15 tiles, then "+N"); fires pop their tile
-  (`SkillFireQueue`). One speed pill bottom-left with the segments `Speed1..3`, `ContinueButton`, `Log` bottom-right.
+  (`SkillFireQueue`). One speed button bottom-left (`SpeedChip`, the same `PlaySpeed.BuildChip` as the board: shows the current speed, a tap goes ×0.5 → ×1 → ×2 → ×3 → ×0.5, ×3 skipped without the monthly pass), `ContinueButton`, `Log` bottom-right. The worm's art faces left, so it is mirrored while it looks right (`WormFacing`): in battle it starts turned to the enemies and turns to each target (the mount under it turns with it), on the board it looks where it hops (`WorldBoard.FaceToken`, ground contact kept).
 - **Art keys** (`ArtCatalog`, every one falls back to a code-drawn placeholder in `World/IsoArt` / `World/HudArt`):
   `Art/Slice/Markers/<id>` (enemy, elite, miniboss, boss, omen, event, mystery, chest, rest, shop, minigame, portal, reward),
   `Art/Slice/SetPieces/<id>` (crashed_saucer, portal_well, crystal_spire, giant_mushroom, ruined_arch, burrow_mound,

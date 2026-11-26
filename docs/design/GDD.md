@@ -527,11 +527,11 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 1 | Parts / Worm tab (`parts`): equip the three starter parts | Equip your parts |
 | 2 | Shops on the board from level 3 (`run_shop`) | Play |
 | 3 | Worm level & talents (`worm_level`) | Level up the worm |
+| 3 | Daily goals and the 7-day calendar (`quests`; its own unlock moment right after the worm's, owner 2026-11-26) | See today's goals |
 | 4 | Minibosses & Mythics from level 5: the lair and the awakening clock (`run_miniboss`) | Play |
 | 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
 | 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
-| 8 | Daily goals and the 7-day calendar (`quests`) | See today's goals |
 | 9 | Campfires from level 10 (`run_campfire`) | Play |
 | 10 | Part Signal (`part_pulls`); the first pulls are on the house | Tune in |
 | 11 | Signature choice (1 of 3) from level 12 (`run_signatures`; before it the run gets the first offered signature) | Play |

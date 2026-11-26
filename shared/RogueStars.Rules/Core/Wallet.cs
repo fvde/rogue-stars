@@ -114,6 +114,9 @@ namespace RogueStars.Rules.Core
             long tick = Math.Max(1000, (long)(rule.TickMs * (1 - Math.Min(90, rs.TickSpeedPercent) / 100.0)));
             long bal = Get(rule.Currency);
             if (bal >= cap) { rs.LastTickMs = nowMs; return; }
+            // A last tick in the future (the clock moved back, a save or jump made on a later clock) must not freeze the
+            // balance until the clock catches up: restart the tick from now.
+            if (rs.LastTickMs > nowMs) rs.LastTickMs = nowMs;
             long elapsed = nowMs - rs.LastTickMs;
             if (elapsed < tick) return;
             long ticks = elapsed / tick;
