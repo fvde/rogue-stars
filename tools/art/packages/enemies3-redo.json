@@ -1,0 +1,14 @@
+{
+  "name": "pkg-enemies3",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1321
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
+  "subjects": {
+    "null_shade": "Null Shade, a flickering shadow figure with a hollow face, with all four legs clearly visible"
+  }
+}
