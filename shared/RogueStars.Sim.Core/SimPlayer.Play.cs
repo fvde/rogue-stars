@@ -274,6 +274,7 @@ namespace RogueStars.Sim
                     step = Exec(new RunRevive { Method = ReviveMethod.Diamonds });
                 else if (a.Phase == RunPhase.Minigame) step = PlayMinigame();
                 else if (a.Phase == RunPhase.Quest) step = PlayQuest();
+                else if (a.Phase == RunPhase.Shop && QuestCoinsToKeep(a) > 0 && ShopBuyWouldSpendReserve(a)) step = Exec(new RunShopLeave());
                 else step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) { Exec(new RunAbandon()); break; }
