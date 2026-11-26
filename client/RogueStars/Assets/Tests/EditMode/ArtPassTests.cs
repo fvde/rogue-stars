@@ -107,7 +107,7 @@ namespace RogueStars.Client.Tests
             Assert.That(SpriteOf(2).sprite, Is.SameAs(Fake), "the enemy is its sprite, not the E box");
             Assert.That(SpriteOf(2).GetComponentInChildren<Text>(), Is.Null, "no role letter on a sprite");
             Assert.That(SpriteOf(3).sprite, Is.SameAs(Fake));
-            Assert.That(FindNamed(FindNamed(screen.Root, "Fighter:3"), "RoleGlow"), Is.Not.Null, "the family sprite stands on the boss's glow");
+            Assert.That(FindNamed(FindNamed(screen.Root, "Fighter:3"), "RoleGlow"), Is.Null, "no coloured glow under the family sprite (playtest 0.1.325)");
             Assert.That(SpriteOf(3).rectTransform.sizeDelta.x, Is.GreaterThan(SpriteOf(2).rectTransform.sizeDelta.x), "scaled up");
             Assert.That(SpriteOf(4).GetComponentInChildren<Text>().text, Is.EqualTo("E"), "no art: the old box");
         }

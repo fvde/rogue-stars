@@ -578,22 +578,12 @@ namespace RogueStars.Client.Screens
             }
             var color = RoleColor(f.Role);
             // the fighter's art (ArtCatalog): the hero worm, an alien by type id, an enemy by def id (bosses / elites without
-            // their own art: a family sprite, scaled up, on a glow in the role's colour); without art a rounded token with its letter
+            // their own art: a family sprite, scaled up; playtest 0.1.325: no coloured glow under it, it read as a red shadow
+            // floating below the enemy); without art a rounded token with its letter
             var hero = FighterSprite(f, Content, out bool family, out float spriteSize);
             Image body;
             if (hero != null)
             {
-                if (family)
-                {
-                    var glow = Ui.Panel(root, new Color(color.r, color.g, color.b, 0.45f), "RoleGlow");
-                    glow.sprite = UiShapes.Circle;
-                    glow.raycastTarget = false;
-                    var grt = glow.rectTransform;
-                    grt.anchorMin = grt.anchorMax = new Vector2(player ? 0.3f : 0.7f, 0);
-                    grt.pivot = new Vector2(0.5f, 0.5f);
-                    grt.sizeDelta = new Vector2(spriteSize * 0.95f, spriteSize * 0.32f);
-                    grt.anchoredPosition = new Vector2(0, 52);
-                }
                 body = Ui.Panel(root, Color.white, "Sprite");
                 body.sprite = hero;
                 body.preserveAspect = true;
