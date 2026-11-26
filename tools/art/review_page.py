@@ -64,13 +64,51 @@ def label(path):
     return f"{subject} · {name}"
 
 
+REG = os.path.expanduser("~/AI/out/art-rounds.json")
+
+
+def load_registry():
+    try:
+        return json.load(open(REG))
+    except (OSError, ValueError):
+        return {"current": 0, "rounds": {"0": "earlier"}, "files": {}}
+
+
+def assign_rounds(reg, approved, candidates):
+    """Every file keeps the round it was FIRST shown in (so a comment can name its round and a whole round can be cleared).
+    Unregistered approved files count as round 0 ("earlier"); unregistered candidates start a new round together."""
+    import datetime
+    for f in approved:
+        reg["files"].setdefault(f, 0)
+    fresh = [f for f in candidates if f not in reg["files"]]
+    if fresh:
+        reg["current"] += 1
+        reg["rounds"][str(reg["current"])] = datetime.datetime.now().strftime("%d %b %H:%M")
+        for f in fresh:
+            reg["files"][f] = reg["current"]
+    return reg
+
+
+def round_tag(reg, f):
+    r = reg["files"].get(f, 0)
+    return "R0" if r == 0 else f"R{r}"
+
+
 def main():
     state = json.load(open(os.path.expanduser(sys.argv[1])))
+    reg = load_registry()
+    _all_appr = [f for c in state["collections"] for f in files(c.get("approved"))]
+    _rej = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
+    _all_cand = [f for c in state["collections"] for f in files(c.get("candidates")) if f not in _rej and f not in _all_appr]
+    reg = assign_rounds(reg, _all_appr, _all_cand)
+    json.dump(reg, open(REG, "w"), indent=1)
     rejected = set(os.path.expanduser(p) for c in state["collections"] for p in c.get("rejected", []))
     body = []
     for c in state["collections"]:
         appr = files(c.get("approved"))
         cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
+        cand.sort(key=lambda f: reg["files"].get(f, 0))
+        appr.sort(key=lambda f: reg["files"].get(f, 0))
         anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
         anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
         if not appr and not cand and not anim_ok and not anim_new:
@@ -84,8 +122,9 @@ def main():
             cls = "ok" if kind.startswith("Approved") else "new"
             sec.append(f'<h3 class="{cls}">{kind} <small>{len(items)}</small></h3><div class="grid">')
             for f in items:
+                tag = round_tag(reg, f)
                 sec.append(f'<figure class="{cls}" id="{fig_id("img", f)}"><img src="{thumb(f)}" alt="{html.escape(label(f))}">'
-                           f'<figcaption>{html.escape(label(f))}</figcaption></figure>')
+                           f'<figcaption><b class="rt">{tag}</b> {html.escape(label(f))}</figcaption></figure>')
             sec.append("</div>")
         for kind, items in (("Animated, approved", anim_ok), ("Animated, new — pick", anim_new)):
             if not items:
@@ -114,9 +153,10 @@ figure{{margin:0;background:var(--card);border-radius:10px;padding:6px;border:2p
 figure.ok{{border-color:var(--ok)}} figure.new.anim{{border-color:var(--new)}}
 figure img{{width:100%;aspect-ratio:1;object-fit:contain;border-radius:6px;
   background:repeating-conic-gradient(#d8d8d8 0 25%,#f4f4f4 0 50%) 0 0/16px 16px}}
+b.rt{{color:var(--new);margin-right:4px}} figure.ok b.rt{{color:var(--ok)}}
 figcaption{{font-size:12px;color:var(--mut);margin-top:4px;word-break:break-word}}
 </style>
-<main><h1>Art review</h1><p class="note">Green = approved; orange = new candidates. Comment on a single image to pick or reject it. Older rounds are no longer shown.</p>
+<main><h1>Art review</h1><p class="note">Green = approved; orange = new candidates. Every image carries its round (R1, R2, …; R0 = approved earlier). Comment on a single image to pick or reject it, or name a round ("R3: all rejected") to clear it.</p>
 {''.join(body)}</main>"""
     open(os.path.expanduser(sys.argv[2]), "w").write(page)
     print("ok", sum(len(files(c.get('approved'))) for c in state['collections']), "approved,",
