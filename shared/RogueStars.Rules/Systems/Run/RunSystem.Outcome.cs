@@ -84,7 +84,13 @@ namespace RogueStars.Rules.Systems
                     if (now > was) Add(OutcomeKind.SkillLevel, id, now, true);
                 }
                 for (int i = _loot; i < r.PendingLoot.Count; i++)
-                    lines.Add(new OutcomeLine(OutcomeKind.AccountLoot, r.PendingLoot[i].Id, r.PendingLoot[i].Amount, true) { Reward = r.PendingLoot[i] });
+                {
+                    var p = r.PendingLoot[i];
+                    // one line per currency (two chests of an event: "+90 Biomass", not two lines)
+                    var same = p.Kind == RewardKinds.Currency ? lines.Find(l => l.Kind == OutcomeKind.AccountLoot && l.Reward != null && l.Reward.Kind == RewardKinds.Currency && l.Id == p.Id) : null;
+                    if (same != null) { same.Amount += p.Amount; same.Reward = new Reward(p.Kind, p.Id, (long)same.Amount, p.Rarity); }
+                    else lines.Add(new OutcomeLine(OutcomeKind.AccountLoot, p.Id, p.Amount, true) { Reward = new Reward(p.Kind, p.Id, p.Amount, p.Rarity) });
+                }
                 for (int i = _rare; i < r.PendingRare.Count; i++)
                     lines.Add(new OutcomeLine(OutcomeKind.AccountLoot, r.PendingRare[i].Id, r.PendingRare[i].Amount, true) { Reward = r.PendingRare[i] });
                 for (int i = _stats; i < r.RunStats.Count; i++)

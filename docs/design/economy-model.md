@@ -84,7 +84,9 @@ multiplied by the portal's reward scale S:
 - portals 1–50 (levels 1–500, unchanged): S(i) = i + 1 (≈ threat^0.43–0.55 there);
 - portal i ≥ 50 (levels 501+): **S(i) = 50 · (M(t(10 i + 1)) / M(t(491)))^α with α = 0.7** (`EndlessRewardExponent`);
 - completion pays (120 + 30 k) · S Biomass and (40 + 10 k) · S Ore on level k of the portal; loot currency ranges are
-  × round(S); the daily Biomass surge (first 3 won portal runs ×4), Overcharged ×1.8, the double-reward ad and the
+  × round(S); every event / Treasure Pod reward chest adds 10% of the level's completion Biomass / Ore / Data / Fuel
+  (playtest 0.1.325, `RunTuning.RewardChestCompletionPct`: ≈ +5–20% Biomass per won run at ~0.8 loot opportunities per
+  run); the daily Biomass surge (first 3 won portal runs ×4), Overcharged ×1.8, the double-reward ad and the
   run_reward modifiers apply on top as before;
 - Dark Side level i > 150: Data = Data(150) · (M(t_d(i)) / M(t_d(150)))^α (× 2.5 level multiplier), t_d(i) =
   t(40 + 3 (i − 1)) − 5. Fuel (1 200) and Diamonds (8) per clear stay flat.

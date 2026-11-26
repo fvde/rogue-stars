@@ -225,8 +225,10 @@ public class RunLengthTests(ITestOutputHelper output)
             if (o.Success)
             {
                 lucky++;
-                var loot = Assert.Single(o.Lines, l => l.Kind == OutcomeKind.AccountLoot);
-                Assert.NotNull(loot.Reward);
+                var loot = o.Lines.Where(l => l.Kind == OutcomeKind.AccountLoot).ToList();
+                Assert.All(loot, l => Assert.NotNull(l.Reward));
+                Assert.Equal(loot.Count, loot.Select(l => l.Id).Distinct().Count()); // one line per resource
+                Assert.Contains(loot, l => l.Id == Currencies.Biomass);              // the chest's share of the level's rewards
                 Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Awakening && l.Amount > 0 && !l.Good);
                 Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Danger && l.Amount == 1);
             }
@@ -253,7 +255,10 @@ public class RunLengthTests(ITestOutputHelper output)
         var o = s.Run.Active!.LastOutcome;
         Assert.False(o.Chance);
         Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Battle && l.Id == "won");
-        Assert.Equal(2, o.Lines.Count(l => l.Kind == OutcomeKind.AccountLoot));
+        var podLoot = o.Lines.Where(l => l.Kind == OutcomeKind.AccountLoot).ToList(); // 2 chests, merged per resource
+        Assert.Contains(podLoot, l => l.Id == Currencies.Biomass);
+        Assert.Contains(podLoot, l => l.Id == Currencies.Ore);
+        Assert.Equal(podLoot.Count, podLoot.Select(l => l.Id + l.Reward!.Kind).Distinct().Count());
 
         run = s.Run.Active!;
         run.WormHp = run.WormMaxHp / 2;

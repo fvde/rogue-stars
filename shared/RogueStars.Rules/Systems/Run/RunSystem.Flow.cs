@@ -745,10 +745,47 @@ namespace RogueStars.Rules.Systems
         /// <summary>The worm's Loot Luck points in this run (% chance of a bonus item per loot roll).</summary>
         public static double LootLuck(ContentDb c, ActiveRun run) => BattleSimulator.FinalStats(WormSpec(c, run), c).Value(StatId.LootLuck);
 
-        /// <summary>Adds loot items to the pending loot; each carried item raises Danger.</summary>
+        /// <summary>
+        /// Adds reward chests (events, Treasure Pods) to the pending loot; each raises Danger. A chest is one loot roll plus
+        /// RunTuning.RewardChestCompletionPct of the level's completion rewards in bulk resources (playtest 0.1.325: an event's
+        /// payout scales with the level like the run's own, so a good event is a notable share of the run).
+        /// </summary>
         private static void AddLoot(ContentDb c, ActiveRun run, int count)
         {
-            for (int i = 0; i < count; i++) RollLoot(c, run, true);
+            for (int i = 0; i < count; i++)
+            {
+                int start = run.PendingLoot.Count;
+                RollLoot(c, run, true);
+                foreach (var r in RewardChestBundle(c, Level(c, run)))
+                {
+                    // one line per resource per chest: the bundle joins the roll's own line of that resource
+                    var same = run.PendingLoot.FindIndex(start, p => p.Kind == RewardKinds.Currency && p.Id == r.Id);
+                    if (same >= 0) run.PendingLoot[same].Amount += r.Amount; else run.PendingLoot.Add(r);
+                }
+            }
+        }
+
+        /// <summary>The bulk resources one reward chest adds on the level (its share of the level's completion rewards, rounded).</summary>
+        public static List<Reward> RewardChestBundle(ContentDb c, LevelDef level)
+        {
+            var list = new List<Reward>();
+            if (level == null) return list;
+            var t = c.RunTuning;
+            foreach (var r in level.CompletionRewards)
+            {
+                if (r.Kind != RewardKinds.Currency || !t.RewardChestCurrencies.Contains(r.Id)) continue;
+                long amount = NiceAmount(r.Amount * t.RewardChestCompletionPct / 100.0);
+                if (amount > 0) list.Add(Reward.Cur(r.Id, amount));
+            }
+            return list;
+        }
+
+        /// <summary>Round numbers for shown amounts: whole below 10, steps of 5 below 100, 10 below 1 000, 50 below 10 000, then 500.</summary>
+        public static long NiceAmount(double x)
+        {
+            if (x < 0.5) return 0;
+            double step = x < 10 ? 1 : x < 100 ? 5 : x < 1000 ? 10 : x < 10000 ? 50 : 500;
+            return (long)(Math.Round(x / step) * step);
         }
 
         private static void RefreshMaxHp(ContentDb c, ActiveRun run)

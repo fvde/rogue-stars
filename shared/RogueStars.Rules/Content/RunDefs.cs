@@ -503,6 +503,14 @@ namespace RogueStars.Rules.Content
         /// (per floor in the Burrow); later ones are replaced by other events. Ordinary tiles never pay account loot.
         /// </summary>
         public int MaxAccountLootOffersPerRun = 3;
+        /// <summary>
+        /// Every event / Treasure Pod reward chest also pays this % of the level's completion amount of each bulk resource in
+        /// <see cref="RewardChestCurrencies"/> (playtest 0.1.325: a 1-chest event ≈ 15% of the run's completion payout, a 2-chest
+        /// event ≈ 30%, at every level), rounded (RunSystem.NiceAmount), on top of its loot roll.
+        /// </summary>
+        public double RewardChestCompletionPct = 10;
+        /// <summary>The bulk resources a reward chest scales with the level's completion rewards (never Diamonds or tokens).</summary>
+        public List<string> RewardChestCurrencies = new List<string> { Currencies.Biomass, Currencies.Ore, Currencies.Data, Currencies.Fuel };
         public int DraftChoices = 3;
         public int DraftRerollsPerRun = 1;
         /// <summary>Hidden pity: after this many draft picks without a Legendary+, an offer contains one.</summary>

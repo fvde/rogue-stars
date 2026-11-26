@@ -195,7 +195,8 @@ public class RunSystemTests
         long biomass = s.Wallet.Get(Currencies.Biomass);
         Assert.True(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok);
         run = s.Run.Active!;
-        Assert.Equal(2, run.PendingLoot.Count);
+        foreach (var b in RunSystem.RewardChestBundle(e.Content, e.Content.RunLevel(run.LevelId)!)) // 2 chests: twice the level's bundle + 2 rolls
+            Assert.True(run.PendingLoot.Where(r => r.Id == b.Id).Sum(r => r.Amount) >= 2 * b.Amount, b.Id);
         Assert.Equal(2, run.Danger);
         Assert.Equal(-15, run.AwakeningReductionPct, 6);                           // lasting cost: the boss awakens 15% faster
         Assert.Equal(biomass, s.Wallet.Get(Currencies.Biomass));                    // nothing granted yet

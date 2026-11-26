@@ -93,7 +93,12 @@ Treasure Pods and a few events, each with a clear price — a fight (elite / gua
 or a lasting effect for the rest of the run (e.g. "the boss awakens 15% faster", "−8% max HP"). Later caches are
 empty / replaced by other events. Ordinary tiles pay in-run resources (coins, XP, HP, temporary buffs). The option text
 says "account loot, paid on clear" and names the risk; the result screen lists the item and the price paid. **Each
-account-loot item carried raises the Danger level** (enemy stats +x%).
+account-loot item carried raises the Danger level** (enemy stats +x%). **A reward chest scales with the level**
+(playtest 0.1.325: an event paid 60 Biomass next to a ~2 000 Biomass run, it felt meaningless): besides its loot roll it
+pays 10% of the level's completion Biomass / Ore / Data / Fuel (`RunTuning.RewardChestCompletionPct`,
+`RewardChestCurrencies`; round numbers, `RunSystem.NiceAmount`), so a 1-chest event is worth ≈ 15% and a 2-chest event
+(Gravity Well, Treasure Pod) ≈ 30% of the run's completion payout at every level (before: 4–10% per chest). The
+result screen shows one line per resource.
 
 Risk/reward mini-events: e.g. *Unstable Reactor* (take a skill now; the boss gains +X% ATK), *Smuggler* (trade max HP
 for a rare skill), *Rift Echo* (fight an echo of a strong enemy for a part drop that only pays out on completion). No
