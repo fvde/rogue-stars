@@ -24,7 +24,7 @@ namespace RogueStars.Rules.Content.Quests
 
             // ---- Act 1: the parcel (chapters 1–8) -------------------------------------------------------------
             q.Story("m01", 1, "A Very Lost Moth",
-                "A teacup-sized moth tumbles out of the sky, cap first. “Dear me! Mothwick, Interplanetary Post. I have a parcel for… oh. “The Worm Who Fell.” That’s you, isn’t it? You look like you fell.”",
+                "A teacup-sized moth tumbles out of the sky, cap first. “Dear me! Mothwick, Interplanetary Post. I have a parcel for… oh. ‘The Worm Who Fell.’ That’s you, isn’t it? You look like you fell.”",
                 QuestBuilder.Go("Open the parcel", "m02a", "I opened Mothwick’s parcel: a lantern with a sleeping baby star inside."),
                 QuestBuilder.Go("Ask who sent it", "m02b", "I asked who sent the parcel. Mothwick didn’t know, which worried him a great deal."));
             q.Story("m02a", 2, "What’s in the Box",

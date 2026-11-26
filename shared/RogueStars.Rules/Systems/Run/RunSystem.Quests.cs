@@ -257,7 +257,7 @@ namespace RogueStars.Rules.Systems
                 var ep = QuestOpenEpilogue(c, run);
                 Require(ep != null, "unknown scene");
                 Require(index == 0, "invalid option");
-                outcome.Title = ep.Title; outcome.Choice = ep.Option; outcome.Text = ep.Text;
+                outcome.Title = ep.Title; outcome.Choice = ep.Option; outcome.Text = q.Character + " dropped by to say hello.";
                 p.EpiloguesSeen++;
                 s.Count("run_quest_epilogues");
                 run.Phase = RunPhase.AwaitRoll;

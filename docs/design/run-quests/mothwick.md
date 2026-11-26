@@ -72,7 +72,7 @@ Comment on any node by its id (for example `m05a`).
 
 ### Ch 1 · `m01` · Story: A Very Lost Moth
 
-> A teacup-sized moth tumbles out of the sky, cap first. “Dear me! Mothwick, Interplanetary Post. I have a parcel for… oh. “The Worm Who Fell.” That’s you, isn’t it? You look like you fell.”
+> A teacup-sized moth tumbles out of the sky, cap first. “Dear me! Mothwick, Interplanetary Post. I have a parcel for… oh. ‘The Worm Who Fell.’ That’s you, isn’t it? You look like you fell.”
 
 Story choice: always moves on.
 
