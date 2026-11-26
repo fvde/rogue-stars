@@ -43,6 +43,9 @@ namespace RogueStars.Rules.Systems
                     int next;
                     if (tile.Next.Count > 1)
                     {
+                        // both ways end the move on the same tile (the roll walks past the join): no choice, the worm takes
+                        // the default arm (playtest 0.1.325)
+                        if (run.ChosenNext < 0 && SameLanding(c, run, tile)) run.ChosenNext = tile.Next[0];
                         if (run.ChosenNext < 0)
                         {
                             run.Phase = RunPhase.ChooseBranch;
@@ -83,6 +86,39 @@ namespace RogueStars.Rules.Systems
                 if (!run.BossFought && (run.Rolls >= run.MaxRolls || BossAwake(c, run))) { OpenEncounter(ctx, run, "boss"); return; }
                 return;
             }
+        }
+
+        /// <summary>
+        /// Where a move of <paramref name="steps"/> steps that enters <paramref name="first"/> ends: the tile it lands on, or a
+        /// forced stop it meets on the way (shop, miniboss, arcade). -1 when that is not known yet: another fork comes first, or
+        /// the board ends.
+        /// </summary>
+        public static int LandingVia(ContentDb c, ActiveRun run, int first, int steps)
+        {
+            int pos = first;
+            for (int left = steps - 1; left > 0; left--)
+            {
+                var t = run.Tiles[pos];
+                if (TileDefOf(c, t).ForceStop) return pos;
+                if (t.Next.Count != 1) return -1;
+                pos = t.Next[0];
+            }
+            return pos;
+        }
+
+        /// <summary>
+        /// A fork whose ways all end the current move on the same tile (the split is shorter than the roll and both arms are
+        /// equally long): the worm just moves, no choice to make. Pickups passed on the arms differ, but the landing — what the
+        /// move is about — is the same, so the default arm is taken.
+        /// </summary>
+        public static bool SameLanding(ContentDb c, ActiveRun run, RunTile fork)
+        {
+            if (fork.Next.Count < 2 || run.StepsLeft <= 0) return false; // pure: a way into the unbuilt board is "not known" (a choice)
+            int land = LandingVia(c, run, fork.Next[0], run.StepsLeft);
+            if (land < 0) return false;
+            for (int i = 1; i < fork.Next.Count; i++)
+                if (LandingVia(c, run, fork.Next[i], run.StepsLeft) != land) return false;
+            return true;
         }
 
         /// <summary>

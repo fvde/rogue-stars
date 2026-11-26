@@ -35,6 +35,8 @@ Aliens, Laboratory → stronger runs, harder portals.
   segment's own mix (`RunTuning.SegmentThemes`: Hunting Grounds, Old Ruins, Badlands, Quiet Valley; the first segment is
   plain). Edges only point forward, so no tile and no fork is visited twice; the rules append a segment whenever the open
   end is closer than the largest roll + 16 steps, so the worm never runs out of board (45 rolls of two dice included).
+  When every way of a fork ends the move on the same tile (the roll walks past the join of equally long arms and no forced
+  stop lies on an arm; `RunSystem.SameLanding`) there is no choice: the worm takes the default arm (playtest 0.1.325).
   Resolved tiles stay what they were and are drawn cleared. The boss does not wait at a gate: when its awakening meter
   is full (§3.3) its **arena opens right ahead of the worm** (the path ends there) and the next step walks in and fights.
 - **Path shapes:** every segment gets a 2D layout style (`RunTuning.BoardLayouts`): *Long Straight* (gentle drift, forks

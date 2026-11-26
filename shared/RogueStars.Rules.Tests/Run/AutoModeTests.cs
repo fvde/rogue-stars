@@ -162,10 +162,7 @@ public class AutoModeTests
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
         RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 20).ToArray());
-        run.Tiles.Add(new RunTile { Id = run.Tiles.Count, TileId = "empty", Y = 1 });
-        int side = run.Tiles.Count - 1;
-        run.Tiles[side].Next.Add(3);
-        run.Tiles[1].Next.Add(side);
+        RunTestKit.SideArm(run, 1, 3, 2); // a longer side leg: the ways land on different tiles
         run.ExtraDicePermanent = 2;
         Assert.True(RunTestKit.Exec(e, ref s, Auto).Ok);
         Assert.Equal(RunPhase.ChooseBranch, s.Run.Active!.Phase);

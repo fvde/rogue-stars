@@ -134,6 +134,24 @@ public static class RunTestKit
         run.Trail.Add(0);
     }
 
+    /// <summary>
+    /// Adds a side arm of <paramref name="length"/> empty tiles from tile <paramref name="from"/> (a fork: its second way)
+    /// that rejoins the board at tile <paramref name="join"/>; returns the arm's first tile id.
+    /// </summary>
+    public static int SideArm(ActiveRun run, int from, int join, int length, string tileId = "empty")
+    {
+        int first = run.Tiles.Count, prev = from;
+        for (int i = 0; i < length; i++)
+        {
+            var t = new RunTile { Id = run.Tiles.Count, TileId = tileId, X = from + 1 + i, Y = 1 };
+            run.Tiles.Add(t);
+            run.Tiles[prev].Next.Add(t.Id);
+            prev = t.Id;
+        }
+        run.Tiles[prev].Next.Add(join);
+        return first;
+    }
+
     public static SkillDef Skill(string id, params SkillTrigger[] triggers)
     {
         var s = new SkillDef { Id = id, Name = id, Source = SkillSource.Building, Draftable = false };

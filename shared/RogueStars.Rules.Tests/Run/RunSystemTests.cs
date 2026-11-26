@@ -70,11 +70,8 @@ public class RunSystemTests
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
         RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 20).ToArray());
-        // tile 1 branches to 2 (main) or a side leg 30 → 3
-        run.Tiles.Add(new RunTile { Id = run.Tiles.Count, TileId = "empty", Y = 1 });
-        int side = run.Tiles.Count - 1;
-        run.Tiles[side].Next.Add(3);
-        run.Tiles[1].Next.Add(side);
+        // tile 1 branches to 2 (main) or a longer side leg s → s2 → 3 (different landings: a real choice)
+        int side = RunTestKit.SideArm(run, 1, 3, 2);
         run.ExtraDicePermanent = 2; // ≥3 steps: always passes the branch
         Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
         Assert.Equal(RunPhase.ChooseBranch, s.Run.Active!.Phase);
@@ -83,6 +80,65 @@ public class RunSystemTests
         Assert.True(RunTestKit.Exec(e, ref s, new RunChooseBranch { Index = 1 }).Ok);
         Assert.Contains(side, s.Run.Active!.Trail);
         Assert.DoesNotContain(2, s.Run.Active.Trail);
+    }
+
+    [Fact]
+    public void Branch_BothWaysLandOnTheSameTile_TheWormJustMoves()
+    {
+        // playtest 0.1.325: equal arms 1 → 2 → 3 and 1 → s → 3; a roll of ≥ 3 steps walks past the join on either way
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        int side = RunTestKit.SideArm(run, 1, 3, 1, "loot"); // a pickup on the side arm does not make it a choice
+        run.ExtraDicePermanent = 2;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        run = s.Run.Active!;
+        Assert.NotEqual(RunPhase.ChooseBranch, run.Phase);
+        Assert.Empty(run.BranchOptions);
+        Assert.Contains(2, run.Trail);                   // the default (main) arm
+        Assert.DoesNotContain(side, run.Trail);
+        Assert.Equal(run.LastDice.Sum(), run.Position);  // landed where either way would have
+    }
+
+    [Fact]
+    public void Branch_SameLanding_OnlyWhenEveryWayEndsTheMoveOnOneTile()
+    {
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        var c = e.Content;
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        int side = RunTestKit.SideArm(run, 1, 3, 1);
+        var fork = run.Tiles[1];
+        run.StepsLeft = 1; // lands on the arm itself: 2 or s
+        Assert.False(RunSystem.SameLanding(c, run, fork));
+        run.StepsLeft = 2; // both reach the join
+        Assert.True(RunSystem.SameLanding(c, run, fork));
+        Assert.Equal(3, RunSystem.LandingVia(c, run, side, 2));
+        run.StepsLeft = 6;
+        Assert.True(RunSystem.SameLanding(c, run, fork));
+
+        // a forced stop on one arm ends that way early: different landings, a real choice
+        run.Tiles[side].TileId = "shop";
+        Assert.Equal(side, RunSystem.LandingVia(c, run, side, 6));
+        Assert.False(RunSystem.SameLanding(c, run, fork));
+        run.Tiles[side].TileId = "empty";
+
+        // arms of different length never land together
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        RunTestKit.SideArm(run, 1, 3, 3);
+        run.StepsLeft = 8;
+        Assert.False(RunSystem.SameLanding(c, run, run.Tiles[1]));
+
+        // another fork before the landing: not known yet, the player chooses
+        RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 30).ToArray());
+        RunTestKit.SideArm(run, 1, 3, 1);
+        RunTestKit.SideArm(run, 4, 6, 1);
+        run.StepsLeft = 8;
+        Assert.False(RunSystem.SameLanding(c, run, run.Tiles[1]));
+        run.StepsLeft = 3; // the move ends on tile 4 (the next fork's tile) before choosing there
+        Assert.True(RunSystem.SameLanding(c, run, run.Tiles[1]));
     }
 
     [Fact]
