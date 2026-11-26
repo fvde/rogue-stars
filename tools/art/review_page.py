@@ -13,7 +13,7 @@ Animated previews (short looping WebP/GIF, e.g. ~/AI/out/anim-review/*.webp from
 embedded as they are (never re-encoded, so they keep animating), one figure per item with its own id (so a comment anchors to
 a single item); they are "new" unless listed under animated_approved. Every figure carries a stable id (slug of the file).
 """
-import base64, glob, html, io, json, os, sys
+import re, base64, glob, html, io, json, os, sys
 from PIL import Image
 
 THUMB = 220
@@ -97,9 +97,8 @@ def round_tag(reg, f):
 def subject_of(path):
     """The thing a picture shows: raw 'alien_zib__S__flux__s1011.png' -> alien_zib; export '.../alien_zib/S_s1011.png' -> alien_zib."""
     name = os.path.splitext(os.path.basename(path))[0]
-    if "__" in name:
-        return name.split("__")[0]
-    return os.path.basename(os.path.dirname(path))
+    sub = name.split("__")[0] if "__" in name else os.path.basename(os.path.dirname(path))
+    return re.sub(r"_v\d+$", "", sub)  # concept variants (alien_chronoslug_v1..v4) count as one subject
 
 
 def reconcile(state):

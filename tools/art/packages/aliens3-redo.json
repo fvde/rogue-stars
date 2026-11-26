@@ -3,13 +3,15 @@
   "width": 768,
   "height": 768,
   "seeds": [
-    1021,
-    1022
+    1031
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single creature, full body, centered, isolated on a plain white background, no scenery",
   "negative": "background scenery, landscape, multiple creatures, text, watermark, blurry, photo, human",
   "subjects": {
-    "alien_chronoslug": "Chronoslug, a cute round snail-slug alien with a big clock face on its shell, two antennae and a sleepy smile, epic time-controller"
+    "alien_chronoslug_v1": "Chronoslug, a cute purple slug alien whose shell is a glass hourglass with golden sand flowing inside, sleepy eyes, two antennae",
+    "alien_chronoslug_v2": "Chronoslug, a cute purple slug alien holding a big golden pocket watch with both front feelers and gazing at it sleepily, two antennae",
+    "alien_chronoslug_v3": "Chronoslug, a cute purple slug alien whose two antennae are shaped like long and short clock hands, sleepy smile, glowing slime trail behind it",
+    "alien_chronoslug_v4": "Chronoslug, a cute purple slug alien wearing a tiny wizard hat with a stopwatch on it, a ticking alarm clock strapped on its back like a backpack, sleepy eyes"
   }
 }
