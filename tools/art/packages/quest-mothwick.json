@@ -1,0 +1,15 @@
+{
+  "name": "pkg-quest-mothwick",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    7301,
+    7302
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, isolated on a plain white background, no ground, no shadow, no pedestal, no scenery",
+  "negative": "background scenery, landscape, multiple creatures, human, text, watermark, blurry, photo, ground, floor, ground shadow, drop shadow, pedestal, platform",
+  "subjects": {
+    "quest_mothwick": "Mothwick, a cute round fuzzy lilac moth the size of a teacup, big soft pale purple wings, huge shiny black eyes, two feathery antennae, an oversized blue courier cap slipping over one eye, a small brown mail satchel across its body, holding a little glass lantern with a tiny glowing yellow star inside"
+  }
+}
