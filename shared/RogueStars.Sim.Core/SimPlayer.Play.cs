@@ -273,6 +273,7 @@ namespace RogueStars.Sim
                 else if (a.Phase == RunPhase.Defeated && !a.ReviveUsed && Spend.MonthlyBudgetCents > 0 && Spendable(C.RunTuning.ReviveDiamondCost))
                     step = Exec(new RunRevive { Method = ReviveMethod.Diamonds });
                 else if (a.Phase == RunPhase.Minigame) step = PlayMinigame();
+                else if (a.Phase == RunPhase.Quest) step = PlayQuest();
                 else step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) step = Exec(new RunAutoStep { Farming = true, FarmShops = true });
                 if (!step.Ok) { Exec(new RunAbandon()); break; }
