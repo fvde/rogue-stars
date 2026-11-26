@@ -154,7 +154,7 @@ namespace RogueStars.Client.Screens
 
         /// <summary>Outcome sources that are a player decision with their own result sheet; any other source is a tile's outcome shown as popups.</summary>
         public static bool IsSheetSource(string source) =>
-            source == "event" || source == "treasure" || source == "campfire" || source == "minigame";
+            source == "event" || source == "treasure" || source == "campfire" || source == "minigame" || source == "quest";
 
         /// <summary>
         /// Feedback after the worm lands on <paramref name="tile"/>: from the rules' outcome lines when this landing published
@@ -182,6 +182,7 @@ namespace RogueStars.Client.Screens
                 case TileCategory.Campfire: list.Add(new LandingPopup("CAMPFIRE", Theme.Good, PopupKind.Event)); break;
                 case TileCategory.Shop: list.Add(new LandingPopup("SHOP!", Theme.Blue, PopupKind.Event)); break;
                 case TileCategory.Minigame: list.Add(new LandingPopup("MINI-GAME!", Theme.Premium, PopupKind.Event)); break;
+                case TileCategory.Quest: list.Add(new LandingPopup("A VISITOR!", Theme.Gold, PopupKind.Event)); break;
                 case TileCategory.BossGate: list.Add(new LandingPopup("BOSS ARENA", Theme.Bad, PopupKind.Boss)); break;
                 default:
                     if (!battle) list.AddRange(FromTileDef(def));
@@ -290,6 +291,8 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Empty: return new LandingPopup("Quiet… nothing here", Theme.TextDim, PopupKind.Text);
                 case OutcomeKind.Avoided: return new LandingPopup("Avoided!", Theme.Good, PopupKind.Text);
                 case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + Fmt.Whole(a), Theme.Warn, PopupKind.Text);
+                case OutcomeKind.CoinBonus: return new LandingPopup("+" + Fmt.Whole(a) + " " + (l.Id ?? "bonus"), Theme.Gold, PopupKind.Coins); // the quest coin bonus
+                case OutcomeKind.QuestStep: return null; // shown on the result sheet
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
         }

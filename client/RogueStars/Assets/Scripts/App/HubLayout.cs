@@ -171,7 +171,7 @@ namespace RogueStars.Client.App
                 case Features.Forge: return new Entry(featureId, "OPEN THE FORGE", null, "parts");
                 case Features.DarkSide: return new Entry(featureId, "CROSS OVER", null, "portals");
                 case Features.RunShop: case Features.RunMiniboss: case Features.RunTwoDice: case Features.RunCampfire:
-                case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll:
+                case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll: case Features.RunQuests:
                     return new Entry(featureId, "PLAY", null, "portals");
                 case Features.PackageIce: case Features.PackageLightning: case Features.PackageCounter: case Features.PackageAlien:
                 case Features.PackageTime:

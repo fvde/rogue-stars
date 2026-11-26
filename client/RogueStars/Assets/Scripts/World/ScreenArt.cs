@@ -56,6 +56,45 @@ namespace RogueStars.Client.World
 
         // ---- characters (busts, 512 × 512, pivot bottom-centre) ---------------------------------------------------
 
+        /// <summary>
+        /// Placeholder portrait of Mothwick, the Lost Courier (Run Quest 1) until its art exists (tools/art/packages/quest-mothwick.json):
+        /// a round fuzzy moth with big soft wings, huge eyes, an oversized blue courier cap and a lantern with a star inside.
+        /// </summary>
+        private static Sprite DrawMothwick(IsoPaint p, float c)
+        {
+            var fur = (Color)new Color32(0xD8, 0xC8, 0xEC, 255);
+            var wing = (Color)new Color32(0xB4, 0x9C, 0xE0, 255);
+            var cap = (Color)new Color32(0x3C, 0x6C, 0xD8, 255);
+            var gold = (Color)new Color32(0xFF, 0xC8, 0x3C, 255);
+            foreach (int sd in new[] { -1, 1 })
+            {
+                p.Blob(c + sd * 150, 300, 120, 160, VGrad(Shade(wing, -0.25f), Shade(wing, 0.2f), 140, 460), Ink, 10);
+                p.Blob(c + sd * 170, 330, 40, 52, Shade(wing, 0.35f), Ink, 0);
+                p.Blob(c + sd * 120, 150, 70, 80, Shade(wing, -0.1f), Ink, 8);
+            }
+            p.Blob(c, 150, 120, 140, IsoPaint.Radial(Shade(fur, 0.25f), Shade(fur, -0.25f), c - 30, 200, 160), Ink, 10);
+            p.Blob(c, 320, 130, 115, IsoPaint.Radial(Shade(fur, 0.3f), Shade(fur, -0.2f), c - 40, 360, 160), Ink, 10);
+            foreach (int sd in new[] { -1, 1 })
+            {
+                p.Blob(c + sd * 52, 318, 40, 46, Color.white, Ink, 6);
+                p.Blob(c + sd * 48, 312, 24, 30, Ink, Ink, 0);
+                p.Circle(c + sd * 42, 326, 9, Color.white);
+                p.Line(V(c + sd * 40, 430), V(c + sd * 90, 500), 9, Ink);
+                p.Blob(c + sd * 92, 500, 14, 14, gold, Ink, 5);
+            }
+            p.Ellipse(c, 262, 24, 10, Shade(fur, -0.4f));
+            // the oversized courier cap, slipping over one eye
+            p.Shape(new[] { V(c - 140, 392), V(c + 120, 420), V(c + 110, 470), V(c - 120, 452) }, VGrad(Shade(cap, -0.25f), Shade(cap, 0.2f), 392, 470), Ink, 8);
+            p.Shape(new[] { V(c - 160, 388), V(c + 40, 402), V(c + 20, 374), V(c - 150, 366) }, Shade(cap, -0.35f), Ink, 6);
+            p.Shape(Star(c - 10, 440, 18, 5, 0.45f, 90), gold, Ink, 3);
+            // the lantern with Pim inside
+            p.Ellipse(c + 160, 120, 70, 70, new Color(1f, 0.9f, 0.5f, 0.35f));
+            p.Shape(RoundRect(c + 128, 70, 64, 96, 16), IsoPaint.Radial(Color.white, new Color32(0xFF, 0xE6, 0x8A, 255), c + 160, 118, 56), Ink, 6);
+            p.Shape(Star(c + 160, 118, 20, 5, 0.45f, 90), gold, Ink, 3);
+            p.Line(V(c + 160, 166), V(c + 120, 210), 7, Ink);
+            return p.ToSprite("rs_char_quest_mothwick", V(c, 0));
+        }
+
         private static Sprite DrawCharacter(string id)
         {
             const int n = 512;
@@ -69,6 +108,7 @@ namespace RogueStars.Client.World
                 case "camp_cook": skin = new Color32(0xF4, 0x9A, 0x48, 255); robe = new Color32(0xE8, 0xE2, 0xD6, 255); accent = new Color32(0xE8, 0x4A, 0x4A, 255); break;
                 default: skin = new Color32(0x7C, 0xD0, 0x6A, 255); robe = new Color32(0xC8, 0x8A, 0x3C, 255); accent = new Color32(0x8A, 0x4C, 0xC8, 255); break;
             }
+            if (id == "quest_mothwick") return DrawMothwick(p, c);
             // shoulders / robe
             p.Shape(new[] { V(40, 0), V(472, 0), V(436, 150), V(c + 120, 210), V(c - 120, 210), V(76, 150) },
                 VGrad(Shade(robe, -0.35f), Shade(robe, 0.15f), 0, 210), Ink, 10);

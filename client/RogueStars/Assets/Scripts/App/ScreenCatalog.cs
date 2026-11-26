@@ -45,6 +45,8 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "observatory", Title = "Observatory", FeatureId = Features.Invasions, Workstream = "Meta", Create = () => new ObservatoryScreen() },
             new ScreenEntry { Id = "arena", Title = "Arena", FeatureId = Features.Arena, Workstream = "Meta", Create = () => new ArenaScreen() },
             new ScreenEntry { Id = "guild", Title = "Guild", FeatureId = Features.Guilds, Workstream = "Meta", Create = () => new GuildScreen() },
+            // Run Quests: the journal of the story characters met on the board ("More"; docs/design/run-quests/recipe.md).
+            new ScreenEntry { Id = "journal", Title = "Journal", FeatureId = Features.RunQuests, Workstream = "Run", Create = () => new JournalScreen() },
             new ScreenEntry { Id = "settings", Title = "Settings", Workstream = "Client", Create = () => new SettingsScreen() },
         };
 

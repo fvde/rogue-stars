@@ -215,6 +215,7 @@ namespace RogueStars.Client.UiKit
                 case TileCategory.BossTile: return "B";
                 case TileCategory.BossGate: return "BOSS";
                 case TileCategory.Minigame: return "G";
+                case TileCategory.Quest: return "?!";
                 default: return "";
             }
         }
@@ -242,6 +243,7 @@ namespace RogueStars.Client.UiKit
                 case TileCategory.BossTile: return "BOSS";
                 case TileCategory.BossGate: return "BOSS";
                 case TileCategory.Minigame: return "GAME";
+                case TileCategory.Quest: return "VISITOR";
                 default: return "";
             }
         }
@@ -277,6 +279,7 @@ namespace RogueStars.Client.UiKit
                 case TileCategory.Shard: case TileCategory.Pickup: return Premium;
                 case TileCategory.BossTile: case TileCategory.BossGate: return Hex(0xE02A3A);
                 case TileCategory.Minigame: return Hex(0x5CF2C8);
+                case TileCategory.Quest: return Hex(0xFFD86A);
                 default: return TileColor(v);
             }
         }

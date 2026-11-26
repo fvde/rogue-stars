@@ -80,7 +80,7 @@ namespace RogueStars.Client.World
             {
                 case TileCategory.StatBuff: return TileFace.Boost;
                 case TileCategory.Event: case TileCategory.Pickup: return TileFace.Event;
-                case TileCategory.Shop: case TileCategory.Campfire: case TileCategory.Treasure: case TileCategory.Minigame:
+                case TileCategory.Shop: case TileCategory.Campfire: case TileCategory.Treasure: case TileCategory.Minigame: case TileCategory.Quest:
                 case TileCategory.Start: case TileCategory.Miniboss: case TileCategory.Loot: return TileFace.Special;
                 case TileCategory.Hazard: return TileFace.Hazard;
                 case TileCategory.StatDebuff: return TileFace.Curse;
@@ -105,6 +105,7 @@ namespace RogueStars.Client.World
                 case TileCategory.Campfire: return "rest";
                 case TileCategory.Shop: return "shop";
                 case TileCategory.Minigame: return "minigame";
+                case TileCategory.Quest: return "quest";
                 case TileCategory.Start: return "portal";
                 case TileCategory.Loot: case TileCategory.Shard: return "reward";
                 default: return null;
@@ -130,6 +131,7 @@ namespace RogueStars.Client.World
                 case "event": return 0.85f;
                 case "mystery": return 0.88f;
                 case "minigame": return 0.95f;
+                case "quest": return 1.3f; // a rare visitor: readable from afar like the minibosses
                 case "reward": return 0.85f;
                 default: return 0.74f;
             }
@@ -429,6 +431,7 @@ namespace RogueStars.Client.World
                 case "rest": return Campfire();
                 case "shop": return Cart();
                 case "minigame": return Arcade();
+                case "quest": return Lantern();
                 case "portal": return PortalRing();
                 case "reward": return Crystals("reward", new Color32(0x72, 0xE6, 0xFF, 255), 3, 120, 120);
                 default: return Skull("enemy", SkullGold, false, false, 1f);
@@ -624,6 +627,24 @@ namespace RogueStars.Client.World
             p.Blob(cx + 28, 40, 8, 8, new Color32(0xFF, 0xD0, 0x48, 255), Ink, 3);
             p.Blob(cx - 28, 40, 8, 8, new Color32(0x9C, 0x8C, 0xFF, 255), Ink, 3);
             return p.ToSprite("rs_marker_minigame", V(cx, 10));
+        }
+
+        /// <summary>The Run Quest visitor's marker: a little glass lantern with a star inside (Mothwick's lantern).</summary>
+        private static Sprite Lantern()
+        {
+            var p = new IsoPaint(130, 190);
+            float cx = 65;
+            var brass = (Color)new Color32(0xD8, 0xA0, 0x48, 255);
+            var glow = (Color)new Color32(0xFF, 0xE6, 0x8A, 255);
+            p.Ellipse(cx, 90, 58, 62, new Color(1f, 0.9f, 0.5f, 0.28f));
+            p.Shape(RoundRect(cx - 36, 6, 72, 20, 8), VGrad(Shade(brass, -0.3f), brass, 6, 26), Ink, 5);
+            p.Shape(RoundRect(cx - 30, 24, 60, 100, 18), IsoPaint.Radial(Color.white, glow, cx, 74, 60), Ink, 6);
+            p.Shape(Star(cx, 74, 22, 5, 0.45f, 90), new Color32(0xFF, 0xC8, 0x30, 255), Ink, 4);
+            p.Shape(RoundRect(cx - 34, 120, 68, 18, 8), VGrad(Shade(brass, -0.3f), brass, 120, 138), Ink, 5);
+            p.Line(V(cx - 18, 138), V(cx, 168), 6, Ink); p.Line(V(cx + 18, 138), V(cx, 168), 6, Ink);
+            p.Blob(cx, 170, 10, 10, brass, Ink, 4);
+            p.Ellipse(cx - 14, 96, 6, 12, new Color(1, 1, 1, 0.75f));
+            return p.ToSprite("rs_marker_quest", V(cx, 8));
         }
 
         private static Sprite PortalRing()

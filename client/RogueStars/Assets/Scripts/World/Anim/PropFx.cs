@@ -76,6 +76,7 @@ namespace RogueStars.Client.World.Anim
             { "portal", new PropLook(FxKind.Swirl, ("_Spin", 0.25f), ("_Twist", 1.1f), ("_GlowAmount", 0.3f)) { Disc = new Vector4(0.5f, 0.5f, 0.24f, 1f), Glow = Violet } },
             { "mystery", Pulse(Violet, 0.5f, 1.6f, 0.15f) },
             { "minigame", Pulse(Green, 0.5f, 2.0f, 0.15f) },
+            { "quest", Pulse(Gold, 0.8f, 1.6f, 0.2f) },
             { "event", Pulse(Gold, 0.9f, 2.2f, 0.3f) },
             { "time_clock", Pulse(Cyan, 0.9f, 1.6f, 0.15f, 0.25f) },
             { "time_clock_2", Pulse(Cyan, 0.9f, 1.6f, 0.15f, 0.25f) },

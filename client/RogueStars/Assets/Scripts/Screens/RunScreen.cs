@@ -1338,6 +1338,7 @@ namespace RogueStars.Client.Screens
                 case RunPhase.Defeated: _decision = ReviveModal(run); break;
                 case RunPhase.BurrowChoice: _decision = BurrowModal(run); break;
                 case RunPhase.Minigame: _decision = Minigames.MinigameHost.Open(App.ModalLayer, Session); break;
+                case RunPhase.Quest: _decision = QuestModal(run); break;
             }
         }
 
@@ -1407,7 +1408,7 @@ namespace RogueStars.Client.Screens
         public bool OutcomeOpen => _outcome != null && _outcome.IsOpen;
 
         private static string SourceCaption(string source) =>
-            source == "treasure" ? "CHEST" : source == "campfire" ? "CAMPFIRE" : source == "shop" ? "SHOP" : source == "minigame" ? "MINI-GAME" : "EVENT";
+            source == "treasure" ? "CHEST" : source == "campfire" ? "CAMPFIRE" : source == "shop" ? "SHOP" : source == "minigame" ? "MINI-GAME" : source == "quest" ? "STORY" : "EVENT";
 
         /// <summary>One result line as text, e.g. "+30 coins", "−5% max HP", "New skill: Ember Kindle" (pure; tested).</summary>
         public static string OutcomeLineText(OutcomeLine l, ContentDb content)
@@ -1434,6 +1435,10 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Danger: return "Danger " + sign + Fmt.Whole(a);
                 case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
                 case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + Fmt.Whole(a) + " (" + l.Id + " odds)";
+                case OutcomeKind.CoinBonus: return "+" + Fmt.Whole(a) + " coins from " + (l.Id ?? "your quest bonus");
+                case OutcomeKind.QuestBoon: return (l.Id ?? "Quest bonus") + ": +" + Fmt.Whole(a) + " coins on every coin gain, forever";
+                case OutcomeKind.QuestStep:
+                    return l.Id == "complete" ? "The story is complete!" : l.Id == "waits" ? "The story waits at chapter " + Fmt.Whole(a) : "The story moves on: chapter " + Fmt.Whole(a);
                 default: return "Nothing happened.";
             }
         }
@@ -1443,7 +1448,7 @@ namespace RogueStars.Client.Screens
         {
             switch (l.Kind)
             {
-                case OutcomeKind.Coins: return "coin";
+                case OutcomeKind.Coins: case OutcomeKind.CoinBonus: case OutcomeKind.QuestBoon: return "coin";
                 case OutcomeKind.Hp: return "heart";
                 case OutcomeKind.Stat: return l.Id == "Atk" ? "sword" : l.Id == "Def" ? "shield" : l.Id == "Hp" ? "heart" : null;
                 case OutcomeKind.Xp: case OutcomeKind.LevelUp: return "exp";
@@ -1466,7 +1471,8 @@ namespace RogueStars.Client.Screens
         {
             switch (l.Kind)
             {
-                case OutcomeKind.Coins: return new KeyValuePair<string, Color>("C", Theme.Gold);
+                case OutcomeKind.Coins: case OutcomeKind.CoinBonus: case OutcomeKind.QuestBoon: return new KeyValuePair<string, Color>("C", Theme.Gold);
+                case OutcomeKind.QuestStep: return new KeyValuePair<string, Color>("?!", l.Good ? Theme.Good : Theme.TextFaint);
                 case OutcomeKind.Hp: return new KeyValuePair<string, Color>("HP", l.Good ? Theme.Good : Theme.Bad);
                 case OutcomeKind.Stat: return new KeyValuePair<string, Color>("%", l.Good ? Theme.Good : Theme.Bad);
                 case OutcomeKind.SkillGained:
