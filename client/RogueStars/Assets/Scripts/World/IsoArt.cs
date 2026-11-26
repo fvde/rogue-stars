@@ -137,6 +137,19 @@ namespace RogueStars.Client.World
             }
         }
 
+        /// <summary>
+        /// Share of a marker's drawn height its art is moved down so its stone pedestal sits centred on the tile (playtest
+        /// 0.1.325): the imported elite / miniboss skull stands on a thick slab and its import pivot is the slab's front
+        /// footprint, which left the slab ~0.13 tile units behind the tile's centre at the miniboss's size. The slab's middle
+        /// (between its top and bottom faces, ~17.5% of the image up) goes on the tile's centre instead of the ~11.5% pivot.
+        /// 0 for art without a pedestal and for the code-drawn skulls.
+        /// </summary>
+        public static float PedestalDrop(string id, Sprite sprite)
+        {
+            if (sprite == null || sprite != ArtCatalog.SliceMarker(id)) return 0;
+            return id == "elite" || id == "miniboss" ? 0.06f : 0;
+        }
+
         // ---- tile blocks ---------------------------------------------------------------------------------------------
 
         private const float SX = Iso.StepX * Iso.Ppu, SY = Iso.StepY * Iso.Ppu;

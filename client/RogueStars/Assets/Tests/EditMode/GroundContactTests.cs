@@ -102,7 +102,9 @@ namespace RogueStars.Client.Tests
                 var sr = spriteT.GetComponent<SpriteRenderer>();
                 if (sr.sprite == null) continue;
                 // the footprint centre is on the holder's origin: the tile's top, the slot's floor, the ground spot
-                Assert.That(WorldBoard.FootOf(sr).magnitude, Is.LessThan(0.005f), t.name + " stands on its spot");
+                // (a marker on a stone pedestal is lowered so the slab's middle is on the spot: IsoArt.PedestalDrop, playtest 0.1.325)
+                float drop = marker ? IsoArt.PedestalDrop(t.name.Substring("Marker:".Length), sr.sprite) * sr.bounds.size.y / Mathf.Max(0.0001f, t.lossyScale.y) : 0;
+                Assert.That((WorldBoard.FootOf(sr) + new Vector2(0, drop)).magnitude, Is.LessThan(0.005f), t.name + " stands on its spot");
                 Assert.That(((Vector2)shadowT.localPosition).magnitude, Is.LessThan(0.005f), t.name + ": the shadow is centred under it");
                 // the base's front edge lies inside the shadow (it touches): below the origin by less than the shadow's half depth
                 var c = SpriteContact.Of(sr.sprite);

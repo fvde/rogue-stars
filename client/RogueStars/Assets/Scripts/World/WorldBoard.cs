@@ -450,6 +450,8 @@ namespace RogueStars.Client.World
                     bool boss = marker == "boss";
                     var sprite = boss ? IsoArt.BossMarker(content, run.BossId) : IsoArt.Marker(marker);
                     view.Marker = Fit(mgo, sprite, boss ? IsoArt.BossMarkerWidth : Iso.TileW * 1.05f, IsoArt.MarkerHeight(marker), order + 3, true, out float bw);
+                    float drop = IsoArt.PedestalDrop(marker, sprite) * view.Marker.bounds.size.y; // a pedestal's slab centred on the tile
+                    if (drop > 0) view.Marker.transform.localPosition -= new Vector3(0, drop / Mathf.Max(0.0001f, mgo.transform.lossyScale.y), 0);
                     if (boss) WorldCreature.Attach(view.Marker); // the boss waiting on its tile breathes
                     else PropFx.Apply(view.Marker, PropFx.LookOfSprite(sprite)); // the portal swirls, event / mystery markers glow
                     view.MarkerShadow = ContactShadow(mgo, bw, Iso.TileW * 0.3f, Iso.TileW * (boss ? 0.95f : 0.72f), order + 2);
