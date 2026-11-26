@@ -2,11 +2,17 @@
   "name": "pkg-slice-markers5",
   "width": 1024,
   "height": 1024,
-  "seeds": [5141, 5142, 5143, 5144],
+  "seeds": [
+    5141,
+    5142,
+    5143,
+    5144
+  ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
   "suffix": ", a single small object floating on its own, upright and facing the viewer, no base, no pedestal, no plinth, no platform, no tile, no ground, no shadow, centered, isolated on a plain pure white background, no text",
   "negative": "base, pedestal, plinth, platform, stand, tile, floor, ground, scenery, multiple objects, text, letters, watermark, blurry, photo, realistic, scary",
   "subjects": {
-    "miniboss": "a cute round cartoon skull wearing a small golden crown, cheeky grin, very simple shapes, same style as a friendly mobile game map marker, not scary"
+    "miniboss": "a cute round cartoon skull wearing a small golden crown, cheeky grin, very simple shapes, same style as a friendly mobile game map marker, not scary",
+    "portal": "a cute swirling blue and violet magic portal ring with sparkles, simple clean shapes, same style as a friendly mobile game map marker"
   }
 }
