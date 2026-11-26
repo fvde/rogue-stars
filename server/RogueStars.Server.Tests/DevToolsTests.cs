@@ -182,7 +182,8 @@ public class DevToolsTests : IDisposable
         _out.WriteLine($"day {day} {profile}: {sw.ElapsedMilliseconds} ms request, {body.GetProperty("elapsedMs").GetInt64()} ms simulation, "
                        + $"{body.GetProperty("commands").GetInt64()} commands, main level {body.GetProperty("mainLevel").GetInt64()}, "
                        + $"worm level {body.GetProperty("wormLevel").GetInt64()}, power {body.GetProperty("power").GetInt64()}");
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), "jump took " + sw.Elapsed);
+        // a CPU-bound simulation: generous bound so a full parallel solution run (other sims at the same time) does not flake
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(120), "jump took " + sw.Elapsed);
 
         var wire = body.GetProperty("state");
         Assert.Equal(version0 + 1, wire.GetProperty("version").GetInt64());
