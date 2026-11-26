@@ -75,6 +75,51 @@ namespace RogueStars.Client.UiKit
             }
         }
 
+
+        private static Sprite _hex, _hexRing;
+
+        /// <summary>Pointy-top rounded hexagon, simple sprite (node frames). Width : height = 0.866 (use <see cref="HexAspect"/>).</summary>
+        public static Sprite Hex => _hex != null ? _hex : (_hex = MakeHex(0, "rs_hex"));
+
+        /// <summary>Outline of <see cref="Hex"/> (about 9% of its width thick).</summary>
+        public static Sprite HexRing => _hexRing != null ? _hexRing : (_hexRing = MakeHex(7, "rs_hex_ring"));
+
+        public const float HexAspect = 0.866f;
+
+        private static float HexDist(float x, float y, float r)
+        {
+            // pointy-top: swap the axes of the flat-top signed distance
+            float px = Mathf.Abs(y), py = Mathf.Abs(x);
+            const float kx = -0.866025404f, ky = 0.5f, kz = 0.577350269f;
+            float d = kx * px + ky * py;
+            float m = 2 * Mathf.Min(d, 0);
+            px -= m * kx; py -= m * ky;
+            px -= Mathf.Clamp(px, -kz * r, kz * r); py -= r;
+            return Mathf.Sqrt(px * px + py * py) * Mathf.Sign(py);
+        }
+
+        private static Sprite MakeHex(int ring, string name)
+        {
+            const int n = 128;
+            const float apothem = 54f, round = 7f;
+            var tex = NewTexture(n, name);
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float fx = x + 0.5f - n / 2f, fy = y + 0.5f - n / 2f;
+                    float d = HexDist(fx, fy, apothem - round) - round;
+                    float a = Mathf.Clamp01(0.5f - d);
+                    if (ring > 0) a = Mathf.Clamp01(a - Mathf.Clamp01(0.5f - (d + ring)));
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(255 * a));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            var sprite = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100);
+            sprite.name = name;
+            return sprite;
+        }
+
         /// <summary>Rounded outline of <paramref name="thicknessTexels"/> texels at radius <see cref="R"/>.</summary>
         public static Sprite Ring(int thicknessTexels)
         {

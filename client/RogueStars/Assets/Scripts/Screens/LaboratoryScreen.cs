@@ -18,7 +18,7 @@ namespace RogueStars.Client.Screens
     /// </summary>
     public sealed class LabTreeLayout
     {
-        public const float NodeWidth = 224, NodeHeight = 164, ColGap = 30, RowGap = 104, LaneGap = 48, HeaderHeight = 84, Margin = 28;
+        public const float NodeWidth = 224, NodeHeight = 196, ColGap = 30, RowGap = 104, LaneGap = 48, HeaderHeight = 84, Margin = 28;
         public float Width, Height;
         public readonly Dictionary<string, Rect> Nodes = new Dictionary<string, Rect>();
         /// <summary>Dependency depth per node (0 = no prerequisites).</summary>
@@ -187,13 +187,18 @@ namespace RogueStars.Client.Screens
     /// </summary>
     public sealed class LaboratoryScreen : UiScreen
     {
-        public const float ViewportHeight = 1240;
+        public const float ViewportHeight = 1500;
+        private int _mode; // 0 = Tree, 1 = Status
         private static readonly Color StatColor = Theme.Hex(0x3E5C76);
         private Vector2 _pan;
         private bool _panSet;
         private string _pendingDone;
 
         public override string Title => "Laboratory";
+
+        /// <summary>No top header: the graph owns the screen; the bottom bar has the back button and the two mode chips.</summary>
+        public override float HeaderHeight => 0;
+        public override float FooterHeight => 136;
 
         /// <summary>G1 T35: a collected research pops its node in the tree.</summary>
         public override bool OnFeedback(GameEvent e)
@@ -210,15 +215,30 @@ namespace RogueStars.Client.Screens
         public ScrollRect TreeScroll { get; private set; }
 
         private readonly Dictionary<string, RectTransform> _nodes = new Dictionary<string, RectTransform>();
+        private readonly Dictionary<string, RectTransform> _hexes = new Dictionary<string, RectTransform>();
+        public const float HexSize = 112;
 
         protected override void Build(RectTransform body)
         {
-            Header(body);
+            BuildBottomBar();
+            Kit.Ribbon(body, "Laboratory", new Color32(0x5A, 0x4A, 0x9C, 255), 76);
+            Header(body, _mode == 1);
             ActiveSlots(body);
             if (Content.LabResearch.Count == 0) { Note(body, "No research available."); return; }
-            Legend(body);
+            if (_mode == 1) { Legend(body); StatusDetails(body); return; }
             Tree(body);
             if (_pendingDone != null) { var id = _pendingDone; _pendingDone = null; PlayResearchDone(id); }
+        }
+
+        /// <summary>Bottom bar: the back button and the two mode chips (the tree, the status page).</summary>
+        private void BuildBottomBar()
+        {
+            if (Footer == null) return;
+            var row = Ui.Row(Footer, 96, 14, null, 0, "BottomBar");
+            var back = Kit.BackButton(row, BackLabel, OnBack);
+            Ui.Size(back, 96, 96, 0, 0);
+            var chips = Kit.TabChips(row, new[] { "Tree", "Status" }, _mode, i => { _mode = i; Rebuild(); }, 84);
+            Ui.Size(chips.Buttons[0].transform.parent, -1, 84, 1);
         }
 
         /// <summary>Pans the tree to a branch's lane ("packages", "offense" …; tests and deep links).</summary>
@@ -243,18 +263,32 @@ namespace RogueStars.Client.Screens
 
         // ---- header and slots ----------------------------------------------------------------------
 
-        private void Header(RectTransform body)
+        private void Header(RectTransform body, bool full)
         {
-            var card = Card(body, Theme.Header, 4);
+            var card = Kit.Card(body, KitTone.Raised, 20, 8, "LabStatus");
             int slots = LaboratorySystem.Slots(State, Content), running = LaboratorySystem.Running(State);
-            KeyValue(card, "Data", Fmt.Num(State.Wallet.Get(Currencies.Data)), Theme.CurrencyColor(Currencies.Data));
+            var top = Ui.Row(card, 64, 14, null, 0, "StatusRow");
+            Kit.CurrencyChip(top, Currencies.Data, Fmt.Num(State.Wallet.Get(Currencies.Data)), () => App.Bar.ShowCurrency(Currencies.Data), "DataChip");
+            Kit.Pill(top, "Slots " + running + "/" + slots, running >= slots ? Theme.Warn : Theme.Good, Theme.OnAccent, "SlotsPill", 44);
+            Ui.Spacer(top);
             long cost = LaboratorySystem.NextDataCost(State, Content);
             string where = running >= slots ? " · all slots busy" : "";
             KeyValue(card, "Next research", Fmt.Num(cost) + " Data · " + Fmt.Duration(LaboratorySystem.NextDurationMs(State, Content)) + where,
                 State.Wallet.CanAfford(Currencies.Data, cost) ? Theme.Text : Theme.Bad).name = "NextResearch";
-            KeyValue(card, "Slots", running + "/" + slots + " busy · speed +" + Fmt.Pct(CitySystem.ResearchSpeedPct(State, Content)) + " · draft skills " + LaboratorySystem.ActiveSkillIds(State, Content).Count);
+            if (full) KeyValue(card, "Slots", running + "/" + slots + " busy · speed +" + Fmt.Pct(CitySystem.ResearchSpeedPct(State, Content)) + " · draft skills " + LaboratorySystem.ActiveSkillIds(State, Content).Count);
             var st = BuildingStatus(State, Content, out bool active);
             Ui.Label(card, st, Theme.FontSmall, active ? Theme.Good : Theme.Warn).name = "LabBuilding";
+        }
+
+        private void StatusDetails(RectTransform body)
+        {
+            var card = Kit.Card(body, KitTone.Card, 20, 8, "BranchProgress");
+            foreach (var b in LabTreeLayout.Branches(Content))
+            {
+                var row = Ui.Row(card, 56, 12, null, 0, "Branch:" + b);
+                Ui.Label(row, LaneName(b), Theme.FontNormal, Theme.Gold);
+                Kit.LevelBadge(row, BranchProgress(b), Color.white, 40);
+            }
         }
 
         /// <summary>
@@ -324,9 +358,10 @@ namespace RogueStars.Client.Screens
             var layout = LabTreeLayout.Build(Content);
             Layout = layout;
             _nodes.Clear();
+            _hexes.Clear();
 
             // the pan view: a fixed-height window, the tree scrolls both ways inside it
-            var view = Ui.RoundPanel(body, Theme.PanelAlt, Theme.RadiusCard, "LabTree");
+            var view = Kit.Surface(body, Theme.Hex(0x2A2250), Theme.RadiusCard, Theme.Border, "backdrop_lab", "LabTree");
             Ui.Size(view, -1, ViewportHeight);
             view.gameObject.AddComponent<RectMask2D>();
             var canvas = Ui.Rect(view.transform, "TreeCanvas");
@@ -447,77 +482,77 @@ namespace RogueStars.Client.Screens
             return string.Join(", ", parts);
         }
 
+        /// <summary>The initials on a node's badge (two letters; stat nodes show their stat's abbreviation).</summary>
+        private static string Glyph(LabResearchDef def)
+        {
+            if (def.Kind == LabNodeKind.Stat && def.Levels.Count > 0 && def.Levels[0].Stats.Count > 0) return WormScreen.StatAbbr(def.Levels[0].Stats[0].Stat);
+            var words = def.Name.Split(' ');
+            string g = words[0].Substring(0, 1) + (words.Length > 1 ? words[1].Substring(0, 1) : words[0].Length > 1 ? words[0].Substring(1, 1) : "");
+            return g.ToUpperInvariant();
+        }
+
+        private static Image HexRingOn(RectTransform hex, Color color, string name, float scale = 1.1f)
+        {
+            var ring = Ui.Panel(hex, color, name);
+            ring.sprite = UiShapes.HexRing; ring.preserveAspect = true; ring.raycastTarget = false;
+            Ui.Stretch(ring.rectTransform);
+            ring.rectTransform.localScale = new Vector3(scale, scale, 1);
+            return ring;
+        }
+
+        /// <summary>
+        /// One node: a hex badge (colour by kind, greyed while locked) with the node's initials and "level/max" on it, state
+        /// rings and badges on the hex, and the node's name and next effect under it. The button covers the grid cell.
+        /// </summary>
         private void Node(RectTransform canvas, LabResearchDef def, Rect r)
         {
             var e = LaboratorySystem.Entry(State, def.Id);
             var state = NodeState(State, Content, def);
             var baseCol = NodeColor(def);
-            Color face;
-            switch (state)
-            {
-                case LabNodeState.Locked: face = Color.Lerp(baseCol, Theme.Locked, 0.82f); break;
-                case LabNodeState.Available: face = Color.Lerp(baseCol, Theme.Panel, 0.5f); break;
-                default: face = Color.Lerp(baseCol, Theme.Panel, 0.12f); break;
-            }
-            string kind = def.Kind == LabNodeKind.Skill ? "SKILL" + (e.Level > 0 ? (e.Enabled ? " · ON" : " · OFF") : "") : def.Kind == LabNodeKind.Package ? "PACKAGE" : "STAT";
-            string lvText = def.Kind == LabNodeKind.Package ? (e.Level > 0 ? "unlocked" : "") : "Lv " + e.Level + "/" + def.Levels.Count;
-            string label = "<size=18>" + kind + (lvText.Length > 0 ? " · " + lvText : "") + "</size>\n" + def.Name + "\n<size=19>" + FaceLine(def) + "</size>";
-            var btn = Ui.Button(canvas, label, () => NodeModal(def.Id), face, -1, -1, true, 23);
+            string lvText = e.Level + "/" + def.Levels.Count;
+            string label = "<b>" + def.Name + "</b>\n<size=17>" + FaceLine(def) + "</size>";
+            var btn = Ui.Button(canvas, label, () => NodeModal(def.Id), new Color(0, 0, 0, 0), -1, -1, true, 21);
             btn.name = "LabNode:" + def.Id;
             var rt = (RectTransform)btn.transform;
             Object.DestroyImmediate(btn.GetComponent<LayoutElement>());
             Place(rt, r);
             _nodes[def.Id] = rt;
             var text = btn.GetComponentInChildren<Text>();
-            if (state == LabNodeState.Locked && text != null) text.color = Theme.TextDim;
+            text.color = state == LabNodeState.Locked ? Theme.TextDim : Theme.Text;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            var trt = text.rectTransform;
+            trt.anchorMin = new Vector2(0, 0); trt.anchorMax = new Vector2(1, 0); trt.pivot = new Vector2(0.5f, 0);
+            trt.sizeDelta = new Vector2(0, r.height - HexSize - 6); trt.anchoredPosition = Vector2.zero;
+            text.alignment = TextAnchor.UpperCenter;
             Ui.Rect(rt, "State:" + state).gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
-            // kind accent: a coloured band on top (skills, packages) or a steel edge (stats)
-            var band = Ui.Panel(rt, def.Kind == LabNodeKind.Stat ? Theme.Hex(0x9FB3C8) : baseCol, def.Kind == LabNodeKind.Stat ? "StatFrame" : "KindBand");
-            band.raycastTarget = false;
-            var brt = band.rectTransform;
-            brt.anchorMin = new Vector2(0.15f, 1); brt.anchorMax = new Vector2(0.85f, 1); brt.pivot = new Vector2(0.5f, 1);
-            brt.sizeDelta = new Vector2(0, def.Kind == LabNodeKind.Package ? 14 : 8); brt.anchoredPosition = new Vector2(0, -4);
-            if (state == LabNodeState.Locked) band.color = Color.Lerp(band.color, Theme.Locked, 0.6f);
-
-            // level pips along the bottom (stat / skill nodes)
-            if (def.Kind != LabNodeKind.Package && def.Levels.Count > 1)
-            {
-                var pips = Ui.Rect(rt, "Pips");
-                pips.anchorMin = new Vector2(0.12f, 0); pips.anchorMax = new Vector2(0.88f, 0); pips.pivot = new Vector2(0.5f, 0);
-                pips.sizeDelta = new Vector2(0, 8); pips.anchoredPosition = new Vector2(0, 16);
-                int n = def.Levels.Count;
-                for (int i = 0; i < n; i++)
-                {
-                    var pip = Ui.RoundPanel(pips, i < e.Level ? Theme.Gold : i < e.Level + (e.ResearchingLevel > 0 ? 1 : 0) ? Theme.Premium : new Color(0, 0, 0, 0.35f), 4, "Pip");
-                    pip.raycastTarget = false;
-                    var prt = pip.rectTransform;
-                    prt.anchorMin = new Vector2((float)i / n, 0); prt.anchorMax = new Vector2((float)(i + 1) / n, 1);
-                    prt.offsetMin = new Vector2(2, 0); prt.offsetMax = new Vector2(-2, 0);
-                }
-            }
+            bool locked = state == LabNodeState.Locked, maxed = state == LabNodeState.Maxed;
+            var hex = Kit.HexNode(rt, baseCol, Glyph(def), lvText, HexSize, locked, maxed, "Hex");
+            hex.anchorMin = hex.anchorMax = new Vector2(0.5f, 1); hex.pivot = new Vector2(0.5f, 1);
+            hex.sizeDelta = new Vector2(HexSize, HexSize); hex.anchoredPosition = new Vector2(0, -2);
+            _hexes[def.Id] = hex;
 
             switch (state)
             {
                 case LabNodeState.Locked:
-                    LockIcon(rt);
+                    LockIcon(hex);
                     break;
                 case LabNodeState.Available:
-                    UiShapes.Outline(rt, Theme.Accent, Theme.RadiusButton, 5, "AvailableRing");
+                    HexRingOn(hex, Theme.Accent, "AvailableRing");
                     break;
                 case LabNodeState.Researching:
                 {
-                    var ring = UiShapes.Outline(rt, Theme.Premium, Theme.RadiusButton, 6, "ResearchingRing");
+                    var ring = HexRingOn(hex, Theme.Premium, "ResearchingRing");
                     UiPulse.On(ring, 0.03f, 1.2f, 0.4f);
-                    ResearchProgress(rt, def.Id);
+                    ResearchProgress(hex, def.Id);
                     break;
                 }
                 case LabNodeState.Researched:
-                    CheckBadge(rt, Theme.Good);
+                    CheckBadge(hex, Theme.Good);
                     break;
                 case LabNodeState.Maxed:
-                    UiShapes.Outline(rt, Theme.Gold, Theme.RadiusButton, 6, "MaxedRing");
-                    CheckBadge(rt, Theme.Gold);
+                    HexRingOn(hex, Theme.Gold, "MaxedRing");
+                    CheckBadge(hex, Theme.Gold);
                     break;
             }
         }
@@ -562,7 +597,7 @@ namespace RogueStars.Client.Screens
             track.raycastTarget = false;
             var trt = track.rectTransform;
             trt.anchorMin = new Vector2(0.08f, 0); trt.anchorMax = new Vector2(0.92f, 0); trt.pivot = new Vector2(0.5f, 0);
-            trt.sizeDelta = new Vector2(0, 12); trt.anchoredPosition = new Vector2(0, 30);
+            trt.sizeDelta = new Vector2(0, 12); trt.anchoredPosition = new Vector2(0, 10);
             var fill = Ui.RoundPanel(track.transform, Theme.Premium, 6, "Fill");
             fill.raycastTarget = false;
             var frt = fill.rectTransform;
@@ -570,7 +605,8 @@ namespace RogueStars.Client.Screens
             var left = Ui.Label(node, "", 18, Theme.Premium, TextAnchor.MiddleCenter, "TimeLeft");
             var lrt = left.rectTransform;
             lrt.anchorMin = new Vector2(0, 0); lrt.anchorMax = new Vector2(1, 0); lrt.pivot = new Vector2(0.5f, 0);
-            lrt.sizeDelta = new Vector2(0, 24); lrt.anchoredPosition = new Vector2(0, 42);
+            lrt.sizeDelta = new Vector2(0, 24); lrt.anchoredPosition = new Vector2(0, 26);
+            var lvl = node.Find("Level"); if (lvl != null) lvl.gameObject.SetActive(false); // the timer takes its place
             System.Func<string> update = () =>
             {
                 var e = LaboratorySystem.Entry(State, id);
@@ -589,7 +625,7 @@ namespace RogueStars.Client.Screens
         public void PlayResearchDone(string nodeId)
         {
             if (nodeId == null || !_nodes.TryGetValue(nodeId, out var node) || node == null) return;
-            var flash = UiShapes.Outline(node, Theme.Gold, Theme.RadiusButton, 10, "DoneFlash");
+            var flash = HexRingOn(_hexes.TryGetValue(nodeId, out var hx) && hx != null ? hx : node, Theme.Gold, "DoneFlash", 1.25f);
             var go = node.gameObject;
             UiTweens.Play(go, "lab_done", 0.6f, t =>
             {

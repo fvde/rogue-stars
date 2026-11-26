@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
+using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RogueStars.Client.Screens
 {
@@ -19,14 +21,19 @@ namespace RogueStars.Client.Screens
         public override string Title => "Shop";
         public override string[] IntroFeatures => new[] { Features.Shop, Features.Funds, Features.SeasonPass };
 
+        /// <summary>The section chips sit at the bottom (kit chip tabs in the footer), the back button in the header.</summary>
+        public override float FooterHeight => 124;
+
         protected override void Build(RectTransform body)
         {
-            Ui.TabBar(body, Tabs, _tab, i => { _tab = i; Rebuild(); });
+            if (Footer != null) Kit.TabChips(Footer, Tabs, _tab, i => { _tab = i; Rebuild(); }, 84);
             // G7: store / offline hints are for developers only
             if (Debug.isDebugBuild) Note(body, !Session.IsOnline ? "Offline mode: purchases complete instantly with dev receipts." : "Store: " + Session.Store.Name + ".").name = "DevHint";
             switch (_tab)
             {
                 case 0:
+                    _featuredId = null;
+                    Featured(body);
                     Products(body, ProductKind.StarterPack);
                     Rolling(body);
                     Products(body, ProductKind.FlashOffer);
@@ -52,11 +59,28 @@ namespace RogueStars.Client.Screens
         {
             var list = OfKind(kind);
             if (list.Count == 0) return;
-            list.RemoveAll(p => !Usable(p) || !Active(p));
+            list.RemoveAll(p => !Usable(p) || !Active(p) || (_tab == 0 && p.Id == _featuredId));
             if (list.Count == 0) return;
-            Section(body, SectionTitle(kind)).name = "Section:" + kind;
-            foreach (var p in list) ProductCard(body, p);
+            Kit.Ribbon(body, SectionTitle(kind)).name = "Section:" + kind;
+            ProductGrid(body, list);
         }
+
+        /// <summary>Offers two to a row (equal cards); a lone last offer takes the full width.</summary>
+        private void ProductGrid(RectTransform body, List<ProductDef> list)
+        {
+            for (int i = 0; i < list.Count; i += 2)
+            {
+                if (i + 1 >= list.Count && list.Count % 2 == 1 && list.Count == 1) { ProductCard(body, list[i], true); continue; }
+                var row = Ui.Row(body, 0, 14, null, 0, "OfferRow");
+                ProductCard(row, list[i], false);
+                if (i + 1 < list.Count) ProductCard(row, list[i + 1], false);
+                else Ui.Size(Ui.Spacer(row), 450, -1, 1);
+            }
+        }
+
+        /// <summary>Card colour of an offer by its price tier (the rarity colours: free grey, up to $5 green, $20 blue, $50 purple, above red).</summary>
+        public static Rarity TierOf(ProductDef p) =>
+            p.PriceUsdCents <= 0 ? Rarity.Common : p.PriceUsdCents < 500 ? Rarity.Rare : p.PriceUsdCents < 2000 ? Rarity.Epic : p.PriceUsdCents < 5000 ? Rarity.Legendary : Rarity.Mythic;
 
         /// <summary>
         /// Rewards follow use: an offer is only shown when its headline (first) reward has a use now; offers for locked
@@ -114,33 +138,62 @@ namespace RogueStars.Client.Screens
                 string stepId = ShopSystem.CurrentRollingStep(State, Content, chain.Id);
                 var p = Content.Product(stepId);
                 if (p == null || !Usable(p)) continue;
-                Section(body, SectionTitle(ProductKind.RollingOffer));
-                ProductCard(body, p);
+                Kit.Ribbon(body, SectionTitle(ProductKind.RollingOffer));
+                ProductCard(body, p, true);
             }
         }
 
-        private void ProductCard(RectTransform body, ProductDef p)
+        /// <summary>
+        /// One offer as a rarity-coloured card (colour by price tier): name, pack art, contents, bonus, countdown and the buy
+        /// button. <paramref name="wide"/> = the featured banner layout (art beside the text).
+        /// </summary>
+        private void ProductCard(Transform parent, ProductDef p, bool wide)
         {
             string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
-            var card = Card(body, p.PriceUsdCents == 0 ? Theme.Header : Theme.PanelAlt);
-            var head = Ui.Row(card, 110, 16);
-            var art = SummonKit.Img(head, World.SummonArt.Icon(PackIcon(p)), "PackArt");
-            Ui.Size(art, 110, 110, 0);
-            Ui.Display(head, OfferName(p), Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "OfferName");
-            Ui.Display(head, Fmt.Price(p.PriceUsdCents), Theme.FontNormal, Theme.Premium, TextAnchor.MiddleRight, "Price");
-            if (p.Contents.Count > 0) Note(card, OfferRewards(p.Contents));
-            if (p.FirstPurchaseBonus.Count > 0 && ShopSystem.PurchaseCount(State, p.Id) == 0) Ui.Label(card, "First purchase bonus: " + OfferRewards(p.FirstPurchaseBonus), Theme.FontSmall, Theme.Good);
-            if (p.DailyRewards.Count > 0) Note(card, "Daily: " + OfferRewards(p.DailyRewards) + (p.DailyDays > 0 ? " for " + p.DailyDays + " days" : " forever"));
-            if (p.Schedule != null && p.Schedule.TryActive(Now, out _, out long end)) Live(Note(card, ""), () => "Ends in " + Fmt.Duration(end - Now));
-            var row = Ui.Row(card, 84);
-            if (block != null) Ui.Label(row, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim);
-            else if (p.PriceUsdCents == 0) Ui.Button(row, "Claim free", () => Run(new ShopClaimFree { ProductId = p.Id }), Theme.Good, -1, 84);
-            else if (!Session.IsOffered(p.Id)) Ui.Button(row, "Soon", null, Theme.Button, -1, 84, false).name = "ComingSoon:" + p.Id; // T53
-            else if (Session.PendingPayments.Contains(p.Id)) Ui.ButtonWithReason(row, "PENDING", null, Theme.Button, -1, 84, false, "Arrives once the payment is approved").name = "Pending:" + p.Id; // T52
-            else Ui.Button(row, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, -1, 84);
+            var tier = Theme.RarityColor(TierOf(p));
+            var card = Ui.Card(parent, Color.Lerp(Theme.Panel, tier, wide ? 0.5f : 0.42f), Color.Lerp(tier, Color.white, 0.25f), Theme.RadiusCard, 20, 8, 5, "Offer:" + p.Id);
+            if (!wide) Ui.Size(card, 450, -1, 1);
+            var top = wide ? Ui.Row(card, 190, 18, null, 0, "Head") : (Transform)card;
+            var art = SummonKit.Img(top, World.SummonArt.Icon(PackIcon(p)), "PackArt");
+            if (wide) Ui.Size(art, 190, 190, 0, 0); else Ui.Size(art, -1, 130, 1);
+            var text = wide ? (Transform)Ui.Column(top, 4, 0, null, "Text") : card;
+            if (wide) Ui.Size((Component)text, -1, -1, 1);
+            var name = Ui.Display(text, OfferName(p), wide ? Theme.FontLarge : 30, Theme.Text, wide ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "OfferName");
+            name.supportRichText = true;
+            var price = Ui.Chip(text, Fmt.Price(p.PriceUsdCents), new Color(0.04f, 0.02f, 0.05f, 0.7f), Theme.Premium, 28, 46, null, "Price");
+            if (!wide) price.GetComponent<LayoutElement>().flexibleWidth = 1;
+            var anchor = wide ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter;
+            if (p.Contents.Count > 0) Ui.Label(text, OfferRewards(p.Contents), Theme.FontSmall, Theme.Cream, anchor, "Note");
+            if (p.FirstPurchaseBonus.Count > 0 && ShopSystem.PurchaseCount(State, p.Id) == 0) Ui.Label(text, "First purchase bonus: " + OfferRewards(p.FirstPurchaseBonus), Theme.FontSmall, Theme.Good, anchor);
+            if (p.DailyRewards.Count > 0) Ui.Label(text, "Daily: " + OfferRewards(p.DailyRewards) + (p.DailyDays > 0 ? " for " + p.DailyDays + " days" : " forever"), Theme.FontSmall, Theme.Cream, anchor, "Note");
+            if (p.Schedule != null && p.Schedule.TryActive(Now, out _, out long end)) Live(Ui.Label(text, "", Theme.FontSmall, Theme.Warn, anchor, "Note"), () => "Ends in " + Fmt.Duration(end - Now));
+            var row = wide ? Ui.Row(card, 84) : Ui.Column(card, 8, 0, null, "Buy");
+            if (block != null) Ui.Label(row, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, anchor);
+            else if (p.PriceUsdCents == 0) Kit.Button(row, "Claim free", () => Run(new ShopClaimFree { ProductId = p.Id }), KitButtonColor.Positive, -1, 80);
+            else if (!Session.IsOffered(p.Id)) Kit.Button(row, "Soon", null, KitButtonColor.Secondary, -1, 80, false).name = "ComingSoon:" + p.Id; // T53
+            else if (Session.PendingPayments.Contains(p.Id)) Ui.ButtonWithReason(row, "PENDING", null, Theme.Button, -1, 80, false, "Arrives once the payment is approved").name = "Pending:" + p.Id; // T52
+            else Kit.Button(row, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), KitButtonColor.Primary, -1, 80);
             if (p.DailyRewards.Count > 0 && ShopSystem.DailyGrantActive(State, Content, p.Id, Now))
-                Ui.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), Theme.Good, -1, 84, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
+                Kit.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), KitButtonColor.Positive, -1, 80, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
         }
+
+        /// <summary>The Offers tab's banner: the best usable offer on sale (flash, rolling, starter, then gift), wide.</summary>
+        private void Featured(RectTransform body)
+        {
+            ProductDef best = null;
+            var order = new[] { ProductKind.FlashOffer, ProductKind.StarterPack, ProductKind.GiftPack };
+            foreach (var kind in order)
+            {
+                foreach (var p in OfKind(kind)) if (Usable(p) && Active(p)) { best = p; break; }
+                if (best != null) break;
+            }
+            if (best == null) return;
+            Kit.Ribbon(body, "Featured", new Color32(0xB0, 0x6A, 0x1E, 255));
+            ProductCard(body, best, true);
+            _featuredId = best.Id;
+        }
+
+        private string _featuredId;
 
         /// <summary>"Rolling Offer 1" → "Special Offer · Step 1" (the chain step reads as progress, not a code name).</summary>
         private static string OfferName(ProductDef p) =>
@@ -148,14 +201,14 @@ namespace RogueStars.Client.Screens
 
         private void SeasonPass(RectTransform body)
         {
-            Section(body, "Season pass");
+            Kit.Ribbon(body, "Season pass", new Color32(0x5A, 0x4A, 0x9C, 255));
             if (!Session.IsUnlocked(Features.SeasonPass)) { Note(body, "Locked: " + Requirements.Describe(Content, Content.Feature(Features.SeasonPass)?.Requires ?? new RequirementSet())); return; }
             var sp = Content.SeasonPass;
             int level = ShopSystem.SeasonLevel(State, Content);
             bool premium = ShopSystem.HasPremiumSeason(State, Content, Now);
             var card = Card(body, Theme.Header);
             long xp = ShopSystem.SeasonXp(State, Content);
-            Ui.Bar(card, sp.XpPerLevel > 0 ? (xp % sp.XpPerLevel) / (float)sp.XpPerLevel : 0, Theme.Premium, "Level " + level + " — " + xp + " XP");
+            Kit.ProgressPill(card, sp.XpPerLevel > 0 ? (xp % sp.XpPerLevel) / (float)sp.XpPerLevel : 0, Theme.Premium, "Level " + level + " — " + xp + " XP");
             Live(Note(card, ""), () => "Season ends in " + Fmt.Duration(ShopSystem.SeasonEndMs(Content, Now) - Now));
             var row = Ui.Row(card, 84);
             if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, !Session.IsOffered(pp.Id) ? "Premium: soon" : Session.PendingPayments.Contains(pp.Id) ? "Premium: PENDING" : "Premium " + Fmt.Price(pp.PriceUsdCents), () => Session.Purchase(pp.Id), Theme.Accent, -1, 84, Session.IsOffered(pp.Id) && !Session.PendingPayments.Contains(pp.Id)); }
@@ -166,8 +219,8 @@ namespace RogueStars.Client.Screens
                 var lv = l;
                 if (lv.Level > level + 3) break;
                 var r = Ui.Row(body, 80, 8, Theme.Panel, 10);
-                var lab = Ui.Label(r, "Lv " + lv.Level, Theme.FontSmall, lv.Level <= level ? Theme.Text : Theme.TextDim);
-                Ui.Size(lab, 110, -1, 0);
+                var lab = Kit.LevelBadge(r, "Lv " + lv.Level, lv.Level <= level ? Theme.Gold : Theme.TextDim, 40);
+                Ui.Size(lab, 120, 40, 0, 0);
                 LevelButton(r, lv.Level, false, Fmt.Rewards(lv.Free, Content, State, Now), level);
                 LevelButton(r, lv.Level, true, Fmt.Rewards(lv.Premium, Content, State, Now), level, premium);
             }
@@ -177,13 +230,13 @@ namespace RogueStars.Client.Screens
         {
             bool claimed = State.Shop.SeasonClaims.Contains((premiumTrack ? "p:" : "f:") + level);
             bool can = !claimed && level <= reached && premiumOwned;
-            Ui.Button(row, (claimed ? "done: " : "") + rewards, () => Run(new SeasonPassClaim { Level = level, Premium = premiumTrack }),
-                premiumTrack ? Theme.Premium : Theme.Button, -1, 72, can, Theme.FontSmall);
+            Kit.Button(row, (claimed ? "done: " : "") + rewards, () => Run(new SeasonPassClaim { Level = level, Premium = premiumTrack }),
+                premiumTrack ? KitButtonColor.Premium : can ? KitButtonColor.Positive : KitButtonColor.Secondary, -1, 72, can, Theme.FontSmall);
         }
 
         private void FundsSection(RectTransform body)
         {
-            Section(body, "Funds");
+            Kit.Ribbon(body, "Funds", new Color32(0x2E, 0x7A, 0x5A, 255));
             foreach (var f in Content.Funds.Values)
             {
                 var fund = f;
@@ -199,15 +252,15 @@ namespace RogueStars.Client.Screens
                     if (block == null) Ui.Button(head, !Session.IsOffered(p.Id) ? "Soon" : Session.PendingPayments.Contains(p.Id) ? "PENDING" : "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, 240, 60, Session.IsOffered(p.Id) && !Session.PendingPayments.Contains(p.Id));
                     else Ui.Label(head, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
                 }
-                var steps = Ui.Grid(card, new Vector2(190, 90), 5, 8);
+                var steps = Ui.Grid(card, new Vector2(204, 96), 4, 8);
                 for (int i = 0; i < fund.Steps.Count; i++)
                 {
                     int step = i;
                     var s = fund.Steps[i];
                     bool claimed = State.Shop.FundClaims.Contains(fund.Id + ":" + step);
                     bool can = owned && !claimed && progress >= s.Target;
-                    Ui.Button(steps, s.Target + "\n" + (claimed ? "done" : Fmt.Rewards(s.Rewards, Content, State, Now)), () => Run(new FundClaim { FundId = fund.Id, Step = step }),
-                        can ? Theme.Good : Theme.Button, -1, 90, can, 22);
+                    Kit.Button(steps, s.Target + "\n" + (claimed ? "done" : Fmt.Rewards(s.Rewards, Content, State, Now)), () => Run(new FundClaim { FundId = fund.Id, Step = step }),
+                        can ? KitButtonColor.Positive : KitButtonColor.Secondary, -1, 90, can, 22);
                 }
             }
         }
@@ -224,14 +277,14 @@ namespace RogueStars.Client.Screens
             }
             foreach (var kv in bySection)
             {
-                Section(body, Fmt.Humanize(kv.Key));
+                Kit.Ribbon(body, Fmt.Humanize(kv.Key));
                 foreach (var item in kv.Value)
                 {
                     var it = item;
                     var row = Ui.Row(body, 90, 10, Theme.Panel, 12);
                     Ui.Label(row, it.Name + "\n<size=22>" + Fmt.Rewards(it.Contents, Content, State, Now) + (it.Limit > 0 ? "  (limit " + it.Limit + " " + it.Period.ToString().ToLowerInvariant() + ")" : "") + "</size>", Theme.FontSmall);
-                    Ui.Button(row, it.Price.Count == 0 ? "Free" : Fmt.Costs(it.Price, Content), () => Run(new ShopBuyItem { ItemId = it.Id }),
-                        it.Price.Count == 0 ? Theme.Good : Theme.Premium, 300, 76, State.Wallet.CanAfford(it.Price), Theme.FontSmall);
+                    Kit.Button(row, it.Price.Count == 0 ? "Free" : Fmt.Costs(it.Price, Content), () => Run(new ShopBuyItem { ItemId = it.Id }),
+                        it.Price.Count == 0 ? KitButtonColor.Positive : KitButtonColor.Premium, 300, 76, State.Wallet.CanAfford(it.Price), Theme.FontSmall);
                 }
             }
         }
@@ -248,7 +301,7 @@ namespace RogueStars.Client.Screens
                 var row = Ui.Row(body, 90, 10, Theme.Panel, 12);
                 Ui.Label(row, ad.Name + "\n<size=22>" + Fmt.Rewards(ad.Rewards, Content, State, Now) + " — " + left + "/" + ad.DailyCap + " left today</size>", Theme.FontSmall);
                 if (Session.IsAdPending(ad.Id)) AdPending(row); // T51: a spinner until the server grants the reward
-                else Ui.Button(row, noAds ? "Claim" : "Watch", () => Session.WatchAd(ad.Id), Theme.Good, 220, 76, left > 0);
+                else Kit.Button(row, noAds ? "Claim" : "Watch", () => Session.WatchAd(ad.Id), KitButtonColor.Positive, 220, 76, left > 0);
             }
         }
 

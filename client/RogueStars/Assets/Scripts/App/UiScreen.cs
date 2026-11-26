@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RogueStars.Client.Screens;
 using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
@@ -71,6 +72,7 @@ namespace RogueStars.Client.App
             // a full-screen game screen reaches up over the resource bar and covers it with an opaque background
             Root = Ui.Stretch(Ui.Rect(parent, "Screen:" + GetType().Name), 0, CoversResourceBar ? -ClientApp.TopBarHeight : 0, 0, 0);
             if (CoversResourceBar) Root.gameObject.AddComponent<Image>().color = Theme.Background; // nothing of the bar shows through
+            else if (HeaderHeight > 0) Kit.Backdrop(Root, "backdrop_menu", Theme.Hex(0x33202A), Theme.Hex(0x120A0D)); // kit backdrop slot, gradient until art exists
             float headerHeight = HeaderHeight;
             if (headerHeight > 0)
             {
@@ -81,11 +83,11 @@ namespace RogueStars.Client.App
                 hl.childForceExpandHeight = false;
                 header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1); header.pivot = new Vector2(0.5f, 1);
                 header.sizeDelta = new Vector2(0, headerHeight); header.anchoredPosition = Vector2.zero;
-                if (ShowBack) Ui.Button(header, BackLabel, OnBack, Theme.Panel, 104, 104, true, Theme.FontTitle).name = "BackButton";
+                if (ShowBack) Kit.BackButton(header, BackLabel, OnBack);
                 var titles = Ui.Column(header, 0, 0, null, "Titles");
                 titles.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                 Ui.Size(titles, -1, -1, 1);
-                _title = Ui.Display(titles, Title, Theme.FontTitle, Theme.Text, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Title");
+                _title = Kit.HeaderTitle(titles, Title, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter);
                 _subtitle = Ui.Label(titles, "", Theme.FontSmall, Theme.TextDim, ShowBack ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, "Subtitle");
                 _subtitle.horizontalOverflow = HorizontalWrapMode.Overflow;
                 BuildHeaderExtras(header);
@@ -104,7 +106,9 @@ namespace RogueStars.Client.App
                     lg.padding = new RectOffset(24, 24, FooterPadTop, FooterPadBottom);
                 }
                 bottom = FooterHeight;
+                if (ActiveMainTab != null) Footer.anchoredPosition = new Vector2(0, MainTabsHeight);
             }
+            if (ActiveMainTab != null) bottom += MainTabsHeight;
             BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
             if (IntroFeatures != null && IntroFeatures.Length > 0)
@@ -194,6 +198,7 @@ namespace RogueStars.Client.App
                 _subtitle.text = sub ?? "";
                 _subtitle.gameObject.SetActive(!string.IsNullOrEmpty(sub));
             }
+            BuildMainTabs();
             if (App.Session.State == null) Ui.Label(_body, "Connecting…", Theme.FontLarge, Theme.TextDim, TextAnchor.MiddleCenter);
             else Build(_body);
             if (_help != null)
@@ -224,6 +229,42 @@ namespace RogueStars.Client.App
             float fromTop = -mid.y; // content pivot is its top edge
             float top = Mathf.Clamp(fromTop - viewH / 2, 0, contentH - viewH);
             return 1 - top / (contentH - viewH);
+        }
+
+        /// <summary>Height of the main tab bar along the bottom (<see cref="ActiveMainTab"/>).</summary>
+        public const float MainTabsHeight = 150;
+
+        /// <summary>
+        /// The hub tab this screen belongs to ("worm", "city", "signals", "arena"): the screen then shows the kit's main tab bar
+        /// along the bottom with that tab raised; null = no tab bar.
+        /// </summary>
+        protected virtual string ActiveMainTab => null;
+
+        private RectTransform _mainTabs;
+
+        private void BuildMainTabs()
+        {
+            if (_mainTabs != null) Ui.DestroyGo(_mainTabs.gameObject);
+            _mainTabs = null;
+            if (ActiveMainTab == null || App.Session.State == null) return;
+            var tabs = new List<KitTab>();
+            foreach (var e in HubLayout.Tabs(State, Content))
+            {
+                var entry = e;
+                string badge = entry.Id == "worm" && GearGuide.HasAffordableUpgrade(State, Content) ? "!" : null;
+                tabs.Add(new KitTab
+                {
+                    Id = entry.Id, Label = entry.Label, Badge = badge, Active = entry.Id == ActiveMainTab,
+                    Icon = entry.Icon == HubLayout.CampIcon ? RogueStars.Client.World.CityArt.Saucer() : RogueStars.Client.World.ScreenArt.HubIcon(entry.Icon),
+                    OnClick = () =>
+                    {
+                        if (entry.Id == ActiveMainTab) return;
+                        App.Router.Reset(new HubScreen());
+                        if (entry.ScreenId != null) App.Open(entry.ScreenId);
+                    },
+                });
+            }
+            _mainTabs = Kit.BottomTabBar(Root, tabs, MainTabsHeight);
         }
 
         /// <summary>Fill the scrolling body.</summary>
