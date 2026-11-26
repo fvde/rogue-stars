@@ -96,19 +96,18 @@ namespace RogueStars.Client.Screens
 
         /// <summary>
         /// The boss clock under the top strip: "Roll n/N" (N = RunSystem.BossRollEstimate), the boss's awakening as the bar's
-        /// fill and one marker per miniboss of the clock (RunTuning.MinibossAtMeter, 25/50/75 %), bright once passed (pure).
+        /// fill and one skull pip per miniboss of the run (playtest 0.1.308: RunTuning.MinibossesPerRun lairs on the path,
+        /// spread evenly along the rail), bright once beaten; none on levels without lairs or in the Burrow (pure).
         /// </summary>
         public static BossClockInfo BossClock(ContentDb c, ActiveRun run)
         {
             var info = new BossClockInfo { Fill = (float)Math.Max(0, Math.Min(1, run.Awakening / 100.0)), RollText = RunScreen.RollText(c, run) };
-            if (run.Mode == RunMode.Burrow) return info; // floors have no clock minibosses
-            var at = c.RunTuning.MinibossAtMeter;
-            for (int i = 0; i < at.Count; i++)
-                info.Markers.Add(new BossClockMarker
-                {
-                    At = (float)Math.Max(0, Math.Min(1, at[i] / 100.0)),
-                    Passed = run.MinibossesSpawned > i || run.Awakening >= at[i] - 1e-9,
-                });
+            if (run.Mode == RunMode.Burrow) return info; // floors have no minibosses
+            var level = c.RunLevel(run.LevelId);
+            bool lairs = level != null && level.FixedTiles.Exists(ft => ft.TileId == "miniboss");
+            int n = lairs ? c.RunTuning.MinibossesPerRun : 0;
+            for (int i = 0; i < n; i++)
+                info.Markers.Add(new BossClockMarker { At = (i + 1f) / (n + 1f), Passed = run.MinibossesDefeated > i });
             return info;
         }
 

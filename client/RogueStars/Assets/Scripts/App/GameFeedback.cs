@@ -21,10 +21,12 @@ namespace RogueStars.Client.App
     {
         public const float BubbleLifetime = 2f;
         public const float BannerLifetime = 2.2f;
+        /// <summary>Seconds a compact banner shows (a run encounter: a short strip, never covering the board for long).</summary>
+        public const float CompactBannerLifetime = 1.1f;
 
         private readonly ClientApp _app;
         private readonly RectTransform _layer;
-        private readonly Queue<(string text, Color color, string sub)> _banners = new Queue<(string, Color, string)>();
+        private readonly Queue<(string text, Color color, string sub, bool compact)> _banners = new Queue<(string, Color, string, bool)>();
         private GameObject _banner;
         private float _bannerLeft;
         private GameObject _bubble;
@@ -121,8 +123,8 @@ namespace RogueStars.Client.App
                 case "run_signature_awakened": color = Theme.RarityColor(Rarity.Mythic); sub = c?.Skill(A(0))?.Name; return "AWAKENED!";
                 case "run_encounter":
                     color = Theme.Bad;
-                    sub = A(0) == "boss" ? "The boss arena opens" : "A miniboss attacks";
-                    return A(0) == "boss" ? "BOSS!" : "MINIBOSS!";
+                    sub = A(0) == "boss" ? "arena ahead" : "attacks";
+                    return A(0) == "boss" ? "BOSS" : "MINIBOSS";
                 default: return null;
             }
         }
@@ -139,7 +141,7 @@ namespace RogueStars.Client.App
                 {
                     case FeedbackKind.Banner:
                         var text = BannerText(e, c, _app.Session.State, out var sub, out var color);
-                        Banner(text, color, sub);
+                        Banner(text, color, sub, Compact(e.Type));
                         break;
                     case FeedbackKind.Animation:
                         Animate(e);
@@ -223,19 +225,39 @@ namespace RogueStars.Client.App
 
         // ---- banners --------------------------------------------------------------------------------
 
-        /// <summary>Queue a hurray banner (one at a time, <see cref="BannerLifetime"/> each).</summary>
-        public void Banner(string text, Color color, string sub = null)
+        /// <summary>
+        /// Banner events shown as a compact strip (playtest 0.1.308: the boss arena opening is a short, non-blocking note; the
+        /// encounter itself is on the board). Pure; tested.
+        /// </summary>
+        public static bool Compact(string type) => type == "run_encounter";
+
+        /// <summary>Last banner was compact (tests).</summary>
+        public bool LastBannerCompact { get; private set; }
+
+        /// <summary>Queue a hurray banner (one at a time, <see cref="BannerLifetime"/> each; compact: a short thin strip).</summary>
+        public void Banner(string text, Color color, string sub = null, bool compact = false)
         {
             if (string.IsNullOrEmpty(text)) return;
-            _banners.Enqueue((text, color, sub));
+            _banners.Enqueue((text, color, sub, compact));
             if (_banner == null) NextBanner();
         }
 
         private void NextBanner()
         {
             if (_banners.Count == 0) return;
-            var (text, color, sub) = _banners.Dequeue();
+            var (text, color, sub, compact) = _banners.Dequeue();
             LastBanner = text;
+            LastBannerCompact = compact;
+            if (compact)
+            {
+                // a thin strip high over the board, one line, no subtitle; the layer never takes input
+                var rt = RevealBanner.Show(_layer, text + (string.IsNullOrEmpty(sub) ? "" : " · " + sub), color, null, 0.8f, 84);
+                var t = rt.Find("BannerText")?.GetComponent<Text>();
+                if (t != null) t.fontSize = 46;
+                _banner = rt.gameObject;
+                _bannerLeft = CompactBannerLifetime;
+                return;
+            }
             _banner = RevealBanner.Show(_layer, text, color, sub, 0.62f).gameObject;
             _bannerLeft = BannerLifetime;
         }

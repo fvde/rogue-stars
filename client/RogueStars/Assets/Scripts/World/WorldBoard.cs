@@ -388,18 +388,19 @@ namespace RogueStars.Client.World
             var exclaimed = new HashSet<int>();
             foreach (var id in exclaimOrder)
             {
-                if (exclaims >= ExclaimMax) break;
                 var t = run.Tiles[id];
                 var cat = content.BoardTiles.TryGetValue(t.TileId ?? "", out var td) ? td.Category : TileCategory.Empty;
                 if (t.TimesResolved > 0 || !Notable(IsoArt.MarkerOf(cat))) continue;
+                // a miniboss ahead always gets its "!" (playtest 0.1.308: the player sees it coming); others up to ExclaimMax
+                if (exclaims >= ExclaimMax && cat != TileCategory.Miniboss) continue;
                 exclaimed.Add(id);
-                exclaims++;
+                if (cat != TileCategory.Miniboss) exclaims++;
             }
             foreach (var t in visible)
             {
                 var look = RunScreen.LookOf(run, t, content);
                 var cat = content.BoardTiles.TryGetValue(t.TileId ?? "", out var td) ? td.Category : TileCategory.Empty;
-                var face = IsoArt.FaceOf(cat);
+                var face = IsoArt.FaceOf(td);
                 var cell = CellOf(t);
                 int h = t.Segment >= 0 ? t.Height : 0;
                 int order = Iso.Order(cell.x, cell.y);

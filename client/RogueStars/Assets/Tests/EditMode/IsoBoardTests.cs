@@ -163,7 +163,7 @@ namespace RogueStars.Client.Tests
             Assert.That(world.Tiles.Count, Is.LessThan(run.Tiles.Count + 1));
             Assert.That(world.SetPiecesDrawn, Is.Not.Empty, "the loops hold set pieces");
             Assert.That(world.ScatterCount, Is.GreaterThan(5), "props along the path");
-            Assert.That(world.ExclaimCount, Is.InRange(1, WorldBoard.ExclaimMax));
+            Assert.That(world.ExclaimCount, Is.InRange(1, WorldBoard.ExclaimMax + 2)); // + the run's minibosses ahead (always marked, playtest 0.1.308)
             // no marker under the worm; every marker sits on its own tile
             Assert.That(Find(world.Tiles[run.Position].Go.transform, "Marker:portal"), Is.Null);
             foreach (var kv in world.Tiles)
