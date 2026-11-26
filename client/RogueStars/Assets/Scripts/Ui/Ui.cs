@@ -172,7 +172,9 @@ namespace RogueStars.Client.UiKit
         public static RectTransform Card(Transform parent, Color fill, Color? border = null, float radius = Theme.RadiusCard, int padding = 28, float spacing = 12, float borderWidth = 4, string name = "Card")
         {
             var rt = Rect(parent, name);
-            UiShapes.Round(rt.gameObject.AddComponent<Image>(), radius).color = fill;
+            var cardImg = rt.gameObject.AddComponent<Image>();
+            cardImg.color = fill;
+            Kit.Decorate(cardImg, radius); // gradient + shadow (+ the panel sprite slot)
             var v = rt.gameObject.AddComponent<VerticalLayoutGroup>();
             v.spacing = spacing;
             v.padding = new RectOffset(padding, padding, padding, padding);
@@ -268,8 +270,9 @@ namespace RogueStars.Client.UiKit
             bool chunky = height >= 56;
             float lip = chunky ? Mathf.Min(Theme.ButtonLip, height * 0.1f) : 0;
             float radius = Mathf.Min(Theme.RadiusButton, height / 2);
-            var lipImg = UiShapes.Round(root.gameObject.AddComponent<Image>(), radius);
-            var face = UiShapes.Round(Stretch(Rect(root, "Face"), 0, 0, 0, lip).gameObject.AddComponent<Image>(), radius);
+            var lipImg = root.gameObject.AddComponent<Image>();
+            KitArt.Skin(lipImg, "button_lip", radius);
+            var face = Kit.Decorate(Stretch(Rect(root, "Face"), 0, 0, 0, lip).gameObject.AddComponent<Image>(), radius, "button", false, 1.1f, 0.88f);
             Image shine = null;
             if (chunky && faceColor.a > 0.5f && Theme.TextOn(faceColor) == Theme.OnAccent)
             {
@@ -443,9 +446,11 @@ namespace RogueStars.Client.UiKit
         public static UiBar Bar(Transform parent, float value, Color color, string label = null, float height = 36)
         {
             float r = height / 2;
-            var bg = RoundPanel(parent, Theme.Track, r, "Bar");
+            var bg = Panel(parent, Theme.Track, "Bar");
+            Kit.Decorate(bg, r, "pill_track", false, 0.92f, 1.12f);
             Size(bg, height: height, flexWidth: 1);
-            var fill = RoundPanel(bg.transform, color, r, "Fill");
+            var fill = Panel(bg.transform, color, "Fill");
+            Kit.Decorate(fill, r, "pill_fill", false, 1.22f, 0.86f);
             fill.raycastTarget = false;
             var frt = fill.rectTransform;
             frt.anchorMin = Vector2.zero; frt.pivot = new Vector2(0, 0.5f);
@@ -458,6 +463,7 @@ namespace RogueStars.Client.UiKit
                 text.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, 0.6f);
                 Stretch(text.rectTransform);
             }
+            if (height >= 24) UiShapes.Outline(bg.rectTransform, Theme.Shade(Theme.Track, 0.45f), r, 3);
             var bar = new UiBar(fill.rectTransform, text);
             bar.Set(value, label);
             return bar;
@@ -473,6 +479,8 @@ namespace RogueStars.Client.UiKit
                 int index = i;
                 var b = Button(row, labels[i], () => { bar.Select(index); onSelect?.Invoke(index); }, Theme.PanelAlt, -1, height - 8, true, Theme.FontSmall);
                 bar.Buttons.Add(b);
+                var cap = b.GetComponentInChildren<Text>();
+                if (cap != null) KitFit.On(cap, 16); // one line, never "Diamond/s"
             }
             bar.Select(selected);
             return bar;
@@ -610,11 +618,12 @@ namespace RogueStars.Client.UiKit
     {
         public readonly List<Button> Buttons = new List<Button>();
         public int Selected { get; private set; }
+        public Color Active = Theme.Accent, Inactive = Theme.PanelAlt;
         public void Select(int index)
         {
             Selected = index;
             for (int i = 0; i < Buttons.Count; i++)
-                if (Buttons[i] != null) Ui.SetButtonColor(Buttons[i], i == index ? Theme.Accent : Theme.PanelAlt);
+                if (Buttons[i] != null) Ui.SetButtonColor(Buttons[i], i == index ? Active : Inactive);
         }
     }
 }
