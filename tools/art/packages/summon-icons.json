@@ -1,5 +1,5 @@
 {
-  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon2.json",
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
   "suffix": ", game currency or menu icon, centered, isolated on a plain pure white background, no text, no frame",
   "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
   "width": 512,

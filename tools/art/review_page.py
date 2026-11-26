@@ -94,6 +94,65 @@ def round_tag(reg, f):
     return "R0" if r == 0 else f"R{r}"
 
 
+def queue_table():
+    """Progress of every package in tools/art/night.sh's order: done / expected images and a rough ETA."""
+    import re
+    root = os.path.expanduser("~/Projects/rogue-stars/tools/art")
+    try:
+        order = re.search(r'ORDER="\$\{ORDER:-([^}]*)\}"', open(os.path.join(root, "night.sh")).read()).group(1).split()
+    except Exception:
+        return ""
+    rows, total_left, secs = [], 0, 0
+    for name in order:
+        try:
+            d = json.load(open(os.path.join(root, "packages", name + ".json")))
+        except Exception:
+            continue
+        nv = len(d.get("variants", []) or [])
+        if not nv and d.get("variants_from"):
+            try:
+                nv = len(json.load(open(os.path.expanduser(d["variants_from"])))["variants"])
+            except Exception:
+                nv = 1
+        exp = len(d.get("subjects", {})) * len(d.get("seeds", [1])) * max(nv, 1)
+        out = os.path.expanduser("~/AI/out/" + d.get("name", "pkg-" + name))
+        done = len([f for f in glob.glob(out + "/*.png")]) if os.path.isdir(out) else 0
+        done = min(done, exp)
+        per = 95 if d.get("width", 1024) <= 512 else 110 if d.get("width", 1024) <= 768 else 200
+        left = exp - done
+        rows.append((name, done, exp, left * per))
+    rows = [r for r in rows if r[2] - r[1] > 0]
+    shown, later = rows[:11], rows[11:]
+    total_left = sum(r[2] - r[1] for r in shown); secs = sum(r[3] for r in shown)
+    later_n = sum(r[2] - r[1] for r in later)
+    rows = [r[:3] for r in shown]
+    if not rows:
+        return ""
+    trs = "".join(f'<tr><td>{html.escape(n)}</td><td>{dn}/{ex}</td><td><div class="bar"><i style="width:{100*dn//ex}%"></i></div></td></tr>' for n, dn, ex in rows)
+    return (f'<section><h2>Generation queue</h2><p class="note">Next in line, in order. About {total_left} images left in this list (roughly {secs/3600:.1f} h); {later_n} more are queued behind it (parts, mounts, heroes and others). '
+            f'Counts are raw images (all variants and seeds).</p><table class="q"><tr><th>Package</th><th>Done</th><th></th></tr>{trs}</table></section>')
+
+
+def prompt_tables(state):
+    out = []
+    for t in state.get("prompt_tables", []):
+        try:
+            sub = json.load(open(os.path.expanduser(t["package"])))["subjects"]
+        except Exception:
+            continue
+        names = {}
+        try:
+            for line in open(os.path.expanduser(t.get("doc", ""))):
+                if line.startswith("| `"):
+                    c = [x.strip() for x in line.strip().strip("|").split("|")]
+                    names[c[0].strip("`")] = (c[1], c[2])
+        except Exception:
+            pass
+        trs = "".join(f'<tr id="prompt-{html.escape(k)}"><td><code>{html.escape(k)}</code></td><td>{html.escape(names.get(k, ("", ""))[0])}</td><td>{html.escape(names.get(k, ("", ""))[1])}</td><td>{html.escape(v)}</td></tr>' for k, v in sub.items())
+        out.append(f'<section><h2>{html.escape(t["title"])}</h2><p class="note">{html.escape(t.get("note", ""))}</p><div class="ts"><table class="q"><tr><th>id</th><th>name</th><th>effect</th><th>prompt subject</th></tr>{trs}</table></div></section>')
+    return "".join(out)
+
+
 def main():
     state = json.load(open(os.path.expanduser(sys.argv[1])))
     reg = load_registry()
@@ -154,9 +213,11 @@ figure.ok{{border-color:var(--ok)}} figure.new.anim{{border-color:var(--new)}}
 figure img{{width:100%;aspect-ratio:1;object-fit:contain;border-radius:6px;
   background:repeating-conic-gradient(#d8d8d8 0 25%,#f4f4f4 0 50%) 0 0/16px 16px}}
 b.rt{{color:var(--new);margin-right:4px}} figure.ok b.rt{{color:var(--ok)}}
+table.q{{border-collapse:collapse;width:100%;font-size:13px}} table.q th,table.q td{{text-align:left;padding:5px 8px;border-bottom:1px solid #3a3040;vertical-align:top}} table.q th{{color:var(--mut)}}
+.bar{{height:8px;background:#3a3040;border-radius:4px;min-width:120px}} .bar i{{display:block;height:8px;background:var(--ok);border-radius:4px}} .ts{{overflow-x:auto}} code{{background:#2a2230;padding:1px 5px;border-radius:4px}}
 figcaption{{font-size:12px;color:var(--mut);margin-top:4px;word-break:break-word}}
 </style>
-<main><h1>Art review</h1><p class="note">Green = approved; orange = new candidates. Every image carries its round (R1, R2, …; R0 = approved earlier). Comment on a single image to pick or reject it, or name a round ("R3: all rejected") to clear it.</p>
+<main><h1>Art review</h1>{queue_table()}{prompt_tables(state)}<p class="note">Green = approved; orange = new candidates. Every image carries its round (R1, R2, …; R0 = approved earlier). Comment on a single image to pick or reject it, or name a round ("R3: all rejected") to clear it.</p>
 {''.join(body)}</main>"""
     open(os.path.expanduser(sys.argv[2]), "w").write(page)
     print("ok", sum(len(files(c.get('approved'))) for c in state['collections']), "approved,",

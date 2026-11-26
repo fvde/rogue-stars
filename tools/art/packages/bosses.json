@@ -3,8 +3,7 @@
   "width": 768,
   "height": 768,
   "seeds": [
-    1411,
-    1412
+    1411
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single huge boss monster, full body, imposing, facing left, centered, isolated on a plain white background, no scenery",
