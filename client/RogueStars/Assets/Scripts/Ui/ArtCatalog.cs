@@ -309,7 +309,7 @@ namespace RogueStars.Client.UiKit
         public static Sprite RunIcon(string id) => string.IsNullOrEmpty(id) ? null
             : Load(RunIcons + "/" + id) ?? (id == MaxHpIcon ? SliceHud("heart") : null);
         public const string MaxHpIcon = "max_hp";
-        public static Sprite Planet(int stage) => Load(HubPlanet + "/planet_stage" + Mathf.Clamp(stage, 1, 5));
+        public static Sprite Planet(int stage) => Load(HubPlanet + "/planet_stage" + Mathf.Clamp(stage, 1, 4)); // owner: the planet stays at the 4 approved stages
         public const string SkyDay = "day", SkyNight = "night", SkyEvent = "event", SkyInvasion = "invasion";
         public static readonly string[] SkyStates = { SkyDay, SkyNight, SkyEvent, SkyInvasion };
 
