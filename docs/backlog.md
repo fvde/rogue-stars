@@ -38,6 +38,8 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | D12 | **Enemy, boss, event, mount, mini-game, status, currency and shop-pack art** | Art queue (see the art page). |
 | D13 | **Playtest 0.1.251 findings** | Owner is reviewing; do not re-report. |
 | D14 | **The cut-out sprite pedestal on the dice button is code-drawn** | The imported pedestal art does not fit the button shape. |
+| D15 | **One Server test fails now and then when the whole solution runs in parallel** (passes alone) | Flaky under load; find which test and make it deterministic. |
+| D16 | **Camp mode (levels 6 to 14) is sparse**: large empty land, pod uses a burrow-mound stand-in and sits behind the saucer | Real pod art and a tighter camp layout come with the building art. |
 
 ## 3. How to use this file
 
