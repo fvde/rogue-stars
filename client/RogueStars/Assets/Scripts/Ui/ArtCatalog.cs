@@ -346,6 +346,24 @@ namespace RogueStars.Client.UiKit
             "Art/Aliens/alien_chronoslug", "Art/Aliens/alien_solarch", "Art/Aliens/alien_tidecaller", "Art/Aliens/alien_nebulisk", "Art/Aliens/alien_swarmheart",
         };
 
+        /// <summary>Battle status icons: <c>Art/Status/&lt;key&gt;</c> (<see cref="StatusKey"/>; plus <c>guard</c> for the guard chip).</summary>
+        public const string StatusFolder = "Art/Status";
+
+        /// <summary>The art key of a status: its lower-case name; Poison is drawn as Radiation and Burn as Heat (one look each, as StatusArt draws them).</summary>
+        public static string StatusKey(RogueStars.Rules.Core.StatusId s)
+        {
+            switch (s)
+            {
+                case RogueStars.Rules.Core.StatusId.None: return null;
+                case RogueStars.Rules.Core.StatusId.Poison: return "radiation";
+                case RogueStars.Rules.Core.StatusId.Burn: return "heat";
+                default: return s.ToString().ToLowerInvariant();
+            }
+        }
+
+        /// <summary>A status icon by key (bleed, heat, radiation, guard…), or null (the drawn glyph, World.StatusArt).</summary>
+        public static Sprite StatusIcon(string key) => string.IsNullOrEmpty(key) ? null : Load(StatusFolder + "/" + key);
+
         /// <summary>A summoned sidekick's sprite (sk_drone…), or null (the drawn drone, HudArt.Drone).</summary>
         public static Sprite Sidekick(string sidekickId) => string.IsNullOrEmpty(sidekickId) ? null : Load(SidekickFolder + "/" + sidekickId);
 

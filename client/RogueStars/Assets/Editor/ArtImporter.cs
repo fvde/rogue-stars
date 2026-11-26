@@ -195,6 +195,11 @@ namespace RogueStars.Client.Editor
             { "enemies", ("Art/Enemies", false) },
             { "skills-v2", ("Art/Skills", true) },
             { "hub-planet", ("Art/Hub/Planet", false) },
+            // art import 3 (2026-11-26): boss sprites (enemy defs, ArtCatalog.Enemy), battle status icons, summon / menu icons, the drone sidekick
+            { "bosses", ("Art/Enemies", false) },
+            { "status-icons", ("Art/Status", true) },
+            { "summon-icons", ("Art/Summon/Icons", true) },
+            { "sidekicks", ("Art/Sidekicks", false) },
         };
 
         /// <summary>
