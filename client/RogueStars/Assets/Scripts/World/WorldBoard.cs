@@ -99,6 +99,8 @@ namespace RogueStars.Client.World
         /// <summary>Set pieces / scatter props placed by the last build (tests).</summary>
         public readonly List<string> SetPiecesDrawn = new List<string>();
         public int ScatterCount { get; private set; }
+        /// <summary>Pit cells the last build filled with plinth floor (<see cref="PlinthPockets"/>).</summary>
+        public int PocketCount { get; private set; }
         public int ExclaimCount { get; private set; }
         public bool Disposed { get; private set; }
 
@@ -250,12 +252,95 @@ namespace RogueStars.Client.World
             return new Vector2Int((t.X + 1) / 2 + t.Y * 2, t.X / 2);
         }
 
-        /// <summary>Top-face centre of a tile in board-local world units.</summary>
+        /// <summary>
+        /// Top-face centre of a tile in board-local world units. The whole path stands on one plinth level: the rules'
+        /// raised sections (RunTile.Height, display only) are drawn flat, since a step where the path turns or climbs the
+        /// screen reads as one tile cutting into the next instead of a step.
+        /// </summary>
         public static Vector2 TopOf(RunTile t)
         {
             var c = CellOf(t);
-            return Iso.Cell(c.x, c.y, t.Segment >= 0 ? t.Height : 0);
+            return Iso.Cell(c.x, c.y);
         }
+
+        /// <summary>Grid heading index (0 +Y, 1 +X, 2 −Y, 3 −X) of a one-cell step, or −1 when it is none.</summary>
+        public static int HeadingOf(Vector2Int step)
+        {
+            if (step.x == 0 && step.y == 1) return 0;
+            if (step.x == 1 && step.y == 0) return 1;
+            if (step.x == 0 && step.y == -1) return 2;
+            if (step.x == -1 && step.y == 0) return 3;
+            return -1;
+        }
+
+        /// <summary>
+        /// The grid heading a tile's arrows point (0 +Y, 1 +X, 2 −Y, 3 −X): from the tile to the next tile in walking order
+        /// (its first Next: a fork's first arm), so a corner points the new way. The last tile (or one whose next tile is no
+        /// side neighbour) keeps the way the path enters it (from the tile before it, else RunTile.Dir).
+        /// </summary>
+        public static int PathHeading(RunTile t, IList<RunTile> tiles)
+        {
+            var c = CellOf(t);
+            if (t.Next.Count > 0 && t.Next[0] >= 0 && t.Next[0] < tiles.Count)
+            {
+                int h = HeadingOf(CellOf(tiles[t.Next[0]]) - c);
+                if (h >= 0) return h;
+            }
+            foreach (var p in tiles)
+                if (p != t && p.Next.Count > 0 && p.Next[0] == t.Id)
+                {
+                    int h = HeadingOf(c - CellOf(p));
+                    if (h >= 0) return h;
+                }
+            return t.Segment >= 0 ? RunBoard.Heading(t) : 1;
+        }
+
+        /// <summary>
+        /// Empty cells the plinth fills so the path reads as one walkway, not blocks around pits: a cell whose empty gap
+        /// along a grid axis is at most 2 cells between plinth cells and that has a plinth neighbour across (a hairpin's
+        /// notch beside its slot, the bay inside a tight U), or one with plinth on two opposite / three sides; repeated until
+        /// nothing changes, inside the plinth's bounding box. Open ground beside the path stays ground.
+        /// </summary>
+        public static List<Vector2Int> PlinthPockets(ICollection<Vector2Int> cells)
+        {
+            var all = new HashSet<Vector2Int>(cells);
+            var added = new List<Vector2Int>();
+            if (all.Count == 0) return added;
+            int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
+            foreach (var c in all) { x0 = Math.Min(x0, c.x); y0 = Math.Min(y0, c.y); x1 = Math.Max(x1, c.x); y1 = Math.Max(y1, c.y); }
+            bool Has(int x, int y) => all.Contains(new Vector2Int(x, y));
+            bool Bounded(int x, int y, int dx, int dy)
+            {
+                int n = 1, hits = 0;
+                for (int s = -1; s <= 1; s += 2)
+                    for (int k = 1; ; k++)
+                    {
+                        if (Has(x + s * dx * k, y + s * dy * k)) { hits++; break; }
+                        if (++n > PocketGap) return false;
+                    }
+                return hits == 2;
+            }
+            for (int pass = 0; pass < 64; pass++)
+            {
+                var now = new List<Vector2Int>();
+                for (int y = y0; y <= y1; y++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        if (Has(x, y)) continue;
+                        bool r = Has(x + 1, y), l = Has(x - 1, y), u = Has(x, y + 1), d = Has(x, y - 1);
+                        int n = (r ? 1 : 0) + (l ? 1 : 0) + (u ? 1 : 0) + (d ? 1 : 0);
+                        if ((r && l) || (u && d) || n >= 3 || ((u || d) && Bounded(x, y, 1, 0)) || ((r || l) && Bounded(x, y, 0, 1)))
+                            now.Add(new Vector2Int(x, y));
+                    }
+                if (now.Count == 0) break;
+                foreach (var c in now) all.Add(c);
+                added.AddRange(now);
+            }
+            return added;
+        }
+
+        /// <summary>Widest gap between plinth runs <see cref="PlinthPockets"/> fills (cells).</summary>
+        public const int PocketGap = 2;
 
         /// <summary>Deterministic 0..1 per cell (scatter props).</summary>
         public static float Hash(int seed, int x, int y, int salt)
@@ -305,9 +390,9 @@ namespace RogueStars.Client.World
             foreach (var t in visible) { var at = TopOf(t); bounds.xMin = Mathf.Min(bounds.xMin, at.x); bounds.xMax = Mathf.Max(bounds.xMax, at.x); bounds.yMin = Mathf.Min(bounds.yMin, at.y); bounds.yMax = Mathf.Max(bounds.yMax, at.y); }
             PathBounds = bounds;
 
-            // the plinth: path cells and set-piece floors (cell → height); its walls run on where neighbours share a height
+            // the plinth (one level): path cells and set-piece floors; its walls show only where no neighbour stands in front
             var plinth = new Dictionary<Vector2Int, int>();
-            foreach (var t in visible) plinth[CellOf(t)] = t.Segment >= 0 ? t.Height : 0;
+            foreach (var t in visible) plinth[CellOf(t)] = 0;
             var slots = new List<KeyValuePair<int, RunSetPiece>>();
             for (int i = 0; i < run.SetPieces.Count; i++)
             {
@@ -318,9 +403,12 @@ namespace RogueStars.Client.World
                 slots.Add(new KeyValuePair<int, RunSetPiece>(i, s));
                 for (int x = s.X; x < s.X + s.W; x++)
                     for (int y = s.Y; y < s.Y + s.H; y++)
-                        plinth[new Vector2Int(x, y)] = s.Height;
+                        plinth[new Vector2Int(x, y)] = 0;
             }
-            int Mask(int x, int y, int h) => IsoArt.PlinthMask((a, b) => plinth.TryGetValue(new Vector2Int(a, b), out int hh) && hh == h, x, y);
+            // pits between the runs (a hairpin's notch, the bay inside a tight U) get plinth floor too
+            var pockets = PlinthPockets(plinth.Keys);
+            foreach (var p in pockets) plinth[p] = 0;
+            int Mask(int x, int y) => IsoArt.PlinthMask((a, b) => plinth.ContainsKey(new Vector2Int(a, b)), x, y);
 
             // the island the diorama stands on (ground, cliff edge) over the dark surround; its distance field places scatter
             var field = Surround(plinth.Keys, seed);
@@ -331,10 +419,10 @@ namespace RogueStars.Client.World
                 var s = kv.Value;
                 for (int x = s.X; x < s.X + s.W; x++)
                     for (int y = s.Y; y < s.Y + s.H; y++)
-                        NewSprite("Floor", IsoArt.Block(TileFace.Floor, s.Height, Mask(x, y, s.Height)), Iso.Cell(x, y, s.Height) - new Vector2(0, Iso.Slab), Iso.Order(x, y));
+                        NewSprite("Floor", IsoArt.Block(TileFace.Floor, 0, Mask(x, y)), Iso.Cell(x, y) - new Vector2(0, Iso.Slab), Iso.Order(x, y));
                 string id = SetPieceFor(s, kv.Key);
                 var sprite = IsoArt.SetPiece(id, s.X * 73856093 ^ s.Y * 19349663); // a stable variant per slot
-                var foot = Iso.Cell(s.X + (s.W - 1) / 2f, s.Y + (s.H - 1) / 2f, s.Height) - new Vector2(0, Iso.Slab);
+                var foot = Iso.Cell(s.X + (s.W - 1) / 2f, s.Y + (s.H - 1) / 2f) - new Vector2(0, Iso.Slab);
                 float fpW = (s.W + s.H) * Iso.StepX;
                 var go = new GameObject("SetPiece:" + id) { layer = Layer };
                 go.transform.SetParent(_content.transform, false);
@@ -353,6 +441,10 @@ namespace RogueStars.Client.World
                 }
                 SetPiecesDrawn.Add(id);
             }
+
+            foreach (var p in pockets)
+                NewSprite("Floor", IsoArt.Block(TileFace.Floor, 0, Mask(p.x, p.y)), Iso.Cell(p.x, p.y) - new Vector2(0, Iso.Slab), Iso.Order(p.x, p.y));
+            PocketCount = pockets.Count;
 
             // scatter on the island around the plinth: dense ground cover along its edges, mid props further out, a few large
             // background pieces at the island's rim (never in front of the path)
@@ -402,15 +494,15 @@ namespace RogueStars.Client.World
                 var cat = content.BoardTiles.TryGetValue(t.TileId ?? "", out var td) ? td.Category : TileCategory.Empty;
                 var face = IsoArt.FaceOf(td);
                 var cell = CellOf(t);
-                int h = t.Segment >= 0 ? t.Height : 0;
                 int order = Iso.Order(cell.x, cell.y);
                 var top = TopOf(t);
                 var go = new GameObject("Tile:" + t.Id) { layer = Layer };
                 go.transform.SetParent(_content.transform, false);
                 go.transform.localPosition = top;
                 var view = new TileView { Id = t.Id, Go = go, Accent = look.Accent, TopCentre = top };
-                view.Base = Child(go, "Block", IsoArt.Block(face, h, Mask(cell.x, cell.y, h)), Vector2.zero, order);
-                view.Top = Child(go, "Top", IsoArt.Top(face, t.Segment >= 0 ? RunBoard.Heading(t) : 0), Vector2.zero, order + 1);
+                view.Base = Child(go, "Block", IsoArt.Block(face, 0, Mask(cell.x, cell.y)), Vector2.zero, order);
+                // chevrons point to the next tile in walking order (a corner: the new heading)
+                view.Top = Child(go, "Top", IsoArt.Top(face, PathHeading(t, run.Tiles)), Vector2.zero, order + 1);
                 bool landed = look.Landed && t.Id != landingId;
                 if (landed) view.Top.color = LandedTint(look.Accent);
                 if (branchPaths != null && branchPaths.TryGetValue(t.Id, out int opt))
