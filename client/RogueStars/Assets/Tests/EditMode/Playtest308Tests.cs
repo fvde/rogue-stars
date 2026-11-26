@@ -196,7 +196,6 @@ namespace RogueStars.Client.Tests
         {
             Assert.That(IsoArt.MarkerHeight("miniboss"), Is.GreaterThan(IsoArt.MarkerHeight("elite") * 1.4f), "a big crowned skull");
             Assert.That(IsoArt.Marker("miniboss"), Is.Not.Null);
-            Assert.That(WorldBoard.Notable("miniboss"), Is.True);
 
             var level = C.MainLevel(C.Campaign.MinibossesFromLevel);
             var run = new ActiveRun { LevelId = level.Id, Mode = RunMode.Normal };
@@ -210,14 +209,14 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void MinibossAhead_AlwaysGetsItsExclaim_EvenBehindOtherNotableTiles()
+        public void MinibossAhead_ShowsItsMarker_WithoutAnExclaim()
         {
             StartRun("shop", "event", "event", "event", "event", "miniboss");
             _f.App.Router.Push(new RunScreen());
             var screen = (RunScreen)_f.App.Router.Current;
             Assert.That(screen.World, Is.Not.Null);
             var tile = screen.World.Tiles[6].Go.transform;
-            Assert.That(Find(tile, "Exclaim"), Is.Not.Null, "the miniboss six tiles ahead has its !");
+            Assert.That(Find(tile, "Exclaim"), Is.Null, "no floating ! markers (owner, 2026-11-26)");
             Assert.That(Find(tile, "Marker:miniboss"), Is.Not.Null);
         }
 

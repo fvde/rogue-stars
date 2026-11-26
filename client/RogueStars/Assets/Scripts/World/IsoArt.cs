@@ -14,7 +14,7 @@ namespace RogueStars.Client.World
     /// The iso board's art kit. Every piece is looked up through <see cref="ArtCatalog"/> first (imported generated art under
     /// <c>Art/Slice/…</c>, see <see cref="ArtCatalog.SliceMarker"/> etc.) and falls back to a clean code-drawn placeholder
     /// (<see cref="IsoPaint"/>), cached per key: tile blocks (top face + slab + decorated platform wall), tile markers (props
-    /// standing on tiles), set pieces, scatter props, the "!" marker, the ground and the HUD icons.
+    /// standing on tiles), set pieces, scatter props, the ground and the HUD icons.
     /// </summary>
     public static class IsoArt
     {
@@ -660,15 +660,6 @@ namespace RogueStars.Client.World
             return p.ToSprite("rs_marker_" + name, V(cx, 10));
         }
 
-        /// <summary>The "!" that floats over special tiles ahead.</summary>
-        public static Sprite Exclaim() => Get("exclaim", () =>
-        {
-            var p = new IsoPaint(60, 120);
-            var y = (Color)new Color32(0xFF, 0xD8, 0x2E, 255);
-            p.Shape(RoundRect(17, 36, 26, 78, 9), VGrad(Shade(y, -0.1f), Shade(y, 0.2f), 36, 114), Ink, 6);
-            p.Shape(RoundRect(17, 4, 26, 24, 9), y, Ink, 6);
-            return p.ToSprite("rs_exclaim", V(30, 4));
-        });
 
         // ---- set pieces & scatter ------------------------------------------------------------------------------------
 

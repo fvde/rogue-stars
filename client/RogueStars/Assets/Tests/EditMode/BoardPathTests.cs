@@ -155,23 +155,5 @@ namespace RogueStars.Client.Tests
             foreach (var t in tiles)
                 Assert.That(WorldBoard.TopOf(t).y, Is.EqualTo(Iso.Cell((float)t.PosX, (float)t.PosY).y).Within(1e-5f), "tile " + t.Id + " on the one plinth level");
         }
-
-        [Test]
-        public void Pits_BetweenRuns_AreFilled_OpenGroundIsNot()
-        {
-            // a hairpin's notch: (0,0) head, out +X 2, across +Y 2, back −X 2, on +Y: (0,1) is a pit between (0,0) and (0,2)
-            var tiles = Walk("110033" + "00");
-            var cells = new HashSet<Vector2Int>();
-            foreach (var t in tiles) cells.Add(WorldBoard.CellOf(t));
-            cells.Add(new Vector2Int(1, 1)); // the hairpin's set-piece slot
-            var fill = WorldBoard.PlinthPockets(cells);
-            Assert.That(fill, Has.Member(new Vector2Int(0, 1)));
-            Assert.That(fill, Has.No.Member(new Vector2Int(-1, 1)), "open ground beside the path stays ground");
-            Assert.That(fill, Has.No.Member(new Vector2Int(3, 1)));
-            // a straight run has no pits
-            var line = new HashSet<Vector2Int>();
-            foreach (var t in Walk("11111")) line.Add(WorldBoard.CellOf(t));
-            Assert.That(WorldBoard.PlinthPockets(line), Is.Empty);
-        }
     }
 }

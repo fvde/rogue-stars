@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace RogueStars.Client.World
 {
-    /// <summary>Gentle idle bob of a world object (the "!" markers, the worm): play mode only.</summary>
+    /// <summary>Gentle idle bob of a world object (the worm): play mode only.</summary>
     public sealed class WorldBob : MonoBehaviour
     {
         public float Amplitude = 0.06f, Period = 1.4f, Phase;
@@ -59,7 +59,7 @@ namespace RogueStars.Client.World
     /// The run board as a real 2D world (vertical slice): SpriteRenderers on an iso grid seen by an orthographic camera,
     /// painter's-order sorting, rendered into a RenderTexture shown by a RawImage under the uGUI HUD. The rules' grid layout
     /// (RunTile.PosX/PosY/Height, RunSetPiece slots) places tile blocks with their markers standing on them, set pieces in
-    /// the loops, scatter props along the edges, "!" over special tiles ahead and the worm. The world lives far from the
+    /// the loops, scatter props along the edges and the worm. The world lives far from the
     /// scene origin on its own layer (<see cref="Layer"/>), so no other camera sees it.
     /// </summary>
     public sealed class WorldBoard
@@ -77,9 +77,8 @@ namespace RogueStars.Client.World
         public Rect PathBounds { get; private set; }
         /// <summary>Depth window drawn around the worm (grid x + y behind / ahead).</summary>
         public const int Behind = 22, Ahead = 46;
-        /// <summary>Worm height on the board (world units) and how far ahead "!" marks special tiles.</summary>
+        /// <summary>Worm height on the board (world units).</summary>
         public const float WormHeight = 1.8f;
-        public const int ExclaimReach = 40, ExclaimMax = 3;
 
         private static int _instances;
         public readonly GameObject Root;
@@ -99,9 +98,6 @@ namespace RogueStars.Client.World
         /// <summary>Set pieces / scatter props placed by the last build (tests).</summary>
         public readonly List<string> SetPiecesDrawn = new List<string>();
         public int ScatterCount { get; private set; }
-        /// <summary>Pit cells the last build filled with plinth floor (<see cref="PlinthPockets"/>).</summary>
-        public int PocketCount { get; private set; }
-        public int ExclaimCount { get; private set; }
         public bool Disposed { get; private set; }
 
         public WorldBoard(string name = "WorldBoard")
@@ -223,9 +219,6 @@ namespace RogueStars.Client.World
         public static bool ClearsOnWin(string markerId) =>
             markerId == "enemy" || markerId == "elite" || markerId == "miniboss" || markerId == "reward" || markerId == "chest" || markerId == "mystery";
 
-        /// <summary>Markers that get a floating "!" while ahead of the worm.</summary>
-        public static bool Notable(string markerId) =>
-            markerId == "elite" || markerId == "miniboss" || markerId == "chest" || markerId == "rest" || markerId == "shop" || markerId == "minigame" || markerId == "event";
 
         /// <summary>Grid depth (x + y) of a tile.</summary>
         public static int Depth(RunTile t) => RunBoard.CellX(t) + RunBoard.CellY(t);
@@ -295,52 +288,7 @@ namespace RogueStars.Client.World
             return t.Segment >= 0 ? RunBoard.Heading(t) : 1;
         }
 
-        /// <summary>
-        /// Empty cells the plinth fills so the path reads as one walkway, not blocks around pits: a cell whose empty gap
-        /// along a grid axis is at most 2 cells between plinth cells and that has a plinth neighbour across (a hairpin's
-        /// notch beside its slot, the bay inside a tight U), or one with plinth on two opposite / three sides; repeated until
-        /// nothing changes, inside the plinth's bounding box. Open ground beside the path stays ground.
-        /// </summary>
-        public static List<Vector2Int> PlinthPockets(ICollection<Vector2Int> cells)
-        {
-            var all = new HashSet<Vector2Int>(cells);
-            var added = new List<Vector2Int>();
-            if (all.Count == 0) return added;
-            int x0 = int.MaxValue, y0 = int.MaxValue, x1 = int.MinValue, y1 = int.MinValue;
-            foreach (var c in all) { x0 = Math.Min(x0, c.x); y0 = Math.Min(y0, c.y); x1 = Math.Max(x1, c.x); y1 = Math.Max(y1, c.y); }
-            bool Has(int x, int y) => all.Contains(new Vector2Int(x, y));
-            bool Bounded(int x, int y, int dx, int dy)
-            {
-                int n = 1, hits = 0;
-                for (int s = -1; s <= 1; s += 2)
-                    for (int k = 1; ; k++)
-                    {
-                        if (Has(x + s * dx * k, y + s * dy * k)) { hits++; break; }
-                        if (++n > PocketGap) return false;
-                    }
-                return hits == 2;
-            }
-            for (int pass = 0; pass < 64; pass++)
-            {
-                var now = new List<Vector2Int>();
-                for (int y = y0; y <= y1; y++)
-                    for (int x = x0; x <= x1; x++)
-                    {
-                        if (Has(x, y)) continue;
-                        bool r = Has(x + 1, y), l = Has(x - 1, y), u = Has(x, y + 1), d = Has(x, y - 1);
-                        int n = (r ? 1 : 0) + (l ? 1 : 0) + (u ? 1 : 0) + (d ? 1 : 0);
-                        if ((r && l) || (u && d) || n >= 3 || ((u || d) && Bounded(x, y, 1, 0)) || ((r || l) && Bounded(x, y, 0, 1)))
-                            now.Add(new Vector2Int(x, y));
-                    }
-                if (now.Count == 0) break;
-                foreach (var c in now) all.Add(c);
-                added.AddRange(now);
-            }
-            return added;
-        }
 
-        /// <summary>Widest gap between plinth runs <see cref="PlinthPockets"/> fills (cells).</summary>
-        public const int PocketGap = 2;
 
         /// <summary>Deterministic 0..1 per cell (scatter props).</summary>
         public static float Hash(int seed, int x, int y, int salt)
@@ -367,7 +315,7 @@ namespace RogueStars.Client.World
 
         /// <summary>
         /// Rebuilds the board around the worm: tiles in the window (the landing tile of the current move keeps its unlanded
-        /// look until <see cref="TileView.ApplyLanded"/>), set pieces, scatter, "!" markers, the token at
+        /// look until <see cref="TileView.ApplyLanded"/>), set pieces, scatter, the token at
         /// <paramref name="tokenTile"/>, fork highlights (<paramref name="branchPaths"/>: option index per tile).
         /// </summary>
         public void Build(ActiveRun run, ContentDb content, int landingId, int tokenTile, IDictionary<int, int> branchPaths, int seed)
@@ -378,7 +326,6 @@ namespace RogueStars.Client.World
             _tiles.Clear();
             SetPiecesDrawn.Clear();
             ScatterCount = 0;
-            ExclaimCount = 0;
             Token = TokenBody = TokenShadow = null;
             TokenCreature = null;
 
@@ -405,9 +352,6 @@ namespace RogueStars.Client.World
                     for (int y = s.Y; y < s.Y + s.H; y++)
                         plinth[new Vector2Int(x, y)] = 0;
             }
-            // pits between the runs (a hairpin's notch, the bay inside a tight U) get plinth floor too
-            var pockets = PlinthPockets(plinth.Keys);
-            foreach (var p in pockets) plinth[p] = 0;
             int Mask(int x, int y) => IsoArt.PlinthMask((a, b) => plinth.ContainsKey(new Vector2Int(a, b)), x, y);
 
             // the island the diorama stands on (ground, cliff edge) over the dark surround; its distance field places scatter
@@ -442,9 +386,6 @@ namespace RogueStars.Client.World
                 SetPiecesDrawn.Add(id);
             }
 
-            foreach (var p in pockets)
-                NewSprite("Floor", IsoArt.Block(TileFace.Floor, 0, Mask(p.x, p.y)), Iso.Cell(p.x, p.y) - new Vector2(0, Iso.Slab), Iso.Order(p.x, p.y));
-            PocketCount = pockets.Count;
 
             // scatter on the island around the plinth: dense ground cover along its edges, mid props further out, a few large
             // background pieces at the island's rim (never in front of the path)
@@ -474,20 +415,7 @@ namespace RogueStars.Client.World
                 ScatterCount++;
             }
 
-            // tiles
-            int exclaims = 0;
-            var exclaimOrder = RunBoard.Ahead(run.Tiles, run.Position, ExclaimReach);
-            var exclaimed = new HashSet<int>();
-            foreach (var id in exclaimOrder)
-            {
-                var t = run.Tiles[id];
-                var cat = content.BoardTiles.TryGetValue(t.TileId ?? "", out var td) ? td.Category : TileCategory.Empty;
-                if (t.TimesResolved > 0 || !Notable(IsoArt.MarkerOf(cat))) continue;
-                // a miniboss ahead always gets its "!" (playtest 0.1.308: the player sees it coming); others up to ExclaimMax
-                if (exclaims >= ExclaimMax && cat != TileCategory.Miniboss) continue;
-                exclaimed.Add(id);
-                if (cat != TileCategory.Miniboss) exclaims++;
-            }
+            // tiles (no floating "!" markers: owner, 2026-11-26; tile icons speak for themselves)
             foreach (var t in visible)
             {
                 var look = RunScreen.LookOf(run, t, content);
@@ -526,15 +454,6 @@ namespace RogueStars.Client.World
                     else PropFx.Apply(view.Marker, PropFx.LookOfSprite(sprite)); // the portal swirls, event / mystery markers glow
                     view.MarkerShadow = ContactShadow(mgo, bw, Iso.TileW * 0.3f, Iso.TileW * (boss ? 0.95f : 0.72f), order + 2);
                     if (look.Gate) mgo.transform.localScale = Vector3.one * 1.25f;
-                }
-                if (exclaimed.Contains(t.Id))
-                {
-                    float mh = marker != null ? IsoArt.MarkerHeight(marker) : 0.3f;
-                    var ex = Child(go, "Exclaim", IsoArt.Exclaim(), new Vector2(0, mh + 0.25f), order + 9);
-                    ex.transform.localScale = Vector3.one * 0.95f;
-                    var bob = ex.gameObject.AddComponent<WorldBob>();
-                    bob.Amplitude = 0.08f; bob.Phase = t.Id * 0.37f;
-                    ExclaimCount++;
                 }
                 _tiles[t.Id] = view;
             }
