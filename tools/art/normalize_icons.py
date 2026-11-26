@@ -22,8 +22,8 @@ for f in args:
         continue
     ys, xs = np.where(solid)
     box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
-    if max(box[2] - box[0], box[3] - box[1]) >= fill - 6 and (a[:, :, 3] > 0).sum() == (a[:, :, 3] >= 128).sum():
-        continue  # already filling the canvas
+    if max(box[2] - box[0], box[3] - box[1]) >= fill - 12:
+        continue  # the solid art already fills the canvas
     orig = f[:-4] + ".orig.png"
     if not os.path.exists(orig):
         shutil.copy(f, orig)
