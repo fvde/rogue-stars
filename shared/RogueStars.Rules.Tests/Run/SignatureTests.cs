@@ -10,7 +10,7 @@ namespace RogueStars.Rules.Tests.Run;
 /// Laboratory packages for the non-starter synergies, and the key mechanics Heat / Supernova (Fire), Radiation (unlimited),
 /// Bleed (capped, consumed) and Chill (Ice, cools Heat).
 /// </summary>
-public class SignatureTests
+public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static readonly ContentDb C = ContentDb.Default;
     private static readonly string[] Starters = { "sig_bleed", "sig_fire", "sig_radiation" };
@@ -219,6 +219,29 @@ public class SignatureTests
         var pool = C.Skills.Values.Where(x => RunDraft.IsMythicEligible(C, run, x)).ToList();
         Assert.All(pool, x => Assert.True(x.Family is SkillFamily.None or SkillFamily.Fire or SkillFamily.Poison or SkillFamily.Bleed, x.Id));
         Assert.True(pool.Count >= 11, pool.Count.ToString()); // Mythics needing a source the run lacks (consumed Bleed …) wait for it
+    }
+
+    [Fact]
+    public void MythicChoice_AlwaysOffersAMythicOutsideTheSignatureSynergy()
+    {
+        // playtest 0.1.308: a Fire build's signature weight (×1.4) × owned Fire skills (1 + 1.5 per skill) made most miniboss
+        // choices all-Fire; every choice now has at least one Mythic outside the run's signature synergies
+        var e = RunTestKit.Engine();
+        var s = RunWith(e, "sig_fire");
+        var run = s.Run.Active!;
+        foreach (var id in C.Skills.Values.Where(x => x.Family == SkillFamily.Fire && x.Rarity != Rarity.Mythic && x.Draftable && !x.Signature && x.Source == SkillSource.Run).Select(x => x.Id).Take(6))
+            if (!run.Skills.Contains(id)) run.Skills.Add(id);
+        int allFire = 0, fire = 0;
+        for (int i = 0; i < 300; i++)
+        {
+            var offer = RunDraft.GenerateMythic(C, run, new Rng((ulong)(1000 + i)));
+            Assert.Equal(C.RunTuning.MythicChoices, offer.Count);
+            fire += offer.Count(id => C.Skill(id).Family == SkillFamily.Fire);
+            if (offer.All(id => C.Skill(id).Family == SkillFamily.Fire)) allFire++;
+        }
+        output.WriteLine($"all-Fire choices {allFire}/300, Fire cards {fire}/900");
+        Assert.Equal(0, allFire);
+        Assert.True(fire > 300, "the signature synergy is still favoured: " + fire);
     }
 
     // ---- the mechanics ------------------------------------------------------------------------------------------------

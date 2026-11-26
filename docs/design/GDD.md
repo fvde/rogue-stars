@@ -117,7 +117,10 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 - **Minibosses:** three come with the awakening clock (at 25 / 50 / 75%, `RunTuning.MinibossAtMeter`): after that move
   a lieutenant of the boss attacks (an Encounter step, its own fight). The segment's miniboss lair adds one when the worm
   lands on it. Every beaten miniboss grants a **MYTHIC choice**: 1 of 3 Mythic skills (30 Mythics: two per family plus
-  three generic, family gates waived for this choice; Mythics never level, so owned ones are not offered again). Minibosses
+  three generic, family gates waived for this choice; Mythics never level, so owned ones are not offered again). The pool
+  is every Mythic of the run's unlocked synergies (starters Fire / Radiation / Bleed + researched ones) and the generic
+  ones; owned synergies and signature synergies weigh more, but **every choice shows at least one Mythic outside the
+  signature synergies** (playtest 0.1.308: a focused build saw all-signature choices ~37% of the time). Minibosses
   pay coins, no XP.
 - **Skill tiers and levels** (owner decision, playtest): run skills have exactly **three fixed tiers — Common, Legendary,
   Mythic** — and never upgrade into another tier (the old upgrade chains are one skill each). A skill drafted, bought or

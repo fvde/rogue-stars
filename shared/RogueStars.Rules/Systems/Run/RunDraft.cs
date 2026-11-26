@@ -190,7 +190,7 @@ namespace RogueStars.Rules.Systems
             return s.Family != SkillFamily.None && SignatureFamilies(content, run).Contains(s.Family) ? w * content.RunTuning.SignatureFamilyWeight : w; // builds form around every signature
         }
 
-        /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured). Empty if no mythic is left.</summary>
+        /// <summary>Mythic choice (RunTuning.MythicChoices skills, owned families favoured, at least one outside the signature synergies). Empty if no mythic is left.</summary>
         public static List<string> GenerateMythic(ContentDb content, ActiveRun run, Rng rng)
         {
             var t = content.RunTuning;
@@ -210,7 +210,32 @@ namespace RogueStars.Rules.Systems
                 if (pick == null) break;
                 offer.Add(pick.Id);
             }
+            EnsureOutsideSignature(content, run, rng, pool, offer);
             return offer;
+        }
+
+        /// <summary>
+        /// Playtest 0.1.308: the signature weight × owned-synergy weight made most Mythic choices of a focused build all one
+        /// synergy (a Fire build with 6 Fire skills: ~37% all-Fire choices). Every choice keeps at least one Mythic outside the
+        /// run's signature synergies (generic or another unlocked synergy) when the pool has one: it replaces the first card
+        /// (the last one may still become a found signature, MaybeOfferSignature).
+        /// </summary>
+        private static void EnsureOutsideSignature(ContentDb content, ActiveRun run, Rng rng, List<SkillDef> pool, List<string> offer)
+        {
+            var sig = SignatureFamilies(content, run);
+            if (sig.Count == 0 || offer.Count < 2) return;
+            bool Outside(SkillDef s) => s != null && (s.Family == SkillFamily.None || !sig.Contains(s.Family));
+            foreach (var id in offer) if (Outside(content.Skill(id))) return;
+            var t = content.RunTuning;
+            var cands = new List<SkillDef>(); var w = new List<double>();
+            foreach (var s in pool)
+            {
+                if (offer.Contains(s.Id) || !Outside(s)) continue;
+                cands.Add(s);
+                w.Add(OfferWeight(content, run, s, 1 + t.SynergyWeightPerOwned * FamilyCount(content, run, s.Family)));
+            }
+            var pick = PickWeighted(cands, w, rng);
+            if (pick != null) offer[0] = pick.Id;
         }
 
         public static List<SkillDef> Eligible(ContentDb content, ActiveRun run)
