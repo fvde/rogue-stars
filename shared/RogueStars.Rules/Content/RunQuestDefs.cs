@@ -11,7 +11,7 @@ namespace RogueStars.Rules.Content
     {
         /// <summary>Fluff: a choice that steers the story (options lead to different next nodes or tones). Always advances.</summary>
         Story,
-        /// <summary>A difficult battle the player may accept. Won: advance. Lost or declined: the story waits on this node.</summary>
+        /// <summary>A difficult battle the player may accept. Won: advance. Declined: the story waits on this node. Lost: the run ends (normal defeat, revive offer).</summary>
         Battle,
         /// <summary>A price (coins, a skill, life...). Paid: advance. Refused or unaffordable: the story waits on this node.</summary>
         Sacrifice,
@@ -24,7 +24,7 @@ namespace RogueStars.Rules.Content
     {
         /// <summary>Go on to <see cref="QuestOptionDef.Next"/> (story, boon).</summary>
         Advance,
-        /// <summary>Fight the node's battle: won = Next, lost = the story waits (non-lethal, QuestTuning.LossHpPct).</summary>
+        /// <summary>Fight the node's battle: won = Next; lost = the normal defeat (revive or the run ends) and the story waits on this node.</summary>
         Fight,
         /// <summary>Pay the node's cost, then go on to Next. Refused if the run cannot pay.</summary>
         Pay,
@@ -38,9 +38,9 @@ namespace RogueStars.Rules.Content
         None,
         /// <summary>Amount run coins.</summary>
         Coins,
-        /// <summary>One owned Legendary-tier run skill of the player's choice (signatures never).</summary>
+        /// <summary>One owned Legendary-tier run skill, picked at random by the run's random stream (signatures never).</summary>
         LegendarySkill,
-        /// <summary>One owned Mythic-tier run skill of the player's choice (signatures never).</summary>
+        /// <summary>One owned Mythic-tier run skill, picked at random by the run's random stream (signatures never).</summary>
         MythicSkill,
         /// <summary>Amount % of the worm's current HP (it never drops below 1).</summary>
         CurrentHpPct,
@@ -161,25 +161,19 @@ namespace RogueStars.Rules.Content
         public QuestNodeDef Node(string id) => id != null && Nodes.TryGetValue(id, out var n) ? n : null;
     }
 
-    /// <summary>Shared tuning of every quest chain (encounter rate, battles, losses).</summary>
+    /// <summary>Shared tuning of every quest chain (encounter rate, battles).</summary>
     [Serializable]
     public sealed class QuestTuning
     {
-        /// <summary>The Run Quests feature unlocks when this main level is cleared (the encounters start with the next run).</summary>
-        public int UnlockLevel = 20;
         /// <summary>
-        /// Chance (%) that an eligible run has the encounter, by eligible runs since the last encounter (index 0 = the run right
-        /// after it; the last entry repeats). Mean ≈ 5 runs between encounters, never two runs in a row, never more than 8.
+        /// Chance (%) that an eligible run meets a quest character: a plain independent roll at run start (no pity, no
+        /// streak rules), so about one run in five. Eligible: every run but the Burrow and the tutorial run (main level 1).
         /// </summary>
-        public List<double> ChanceByRunsWithoutPct = new List<double> { 0, 5, 15, 25, 35, 55, 80, 100 };
-        /// <summary>Pity index before the very first encounter (80%, then 100%): the new feature shows itself within two runs.</summary>
-        public int FirstEncounterIndex = 6;
+        public double ChancePct = 20;
         /// <summary>The encounter tile stands on a trunk tile of this board segment (0-based), at this fraction of it.</summary>
         public int Segment = 1;
         public double SegmentAt = 0.5;
         /// <summary>Quest battle champion: HP/ATK % above the run's usual board strength, on top of the node's BonusPct.</summary>
         public double BattleBasePct = 40;
-        /// <summary>A lost quest battle does not end the run: the worm is left with at least this % of max HP.</summary>
-        public double LossHpPct = 10;
     }
 }

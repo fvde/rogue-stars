@@ -34,8 +34,6 @@ namespace RogueStars.Client.World
             { "signature", () => ScreenArt.Prop("chest_signature") }, { "signature_pick", () => HudArt.Icon("book") }, { "signature_awake", () => ScreenArt.Icon("upgrade") },
             { "run_minigames", () => ScreenArt.HubIcon("challenges") }, { "game_tile", () => ScreenArt.HubIcon("challenges") }, { "minigame", () => ScreenArt.HubIcon("challenges") },
             { "medal", () => ScreenArt.Result("crown") },
-            { "run_quests", () => ScreenArt.Character("quest_mothwick") }, { "quest_tile", () => IsoArt.Marker("quest") },
-            { "quest_story", () => ScreenArt.Character("quest_mothwick") }, { "quest_boon", () => ScreenArt.Icon("coins_big") },
             // hub systems
             { "quests", () => ScreenArt.HubIcon("quests") }, { "goals", () => ScreenArt.HubIcon("quests") }, { "points", () => ScreenArt.HubIcon("chapter_rewards") },
             { "chest", () => ScreenArt.Prop("chest_common") }, { "calendar", () => ScreenArt.HubIcon("mail") },

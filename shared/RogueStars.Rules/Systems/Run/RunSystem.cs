@@ -172,7 +172,7 @@ namespace RogueStars.Rules.Systems
             s.Run.RunsStarted++;
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
-            ScheduleQuest(ctx, run); // before the board: a scheduled run gets the quest tile (RunBoard)
+            ScheduleQuest(ctx, run, level); // before the board: a scheduled run gets the quest tile (RunBoard)
             SetupLevel(c, run, level);
             run.Coins = StartCoins(c, level) + run.Loadout.RunStartCoins; // enough for a purchase at the first shop (+ City boons)
             run.SkipNegativeEvents += run.Loadout.SkipNegativeEvents;
@@ -544,7 +544,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Defeated: Finish(ctx, run, false); break;
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
                 case RunPhase.Minigame: MinigameAuto(ctx, run); break;
-                case RunPhase.Quest: QuestChoose(ctx, run, QuestFarmPick(ctx.Content, ctx.State, run), null); break;
+                case RunPhase.Quest: QuestChoose(ctx, run, QuestFarmPick(ctx.Content, ctx.State, run)); break;
             }
         }
     }

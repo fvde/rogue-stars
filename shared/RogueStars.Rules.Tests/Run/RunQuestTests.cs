@@ -7,15 +7,24 @@ using Xunit.Abstractions;
 namespace RogueStars.Rules.Tests.Run;
 
 /// <summary>
-/// Run Quests (docs/design/run-quests/recipe.md): encounter rate and pity, at most one encounter per run, the blocking
-/// semantics of battles and sacrifices, every sacrifice type, the account coin bonus on every coin gain, chain completion
-/// and the epilogue scenes.
+/// Run Quests (docs/design/run-quests/recipe.md): the plain encounter chance (no pity), at most one encounter per run, no level
+/// gate (only the tutorial run and the Burrow are left out), the blocking semantics of sacrifices and declined battles, a lost
+/// battle as the normal defeat (revive), every sacrifice type (skill prices random within the tier), the account coin bonus on
+/// every coin gain, chain completion and the epilogue scenes.
 /// </summary>
 public class RunQuestTests(ITestOutputHelper output)
 {
     private const string Q = QuestMothwick.Id;
 
     private static GameEngine Engine(RunTestKit.WormSetup? worm = null) => RunTestKit.Engine(worm ?? RunTestKit.Strong());
+
+    /// <summary>An engine on its own content where every eligible run meets the character (ChancePct 100; never the shared content).</summary>
+    private static GameEngine AlwaysMeets()
+    {
+        var c = RunTestKit.ClassicBoards(new ContentDb());
+        c.QuestTuning.ChancePct = 100;
+        return RunTestKit.Engine(RunTestKit.Strong(), c);
+    }
 
     /// <summary>Starts a run and puts the quest tile right ahead (a straight line), then rolls into it: phase Quest.</summary>
     private static void Meet(GameEngine e, ref GameState s, Action<ActiveRun>? setup = null, int coinBonus = -1)
@@ -60,20 +69,23 @@ public class RunQuestTests(ITestOutputHelper output)
     // ---- encounter rate ------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void EncounterRate_AveragesOneInFiveRuns_NeverTwoInARow_NoDroughtOverEight()
+    public void EncounterRate_IsAPlainChance_MeanFiveRuns_NoPity()
     {
         var e = Engine();
         var s = TestHelpers.NewPlayer(e, 7);
         s.Wallet.Add(Currencies.Stamina, 1_000_000);
+        Assert.Equal(20, e.Content.QuestTuning.ChancePct);
         var gaps = new List<int>();
-        int since = 0, met = 0, runs = 4000, unplaced = 0;
+        int since = 0, met = 0, runs = 5000, unplaced = 0, inARow = 0, longest = 0;
+        bool last = false;
         for (int i = 0; i < runs; i++)
         {
             Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
             var run = s.Run.Active!;
             int quests = run.Tiles.Count(t => t.TileId == ContentDb.QuestTileId);
             since++;
-            if (run.Quest.QuestId != null)
+            bool now = run.Quest.QuestId != null;
+            if (now)
             {
                 // placed on the board once (rarely a crowded segment has no free trunk tile: then the next segment takes it)
                 Assert.Equal(run.Quest.Placed ? 1 : 0, quests);
@@ -84,60 +96,53 @@ public class RunQuestTests(ITestOutputHelper output)
                     Assert.Equal(e.Content.QuestTuning.Segment, tile.Segment);
                 }
                 else unplaced++;
-                // met: what landing on the tile does to the pity (the run is not played out here)
-                s.RunQuests.RunsWithout = 0; s.RunQuests.Encounters++;
-                if (met > 0) gaps.Add(since);
+                s.RunQuests.Encounters++; // as if met (the run is not played out here): must not change the chance
+                gaps.Add(since);
                 met++; since = 0;
+                if (last) inARow++;
             }
             else Assert.Equal(0, quests);
+            longest = Math.Max(longest, since);
+            last = now;
             Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
         }
         Assert.True(unplaced <= met / 100, unplaced + " runs placed the tile later");
         double mean = gaps.Average();
-        output.WriteLine($"{met} encounters in {runs} runs; mean gap {mean:0.00}, min {gaps.Min()}, max {gaps.Max()}");
-        Assert.InRange(mean, 4.6, 5.4);
-        Assert.True(gaps.Min() >= 2, "two encounters in a row");
-        Assert.True(gaps.Max() <= 8, "a drought of " + gaps.Max() + " runs");
-        // the analytic mean of the pity table is 5 runs (±0.1)
-        var t = e.Content.QuestTuning.ChanceByRunsWithoutPct;
-        double surv = 1, expected = 0;
-        for (int k = 0; k < t.Count; k++) { expected += (k + 1) * surv * t[k] / 100; surv *= 1 - t[k] / 100; }
-        Assert.InRange(expected, 4.9, 5.1);
-        Assert.Equal(100, t[t.Count - 1]);
+        output.WriteLine($"{met} encounters in {runs} runs ({100.0 * met / runs:0.0}%); mean gap {mean:0.00}, {inARow} back to back, longest drought {longest}");
+        Assert.InRange(mean, 4.6, 5.4);            // ~1 in 5 (geometric, mean 1 / 0.2)
+        Assert.InRange(met / (double)runs, 0.18, 0.22);
+        Assert.True(inARow > met / 10, "no 'not two in a row' rule: back-to-back meetings happen (~20% of them)");
+        Assert.True(longest > 8, "no pity: droughts longer than the old 8-run cap happen");
     }
 
     [Fact]
-    public void FirstEncounter_ComesWithinTwoRuns_OfTheUnlock()
+    public void NoLevelGate_EveryRunButTheTutorialRunAndTheBurrow()
     {
-        var e = Engine();
-        for (int seed = 1; seed <= 30; seed++)
+        var c = ContentDb.Default;
+        Assert.Null(c.Feature("run_quests")); // no feature unlock entry
+        var tutorial = c.MainLevel(1)!;
+        Assert.Equal(c.Campaign.TutorialPool, tutorial.TilePoolId);
+        Assert.False(RunSystem.QuestEligible(c, RunMode.Normal, tutorial));
+        Assert.True(RunSystem.QuestEligible(c, RunMode.Normal, c.MainLevel(2)));
+        Assert.True(RunSystem.QuestEligible(c, RunMode.Overcharged, c.MainLevel(30)));
+        Assert.True(RunSystem.QuestEligible(c, RunMode.DarkSide, c.MainLevel(60)));
+        Assert.False(RunSystem.QuestEligible(c, RunMode.Burrow, c.MainLevel(30)));
+
+        // a brand-new player (no dev unlock), second level: the encounter can be scheduled
+        var e = new GameEngine(c) { Cloner = TestHelpers.Clone };
+        int scheduled = 0;
+        for (int seed = 1; seed <= 40; seed++)
         {
-            var s = TestHelpers.NewPlayer(e, seed);
-            Assert.Equal(80, RunSystem.QuestChancePct(e.Content, s));
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
-            bool first = s.Run.Active!.Quest.QuestId != null;
-            Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
-            if (first) continue;
-            Assert.Equal(100, RunSystem.QuestChancePct(e.Content, s));
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
-            Assert.NotNull(s.Run.Active!.Quest.QuestId);
-            RunTestKit.Exec(e, ref s, new RunAbandon());
+            var s = TestHelpers.NewLockedPlayer(e, seed);
+            s.Wallet.Add(Currencies.Stamina, 100);
+            s.Counters[Requirements.MainLevelCounter] = 1; // level 1 cleared: level 2 open
+            s.Run.Levels[c.MainLevel(1)!.Id] = new LevelProgress { Cleared = true };
+            var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = c.MainLevel(2)!.Id });
+            Assert.True(r.Ok, r.Error);
+            if (s.Run.Active!.Quest.QuestId != null) scheduled++;
         }
-    }
-
-    [Fact]
-    public void NoEncounter_BeforeTheUnlock_OrInTheBurrow()
-    {
-        var e = Engine();
-        var s = TestHelpers.NewPlayer(e, 3);
-        s.Flags.Remove(Features.DevUnlockAllFlag);
-        Assert.False(RunSystem.QuestEligible(s, e.Content, RunMode.Normal));
-        s.Onboarding.Unlocked[Features.RunQuests] = TestHelpers.T0;
-        Assert.True(RunSystem.QuestEligible(s, e.Content, RunMode.Normal));
-        Assert.True(RunSystem.QuestEligible(s, e.Content, RunMode.DarkSide));
-        Assert.False(RunSystem.QuestEligible(s, e.Content, RunMode.Burrow));
-        Assert.Equal(20, (int)Features.UnlockLevel(e.Content.Feature(Features.RunQuests)!));
-        Assert.Equal(e.Content.QuestTuning.UnlockLevel, (int)Features.UnlockLevel(e.Content.Feature(Features.RunQuests)!));
+        output.WriteLine(scheduled + " of 40 new players' second runs meet Mothwick");
+        Assert.InRange(scheduled, 2, 16);
     }
 
     [Fact]
@@ -146,9 +151,9 @@ public class RunQuestTests(ITestOutputHelper output)
         int met = 0;
         for (int seed = 1; seed <= 12; seed++)
         {
-            var e = Engine();
+            var e = AlwaysMeets();
             var s = TestHelpers.NewPlayer(e, seed);
-            s.RunQuests.RunsWithout = 7; s.RunQuests.Encounters = 1; // 100%
+            s.RunQuests.Encounters = 1;
             Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
             Assert.NotNull(s.Run.Active!.Quest.QuestId);
             int opened = 0;
@@ -168,7 +173,7 @@ public class RunQuestTests(ITestOutputHelper output)
     // ---- blocking semantics --------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Battle_Declined_Or_Lost_KeepsTheNode_WonAdvances_AndALossNeverEndsTheRun()
+    public void Battle_Declined_KeepsTheNode_WonAdvances()
     {
         // declined
         var e = Engine();
@@ -181,29 +186,72 @@ public class RunQuestTests(ITestOutputHelper output)
         Assert.Equal(RunPhase.AwaitRoll, s.Run.Active!.Phase);
         Assert.Equal("waits", s.Run.Active.LastOutcome!.Lines.First(l => l.Kind == OutcomeKind.QuestStep).Id);
 
-        // lost (a weak worm): the run goes on with at least 10% HP, the node stays
-        var weak = Engine(new RunTestKit.WormSetup { Hp = 100, Atk = 1, Def = 0, Speed = 1 });
-        s = TestHelpers.NewPlayer(weak, 2);
-        At(s, "m03");
-        Meet(weak, ref s);
-        var r = RunTestKit.Exec(weak, ref s, new RunQuestChoose { Index = Option(Node(weak, s), QuestOptionAction.Fight) });
-        Assert.True(r.Ok, r.Error);
-        Assert.Contains(r.Events, ev => ev.Type == "run_battle");
-        Assert.NotNull(s.Run.Active);
-        Assert.NotEqual(RunPhase.Defeated, s.Run.Active!.Phase);
-        Assert.False(s.Run.Active.ReviveUsed);
-        Assert.True(s.Run.Active.WormHp >= Math.Round(s.Run.Active.WormMaxHp * 0.1) - 1e-9);
-        Assert.Equal("m03", RunSystem.QuestProgressOf(s, Q)!.Node);
-        Assert.Contains(s.Run.Active.LastOutcome!.Lines, l => l.Kind == OutcomeKind.Battle && l.Id == "lost");
-
         // won (a strong worm): advance, journal entry
         s = TestHelpers.NewPlayer(e, 3);
         At(s, "m03");
         Meet(e, ref s);
-        r = RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Fight) });
+        var r = RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Fight) });
         Assert.True(r.Ok, r.Error);
         Assert.Equal("m04", RunSystem.QuestProgressOf(s, Q)!.Node);
         Assert.Equal("m03", RunSystem.QuestProgressOf(s, Q)!.Journal.Last().NodeId);
+    }
+
+    private static GameEngine Weak() => Engine(new RunTestKit.WormSetup { Hp = 100, Atk = 1, Def = 0, Speed = 1 });
+
+    [Fact]
+    public void Battle_Lost_IsTheNormalDefeat_GivingUpEndsTheRun_AndTheStoryWaits()
+    {
+        var e = Weak();
+        var s = TestHelpers.NewPlayer(e, 2);
+        At(s, "m03");
+        Meet(e, ref s);
+        var r = RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Fight) });
+        Assert.True(r.Ok, r.Error);
+        Assert.Contains(r.Events, ev => ev.Type == "run_battle");
+        Assert.Contains(r.Events, ev => ev.Type == "run_defeated" && ev.Args[0] == "quest");
+        var run = s.Run.Active!;
+        Assert.Equal(RunPhase.Defeated, run.Phase);
+        Assert.Equal(RunDecision.Revive, RunSystem.Decision(e.Content, run)); // the revive offer of the normal defeat
+        Assert.Equal("m03", RunSystem.QuestProgressOf(s, Q)!.Node);
+        Assert.Equal(1, RunSystem.QuestProgressOf(s, Q)!.Waits);
+        Assert.Contains(run.LastOutcome!.Lines, l => l.Kind == OutcomeKind.Battle && l.Id == "lost");
+        Assert.Contains(run.LastOutcome.Lines, l => l.Kind == OutcomeKind.QuestStep && l.Id == "waits");
+        Assert.Equal(1, s.Counters["run_quest_battles_lost"]);
+
+        // giving up (as the auto step does once the revive is declined) ends the run as a failure
+        Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
+        Assert.Null(s.Run.Active);
+        Assert.Equal("m03", RunSystem.QuestProgressOf(s, Q)!.Node);
+    }
+
+    [Fact]
+    public void Battle_Lost_ThenRevived_AndWon_MovesTheStoryOn()
+    {
+        var e = Weak();
+        var s = TestHelpers.NewPlayer(e, 2);
+        At(s, "m03");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Fight) }).Ok);
+        Assert.Equal(RunPhase.Defeated, s.Run.Active!.Phase);
+        // the revived worm is much stronger (test only): the retried battle is won
+        var strong = RunTestKit.Strong();
+        var lo = s.Run.Active.Loadout;
+        lo.WormStats = new StatBlock();
+        lo.WormStats.Add(new StatMod(StatId.Hp, strong.Hp)); lo.WormStats.Add(new StatMod(StatId.Atk, strong.Atk));
+        lo.WormStats.Add(new StatMod(StatId.Def, strong.Def)); lo.WormStats.Add(new StatMod(StatId.Speed, strong.Speed));
+        s.Run.Active.DefeatEnemies.ForEach(x => x.StartHp = 1);
+        s.Wallet.Add(Currencies.Diamonds, 10_000);
+        var r = RunTestKit.Exec(e, ref s, new RunRevive { Method = ReviveMethod.Diamonds });
+        Assert.True(r.Ok, r.Error);
+        var run = s.Run.Active!;
+        Assert.NotEqual(RunPhase.Defeated, run.Phase);
+        var p = RunSystem.QuestProgressOf(s, Q)!;
+        Assert.Equal("m04", p.Node);
+        Assert.Equal("m03", p.Journal.Last().NodeId);
+        Assert.Equal(0, p.Waits);
+        Assert.Equal("quest", run.LastOutcome!.Source);
+        Assert.Contains(run.LastOutcome.Lines, l => l.Kind == OutcomeKind.QuestStep && l.Id == "advanced" && l.Amount == 4);
+        Assert.Contains(r.Events, ev => ev.Type == "run_quest_choice" && ev.Args[3] == "advanced");
     }
 
     [Fact]
@@ -268,23 +316,38 @@ public class RunQuestTests(ITestOutputHelper output)
     [Theory]
     [InlineData("m14", Rarity.Legendary)]
     [InlineData("m22", Rarity.Mythic)]
-    public void Sacrifice_SkillOfATier_PlayerChoosesWhich(string node, Rarity tier)
+    public void Sacrifice_SkillOfATier_TakesARandomOne_Deterministically(string node, Rarity tier)
     {
         var e = Engine();
         var c = e.Content;
-        string a = SkillOfTier(c, tier), b = SkillOfTier(c, tier, 1), common = SkillOfTier(c, Rarity.Common);
-        var s = TestHelpers.NewPlayer(e, 1);
-        At(s, node);
-        Meet(e, ref s, run => { run.Skills.Add(a); run.Skills.Add(b); run.Skills.Add(common); });
-        var kind = tier == Rarity.Mythic ? QuestCostKind.MythicSkill : QuestCostKind.LegendarySkill;
-        var choices = RunSystem.QuestSkillChoices(c, s.Run.Active, kind);
-        Assert.Contains(a, choices); Assert.Contains(b, choices); Assert.DoesNotContain(common, choices);
-        Assert.False(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0, SkillId = common }).Ok); // not of the tier
-        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0, SkillId = b }).Ok);
-        var run = s.Run.Active!;
-        Assert.Contains(a, run.Skills); Assert.DoesNotContain(b, run.Skills); Assert.Contains(common, run.Skills);
-        Assert.Contains(run.LastOutcome!.Lines, l => l.Kind == OutcomeKind.SkillLost && l.Id == b);
-        Assert.NotEqual(node, RunSystem.QuestProgressOf(s, Q)!.Node);
+        string a = SkillOfTier(c, tier), b = SkillOfTier(c, tier, 1), d = SkillOfTier(c, tier, 2), common = SkillOfTier(c, Rarity.Common);
+        var taken = new Dictionary<string, int>();
+        for (long seed = 1; seed <= 40; seed++)
+        {
+            string Pay()
+            {
+                var s = TestHelpers.NewPlayer(e, seed);
+                At(s, node);
+                Meet(e, ref s, run => { run.Skills.Add(a); run.Skills.Add(b); run.Skills.Add(d); run.Skills.Add(common); });
+                var kind = tier == Rarity.Mythic ? QuestCostKind.MythicSkill : QuestCostKind.LegendarySkill;
+                var candidates = RunSystem.QuestSkillCandidates(c, s.Run.Active, kind);
+                Assert.Contains(a, candidates); Assert.Contains(b, candidates); Assert.Contains(d, candidates); Assert.DoesNotContain(common, candidates);
+                Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+                var run = s.Run.Active!;
+                var lost = new[] { a, b, d }.Where(x => !run.Skills.Contains(x)).ToList();
+                Assert.Single(lost); // exactly one skill of the tier
+                Assert.Contains(common, run.Skills);
+                // the result names the skill that was taken
+                Assert.Contains(run.LastOutcome!.Lines, l => l.Kind == OutcomeKind.SkillLost && l.Id == lost[0]);
+                Assert.NotEqual(node, RunSystem.QuestProgressOf(s, Q)!.Node);
+                return lost[0];
+            }
+            string first = Pay();
+            Assert.Equal(first, Pay()); // the run's random stream: same seed, same skill
+            taken[first] = taken.TryGetValue(first, out var n) ? n + 1 : 1;
+        }
+        output.WriteLine(string.Join(", ", taken.Select(kv => kv.Key + " " + kv.Value)));
+        Assert.Equal(3, taken.Count); // random: every candidate gets taken sometimes (not "the lowest level" or "the latest")
     }
 
     [Fact]
@@ -458,13 +521,11 @@ public class RunQuestTests(ITestOutputHelper output)
     [Fact]
     public void CompletedChain_KeepsComingAtTheSameRate_AsEpilogues()
     {
-        var e = Engine();
+        var e = AlwaysMeets();
         var s = TestHelpers.NewPlayer(e, 2);
         s.RunQuests.Quests[Q] = new QuestProgress { Completed = true, CoinBonus = 3 };
         s.RunQuests.Encounters = 40;
-        s.RunQuests.RunsWithout = 7;
         s.Wallet.Add(Currencies.Stamina, 100);
-        Assert.Equal(100, RunSystem.QuestChancePct(e.Content, s));
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
         Assert.True(s.Run.Active!.Quest.Epilogue);
         Assert.Equal(e.Content.RunQuest(Q)!.Epilogues[0].Id, s.Run.Active.Quest.EpilogueId);

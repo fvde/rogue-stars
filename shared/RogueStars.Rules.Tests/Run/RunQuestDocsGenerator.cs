@@ -41,8 +41,8 @@ public class RunQuestDocsGenerator
     {
         QuestCostKind.Coins => c.Amount + " run coins",
         QuestCostKind.CurrentHpPct => c.Amount + "% of current HP",
-        QuestCostKind.LegendarySkill => "one Legendary skill (player's choice)",
-        QuestCostKind.MythicSkill => "one Mythic skill (player's choice)",
+        QuestCostKind.LegendarySkill => "one random Legendary skill",
+        QuestCostKind.MythicSkill => "one random Mythic skill",
         QuestCostKind.AllRunSkills => "ALL run skills (signatures stay)",
         _ => "-",
     };
@@ -50,7 +50,7 @@ public class RunQuestDocsGenerator
     private static string Detail(QuestNodeDef n, ContentDb c) => n.Kind switch
     {
         QuestNodeKind.Battle => $"Hard battle: the level's miniboss at +{c.QuestTuning.BattleBasePct + n.Battle!.BonusPct:0}% HP/ATK"
-            + (n.Battle.Escorts > 0 ? $" with {n.Battle.Escorts} elite{(n.Battle.Escorts > 1 ? "s" : "")}" : "") + ". Lost or declined: the story waits.",
+            + (n.Battle.Escorts > 0 ? $" with {n.Battle.Escorts} elite{(n.Battle.Escorts > 1 ? "s" : "")}" : "") + ". Declined: the story waits. Lost: the run ends (revive offer) and the story waits.",
         QuestNodeKind.Sacrifice => "Price: " + Cost(n.Cost!) + ". Refused or not affordable: the story waits.",
         QuestNodeKind.Boon => $"Boon: +{n.Boon!.CoinsPerGain} run coin on every run-coin gain, account-wide, forever.",
         _ => "Story choice: always moves on.",
@@ -78,11 +78,12 @@ public class RunQuestDocsGenerator
         sb.AppendLine();
         sb.AppendLine("## How it plays");
         sb.AppendLine();
-        sb.AppendLine($"- Unlocks after main level {t.UnlockLevel} (feature `run_quests`, \"Strangers on the Road\"). Not in the Burrow.");
-        sb.AppendLine($"- About one run in five meets {q.Character}: chance by runs since the last meeting {string.Join(" / ", t.ChanceByRunsWithoutPct.Select(x => x + "%"))} (mean 5 runs, never two runs in a row, never more than {t.ChanceByRunsWithoutPct.Count} runs apart). The very first meeting comes within two runs of the unlock.");
+        sb.AppendLine($"- Part of the game from the start: no level gate, no unlock entry. Not on the tutorial run (main level 1), not in the Burrow.");
+        sb.AppendLine($"- About one run in five meets {q.Character}: a plain {t.ChancePct:0}% chance per run, decided at run start (no pity, no streak rules: two meetings in a row or a long drought can happen; mean 5 runs).");
         sb.AppendLine($"- At most one meeting per run: a visitor tile on the main path of the second board segment (every path passes it, it stops the worm).");
-        sb.AppendLine($"- {q.Chapters} chapters per playthrough. Story choices always move on; battles and prices can be declined or failed, then the story waits on the same node until the next meeting.");
-        sb.AppendLine($"- Battles do not end the run: a lost quest battle leaves the worm with at least {t.LossHpPct}% HP.");
+        sb.AppendLine($"- {q.Chapters} chapters per playthrough (the player only ever sees \"Chapter N\", never the total). Story choices always move on; battles and prices can be declined or not affordable, then the story waits on the same node until the next meeting.");
+        sb.AppendLine("- A lost quest battle ends the run like any lost battle (the normal defeat with its revive offer; a revive retries the battle and a win moves the story on). The story waits on the battle.");
+        sb.AppendLine("- A Legendary / Mythic skill price takes a random owned skill of that tier (the run's random stream); with none of that tier the price cannot be paid and the story waits.");
         sb.AppendLine($"- After the last chapter {q.Character} keeps visiting at the same rate with a friendly epilogue scene and a small reward (no battles, no prices).");
         sb.AppendLine();
         sb.AppendLine("## Ratios (every playthrough)");

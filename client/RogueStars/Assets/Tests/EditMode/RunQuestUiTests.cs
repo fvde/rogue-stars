@@ -15,9 +15,10 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Tests
 {
     /// <summary>
-    /// Run Quests in the client (docs/design/run-quests/recipe.md): the encounter card (portrait, name, chapter progress, text,
-    /// options with cost / risk chips), the skill picker of a skill sacrifice, epilogue scenes, the result sheet and popups of
-    /// the coin bonus, the board marker and the journal screen under "More".
+    /// Run Quests in the client (docs/design/run-quests/recipe.md): the encounter card (portrait, name, the chapter without a
+    /// total, text, options with cost / risk chips), a skill sacrifice taking a random skill of its tier (no picker), a lost
+    /// battle ending in the normal defeat, epilogue scenes, the result sheet and popups of the coin bonus, the board marker and
+    /// the journal screen under "More" (no feature gate, no chapter total).
     /// </summary>
     public sealed class RunQuestUiTests
     {
@@ -71,7 +72,8 @@ namespace RogueStars.Client.Tests
             Assert.That(modal, Is.Not.Null, "the encounter card");
             string texts = Texts(modal);
             Assert.That(texts, Does.Contain("Mothwick"));
-            Assert.That(texts, Does.Contain("Chapter 4 / 30"));
+            Assert.That(texts, Does.Contain("Chapter 4"));
+            Assert.That(texts, Does.Not.Contain("/ 30"), "the story's length is not spoiled");
             Assert.That(texts, Does.Contain("The Address"));
             Assert.That(texts, Does.Contain("Top of the Sky"));
             Assert.That(FindNamed(modal, "Prop").GetComponent<Image>().sprite, Is.Not.Null, "the portrait (placeholder until art exists)");
@@ -93,7 +95,7 @@ namespace RogueStars.Client.Tests
             string texts = Texts(FindNamed(_f.App.ModalLayer, "Modal:Quest"));
             Assert.That(texts, Does.Contain("Hard battle"));
             Assert.That(texts, Does.Contain("Story waits"));
-            Assert.That(texts, Does.Contain("Lose: you keep 10% HP"));
+            Assert.That(texts, Does.Contain("Lose: the run ends"));
             Assert.That(_f.Service.ExecuteNow(new RunAbandon()).Ok, Is.True);
             _f.App.Router.Pop();
 
@@ -108,19 +110,33 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void SkillSacrifice_OpensThePicker_AndGivesTheChosenSkill()
+        public void SkillSacrifice_TakesARandomSkillOfTheTier_WithoutAPicker_AndTheResultNamesIt()
         {
             var mythics = C.Skills.Values.Where(s => s.Draftable && !s.Signature && RunTuning.RunTier(s.Rarity) == Rarity.Mythic).OrderBy(s => s.Id).Take(2).Select(s => s.Id).ToList();
-            QuestOnScreen("m22", run => run.Skills.AddRange(mythics));
-            Assert.That(Texts(FindNamed(_f.App.ModalLayer, "Modal:Quest")), Does.Contain("−1 Mythic skill"));
+            var screen = QuestOnScreen("m22", run => run.Skills.AddRange(mythics));
+            string texts = Texts(FindNamed(_f.App.ModalLayer, "Modal:Quest"));
+            Assert.That(texts, Does.Contain("A random Mythic skill"));
+            Assert.That(texts, Does.Contain("picked at random"));
             Option(0).onClick.Invoke();
-            var give = FindNamed(_f.App.ModalLayer, "QuestGive:" + mythics[1]);
-            Assert.That(give, Is.Not.Null, "the picker lists the run's Mythic skills");
-            Assert.That(FindNamed(_f.App.ModalLayer, "QuestGive:" + mythics[0]), Is.Not.Null);
-            give.GetComponent<Button>().onClick.Invoke();
-            Assert.That(S.Run.Active.Skills, Does.Contain(mythics[0]));
-            Assert.That(S.Run.Active.Skills, Does.Not.Contain(mythics[1]));
+            Assert.That(FindNamed(_f.App.ModalLayer, "QuestGive:" + mythics[0]), Is.Null, "no picker");
+            var kept = mythics.Where(id => S.Run.Active.Skills.Contains(id)).ToList();
+            Assert.That(kept.Count, Is.EqualTo(1), "exactly one Mythic skill was taken");
+            string taken = mythics.First(id => !kept.Contains(id));
             Assert.That(RunSystem.QuestProgressOf(S, Q).Node, Is.EqualTo("m23"));
+            screen.Rebuild();
+            string sheet = Texts(FindNamed(_f.App.ModalLayer, "Modal:Outcome"));
+            Assert.That(sheet, Does.Contain("Lost skill: " + C.Skill(taken).Name));
+        }
+
+        [Test]
+        public void LostBattle_IsTheNormalDefeat_WithTheReviveOffer()
+        {
+            QuestOnScreen("m03", run => run.WormHp = 1); // one hit point against a hard battle
+            Option(0).onClick.Invoke(); // Fight
+            Assert.That(S.Run.Active, Is.Not.Null);
+            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Defeated), "a lost quest battle is a defeat");
+            Assert.That(RunSystem.Decision(C, S.Run.Active), Is.EqualTo(RunDecision.Revive));
+            Assert.That(RunSystem.QuestProgressOf(S, Q).Node, Is.EqualTo("m03"), "the story waits");
         }
 
         [Test]
@@ -179,19 +195,21 @@ namespace RogueStars.Client.Tests
         {
             Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.Coins, 150)), Is.EqualTo("−150 coins"));
             Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.CurrentHpPct, 50)), Is.EqualTo("−50% current HP"));
-            Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.LegendarySkill, 1)), Is.EqualTo("−1 Legendary skill"));
-            Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.MythicSkill, 1)), Is.EqualTo("−1 Mythic skill"));
+            Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.LegendarySkill, 1)), Is.EqualTo("A random Legendary skill"));
+            Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.MythicSkill, 1)), Is.EqualTo("A random Mythic skill"));
             Assert.That(QuestView.CostText(new QuestCostDef(QuestCostKind.AllRunSkills)), Is.EqualTo("−ALL run skills"));
-            Assert.That(QuestView.Progress(C.RunQuest(Q), 7), Is.EqualTo("Chapter 7 / 30"));
+            Assert.That(QuestView.Progress(C.RunQuest(Q), 7), Is.EqualTo("Chapter 7"));
+            Assert.That(QuestView.Reached(C.RunQuest(Q), 7), Is.EqualTo("Reached chapter 7"));
             Assert.That(QuestView.Progress(C.RunQuest(Q), 31), Is.EqualTo("Story complete"));
         }
 
         [Test]
-        public void Journal_IsUnderMore_AndShowsTheBonus_Progress_AndTheStorySoFar()
+        public void Journal_IsUnderMore_AndShowsTheBonus_ChapterReached_AndTheStorySoFar()
         {
-            Assert.That(HubLayout.MoreScreens(S, C).Any(e => e.Id == "journal"), Is.False, "locked before level 20");
-            S.Onboarding.Unlocked[Features.RunQuests] = TestUtil.T0;
-            Assert.That(HubLayout.MoreScreens(S, C).Any(e => e.Id == "journal"), Is.True);
+            S.Flags.Remove(Features.DevUnlockAllFlag);
+            Assert.That(HubLayout.MoreScreens(S, C).Any(e => e.Id == "journal"), Is.False, "hidden until the first meeting");
+            S.RunQuests.Encounters = 1;
+            Assert.That(HubLayout.MoreScreens(S, C).Any(e => e.Id == "journal"), Is.True, "no feature gate: after the first meeting, whatever the level");
             var p = new QuestProgress { Node = "m09", CoinBonus = 1 };
             p.Journal.Add(new QuestJournalEntry { Chapter = 1, NodeId = "m01", Line = "I opened Mothwick’s parcel." });
             p.Journal.Add(new QuestJournalEntry { Chapter = 8, NodeId = "m08", Line = "Pim gave me Starglint." });
@@ -201,7 +219,9 @@ namespace RogueStars.Client.Tests
             string texts = Texts(root);
             Assert.That(texts, Does.Contain("Starglint: +1 coin on every coin gain in runs"));
             Assert.That(texts, Does.Contain("Mothwick"));
-            Assert.That(texts, Does.Contain("Chapter 9 / 30"));
+            Assert.That(texts, Does.Contain("Reached chapter 9"));
+            Assert.That(texts, Does.Not.Contain("/ 30"), "no total");
+            Assert.That(texts, Does.Not.Contain("left"), "no chapters left");
             Assert.That(texts, Does.Contain("Next time: A Letter for Mothwick (a choice)"));
             Assert.That(texts, Does.Contain("Chapter 8 · Starglint"));
             Assert.That(texts, Does.Contain("Pim gave me Starglint."));
@@ -211,7 +231,6 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Journal_BeforeTheFirstMeeting_SaysNoOneCameYet()
         {
-            S.Onboarding.Unlocked[Features.RunQuests] = TestUtil.T0;
             _f.App.Router.Push(new JournalScreen());
             string texts = Texts(_f.App.Router.Current.Root);
             Assert.That(texts, Does.Contain("No visitors yet"));

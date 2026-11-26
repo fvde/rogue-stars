@@ -234,8 +234,6 @@ namespace RogueStars.Rules.Systems
         public const string RunSignatures = "run_signatures";
         /// <summary>Run content: Alien Arcade GAME tiles (MinigameTuning.MinMainLevel).</summary>
         public const string RunMinigames = "run_minigames";
-        /// <summary>Run content: Run Quests, rare story characters met on the board (QuestTuning.UnlockLevel; docs/design/run-quests).</summary>
-        public const string RunQuests = "run_quests";
         /// <summary>Hold the dice to auto-roll (client convenience; auto never answers a decision).</summary>
         public const string AutoRoll = "auto_roll";
         /// <summary>Laboratory signature packages (each package node's RequiresFeature). The first (Combo) comes with the Laboratory.</summary>

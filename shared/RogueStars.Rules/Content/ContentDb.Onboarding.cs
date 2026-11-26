@@ -251,8 +251,6 @@ namespace RogueStars.Rules.Content
             // is owned (pulled). No level, so the hub teaser skips them (Features.Next).
             B(Features.Laboratory, "Laboratory", LaboratoryId, 30, "research_skill", "Build the Laboratory in the City and staff it: research makes your worm stronger or adds new skills to every run.");
             F(Features.Heroes, "Heroes", 18, 50, "hero_summon", "Hero summon events open: pull for hero shards and copies. A hero adds its kit to every run.");
-            // Run Quests (docs/design/run-quests/recipe.md): a rare visitor on the board, about one run in five, with a long story.
-            F(Features.RunQuests, "Strangers on the Road", QuestTuning.UnlockLevel, 0, null, "Now and then a strange visitor waits on the board. Help them, and their story goes on.", since: 2, run: true);
             B(Features.GrainFarm, "Grain Farm", "bp_grain_farm", 20, null, "Grain feeds the colony: breeding runs on it.");
             B(Features.OreMine, "Ore Mine", "bp_ore_mine", 20, null, "Ore powers part merges, the Replicator and upgrades.");
             F(Features.PackageIce, "Ice Package", 24, 0, null, "A new Laboratory package: research it to add Ice skills to your runs.", since: 2);
@@ -374,10 +372,6 @@ namespace RogueStars.Rules.Content
                 "Game tiles now appear on the board.", "game_tile", Bounce,
                 "Land on one to play a quick game.", "minigame", Tap,
                 "Win a medal for coins or a skill.", "medal", Count);
-            I(Features.RunQuests,
-                "Now and then a visitor waits on the board.", "quest_tile", Bounce,
-                "Each meeting tells a bit more of their story.", "quest_story", Slide,
-                "Help them along for rewards that last forever.", "quest_boon", Count);
             I(Features.Aliens,
                 "Your first alien has arrived.", "alien", Bounce,
                 "Call more at the Alien Signal. First 10× is free.", "alien_signal", Spin);

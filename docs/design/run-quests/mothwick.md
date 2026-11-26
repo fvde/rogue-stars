@@ -14,11 +14,12 @@ Comment on any node by its id (for example `m05a`).
 
 ## How it plays
 
-- Unlocks after main level 20 (feature `run_quests`, "Strangers on the Road"). Not in the Burrow.
-- About one run in five meets Mothwick: chance by runs since the last meeting 0% / 5% / 15% / 25% / 35% / 55% / 80% / 100% (mean 5 runs, never two runs in a row, never more than 8 runs apart). The very first meeting comes within two runs of the unlock.
+- Part of the game from the start: no level gate, no unlock entry. Not on the tutorial run (main level 1), not in the Burrow.
+- About one run in five meets Mothwick: a plain 20% chance per run, decided at run start (no pity, no streak rules: two meetings in a row or a long drought can happen; mean 5 runs).
 - At most one meeting per run: a visitor tile on the main path of the second board segment (every path passes it, it stops the worm).
-- 30 chapters per playthrough. Story choices always move on; battles and prices can be declined or failed, then the story waits on the same node until the next meeting.
-- Battles do not end the run: a lost quest battle leaves the worm with at least 10% HP.
+- 30 chapters per playthrough (the player only ever sees "Chapter N", never the total). Story choices always move on; battles and prices can be declined or not affordable, then the story waits on the same node until the next meeting.
+- A lost quest battle ends the run like any lost battle (the normal defeat with its revive offer; a revive retries the battle and a win moves the story on). The story waits on the battle.
+- A Legendary / Mythic skill price takes a random owned skill of that tier (the run's random stream); with none of that tier the price cannot be paid and the story waits.
 - After the last chapter Mothwick keeps visiting at the same rate with a friendly epilogue scene and a small reward (no battles, no prices).
 
 ## Ratios (every playthrough)
@@ -107,7 +108,7 @@ Story choice: always moves on.
 
 > A big grumpy brute stomps out of the bushes, sniffing at the lantern. “It wants Pim!” squeaks Mothwick from behind your tail. “Please, er, return to sender!”
 
-Hard battle: the level's miniboss at +40% HP/ATK with 1 elite. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +40% HP/ATK with 1 elite. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight it** (fight; won →) → `m04` The Address  
   Journal: *I chased off a brute that tried to swallow Pim’s lantern.*
@@ -170,7 +171,7 @@ Story choice: always moves on.
 
 > Something big with too many teeth guards the path, wearing a collar with a postage stamp. “That’s the Hollow Postmaster’s stamp,” Mothwick gulps. “He collects fallen stars. And he sent his guard dog.”
 
-Hard battle: the level's miniboss at +45% HP/ATK with 1 elite. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +45% HP/ATK with 1 elite. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight the guard** (fight; won →) → `m08` Starglint  
   Journal: *I beat the Hollow Postmaster’s guard. Mothwick stamped its collar RETURNED.*
@@ -242,7 +243,7 @@ Story choice: always moves on.
 
 > The cloud stairs are guarded by something as wide as the steps and twice as rude, and it brought a friend. “Tickets, please,” it rumbles. You have no tickets.
 
-Hard battle: the level's miniboss at +50% HP/ATK with 1 elite. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +50% HP/ATK with 1 elite. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight your way up** (fight; won →) → `m13` Growth Spurt  
   Journal: *I fought past the guardians of the cloud stairs.*
@@ -263,7 +264,7 @@ Story choice: always moves on.
 
 > The wind on the stairs is far too strong for a little moth. “The Windkeeper will calm it,” Mothwick shouts, “for something legendary. One of your best tricks, I’m afraid.”
 
-Price: one Legendary skill (player's choice). Refused or not affordable: the story waits.
+Price: one random Legendary skill. Refused or not affordable: the story waits.
 
 - **Give a Legendary skill** (pay →) → `m15` The Door in the Cloud  
   Journal: *I gave the Windkeeper one of my Legendary skills. The wind went quiet.*
@@ -306,7 +307,7 @@ Story choice: always moves on.
 
 > A guardian of the lost letters blocks the exit, eyeing the comet’s letter. “No letter leaves the Hall,” it booms, and its helpers crack their knuckles.
 
-Hard battle: the level's miniboss at +55% HP/ATK with 1 elite. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +55% HP/ATK with 1 elite. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight the Keeper** (fight; won →) → `m18a` Postage Due  
   Journal: *I beat the Shelf Keeper. The comet’s letter is ours to deliver.*
@@ -316,7 +317,7 @@ Hard battle: the level's miniboss at +55% HP/ATK with 1 elite. Lost or declined:
 
 > The pet is awake, and it brought friends. Mothwick puts on his sternest face, which is not very stern. “Sit! Stay! Please?”
 
-Hard battle: the level's miniboss at +55% HP/ATK with 1 elite. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +55% HP/ATK with 1 elite. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight the pet** (fight; won →) → `m18b` A Bandage of Light  
   Journal: *The Postmaster’s pet and its friends lost. Mothwick gave it a biscuit anyway.*
@@ -388,7 +389,7 @@ Story choice: always moves on.
 
 > The sky road ends at a gate with a keyhole shaped like a legend. Only something mythic fits. Mothwick fidgets. “I’d give my own, but all I have is a cap.”
 
-Price: one Mythic skill (player's choice). Refused or not affordable: the story waits.
+Price: one random Mythic skill. Refused or not affordable: the story waits.
 
 - **Give a Mythic skill** (pay →) → `m23` The Last Guard  
   Journal: *I gave a Mythic skill to open the Star Gate.*
@@ -398,7 +399,7 @@ Price: one Mythic skill (player's choice). Refused or not affordable: the story 
 
 > Beyond the gate stands the Postmaster’s last guard, polished and proud, with a helper at its side. “The Postmaster is not seeing visitors,” it says. “Especially worms.”
 
-Hard battle: the level's miniboss at +60% HP/ATK with 2 elites. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +60% HP/ATK with 2 elites. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight the guard** (fight; won →) → `m24` The Hollow Postmaster  
   Journal: *I beat the Postmaster’s last guard behind the Star Gate.*
@@ -452,7 +453,7 @@ Story choice: always moves on.
 
 > At the Top of the Sky waits a shadow that eats starlight, and it has brought its whole family. Pim hides behind your glowing tail. Mothwick rolls up his sleeves. He has no sleeves. He rolls up his wings.
 
-Hard battle: the level's miniboss at +70% HP/ATK with 2 elites. Lost or declined: the story waits.
+Hard battle: the level's miniboss at +70% HP/ATK with 2 elites. Declined: the story waits. Lost: the run ends (revive offer) and the story waits.
 
 - **Fight the Light-Eater** (fight; won →) → `m28` The Top of the Sky  
   Journal: *We beat the Light-Eater at the Top of the Sky.*

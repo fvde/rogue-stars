@@ -100,6 +100,7 @@ namespace RogueStars.Client.App
                 if (direct.Contains(e.Id)) continue;
                 if (e.Id == "observatory" && Features.IsUnlocked(s, c, Features.Invasions)) continue; // the left column
                 if (e.FeatureId != null && !Features.IsUnlocked(s, c, e.FeatureId)) continue;
+                if (e.Visible != null && !e.Visible(s)) continue;
                 list.Add(e);
             }
             return list;
@@ -171,7 +172,7 @@ namespace RogueStars.Client.App
                 case Features.Forge: return new Entry(featureId, "OPEN THE FORGE", null, "parts");
                 case Features.DarkSide: return new Entry(featureId, "CROSS OVER", null, "portals");
                 case Features.RunShop: case Features.RunMiniboss: case Features.RunTwoDice: case Features.RunCampfire:
-                case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll: case Features.RunQuests:
+                case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll:
                     return new Entry(featureId, "PLAY", null, "portals");
                 case Features.PackageIce: case Features.PackageLightning: case Features.PackageCounter: case Features.PackageAlien:
                 case Features.PackageTime:

@@ -7,8 +7,8 @@ namespace RogueStars.Sim
     /// <summary>How a bot answers Run Quest encounters (docs/design/run-quests/recipe.md).</summary>
     public enum QuestPolicy
     {
-        /// <summary>A typical player: fights when healthy, pays coins and skills when it can, pays life when healthy, and only
-        /// gives up every run skill half of the times it is asked (drama).</summary>
+        /// <summary>A typical player: fights when healthy (a lost quest battle ends the run), pays coins and skills when it can,
+        /// pays life when healthy, and only gives up every run skill half of the times it is asked (drama).</summary>
         Typical,
         /// <summary>Takes every battle and pays every price it can.</summary>
         Eager,
@@ -19,8 +19,11 @@ namespace RogueStars.Sim
     public sealed partial class SimPlayer
     {
         public QuestPolicy QuestPolicy = QuestPolicy.Typical;
-        /// <summary>Quest encounters answered, battles fought / won, prices paid, and waits by node kind (index = QuestNodeKind).</summary>
-        public int QuestEncounters, QuestBattles, QuestBattlesWon, QuestPaid;
+        /// <summary>
+        /// Quest encounters answered, battles fought / won / lost (a loss is the normal defeat: revive or the run ends), prices
+        /// paid, and waits by node kind (index = QuestNodeKind; a lost battle counts as a battle wait).
+        /// </summary>
+        public int QuestEncounters, QuestBattles, QuestBattlesWon, QuestBattlesLost, QuestPaid;
         public readonly int[] QuestWaits = new int[4];
         /// <summary>Waits because a price could not be paid (no coins, no skill of the tier).</summary>
         public int QuestUnaffordable;
@@ -71,7 +74,7 @@ namespace RogueStars.Sim
             {
                 QuestBattles++;
                 if (r.Events.Exists(ev => ev.Type == "run_quest_choice" && ev.Args.Count > 3 && ev.Args[3] == "advanced")) QuestBattlesWon++;
-                else QuestWaits[(int)node.Kind]++;
+                else { QuestBattlesLost++; QuestWaits[(int)node.Kind]++; }
             }
             else if (action == QuestOptionAction.Pay) QuestPaid++;
             else if (action == QuestOptionAction.Wait) QuestWaits[(int)node.Kind]++;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using RogueStars.Client.Screens;
+using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 
 namespace RogueStars.Client.App
@@ -11,6 +12,8 @@ namespace RogueStars.Client.App
         public string Title;
         /// <summary>Meta feature gate (Features.*), or null when always available.</summary>
         public string FeatureId;
+        /// <summary>Extra visibility condition besides the feature gate (null = none), e.g. the journal once someone was met.</summary>
+        public Func<GameState, bool> Visible;
         /// <summary>Owning rules workstream (City, Meta, Progression, Run, Client).</summary>
         public string Workstream;
         public Func<UiScreen> Create;
@@ -45,8 +48,9 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "observatory", Title = "Observatory", FeatureId = Features.Invasions, Workstream = "Meta", Create = () => new ObservatoryScreen() },
             new ScreenEntry { Id = "arena", Title = "Arena", FeatureId = Features.Arena, Workstream = "Meta", Create = () => new ArenaScreen() },
             new ScreenEntry { Id = "guild", Title = "Guild", FeatureId = Features.Guilds, Workstream = "Meta", Create = () => new GuildScreen() },
-            // Run Quests: the journal of the story characters met on the board ("More"; docs/design/run-quests/recipe.md).
-            new ScreenEntry { Id = "journal", Title = "Journal", FeatureId = Features.RunQuests, Workstream = "Run", Create = () => new JournalScreen() },
+            // Run Quests: the journal of the story characters met on the board ("More"; docs/design/run-quests/recipe.md). No
+            // feature gate (Run Quests are part of the game from the start): it shows up once the player met someone.
+            new ScreenEntry { Id = "journal", Title = "Journal", Workstream = "Run", Visible = s => s.RunQuests.Encounters > 0, Create = () => new JournalScreen() },
             new ScreenEntry { Id = "settings", Title = "Settings", Workstream = "Client", Create = () => new SettingsScreen() },
         };
 

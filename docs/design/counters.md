@@ -165,6 +165,6 @@ Meta content now reads the keys the owning workstreams actually write:
 ## Run Quests (docs/design/run-quests/recipe.md)
 - `run_quest_encounters` — quest characters met on the board (story, retries and epilogue scenes) — Run/Quests
 - `run_quest_chapters` — quest chapters passed (the story moved on) — Run/Quests
-- `run_quest_battles_won`, `run_quest_battles_lost` — quest battles fought (a loss never ends the run) — Run/Quests
+- `run_quest_battles_won`, `run_quest_battles_lost` — quest battles fought (a loss is the normal defeat: revive or the run ends) — Run/Quests
 - `run_quests_completed` — quest chains finished — Run/Quests
 - `run_quest_epilogues` — epilogue scenes after a finished chain — Run/Quests

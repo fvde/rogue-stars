@@ -14,8 +14,8 @@ namespace RogueStars.Client.Screens
     /// <summary>
     /// Run Quests on the run screen (docs/design/run-quests/recipe.md): the encounter card of a quest character — the stage
     /// with the worm and the character's portrait (drawn placeholder until the art exists), name plate, chapter progress, the
-    /// scene text and the options with their cost / risk chips — the Legendary / Mythic skill picker of a sacrifice, and the
-    /// friendly epilogue scenes after the chain. Every option is a button named "QuestOption:&lt;index&gt;".
+    /// scene text and the options with their cost / risk chips (a Legendary / Mythic skill price takes a random skill of the
+    /// tier: no picker) — and the friendly epilogue scenes after the chain. Every option is a button named "QuestOption:&lt;index&gt;".
     /// </summary>
     public sealed partial class RunScreen
     {
@@ -55,11 +55,7 @@ namespace RogueStars.Client.Screens
                 {
                     int index = i;
                     var v = views[i];
-                    QuestOptionCard(frame, s, i, views.Count, v, () =>
-                    {
-                        if (v.PicksSkill) { QuestSkillPicker(run, node, index, modal); return; }
-                        modal.Close(); CloseDecision(); Run(new RunQuestChoose { Index = index });
-                    });
+                    QuestOptionCard(frame, s, i, views.Count, v, () => { modal.Close(); CloseDecision(); Run(new RunQuestChoose { Index = index }); });
                 }
             }
             var journal = Ui.Button(frame, "Story so far", () => QuestJournalModal(q), SliceCards.Purple, 330 * s, 96 * s, true, (int)(34 * s));
@@ -104,26 +100,6 @@ namespace RogueStars.Client.Screens
                 ct.horizontalOverflow = HorizontalWrapMode.Wrap; ct.resizeTextForBestFit = true; ct.resizeTextMaxSize = ct.fontSize; ct.resizeTextMinSize = (int)(22 * s);
             }
             return btn;
-        }
-
-        /// <summary>A Legendary / Mythic skill sacrifice: the player picks which owned skill of that tier to give.</summary>
-        private void QuestSkillPicker(ActiveRun run, QuestNodeDef node, int index, UiModal parent)
-        {
-            var choices = RunSystem.QuestSkillChoices(Content, run, node.Cost.Kind);
-            Modal(node.Cost.Kind == QuestCostKind.MythicSkill ? "Give a Mythic skill" : "Give a Legendary skill", b =>
-            {
-                Ui.Label(b, "Pick the skill you give up for the rest of this run.", Theme.FontSmall, Theme.TextDim);
-                foreach (var id in choices)
-                {
-                    string sid = id;
-                    var sk = Content.Skill(sid);
-                    var btn = Ui.Button(b, (sk?.Name ?? sid) + "  ·  " + RunTuning.RunTier(sk?.Rarity ?? Rarity.Common), () =>
-                    {
-                        parent.Close(); CloseDecision(); Run(new RunQuestChoose { Index = index, SkillId = sid });
-                    }, RunPresentation.SkillColor(sk));
-                    btn.name = "QuestGive:" + sid;
-                }
-            }, new ModalButton("Back", null));
         }
 
         /// <summary>The story so far (the journal) on top of the encounter.</summary>

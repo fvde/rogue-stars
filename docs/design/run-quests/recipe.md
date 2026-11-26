@@ -13,7 +13,7 @@ Code: rules in `shared/RogueStars.Rules/Systems/Run/RunSystem.Quests.cs` (+ `Run
 | Node type | Share | What the player sees | What happens |
 |---|---|---|---|
 | **Story** | ~50% | 2 (or 3) choices, no cost | Always moves on. Each option leads to a different next node (a new direction) or to the same node with a different journal line (a different tone). |
-| **Battle** | ~20% | "Fight" / "Not now" | Won: moves on. Lost or declined: the story **waits on this node** until the next meeting. A lost quest battle never ends the run (the worm keeps at least `LossHpPct` 10% HP). |
+| **Battle** | ~20% | "Fight" / "Not now" | Won: moves on. Declined: the story **waits on this node** until the next meeting. **Lost: the run ends** like any lost battle (the normal defeat flow with its revive offer; a revive retries the battle and a win moves the story on); the story waits on this node. |
 | **Sacrifice** | ~20% | "Pay" / "Not now", the price as a chip | Paid: moves on. Refused, or the run cannot pay: the story **waits on this node**. |
 | **Boon** | ~10% | one "Thank you" | Moves on and grants a **permanent, account-wide** benefit. |
 
@@ -24,8 +24,8 @@ A 30-chapter quest is exactly **15 story, 6 battles, 6 sacrifices, 3 boons**.
 | Kind | Amount | Notes |
 |---|---|---|
 | `Coins` | 100–300 run coins, steps of 50 | A run earns ~550–800; 300 means saving up. The journal shows the waiting price so players can plan. |
-| `LegendarySkill` | 1 | The player picks which owned Legendary-tier run skill (never a signature). |
-| `MythicSkill` | 1 | Same for Mythic tier (Mythics come from minibosses, so meet the quest after the first lair). |
+| `LegendarySkill` | 1 | A **random** owned Legendary-tier run skill (never a signature): the player does not pick. Drawn from the run's random stream (deterministic). The chip says "A random Legendary skill"; the result line names the skill taken ("Lost skill: …"). No Legendary owned: the price cannot be paid and the story waits. |
+| `MythicSkill` | 1 | Same for Mythic tier (Mythics come from minibosses: until the run has one, the story waits). |
 | `CurrentHpPct` | 50–80%, steps of 10 | Of the worm's **current** HP; never below 1. |
 | `AllRunSkills` | – | The drastic one: every run skill but the signatures. Needs at least one skill to give. Use once, late. |
 
@@ -49,8 +49,11 @@ coins, mini-game coins, skill coin triggers; costs never). Three boons per quest
 ## 2. Graph shape
 
 * **Chapters are layers.** Every node has a `Chapter`; every option goes to a node of the next chapter. The last
-  chapter's options have `Next = null` (the end). So every path is exactly `Chapters` meetings long and the progress
-  chip "Chapter 7 / 30" is always true.
+  chapter's options have `Next = null` (the end). So every path is exactly `Chapters` meetings long and the chip
+  "Chapter 7" is always true.
+* **Never show the total.** The player sees "Chapter N" only (encounter card, result lines, journal: "Reached chapter N"
+  and the story so far). No "/ 30", no progress bar toward a total, no "chapters left": the story's length is not spoiled.
+  The total lives in the data and this review material only.
 * **At most two variants per chapter** (`m05a`, `m05b`). Variants exist only after a story node (it chooses the
   direction); a variant may carry on for a few chapters (`m16a → m17a → m18a`) and then **re-merges** into one node.
   This keeps content at ~40 nodes for a 30-chapter story (Mothwick: 42 nodes, 128 different playthroughs).
@@ -63,15 +66,16 @@ coins, mini-game coins, skill coin triggers; costs never). Three boons per quest
 
 ## 3. Meeting rate and placement
 
-* **Unlock:** feature `run_quests` ("Strangers on the Road") after main level `QuestTuning.UnlockLevel` = 20 (after Heroes
-  at 18, before the Ice package at 24): minibosses, Mythics, shops, campfires and signatures are all known by then.
-  Never on the tutorial level. Not in the Burrow (short floors); normal, Overcharged and Dark Side runs count.
-* **About one run in five, with pity** (`ChanceByRunsWithoutPct`): the chance by eligible runs since the last meeting is
-  0 / 5 / 15 / 25 / 35 / 55 / 80 / 100%. Mean 5 runs, never two runs in a row, never more than 8 runs apart. The very
-  first meeting starts at 80% (`FirstEncounterIndex`) so the new feature shows itself within two runs.
+* **No unlock:** part of the game from the start (no level gate, no feature entry, no intro). Only the tutorial run (main
+  level 1, its own small tile pool) and the Burrow (short floors) never have it; normal, Overcharged and Dark Side runs
+  count. Prices the run cannot pay yet (no Mythic before the first miniboss) simply make the story wait; before minibosses
+  exist on a level the battle's champion is the level's elite.
+* **About one run in five, plain chance** (`QuestTuning.ChancePct` = 20%): an independent roll per eligible run. **No
+  pity**: no guaranteed meeting after X runs, no "not two in a row" rule; back-to-back meetings and long droughts both
+  happen (mean 5 runs between meetings).
 * **One meeting per run at most:** decided at run start (from a fork of the run's random stream, so nothing else about
   the run changes), then one tile of the second board segment's **main path** becomes the visitor tile (marker: a star
-  lantern; it forces a stop like a shop, so no fork bypasses it). The pity resets when the worm reaches the tile.
+  lantern; it forces a stop like a shop, so no fork bypasses it).
 * **Several quests:** the meeting goes to the first unfinished chain (`RunQuestDef.Order`); when all are finished, to the
   chain whose epilogue was seen least.
 
@@ -135,14 +139,16 @@ Epilogues never add account power.
 - [ ] All five sacrifice kinds appear at least once; coin prices 100–300 in 50s; HP 50–80% in 10s; battle bonus in 5s.
 - [ ] Every advancing option has a journal line; texts within the length limits.
 - [ ] 3–6 epilogue scenes, positive and small (section 4).
-- [ ] Requirements resolvable at the unlock level: minibosses (Mythics) and shops come before it; every main level past the
-      unlock and every Dark Side level has a miniboss and elites for the battles.
+- [ ] Requirements resolvable from the start: every main level from 2 and every Dark Side level has a champion for the
+      battles (miniboss, or an elite before minibosses); unpayable prices only make the story wait.
+- [ ] No player-facing text shows the chapter total ("Chapter N" only).
 - [ ] Portrait art package added; review doc generated; simulator run noted.
 - [ ] A server deploy ships it (the rules are shared): no save migration needed, all state is new fields.
 
 ## 8. What to expect (simulator, Mothwick)
 
-About 40 meetings (30 chapters + retries), **~180–220 runs after the unlock** for an active free player (~4–7 weeks),
-~200–350 runs (~2 weeks) for a hardcore player, and most of a year for a casual one. Coin prices are the most common
-reason to wait (bots spend their coins in shops); quest battles are won about half the time by an active player.
-Details: `docs/balance/run-quests.md`.
+About 45 meetings (30 chapters + retries) from the first day (no level gate, plain 20%): **~340 runs (median; 160–430)**
+for an active free player (~12 weeks, 23–134 days), ~210–230 runs (~10 days) for a hardcore player, and more than a
+year for most casual players. Lost quest battles now end the run: an active free player loses more than half of its first
+tries (38 of 68 over five seeds), a hardcore one a third; coin prices are the most common reason to wait (bots spend their
+coins in shops). Details: `docs/balance/run-quests.md`.

@@ -1003,14 +1003,16 @@ upright creature and **shaders** for props and buildings. Namespace `RogueStars.
   it forces a stop. Landing pops "A VISITOR!".
 - **Encounter card** (`RunScreen.Quests.cs`, phase `Quest`): the stage with the worm and the character's portrait
   (`ScreenArt.Character("quest_<id>")`, `Art/Run/Characters/quest_<id>`; Mothwick has a drawn placeholder), a name plate
-  with "the Lost Courier · Chapter 7 / 30", the title band, the scene text and one wide button per option
-  (`QuestOption:<i>`) with a detail line and a chip (Story / Hard battle / −100 coins / −1 Mythic skill / +1 coin per gain,
-  forever / Story waits). A price the run cannot pay is disabled with the reason. Legendary / Mythic sacrifices open a picker
-  (`QuestGive:<skill>`). "Story so far" opens the last journal lines. Epilogue scenes have one option and a reward chip.
+  with "the Lost Courier · Chapter 7" (never the total), the title band, the scene text and one wide button per option
+  (`QuestOption:<i>`) with a detail line and a chip (Story / Hard battle / −100 coins / A random Mythic skill / +1 coin per
+  gain, forever / Story waits). A price the run cannot pay is disabled with the reason. Legendary / Mythic sacrifices take a
+  random skill of the tier (no picker; the result sheet's "Lost skill: …" names it). A lost battle is the normal defeat
+  (revive modal). "Story so far" opens the last journal lines. Epilogue scenes have one option and a reward chip.
   Texts: `QuestView` (pure, tested).
 - **Coin bonus:** outcome lines `CoinBonus` ("+3 Starglint" popup, "+3 coins from Starglint" on result sheets), `QuestBoon`
   and `QuestStep` on the STORY result sheet.
-- **Journal** (`JournalScreen`, catalog id `journal`, under "More" once `run_quests` is unlocked; its "?" replays the intro):
-  the account bonus line, per character the portrait, chapter bar, what the story waits for next and the story so far.
+- **Journal** (`JournalScreen`, catalog id `journal`, under "More" once the player met a character, `ScreenEntry.Visible`; no feature gate, no intro): the account
+  bonus line, per character the portrait, "Reached chapter N" (no total, no bar, no chapters left), what the story waits for
+  next and the story so far.
 - **Tests:** EditMode `RunQuestUiTests`; screenshots: `ROGUESTARS_SHOTS_DIR=/tmp/quests arch -arm64 $U -batchmode -projectPath $P
   -logFile /tmp/rs-quests.log -runTests -testPlatform PlayMode -testFilter RunQuestShowcaseTests -testResults /tmp/rs-quests.xml`.

@@ -183,11 +183,12 @@ namespace RogueStars.Client.Tests
             Unlock(Features.Parts, Features.BiomassFarm, Features.Laboratory, Features.Aliens);
             var reachable = HubLayout.Reachable(S, C, _f.Service.NowMs);
             foreach (var e in ScreenCatalog.All)
-                if (e.FeatureId == null || Features.IsUnlocked(S, C, e.FeatureId))
+                if ((e.FeatureId == null || Features.IsUnlocked(S, C, e.FeatureId)) && (e.Visible == null || e.Visible(S)))
                     Assert.That(reachable, Does.Contain(e.Id), e.Id + " unlocked but not reachable");
             Assert.That(reachable, Does.Not.Contain("arena"));
 
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            S.RunQuests.Encounters = 1; // the journal shows up once a Run Quest character was met
             reachable = HubLayout.Reachable(S, C, _f.Service.NowMs);
             foreach (var e in ScreenCatalog.All) Assert.That(reachable, Does.Contain(e.Id), e.Id + " not reachable with everything unlocked");
             var hub = Hub;

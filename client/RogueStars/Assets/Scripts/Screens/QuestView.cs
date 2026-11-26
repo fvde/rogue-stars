@@ -14,21 +14,23 @@ namespace RogueStars.Client.Screens
         public string Label, Detail, Chip;
         public Color ChipColor;
         public bool Enabled;
-        /// <summary>The option needs the skill picker first (a Legendary / Mythic skill sacrifice).</summary>
-        public bool PicksSkill;
     }
 
     /// <summary>
-    /// Texts of the Run Quest encounter card and the journal (pure; tested): chapter progress, costs, risk chips, the account
-    /// coin bonus line. Docs: docs/design/run-quests/recipe.md.
+    /// Texts of the Run Quest encounter card and the journal (pure; tested): the chapter (never the total: the story's length
+    /// is not spoiled), costs, risk chips, the account coin bonus line. Docs: docs/design/run-quests/recipe.md.
     /// </summary>
     public static class QuestView
     {
-        /// <summary>"Chapter 7 / 30" (the chapter the story is at), "Story complete" once done.</summary>
+        /// <summary>"Chapter 7" (the chapter the story is at; never the total), "Story complete" once done.</summary>
         public static string Progress(RunQuestDef q, int chapter) =>
-            chapter > q.Chapters ? "Story complete" : "Chapter " + chapter + " / " + q.Chapters;
+            chapter > q.Chapters ? "Story complete" : "Chapter " + chapter;
 
-        /// <summary>The price as a chip: "−100 coins", "−50% current HP", "−1 Legendary skill", "−ALL run skills".</summary>
+        /// <summary>The journal's chapter line: "Reached chapter 7" (never a total or how many are left), "Story complete" once done.</summary>
+        public static string Reached(RunQuestDef q, int chapter) =>
+            chapter > q.Chapters ? "Story complete" : "Reached chapter " + chapter;
+
+        /// <summary>The price as a chip: "−100 coins", "−50% current HP", "A random Legendary skill", "−ALL run skills".</summary>
         public static string CostText(QuestCostDef cost)
         {
             if (cost == null) return "";
@@ -36,10 +38,23 @@ namespace RogueStars.Client.Screens
             {
                 case QuestCostKind.Coins: return "−" + cost.Amount + " coins";
                 case QuestCostKind.CurrentHpPct: return "−" + cost.Amount + "% current HP";
-                case QuestCostKind.LegendarySkill: return "−1 Legendary skill";
-                case QuestCostKind.MythicSkill: return "−1 Mythic skill";
+                case QuestCostKind.LegendarySkill: return "A random Legendary skill";
+                case QuestCostKind.MythicSkill: return "A random Mythic skill";
                 case QuestCostKind.AllRunSkills: return "−ALL run skills";
                 default: return "";
+            }
+        }
+
+        /// <summary>The price in a sentence ("100 coins", "a random Mythic skill") for the journal's "Next time" line.</summary>
+        public static string PriceText(QuestCostDef cost)
+        {
+            if (cost == null) return "";
+            switch (cost.Kind)
+            {
+                case QuestCostKind.LegendarySkill: return "a random Legendary skill";
+                case QuestCostKind.MythicSkill: return "a random Mythic skill";
+                case QuestCostKind.AllRunSkills: return "ALL run skills";
+                default: return CostText(cost).TrimStart('−');
             }
         }
 
@@ -105,7 +120,7 @@ namespace RogueStars.Client.Screens
                     case QuestOptionAction.Fight:
                         v.Chip = "Hard battle";
                         v.ChipColor = Theme.Bad;
-                        v.Detail = "Win: the story goes on. Lose: you keep " + c.QuestTuning.LossHpPct + "% HP and the story waits.";
+                        v.Detail = "Win: the story goes on. Lose: the run ends (unless you revive).";
                         break;
                     case QuestOptionAction.Pay:
                     {
@@ -114,8 +129,7 @@ namespace RogueStars.Client.Screens
                         string why = Unaffordable(c, run, node.Cost);
                         v.Enabled = why == null;
                         v.Detail = why ?? (node.Cost.Kind == QuestCostKind.LegendarySkill || node.Cost.Kind == QuestCostKind.MythicSkill
-                            ? "You choose which skill. The story goes on." : "Pay it and the story goes on.");
-                        v.PicksSkill = v.Enabled && (node.Cost.Kind == QuestCostKind.LegendarySkill || node.Cost.Kind == QuestCostKind.MythicSkill);
+                            ? "One of yours, picked at random. The story goes on." : "Pay it and the story goes on.");
                         if (!v.Enabled) v.ChipColor = Theme.TextFaint;
                         break;
                     }
@@ -139,7 +153,7 @@ namespace RogueStars.Client.Screens
             switch (n.Kind)
             {
                 case QuestNodeKind.Battle: what = "a hard battle"; break;
-                case QuestNodeKind.Sacrifice: what = "a price: " + CostText(n.Cost).TrimStart('−'); break;
+                case QuestNodeKind.Sacrifice: what = "a price: " + PriceText(n.Cost); break;
                 case QuestNodeKind.Boon: what = "a gift"; break;
                 default: what = "a choice"; break;
             }

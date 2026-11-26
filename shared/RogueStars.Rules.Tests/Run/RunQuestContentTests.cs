@@ -9,7 +9,7 @@ namespace RogueStars.Rules.Tests.Run;
 /// Validates every Run Quest chain against the recipe (docs/design/run-quests/recipe.md): the graph (reachable, no dead ends,
 /// every path exactly Chapters encounters, chapters in order), node kinds and their options, the type ratios on every path
 /// (50 / 20 / 20 / 10 ± tolerance, exactly the boons the account bonus needs), round numbers, text, the epilogue scenes, and
-/// that every requirement can be met by a player at the unlock level.
+/// that every requirement can be met from the start (no level gate).
 /// </summary>
 public class RunQuestContentTests(ITestOutputHelper output)
 {
@@ -191,24 +191,24 @@ public class RunQuestContentTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Requirements_AreResolvable_ByAPlayerAtTheUnlockLevel()
+    public void Requirements_AreResolvable_FromTheStart()
     {
-        int unlock = C.QuestTuning.UnlockLevel;
-        Assert.True(unlock > 1, "never on the tutorial level");
-        int L(string f) => (int)Features.UnlockLevel(C.Feature(f)!);
-        // Mythic sacrifices need minibosses (Mythic choices), skill sacrifices need drafts and shops, battles need the elites
-        Assert.True(L(Features.RunMiniboss) < unlock);
-        Assert.True(L(Features.RunShop) < unlock);
-        Assert.True(C.Campaign.MinibossesFromLevel <= unlock);
+        // No level gate: the character can come from the second run of the game (never the tutorial run, main level 1).
+        // Prices the run cannot pay yet (no Mythic before the first miniboss) simply make the story wait.
+        Assert.False(RunSystem.QuestEligible(C, RunMode.Normal, C.MainLevel(1)));
+        Assert.True(C.Campaign.MinibossesFromLevel < 10, "Mythic prices become payable early");
         // the draft pool has Legendary and Mythic tier skills without any Laboratory research
         Assert.Contains(C.Skills.Values, s => s.Draftable && !s.Signature && RunTuning.RunTier(s.Rarity) == Rarity.Legendary);
         Assert.Contains(C.Skills.Values, s => s.Draftable && !s.Signature && RunTuning.RunTier(s.Rarity) == Rarity.Mythic);
-        // every level a quest can appear on has a champion and elites for the battles (main levels past the unlock, Dark Side)
-        for (int n = unlock; n <= 600; n += 7)
+        // every level a quest can appear on has a champion for the battles (main levels from 2, Dark Side): the miniboss, or
+        // before minibosses are introduced an elite / enemy of the level
+        for (int n = 2; n <= 600; n += n < 20 ? 1 : 7)
         {
             var l = C.MainLevel(n)!;
-            Assert.True(l.MinibossId != null && C.Enemies.ContainsKey(l.MinibossId), "main " + n);
-            Assert.NotEmpty(l.ElitePool);
+            Assert.True(l.MinibossId != null && C.Enemies.ContainsKey(l.MinibossId) || l.ElitePool.Count > 0 || l.EnemyPool.Count > 0, "main " + n);
+            if (n >= C.Campaign.MinibossesFromLevel) { Assert.True(l.MinibossId != null && C.Enemies.ContainsKey(l.MinibossId), "main " + n); Assert.NotEmpty(l.ElitePool); }
+            var run = new ActiveRun { LevelId = l.Id, PortalId = l.PortalId, Rng = Rng.FromSeed(n) };
+            Assert.NotEmpty(RunSystem.QuestEnemies(C, run, new QuestBattleDef(0, 1)));
         }
         var dark = C.Portal(ContentDb.DarkSidePortalId)!;
         for (int i = 1; i <= 60; i += 5)

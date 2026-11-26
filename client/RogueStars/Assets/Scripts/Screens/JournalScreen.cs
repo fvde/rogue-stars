@@ -12,13 +12,13 @@ namespace RogueStars.Client.Screens
 {
     /// <summary>
     /// The journal of the Run Quests ("More" → Journal; docs/design/run-quests/recipe.md): the account bonus the quests built
-    /// (e.g. Starglint +2 coins on every coin gain), and per character its portrait, chapter progress, what the story waits for
-    /// next and the story so far, one line per chapter.
+    /// (e.g. Starglint +2 coins on every coin gain), and per character its portrait, the chapters reached (never the total or
+    /// how many are left: the story's length is not spoiled), what the story waits for next and the story so far, one line per
+    /// chapter.
     /// </summary>
     public sealed class JournalScreen : UiScreen
     {
         public override string Title => "Journal";
-        public override string[] IntroFeatures => new[] { Features.RunQuests };
 
         protected override void Build(RectTransform body)
         {
@@ -59,8 +59,7 @@ namespace RogueStars.Client.Screens
             Ui.Display(col, q.Character, Theme.FontLarge, Theme.Text, TextAnchor.MiddleLeft, "Name");
             Ui.Label(col, q.Epithet, Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleLeft, "Epithet");
             int chapter = RunSystem.QuestChapter(Content, State, q);
-            float done = Mathf.Clamp01((chapter - 1) / (float)q.Chapters);
-            Ui.Bar(col, done, Theme.Gold, QuestView.Progress(q, chapter), 40).Label.name = "ChapterBar";
+            Ui.Label(col, QuestView.Reached(q, chapter), Theme.FontNormal, Theme.Gold, TextAnchor.MiddleLeft, "Chapter");
             Ui.Label(col, q.BonusName + ": +" + p.CoinBonus + " coin" + (p.CoinBonus == 1 ? "" : "s") + " per gain", Theme.FontSmall, Theme.Gold, TextAnchor.MiddleLeft, "QuestBonus");
             Ui.Label(card, QuestView.Waiting(Content, State, q), Theme.FontSmall, Theme.Accent, TextAnchor.MiddleLeft, "Waiting");
             if (p.Completed) Note(card, "Visits after the story: " + p.EpiloguesSeen);

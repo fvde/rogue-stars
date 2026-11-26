@@ -470,7 +470,7 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Runs a battle with the run's worm. On loss the run enters Defeated (revive or give up).</summary>
-        private static bool Fight(CommandContext ctx, ActiveRun run, List<CombatantSpec> enemies, string kind, int xp, long coins, List<RunEffect> followUp, bool lethal = true)
+        private static bool Fight(CommandContext ctx, ActiveRun run, List<CombatantSpec> enemies, string kind, int xp, long coins, List<RunEffect> followUp)
         {
             var c = ctx.Content;
             var setup = new BattleSetup { RoundCap = kind == "boss" ? c.Combat.BossRoundCap : c.Combat.RoundCap };
@@ -502,13 +502,6 @@ namespace RogueStars.Rules.Systems
             {
                 OnBattleWin(ctx, run, kind, xp, coins);
                 return true;
-            }
-            if (!lethal)
-            {
-                // a quest battle: lost, but the run goes on (the worm keeps at least QuestTuning.LossHpPct of its max HP)
-                run.WormHp = Math.Max(run.WormHp, Math.Max(1, Math.Round(run.WormMaxHp * c.QuestTuning.LossHpPct / 100.0)));
-                ctx.Emit("run_battle_lost_nonlethal", kind);
-                return false;
             }
             run.Phase = RunPhase.Defeated;
             run.DefeatKind = kind;
@@ -554,6 +547,7 @@ namespace RogueStars.Rules.Systems
         private static void AfterWin(CommandContext ctx, ActiveRun run, string kind, List<RunEffect> followUp)
         {
             if (kind == "boss") { BossDefeated(ctx, run); return; }
+            if (kind == "quest") { QuestBattleWonAfterRevive(ctx, run); return; } // a revive retried a lost quest battle
             if (kind == "enemy" || kind == "elite" || kind == "miniboss")
             {
                 var tile = run.Tiles[run.Position];

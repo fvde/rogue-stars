@@ -20,8 +20,9 @@ namespace RogueStars.Client.PlayTests
 {
     /// <summary>
     /// Run Quests (docs/design/run-quests/recipe.md): the visitor tile on the board, Mothwick's encounter card for a story choice,
-    /// a hard battle, a price (coins, a Mythic skill with its picker), a boon and its result sheet, an epilogue scene with the
-    /// Starglint coin line, and the journal. Explicit (<c>-testFilter RunQuestShowcaseTests</c>); writes to $ROGUESTARS_SHOTS_DIR
+    /// a hard battle and a lost one (the normal defeat with the revive offer), prices (coins, a random Mythic skill and the
+    /// result naming the skill taken), a boon and its result sheet, an epilogue scene with the Starglint coin line, and the
+    /// journal (chapter reached, no total). Explicit (<c>-testFilter RunQuestShowcaseTests</c>); writes to $ROGUESTARS_SHOTS_DIR
     /// or client/RogueStars/Screenshots/quests. Needs a graphics device: run WITHOUT -nographics.
     /// </summary>
     [Explicit("renders the Run Quest screenshots; run with -testFilter RunQuestShowcaseTests")]
@@ -61,9 +62,14 @@ namespace RogueStars.Client.PlayTests
             var q = c.RunQuest(Q);
 
             // 1. the visitor tile on the board, a few steps ahead of the worm
-            s.RunQuests.Encounters = 3; s.RunQuests.RunsWithout = 7; // 100%: this run meets Mothwick
-            var level = c.MainLevel(1);
+            s.RunQuests.Encounters = 3;
+            double chance = c.QuestTuning.ChancePct;
+            c.QuestTuning.ChancePct = 100; // this run meets Mothwick (level 2: the tutorial run never does)
+            var level = c.MainLevel(2);
+            s.Run.Levels[c.MainLevel(1).Id] = new LevelProgress { Cleared = true };
+            s.Counters[Requirements.MainLevelCounter] = Math.Max(s.Counter(Requirements.MainLevelCounter), 1);
             var start = _svc.ExecuteNow(new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal });
+            c.QuestTuning.ChancePct = chance;
             Assert.That(start.Ok, Is.True, start.Error);
             var run = s.Run.Active;
             Assert.That(run.Quest.Placed, Is.True);
@@ -97,8 +103,8 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(0.8f);
             yield return Shot("quest_06_price_mythic");
             Btn(_app.ModalLayer, "QuestOption:0").onClick.Invoke();
-            yield return Wait(0.6f);
-            yield return Shot("quest_07_mythic_picker");
+            yield return Wait(2.5f);
+            yield return Shot("quest_07_mythic_taken_result");
 
             // 5. a boon, then its result sheet
             Meet("m19", r => { }, bonus: 1);
@@ -123,7 +129,15 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(2.5f);
             yield return Shot("quest_12_epilogue_result_starglint");
 
-            // 8. the journal (More → Journal)
+            // 8. a lost quest battle: the normal defeat (revive offer), the story waits
+            p.Completed = false; p.EpiloguesSeen = 0;
+            Meet("m03", r => r.WormHp = 1, bonus: 3);
+            yield return Wait(0.8f);
+            Btn(_app.ModalLayer, "QuestOption:0").onClick.Invoke();
+            yield return Wait(12f); // the battle playback, then the defeat screen
+            yield return Shot("quest_14_battle_lost_defeat");
+
+            // 9. the journal (More → Journal)
             Ui.Clear(_app.ModalLayer);
             while (_app.Router.Current is RunScreen) _app.Router.Pop();
             p = s.RunQuests.Quests[Q];

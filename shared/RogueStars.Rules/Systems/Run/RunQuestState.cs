@@ -7,7 +7,7 @@ namespace RogueStars.Rules.Core
 {
     public sealed partial class GameState
     {
-        /// <summary>Run Quests: progress of every quest chain, the encounter pity and the journal (RunSystem.Quests).</summary>
+        /// <summary>Run Quests: progress of every quest chain and the journal (RunSystem.Quests).</summary>
         public RunQuestState RunQuests = new RunQuestState();
     }
 }
@@ -20,11 +20,6 @@ namespace RogueStars.Rules.Systems
     {
         /// <summary>Progress per quest id (created at the first encounter).</summary>
         public Dictionary<string, QuestProgress> Quests = new Dictionary<string, QuestProgress>();
-        /// <summary>
-        /// Eligible runs since the last encounter (the pity index into QuestTuning.ChanceByRunsWithoutPct). Starts at
-        /// QuestTuning.FirstEncounterIndex before the very first encounter so the new feature shows up soon.
-        /// </summary>
-        public int RunsWithout;
         /// <summary>Encounters met so far, all chains and epilogues (0 = the player has not met anyone yet).</summary>
         public int Encounters;
     }
@@ -38,7 +33,7 @@ namespace RogueStars.Rules.Systems
         public bool Completed;
         /// <summary>Encounters with this character (story, retries and epilogues).</summary>
         public int Encounters;
-        /// <summary>Times the story waited (a battle declined or lost, a price refused or not affordable).</summary>
+        /// <summary>Times the story waited (a battle declined, or lost and the run ended; a price refused or not affordable).</summary>
         public int Waits;
         /// <summary>Epilogue scenes given after completion (the next one is Epilogues[EpiloguesSeen % count]).</summary>
         public int EpiloguesSeen;
@@ -72,7 +67,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>The encounter tile is on the board (RunBoard) and its index (−1 = not placed yet).</summary>
         public bool Placed;
         public int Tile = -1;
-        /// <summary>The worm reached the tile (the encounter counts for the pity even if the run ends right after).</summary>
+        /// <summary>The worm reached the tile (the encounter is counted even if the run ends right after).</summary>
         public bool Met;
         /// <summary>Account bonus in this run: +CoinBonus run coins on every coin gain (boons met mid-run apply at once).</summary>
         public int CoinBonus;
@@ -89,8 +84,7 @@ namespace RogueStars.Rules.Systems
 
     /// <summary>
     /// Phase Quest: pick option Index of the quest node (Story / Boon: advance; Battle: Fight or Wait; Sacrifice: Pay or Wait;
-    /// an epilogue scene has one option, 0). SkillId: for a Legendary / Mythic skill sacrifice, the owned skill to give (one of
-    /// RunSystem.QuestSkillChoices; empty = RunSystem.QuestSkillAutoPick).
+    /// an epilogue scene has one option, 0). A Legendary / Mythic skill sacrifice takes a random owned skill of the tier.
     /// </summary>
-    [Serializable] public sealed class RunQuestChoose : GameCommand { public int Index; public string SkillId; }
+    [Serializable] public sealed class RunQuestChoose : GameCommand { public int Index; }
 }

@@ -5,16 +5,17 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Systems
 {
-    // Run Quests (docs/design/run-quests/recipe.md): a rare character on the board (QuestTuning: ~1 in 5 eligible runs with pity,
-    // at most one per run) who tells a ~30-encounter story. Scheduled at run start (ScheduleQuest), placed by RunBoard on a trunk
-    // tile (forced stop), resolved with RunQuestChoose. Battles and sacrifices that are declined, lost or not affordable keep the
-    // story on the same node. Boons add account-wide run coins on every coin gain (GainCoins). Finished chains keep visiting
-    // with friendly epilogue scenes.
+    // Run Quests (docs/design/run-quests/recipe.md): a rare character on the board (QuestTuning.ChancePct: a plain 20% roll per
+    // eligible run, at most one per run) who tells a ~30-encounter story. Scheduled at run start (ScheduleQuest), placed by
+    // RunBoard on a trunk tile (forced stop), resolved with RunQuestChoose. Battles and sacrifices that are declined or not
+    // affordable keep the story on the same node; a lost quest battle is the normal defeat (revive or the run ends; the story
+    // waits). Boons add account-wide run coins on every coin gain (GainCoins). Finished chains keep visiting with friendly
+    // epilogue scenes.
     public static partial class RunSystem
     {
         private static void RegisterQuests(GameEngine e)
         {
-            e.Register<RunQuestChoose>((c, ctx) => { var r = Need(ctx); QuestChoose(ctx, r, c.Index, c.SkillId); return Ok(ctx); });
+            e.Register<RunQuestChoose>((c, ctx) => { var r = Need(ctx); QuestChoose(ctx, r, c.Index); return Ok(ctx); });
         }
 
         // ---- queries (client, server, simulator) ----------------------------------------------------------------
@@ -53,9 +54,12 @@ namespace RogueStars.Rules.Systems
             return name ?? (c.RunQuestOrder.Count > 0 ? c.RunQuestOrder[0].BonusName : "Quest bonus");
         }
 
-        /// <summary>The run may meet a quest character: not the Burrow, the feature unlocked, a chain exists.</summary>
-        public static bool QuestEligible(GameState s, ContentDb c, RunMode mode) =>
-            mode != RunMode.Burrow && c.RunQuestOrder.Count > 0 && Features.IsUnlocked(s, c, Features.RunQuests);
+        /// <summary>
+        /// The run may meet a quest character: a chain exists, not the Burrow and not the tutorial run (main level 1, its own
+        /// small tile pool). No level gate: from the second run of the game on.
+        /// </summary>
+        public static bool QuestEligible(ContentDb c, RunMode mode, LevelDef level) =>
+            mode != RunMode.Burrow && c.RunQuestOrder.Count > 0 && level != null && level.TilePoolId != c.Campaign.TutorialPool;
 
         /// <summary>The chain the next encounter belongs to: the first unfinished one, else (epilogues) the one seen least.</summary>
         public static RunQuestDef QuestNext(ContentDb c, GameState s)
@@ -69,15 +73,6 @@ namespace RogueStars.Rules.Systems
                 if (p.EpiloguesSeen < bestSeen) { best = q; bestSeen = p.EpiloguesSeen; }
             }
             return best;
-        }
-
-        /// <summary>The chance (%) that the next eligible run meets a quest character (QuestTuning.ChanceByRunsWithoutPct, pity).</summary>
-        public static double QuestChancePct(ContentDb c, GameState s)
-        {
-            var t = c.QuestTuning;
-            if (t.ChanceByRunsWithoutPct.Count == 0) return 0;
-            int idx = s.RunQuests.Encounters == 0 ? t.FirstEncounterIndex + s.RunQuests.RunsWithout : s.RunQuests.RunsWithout;
-            return t.ChanceByRunsWithoutPct[Math.Max(0, Math.Min(idx, t.ChanceByRunsWithoutPct.Count - 1))];
         }
 
         /// <summary>The chapter the chain is at (1-based; Chapters + 1 once completed).</summary>
@@ -103,8 +98,8 @@ namespace RogueStars.Rules.Systems
             return q?.Epilogues.Find(e => e.Id == run.Quest.EpilogueId);
         }
 
-        /// <summary>The owned run skills a skill sacrifice can take (its tier; signatures never), in the order gained.</summary>
-        public static List<string> QuestSkillChoices(ContentDb c, ActiveRun run, QuestCostKind kind)
+        /// <summary>The owned run skills a skill sacrifice may take at random (its tier; signatures never), in the order gained.</summary>
+        public static List<string> QuestSkillCandidates(ContentDb c, ActiveRun run, QuestCostKind kind)
         {
             var list = new List<string>();
             if (run == null) return list;
@@ -126,18 +121,6 @@ namespace RogueStars.Rules.Systems
             return run.Skills.FindAll(id => !sigs.Contains(id) && (c.Skill(id) == null || !c.Skill(id).Signature));
         }
 
-        /// <summary>The skill a skill sacrifice gives by default (auto, bots): the lowest level, the latest gained on ties.</summary>
-        public static string QuestSkillAutoPick(ContentDb c, ActiveRun run, QuestCostKind kind)
-        {
-            string best = null; int bestLv = int.MaxValue;
-            foreach (var id in QuestSkillChoices(c, run, kind))
-            {
-                int lv = RunDraft.Level(run, id);
-                if (lv <= bestLv) { best = id; bestLv = lv; }
-            }
-            return best;
-        }
-
         /// <summary>Whether the run can pay a sacrifice now (coins, an owned skill of the tier, a skill to forget...).</summary>
         public static bool QuestCanPay(ContentDb c, ActiveRun run, QuestCostDef cost)
         {
@@ -148,7 +131,7 @@ namespace RogueStars.Rules.Systems
                 case QuestCostKind.None: return true;
                 case QuestCostKind.Coins: return run.Coins >= cost.Amount;
                 case QuestCostKind.LegendarySkill:
-                case QuestCostKind.MythicSkill: return QuestSkillChoices(c, run, cost.Kind).Count > 0;
+                case QuestCostKind.MythicSkill: return QuestSkillCandidates(c, run, cost.Kind).Count > 0;
                 case QuestCostKind.CurrentHpPct: return run.WormHp > 1;
                 case QuestCostKind.AllRunSkills: return QuestForgettable(c, run).Count > 0;
                 default: return false;
@@ -171,23 +154,20 @@ namespace RogueStars.Rules.Systems
         // ---- run start: scheduling --------------------------------------------------------------------------------
 
         /// <summary>
-        /// At run start (before the board): decides whether this run meets a quest character (QuestChancePct, from a fork of the
-        /// run stream so the rest of the run is unchanged). Not met: the pity grows. Met: RunBoard places the tile.
+        /// At run start (before the board): decides whether this run meets a quest character: a plain, independent
+        /// QuestTuning.ChancePct roll (no pity) from a fork of the run stream, so the rest of the run is unchanged. Met: RunBoard
+        /// places the tile.
         /// </summary>
-        private static void ScheduleQuest(CommandContext ctx, ActiveRun run)
+        private static void ScheduleQuest(CommandContext ctx, ActiveRun run, LevelDef level)
         {
             var s = ctx.State; var c = ctx.Content;
             run.Quest = new RunQuestRun { CoinBonus = QuestCoinBonus(s), BonusName = QuestBonusName(c, s) };
-            if (!QuestEligible(s, c, run.Mode)) return;
+            if (!QuestEligible(c, run.Mode, level)) return;
             var q = QuestNext(c, s);
             if (q == null) return;
-            double pct = QuestChancePct(c, s);
+            double pct = c.QuestTuning.ChancePct;
             var rng = run.Rng.Fork("quest");
-            if (!(pct >= 100 || (pct > 0 && rng.NextDouble() * 100 < pct)))
-            {
-                s.RunQuests.RunsWithout++;
-                return;
-            }
+            if (!(pct >= 100 || (pct > 0 && rng.NextDouble() * 100 < pct))) return;
             var p = QuestProgressOf(s, q.Id);
             run.Quest.QuestId = q.Id;
             if (p != null && p.Completed)
@@ -234,13 +214,12 @@ namespace RogueStars.Rules.Systems
             if (!s.RunQuests.Quests.TryGetValue(q.Id, out var p)) { p = new QuestProgress { Node = q.StartNode }; s.RunQuests.Quests[q.Id] = p; }
             p.Encounters++;
             s.RunQuests.Encounters++;
-            s.RunQuests.RunsWithout = 0;
             s.Count("run_quest_encounters");
             run.Phase = RunPhase.Quest;
             ctx.Emit("run_quest", q.Id, run.Quest.Epilogue ? "epilogue:" + run.Quest.EpilogueId : p.Node ?? "");
         }
 
-        private static void QuestChoose(CommandContext ctx, ActiveRun run, int index, string skillId)
+        private static void QuestChoose(CommandContext ctx, ActiveRun run, int index)
         {
             var s = ctx.State; var c = ctx.Content;
             Require(run.Phase == RunPhase.Quest, "no quest encounter open");
@@ -293,9 +272,7 @@ namespace RogueStars.Rules.Systems
                 case QuestOptionAction.Pay:
                 {
                     Require(QuestCanPay(c, run, node.Cost), "cannot pay this price");
-                    if (node.Cost != null && (node.Cost.Kind == QuestCostKind.LegendarySkill || node.Cost.Kind == QuestCostKind.MythicSkill) && !string.IsNullOrEmpty(skillId))
-                        Require(QuestSkillChoices(c, run, node.Cost.Kind).Contains(skillId), "skill cannot be given");
-                    QuestPay(ctx, run, node.Cost, skillId);
+                    QuestPay(ctx, run, node.Cost);
                     advance = true;
                     break;
                 }
@@ -303,44 +280,35 @@ namespace RogueStars.Rules.Systems
                 {
                     var enemies = QuestEnemies(c, run, node.Battle ?? new QuestBattleDef());
                     RewardsFor(c, enemies, 3, out int xp, out long coins);
-                    run.Phase = RunPhase.AwaitRoll; // Fight sets Defeated only for lethal fights; a quest battle never ends the run
-                    advance = Fight(ctx, run, enemies, "quest", xp, coins, null, false);
-                    s.Count(advance ? "run_quest_battles_won" : "run_quest_battles_lost");
+                    run.Phase = RunPhase.AwaitRoll; // a win continues the run (drafts from the level-up open next)
+                    advance = Fight(ctx, run, enemies, "quest", xp, coins, null);
+                    if (!advance)
+                    {
+                        // lost: the normal defeat (Fight set phase Defeated: revive or the run ends); the story waits on this node.
+                        // A revive retries the battle and, if won, moves the story on (QuestBattleWonAfterRevive).
+                        s.Count("run_quest_battles_lost");
+                        p.Waits++;
+                        outcome.Text = "Beaten! " + q.Character + " will wait for you. The story goes on next time you meet.";
+                        outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, "waits", node.Chapter, false));
+                        ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), "lost");
+                        before.Diff(c, run, outcome.Lines);
+                        PublishOutcome(ctx, run, outcome);
+                        return;
+                    }
+                    s.Count("run_quest_battles_won");
                     break;
                 }
                 case QuestOptionAction.Wait: advance = false; break;
                 default: advance = true; break;
             }
 
-            if (advance)
-            {
-                if (node.Kind == QuestNodeKind.Boon && node.Boon != null && node.Boon.CoinsPerGain > 0)
-                {
-                    p.CoinBonus += node.Boon.CoinsPerGain;
-                    run.Quest.CoinBonus += node.Boon.CoinsPerGain; // applies from now on, this run included
-                    run.Quest.BonusName = QuestBonusName(c, s);
-                    outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestBoon, q.BonusName, QuestCoinBonus(s), true));
-                }
-                p.Journal.Add(new QuestJournalEntry { Chapter = node.Chapter, NodeId = node.Id, Choice = opt.Text, Line = opt.Journal, AtMs = ctx.NowMs });
-                p.Node = opt.Next;
-                s.Count("run_quest_chapters");
-                if (opt.Next == null)
-                {
-                    p.Completed = true;
-                    s.Count("run_quests_completed");
-                    ctx.Emit("run_quest_completed", q.Id);
-                }
-                outcome.Text = opt.Journal;
-                outcome.Success = true;
-            }
+            if (advance) QuestAdvance(ctx, run, q, p, node, opt, outcome);
             else
             {
                 p.Waits++;
-                outcome.Text = opt.Action == QuestOptionAction.Fight ? "Beaten back. " + q.Character + " will wait for you to try again."
-                    : q.Character + " will wait for you. The story goes on next time you meet.";
+                outcome.Text = q.Character + " will wait for you. The story goes on next time you meet.";
+                outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, "waits", node.Chapter, false));
             }
-            outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, advance ? (p.Completed ? "complete" : "advanced") : "waits",
-                advance ? Math.Min(node.Chapter + 1, q.Chapters) : node.Chapter, advance));
             ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), advance ? "advanced" : "waits");
             if (tile != null) Consume(c, run, tile, TileDefOf(c, tile));
             before.Diff(c, run, outcome.Lines);
@@ -349,8 +317,57 @@ namespace RogueStars.Rules.Systems
             Continue(ctx, run);
         }
 
-        /// <summary>Pays a sacrifice (validated by QuestCanPay).</summary>
-        private static void QuestPay(CommandContext ctx, ActiveRun run, QuestCostDef cost, string skillId)
+        /// <summary>The story moves on with <paramref name="opt"/>: boon, journal line, next node or the end of the chain.</summary>
+        private static void QuestAdvance(CommandContext ctx, ActiveRun run, RunQuestDef q, QuestProgress p, QuestNodeDef node, QuestOptionDef opt, RunOutcome outcome)
+        {
+            var s = ctx.State; var c = ctx.Content;
+            if (node.Kind == QuestNodeKind.Boon && node.Boon != null && node.Boon.CoinsPerGain > 0)
+            {
+                p.CoinBonus += node.Boon.CoinsPerGain;
+                run.Quest.CoinBonus += node.Boon.CoinsPerGain; // applies from now on, this run included
+                run.Quest.BonusName = QuestBonusName(c, s);
+                outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestBoon, q.BonusName, QuestCoinBonus(s), true));
+            }
+            p.Journal.Add(new QuestJournalEntry { Chapter = node.Chapter, NodeId = node.Id, Choice = opt.Text, Line = opt.Journal, AtMs = ctx.NowMs });
+            p.Node = opt.Next;
+            s.Count("run_quest_chapters");
+            if (opt.Next == null)
+            {
+                p.Completed = true;
+                s.Count("run_quests_completed");
+                ctx.Emit("run_quest_completed", q.Id);
+            }
+            outcome.Text = opt.Journal;
+            outcome.Success = true;
+            outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, p.Completed ? "complete" : "advanced", Math.Min(node.Chapter + 1, q.Chapters), true));
+        }
+
+        /// <summary>
+        /// A revive after a lost quest battle retried it and won (RunSystem.Revive → AfterWin "quest"): the story moves on as
+        /// if the first try had been won (the Fight option), the tile is used up and the STORY result is published.
+        /// </summary>
+        private static void QuestBattleWonAfterRevive(CommandContext ctx, ActiveRun run)
+        {
+            var s = ctx.State; var c = ctx.Content;
+            var q = c.RunQuest(run.Quest.QuestId);
+            var p = q != null ? QuestProgressOf(s, q.Id) : null;
+            var node = q != null ? QuestCurrentNode(c, s, q) : null;
+            if (node == null || node.Kind != QuestNodeKind.Battle) return;
+            int index = node.Options.FindIndex(o => o.Action == QuestOptionAction.Fight);
+            if (index < 0) return;
+            var opt = node.Options[index];
+            s.Count("run_quest_battles_won");
+            p.Waits = Math.Max(0, p.Waits - 1); // the loss before the revive did not make the story wait after all
+            var outcome = new RunOutcome { Source = "quest", EventId = q.Id, Tile = run.Quest.Tile, TileId = ContentDb.QuestTileId, Title = node.Title, Choice = opt.Text };
+            QuestAdvance(ctx, run, q, p, node, opt, outcome);
+            ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), "advanced");
+            var tile = run.Quest.Tile >= 0 && run.Quest.Tile < run.Tiles.Count ? run.Tiles[run.Quest.Tile] : null;
+            if (tile != null) Consume(c, run, tile, TileDefOf(c, tile));
+            PublishOutcome(ctx, run, outcome);
+        }
+
+        /// <summary>Pays a sacrifice (validated by QuestCanPay). A skill price takes a random owned skill of its tier (the run's stream).</summary>
+        private static void QuestPay(CommandContext ctx, ActiveRun run, QuestCostDef cost)
         {
             var c = ctx.Content;
             if (cost == null) return;
@@ -359,8 +376,11 @@ namespace RogueStars.Rules.Systems
                 case QuestCostKind.Coins: run.Coins = Math.Max(0, run.Coins - cost.Amount); break;
                 case QuestCostKind.LegendarySkill:
                 case QuestCostKind.MythicSkill:
-                    ForgetSkill(ctx, run, string.IsNullOrEmpty(skillId) ? QuestSkillAutoPick(c, run, cost.Kind) : skillId);
+                {
+                    var candidates = QuestSkillCandidates(c, run, cost.Kind);
+                    if (candidates.Count > 0) ForgetSkill(ctx, run, candidates[run.Rng.Range(0, candidates.Count)]);
                     break;
+                }
                 case QuestCostKind.CurrentHpPct:
                     run.WormHp = Math.Max(1, Math.Round(run.WormHp * (1 - cost.Amount / 100.0)));
                     break;
