@@ -190,6 +190,11 @@ namespace RogueStars.Client.Editor
             { "run-result", ("Art/Result", true) },
             { "board-ground", ("Art/Slice/Ground", true) },
             { "hero", ("Art/Hero", false) },
+            // art import 2 (2026-11-26): the new alien / enemy sprites (aliens3, enemies3), skill icons, the home planet stages
+            { "aliens", ("Art/Aliens", false) },
+            { "enemies", ("Art/Enemies", false) },
+            { "skills-v2", ("Art/Skills", true) },
+            { "hub-planet", ("Art/Hub/Planet", false) },
         };
 
         /// <summary>
@@ -235,7 +240,9 @@ namespace RogueStars.Client.Editor
             foreach (var kv in picks)
             {
                 var parts = kv.Key.Split('/');
-                if (parts.Length != 2 || !SliceDest.TryGetValue(BaseCategory(parts[0]), out var dest) || string.IsNullOrEmpty(kv.Value)) continue;
+                if (parts.Length != 2 || string.IsNullOrEmpty(kv.Value)) continue;
+                // a category maps as written ("skills-v2") or without its generation suffix ("slice-hud2" → "slice-hud")
+                if (!SliceDest.TryGetValue(parts[0], out var dest) && !SliceDest.TryGetValue(BaseCategory(parts[0]), out dest)) continue;
                 if (BaseCategory(parts[0]) + "/" + parts[1] == RetiredBossMarker) continue; // the boss gate shows the run's own boss sprite (IsoArt.BossMarker)
                 items.Add(new ArtImportItem
                 {

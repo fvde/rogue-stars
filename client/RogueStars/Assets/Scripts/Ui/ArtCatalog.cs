@@ -335,8 +335,8 @@ namespace RogueStars.Client.UiKit
         public static string AlienKey(string alienTypeId) => AlienFolder + "/" + alienTypeId;
 
         /// <summary>
-        /// Every alien species' art key (aliens pass: 20 species; the art generator's list). Shiverpup, Arcwhisk, Chronoslug and Swarmheart
-        /// are new: until their art is generated they draw as the critter of their synergy's colour.
+        /// Every alien species' art key (aliens pass: 20 species; the art generator's list). All 20 have art since the 2026-11-26 import (aliens3); a missing file
+        /// still draws the critter of the synergy's colour.
         /// </summary>
         public static readonly string[] AlienKeys =
         {

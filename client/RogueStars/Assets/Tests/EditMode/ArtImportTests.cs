@@ -106,6 +106,54 @@ namespace RogueStars.Client.Tests
             Assert.That(ArtCatalog.BattleBackground("any_biome_without_art"), Is.SameAs(ArtCatalog.SliceBattle(ArtCatalog.BattleDefault)), "no per-biome art: the default");
         }
 
+        // ---- batch 2 (2026-11-26): aliens3 / enemies3 / skills-v2 / home planet ----
+
+        private static readonly string[] Batch2Aliens =
+        {
+            "alien_mossling", "alien_shiverpup", "alien_zib", "alien_arcwhisk", "alien_whirrbit", "alien_sporeling",
+            "alien_emberkit", "alien_thornqueen", "alien_nebulisk", "alien_solarch", "alien_swarmheart", "alien_chronoslug",
+        };
+        private static readonly string[] Batch2Enemies = { "volt_beetle", "void_spawn", "tunnel_stalker", "frost_mite", "elite_void_reaver", "elite_frost_knight" };
+        private static readonly string[] Batch2Skills =
+        {
+            "sig_bleed", "sig_fire", "sig_alien", "sig_counter", "ice_armor", "gen_pathfinder", "gen_giant_slayer", "gen_camper", "sig_radiation", "fire_kindle",
+        };
+        /// <summary>Approved but waiting for a pending edit (flames / pedestal / text label): must not be imported yet.</summary>
+        private static readonly string[] HeldBack =
+        {
+            "Art/Enemies/magma_slug.png", "Art/Enemies/cinder_hound.png", "Art/Enemies/ash_wraith.png", "Art/Enemies/elite_burrow_horror.png",
+            "Art/Skills/gen_guard.png", "Art/Skills/gen_regen.png",
+        };
+
+        [Test]
+        public void Batch2_PicksRouteToTheArtCatalogKeys_AndHoldBackThePendingEdits()
+        {
+            var plan = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(File.ReadAllText(PicksPath)));
+            var dests = plan.Select(i => i.Dest).ToList();
+            Assert.That(dests, Is.Unique);
+            var want = new List<string>();
+            want.AddRange(Batch2Aliens.Select(i => "Art/Aliens/" + i + ".png"));
+            want.AddRange(Batch2Enemies.Select(i => "Art/Enemies/" + i + ".png"));
+            want.AddRange(Batch2Skills.Select(i => "Art/Skills/" + i + ".png"));
+            want.AddRange(new[] { 1, 2, 3, 4 }.Select(i => "Art/Hub/Planet/planet_stage" + i + ".png"));
+            Assert.That(dests, Is.SupersetOf(want));
+            foreach (var h in HeldBack) Assert.That(dests, Has.None.EqualTo(h), h + " waits for its edit");
+            Assert.That(plan.Find(i => i.Dest == "Art/Aliens/alien_chronoslug.png").Source, Does.EndWith("alien_chronoslug_v8/S_s1041.png"));
+        }
+
+        [Test]
+        public void Batch2_EverySpriteLoads_AliensAndEnemiesByDefId_SkillsAndPlanet()
+        {
+            foreach (var id in Batch2Aliens) Assert.That(ArtCatalog.Alien(id), Is.Not.Null, id);
+            foreach (var id in Batch2Enemies) Assert.That(ArtCatalog.Enemy(id), Is.Not.Null, id);
+            foreach (var id in Batch2Skills) Assert.That(ArtCatalog.SkillIcon(id), Is.Not.Null, id);
+            for (int i = 1; i <= 4; i++) Assert.That(ArtCatalog.Planet(i), Is.Not.Null, "planet_stage" + i);
+            var content = _f.Service.Content;
+            foreach (var id in Batch2Aliens) Assert.That(content.AlienType(id), Is.Not.Null, id + " is a real alien species");
+            foreach (var id in Batch2Enemies) Assert.That(content.Enemies.ContainsKey(id), Is.True, id + " is a real enemy def");
+            foreach (var id in HeldBack) Assert.That(ArtCatalog.Load(id.Replace(".png", "")), Is.Null, id);
+        }
+
         [Test]
         public void MaxHp_ShowsTheHeart()
         {
