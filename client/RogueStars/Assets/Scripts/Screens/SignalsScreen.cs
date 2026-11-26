@@ -21,6 +21,11 @@ namespace RogueStars.Client.Screens
         private int _tab;
         private bool _standard;
 
+        public SignalsScreen() { }
+
+        /// <summary>Opens on the tab of <paramref name="type"/> (the Aliens screen's Summon chip).</summary>
+        public SignalsScreen(GachaType type) { _tab = System.Array.IndexOf(Types, type); if (_tab < 0) _tab = 0; }
+
         public override string Title => "Signals";
         public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm }; // the Signals unlock with Parts / Aliens / the City
 

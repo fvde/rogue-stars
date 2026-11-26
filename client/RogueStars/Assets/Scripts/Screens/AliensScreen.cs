@@ -8,6 +8,7 @@ using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RogueStars.Client.Screens
 {
@@ -33,34 +34,158 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
+        private string _selected;
+
+        /// <summary>The collection / summon chips sit at the bottom (kit chip tabs in the footer).</summary>
+        public override float FooterHeight => 124;
+
+        private bool CanSummon => Features.IsUnlocked(State, Content, GachaSystem.FeatureFor(GachaType.Alien));
+
         protected override void Build(RectTransform body)
         {
+            if (Footer != null)
+            {
+                var chips = new List<string> { "Collection" };
+                if (CanSummon) chips.Add("Summon");
+                Kit.TabChips(Footer, chips, 0, i => { if (i == 1) App.Router.Push(new SignalsScreen(GachaType.Alien)); }, 84);
+            }
             int slots = CitySystem.SquadSlots(State, Content);
-            var squadCard = Card(body, Theme.Header);
-            Section(squadCard, SquadTitle(State.Aliens.Squad.Count, slots)).name = "SquadTitle";
-            var squad = AlienSystem.ActiveSquad(State, Content);
-            Ui.Label(squadCard, squad.Count == 0 ? "Empty" : string.Join(", ", squad.ConvertAll(id => Content.AlienType(id)?.Name ?? id)), Theme.FontNormal);
-            string hint = SquadHint(Content, State.Aliens.Squad);
-            if (hint != null) Note(squadCard, hint).color = Theme.Warn;
-
             var aliens = Sorted();
-            if (aliens.Count == 0) Note(body, "No aliens yet. Aliens arrive from Alien Signals and events.");
-            foreach (var owned in aliens) AlienCard(body, owned, slots);
+            if (_selected == null || !State.Aliens.Owned.ContainsKey(_selected)) _selected = aliens.Count > 0 ? aliens[0].TypeId : null;
+
+            Stage(body, slots);
+
+            // the bonus row: what the collection gives (squad seats, aliens owned, their work power)
+            double work = 0;
+            foreach (var o in aliens) work += AlienSystem.WorkPower(Content, o);
+            Kit.StatPills(body, new List<(string key, string abbr, Color color, string value)>
+            {
+                ("Squad", "SQD", Theme.Accent, State.Aliens.Squad.Count + "/" + Math.Max(0, slots)),
+                ("Owned", "OWN", Theme.Good, aliens.Count + "/" + Content.AlienTypes.Count),
+                ("Work", "WRK", Theme.Blue, "+" + Fmt.Whole(work) + "%"),
+            }, "BonusBar");
+
+            if (aliens.Count == 0) { Note(body, "No aliens yet. Aliens arrive from Alien Signals and events."); return; }
+            Kit.Ribbon(body, "Collection", new Color32(0x2E, 0x7A, 0x5A, 255), 76);
+            var grid = Ui.Grid(body, new Vector2(CardW, CardH), 4, CardGap);
+            grid.GetComponent<UnityEngine.UI.GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            foreach (var owned in aliens) CollectionCard(grid, owned);
+
+            var sel = State.Aliens.Owned[_selected];
+            var detail = AlienCard(body, sel, slots);
+            if (_scrollToDetail) { ScrollToAfterBuild(detail); _scrollToDetail = false; }
         }
 
-        private void AlienCard(RectTransform body, OwnedAlien a, int slots)
+        private bool _scrollToDetail;
+        public const float CardW = 223, CardH = 268, CardGap = 12;
+
+        private void Select(string typeId)
         {
-            var def = Content.AlienType(a.TypeId);
-            var color = Theme.RarityColor(def?.Rarity ?? Rarity.Common);
-            var card = Card(body, Color.Lerp(color, Theme.Panel, 0.75f));
+            _selected = typeId;
+            _scrollToDetail = true;
+            Rebuild();
+        }
+
+        /// <summary>The alien's picture: its art, else the drawn critter in the alien's colour. <paramref name="spriteName"/> is the name when art exists.</summary>
+        private Image Portrait(Transform parent, OwnedAlien a, string spriteName)
+        {
             var art = ArtCatalog.Alien(a.TypeId);
-            var head = Ui.Row(card, 104);
-            var portrait = Ui.Panel(head, Color.white, art != null ? "AlienSprite" : "AlienCritter");
+            var portrait = Ui.Panel(parent, Color.white, art != null ? spriteName : "AlienCritter");
             portrait.sprite = art != null ? art : HudArt.AlienCritter(FallbackColor(a.TypeId)); // one colour per alien until its art exists
             portrait.preserveAspect = true;
             portrait.raycastTarget = false;
+            return portrait;
+        }
+
+        /// <summary>The stage: the squad's aliens (up to three) on pedestals over an illustrated backdrop, or empty seats.</summary>
+        private void Stage(RectTransform body, int slots)
+        {
+            var stage = Kit.Surface(body, Theme.Hex(0x2F6F5A), 40, Theme.Border, "backdrop_aliens", "Stage");
+            Ui.Size(stage, -1, 540);
+            var title = Kit.Title(stage.transform, SquadTitle(State.Aliens.Squad.Count, slots), 38, Color.white, TextAnchor.UpperCenter, "SquadTitle");
+            Ui.Stretch(title.rectTransform, 16, 16, 16, 0);
+            KitFit.On(title, 20);
+            var squad = AlienSystem.ActiveSquad(State, Content);
+            int shown = Math.Min(3, Math.Max(squad.Count, Math.Min(3, slots)));
+            float[] xs = { 0.2f, 0.5f, 0.8f };
+            float[] ys = { 0.05f, 0.11f, 0.05f };
+            for (int i = 0; i < shown; i++)
+            {
+                int k = shown == 1 ? 1 : shown == 2 ? (i == 0 ? 0 : 2) : i; // one: centred, two: left and right
+                var seat = Ui.Rect(stage.transform, "Seat:" + i);
+                seat.anchorMin = seat.anchorMax = new Vector2(xs[k], ys[k]);
+                seat.pivot = new Vector2(0.5f, 0);
+                seat.sizeDelta = new Vector2(250, 330);
+                seat.anchoredPosition = Vector2.zero;
+                var ped = Ui.Panel(seat, new Color(0, 0, 0, 0.28f), "Pedestal");
+                ped.sprite = UiShapes.Circle; ped.raycastTarget = false;
+                var prt = ped.rectTransform;
+                prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0); prt.pivot = new Vector2(0.5f, 0.5f);
+                prt.sizeDelta = new Vector2(220, 60); prt.anchoredPosition = new Vector2(0, 22);
+                if (i < squad.Count && State.Aliens.Owned.TryGetValue(squad[i], out var a))
+                {
+                    var pic = Portrait(seat, a, "StageSprite");
+                    var rt = pic.rectTransform;
+                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0); rt.pivot = new Vector2(0.5f, 0);
+                    rt.sizeDelta = new Vector2(240, 250); rt.anchoredPosition = new Vector2(0, 26);
+                    UiCreature.Attach(pic, true);
+                    var nm = Kit.Title(seat, (Content.AlienType(a.TypeId)?.Name ?? a.TypeId) + " " + Fmt.Stars(a.Stars), 26, Color.white, TextAnchor.LowerCenter, "SeatName");
+                    nm.rectTransform.anchorMin = new Vector2(0, 0); nm.rectTransform.anchorMax = new Vector2(1, 0);
+                    nm.rectTransform.pivot = new Vector2(0.5f, 0); nm.rectTransform.sizeDelta = new Vector2(0, 40); nm.rectTransform.anchoredPosition = new Vector2(0, -22);
+                    string id = a.TypeId;
+                    var btn = seat.gameObject.AddComponent<UnityEngine.UI.Button>();
+                    btn.targetGraphic = ped;
+                    ped.raycastTarget = true;
+                    btn.onClick.AddListener(() => Select(id));
+                }
+                else
+                {
+                    var empty = Kit.Title(seat, "Empty\nseat", 28, new Color(1, 1, 1, 0.55f), TextAnchor.MiddleCenter, "EmptySeat");
+                    empty.rectTransform.anchorMin = empty.rectTransform.anchorMax = new Vector2(0.5f, 0);
+                    empty.rectTransform.sizeDelta = new Vector2(220, 120); empty.rectTransform.anchoredPosition = new Vector2(0, 90);
+                }
+            }
+            string hint = SquadHint(Content, State.Aliens.Squad);
+            if (hint != null)
+            {
+                var h = Ui.Label(stage.transform, hint, Theme.FontSmall, Theme.Warn, TextAnchor.LowerCenter, "SquadHint");
+                Ui.Stretch(h.rectTransform, 24, 0, 24, 12);
+            }
+        }
+
+        /// <summary>A collection card: rarity colour, picture, stars, a star-up arrow when it can star up, a shard progress pill.</summary>
+        private void CollectionCard(Transform grid, OwnedAlien a)
+        {
+            var def = Content.AlienType(a.TypeId);
+            var color = Theme.RarityColor(def?.Rarity ?? Rarity.Common);
+            bool sel = a.TypeId == _selected;
+            Kit.RarityCard(grid, "Alien:" + a.TypeId, color, () => Select(a.TypeId), out var c, 28, 10, 4, sel, sel ? Theme.Gold : (Color?)null, 0.42f);
+            var pic = Portrait(c, a, "AlienSprite");
+            Ui.Size(pic, -1, 132, 1);
+            UiCreature.Attach(pic, true); // idle sway only on the cards
+            var name = Ui.Display(c, def?.Name ?? a.TypeId, 24, Color.Lerp(color, Color.white, 0.6f), TextAnchor.MiddleCenter, "Name");
+            Ui.Size(name, -1, 30, 1);
+            KitFit.On(name, 14);
+            bool inSquad = State.Aliens.Squad.Contains(a.TypeId);
+            var row = Ui.Row(c, 34, 6, null, 0, "Stars");
+            row.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+            Kit.LevelBadge(row, Fmt.Stars(a.Stars), Theme.Gold, 32);
+            if (inSquad) Kit.Pill(row, "SQUAD", Theme.Good, Theme.OnAccent, "InSquad", 32);
+            long shards = State.Wallet.Get(Currencies.AlienShards(a.TypeId));
+            long need = AlienSystem.StarCost(Content, a);
+            bool max = a.Stars >= AlienSystem.MaxStars;
+            Kit.ProgressPill(c, max ? 1 : need > 0 ? Mathf.Clamp01((float)shards / need) : 0, shards >= need && !max ? Theme.Good : Theme.Blue, max ? "MAX" : shards + "/" + need, 30);
+            if (!max && shards >= need) Kit.CornerBadge(c, "▲", Theme.Good, "StarUpBadge", 48);
+        }
+
+        private RectTransform AlienCard(RectTransform body, OwnedAlien a, int slots)
+        {
+            var def = Content.AlienType(a.TypeId);
+            var color = Theme.RarityColor(def?.Rarity ?? Rarity.Common);
+            var card = Ui.Card(body, Color.Lerp(color, Theme.Panel, 0.75f), Color.Lerp(color, Color.white, 0.2f), Theme.RadiusCard, 24, 8, 5, "AlienDetail");
+            var head = Ui.Row(card, 104);
+            var portrait = Portrait(head, a, "DetailSprite");
             Ui.Size(portrait, 104, 104, 0, 0);
-            UiCreature.Attach(portrait, true); // idle sway only on the cards
             Ui.Label(head, (def?.Name ?? a.TypeId) + "  " + Fmt.Stars(a.Stars), Theme.FontNormal, Color.Lerp(color, Color.white, 0.4f));
             Ui.Label(head, SynergyLine(def), Theme.FontSmall, Theme.Text, TextAnchor.MiddleRight, "Synergies");
             // its one ability at its star, what the next star changes, and how often it acts (Speed)
@@ -78,12 +203,13 @@ namespace RogueStars.Client.Screens
             var row = Ui.Row(card, 80, 8);
             long shards = State.Wallet.Get(Currencies.AlienShards(a.TypeId));
             long need = AlienSystem.StarCost(Content, a);
-            Ui.Button(row, a.Stars >= AlienSystem.MaxStars ? "Max ★" : "Star up\n<size=20>" + shards + "/" + need + " shards</size>",
-                () => Run(new AlienStarUp { AlienTypeId = a.TypeId }), Theme.Warn, -1, 80, a.Stars < AlienSystem.MaxStars && shards >= need, 26);
+            Kit.Button(row, a.Stars >= AlienSystem.MaxStars ? "Max ★" : "Star up\n<size=20>" + shards + "/" + need + " shards</size>",
+                () => Run(new AlienStarUp { AlienTypeId = a.TypeId }), KitButtonColor.Gold, -1, 80, a.Stars < AlienSystem.MaxStars && shards >= need, 26);
             bool breeding = Features.IsUnlocked(State, Content, Features.Breeding);
-            Ui.Button(row, "Breed\n<size=20>for shards</size>", () => App.Router.Push(new BreedingScreen(a.TypeId)), Theme.Good, -1, 80, breeding, 26);
-            Ui.Button(row, "Assign", () => AssignModal(a), Theme.Button, -1, 80, true, 26);
-            Ui.Button(row, inSquad ? "Bench" : "Squad", () => ToggleSquad(a.TypeId, slots), Theme.Accent, -1, 80, inSquad || State.Aliens.Squad.Count < slots, 26);
+            Kit.Button(row, "Breed\n<size=20>for shards</size>", () => App.Router.Push(new BreedingScreen(a.TypeId)), KitButtonColor.Positive, -1, 80, breeding, 26);
+            Kit.Button(row, "Assign", () => AssignModal(a), KitButtonColor.Secondary, -1, 80, true, 26);
+            Kit.Button(row, inSquad ? "Bench" : "Squad", () => ToggleSquad(a.TypeId, slots), KitButtonColor.Primary, -1, 80, inSquad || State.Aliens.Squad.Count < slots, 26);
+            return card;
         }
 
         /// <summary>"Squad 2/3"; without housing slots (or fewer slots than members): "Squad 2 · build housing for slots" (AL1).</summary>

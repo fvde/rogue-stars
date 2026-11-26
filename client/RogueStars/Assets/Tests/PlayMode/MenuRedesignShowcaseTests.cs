@@ -107,6 +107,54 @@ namespace RogueStars.Client.PlayTests
                     yield return Shot("s2_shop_" + tab.ToLowerInvariant());
                 }
             }
+            if (Want("lab"))
+            {
+                _svc.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.LaboratoryId, 1), new Reward(RewardKinds.Alien, "alien_zib", 1), Reward.Cur(Currencies.Data, 5000) });
+                var b = new CityBuilding { Uid = ContentDb.LaboratoryId + "#1", BlueprintId = ContentDb.LaboratoryId, Placed = true, Level = 1, X = 11, Y = 8 };
+                S.City.Buildings.Add(b);
+                AlienSystem.Owned(S, "alien_zib").WorkBuildingId = b.Uid;
+                CityLayout.Invalidate(S);
+                _svc.Refresh(_ => { });
+                _svc.ExecuteNow(new LabResearch { ResearchId = "lab_atk_1" });
+                _app.Router.Reset(new HubScreen());
+                _app.Open("laboratory");
+                yield return Wait(0.8f);
+                yield return Shot("l1_lab_tree");
+                var lab = (LaboratoryScreen)_app.Router.Current;
+                lab.ShowBranch("offense");
+                yield return Wait(0.5f);
+                yield return Shot("l2_lab_offense");
+                lab.ShowBranch("packages");
+                yield return Wait(0.5f);
+                var tree = lab.TreeScroll;
+                tree.verticalNormalizedPosition = 0.4f;
+                yield return Wait(0.3f);
+                yield return Shot("l3_lab_packages_mid");
+                yield return OpenTab("Status");
+                yield return Shot("l4_lab_status");
+            }
+            if (Want("aliens"))
+            {
+                var grants = new List<Reward>();
+                var ids = new List<string>(C.AlienTypes.Keys);
+                ids.Sort(string.CompareOrdinal);
+                for (int i = 0; i < ids.Count && i < 14; i++) grants.Add(new Reward(RewardKinds.Alien, ids[i], 1 + (i * 7) % 5));
+                _svc.DevGrant(grants);
+                _svc.DevGrant(new[] { new Reward(RewardKinds.Blueprint, ContentDb.LaunchPodId, 1) });
+                S.City.Buildings.Add(new CityBuilding { Uid = ContentDb.LaunchPodId + "#1", BlueprintId = ContentDb.LaunchPodId, Placed = true, Level = 1, X = 5, Y = 5 });
+                CitySystem.Owned(S, ContentDb.LaunchPodId).Stars = 10;
+                CityLayout.Invalidate(S);
+                S.Aliens.Squad.Clear();
+                S.Aliens.Squad.Add(ids[0]); S.Aliens.Squad.Add(ids[1]); S.Aliens.Squad.Add(ids[2]);
+                for (int i = 0; i < 3; i++) AlienSystem.Owned(S, ids[i]).WorkBuildingId = ContentDb.LaunchPodId + "#1";
+                _svc.Refresh(_ => { });
+                _app.Router.Reset(new HubScreen());
+                _app.Open("aliens");
+                yield return Wait(0.8f);
+                yield return Shot("a1_aliens");
+                yield return Scroll(0f);
+                yield return Shot("a2_aliens_scrolled");
+            }
         }
 
         private IEnumerator Scroll(float pos)
