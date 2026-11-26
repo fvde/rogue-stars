@@ -2,8 +2,8 @@
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon2.json",
   "suffix": ", small game status effect icon, centered, isolated on a plain pure white background, no text, no frame",
   "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo",
-  "width": 1024,
-  "height": 1024,
+  "width": 512,
+  "height": 512,
   "name": "pkg-status-icons2",
   "seeds": [
     7001,

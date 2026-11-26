@@ -1,0 +1,26 @@
+{
+  "name": "pkg-aliens3",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1011,
+    1012
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple creatures, text, watermark, blurry, photo, human",
+  "subjects": {
+    "alien_mossling": "Mossling, a tiny furry alien covered in soft moss with leaf ears, gentle healer",
+    "alien_zib": "Zib, a hyper cyan alien imp with two antennae and a mischievous face, quick fighter",
+    "alien_shiverpup": "Shiverpup, a small fluffy icy blue puppy-like alien with frosty fur and a curled tail, common chill-builder",
+    "alien_emberkit": "Emberkit, a fox-like alien kit with a flickering flame tail and ember fur",
+    "alien_sporeling": "Sporeling, a walking mushroom alien puffing toxic purple spores",
+    "alien_whirrbit": "Whirrbit, a tiny tinkerer alien riding a whirring propeller gadget",
+    "alien_arcwhisk": "Arcwhisk, a small whiskered alien with long crackling electric whiskers and spiky yellow fur, rare arc-source",
+    "alien_thornqueen": "Thornqueen, a regal plant alien with a crown of thorns and vine tendrils, epic rarity",
+    "alien_chronoslug": "Chronoslug, a chubby purple slug alien with a clock-face pattern on its back and sleepy eyes, epic time-controller",
+    "alien_solarch": "Solarch, a majestic sun-bird alien with blazing solar feathers, legendary rarity",
+    "alien_nebulisk": "Nebulisk, a mythic cosmic serpent alien whose body is a swirling nebula full of stars",
+    "alien_swarmheart": "Swarmheart, a mythic alien with a big glowing heart-shaped core on its chest and tiny drones orbiting it, friendly"
+  }
+}

@@ -1,11 +1,10 @@
 {
   "name": "pkg-buildings",
-  "width": 1024,
-  "height": 1024,
+  "width": 768,
+  "height": 768,
   "seeds": [
     1101,
-    1102,
-    1103
+    1102
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-iso.json",
   "suffix": ", a single building seen from a high three-quarter angle, centered, no ground, no base, no shadow, isolated on a plain pure white background, no text",

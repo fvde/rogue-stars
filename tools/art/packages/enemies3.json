@@ -1,0 +1,27 @@
+{
+  "name": "pkg-enemies3",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1311,
+    1312
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
+  "subjects": {
+    "cinder_hound": "Cinder Hound, a lava hound with cracked obsidian hide and glowing cracks",
+    "magma_slug": "Magma Slug, a slow giant slug of molten lava leaving fire",
+    "ash_wraith": "Ash Wraith, a ghostly wraith made of drifting ash and embers",
+    "frost_mite": "Frost Mite, a tiny icy mite with crystal legs, glacier enemy",
+    "snow_lurker": "Snow Lurker, a furry snow ambusher with big glowing eyes",
+    "volt_beetle": "Volt Beetle, a beetle with a glowing battery shell",
+    "thunder_moth": "Thunder Moth, a big moth with storm-cloud wings",
+    "tunnel_stalker": "Tunnel Stalker, a burrowing claw creature with drill-like snout",
+    "void_spawn": "Void Spawn, a small blob of living darkness with many tiny eyes",
+    "null_shade": "Null Shade, a flickering shadow figure with a hollow face",
+    "elite_frost_knight": "Frost Knight, an armored knight of living ice with a frozen blade, elite enemy",
+    "elite_void_reaver": "Void Reaver, a sleek void warrior with crescent scythe arms, elite enemy",
+    "elite_burrow_horror": "Burrow Horror, a huge many-mouthed burrowing horror, elite enemy"
+  }
+}

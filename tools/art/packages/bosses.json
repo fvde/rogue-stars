@@ -1,6 +1,11 @@
 {
   "name": "pkg-bosses",
-  "width": 1024, "height": 1024, "seeds": [1401],
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1411,
+    1412
+  ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single huge boss monster, full body, imposing, facing left, centered, isolated on a plain white background, no scenery",
   "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore",
