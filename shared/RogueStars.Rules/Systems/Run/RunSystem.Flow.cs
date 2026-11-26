@@ -172,7 +172,7 @@ namespace RogueStars.Rules.Systems
             if (def.Category == TileCategory.Shard) run.Shards++;
             if (def.Category == TileCategory.Pickup)
             {
-                run.Coins += def.Coins;
+                AddCoins(run, def.Coins);
                 if (def.Value > 0) AddXp(ctx, run, (int)def.Value); // supply caches: run XP
             }
             Consume(ctx.Content, run, tile, def);
@@ -231,6 +231,9 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.Minigame:
                     OpenMinigame(ctx, run, tile);
                     break;
+                case TileCategory.Quest:
+                    OpenQuest(ctx, run, tile);
+                    break;
                 case TileCategory.Hazard:
                     if (def.Value > 0) DamageWorm(run, def.Value);
                     if (def.Coins > 0) run.Coins = Math.Max(0, run.Coins - def.Coins);
@@ -244,7 +247,7 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.BossTile:
                     AddAwakening(ctx, run, def.MeterDelta);
                     run.BossStatPct += def.BossStatPct;
-                    run.Coins += def.Coins;
+                    if (def.Coins > 0) GainCoins(run, def.Coins); else run.Coins += def.Coins; // cost (a tribute) or a gain
                     Consume(c, run, tile, def);
                     break;
             }
@@ -467,7 +470,7 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Runs a battle with the run's worm. On loss the run enters Defeated (revive or give up).</summary>
-        private static bool Fight(CommandContext ctx, ActiveRun run, List<CombatantSpec> enemies, string kind, int xp, long coins, List<RunEffect> followUp)
+        private static bool Fight(CommandContext ctx, ActiveRun run, List<CombatantSpec> enemies, string kind, int xp, long coins, List<RunEffect> followUp, bool lethal = true)
         {
             var c = ctx.Content;
             var setup = new BattleSetup { RoundCap = kind == "boss" ? c.Combat.BossRoundCap : c.Combat.RoundCap };
@@ -484,7 +487,7 @@ namespace RogueStars.Rules.Systems
             if (result.StacksInflicted != null)
                 foreach (var kv in result.StacksInflicted)
                     run.PlagueStacks[kv.Key] = (run.PlagueStacks.TryGetValue(kv.Key, out var had) ? had : 0) + kv.Value;
-            if (result.RunCoins > 0) run.Coins += result.RunCoins; // Plunder (Void Pirate): crit kills pay run coins
+            if (result.RunCoins > 0) GainCoins(run, result.RunCoins); // Plunder (Void Pirate): crit kills pay run coins
             run.WormHp = result.WormHpLeft;
             run.WormMaxHp = result.WormMaxHp;
             if (kind == "boss") run.BossRounds = result.Rounds;
@@ -499,6 +502,13 @@ namespace RogueStars.Rules.Systems
             {
                 OnBattleWin(ctx, run, kind, xp, coins);
                 return true;
+            }
+            if (!lethal)
+            {
+                // a quest battle: lost, but the run goes on (the worm keeps at least QuestTuning.LossHpPct of its max HP)
+                run.WormHp = Math.Max(run.WormHp, Math.Max(1, Math.Round(run.WormMaxHp * c.QuestTuning.LossHpPct / 100.0)));
+                ctx.Emit("run_battle_lost_nonlethal", kind);
+                return false;
             }
             run.Phase = RunPhase.Defeated;
             run.DefeatKind = kind;
@@ -533,7 +543,7 @@ namespace RogueStars.Rules.Systems
                 run.PendingMythicDrafts++;
                 ctx.State.Count("run_minibosses_killed");
             }
-            run.Coins += coins;
+            GainCoins(run, coins);
             HealWorm(c, run, c.RunTuning.HealAfterBattlePct);
             RunTriggers(ctx, run, TriggerKind.OnBattleWon, null);
             double xpGain = BattleSimulator.FinalStats(WormSpec(c, run), c).Value(StatId.XpGain);
@@ -816,7 +826,7 @@ namespace RogueStars.Rules.Systems
                     if (t.Stat != null) { run.RunStats.Add(new StatMod(t.Stat.Stat, t.Stat.Flat, t.Stat.Percent)); RefreshMaxHp(c, run); }
                     break;
                 case EffectKind.GainRunCoins:
-                    run.Coins += (long)t.Value;
+                    AddCoins(run, (long)t.Value);
                     break;
                 case EffectKind.HealOnTile:
                     HealWorm(c, run, t.Value);
@@ -862,7 +872,7 @@ namespace RogueStars.Rules.Systems
                 switch (ta.Effect)
                 {
                     case EffectKind.SlowAwakening: run.AwakeningReductionPct += tb.Value - ta.Value; break;
-                    case EffectKind.GainRunCoins: run.Coins += (long)Math.Round(tb.Value - ta.Value); break;
+                    case EffectKind.GainRunCoins: AddCoins(run, (long)Math.Round(tb.Value - ta.Value)); break;
                     case EffectKind.RunStatGrowth:
                         if (ta.Stat != null) run.RunStats.Add(new StatMod(ta.Stat.Stat, tb.Stat.Flat - ta.Stat.Flat, tb.Stat.Percent - ta.Stat.Percent));
                         break;
@@ -878,7 +888,7 @@ namespace RogueStars.Rules.Systems
             if (fresh.Count > 0) pool = fresh;
             var cands = pool.FindAll(s => s.Rarity >= min);
             if (cands.Count == 0) cands = pool;
-            if (cands.Count == 0) { run.Coins += ctx.Content.RunTuning.DraftEmptyCoins; return; }
+            if (cands.Count == 0) { GainCoins(run, ctx.Content.RunTuning.DraftEmptyCoins); return; }
             GrantSkill(ctx, run, cands[run.Rng.Range(0, cands.Count)].Id, depth, source);
         }
 
@@ -893,7 +903,7 @@ namespace RogueStars.Rules.Systems
             if (offer.Count == 0)
             {
                 run.PendingMythicDrafts--;
-                run.Coins += ctx.Content.RunTuning.MythicEmptyCoins;
+                GainCoins(run, ctx.Content.RunTuning.MythicEmptyCoins);
                 return;
             }
             run.DraftOffer.Clear();
@@ -909,7 +919,7 @@ namespace RogueStars.Rules.Systems
             if (offer.Count == 0)
             {
                 run.PendingDrafts--;
-                run.Coins += ctx.Content.RunTuning.DraftEmptyCoins;
+                GainCoins(run, ctx.Content.RunTuning.DraftEmptyCoins);
                 return;
             }
             run.DraftOffer.Clear();
@@ -1080,7 +1090,7 @@ namespace RogueStars.Rules.Systems
                 var e = effects[i];
                 switch (e.Kind)
                 {
-                    case RunEffectKind.Coins: run.Coins = Math.Max(0, run.Coins + (long)e.Value); break;
+                    case RunEffectKind.Coins: AddCoins(run, (long)e.Value); break;
                     case RunEffectKind.HealPct: HealWorm(c, run, e.Value); break;
                     case RunEffectKind.DamagePct: DamageWorm(run, e.Value); break;
                     case RunEffectKind.StatPercent: run.RunStats.Add(StatMod.Bonus(e.Stat, e.Value)); RefreshMaxHp(c, run); break;
@@ -1199,7 +1209,7 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content;
             string owned = !string.IsNullOrEmpty(chosen) ? chosen : TrainAutoPick(c, run);
             string target = owned != null ? TrainTarget(c, run, owned) : null;
-            if (target == null) { run.Coins += c.RunTuning.DraftEmptyCoins; return; }
+            if (target == null) { GainCoins(run, c.RunTuning.DraftEmptyCoins); return; }
             GrantSkill(ctx, run, target, 0, "event");
         }
 

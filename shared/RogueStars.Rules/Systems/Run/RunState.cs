@@ -20,13 +20,13 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter, Minigame }
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter, Minigame, Quest }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter, Minigame }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter, Minigame, Quest }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -292,7 +292,13 @@ namespace RogueStars.Rules.Systems
     /// effect (Id = tile id for tiles, e.g. a toll with no coins left). Avoided: a boon kept a negative tile away. StepPenalty:
     /// the next roll moves Amount steps less (Gravity Vortex).
     /// </summary>
-    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel, SkillRoll, Empty, Avoided, StepPenalty }
+    public enum OutcomeKind { Coins, Hp, Stat, SkillGained, SkillLost, Xp, LevelUp, Shards, AccountLoot, Awakening, AwakenRate, BossStat, Danger, Battle, Nothing, SkillLevel, SkillRoll, Empty, Avoided, StepPenalty,
+        /// <summary>Run coins the account's quest bonus added (Id = the bonus name, e.g. Starglint; the Coins line shows the rest).</summary>
+        CoinBonus,
+        /// <summary>A quest boon: the account coin bonus is now Amount coins per gain (Id = the bonus name).</summary>
+        QuestBoon,
+        /// <summary>A quest encounter's step: Id "advanced" / "waits" / "complete", Amount = the chapter the story is at now.</summary>
+        QuestStep }
 
     /// <summary>
     /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
@@ -332,7 +338,7 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class RunOutcome
     {
-        /// <summary>"event", "treasure", "campfire" or "minigame" (decision results, LastOutcome); tile outcomes: "tile", "pass", "battle" (TileOutcomes).</summary>
+        /// <summary>"event", "treasure", "campfire", "minigame" or "quest" (decision results, LastOutcome); tile outcomes: "tile", "pass", "battle" (TileOutcomes).</summary>
         public string Source;
         public string EventId;
         public string Title;

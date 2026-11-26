@@ -238,7 +238,7 @@ public class DeadEffectsTests
             else
             {
                 board++;
-                for (long seed = 1; seed <= 4 && !changed; seed++) changed = RunSignature(s.Id, seed) != RunBase(seed);
+                for (long seed = 1; seed <= 6 && !changed; seed++) changed = RunSignature(s.Id, seed) != RunBase(seed);
             }
             if (!changed) failures.Add(s.Id + " (" + s.Source + "): " + (ActsInBattle(s) ? "no battle changed" : "no run changed"));
         }

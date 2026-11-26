@@ -14,6 +14,8 @@ namespace RogueStars.Rules.Content
     {
         Start, Empty, Enemy, Elite, Miniboss, StatBuff, StatDebuff, Loot, Treasure, Event, Campfire, Shop,
         Hazard, Shard, Pickup, BossTile, BossGate, Minigame,
+        /// <summary>A Run Quest encounter (placed on scheduled runs only, RunSystem.Quests; forces a stop).</summary>
+        Quest,
     }
 
     /// <summary>Tile valence colour for the client (and for "skip negative events" boons).</summary>

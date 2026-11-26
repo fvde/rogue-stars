@@ -76,9 +76,9 @@ namespace RogueStars.Rules.Systems
                     m.DraftOpen = true;
                     draft = true;
                 }
-                else run.Coins += c.RunTuning.DraftEmptyCoins;
+                else GainCoins(run, c.RunTuning.DraftEmptyCoins);
             }
-            else run.Coins += MinigameCoins(c, run, reward);
+            else GainCoins(run, MinigameCoins(c, run, reward));
 
             m.Started = false;
             m.LastTier = tier;

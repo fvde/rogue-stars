@@ -8,7 +8,7 @@ namespace RogueStars.Rules.Systems
     /// <summary>
     /// Dice-board runs (GDD §3). State: GameState.Run (ActiveRun while a run is in progress).
     /// Commands: RunStart, RunRoll, RunChooseBranch, RunChooseEventOption, RunDraftPick, RunDraftReroll,
-    /// RunShopBuy/Reroll/Leave, RunRevive, RunAbandon, RunAutoStep, RunBurrowDescend, RunBurrowCashOut.
+    /// RunShopBuy/Reroll/Leave, RunRevive, RunAbandon, RunAutoStep, RunBurrowDescend, RunBurrowCashOut, RunQuestChoose.
     /// Battles are resolved inside the handlers with BattleSimulator; the last log is in ActiveRun.LastBattle.
     /// Rewards are pending and granted only on completion (ctx.Grant), failure loses everything.
     /// </summary>
@@ -32,6 +32,7 @@ namespace RogueStars.Rules.Systems
             e.Register<RunBurrowDescend>((c, ctx) => { var r = Need(ctx); BurrowDescend(ctx, r); return Ok(ctx); });
             e.Register<RunDoubleRewards>(HandleDoubleRewards);
             RegisterMinigames(e);
+            RegisterQuests(e);
             e.Register<RunBurrowCashOut>((c, ctx) => { var r = Need(ctx); Require(r.Phase == RunPhase.BurrowChoice, "not at a burrow cash-out"); Finish(ctx, r, true); return Ok(ctx); });
 
             e.RegisterNewPlayer(ctx =>
@@ -171,6 +172,7 @@ namespace RogueStars.Rules.Systems
             s.Run.RunsStarted++;
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
+            ScheduleQuest(ctx, run); // before the board: a scheduled run gets the quest tile (RunBoard)
             SetupLevel(c, run, level);
             run.Coins = StartCoins(c, level) + run.Loadout.RunStartCoins; // enough for a purchase at the first shop (+ City boons)
             run.SkipNegativeEvents += run.Loadout.SkipNegativeEvents;
@@ -473,6 +475,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.BurrowChoice: return RunDecision.BurrowChoice;
                 case RunPhase.Encounter: return RunDecision.Encounter;
                 case RunPhase.Minigame: return RunDecision.Minigame;
+                case RunPhase.Quest: return RunDecision.Quest;
                 case RunPhase.Event:
                 {
                     var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
@@ -541,6 +544,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Defeated: Finish(ctx, run, false); break;
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
                 case RunPhase.Minigame: MinigameAuto(ctx, run); break;
+                case RunPhase.Quest: QuestChoose(ctx, run, QuestFarmPick(ctx.Content, ctx.State, run), null); break;
             }
         }
     }

@@ -12,8 +12,8 @@ namespace RogueStars.Rules.Tests.Run;
 /// </summary>
 public class ClientDriverTests(ITestOutputHelper output)
 {
-    private static readonly string[] DecisionOpened = { "run_event", "run_draft", "run_mythic_draft", "run_shop" };
-    private static readonly string[] DecisionResolved = { "run_event_outcome", "run_draft_pick", "run_shop_buy" };
+    private static readonly string[] DecisionOpened = { "run_event", "run_draft", "run_mythic_draft", "run_shop", "run_quest" };
+    private static readonly string[] DecisionResolved = { "run_event_outcome", "run_draft_pick", "run_shop_buy", "run_quest_choice", "run_quest_epilogue" };
 
     private sealed class Log
     {
@@ -60,6 +60,15 @@ public class ClientDriverTests(ITestOutputHelper output)
                     case RunPhase.Minigame:
                         cmd = a.Minigame.Started ? new RunMinigameFinish { Tier = (MinigameTier)rng.Next(4) } : new RunMinigameStart();
                         break;
+                    case RunPhase.Quest:
+                    {
+                        // a Run Quest encounter: any option the run can take (a price it cannot pay is refused by the rules)
+                        var node = RunSystem.QuestOpenNode(c, s, a);
+                        var ok = node == null ? new List<int> { 0 } : Enumerable.Range(0, node.Options.Count)
+                            .Where(k => node.Options[k].Action != QuestOptionAction.Pay || RunSystem.QuestCanPay(c, a, node.Cost)).ToList();
+                        cmd = new RunQuestChoose { Index = ok[rng.Next(ok.Count)] };
+                        break;
+                    }
                     default: throw new InvalidOperationException("unexpected player phase " + phase);
                 }
             }
@@ -74,11 +83,11 @@ public class ClientDriverTests(ITestOutputHelper output)
             {
                 // an auto step never answers a player decision ...
                 Assert.DoesNotContain(r.Events, ev => DecisionResolved.Contains(ev.Type));
-                Assert.False(phase is RunPhase.Event or RunPhase.Minigame or RunPhase.Draft or RunPhase.Shop or RunPhase.ChooseBranch or RunPhase.BurrowChoice, line);
+                Assert.False(phase is RunPhase.Event or RunPhase.Quest or RunPhase.Minigame or RunPhase.Draft or RunPhase.Shop or RunPhase.ChooseBranch or RunPhase.BurrowChoice, line);
                 Assert.False(phase == RunPhase.Defeated && !a.ReviveUsed, line);
                 // ... and a decision it opens is still open when it returns
                 if (r.Events.Any(ev => DecisionOpened.Contains(ev.Type)))
-                    Assert.True(after != null && after.Phase is RunPhase.Event or RunPhase.Draft or RunPhase.Shop, "opened and closed by auto: " + line);
+                    Assert.True(after != null && after.Phase is RunPhase.Event or RunPhase.Draft or RunPhase.Shop or RunPhase.Quest, "opened and closed by auto: " + line);
             }
             // one playback per command: never two fights in a single step
             int fights = r.Events.Count(ev => ev.Type == "run_battle");

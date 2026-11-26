@@ -26,6 +26,7 @@ namespace RogueStars.Rules.Content
             BuildSkills();
             BuildRun();
             BuildMinigames(); // after BuildRun: registers the GAME board tile
+            BuildRunQuests(); // after BuildRun: the quest chains and the quest encounter tile
             BuildWorm();
             BuildParts();
             BuildHeroes();
@@ -65,6 +66,7 @@ namespace RogueStars.Rules.Content
         partial void BuildSkills();
         partial void BuildRun();
         partial void BuildMinigames();
+        partial void BuildRunQuests();
         partial void BuildWorm();
         partial void BuildParts();
         partial void BuildHeroes();

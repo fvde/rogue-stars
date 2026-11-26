@@ -178,6 +178,8 @@ namespace RogueStars.Rules.Systems
                 if (x.TileId != null && content.BoardTiles.TryGetValue(x.TileId, out var d) && d.Once) usedOnce.Add(x.TileId);
             foreach (var x in all)
                 if (x.TileId == null) x.TileId = PickPoolTile(content, level.TilePoolId, rng, usedOnce, theme, run);
+            // a scheduled Run Quest encounter replaces one pool tile on the trunk (forced stop; the board's random picks stay the same)
+            RunSystem.PlaceQuestTile(content, run, segment, path, onTrunk);
 
             GridLayout(t, b, startTile, pieces, layout, segment);
         }

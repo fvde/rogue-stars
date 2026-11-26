@@ -162,3 +162,9 @@ Meta content now reads the keys the owning workstreams actually write:
 - `city_digs` — patches dug (City redesign: replaces `city_areas_unlocked`, which is no longer counted) — City
 - `city_chances_popped` — chances popped on pull buildings (Research Scrolls, Incoming Transmissions, Meteor Drops) — City
 - `city_pulls_popped` — pulls (tokens) those pops paid out — City
+## Run Quests (docs/design/run-quests/recipe.md)
+- `run_quest_encounters` — quest characters met on the board (story, retries and epilogue scenes) — Run/Quests
+- `run_quest_chapters` — quest chapters passed (the story moved on) — Run/Quests
+- `run_quest_battles_won`, `run_quest_battles_lost` — quest battles fought (a loss never ends the run) — Run/Quests
+- `run_quests_completed` — quest chains finished — Run/Quests
+- `run_quest_epilogues` — epilogue scenes after a finished chain — Run/Quests

@@ -26,7 +26,7 @@ namespace RogueStars.Rules.Systems
         {
             switch (def.Category)
             {
-                case TileCategory.Event: case TileCategory.Treasure: case TileCategory.Campfire: case TileCategory.Shop: case TileCategory.Minigame:
+                case TileCategory.Event: case TileCategory.Treasure: case TileCategory.Campfire: case TileCategory.Shop: case TileCategory.Minigame: case TileCategory.Quest:
                 case TileCategory.BossGate:
                     return true;
                 default: return false;
@@ -53,7 +53,7 @@ namespace RogueStars.Rules.Systems
         /// <summary>What an outcome line is worth to show first: losses and fights after gains, in a stable order.</summary>
         private sealed class Snap
         {
-            private long _coins;
+            private long _coins, _bonus;
             private double _hp, _awakening, _bossPct, _awakenRed;
             private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles, _penalty, _skip;
             private List<string> _skills;
@@ -61,7 +61,7 @@ namespace RogueStars.Rules.Systems
 
             public static Snap Of(ActiveRun r) => new Snap
             {
-                _coins = r.Coins, _hp = r.WormHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
+                _coins = r.Coins, _bonus = r.Quest != null ? r.Quest.CoinBonusPaid : 0, _hp = r.WormHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
                 _awakenRed = r.AwakeningReductionPct, _xp = r.XpTotal, _level = r.Level, _shards = r.Shards, _danger = r.Danger,
                 _stats = r.RunStats.Count, _loot = r.PendingLoot.Count, _rare = r.PendingRare.Count, _battles = r.BattleCount,
                 _penalty = r.StepPenaltyNext, _skip = r.SkipNegativeEvents,
@@ -94,7 +94,10 @@ namespace RogueStars.Rules.Systems
                     Add(OutcomeKind.Stat, m.Stat.ToString(), v, v >= 0);
                 }
                 if (Math.Abs(r.WormHp - _hp) >= 0.5) Add(OutcomeKind.Hp, null, Math.Round(r.WormHp - _hp), r.WormHp > _hp);
-                if (r.Coins != _coins) Add(OutcomeKind.Coins, null, r.Coins - _coins, r.Coins > _coins);
+                long bonus = (r.Quest != null ? r.Quest.CoinBonusPaid : 0) - _bonus; // the account's quest bonus, shown apart
+                long coins = r.Coins - _coins - Math.Max(0, bonus);
+                if (coins != 0) Add(OutcomeKind.Coins, null, coins, coins > 0);
+                if (bonus > 0) Add(OutcomeKind.CoinBonus, r.Quest.BonusName, bonus, true);
                 if (r.XpTotal > _xp) Add(OutcomeKind.Xp, null, r.XpTotal - _xp, true);
                 if (r.Level > _level) Add(OutcomeKind.LevelUp, null, r.Level - _level, true);
                 if (r.Shards != _shards) Add(OutcomeKind.Shards, null, r.Shards - _shards, r.Shards > _shards);
