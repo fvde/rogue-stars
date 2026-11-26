@@ -54,6 +54,12 @@
       "cutout": false,
       "max_side": 1344,
       "note": "backgrounds, boards, textures, loading art: kept full frame"
+    },
+    "building": {
+      "canvas": null,
+      "long_side": 572,
+      "pad": 3,
+      "note": "City buildings: a small foundation plate under the building is allowed (no pedestal check)"
     }
   },
   "packages": {
@@ -266,7 +272,7 @@
       "Planet buildings (for stages 5-10)"
     ],
     "buildings": [
-      "prop",
+      "building",
       "Buildings (City)"
     ],
     "run-characters": [
