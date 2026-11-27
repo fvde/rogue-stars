@@ -7,16 +7,16 @@
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no fire, no flames, no ground, no shadow, no scenery",
-  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers",
   "subjects": {
-    "champ_cinder_alpha": "Cinder Alpha, a big alpha lava hound with cracked obsidian hide and glowing orange cracks, champion size",
-    "champ_ash_matriarch": "Ash Matriarch, a tall ghostly matron made of grey ash with ember eyes, champion size",
+    "champ_cinder_alpha": "Cinder Alpha, a big alpha hound beast with cracked black stone hide and thin glowing orange lines, champion size",
+    "champ_ash_matriarch": "Ash Matriarch, a tall ghostly woman figure made of pale grey dust with glowing orange eyes, empty hands, champion size",
     "champ_glacier_warden": "Glacier Warden, a hulking ice golem guard with a crystal shield, champion size",
     "champ_lurker_alpha": "Lurker Alpha, a big furry white snow beast with two glowing eyes, champion size",
-    "champ_volt_monarch": "Volt Monarch, a large electric beetle king with a crackling yellow shell, champion size",
+    "champ_volt_monarch": "Volt Monarch, a large electric beetle with a bright yellow shell and blue lightning stripes, champion size",
     "champ_eel_tyrant": "Eel Tyrant, a huge electric eel coiled upright with glowing blue stripes, champion size",
     "champ_null_wraith": "Null Wraith, a tall shadowy void wraith with a dark purple cloak and white eyes, champion size",
-    "champ_grub_mother": "Grub Mother, a giant plump burrow grub queen with stubby legs, champion size",
+    "champ_grub_mother": "Grub Mother, a giant plump burrow grub with stubby legs, champion size",
     "champ_stalker_prime": "Stalker Prime, a big armored burrowing beast with a drill snout and golden claws, champion size"
   }
 }
