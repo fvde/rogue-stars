@@ -1781,7 +1781,7 @@ namespace RogueStars.Client.Screens
 
         /// <summary>
         /// The revive (run UI glitches #19) in the Slice style of the outcome sheet: the dimmed board, the red "DEFEATED!" ribbon,
-        /// a tombstone as the centrepiece (<see cref="ArtCatalog.RunIcon"/> "tombstone", drawn until the art exists), the rule on
+        /// a tombstone as the centrepiece (<see cref="ArtCatalog.RunIcon"/> "tombstone"), the rule on
         /// the paper and chunky buttons: Ad revive (green), Diamonds (cyan), Give up (red). Named "Modal:Defeated!"; buttons
         /// "Button:Ad revive (n)", "Button:n Diamonds", "Button:Give up".
         /// </summary>
@@ -1814,6 +1814,7 @@ namespace RogueStars.Client.Screens
             UiPulse.On(glow, 0.05f, 2f, 0.7f);
             var tomb = Ui.Panel(frame, Color.white, "Tombstone");
             tomb.sprite = TombstoneSprite(); tomb.preserveAspect = true; tomb.raycastTarget = false;
+            tomb.enabled = tomb.sprite != null; // no white box without the art (the glow stays)
             RunScenes.At(tomb.rectTransform, s, 540, tombY, tombSize, tombSize);
             UiBob.On(tomb.rectTransform, 6 * s, 2.4f);
             // the rule on the paper
@@ -1868,38 +1869,8 @@ namespace RogueStars.Client.Screens
             irt.anchoredPosition = new Vector2(-150 * s, 4 * s);
         }
 
-        private static Sprite _tombstone;
-
-        /// <summary>
-        /// The revive's centrepiece: <c>Art/Run/Icons/tombstone</c> (512 × 512, transparent; the art package
-        /// run-icons-tombstone) once imported, else a drawn grey tombstone with the ink outline.
-        /// </summary>
-        public static Sprite TombstoneSprite()
-        {
-            var art = ArtCatalog.RunIcon("tombstone");
-            if (art != null) return art;
-            if (_tombstone != null) return _tombstone;
-            const int w = 320, h = 360;
-            var p = new IsoPaint(w, h);
-            var stone = (Color)new Color32(0x9A, 0x9E, 0xAE, 255);
-            // the slab: straight sides, a round top
-            var pts = new List<Vector2> { IsoPaint.V(64, 56), IsoPaint.V(256, 56) };
-            for (int i = 0; i <= 24; i++)
-            {
-                float a = Mathf.PI * i / 24f;
-                pts.Add(IsoPaint.V(160 + 96 * Mathf.Cos(a), 240 + 96 * Mathf.Sin(a)));
-            }
-            p.Shape(pts, IsoPaint.VGrad(IsoPaint.Shade(stone, -0.3f), IsoPaint.Shade(stone, 0.12f), 56, 336), IsoArt.Ink, 10);
-            // cel shading on the right, a highlight on the left, a crack
-            p.Poly(new List<Vector2> { IsoPaint.V(206, 62), IsoPaint.V(250, 62), IsoPaint.V(250, 236), IsoPaint.V(226, 300), IsoPaint.V(206, 300) }, new Color(0, 0, 0, 0.16f));
-            p.Line(IsoPaint.V(96, 120), IsoPaint.V(96, 250), 10, new Color(1, 1, 1, 0.35f));
-            p.Line(IsoPaint.V(150, 300), IsoPaint.V(170, 262), 5, IsoArt.Ink);
-            p.Line(IsoPaint.V(170, 262), IsoPaint.V(156, 232), 5, IsoArt.Ink);
-            // the base slab
-            p.Shape(IsoPaint.RoundRect(30, 14, 260, 52, 14), IsoPaint.VGrad(IsoPaint.Shade(stone, -0.45f), IsoPaint.Shade(stone, -0.15f), 14, 66), IsoArt.Ink, 9);
-            _tombstone = p.ToSprite("rs_tombstone", IsoPaint.V(w / 2f, h / 2f));
-            return _tombstone;
-        }
+        /// <summary>The revive's centrepiece: <c>Art/Run/Icons/tombstone</c> (art import 5; the art package run-icons-tombstone), or null.</summary>
+        public static Sprite TombstoneSprite() => ArtCatalog.RunIcon("tombstone");
 
         private UiModal BurrowModal(ActiveRun run) =>
             Modal("Floor " + run.Floor + " cleared", b =>

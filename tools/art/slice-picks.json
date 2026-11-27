@@ -169,5 +169,10 @@
   "buildings/bp_signal_beacon": "I_s2102.png",
   "buildings/bp_scout_post": "I_s2101.png",
   "buildings/bp_grain_farm": "I_s2202.png",
-  "buildings/bp_ore_mine": "I_s2201.png"
+  "buildings/bp_ore_mine": "I_s2201.png",
+  "run-icons/tombstone": "../run-icons-tombstone/tombstone/N_s6721.png",
+  "enemies3/elite_stalker_prime": "../enemies-elites2/elite_stalker_prime/C_s1621.png",
+  "enemies3/elite_glacier_warden": "../enemies-elites2/elite_glacier_warden/C_s10611.png",
+  "enemies3/elite_cinder_alpha": "../enemies-elites2/elite_cinder_alpha/S_s1622.png",
+  "enemies3/elite_ash_matriarch": "../enemies-elites2/elite_ash_matriarch/S_s1621.png"
 }
