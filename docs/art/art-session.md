@@ -42,7 +42,7 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
    `pkill -f tools/art/night.sh; pkill -f "tools/art/gen.py"; (nohup bash tools/art/night.sh >> ~/AI/out/night-slice.log 2>&1 &)` — only if no `cleanup-now2|mflux-generate` is running.
 2. `qc.py sheet`, look at every pending item, pass/fail.
 3. Rebuild the page (the audit must pass; never use --force), look at the full-page audit sheet `~/AI/out/pipeline/page-audit-1.png` section by section, then publish.
-4. Post a short message in this session: what is new to review (counts per section) or "nothing new".
+4. Post a short message in this session: what is AVAILABLE for the owner to review on the page (new candidates per section, what they are) or "nothing new to review". Do not report comment-thread status; pipeline internals in one line at most.
 
 ## 3. Review page and comments
 
