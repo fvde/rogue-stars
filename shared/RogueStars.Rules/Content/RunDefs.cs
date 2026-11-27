@@ -127,6 +127,11 @@ namespace RogueStars.Rules.Content
         public List<string> SkillIds = new List<string>();
         public int Xp = 4;
         public int Coins = 6;
+        /// <summary>
+        /// The sprite the client draws for an enemy without art of its own (an enemy id of its biome, drawn at the elite scale);
+        /// null = its own id / its family's sprite. The biome champions of the miniboss pools use it until they get their art.
+        /// </summary>
+        public string ArtId;
     }
 
     /// <summary>Boss board action at an awakening threshold.</summary>
@@ -272,7 +277,13 @@ namespace RogueStars.Rules.Content
         public string BossId;
         public List<string> EnemyPool = new List<string>();
         public List<string> ElitePool = new List<string>();
+        /// <summary>The level's headline miniboss (the first of <see cref="MinibossPool"/>; run quests use it as their champion).</summary>
         public string MinibossId;
+        /// <summary>
+        /// Minibosses the level's lairs draw from (playtest 0.1.359: it was always the same one): each run shuffles the pool with
+        /// its own seed (RunSystem.MinibossOrder), so the run's two lairs hold two different minibosses and runs differ.
+        /// </summary>
+        public List<string> MinibossPool = new List<string>();
         public string LootTableId;
         public string ShopTableId = "shop_standard";
         public List<Reward> CompletionRewards = new List<Reward>();

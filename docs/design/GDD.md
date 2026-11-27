@@ -82,7 +82,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
-| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). Each beaten miniboss grants a **MYTHIC choice** |
+| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). The lairs draw from the biome's **miniboss pool** (playtest 0.1.359: its elite and two champions, `LevelDef.MinibossPool`), shuffled per run (`RunSystem.MinibossOrder`): the two lairs of a run always differ. Each beaten miniboss grants a **MYTHIC choice** |
 | GAME (Alien Arcade) | A short skill mini-game (§3.6) for run coins or a skill roll; stops the worm when passed |
 
 **Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply

@@ -380,7 +380,8 @@ namespace RogueStars.Client.UiKit
         public static Sprite Enemy(string enemyId) => string.IsNullOrEmpty(enemyId) ? null : Load(EnemyFolder + "/" + enemyId);
 
         /// <summary>
-        /// An enemy's sprite: its own, else (bosses, elites, summons without art) the first sprite of its family
+        /// An enemy's sprite: its own, else the sprite its def names (EnemyDef.ArtId: the miniboss pools' biome champions), else
+        /// (bosses, elites, summons without art) the first sprite of its family
         /// (<see cref="EnemyFamily"/>) with <paramref name="family"/> = true (drawn scaled up), else null (the old lettered box).
         /// </summary>
         public static Sprite EnemyOrFamily(string enemyId, ContentDb content, out bool family)
@@ -388,6 +389,12 @@ namespace RogueStars.Client.UiKit
             family = false;
             var own = Enemy(enemyId);
             if (own != null || content == null || string.IsNullOrEmpty(enemyId)) return own;
+            // a biome champion (miniboss pool) names the enemy sprite it is drawn with
+            if (content.Enemies.TryGetValue(enemyId, out var def) && !string.IsNullOrEmpty(def.ArtId))
+            {
+                var art = Enemy(def.ArtId);
+                if (art != null) { family = true; return art; }
+            }
             foreach (var id in EnemyFamily(enemyId, content))
             {
                 var s = Enemy(id);

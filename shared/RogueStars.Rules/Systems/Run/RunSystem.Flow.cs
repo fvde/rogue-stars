@@ -426,6 +426,31 @@ namespace RogueStars.Rules.Systems
         public static double DangerPct(ContentDb c, ActiveRun run) =>
             run.Danger * c.RunTuning.DangerPctPerLoot * (1 + Level(c, run).Modifiers.DangerPct / 100.0);
 
+        /// <summary>
+        /// The run's miniboss order for a level (pure): its <see cref="LevelDef.MinibossPool"/> (else its MinibossId) shuffled by a
+        /// fork of the run's stream, so every run has its own order and the run's lairs meet different minibosses.
+        /// </summary>
+        public static List<string> MinibossOrder(LevelDef level, Rng runRng)
+        {
+            var pool = new List<string>(level.MinibossPool);
+            if (pool.Count == 0 && level.MinibossId != null) pool.Add(level.MinibossId);
+            var rng = runRng.Fork("minibosses:" + level.Id);
+            for (int i = pool.Count - 1; i > 0; i--)
+            {
+                int k = rng.Range(0, i + 1);
+                (pool[i], pool[k]) = (pool[k], pool[i]);
+            }
+            return pool;
+        }
+
+        /// <summary>The miniboss the run's next miniboss fight meets: entry <c>MinibossesDefeated</c> of its order (wrapping).</summary>
+        public static string NextMiniboss(LevelDef level, ActiveRun run)
+        {
+            var order = run.MinibossOrder;
+            if (order == null || order.Count == 0) return level.MinibossId;
+            return order[run.MinibossesDefeated % order.Count];
+        }
+
         /// <summary>Enemy specs for a fight: kind = enemy | elite | miniboss | boss | an enemy id.</summary>
         private static List<CombatantSpec> EnemiesFor(ContentDb c, ActiveRun run, string kind, string enemyId, int tileLevel, double bonusPct)
         {
@@ -456,7 +481,7 @@ namespace RogueStars.Rules.Systems
                 case "ambush":
                 {
                     double b = common + t.MinibossBonusPct + t.MinibossStepPct * run.MinibossesDefeated;
-                    list.Add(BattleSimulator.BuildEnemy(c, level.MinibossId, scale, b + mods.EnemyAtkPct, b + mods.EnemyHpPct, mods.EnemyDefPct));
+                    list.Add(BattleSimulator.BuildEnemy(c, NextMiniboss(level, run), scale, b + mods.EnemyAtkPct, b + mods.EnemyHpPct, mods.EnemyDefPct));
                     break;
                 }
                 default:

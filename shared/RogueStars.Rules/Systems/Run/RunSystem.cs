@@ -197,6 +197,7 @@ namespace RogueStars.Rules.Systems
             var portal = c.Portal(level.PortalId);
             run.LevelId = level.Id;
             run.Threat = level.Threat + (run.Mode == RunMode.Overcharged ? portal.OverchargedThreatBonus : 0);
+            run.MinibossOrder = MinibossOrder(level, run.Rng); // a fork: the run's stream (and so its board) is untouched
             var board = RunBoard.Generate(c, level, run.Rng, run);
             run.Tiles = board.Tiles;
             run.BoardEnd = board.EndTile;
