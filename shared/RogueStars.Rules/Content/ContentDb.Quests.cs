@@ -99,8 +99,8 @@ namespace RogueStars.Rules.Content
             Q("d_skills", "Pick 5 run skills", QuestKind.Daily, "run_skills_drafted", 5, 20, 10, null);
             Q("d_stamina", "Spend 30 stamina", QuestKind.Daily, "stamina_spent", 30, 25, 10, null);
             // Extras from the feature that makes them possible. The ad quest also hides while ads are off (QuestDef.NeedsAds).
-            Q("d_shop", "Buy 1 shop item", QuestKind.Daily, "shop_items_bought", 1, 10, 5, Features.Shop);
-            Q("d_ad", "Watch 1 ad", QuestKind.Daily, "ads_watched", 1, 10, 5, Features.Shop);
+            Q("d_shop", "Buy 1 shop item", QuestKind.Daily, "shop_items_bought", 1, 10, 5, null);
+            Q("d_ad", "Watch 1 ad", QuestKind.Daily, "ads_watched", 1, 10, 5, null);
             Quests["d_ad"].NeedsAds = true;
             Q("d_arena", "Fight 2 arena battles", QuestKind.Daily, "arena_fights", 2, 20, 10, Features.Arena);
 

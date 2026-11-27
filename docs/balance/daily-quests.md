@@ -30,8 +30,8 @@ tests: `QuestAvailabilityTests` (rules) and `QuestSimTests` (simulator); the fir
 | Win 10 battles (`d_battles`) | 10 | 20 | level 1 |
 | Pick 5 run skills (`d_skills`, replaces "Do 1 Part pull") | 5 | 20 | level 1 |
 | Spend 30 stamina (`d_stamina`) | 30 | 25 | level 1 |
-| Buy 1 shop item (`d_shop`) | 1 | 10 | Shop, level 12 |
-| Watch 1 ad (`d_ad`) | 1 | 10 | Shop, level 12, ads on |
+| Buy 1 shop item (`d_shop`) | 1 | 10 | level 1 (the Shop's offers need no unlock; an extra: no chest needs its points) |
+| Watch 1 ad (`d_ad`) | 1 | 10 | level 1, ads on (an extra) |
 | Fight 2 arena battles (`d_arena`) | 2 | 20 | Arena, level 32 |
 
 | Chest | Contents |

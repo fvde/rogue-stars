@@ -34,7 +34,7 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "worm", Title = "Worm", FeatureId = Features.Parts, Workstream = "Progression", Create = () => new WormScreen() },
             new ScreenEntry { Id = "parts", Title = "Parts", FeatureId = Features.Parts, Workstream = "Progression", Create = () => new PartsScreen() },
             // "signals": the former pull screen's id, kept as an alias of the Shop (deep links, old builds' routes).
-            new ScreenEntry { Id = "signals", Title = "Shop", FeatureId = Features.PartPulls, Workstream = "Progression", Create = () => new ShopScreen() },
+            new ScreenEntry { Id = "signals", Title = "Shop", Workstream = "Progression", Create = () => new ShopScreen() },
             new ScreenEntry { Id = "laboratory", Title = "Laboratory", FeatureId = Features.Laboratory, Workstream = "Run", Create = () => new LaboratoryScreen() },
             new ScreenEntry { Id = "heroes", Title = "Heroes", FeatureId = Features.Heroes, Workstream = "Progression", Create = () => new HeroesScreen() },
             new ScreenEntry { Id = "mounts", Title = "Mounts", FeatureId = Features.Mounts, Workstream = "Progression", Create = () => new MountsScreen() },
@@ -44,11 +44,12 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "aliens", Title = "Aliens", FeatureId = Features.Aliens, Workstream = "City", Create = () => new AliensScreen() },
             new ScreenEntry { Id = "breeding", Title = "Breeding Pen", FeatureId = Features.Breeding, Workstream = "City", Create = () => new BreedingScreen() },
             new ScreenEntry { Id = "quests", Title = "Daily Quests", FeatureId = Features.Parts, Workstream = "Meta", Create = () => new QuestsScreen() },
-            // The Shop: pulls (Aliens / Blueprints / Parts) and offers in one screen, the hub's "Shop" tab. Its first section, the
-            // Parts pulls, comes with Parts (level 1), long before the offers (Features.Shop); HubLayout.ShopOpen gates the tab.
-            new ScreenEntry { Id = "shop", Title = "Shop", FeatureId = Features.PartPulls, Workstream = "Meta", Create = () => new ShopScreen() },
+            // The Shop: pulls (Aliens / Blueprints / Parts) and offers in one screen, the hub's "Shop" tab. Its
+            // offers need no unlock (owner, 2026-11-27); each pull section comes with its own feature (ShopScreen.PullSections).
+            new ScreenEntry { Id = "shop", Title = "Shop", Workstream = "Meta", Create = () => new ShopScreen() },
             // The Passes page: Shop → "Passes" and the hub's Pass icon (daily gift, Monthly Pass, Forever products, season pass, funds).
-            new ScreenEntry { Id = "passes", Title = "Passes", FeatureId = Features.Shop, Workstream = "Meta", Create = () => new PassesScreen() },
+            // No unlock, like the Shop's offers.
+            new ScreenEntry { Id = "passes", Title = "Passes", Workstream = "Meta", Create = () => new PassesScreen() },
             new ScreenEntry { Id = "mail", Title = "Mail", Workstream = "Meta", Create = () => new MailScreen() },
             new ScreenEntry { Id = "observatory", Title = "Observatory", FeatureId = Features.Invasions, Workstream = "Meta", Create = () => new ObservatoryScreen() },
             new ScreenEntry { Id = "arena", Title = "Arena", FeatureId = Features.Arena, Workstream = "Meta", Create = () => new ArenaScreen() },

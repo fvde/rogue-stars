@@ -195,7 +195,7 @@ namespace RogueStars.Client.App
         /// <summary>
         /// The screen of the first met requirement of the currency's use (a feature → the screen its unlock moment opens,
         /// <see cref="HubLayout.UnlockAction"/>; a part-rarity counter → the Worm's gear); uses without a requirement
-        /// (stamina, Diamonds) → the portals (stamina refills) / the shop once it is unlocked. Null when nothing is unlocked or the screen is locked.
+        /// (stamina, Diamonds) → the portals (stamina refills) / the shop. Null when nothing is unlocked or the screen is locked.
         /// </summary>
         public static string SpendScreen(GameState s, ContentDb c, string currency, RewardUseDef use = null)
         {
@@ -203,7 +203,7 @@ namespace RogueStars.Client.App
             if (use == null) return null;
             string screen = null;
             if (use.UsedWhen == null || use.UsedWhen.Items.Count == 0)
-                screen = currency == Currencies.Diamonds && Features.IsUnlocked(s, c, Features.Shop) ? "shop" : "portals";
+                screen = currency == Currencies.Diamonds ? "shop" : "portals";
             else
             {
                 RequirementDef pick = null;

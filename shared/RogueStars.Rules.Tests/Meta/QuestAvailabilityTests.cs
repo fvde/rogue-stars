@@ -24,8 +24,13 @@ public class QuestAvailabilityTests
 
     private static List<QuestDef> Visible(GameEngine e, GameState s, QuestKind kind) => QuestSystem.Visible(s, e.Content, kind, TestHelpers.T0);
 
-    /// <summary>The early set: what needs no Shop, Arena, ad, City or later feature.</summary>
-    private static bool Early(QuestDef q) => !q.NeedsAds && q.Feature != Features.Shop && q.Feature != Features.Arena && !LateFeatures.Contains(q.Feature ?? "");
+    /// <summary>
+    /// The early set: what needs no shop purchase, ad, Arena, City or later feature. The shop and ad quests show from the start (the
+    /// Shop's offers need no unlock, owner 2026-11-27) but stay extras: points no chest needs.
+    /// </summary>
+    private static bool Early(QuestDef q) => !q.NeedsAds && !ShopExtras.Contains(q.Id) && q.Feature != Features.Arena && !LateFeatures.Contains(q.Feature ?? "");
+
+    private static readonly HashSet<string> ShopExtras = new() { "d_shop", "d_ad" };
 
     private static readonly HashSet<string> LateFeatures = new()
     {
@@ -77,10 +82,10 @@ public class QuestAvailabilityTests
     }
 
     [Fact]
-    public void DailyQuests_NothingButTheEarlySet_BeforeTheShopOpens()
+    public void DailyQuests_AtLevel1_TheEarlySetPlusTheShopExtras()
     {
         var (e, s) = At(1);
-        Assert.Equal(new[] { "d_battles", "d_login", "d_runs", "d_skills", "d_stamina" }, Visible(e, s, QuestKind.Daily).Select(q => q.Id).ToArray());
+        Assert.Equal(new[] { "d_ad", "d_battles", "d_login", "d_runs", "d_shop", "d_skills", "d_stamina" },Visible(e, s, QuestKind.Daily).Select(q => q.Id).ToArray());
         Assert.Equal(new[] { "w_bosses", "w_daily", "w_runs" }, Visible(e, s, QuestKind.Weekly).Select(q => q.Id).ToArray());
         Assert.Equal(new[] { "np_runs_3" }, Visible(e, s, QuestKind.NewPlayer).Select(q => q.Id).ToArray()); // day 1 of the event, no worm level yet
     }
@@ -88,7 +93,7 @@ public class QuestAvailabilityTests
     /// <summary>Counters that only move once a feature exists: the quest reading one must be gated by that feature (or a later one).</summary>
     private static readonly (string counter, string feature)[] CounterNeeds =
     {
-        ("shop_items_bought", Features.Shop), ("ads_watched", Features.Shop), ("arena_fights", Features.Arena), ("arena_wins", Features.Arena),
+        ("arena_fights", Features.Arena), ("arena_wins", Features.Arena),
         ("invasion_battles", Features.Invasions), ("invasion_top_contributor", Features.Invasions), ("pulls_blueprint", Features.Blueprints),
         ("city_building_upgrades", Features.BiomassFarm), ("breeds_collected", Features.Breeding), ("pulls_part", Features.PartPulls),
         ("worm_level_max", Features.WormLevel),
@@ -110,10 +115,11 @@ public class QuestAvailabilityTests
             foreach (var (counter, feature) in CounterNeeds.Where(n => n.counter == q.CounterKey))
                 Assert.True(q.Feature != null && Level(c, q.Feature) >= Level(c, feature), $"{q.Id} counts {counter} but is gated by {q.Feature ?? "nothing"}, not {feature}");
         }
-        // The three that could not be completed when offered at level 3 / 8:
-        Assert.Equal(Features.Shop, c.Quest("d_shop")!.Feature);
+        // The one that could not be completed when offered at level 8. The shop and ad quests need no feature: the Shop's offers are
+        // there from the start (owner, 2026-11-27).
         Assert.Equal(Features.BiomassFarm, c.Quest("w_buildings")!.Feature);
-        Assert.Equal(Features.Shop, c.Quest("d_ad")!.Feature);
+        Assert.Null(c.Quest("d_shop")!.Feature);
+        Assert.Null(c.Quest("d_ad")!.Feature);
         Assert.True(c.Quest("d_ad")!.NeedsAds);
         Assert.Null(c.Quest("np_buildings_5"));
     }
@@ -135,15 +141,13 @@ public class QuestAvailabilityTests
     }
 
     [Fact]
-    public void ShopQuests_AppearWithTheShop_AndTheAdQuestOnlyWhileAdsAreOn()
+    public void ShopQuests_AreThereFromTheStart_AndTheAdQuestOnlyWhileAdsAreOn()
     {
-        var (e, s) = At(11);
-        Assert.DoesNotContain(Visible(e, s, QuestKind.Daily), q => q.Id == "d_shop" || q.Id == "d_ad");
-        (e, s) = At(12);
+        var (e, s) = At(1); // the Shop's offers need no unlock (owner, 2026-11-27)
         var ids = Visible(e, s, QuestKind.Daily).Select(q => q.Id).ToList();
         Assert.Contains("d_shop", ids);
         Assert.Contains("d_ad", ids);
-        (e, s) = At(12, adsDisabled: true);
+        (e, s) = At(1, adsDisabled: true);
         ids = Visible(e, s, QuestKind.Daily).Select(q => q.Id).ToList();
         Assert.Contains("d_shop", ids);
         Assert.DoesNotContain("d_ad", ids);

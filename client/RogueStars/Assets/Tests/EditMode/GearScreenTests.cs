@@ -318,10 +318,10 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void NewAccount_DiamondsGoToThePortals_BeforeTheShop()
+        public void NewAccount_DiamondsGoToTheShop_FromTheStart()
         {
-            Assert.That(Features.IsUnlocked(S, C, Features.Shop), Is.False);
-            Assert.That(CurrencyGuide.SpendScreen(S, C, Currencies.Diamonds), Is.EqualTo("portals"));
+            // the Shop's offers need no unlock (owner, 2026-11-27): Diamonds lead there on day 1
+            Assert.That(CurrencyGuide.SpendScreen(S, C, Currencies.Diamonds), Is.EqualTo("shop"));
             Assert.That(CurrencyGuide.For(S, C, Currencies.Stamina).GoLabel, Is.EqualTo("Go to Portals"));
         }
     }

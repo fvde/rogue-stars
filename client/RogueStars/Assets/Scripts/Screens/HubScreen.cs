@@ -35,6 +35,8 @@ namespace RogueStars.Client.Screens
 
         private RectTransform _frame;
         private float _s, _h;
+        /// <summary>The body frame size the layout was built for (zero: built on the fallback size, before the first layout).</summary>
+        private Vector2 _builtFrame;
         private readonly WalkerSim _squadSim = new WalkerSim(5);
         /// <summary>The squad walking around the worm (C4), null without a squad.</summary>
         public HubSquad Squad { get; private set; }
@@ -82,8 +84,11 @@ namespace RogueStars.Client.Screens
         {
             var bl = body.GetComponent<VerticalLayoutGroup>();
             if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 0); bl.spacing = 0; }
-            float frameH = BodyFrame != null && BodyFrame.rect.height > 100 ? BodyFrame.rect.height : 1750;
-            float frameW = BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width : 1080;
+            bool laidOut = BodyFrame != null && BodyFrame.rect.height > 100 && BodyFrame.rect.width > 100;
+            float frameH = laidOut ? BodyFrame.rect.height : 1750;
+            float frameW = laidOut ? BodyFrame.rect.width : 1080;
+            // the layout is absolute in frame units: Frame rebuilds it when the frame size changes (canvas resize, safe area)
+            _builtFrame = laidOut ? new Vector2(frameW, frameH) : Vector2.zero;
             var holder = Ui.Rect(body, "HomeHolder");
             Ui.Size(holder, -1, frameH);
             _s = frameW / 1080f;
@@ -582,7 +587,7 @@ namespace RogueStars.Client.Screens
         public string TabBadge(string tabId)
         {
             if (tabId == "worm" && GearGuide.HasAffordableUpgrade(State, Content)) return UpgradeBadge;
-            if (tabId == HubLayout.ShopTab && !HubLayout.RightColumn(State, Content, Now).Exists(x => x.Id == "pass") && Features.IsUnlocked(State, Content, Features.Shop))
+            if (tabId == HubLayout.ShopTab && !HubLayout.RightColumn(State, Content, Now).Exists(x => x.Id == "pass"))
             {
                 int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; // the Passes page's claims, while there is no Pass icon
                 if (claimable > 0) return claimable.ToString();
@@ -595,7 +600,8 @@ namespace RogueStars.Client.Screens
         /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
         private bool IsNewToday(string tabId)
         {
-            if (tabId == HubLayout.ShopTab) return UnlockedToday(Features.PartPulls) || UnlockedToday(Features.Shop); // pulls or offers
+            // the Shop tab itself is always there (its offers need no unlock): NEW on the day a pull section opens
+            if (tabId == HubLayout.ShopTab) return UnlockedToday(Features.PartPulls) || UnlockedToday(Features.AlienPulls) || UnlockedToday(Features.Blueprints);
             string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "arena" ? Features.Arena : null;
             return feature != null && UnlockedToday(feature);
         }
@@ -609,7 +615,23 @@ namespace RogueStars.Client.Screens
         // ---- unlock moment ----------------------------------------------------------------------------
 
         /// <summary>Every frame while the hub is on top (never from a rebuild): open a pending unlock moment.</summary>
-        public override void Frame(float dt) { ShowPendingUnlock(); }
+        public override void Frame(float dt)
+        {
+            if (FrameSizeChanged()) Rebuild();
+            ShowPendingUnlock();
+        }
+
+        /// <summary>
+        /// The body frame no longer has the size the layout was built for: the hub was built before the canvas took its size
+        /// (first frame, a resolution or safe-area change), so the bottom bar would sit below the screen edge or float above it.
+        /// </summary>
+        public bool FrameSizeChanged()
+        {
+            if (BodyFrame == null) return false;
+            var r = BodyFrame.rect;
+            if (r.height <= 100 || r.width <= 100) return false;
+            return Mathf.Abs(r.width - _builtFrame.x) > 1 || Mathf.Abs(r.height - _builtFrame.y) > 1;
+        }
 
         /// <summary>
         /// Opens the full-screen unlock moment for the first pending celebration group while the hub is on top and no modal

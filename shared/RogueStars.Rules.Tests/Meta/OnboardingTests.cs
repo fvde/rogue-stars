@@ -23,7 +23,7 @@ public class OnboardingTests
     {
         (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
         (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9),
-        (Features.RunSignatures, 11), (Features.Shop, 12), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
+        (Features.RunSignatures, 11), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
         (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
         (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
         (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.PackageCounter, 48), (Features.Forge, 50),
@@ -136,7 +136,6 @@ public class OnboardingTests
         Before(Features.Aliens, Features.PackageAlien);
         Before(Features.Guilds, Features.Invasions);
         Before(Features.PartPulls, Features.AlienPulls, Features.Blueprints);
-        Before(Features.RunShop, Features.Shop);
         // Lab packages: each package node needs its feature; the Combo package comes with the Laboratory.
         Assert.Null(c.LabNode("pkg_combo")!.RequiresFeature);
         foreach (var (node, feature) in new[] { ("pkg_ice", Features.PackageIce), ("pkg_lightning", Features.PackageLightning),

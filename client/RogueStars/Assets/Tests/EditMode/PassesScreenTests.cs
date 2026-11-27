@@ -29,7 +29,7 @@ namespace RogueStars.Client.Tests
 
         private PassesScreen Open()
         {
-            Unlock(Features.Parts, Features.Shop);
+            Unlock(Features.Parts);
             _f.App.Open("passes");
             var screen = _f.App.Router.Current as PassesScreen;
             Assert.That(screen, Is.Not.Null);
@@ -142,7 +142,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Shop_PassesChip_OpensThePage_AndTheForeverTabIsGone()
         {
-            Unlock(Features.Parts, Features.Shop);
+            Unlock(Features.Parts);
             _f.App.Open("shop");
             var shop = _f.App.Router.Current;
             var texts = shop.Root.GetComponentsInChildren<Button>(true).Select(b => b.name).ToList();
@@ -161,7 +161,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Hub_PassIcon_And_UnlockActions_OpenThePassesPage()
         {
-            Unlock(Features.Parts, Features.Shop, Features.SeasonPass);
+            Unlock(Features.Parts, Features.SeasonPass);
             var right = HubLayout.RightColumn(S, C, _f.Service.NowMs);
             Assert.That(right.First(e => e.Id == "pass").ScreenId, Is.EqualTo("passes"));
             Assert.That(HubLayout.UnlockAction(Features.SeasonPass).ScreenId, Is.EqualTo("passes"));

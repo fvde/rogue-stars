@@ -154,7 +154,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Shop_HidesOffersAndItemsForLockedFeatures()
         {
-            Unlock(Features.Parts, Features.PartPulls, Features.Shop);
+            Unlock(Features.Parts, Features.PartPulls);
             _f.App.Open("shop");
             var all = AllTabTexts("Offers", "Diamonds", "Items", "Ads");
             _f.App.Open("passes"); // the Passes page (Shop → "Passes"): daily gift, passes, Forever products, season pass, funds

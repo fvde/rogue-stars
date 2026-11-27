@@ -31,10 +31,10 @@ namespace RogueStars.Client.App
         /// <summary>The Shop tab (pulls and offers in one screen, owner 2026-11-27) and its icon (the hub's shop stall).</summary>
         public const string ShopTab = "shop";
 
-        /// <summary>The Shop tab shows once the Parts pulls or the Shop's offers are unlocked (each section with its own feature).</summary>
-        public static bool ShopOpen(GameState s, ContentDb c) => Features.IsUnlocked(s, c, Features.PartPulls) || Features.IsUnlocked(s, c, Features.Shop);
-
-        /// <summary>Bottom tabs (daily features) in display order; the Planet is always there, the rest as they unlock.</summary>
+        /// <summary>
+        /// Bottom tabs (daily features) in display order; the Planet and the Shop are always there (the Shop's offers need no unlock,
+        /// owner 2026-11-27; its pull sections come with their own features), the rest as they unlock.
+        /// </summary>
         public static List<Entry> Tabs(GameState s, ContentDb c)
         {
             var list = new List<Entry>();
@@ -43,7 +43,7 @@ namespace RogueStars.Client.App
             if (Features.IsUnlocked(s, c, Features.BiomassFarm)) list.Add(new Entry("city", "City", "#", "city"));
             else if (Features.IsUnlocked(s, c, Features.AlienSquad)) list.Add(new Entry("city", "Camp", "#", "city") { Icon = CampIcon });
             list.Add(new Entry(PlanetTab, "Planet", "O", null));
-            if (ShopOpen(s, c)) list.Add(new Entry(ShopTab, "Shop", "$", "shop") { Icon = "shop" });
+            list.Add(new Entry(ShopTab, "Shop", "$", "shop") { Icon = "shop" });
             if (Features.IsUnlocked(s, c, Features.Arena)) list.Add(new Entry("arena", "Arena", "X", "arena"));
             return list;
         }
@@ -68,9 +68,9 @@ namespace RogueStars.Client.App
         public static List<Entry> RightColumn(GameState s, ContentDb c, long now)
         {
             var list = new List<Entry>();
-            if (Features.IsUnlocked(s, c, Features.Shop) && LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
+            if (LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
             if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "passes"));
-            // Mail from day 1, but not before the first run (the very first hub is PLAY only, even with the welcome mail waiting).
+            // Mail from day 1, but not before the first run (the very first hub is PLAY and the Shop only, even with the welcome mail waiting).
             if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("mail", "Mail", "@", "mail"));
             if (MoreScreens(s, c).Count > 0) list.Add(new Entry("more", "More", "+", null));
             return list;
@@ -124,7 +124,7 @@ namespace RogueStars.Client.App
             foreach (var l in LeftColumn(s, c)) if (l.ScreenId != null) set.Add(l.ScreenId);
             if (Features.IsUnlocked(s, c, Features.Invasions)) set.Add("observatory");
             foreach (var m in MoreScreens(s, c)) set.Add(m.Id);
-            if (Features.IsUnlocked(s, c, Features.Shop)) set.Add("passes"); // Shop → "Passes" (and the Pass icon once the season pass is unlocked)
+            set.Add("passes"); // Shop → "Passes" (and the Pass icon once the season pass is unlocked)
             return set;
         }
 
@@ -158,7 +158,6 @@ namespace RogueStars.Client.App
                 case Features.Parts: return new Entry(featureId, "EQUIP YOUR PARTS", null, "worm");
                 case Features.BiomassFarm: return new Entry(featureId, "BUILD THE FARM", null, "city");
                 case Features.WormLevel: return new Entry(featureId, "LEVEL UP THE WORM", null, "worm");
-                case Features.Shop: return new Entry(featureId, "OPEN THE SHOP", null, "shop");
                 case Features.Laboratory: return new Entry(featureId, "START FIRST RESEARCH", null, "laboratory");
                 case Features.GrainFarm: return new Entry(featureId, "BUILD THE GRAIN FARM", null, "city");
                 case Features.Aliens: return new Entry(featureId, "MEET YOUR ALIEN", null, "aliens");
@@ -194,7 +193,7 @@ namespace RogueStars.Client.App
             {
                 case Features.Parts: case Features.WormLevel: return "~";
                 case Features.BiomassFarm: case Features.GrainFarm: case Features.OreMine: return "#";
-                case Features.Shop: case Features.Funds: return "$";
+                case Features.Funds: return "$";
                 case Features.Laboratory: return "Lab";
                 case Features.Aliens: case Features.AlienSquad: case Features.Breeding: return "@";
                 case Features.Arena: return "X";

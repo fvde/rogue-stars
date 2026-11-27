@@ -90,7 +90,7 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("quests_06_achievements_level1");
             _app.Router.Pop();
 
-            // level 12: the Shop quests appear (the ad quest stays hidden: ads are disabled here)
+            // level 12 (the Shop quests are there from level 1; the ad quest stays hidden: ads are disabled here)
             Reach(12);
             CelebrateAll();
             _app.Open("quests");

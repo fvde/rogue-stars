@@ -14,7 +14,8 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
 > **The Shop (owner, 2026-11-27):** the pull screen is the **Shop**, merged with the former purchase screen: its pull sections
 > **Aliens**, **Blueprints** and **Parts** (paid with Signals, Schematics, Crates) come first, then the offer sections (Offers,
 > Diamonds, Passes, Items, Ads). A pull is an "Aliens / Blueprints / Parts pull" ("Free 10× Parts pull"); the bottom tab "Shop"
-> (shop icon) shows once the Parts pulls or the Shop are unlocked, each section once its own feature is. Code ids stay
+> (shop icon) is there from the first session: the offer sections need no unlock (owner, 2026-11-27; it opens on Offers until a
+> pull section exists), each pull section comes with its own feature. Code ids stay
 > (`GachaType`, the `signals` screen id as an alias). The "Alien Signal Beacon" building keeps its name.
 
 ## Rates and pity (every pull, published, fixed)
@@ -101,7 +102,8 @@ bot does not run Reactor jobs in the redesigned city (not investigated here).
 
 | Unlock | Level | Comes with |
 |---|---|---|
-| Parts | 1 | the Shop tab with its Parts section and one free 10× Parts pull |
+| – | – | the Shop tab with its offer sections (Offers, Diamonds, Passes, Items, Ads): no unlock, there from the start |
+| Parts | 1 | the Shop's Parts section and one free 10× Parts pull |
 | Aliens | 6 | the first alien, the Shop's Aliens section, one free 10× Aliens pull and the Launch Pod built on the crash site (squad seat from level 6) |
 | City | 15 | the Biomass Farm blueprint, the Shop's Blueprints section and one free 10× Blueprints pull |
 

@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -12,7 +13,7 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Tests
 {
     /// <summary>
-    /// Onboarding v2 hub (design canvas HubDay1 / Main / Unlock): the day-1 hub shows only PLAY, the Planet tab, the teaser,
+    /// Onboarding v2 hub (design canvas HubDay1 / Main / Unlock): the day-1 hub shows only PLAY, the Planet and Shop tabs, the teaser,
     /// the stamina and profile chips; tabs and side icons appear as features unlock; every unlocked screen stays reachable;
     /// the full-screen unlock moment claims the gift and opens the feature.
     /// </summary>
@@ -68,14 +69,16 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Day1_NewAccount_HubShowsOnlyPlayPlanetTeaserStaminaAndProfile()
+        public void Day1_NewAccount_HubShowsOnlyPlayPlanetShopTeaserStaminaAndProfile()
         {
             var hub = Hub;
             var buttons = ButtonNames(hub.Root);
             Assert.That(buttons, Does.Contain("PlayButton"));
             Assert.That(buttons, Does.Contain("Tab:planet"));
+            Assert.That(buttons, Does.Contain("Tab:shop"), "the Shop's offers need no unlock (owner, 2026-11-27)");
             Assert.That(S.Mail.Inbox, Is.Not.Empty, "the welcome mail waits until after the first run");
-            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet" && n != "TapTarget").ToList();
+            // besides: the timed Offer icon while a timed offer is on sale (it opens the Shop's Offers)
+            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet" && n != "Tab:shop" && n != "Side:offer" && n != "TapTarget").ToList();
             Assert.That(others, Is.Empty, "nothing else on the day-1 hub, not even greyed out: " + string.Join(", ", others));
             Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("1 more level to the next feature"));
             Assert.That(Named(hub.Root, "Figure"), Is.Null);
@@ -86,7 +89,15 @@ namespace RogueStars.Client.Tests
             var bar = _f.App.Bar;
             Assert.That(_f.Canvas.GetComponentsInChildren<Button>(true).Any(b => b.name == "ProfileChip"), Is.True);
             Assert.That(bar, Is.Not.Null);
-            Assert.That(HubLayout.Reachable(S, C, _f.Service.NowMs), Is.EquivalentTo(new[] { "portals", "settings" }));
+            Assert.That(HubLayout.Reachable(S, C, _f.Service.NowMs), Is.EquivalentTo(new[] { "portals", "settings", "shop", "signals", "passes" }));
+
+            // the Shop opens on Offers: no pull section before Parts
+            hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:shop").onClick.Invoke();
+            var shop = (ShopScreen)_f.App.Router.Current;
+            Assert.That(shop.Section, Is.EqualTo("Offers"));
+            Assert.That(ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList(),
+                Is.EqualTo(new[] { "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }));
+            Assert.That(C.Feature("shop"), Is.Null, "no unlock record, intro or teaser entry for the offers");
         }
 
         [Test]
@@ -149,13 +160,13 @@ namespace RogueStars.Client.Tests
         [Test]
         public void TabsAndSideIcons_AppearAsFeaturesUnlock()
         {
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet", "Tab:shop" }), "the Shop from the start: its offers need no unlock");
             Unlock(Features.Parts);
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:shop" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:quests"));
             Unlock(Features.BiomassFarm);
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
-            Unlock(Features.WormLevel, Features.PartPulls, Features.Shop);
+            Unlock(Features.WormLevel, Features.PartPulls);
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"), "one Shop: the bottom tab, no second entry in the right column");
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:more"), "nothing else unlocked yet");
@@ -177,7 +188,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void OneShop_TheTabOpensPullSectionsFirst_ThenTheOffers_EachWithItsFeature()
+        public void OneShop_TheTabOpensPullSectionsFirst_EachWithItsFeature_TheOffersAlways()
         {
             Unlock(Features.Parts);
             var tab = HubLayout.Tabs(S, C).Single(t => t.Id == HubLayout.ShopTab);
@@ -189,11 +200,12 @@ namespace RogueStars.Client.Tests
             Assert.That(shop.Title, Is.EqualTo("Shop"));
             Assert.That(shop.Section, Is.EqualTo("Parts"));
             var chips = ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList();
-            Assert.That(chips, Is.EqualTo(new[] { "Tab:Parts" }), "only the unlocked pull section, no offers before the Shop unlock");
+            Assert.That(chips, Is.EqualTo(new[] { "Tab:Parts", "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }),
+                "only the unlocked pull section, the offers always");
             var parts = shop.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:Parts");
             Assert.That(parts.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "NotifyDot"), Is.EqualTo(S.Gacha.FreePulls(GachaType.Part) > 0), "a dot while a free 10× waits");
 
-            Unlock(Features.Aliens, Features.Shop);
+            Unlock(Features.Aliens);
             _f.App.Router.Reset(new HubScreen());
             _f.App.Open("signals"); // the former pull screen's id: an alias of the Shop
             shop = (ShopScreen)_f.App.Router.Current;
@@ -257,7 +269,7 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
             Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
-                Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.Shop, Features.AlienPulls,
+                Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.AlienPulls,
                 Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
@@ -354,6 +366,38 @@ namespace RogueStars.Client.Tests
             var names = ButtonNames(Hub.Root);
             Assert.That(names, Does.Contain("ContinueButton"));
             Assert.That(names, Does.Not.Contain("PlayButton"));
+        }
+
+        /// <summary>Lowest and highest world y of a rect.</summary>
+        private static (float min, float max) WorldY(RectTransform rt)
+        {
+            var c = new Vector3[4];
+            rt.GetWorldCorners(c);
+            return (Mathf.Min(c[0].y, c[1].y), Mathf.Max(c[0].y, c[1].y));
+        }
+
+        [Test]
+        public void TabLabels_StayOnScreen_WhenTheFrameChangesSize_SafeAreaInset()
+        {
+            // the hub lays out in frame units at build time: a later size change (the canvas taking its size, a bottom
+            // safe-area inset) rebuilds it on the next frame, so the bottom tabs and their labels end inside the frame
+            Unlock(Features.Parts, Features.BiomassFarm, Features.Arena);
+            _f.App.Router.Reset(new HubScreen());
+            var hub = (HubScreen)_f.App.Router.Current;
+            Assert.That(hub.FrameSizeChanged(), Is.False);
+            float unit = WorldY(hub.BodyFrame).max - WorldY(hub.BodyFrame).min;
+            Ui.Stretch(_f.App.Root, 0, 0, 0, 120); // a bottom inset (gesture bar)
+            Assert.That(hub.FrameSizeChanged(), Is.True);
+            hub.Frame(0.016f);
+            Assert.That(hub.FrameSizeChanged(), Is.False, "rebuilt for the new frame");
+            var frame = WorldY(hub.BodyFrame);
+            Assert.That(frame.max - frame.min, Is.LessThan(unit));
+            var labels = hub.Root.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Tab:"))
+                .Select(b => b.GetComponentsInChildren<Text>(true).First(t => t.name == "Label")).ToList();
+            Assert.That(labels.Count, Is.EqualTo(5));
+            float eps = (frame.max - frame.min) * 0.001f;
+            foreach (var l in labels)
+                Assert.That(WorldY(l.rectTransform).min, Is.GreaterThanOrEqualTo(frame.min - eps), l.text + " label below the frame");
         }
     }
 }

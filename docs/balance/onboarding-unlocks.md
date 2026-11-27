@@ -8,7 +8,7 @@ the minutes / runs / days below only reflect how fast it plays. "(run)" = run co
 that has it. Lab research rows: when the package's research finished (it needs the package's level unlock, Data and time).
 
 Regenerated 2026-11-26. Daily Quests are no feature (no unlock moment, no row): the hub button appears with Parts, level 1. The schedule
-below is the current one (Parts 1, Shops 2, Worm 3, ..., Aliens 6, Shop 12, City 15, ...; building features unlock with their blueprint).
+below is the current one (Parts 1, Shops 2, Worm 3, ..., Aliens 6, City 15, ...; building features unlock with their blueprint).
 
 Novelty: the first played hour brings 5–9 new things (meta and run) per profile, the longest stretch without one in
 the first hour is 15–21 minutes; past level 20 the gaps widen on purpose (one feature every 2, later 3–4 levels).
@@ -27,7 +27,6 @@ the first hour is 15–21 minutes; past level 20 the gaps widen on purpose (one 
 | Auto Roll | L7 | 90 min · 6 runs · L7 · D6 | 40 min · 6 runs · L7 · D1 | 50 min · 9 runs · L7 · D1 | 35 min · 6 runs · L7 · D1 |
 | Campfires (run) | L9 | 123 min · 8 runs · L9 · D8 | 57 min · 8 runs · L9 · D1 | 67 min · 11 runs · L9 · D1 | 49 min · 8 runs · L9 · D1 |
 | Signature Choice (run) | L11 | 157 min · 10 runs · L11 · D10 | 86 min · 10 runs · L11 · D2 | 79 min · 13 runs · L11 · D1 | 68 min · 10 runs · L11 · D2 |
-| Shop | L12 | 173 min · 11 runs · L12 · D11 | 92 min · 11 runs · L12 · D2 | 91 min · 15 runs · L12 · D1 | 74 min · 11 runs · L12 · D2 |
 | Alien Arcade (run) | L14 | 207 min · 13 runs · L14 · D13 | 111 min · 14 runs · L14 · D2 | 120 min · 18 runs · L14 · D1 | 90 min · 13 runs · L14 · D2 |
 | City | L15 | 225 min · 14 runs · L15 · D14 | 120 min · 15 runs · L15 · D2 | 174 min · 26 runs · L15 · D1 | 98 min · 14 runs · L15 · D2 |
 | Laboratory | L0 | – | 879 min · 83 runs · L26 · D12 | 202 min · 29 runs · L17 · D1 | 279 min · 32 runs · L21 · D5 |

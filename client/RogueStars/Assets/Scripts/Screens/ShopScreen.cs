@@ -12,7 +12,7 @@ namespace RogueStars.Client.Screens
     /// <summary>
     /// The Shop (owner, 2026-11-27): the one screen for pulls and purchases, the hub's "Shop" tab. Two rows of section chips in
     /// the footer: the pull sections Aliens / Blueprints / Parts first (ShopScreen.Pulls.cs, each once its pull feature is
-    /// unlocked), then the offer sections once <see cref="Features.Shop"/> is: Offers, Diamonds, Passes, Items, Ads (catalogue,
+    /// unlocked), then the offer sections, there from the start (no unlock, owner 2026-11-27): Offers, Diamonds, Passes, Items, Ads (catalogue,
     /// offers, Diamond items and rewarded ads). Real-money products go through GameSession.Purchase (IStoreGateway → dev receipt
     /// offline / /v1/iap/verify online). The "Passes" chip opens the Passes page (<see cref="PassesScreen"/>: daily gift,
     /// Monthly Pass, the Forever products, season pass, funds) instead of switching the section.
@@ -39,15 +39,14 @@ namespace RogueStars.Client.Screens
         public ShopScreen(int offerTab) { _tab = offerTab; _chosen = true; }
 
         public override string Title => "Shop";
-        // the pulls come with Parts / Aliens / the City, the offers with the Shop unlock
-        public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm, Features.Shop };
+        // the pulls come with Parts / Aliens / the City; the offers need no unlock (no intro)
+        public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm };
 
         /// <summary>The section chips sit at the bottom (kit chip tabs in the footer, pulls above offers), the back button in the header.</summary>
-        public override float FooterHeight => HasPullRow && HasOfferRow ? 124 + 84 + FooterSpacing : 124;
+        public override float FooterHeight => HasPullRow ? 124 + 84 + FooterSpacing : 124;
 
         private GameState Loaded => App?.Session?.State;
         private bool HasPullRow => Loaded != null && PullSections(Loaded, Content).Count > 0;
-        private bool HasOfferRow => Loaded != null && Features.IsUnlocked(Loaded, Content, Features.Shop);
 
         /// <summary>The open section's name ("Aliens", "Offers"): tests and screenshots.</summary>
         public string Section => _pull.HasValue ? PullSectionName(_pull.Value) : Tabs[_tab];
@@ -55,12 +54,9 @@ namespace RogueStars.Client.Screens
         protected override void Build(RectTransform body)
         {
             var pulls = PullSections(State, Content);
-            bool offers = HasOfferRow;
-            // an unavailable or not yet chosen section falls back to the first one there is
+            // an unavailable or not yet chosen section falls back to the first one there is (the first pull section, else Offers)
             if (_pull.HasValue && !pulls.Contains(_pull.Value)) { _pull = null; _chosen = false; }
-            if (!_pull.HasValue && !offers) _chosen = false;
             if (!_chosen) { _pull = pulls.Count > 0 ? (GachaType?)pulls[0] : null; _tab = OffersTab; _chosen = true; }
-            if (!_pull.HasValue && !offers) { Note(body, "Nothing for sale yet."); return; }
 
             if (Footer != null)
             {
@@ -72,16 +68,14 @@ namespace RogueStars.Client.Screens
                     Kit.TabChips(Footer, names, _pull.HasValue ? pulls.IndexOf(_pull.Value) : -1, i => { _pull = pulls[i]; Rebuild(); }, 84, free)
                         .Buttons[0].transform.parent.name = "PullSections";
                 }
-                if (offers)
+                // the offer sections: always there (no unlock)
+                var dots = new bool[Tabs.Length];
+                dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
+                Kit.TabChips(Footer, Tabs, _pull.HasValue ? -1 : _tab, i =>
                 {
-                    var dots = new bool[Tabs.Length];
-                    dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
-                    Kit.TabChips(Footer, Tabs, _pull.HasValue ? -1 : _tab, i =>
-                    {
-                        if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
-                        _pull = null; _tab = i; Rebuild();
-                    }, 84, dots).Buttons[0].transform.parent.name = "OfferSections";
-                }
+                    if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
+                    _pull = null; _tab = i; Rebuild();
+                }, 84, dots).Buttons[0].transform.parent.name = "OfferSections";
             }
             if (_pull.HasValue) { BuildPulls(body, _pull.Value); return; }
             // G7: store / offline hints are for developers only

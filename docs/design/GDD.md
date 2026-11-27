@@ -586,6 +586,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 |---|---|---|
 | – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
 | 1 | Parts / Worm tab (`parts`): equip the three starter parts. Daily Quests and the 7-day calendar are there from here on, with no unlock moment of their own (owner, 2026-11-26) | Equip your parts |
+| – | **No unlock: the Shop's offers** (owner, 2026-11-27): the Shop tab and its offer sections Offers / Diamonds / Passes / Items / Ads (the daily free gift on the Passes page) are there from the first session, no unlock moment, intro or teaser; the Shop opens on Offers until a pull section exists. Its pull sections still come with Parts, Aliens and the City | – |
 | 2 | Shops on the board from level 3 (`run_shop`) | Play |
 | 3 | Worm level & talents (`worm_level`) | Level up the worm |
 | 4 | Minibosses & Mythics from level 5: two miniboss lairs on the path (`run_miniboss`) | Play |
@@ -595,7 +596,6 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 9 | Campfires from level 10 (`run_campfire`) | Play |
 | 10 | Parts pulls in the Shop (`part_pulls`); the first pulls are on the house | Tune in |
 | 11 | Signature awakening explained (`run_signatures`, intro only: every run, the first one included, starts by picking 1 of 3 signatures; playtest 0.1.325) | Play |
-| 12 | Shop (`shop`) | Open the shop |
 | 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
 | 14 | Alien Arcade mini-games from level 15 (`run_minigames`) | Play |
 | 15 | Aliens: the first alien (`aliens`) | Meet your alien |

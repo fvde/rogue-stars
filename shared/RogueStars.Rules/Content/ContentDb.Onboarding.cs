@@ -230,7 +230,7 @@ namespace RogueStars.Rules.Content
             // Blueprints pulls (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
             F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones in the Shop: your first 10× Parts pull is free.");
             // Daily Quests are no feature (owner, 2026-11-26): no unlock moment, intro or gift. The hub shows their button once Parts
-            // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button), see HubLayout.
+            // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button and the Shop), see HubLayout.
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "Two minibosses guard the path. Beat one for a Mythic skill.");
@@ -243,7 +243,8 @@ namespace RogueStars.Rules.Content
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
             R(Features.RunSignatures, "Signature Awakening", Campaign.SignatureChoiceFromLevel - 1, "Collect skills of your signature's synergy to awaken it.");
-            F(Features.Shop, "Shop Offers", 12, 0, null, "The Shop now sells offers and Diamond packs, and has a free gift every day.");
+            // The Shop's offers (Offers, Diamonds, Passes, Items, Ads, the daily gift) are no feature (owner, 2026-11-27): there from the
+            // start, no unlock moment, intro or teaser entry. Only its pull sections wait for Parts / Aliens / the City.
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
             // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
             F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "Your crash site grows into a City: the land around the Launch Pod opens for building, and the Shop's Blueprints pulls with it: your first 10× Blueprints pull is free.");
@@ -361,9 +362,6 @@ namespace RogueStars.Rules.Content
                 "Every run starts with a signature: one of three.", "signature_pick", Tap,
                 "Collect skills of its kind to awaken it.", "signature_awake", Fill,
                 "Awake, its effect grows.", "signature", Pulse);
-            I(Features.Shop,
-                "The Shop now has offers and Diamond packs.", "shop", Bounce,
-                "A free gift waits there every day.", "gift", Tap);
             I(Features.Laboratory,
                 "Build the Laboratory and staff it to start research.", "lab", Pulse,
                 "Research costs Data and takes time.", "data", Fill,

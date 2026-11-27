@@ -20,7 +20,7 @@ namespace RogueStars.Client.PlayTests
 {
     /// <summary>
     /// The one Shop (pull sections Aliens / Blueprints / Parts, then the offer sections) and the hub's bottom bar, at 1080×2340
-    /// and 720×1600: an early player (level 6: Parts and Aliens pulls, no offers yet) and a level-30 player (everything).
+    /// and 720×1600: an early player (level 6: Parts and Aliens pulls and the offers, which need no unlock) and a level-30 player (everything).
     /// Opens "signals" (the alias) and "shop", then every footer chip. Explicit; run WITHOUT -nographics
     /// (ROGUESTARS_SHOTS_DIR = output folder, ROGUESTARS_SHOT_SIZES = "1080x2340,720x1600").
     /// </summary>

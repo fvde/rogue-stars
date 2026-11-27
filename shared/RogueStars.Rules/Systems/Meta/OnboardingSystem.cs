@@ -218,8 +218,6 @@ namespace RogueStars.Rules.Systems
         public const string AlienPulls = Aliens;
         public const string Forge = "forge";
         public const string Runes = "runes";
-        /// <summary>The shop (offers, packs, daily gift). Client navigation gate; purchases themselves are not gated.</summary>
-        public const string Shop = "shop";
 
         // Level unlocks (content version 2): run content, the auto roll and the Laboratory's signature packages.
         /// <summary>Run content: shop tiles on the board (from the level after the gate).</summary>
