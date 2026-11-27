@@ -771,6 +771,52 @@ Casual F2P, 3 seeds × 365 days (`--profiles Active:F2P,Casual:F2P`), against ma
   (guard limit 56 → 60, ProgressionGuardTests). Longer-term metrics (d180+, e.g. Active F2P main level d365 254 → 228) move by
   run-to-run pull luck, not by the change.
 
+## Parts v2 (approved parts redesign, 2026-11-27)
+
+Rules: docs/design/parts.md (four standard item sets and 30 Mythics, no merging, the Mythic ladder with copies, other Mythics,
+Metal and Ore, the Replicator, 390 part skills). Simulated with the same bot (it equips the best part per slot, climbs its equipped
+Mythics, replicates when copies are short and feeds every spare standard part for Metal), 5 profiles × 3 seeds × 730 days, before
+(main at 81fc911) → after. Data: `data/<profile>_parts_v2.csv`, `data/redesign_parts_v2.md`, `data/analysis_parts_v2.md`.
+
+### Power curve and campaign, before → after (median)
+
+| Power | d7 | d30 | d90 | d365 | d730 |
+|---|---|---|---|---|---|
+| Casual F2P | 3 444 → 3 877 (+13%) | 6 114 → 5 498 (-10%) | 11 600 → 10 455 (-10%) | 36 276 → 23 627 (-35%) | 64 890 → 37 081 (-43%) |
+| Active F2P | 4 819 → 5 410 (+12%) | 11 065 → 9 823 (-11%) | 25 147 → 17 719 (-30%) | 85 631 → 50 687 (-41%) | 154 126 → 78 849 (-49%) |
+| Active Dolphin | 5 054 → 4 751 (-6%) | 12 884 → 11 552 (-10%) | 28 643 → 20 345 (-29%) | 101 812 → 53 542 (-47%) | 180 893 → 95 275 (-47%) |
+| Hardcore F2P | 5 882 → 6 005 (+2%) | 15 117 → 12 180 (-19%) | 31 433 → 21 850 (-30%) | 120 524 → 63 488 (-47%) | 193 574 → 100 346 (-48%) |
+| Hardcore Whale | 7 276 → 6 038 (-17%) | 17 917 → 15 080 (-16%) | 34 350 → 27 125 (-21%) | 139 216 → 81 938 (-41%) | 202 508 → 120 226 (-41%) |
+
+| Main level | d7 | d30 | d90 | d365 | d730 |
+|---|---|---|---|---|---|
+| Casual F2P | 8 → 9 (+12%) | 27 → 28 (+4%) | 44 → 43 (-2%) | 102 → 76 (-25%) | 174 → 106 (-39%) |
+| Active F2P | 23 → 25 (+9%) | 44 → 42 (-5%) | 80 → 70 (-12%) | 271 → 182 (-33%) | 503 → 314 (-38%) |
+| Active Dolphin | 24 → 27 (+12%) | 50 → 50 (+0%) | 86 → 72 (-16%) | 336 → 210 (-38%) | 580 → 433 (-25%) |
+| Hardcore F2P | 26 → 30 (+15%) | 55 → 49 (-11%) | 111 → 74 (-33%) | 402 → 220 (-45%) | 631 → 371 (-41%) |
+| Hardcore Whale | 31 → 29 (-6%) | 72 → 68 (-6%) | 134 → 115 (-14%) | 513 → 470 (-8%) | 723 → 636 (-12%) |
+
+### Reading
+
+* **Big shift (owner accepted balance issues, reported here):** from about day 30 every profile is weaker, −40 to −50% power at
+  day 730 and −25 to −40% main level (Hardcore Whale −12%). Cause: parts carried most of the late power. The old ladder multiplied
+  stats up to ×11 (Mythic SS+2) with levels to 145 and reached Mythic SS in ~1 year; v2 caps a Mythic at ×5.6 and level 100 (an arm
+  at SS, level 100: 1 372 ATK, was ~2 200 at the old SS level 105) and the 12 copies per item pace the ladder. The first week is
+  faster (+10–15% main level at day 7): a Common in every slot from the start and a Rare / Epic part on every boss first clear.
+* **Knobs if the owner wants the old curve back:** the flat growth per level (15% of level 1; 25% would give the same Mythic SS
+  arm ~2 200 ATK), the rarity multipliers, or the campaign threat curve.
+* **Ladder pacing** (first day the best part reaches a step, median; design pacing.py / pacing.json in brackets): Active F2P
+  Mythic S day 56 (53.5), first SS day 453 (502); Hardcore Whale S day 23 (32.5), SS day 284 (346); Casual F2P S day 142 (128),
+  no SS within 730 days (1 106). All six slots at SS: Hardcore Whale ~day 730 (36 climbs; design 512). The game bot climbs only
+  equipped Mythics and replicates whenever spares allow, so its first SS comes a little earlier and its sixth later than the design
+  sim, which focuses one Mythic per slot from the first pull.
+* **Metal is a known surplus** (accepted): Active F2P ends day 730 with ~22 800 Metal after 35 steps, Hardcore Whale ~44 100.
+* **Parts no longer pile up:** 0 spare parts below Legendary (all fed); spare Legendary+ (Mythics waiting as material) 34 for an
+  Active F2P at day 730.
+* Guard bands moved (ProgressionGuardTests): day-7 main level 18–32 → 18–36, longest Parts gap 7 → 10 days (upgrades now come
+  from pulls, boss clears and ladder steps), miniboss Mythic picks per boss run ≥ 1.5 → ≥ 1.3 (the weaker mid-game bot replays
+  level 1 between frontier attempts).
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still

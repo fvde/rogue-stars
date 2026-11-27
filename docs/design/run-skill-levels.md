@@ -187,7 +187,7 @@ One per synergy; the run starts with one (1 of 3 offered). Never drafted, bought
 | Sacrifice Protocol | `mythic_sacrifice` | Mythic | Run · Alien | 1 | Once per battle, an alien takes a fatal hit for you. It leaves the battle; you heal 30%. |
 | Swarm Beacon | `mythic_swarm_call` | Mythic | Run · Alien | 1 | Battle start: launch 3 Drone sidekicks (it zaps for 40% of the worm's ATK). |
 | Swarm Link | `mythic_swarm_link` | Mythic | Run · Alien | 1 | When the worm kills an enemy, every alien acts immediately. |
-| Symbiote | `mythic_symbiote` | Mythic | Run · Alien | 1 | Your aliens stop acting alone. Your rage attack also fires every alien's ability. |
+| Symbiote | `mythic_symbiote` | Mythic | Run · Alien | 1 | Your rage attack also fires every alien's ability. Each alien that joins loses 50 charge. |
 | Brace | `counter_brace` | Common | Run · Counter | 1 | After you counter, take 12% less damage until your next turn. |
 | | | | | 2 | After you counter, take 12% → 20% less damage until your next turn. |
 | | | | | 3 | After you counter, take 20% → 32% less damage until your next turn. |

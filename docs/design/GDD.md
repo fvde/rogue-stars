@@ -328,25 +328,27 @@ Biomass raises worm level (base HP/ATK/DEF growth). Talent road with tiers grant
 draft rerolls, run coins, speed).
 
 ### 6.2 Body slots and Parts
-Six slots: **Head, Body, Tail, Legs, Left Arm, Right Arm** (arms interchangeable; arm parts are weapons and
-define Basic/Combo/Counter/Rage attack styles).
-- **Rarity ladder (merge):** Common → Uncommon → Rare → Epic → Legendary → Mythic → Mythic+1 → Mythic+2 →
-  **Mythic S** → S+1 → S+2 → **Mythic SS** → SS+1 → SS+2 (`docs/design/parts.md` has the full recipe table). Below
-  Mythic any three parts of a rarity merge into one (any def, any kind), so surplus always becomes Legendary fodder;
-  above Mythic a merge needs Legendary+ fodder worth 2…340 Legendary-equivalents (fodder points; ~×1.7 per step), Ore
-  (1.5k, ×1.5 per step) and, for Mythic, S, SS and SS+2, copies of the part's own def (the **Replicator** turns 10
-  Legendary-equivalents of surplus + Ore into such a copy). Level, runes and Forge carry over.
-- **Part skills:** every part has five skills that unlock at **Epic, Legendary, Mythic, Mythic S and Mythic SS** (family
-  core, kind technique, family hook, kind signature, family apex).
-- **Level** via Ore + Gear Cores; level cap raised by rarity (10 … 115) and Advancement Plates (up to +30).
-- **Rune slots** (0→5) unlocked by rarity and by the **Forge** (paid slot unlocks with a % stat bonus to the
-  part's base stats). Runes have types, rarities and merge 3→1 upward.
-- **Awakening:** a Mythic-or-higher part can be awakened **once** for **50 Awaken Cores**: it becomes a redesigned
-  version of itself (new name, ×1.4 stats + its family stat, all five skills replaced by awakened redesigns with the
-  same unlock pattern). Level, runes, Forge and rarity are kept. **Awaken Cores** are an extremely rare endgame resource:
-  the arena shop (Arena Medals, weekly limit), top contributors of repelled high-tier invasions (chance) and a rare drop
-  on the deepest Burrow floors — about 1–2 per week for an active player.
-- Dismantle/level-down refund 100% of level materials.
+Six slots: **Head, Body, Tail, Legs, Left Arm, Right Arm**. Arms are interchangeable: any arm part fits either arm, weapon names
+are cosmetic, there are no attack styles (parts v2, `docs/design/parts.md`).
+- **Item sets:** Common, Rare, Epic and Legendary are four separate sets (per slot one item per role: Guard, Strike, Swift, Keen,
+  Mend, Fury; 30 each) and **30 Mythics** build enablers (three per synergy plus three General). Nothing merges into a higher
+  rarity; Uncommon is retired.
+- **Sources:** Parts pulls (published rates, pity, 10 weekly Part banners of 3 Mythics), boss first clears (a Rare or Epic part),
+  Dark Side clears (5% a Legendary). Runs and chests give no parts.
+- **Part skills:** Epic 1, Legendary 2, Mythic 5 (3 at Mythic, the 4th at Mythic S, the 5th at Mythic SS), each with its approved
+  text; awakening swaps each for its awakened version.
+- **Mythic ladder:** Mythic → +1 → +2 → **S** → S+1 → S+2 → **SS** (final) with copies of the same Mythic (12 in all) and other
+  Mythics of the slot (9), plus **Metal** (spare standard parts fed: Common 1, Rare 2, Epic 6, Legendary 20) and Ore. The
+  **Replicator** turns 3 spare Mythics + 5 000 Ore into a copy of an owned Mythic.
+- **Level** via Ore + Gear Cores; caps Common 10, Rare 20, Epic 30, Legendary 50, Mythic 70 … SS 100. Flat stats +15% of level 1
+  per level, percentage stats linear to 3× at the max level.
+- **Rune slots** (0→5) by rarity and the **Forge** (paid slot unlocks with a % bonus to level-1 stats). Runes have types,
+  rarities and merge 3→1 upward.
+- **Awakening:** a Mythic can be awakened **once** for **50 Awaken Cores**: a new name, ×1.4 stats, each skill becomes its
+  awakened version. **Awaken Cores** are an extremely rare endgame resource: the arena shop (Arena Medals, weekly limit), top
+  contributors of repelled high-tier invasions (chance) and a rare drop on the deepest Burrow floors — about 1–2 per week for an
+  active player.
+- Feeding, ladder materials and level-down refund 100% of level materials and return runes.
 
 ## 7. Heroes, Mounts, Aliens
 ### 7.1 Heroes (traits for the worm)
@@ -472,7 +474,7 @@ daily limits and a daily ad ticket.
 Heroes and mounts (Mythic), and aliens and blueprints of every rarity, are shard based on one table: **50 shards unlock**
 (1★), 1★→2★ and 2★→3★ 50 each, 3★→4★ … 6★→7★ 100 each, 7★→8★ … 9★→10★ 150 each: **1 000 shards from nothing to 10★**.
 Pulls never pay small shard amounts: winning an item is a batch of 50 shards, and the first batch of an item the player does
-not own unlocks it. Parts keep their own merge ladder (§6). Old saves: stars kept (mounts: stars + awakening), loose shards
+not own unlocks it. Parts have their own Mythic ladder (§6.2). Old saves: stars kept (mounts: stars + awakening), loose shards
 converted step by step (docs/design/pull-system.md).
 
 ## 13. Currencies
@@ -480,11 +482,13 @@ converted step by step (docs/design/pull-system.md).
 |---|---|
 | Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
 | Grain | Breeding, Shard Reactor alien jobs |
-| Ore | Parts level, Mythic+ merges, buildings |
+| Ore | Parts level, Mythic ladder steps, the Replicator, buildings |
+| Metal | Mythic ladder steps (spare standard parts fed: Common 1, Rare 2, Epic 6, Legendary 20) |
 | Data | Laboratory research (Dark Side clears, arena shop) |
 | Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
 | Arena Medals | Arena shop (arena fights and weekly rank) |
-| Gear Cores, Advancement Plates | Part level / cap |
+| Gear Cores | Part levels above 10, the Forge |
+| Advancement Plates | No use since parts v2 removed cap raises (still produced by the Plate Foundry and Burrow) |
 | Fuel | Mount levels |
 | Hero XP | Hero levels |
 | Diamonds | Premium; also earnable (city Diamond mine, quests, events) |
@@ -527,10 +531,11 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Stamina | runs | always | – |
 | Diamonds | stamina refills, revives, timers, pulls, shop | always | – |
 | Biomass | worm levels and talents, city buildings and areas | City (`biomass_farm`, D2) or Worm Level (D3) | 5 000 |
-| Ore | part levels and merges, Replicator, city buildings | Parts (D1, level 1), City or Ore Mine | 1 000 |
-| Gear Cores | part levels 11+ (Uncommon+ parts), Forge | an Uncommon+ part is owned, or Forge (D20) | 200 |
-| Advancement Plates | part level cap raises | a Rare+ part is owned | 20 |
-| Awaken Cores | part awakening | a Mythic+ part is owned | none |
+| Ore | part levels, Mythic ladder steps, Replicator, city buildings | Parts (D1, level 1), City or Ore Mine | 1 000 |
+| Gear Cores | part levels 11+ (Rare+ parts), Forge | a Rare+ part is owned, or Forge (D20) | 200 |
+| Metal | Mythic ladder steps (fed spare standard parts) | Parts (D1) | none |
+| Advancement Plates | none since parts v2 (cap raises removed; still produced, see backlog) | a Rare+ part is owned | 20 |
+| Awaken Cores | part awakening | a Mythic part is owned | none |
 | Grain | breeding | Aliens (D7) or Breeding | 2 000 |
 | Fuel | mount levels | Mounts (D12) | 4 000 |
 | Hero XP | hero levels | Heroes (D10) | 3 000 |

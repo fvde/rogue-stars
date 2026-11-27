@@ -99,8 +99,8 @@ live on the applier and are read from `StatusInst.Source` (a sidekick's / mount'
 `burst_at:N` (Supernova threshold; Heat's cap rises with it), `no_recoil`, `keeps_shields`, `dot_crit`, `dot` (+Value % tick),
 `consume_heal` (+Value % consume heals), `no_expire[:N]` (at N+ stacks), `no_cool` (Chill), `shutdown` (Chill: carriers can't
 crit, combo or counter), `double_vs_chill` (Shock). Owner rules: `arc_seek_chill`, `arc_loop` (Value %), `basic_aoe` (Value %),
-`combo_no_decay`, `combo_falloff` (Value %), `combo_cap:N`, `proc_cap:N`, `combo_as_counter`, `counter_combo`, `no_turn_attack`
-(rage attacks still fire), `counter_all`, `hivemind`, `symbiote`, `overkill`, `last_light:P`, `echo_strongest`, `extra_turn`,
+`combo_no_decay`, `combo_falloff` (Value %; negative = strikes ramp up), `combo_cap:N`, `proc_cap:N`, `combo_as_counter`, `counter_combo`, `no_turn_attack`
+(rage attacks still fire), `counter_all`, `hivemind`, `symbiote` (parts v2: does nothing any more), `overkill`, `last_light:P`, `echo_strongest`, `extra_turn`,
 `lose_turn_every:N`, `dot_ticks:N`, `decay:N`.
 
 **Effects (R2, R7, R13, R14).** `BlockStatus` (no Status for Duration rounds, the per-target re-apply cooldown `StatusCd`),
@@ -144,14 +144,15 @@ CC = statuses that skip turns or charm (`StatusDef.SkipsTurn` / `Charms`: Stun, 
 - **Any Freeze resets the target's Chill to 0** (`StatusDef.Clears`, whatever the source, also an enemy freezing the worm).
 - Ice has its own Freeze source: **Deep Freeze** (Legendary: an enemy at 5+ Chill is frozen when Chill is applied and Freeze is off
   its re-apply cooldown; levels raise the damage vs frozen). Cold Snap and Shatter keep `Needs("freeze")`: Deep Freeze, lab Frost
-  Nova, the Ice part Apex and Frost Sigil all satisfy it.
+  Nova, the Ice Mythic parts (parts v2) and Frost Sigil all satisfy it.
 - Numbers: Knockout (lab Common, was Retaliation: no counter chance any more) stun on counter 10 → 15 → 20% at research I,
   14 → 21 → 28% at research V; lab Frost Nova casts on a critical rage attack (Freeze + 60% ATK to every enemy at research I,
   +10% per research level; in-run levels raise the damage, never the freeze); Head Start 30 → 40 → 50%; Decoy 20 → 30%;
   Frostmite's Rime Bite (Freeze) and Chronoslug's Slow Ooze (Delay, with a 3-round re-apply cooldown like Freeze's) 5 / 9 / 13 /
   16 / 20% at tier stars 1 / 3 / 5 / 7 / 10 (held between; traits never raise them); no Common alien applies CC (Shiverpup only
   Chills), so the allowlist is unchanged; Ice parts and Ice family skills chill instead of freezing
-  ([parts.md](parts.md)); Stasis Field, Thermal Shock and the Lightning / Ice part Apex are unchanged.
+  ([parts.md](parts.md): parts v2 puts crowd control only on Mythic S / SS part skills, once per enemy); Stasis Field and Thermal
+  Shock are unchanged.
 
 ## Sidekicks (aliens pass, owner review rev 4.3)
 
@@ -187,8 +188,9 @@ Summons → Worm) and each of its turns adds **Speed × (1 + the worm's `Sidekic
 - **Drones** zap for their % of the worm's ATK and each action also triggers the worm's **start signature** once (Hivemind: its
   tuned one): Ignite / Irradiate / Lacerate / Chill one stack, Arc a `HiveArcPct` 25% jump, Flurry / Riposte / Echo a
   `HiveStrikePct` 30% strike, Command an extra action (once per round).
-- **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions. **Symbiote** stops every
-  sidekick's own turns.
+- **Command** (`sig_alien`): each round `Stacks` (1 / 2 / 3 awakened) extra sidekick actions. **Symbiote** (parts v2 rework): the
+  rage attack also fires every alien (`AllyAction all`); each alien that joins loses 50 charge (`Param "charge:-50"`, floor 0); the
+  aliens keep their own turns, so charge sources (Swarmcaller Antenna, Broodguard Legs, Wingman, Command) refuel them.
 - **Param tokens** (aliens pass): Damage `combo` (the strike rolls the worm's combo chance for more strikes, decaying like a
   chain, each firing the worm's `OnCombo`); ApplyStatus `cd:N` (re-apply cooldown); ForceSupernova `at:N` (only from N Heat);
   BuffStat `stack:N` (stacks up to N, then holds); ConsumeStatus `heal_atk:$`; Summon `;max:N` (alive from this summoner);
@@ -266,6 +268,55 @@ data), texts from `HeroDef.Kit` / `MountDef.Kit` (≤ 20 words, whole numbers, d
   most one rage attack per round. Timer advances once per round per timer; one extra mount shot per side per round; Mirror
   Palm's copies capped 20 / 30 per enemy. Crowd control: only the Chrono Skiff's single-target Delay (bosses lose rage instead);
   `ContentValidationTests` allowlists the five Time Debt steps.
+
+## Parts v2 primitives (docs/design/parts.md, parts-v2/data.py "engine needs")
+
+Implemented in `Systems/Run/BattleSimulator.Parts.cs` and hooks in `BattleSimulator.cs`; tested in `PartSkillTests` and through
+`DeadEffectsTests` (every part skill changes a seeded battle in its item's build).
+
+- **New triggers:** `OnShieldBreak` (an attack emptied the owner's shield; ctx = the attacker), `OnEcho` (the owner's Echo struck;
+  amount = its damage), `OnUndo` (a Rewind undid a hit; ctx = its attacker, amount = the hit), `OnStatusTick` (one of the owner's
+  statuses ticked; Param = status filter; ctx = the ticked fighter).
+- **New effects:** `ExtraTurn` (Stacks extra turns, taken after the current turn), `SureCrit` (the next Stacks attacks crit; Param
+  `turn`: every attack this turn), `ForceMiss` (the next Stacks attacks on the owner miss and count as dodges), `Empower` (the next
+  landed attack hit +Value %; Param `rage`: the next rage attack; `def`: the next attack ignores Value % DEF), `TurnFlag` (Param
+  `aoe`: this turn's basic attacks hit every enemy; `counter_hit`: this hit is countered; `counter_window`: counter every hit until
+  the next turn, `Duration` rounds instead), `ForceCombo` (the turn's first attack strikes Stacks times), `Repeat` (the current
+  attack is made once more), `MultiplyShield` (shield × Value/100, `cap:N` % max HP added at most).
+- **Trigger Param tokens (any effect):** `per_target:N` (at most N times per target per battle: crowd control once per enemy),
+  `every_target:N` (every Nth event per context fighter: "your 3rd counter on one enemy"), `rnd_cap:N` (N per round), `arm` (stored
+  and run on the owner's next landed hit, ctx = the hit enemy, amount = its damage), target picks `pick_most:Status`,
+  `pick_least:Status[:n]`, `pick_has:Status:N`, `pick_front:n`, `behind[:n]` (Target `Enemy`: these enemies; another Target: the
+  pick is the context), filters `tg_has:Status[:N]` / `tg_lacks:Status`, scaled amounts for Heal / Shield / GainRage / ApplyStatus:
+  `per_round`, `per_enemy`, `per_status_enemy:Status`, `per_total:Status:N`, `per_ctx_stack:Status`, `per_stat:Stat:N`, `half`,
+  `max:N`; `spread` (ApplyStatus to other enemies counts as a spread). Effect tokens: Damage `noarc` (other enemies, not an Arc);
+  Reflect `maxhp` / `of_taken`; Shield `of_consume`; Guard `kick` (a sidekick raises it), `hits:N`; AllyAction `random`, `drones`,
+  `charge:-N`; Strike `chain` (it can combo); SpreadStatus with a Status (that one) and `behind`; TransferStatus `next`; TickStatus
+  Stacks = ticks now; FreeRageAttack `spend` (the worm's own rage attack fired now); Charge `rage;cap:N` (the next rage attack);
+  Echo `mult:N`; BuffStat `until_crit`, `until_dodge`, `next_attack`, `until_turn:N`.
+- **Conditions:** `attacker_slower`, `amount_pct:N` (the trigger amount is over N % of max HP), `crit_in` / `rage_in` (the hit taken
+  was a crit / a rage attack), `nova_kill`, `nova_rage` / `in_rage` (during the owner's rage attack), `within_heat:N` (Heat within N
+  of the Supernova threshold), `rage_within:N`, `turn_every:N`, `no_crit_turn`, `forced` (a forced miss), `combo_min:N`,
+  `hp_above:P`, `basic_hit`, `hit_crit`, `extra_turn`. Conditional bonuses `cond:missing_hp:N` (Value per N % HP missing),
+  `cond:echo` (Echo hits).
+- **Owner rules:** `first_hit_crit`, `nth_hit_crit:N`, `crit_def_ignore` (Value %), `hit_cap` (no hit takes more than Value % max
+  HP, applied last), `overheal_cap` (overheal becomes shield up to Value % max HP; caps add up), `rage_cost` (−Value rage) and
+  `rage_cost_low:P` (−Value below P % HP), `act_first:N`, `rage_target_lowest`, `sidekick_act` (−Value charge), `crit_overflow`
+  (crit chance over 100 → crit damage × Value), `dodge_as_combo` (Value % of dodge counts as combo chance), `rage_aoe` (the rage
+  attack also hits every other enemy at Value %), `combo_kill_carry` (a combo strike that kills uses no link; Value 1: +1 strike),
+  `combo_target_lowest` (+Value % damage), `combo_full_every:N`, `rage_counter` (at full rage a hit is answered with the rage
+  attack, +Value %), `dodge_nova` (dodge-made Supernovas: no recoil, +Value % damage), `undo_reflect` (Value % of undone hits to
+  their attackers), `guard_full` / `guard_reflect`, `low_hp_aoe:P`, `first_hit_counter`, `arc_crit` (every Arc jump of the side
+  rolls the worm's crit, +Value), `sidekick_twice:N`, `drone_status:N`, `drone_guard:N` (Value % for N hits), `arc_volley:N` /
+  `arc_volley_first` / `volley_stun:N` (Storm Coil), `overkill_heal`, `nth_miss:N`, `counter_aoe` / `counter_aoe_shielded`,
+  `slower_taken`, `first_taken`. Status-keyed: `burst_delta` (Supernova Value Heat sooner), `no_expire_shielded`,
+  `dot_twice_at:N` (0 = at the cap), `spread_mult` (+Value %), `dodge_cap_vs`, `dodge_per_stack`, `taken_vs:N`, `execute_at:N`
+  (Value % HP; the highest threshold applies), `rage_area_vs`.
+- **Floors, ceilings and shared caps:** Supernova ≥ 6 Heat, rage attack ≥ 50 rage, sidekick action ≥ 50 charge, dodge ≤ 85%;
+  fully avoided hits (forced misses, full sidekick guards) 1 per round per fighter; extra turns 2 per round (the rest move on; an
+  extra turn never grants another); free rage attacks 2 per turn; status ticks 3 per enemy per round (its own tick, Time Dilation,
+  "ticks twice" and every "tick now"; one "tick now" per skill, target and round); Echo depth 2; Drones 5 per side.
+- **Stat:** `DamageDealt` (% more damage dealt; negative = less: Quantum Guard Helm's opener on enemies).
 
 ## Run (board) triggers (RunSystem)
 
