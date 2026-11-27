@@ -21,4 +21,5 @@ public static class Collections
     public const string IapReceipts = "iap_receipts";          // {sha256(purchaseToken)}
     public const string AdEvents = "ad_events";                // {sha256(eventId)}
     public const string AdCredits = "ad_credits";              // {playerId}
+    public const string BattleAudits = "battle_audits";        // {playerId}: local-first battle sampling, mismatches, cheater flag
 }

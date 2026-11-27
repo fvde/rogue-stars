@@ -36,6 +36,22 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class RunState
     {
+        /// <summary>
+        /// Keeps the last battle's log (not part of the state) across the engine's JSON clone, so the device that fought a
+        /// battle can still play it after later commands; only while the battle is still the run's last one.
+        /// </summary>
+        internal static void CarryBattleLogs(GameState from, GameState to)
+        {
+            var a = from?.Run?.Active;
+            var b = to?.Run?.Active;
+            if (a != null && b != null && a.LastBattleLog != null && b.LastBattleLog == null && a.RunId == b.RunId && a.BattleCount == b.BattleCount)
+                b.LastBattleLog = a.LastBattleLog;
+            var sa = from?.Run?.LastSummary;
+            var sb = to?.Run?.LastSummary;
+            if (sa != null && sb != null && sa.LastBattleLog != null && sb.LastBattleLog == null && sa.RunId == sb.RunId)
+                sb.LastBattleLog = sa.LastBattleLog;
+        }
+
         /// <summary>The run in progress, or null.</summary>
         public ActiveRun Active;
         /// <summary>Summary of the last finished run (for the result screen).</summary>
@@ -273,7 +289,12 @@ namespace RogueStars.Rules.Systems
 
         // battles
         public int BattleCount;
+        /// <summary>The last battle's result without its log (BattleResult.Summary); the rules read it after the battle.</summary>
         public BattleResult LastBattle;
+        /// <summary>The last battle fought in this process, log included (never persisted or hashed: internal + NonSerialized).</summary>
+        [NonSerialized] internal BattleResult LastBattleLog;
+        /// <summary>The last battle for playback: with its log when it was fought on this device, else the summary.</summary>
+        public BattleResult LastBattleForPlayback() => LastBattleLog ?? LastBattle;
         public bool ReviveUsed;
         public List<CombatantSpec> DefeatEnemies = new List<CombatantSpec>();
         public string DefeatKind;
@@ -442,7 +463,12 @@ namespace RogueStars.Rules.Systems
         public int ShopBuys;
         /// <summary>The level's longest survived run in rolls, this one included ("Longest Journey").</summary>
         public int LongestRolls;
+        /// <summary>The run's last battle without its log (BattleResult.Summary).</summary>
         public BattleResult LastBattle;
+        /// <summary>The run's last battle fought in this process, log included (never persisted or hashed).</summary>
+        [NonSerialized] internal BattleResult LastBattleLog;
+        /// <summary>The last battle for playback: with its log when it was fought on this device, else the summary.</summary>
+        public BattleResult LastBattleForPlayback() => LastBattleLog ?? LastBattle;
     }
 
     // ---- laboratory -------------------------------------------------------------------------

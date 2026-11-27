@@ -7,7 +7,12 @@ using RogueStars.Server.Storage;
 namespace RogueStars.Server.Commands;
 
 public sealed record SessionRequest(string? DisplayName);
-public sealed record CommandRequest(string? Type, string? RequestId, JsonElement? Args, long? ExpectedVersion);
+/// <param name="StateHash">Local-first clients: the hash of their state after applying the command locally (presence switches
+/// the request to the local-first protocol: ack when matching, state only on mismatch).</param>
+/// <param name="AtMs">Local-first: when the client executed the command (rules time).</param>
+/// <param name="Battles">Local-first: the client's battle results (summaries, in order) for the battles the command fought.</param>
+public sealed record CommandRequest(string? Type, string? RequestId, JsonElement? Args, long? ExpectedVersion,
+    string? StateHash = null, long? AtMs = null, List<RogueStars.Rules.Systems.BattleResult>? Battles = null);
 public sealed record DevAuthRequest(string? DeviceId);
 
 /// <summary>Loads players and settles state (shared by session/state and the cross-player features).</summary>
@@ -37,6 +42,22 @@ public sealed class PlayerService(GameEngine engine, IPlayerStore store, Clock c
         return state;
     }
 
+    /// <summary>
+    /// Settles the stored state and persists the settle (best effort: a concurrent write wins and is not retried). A
+    /// local-first client starts from exactly what is stored, so its next command's state hash can match (settling twice
+    /// at different times is not the same as settling once).
+    /// </summary>
+    public async Task<GameState> SettleAndSaveAsync(PlayerRecord record, CancellationToken ct)
+    {
+        long before = record.State.Version;
+        engine.Settle(record.State, clock.NowMs);
+        await store.TrySaveAsync(record, before, ct);
+        return record.State;
+    }
+
+    public async Task<GameState> SettledSavedAsync(string playerId, CancellationToken ct) =>
+        await SettleAndSaveAsync(await store.GetAsync(playerId, ct) ?? throw ApiException.NotFound("no_session"), ct);
+
     public async Task<CombatLoadout> LoadoutAsync(string playerId, CancellationToken ct)
     {
         var state = await SettledAsync(playerId, ct);
@@ -64,8 +85,7 @@ public static class PlayerEndpoints
             GameEngine engine, DevTools.DevToolsService devTools, CancellationToken ct) =>
         {
             var (record, created) = await players.LoadOrCreateAsync(http.PlayerId(), req?.DisplayName, ct);
-            var state = record.State;
-            engine.Settle(state, clock.NowMs);
+            var state = await players.SettleAndSaveAsync(record, ct);
             return Results.Ok(new
             {
                 ok = true,
@@ -73,6 +93,7 @@ public static class PlayerEndpoints
                 created,
                 serverTimeMs = clock.NowMs,
                 version = state.Version,
+                stateHash = StateHash.Hex(state),
                 state = StateJson.ToWire(state),
                 commands = catalog.ClientCommands(),
                 // Global ads-disabled mode (Ads:Mode=disabled): the client mirrors it into its rules content so it takes
@@ -87,8 +108,8 @@ public static class PlayerEndpoints
 
         v1.MapGet("/state", async (HttpContext http, PlayerService players, Clock clock, CancellationToken ct) =>
         {
-            var state = await players.SettledAsync(http.PlayerId(), ct);
-            return Results.Ok(new { ok = true, serverTimeMs = clock.NowMs, version = state.Version, state = StateJson.ToWire(state) });
+            var state = await players.SettledSavedAsync(http.PlayerId(), ct);
+            return Results.Ok(new { ok = true, serverTimeMs = clock.NowMs, version = state.Version, stateHash = StateHash.Hex(state), state = StateJson.ToWire(state) });
         });
 
         v1.MapPost("/command", async (HttpContext http, CommandRequest req, CommandCatalog catalog, CommandService commands,
@@ -103,7 +124,9 @@ public static class PlayerEndpoints
                 if (string.IsNullOrEmpty(req.RequestId)) throw ApiException.BadRequest("request_id_required");
                 if (!await adCredits.TrySpendAsync(http.PlayerId(), adToken, req.RequestId, ct)) throw ApiException.Forbidden("ad_not_verified");
             }
-            var response = await commands.ExecuteAsync(http.PlayerId(), command, req.RequestId, req.ExpectedVersion, ct);
+            var localFirst = string.IsNullOrEmpty(req.StateHash) ? null
+                : new LocalFirstRequest { StateHash = req.StateHash, AtMs = req.AtMs, Battles = req.Battles };
+            var response = await commands.ExecuteAsync(http.PlayerId(), command, req.RequestId, req.ExpectedVersion, ct, localFirst);
             if (adToken != null && !response.Ok) await adCredits.RefundAsync(http.PlayerId(), adToken, req.RequestId!, ct);
             return Results.Json(response, StateJson.Wire); // rule rejections are 200 with ok:false
         });

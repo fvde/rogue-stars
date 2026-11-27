@@ -184,7 +184,61 @@ namespace RogueStars.Rules.Systems
         public long RunCoins;
         /// <summary>Plague: stacks the player side added to enemies, per status name (only while its worm owns Plague; else null).</summary>
         public Dictionary<string, int> StacksInflicted;
+        /// <summary>Heat bursts (Supernova markers) in the battle: counted from the log so a summary without the log keeps it.</summary>
+        public int Novas;
 
         public bool PlayerWon() => Winner == BattleSide.Player;
+
+        /// <summary>
+        /// The result without its log: everything the rules read after a battle (winner, rounds, fighters' end HP, worm HP,
+        /// damage, run coins, Plague stacks). This is what a run keeps in its state (ActiveRun.LastBattle) and what a
+        /// local-first client claims to the server (BattleClaim); the log only drives the client's playback.
+        /// </summary>
+        public BattleResult Summary()
+        {
+            var s = new BattleResult
+            {
+                Winner = Winner, EndReason = EndReason, Rounds = Rounds, LogTruncated = false,
+                PlayerDamageDealt = PlayerDamageDealt, PlayerDamageTaken = PlayerDamageTaken,
+                WormHpLeft = WormHpLeft, WormMaxHp = WormMaxHp, RunCoins = RunCoins, Novas = Novas,
+                StacksInflicted = StacksInflicted == null ? null : new Dictionary<string, int>(StacksInflicted),
+            };
+            foreach (var f in Fighters)
+                s.Fighters.Add(new BattleFighterInfo
+                {
+                    Index = f.Index, Id = f.Id, Name = f.Name, Role = f.Role, Side = f.Side, Targetable = f.Targetable, MaxHp = f.MaxHp,
+                    StartHp = f.StartHp, StartShield = f.StartShield, StartRage = f.StartRage, EndHp = f.EndHp, EndShield = f.EndShield,
+                    EndRage = f.EndRage, Alive = f.Alive, DamageDealt = f.DamageDealt, SummonedBy = f.SummonedBy,
+                });
+            return s;
+        }
     }
+
+    /// <summary>
+    /// How the server samples a run battle for re-simulation (local-first battles): standard fights, elites (elite tiles,
+    /// minibosses, ambushes) and bosses each have their own rate (server config Battles:*SampleRate).
+    /// </summary>
+    public enum BattleTier { Standard, Elite, Boss }
+
+    /// <summary>One battle fought inside a command: its tier and full result (log included).</summary>
+    public sealed class FoughtBattle
+    {
+        /// <summary>The run's battle kind (enemy, elite, miniboss, ambush, boss, event, quest).</summary>
+        public string Kind;
+        public BattleTier Tier;
+        /// <summary>Full result, log included (the client plays it back; never persisted).</summary>
+        public BattleResult Result;
+        /// <summary>True when the result came from a client claim the server did not re-simulate.</summary>
+        public bool Claimed;
+
+        public static BattleTier TierOf(string kind) =>
+            kind == "boss" ? BattleTier.Boss : (kind == "elite" || kind == "miniboss" || kind == "ambush") ? BattleTier.Elite : BattleTier.Standard;
+    }
+
+    /// <summary>
+    /// Resolves a battle inside a command. The default (null resolver) simulates it. The server installs its own to use a
+    /// local-first client's claimed result and re-simulate only a sample (server BattleAudit). <paramref name="index"/> is the
+    /// battle's position within the command (0, 1, …), which matches the client's claims.
+    /// </summary>
+    public delegate BattleResult BattleResolver(CommandContext ctx, BattleSetup setup, Rng rng, string kind, int index);
 }

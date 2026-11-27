@@ -340,7 +340,7 @@ namespace RogueStars.Client.Tests
             CommandResult done = null;
             o.Session.WatchAd("daily_diamonds_ad", r => done = r);
             Assert.That(o.Session.IsAdPending("daily_diamonds_ad"), Is.True, "the ad button shows a spinner (G1 T51)");
-            Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command")), Is.False, "the client never grants ad rewards online");
+            Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command") && r.Body.Contains("AdWatched")), Is.False, "the client never grants ad rewards online");
             // The S2S callback lands on the server; the next refresh shows the consumed placement.
             o.ServerState.Shop.AdViews["daily_diamonds_ad"] = 1;
             for (int i = 0; i < 5 && done == null; i++) o.Session.Tick(o.Session.AdVerifyPollSeconds);

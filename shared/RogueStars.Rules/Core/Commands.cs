@@ -16,6 +16,14 @@ namespace RogueStars.Rules.Core
         public string RequestId;
     }
 
+    /// <summary>
+    /// Settles time-based state (regen, production, timers) as a command: a local-first online client "refreshes" by
+    /// running it locally and sending it like any other command, so its copy and the server's stay identical (settling
+    /// outside a command on one side only would make the state hashes disagree). No effect besides the settlers.
+    /// </summary>
+    [Serializable]
+    public sealed class SettleTime : GameCommand { }
+
     [Serializable]
     public sealed class GameEvent
     {
@@ -36,6 +44,23 @@ namespace RogueStars.Rules.Core
         /// <summary>Dev tools only (offline grant cheats): rewards land at once, even without a use (no reward stash).</summary>
         public bool IgnoreRewardGate;
         public List<GameEvent> Events = new List<GameEvent>();
+        /// <summary>Resolves battles (null = simulate). The server sets it for local-first commands (claims + sampling).</summary>
+        public Systems.BattleResolver BattleResolver;
+        /// <summary>Battles fought in this command, in order (full results with logs).</summary>
+        public List<Systems.FoughtBattle> Battles = new List<Systems.FoughtBattle>();
+
+        /// <summary>
+        /// Fights a battle: the resolver's result (or a fresh simulation) is recorded in <see cref="Battles"/>. Every run battle
+        /// goes through here so client and server agree on which battle is which (index = order within the command).
+        /// </summary>
+        public Systems.BattleResult ResolveBattle(Systems.BattleSetup setup, Rng rng, string kind)
+        {
+            int index = Battles.Count;
+            var claimed = BattleResolver != null ? BattleResolver(this, setup, rng, kind, index) : null;
+            var result = claimed ?? Systems.BattleSimulator.Simulate(setup, Content, rng);
+            Battles.Add(new Systems.FoughtBattle { Kind = kind, Tier = Systems.FoughtBattle.TierOf(kind), Result = result, Claimed = claimed != null && claimed.Log.Count == 0 });
+            return result;
+        }
 
         public Rng Rng => State.Rng;
 
@@ -59,6 +84,8 @@ namespace RogueStars.Rules.Core
         public List<GameEvent> Events = new List<GameEvent>();
         /// <summary>Optional structured payload for the caller (e.g. pull results, battle log id).</summary>
         public object Payload;
+        /// <summary>Battles fought by the command, in order, with full logs (client playback; local-first battle claims).</summary>
+        [NonSerialized] public List<Systems.FoughtBattle> Battles = new List<Systems.FoughtBattle>();
 
         public static CommandResult Success(object payload = null) => new CommandResult { Ok = true, Payload = payload };
         public static CommandResult Fail(string error) => new CommandResult { Ok = false, Error = error };

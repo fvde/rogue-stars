@@ -433,7 +433,7 @@ namespace RogueStars.Client.Screens
             _anim.Mark(SkipMark); // a tap on the dice finishes everything before this at once
             if (battle)
             {
-                var result = run.LastBattle;
+                var result = run.LastBattleForPlayback(); // this device's log (local-first); the summary after a server correction
                 var ctx = BattleContext();
                 _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(result, ctx)));
             }
@@ -1235,7 +1235,7 @@ namespace RogueStars.Client.Screens
             if (summary != null && summary.RunId == _runId && summary.LastBattle != null && !_summaryBattleShown)
             {
                 _summaryBattleShown = true;
-                var battle = summary.LastBattle;
+                var battle = summary.LastBattleForPlayback();
                 _anim = UiSequence.On(Root.gameObject);
                 _anim.Clear();
                 var ctx = BattleContext();

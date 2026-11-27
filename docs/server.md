@@ -23,6 +23,53 @@ The server knows no game command by name. `POST /v1/command` resolves `type` thr
   (`StateJson.Wire`). Dictionary keys (currency ids, counters) are never re-cased. The engine's `Cloner` is a JSON
   round trip, so a failed command never changes state.
 
+### Local-first commands
+The client runs every player command on its own rules engine first, shows the result at once and syncs in the background
+(`client/…/Services/RemoteGameService.LocalFirst.cs`). The server stays the store of record.
+
+- **Request:** `{ type, requestId, args, expectedVersion, atMs, stateHash, battles[] }`. `stateHash` (16 hex digits,
+  `Rules.Core.StateHash`: public fields by name, dictionaries/sets sorted, null = empty) is the client's state after the
+  command; its presence switches the request to this protocol. `atMs` is when the client ran it: the command executes at
+  that time, clamped to `[max(lastCommandMs, now − Commands:ClientTimeMaxLagMs), now + Commands:ClientTimeMaxLeadMs]`
+  (10 min / 5 s). `battles` are the client's battle results without logs (`BattleResult.Summary()`), in fight order.
+- **Response:** agreement → `{ ok: true, version, stateHash, match: true }` (no state, events or payload). Disagreement
+  (hash mismatch, rule rejection, `expectedVersion` conflict, which is then `200 ok:false version_conflict` instead of 409)
+  → `{ ok, error?, version, stateHash, match: false, state }`. The client adopts `state` and re-runs its unsent commands
+  on it. A retried `requestId` is replayed and answered the same way (ack when the client's hash is current).
+- **Queue:** in order, one request in flight, network failures retried with backoff (1–30 s) while play continues.
+- **Server-first** (busy until the server answers, after the queue drained): commands carrying an ad token (server-verified
+  ad credits), `PurchaseStart`, and the non-command calls that change the player on the server: `/v1/iap/verify`,
+  `/v1/ads/instant`, arena fights, invasion attacks, guild create/join/leave (membership hook), dev tools. Mail, live ops and
+  arena results written by server hooks bump the version; the client's next command meets a version conflict and adopts.
+- **Refresh:** online, the client's periodic refresh is the `SettleTime` command (local-first, an ack) instead of
+  downloading the state. `/v1/session` and `/v1/state` persist the settle they return (settling twice at different times is
+  not the same as once, so the client starts from exactly the stored state) and return `stateHash`.
+- **Old clients** (no `stateHash`): unchanged protocol (full state, 409 on conflicts, every battle simulated). The run state
+  no longer stores battle logs; for them the command's last battle (log included) is put back into the response's
+  `state.run.active.lastBattle` / `state.run.lastSummary.lastBattle` (one release of compatibility).
+
+### Offline battles and sampled validation
+Run battles are simulated on the client inside the command (`CommandContext.ResolveBattle`) and played back from that
+device's log (`ActiveRun.LastBattleForPlayback()`); the playback shows "Round n" only, never the battle's length. The run
+state keeps `BattleResult.Summary()` (no log). The server takes the client's claim as the result and re-simulates a sample
+from the same inputs (setup + the run's battle RNG fork): `Battles:StandardSampleRate` 0.10, `EliteSampleRate` 0.50
+(elite tiles, minibosses, ambushes), `BossSampleRate` 1.0. A sampled battle always resolves to the server's result: a
+disagreeing claim changes the state hash, the client gets the server state and the run continues from the server's outcome
+(silently, also for bosses). A claim without its fighters is treated as a mismatch.
+
+Every re-simulated battle is recorded in `battle_audits/{playerId}`: `Validated`, `Mismatches`, the match flags of the last
+`Battles:FlagWindow` (20) validated battles, the details of the last `KeepRecentMismatches` (5) and `Flagged` (sticky) once
+`Battles:FlagMismatches` (3) of the window disagreed; a warning is logged for each mismatch and for the flag. Nothing is
+blocked. `Battles:ReportToClient` (on in Development) adds `battleChecks[]` (both results as text) to the response so a dev
+build shows a "DEV: BATTLE MISMATCH" banner; owners on the dev-tools allowlist get it on every server. Production players
+never see it.
+
+Determinism: battles use only IEEE basic arithmetic plus `CombatMath.PowInt` (no `Math.Pow` in battles or enemy scaling),
+the rules RNG and no dictionary-order outcomes. `BattleDeterminism` (rules) simulates a fixed probe of 48 battles built from
+content; the .NET suite and the Unity EditMode suite (Mono) check its fingerprint against
+`shared/RogueStars.Rules.Tests/Golden/battle-determinism.txt`. Changing skills, enemies or battle rules changes the golden:
+update the file from the .NET test's message.
+
 ### Hook commands (resolved by name at runtime)
 The server issues these itself. Their classes belong to the rules workstreams; the server passes the listed fields
 (extra fields are ignored by the deserializer). Names are configurable under `RogueStars:Commands:*`.
@@ -67,8 +114,8 @@ All `/v1/*` endpoints except `/v1/auth/dev` and `/v1/ads/ssv` need the bearer to
 |---|---|---|---|
 | POST | `/v1/auth/dev` | `{ deviceId }` | `{ token, playerId }` (dev mode only) |
 | POST | `/v1/session` | `{ displayName? }` | `{ ok, playerId, created, serverTimeMs, version, state, commands[], adsDisabled, purchasesDisabled, devTools }` — creates the player with `engine.NewPlayer` and a server-chosen seed, else loads; `state` is settled; `commands` lists client-allowed command names; `devTools` = this player may use the dev tools (below) |
-| GET | `/v1/state` | – | `{ ok, serverTimeMs, version, state }` (settled, not persisted) |
-| POST | `/v1/command` | `{ type, requestId?, args?, expectedVersion? }` | `{ ok, error, events[], payload, version, replayed, state }` |
+| GET | `/v1/state` | – | `{ ok, serverTimeMs, version, stateHash, state }` (settled; the settle is persisted) |
+| POST | `/v1/command` | `{ type, requestId?, args?, expectedVersion?, atMs?, stateHash?, battles? }` | `{ ok, error, events[], payload, version, replayed, state }`; local-first (`stateHash` sent): `{ ok, version, stateHash, match, state? , battleChecks? }` (see Local-first commands) |
 
 Example:
 ```json

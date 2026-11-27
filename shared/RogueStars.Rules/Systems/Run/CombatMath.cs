@@ -38,7 +38,7 @@ namespace RogueStars.Rules.Systems
         public static double DodgeProbability(double dodge, double dodgeIgnore, int consecutiveDodges, BattleTuning t)
         {
             double d = Clamp(SoftCap(dodge - dodgeIgnore, t.DodgeKnee), 0, t.MaxDodge) / 100.0;
-            return d * Math.Pow(t.DodgeDecay, consecutiveDodges);
+            return d * PowInt(t.DodgeDecay, consecutiveDodges);
         }
 
         /// <summary>
@@ -56,5 +56,23 @@ namespace RogueStars.Rules.Systems
         }
 
         public static double Clamp(double v, double min, double max) => v < min ? min : (v > max ? max : v);
+
+        /// <summary>
+        /// b^n for an integer exponent by repeated squaring: only IEEE-754 multiplications/divisions, so the result is
+        /// bit-identical on .NET, Mono and IL2CPP (Math.Pow calls each platform's libm, which may differ in the last bit).
+        /// Battles and enemy scaling use it so a client-simulated battle matches the server's re-simulation.
+        /// </summary>
+        public static double PowInt(double b, int n)
+        {
+            if (n < 0) return 1.0 / PowInt(b, -n);
+            double result = 1, x = b;
+            while (n > 0)
+            {
+                if ((n & 1) != 0) result *= x;
+                x *= x;
+                n >>= 1;
+            }
+            return result;
+        }
     }
 }

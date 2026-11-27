@@ -107,6 +107,7 @@ namespace RogueStars.Client.App
             app.Session.Changed += app.OnStateChanged;
             app.Session.ResultEvents += app.Feedback.OnEvents;
             app.Session.Failed += app.Feedback.Error;
+            app.Session.DevNotice += m => app.Feedback.Banner("DEV: BATTLE MISMATCH", Theme.Warn, m); // dev servers / owner only
             return app;
         }
 

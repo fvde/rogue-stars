@@ -172,7 +172,7 @@ public class MythicFourTests
             Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
         run = s.Run.Active!;
         Assert.Equal(1, run.BattleCount);
-        var b = run.LastBattle!;
+        var b = run.LastBattleForPlayback()!; // the log stays out of the state (local-first)
         var enemies = b.Fighters.Where(f => f.Side == BattleSide.Enemy && f.SummonedBy < 0).Select(f => f.Index).ToList();
         Assert.NotEmpty(enemies);
         foreach (int i in enemies)

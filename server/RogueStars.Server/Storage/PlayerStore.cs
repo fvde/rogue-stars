@@ -11,6 +11,17 @@ public sealed class PlayerRecord
     public GameState State { get; set; } = new();
     /// <summary>Most recent last; trimmed to the idempotency window.</summary>
     public List<RequestRecord> Requests { get; set; } = new();
+
+    /// <summary>
+    /// Firestore update time of the document this record was read from (not persisted). A save of the record uses it as its
+    /// precondition, so compare-and-set needs no second read (FirestorePlayerStore.TrySaveAsync).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Timestamp? UpdateTime { get; set; }
+
+    /// <summary>The stored version when the record was read (not persisted); pairs with <see cref="UpdateTime"/>.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long? LoadedVersion { get; set; }
 }
 
 public sealed class RequestRecord

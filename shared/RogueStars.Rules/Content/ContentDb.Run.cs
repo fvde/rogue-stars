@@ -32,7 +32,7 @@ namespace RogueStars.Rules.Content
         public double ThreatMultiplier(int threat)
         {
             if (threat < 0) threat = 0;
-            return Math.Pow(RunThreat.Growth, threat) * (1 + RunThreat.Linear * threat);
+            return Systems.CombatMath.PowInt(RunThreat.Growth, threat) * (1 + RunThreat.Linear * threat); // deterministic (local-first battles)
         }
 
         /// <summary>Multiplier of a fractional threat position relative to its integer part (≥ 1).</summary>

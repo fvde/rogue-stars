@@ -39,10 +39,12 @@ public sealed class FirestorePlayerStore(FirestoreDb db, StoreOptions options) :
         }
     }
 
-    public Task<bool> TrySaveAsync(PlayerRecord record, long expectedVersion, CancellationToken ct = default)
+    public async Task<bool> TrySaveAsync(PlayerRecord record, long expectedVersion, CancellationToken ct = default)
     {
-        // Saves never create the player (TryCreateAsync does), whatever the version.
-        return FirestoreCas.TryWriteAsync(Players.Document(record.State.PlayerId), expectedVersion, create: false, () =>
+        // Saves never create the player (TryCreateAsync does), whatever the version. A record read by GetAsync carries the
+        // document's update time: the write is preconditioned on it directly (one read per command, not two).
+        Timestamp? known = record.UpdateTime != null && record.LoadedVersion == expectedVersion ? record.UpdateTime : null;
+        var written = await FirestoreCas.TryWriteAsync(Players.Document(record.State.PlayerId), expectedVersion, create: false, () =>
         {
             var fields = ToFields(record);
             // Field updates keep untouched fields: remove the representation (plain/gzip) that is not written now.
@@ -50,7 +52,11 @@ public sealed class FirestorePlayerStore(FirestoreDb db, StoreOptions options) :
                 if (!fields.ContainsKey(name)) fields[name] = FieldValue.Delete;
                 else fields[name + "Gz"] = FieldValue.Delete;
             return fields;
-        }, ct);
+        }, ct, known);
+        if (written == null) return false;
+        record.UpdateTime = written;
+        record.LoadedVersion = record.State.Version;
+        return true;
     }
 
     /// <summary>Approximate stored size of the record in bytes (Firestore counts UTF-8 string and byte lengths).</summary>
@@ -100,6 +106,8 @@ public sealed class FirestorePlayerStore(FirestoreDb db, StoreOptions options) :
 
     private static PlayerRecord FromSnapshot(DocumentSnapshot s) => new()
     {
+        UpdateTime = s.UpdateTime,
+        LoadedVersion = s.TryGetValue<long>("version", out var v) ? v : null,
         State = StateJson.Deserialize<GameState>(Read(s, "state") ?? throw new InvalidOperationException("player document without state: " + s.Id)),
         Requests = Read(s, "requests") is { } req ? StateJson.Deserialize<List<RequestRecord>>(req) : new(),
     };
@@ -114,7 +122,16 @@ public sealed class FirestorePlayerStore(FirestoreDb db, StoreOptions options) :
 /// </summary>
 internal static class FirestoreCas
 {
-    public static async Task<bool> TryWriteAsync(DocumentReference doc, long expectedVersion, bool create, Func<Dictionary<string, object>> fields, CancellationToken ct)
+    public static async Task<bool> TryWriteAsync(DocumentReference doc, long expectedVersion, bool create, Func<Dictionary<string, object>> fields, CancellationToken ct) =>
+        await TryWriteAsync(doc, expectedVersion, create, fields, ct, null) != null;
+
+    /// <summary>
+    /// Compare-and-set returning the write's update time (null = lost the race / version differs). With
+    /// <paramref name="knownUpdateTime"/> (the update time of the read that saw <paramref name="expectedVersion"/>) the
+    /// document is not read again: the update-time precondition alone rejects any write that happened since.
+    /// </summary>
+    public static async Task<Timestamp?> TryWriteAsync(DocumentReference doc, long expectedVersion, bool create, Func<Dictionary<string, object>> fields,
+        CancellationToken ct, Timestamp? knownUpdateTime)
     {
         try
         {
@@ -122,17 +139,21 @@ internal static class FirestoreCas
             {
                 var initial = fields();
                 foreach (var k in initial.Where(kv => ReferenceEquals(kv.Value, FieldValue.Delete)).Select(kv => kv.Key).ToList()) initial.Remove(k);
-                await doc.CreateAsync(initial, ct);
-                return true;
+                return (await doc.CreateAsync(initial, ct)).UpdateTime;
             }
-            var snap = await doc.GetSnapshotAsync(ct);
-            if (!snap.Exists || snap.GetValue<long>("version") != expectedVersion) return false;
-            await doc.UpdateAsync(fields(), Precondition.LastUpdated(snap.UpdateTime!.Value), ct);
-            return true;
+            Timestamp updated;
+            if (knownUpdateTime != null) updated = knownUpdateTime.Value;
+            else
+            {
+                var snap = await doc.GetSnapshotAsync(ct);
+                if (!snap.Exists || snap.GetValue<long>("version") != expectedVersion) return null;
+                updated = snap.UpdateTime!.Value;
+            }
+            return (await doc.UpdateAsync(fields(), Precondition.LastUpdated(updated), ct)).UpdateTime;
         }
         catch (Grpc.Core.RpcException ex) when (IsLostRace(ex))
         {
-            return false;
+            return null;
         }
     }
 

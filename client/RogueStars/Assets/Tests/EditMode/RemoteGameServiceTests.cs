@@ -30,7 +30,8 @@ namespace RogueStars.Client.Tests
             _http = new FakeTransport();
             _authCalls = 0;
             _http.Handler = Route;
-            _svc = new RemoteGameService(new RemoteConfig { BaseUrl = "http://test:8080/", DeviceId = "device1", DisplayName = "Wormy" }, _http, _clock);
+            // the wire mapping of the server-first protocol (local-first: LocalFirstServiceTests)
+            _svc = new RemoteGameService(new RemoteConfig { BaseUrl = "http://test:8080/", DeviceId = "device1", DisplayName = "Wormy", LocalFirst = false }, _http, _clock);
         }
 
         private HttpResponse Route(HttpRequest req)
