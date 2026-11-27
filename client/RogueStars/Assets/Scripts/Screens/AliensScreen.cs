@@ -41,38 +41,58 @@ namespace RogueStars.Client.Screens
 
         private bool CanSummon => Features.IsUnlocked(State, Content, GachaSystem.FeatureFor(GachaType.Alien));
 
+        /// <summary>In place: the stage, the bonus row, every collection card and the detail are keyed parts.</summary>
+        protected override bool InPlace => true;
+
         protected override void Build(RectTransform body)
         {
             if (Footer != null)
             {
-                var chips = new List<string> { "Collection" };
-                if (CanSummon) chips.Add("Shop");
-                Kit.TabChips(Footer, chips, 0, i => { if (i == 1) App.Router.Push(new ShopScreen(GachaType.Alien)); }, 84); // the Shop's Aliens pulls
+                bool canSummon = CanSummon;
+                Part(Footer, "chips", K(canSummon), f =>
+                {
+                    var chips = new List<string> { "Collection" };
+                    if (canSummon) chips.Add("Shop");
+                    Kit.TabChips(f, chips, 0, i => { if (i == 1) App.Router.Push(new ShopScreen(GachaType.Alien)); }, 84); // the Shop's Aliens pulls
+                });
             }
             int slots = CitySystem.SquadSlots(State, Content);
             var aliens = Sorted();
             if (_selected == null || !State.Aliens.Owned.ContainsKey(_selected)) _selected = aliens.Count > 0 ? aliens[0].TypeId : null;
 
-            Stage(body, slots);
+            var squadKey = new System.Text.StringBuilder().Append(slots).Append('|');
+            foreach (var id in AlienSystem.ActiveSquad(State, Content))
+                squadKey.Append(id).Append(State.Aliens.Owned.TryGetValue(id, out var sq) ? sq.Stars : 0).Append(',');
+            squadKey.Append(State.Aliens.Squad.Count).Append('|').Append(SquadHint(Content, State.Aliens.Squad));
+            Part(body, "stage", squadKey.ToString(), b => Stage(b, slots));
 
             // the bonus row: what the collection gives (squad seats, aliens owned, their work power)
             double work = 0;
             foreach (var o in aliens) work += AlienSystem.WorkPower(Content, o);
-            Kit.StatPills(body, new List<(string key, string abbr, Color color, string value)>
+            var bonus = new List<(string key, string abbr, Color color, string value)>
             {
                 ("Squad", "SQD", Theme.Accent, State.Aliens.Squad.Count + "/" + Math.Max(0, slots)),
                 ("Owned", "OWN", Theme.Good, aliens.Count + "/" + Content.AlienTypes.Count),
                 ("Work", "WRK", Theme.Blue, "+" + Fmt.Whole(work) + "%"),
-            }, "BonusBar");
+            };
+            Part(body, "bonus", K(bonus[0].value, bonus[1].value, bonus[2].value), b => Kit.StatPills(b, bonus, "BonusBar"));
 
-            if (aliens.Count == 0) { Note(body, "No aliens yet. Pull them in the Shop (Aliens) or find them in events."); return; }
-            Kit.Ribbon(body, "Collection", new Color32(0x2E, 0x7A, 0x5A, 255), 76);
-            var grid = Ui.Grid(body, new Vector2(CardW, CardH), 4, CardGap);
-            grid.GetComponent<UnityEngine.UI.GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
-            foreach (var owned in aliens) CollectionCard(grid, owned);
+            if (aliens.Count == 0) { Part(body, "empty", "", b => Note(b, "No aliens yet. Pull them in the Shop (Aliens) or find them in events.")); return; }
+            Part(body, "ribbon", "", b => Kit.Ribbon(b, "Collection", new Color32(0x2E, 0x7A, 0x5A, 255), 76));
+            var grid = Part(body, "grid", "", b =>
+            {
+                var g = Ui.Grid(b, new Vector2(CardW, CardH), 4, CardGap);
+                g.GetComponent<UnityEngine.UI.GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            });
+            foreach (var owned in aliens)
+            {
+                var a = owned;
+                long shards = State.Wallet.Get(Currencies.AlienShards(a.TypeId));
+                Part(grid, "alien:" + a.TypeId, K(a.Stars, shards, AlienSystem.StarCost(Content, a), a.TypeId == _selected, State.Aliens.Squad.Contains(a.TypeId)), g => CollectionCard(g, a));
+            }
 
             var sel = State.Aliens.Owned[_selected];
-            var detail = AlienCard(body, sel, slots);
+            var detail = Part(body, "detail", VersionKey(_selected, slots, Features.IsUnlocked(State, Content, Features.Breeding)), b => AlienCard(b, sel, slots));
             if (_scrollToDetail) { ScrollToAfterBuild(detail); _scrollToDetail = false; }
         }
 
@@ -83,7 +103,7 @@ namespace RogueStars.Client.Screens
         {
             _selected = typeId;
             _scrollToDetail = true;
-            Rebuild();
+            Refresh();
         }
 
         /// <summary>The alien's picture: its art, else the drawn critter in the alien's colour. <paramref name="spriteName"/> is the name when art exists.</summary>

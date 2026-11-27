@@ -65,18 +65,39 @@ namespace RogueStars.Client.Screens
                     var names = new List<string>();
                     var free = new List<bool>();
                     foreach (var t in pulls) { names.Add(PullSectionName(t)); free.Add(State.Gacha.FreePulls(t) > 0); } // a free 10× waits there
-                    Kit.TabChips(Footer, names, _pull.HasValue ? pulls.IndexOf(_pull.Value) : -1, i => { _pull = pulls[i]; Rebuild(); }, 84, free)
-                        .Buttons[0].transform.parent.name = "PullSections";
+                    int sel = _pull.HasValue ? pulls.IndexOf(_pull.Value) : -1;
+                    Part(Footer, "pulls", K(string.Join(",", names), string.Join(",", free), sel), f =>
+                        Kit.TabChips(f, names, sel, i => { _pull = pulls[i]; Refresh(); }, 84, free).Buttons[0].transform.parent.name = "PullSections");
                 }
                 // the offer sections: always there (no unlock)
                 var dots = new bool[Tabs.Length];
                 dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
-                Kit.TabChips(Footer, Tabs, _pull.HasValue ? -1 : _tab, i =>
-                {
-                    if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
-                    _pull = null; _tab = i; Rebuild();
-                }, 84, dots).Buttons[0].transform.parent.name = "OfferSections";
+                int tab = _pull.HasValue ? -1 : _tab;
+                Part(Footer, "offers", K(dots[PassesTab], tab), f =>
+                    Kit.TabChips(f, Tabs, tab, i =>
+                    {
+                        if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
+                        _pull = null; _tab = i; Refresh();
+                    }, 84, dots).Buttons[0].transform.parent.name = "OfferSections");
             }
+            // the section's content is one part: it changes with commands (a new version), payments, ad rewards on their way
+            // and the offers' clock; a refresh without any of these keeps it
+            Part(body, "content", ContentKey(), BuildContent);
+        }
+
+        /// <summary>In place: the section chips and the section's content are keyed parts.</summary>
+        protected override bool InPlace => true;
+
+        private string ContentKey()
+        {
+            var k = new System.Text.StringBuilder(VersionKey(_pull, _tab, _standard, Session.IsOnline, Session.PurchasesDisabled, Now / 60000));
+            foreach (var id in Session.PendingPayments) k.Append(id).Append(',');
+            if (!_pull.HasValue && _tab == 4) foreach (var id in Content.AdPlacements.Keys) if (Session.IsAdPending(id)) k.Append(id).Append(',');
+            return k.ToString();
+        }
+
+        private void BuildContent(RectTransform body)
+        {
             if (_pull.HasValue) { BuildPulls(body, _pull.Value); return; }
             // G7: store / offline hints are for developers only
             if (Debug.isDebugBuild) Note(body, !Session.IsOnline ? "Offline mode: purchases complete instantly with dev receipts." : "Store: " + Session.Store.Name + ".").name = "DevHint";

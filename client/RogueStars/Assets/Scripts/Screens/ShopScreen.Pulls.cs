@@ -41,8 +41,8 @@ namespace RogueStars.Client.Screens
 
             var banner = GachaSystem.ActiveBanner(Content, type, Now);
             var mode = Ui.Row(body, 76, 10);
-            Ui.Button(mode, "Featured banner", () => { _standard = false; Rebuild(); }, !_standard ? Theme.Accent : Theme.Button, -1, 76, banner != null);
-            Ui.Button(mode, "Standard", () => { _standard = true; Rebuild(); }, _standard || banner == null ? Theme.Accent : Theme.Button, -1, 76);
+            Ui.Button(mode, "Featured banner", () => { _standard = false; Refresh(); }, !_standard ? Theme.Accent : Theme.Button, -1, 76, banner != null);
+            Ui.Button(mode, "Standard", () => { _standard = true; Refresh(); }, _standard || banner == null ? Theme.Accent : Theme.Button, -1, 76);
             bool useBanner = banner != null && !_standard;
 
             // SG2: the banner card — featured art, light text on the rarity red, pity as two bars

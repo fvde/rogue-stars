@@ -17,7 +17,14 @@ namespace RogueStars.Client.App
     /// </summary>
     public abstract class UiScreen
     {
-        private readonly List<KeyValuePair<Text, Func<string>>> _live = new List<KeyValuePair<Text, Func<string>>>();
+        private sealed class LiveText
+        {
+            public Text Text;
+            public Func<string> Value;
+            public PartState Part;
+        }
+
+        private readonly List<LiveText> _live = new List<LiveText>();
         private RectTransform _body;
         private ScrollRect _scroll;
         private Text _title;
@@ -212,6 +219,9 @@ namespace RogueStars.Client.App
             Ui.Clear(_body);
             if (Footer != null) Ui.Clear(Footer);
             _live.Clear();
+            _parts.Clear();
+            _cursor.Clear();
+            _building = null;
             if (_title != null) { _title.text = Title; _title.font = Ui.FontFor(Title); }
             if (_subtitle != null)
             {
@@ -228,11 +238,12 @@ namespace RogueStars.Client.App
                 _help.transform.SetAsLastSibling();
             }
             // The body's content keeps its scroll offset across a rebuild (same RectTransform); only a scroll target needs
-            // the new layout now (a forced canvas update costs ~10-20 ms on a big screen).
-            if (_scroll != null && _scrollTarget != null)
+            // the new layout now (a forced canvas update costs ~10-20 ms on a big screen). Edit mode (tests) has no canvas
+            // update loop: lay out at once there so sizes read right after a build.
+            if (_scroll != null && _scrollTarget != null || !Application.isPlaying)
             {
                 Canvas.ForceUpdateCanvases();
-                _scroll.verticalNormalizedPosition = CenteredPosition(_scrollTarget);
+                if (_scroll != null && _scrollTarget != null) _scroll.verticalNormalizedPosition = CenteredPosition(_scrollTarget);
             }
             _scrollTarget = null;
             Tick();
@@ -241,7 +252,9 @@ namespace RogueStars.Client.App
         /// <summary>The screen is on top again (back from a screen above): rebuild only when needed.</summary>
         internal void Returned()
         {
-            if (RebuildOnReturn || IsStale) Rebuild();
+            if (RebuildOnReturn) Rebuild();
+            else if (InPlace) Refresh(); // cheap: only what changed
+            else if (IsStale) Rebuild();
             else Tick();
         }
 
@@ -271,16 +284,28 @@ namespace RogueStars.Client.App
 
         private RectTransform _mainTabs;
 
+        private string _mainTabsKey;
+
         private void BuildMainTabs()
         {
+            if (ActiveMainTab == null || App.Session.State == null)
+            {
+                if (_mainTabs != null) Ui.DestroyGo(_mainTabs.gameObject);
+                _mainTabs = null; _mainTabsKey = null;
+                return;
+            }
+            var entries = HubLayout.Tabs(State, Content);
+            bool wormBadge = GearGuide.HasAffordableUpgrade(State, Content);
+            var key = new System.Text.StringBuilder(ActiveMainTab).Append(wormBadge);
+            foreach (var e in entries) key.Append('|').Append(e.Id).Append(e.Label).Append(e.Icon);
+            if (_mainTabs != null && _mainTabsKey == key.ToString()) return; // unchanged: keep the bar
             if (_mainTabs != null) Ui.DestroyGo(_mainTabs.gameObject);
-            _mainTabs = null;
-            if (ActiveMainTab == null || App.Session.State == null) return;
+            _mainTabsKey = key.ToString();
             var tabs = new List<KitTab>();
-            foreach (var e in HubLayout.Tabs(State, Content))
+            foreach (var e in entries)
             {
                 var entry = e;
-                string badge = entry.Id == "worm" && GearGuide.HasAffordableUpgrade(State, Content) ? "!" : null;
+                string badge = entry.Id == "worm" && wormBadge ? "!" : null;
                 tabs.Add(new KitTab
                 {
                     Id = entry.Id, Label = entry.Label, Badge = badge, Active = entry.Id == ActiveMainTab,
@@ -308,13 +333,18 @@ namespace RogueStars.Client.App
         public virtual void Tick()
         {
             for (int i = 0; i < _live.Count; i++)
-                if (_live[i].Key != null) _live[i].Key.text = _live[i].Value();
+            {
+                var t = _live[i].Text;
+                if (t == null) continue;
+                string v = _live[i].Value();
+                if (t.text != v) t.text = v; // unchanged text: no mesh rebuild
+            }
         }
 
         /// <summary>Register a text that is recomputed every tick (countdowns).</summary>
         protected Text Live(Text text, Func<string> value)
         {
-            _live.Add(new KeyValuePair<Text, Func<string>>(text, value));
+            _live.Add(new LiveText { Text = text, Value = value, Part = _building });
             return text;
         }
 
@@ -323,6 +353,185 @@ namespace RogueStars.Client.App
             if (Root != null) Ui.DestroyGo(Root.gameObject);
             Root = null;
             _live.Clear();
+            _parts.Clear();
+        }
+
+        // ---- in-place updates (keyed parts) --------------------------------------------------------------------------
+
+        /// <summary>
+        /// Opt-in: on a state change (and on return) the screen is refreshed in place instead of rebuilt. <see cref="Build"/>
+        /// then creates every direct child of the body and the footer through <see cref="Part"/>: Build re-runs, but a part
+        /// whose key is unchanged keeps its GameObjects (and its Live texts); only parts whose key changed are rebuilt, parts
+        /// no longer built are removed, the order follows the calls.
+        /// </summary>
+        protected virtual bool InPlace => false;
+
+        private sealed class PartState
+        {
+            public (Transform, string) Id;
+            public string Key;
+            public Transform Parent;
+            public readonly List<GameObject> Roots = new List<GameObject>();
+            public readonly List<PartState> Children = new List<PartState>();
+            public PartState Owner;
+            public bool Seen;
+        }
+
+        private readonly Dictionary<(Transform, string), PartState> _parts = new Dictionary<(Transform, string), PartState>();
+        private readonly Dictionary<Transform, int> _cursor = new Dictionary<Transform, int>();
+        private PartState _building;
+        private bool _refreshing;
+
+        /// <summary>Parts built (created or re-created) so far, and in-place refreshes (tests, probe).</summary>
+        public int PartBuilds { get; private set; }
+        public int Refreshes { get; private set; }
+        /// <summary>True while <see cref="Build"/> runs as an in-place refresh.</summary>
+        protected bool Refreshing => _refreshing;
+
+        /// <summary>A state change: refresh in place (<see cref="InPlace"/>) or rebuild.</summary>
+        public void StateChanged()
+        {
+            if (InPlace) Refresh();
+            else Rebuild();
+        }
+
+        /// <summary>
+        /// Re-run <see cref="Build"/> in place: parts with an unchanged key stay as they are (see <see cref="InPlace"/>).
+        /// Screens that are not in-place rebuild.
+        /// </summary>
+        public void Refresh()
+        {
+            if (Root == null) return;
+            if (!InPlace || !_builtOnce || App.Session.State == null || _parts.Count == 0) { Rebuild(); return; }
+            Refreshes++;
+            var st = App.Session.State;
+            _builtVersion = st.Version;
+            _builtPlayer = st.PlayerId;
+            _scrollTarget = null;
+            _live.RemoveAll(l => l.Part == null); // re-registered by Build
+            foreach (var p in _parts.Values) p.Seen = false;
+            _cursor.Clear();
+            if (_title != null && _title.text != Title) { _title.text = Title; _title.font = Ui.FontFor(Title); }
+            if (_subtitle != null)
+            {
+                string sub = Subtitle ?? "";
+                if (_subtitle.text != sub) _subtitle.text = sub;
+                if (_subtitle.gameObject.activeSelf != (sub.Length > 0)) _subtitle.gameObject.SetActive(sub.Length > 0);
+            }
+            BuildMainTabs();
+            _refreshing = true;
+            try { Build(_body); }
+            finally { _refreshing = false; _building = null; }
+            var gone = new List<PartState>();
+            foreach (var p in _parts.Values) if (!p.Seen) gone.Add(p);
+            foreach (var p in gone) if (_parts.ContainsKey(p.Id)) DropPart(p);
+            if (!OnlyParts(_body) || Footer != null && !OnlyParts(Footer))
+            {
+                Debug.LogError(GetType().Name + ": an in-place Build created body/footer content outside Part(); rebuilt instead");
+                Rebuild();
+                return;
+            }
+            if (_help != null) _help.gameObject.SetActive(UnlockedIntroFeatures().Count > 0);
+            if (_scroll != null && _scrollTarget != null || !Application.isPlaying)
+            {
+                Canvas.ForceUpdateCanvases();
+                if (_scroll != null && _scrollTarget != null) _scroll.verticalNormalizedPosition = CenteredPosition(_scrollTarget);
+            }
+            _scrollTarget = null;
+            Tick();
+        }
+
+        /// <summary>Every child of <paramref name="t"/> belongs to a live part.</summary>
+        private bool OnlyParts(Transform t)
+        {
+            int owned = 0;
+            foreach (var p in _parts.Values)
+                if (p.Parent == t) foreach (var r in p.Roots) if (r != null && r.transform.parent == t) owned++;
+            return owned == t.childCount;
+        }
+
+        /// <summary>
+        /// A keyed part of the screen under <paramref name="parent"/>: <paramref name="build"/> creates its GameObjects (one or
+        /// more direct children of the parent). On a refresh a part with the same <paramref name="id"/> and
+        /// <paramref name="key"/> is kept as it is; a new key rebuilds just this part. The key must cover everything the part
+        /// shows from the state (numbers that change often can be <see cref="Live"/> texts instead). Returns the part's
+        /// first GameObject (a container for child parts: parts under it are keyed on their own).
+        /// </summary>
+        protected RectTransform Part(Transform parent, string id, string key, Action<RectTransform> build)
+        {
+            var full = (parent, id);
+            int at = _cursor.TryGetValue(parent, out var c) ? c : 0;
+            if (_parts.TryGetValue(full, out var p))
+            {
+                if (p.Key == key && Alive(p))
+                {
+                    Keep(p);
+                    foreach (var r in p.Roots) { if (r.transform.GetSiblingIndex() != at) r.transform.SetSiblingIndex(at); at++; }
+                    _cursor[parent] = at;
+                    return p.Roots.Count > 0 ? (RectTransform)p.Roots[0].transform : null;
+                }
+                DropPart(p);
+            }
+            p = new PartState { Id = full, Key = key, Parent = parent, Owner = _building, Seen = true };
+            _parts[full] = p;
+            _building?.Children.Add(p);
+            int before = parent.childCount;
+            var outer = _building;
+            _building = p;
+            try { build((RectTransform)parent); }
+            finally { _building = outer; }
+            for (int i = before; i < parent.childCount; i++) p.Roots.Add(parent.GetChild(i).gameObject);
+            for (int i = 0; i < p.Roots.Count; i++) if (p.Roots[i].transform.GetSiblingIndex() != at + i) p.Roots[i].transform.SetSiblingIndex(at + i);
+            _cursor[parent] = at + p.Roots.Count;
+            PartBuilds++;
+            return p.Roots.Count > 0 ? (RectTransform)p.Roots[0].transform : null;
+        }
+
+        private static bool Alive(PartState p)
+        {
+            foreach (var r in p.Roots) if (r == null) return false;
+            return true;
+        }
+
+        private static void Keep(PartState p)
+        {
+            p.Seen = true;
+            foreach (var c in p.Children) Keep(c);
+        }
+
+        private void DropPart(PartState p)
+        {
+            foreach (var c in p.Children.ToArray()) DropPart(c);
+            p.Children.Clear();
+            _parts.Remove(p.Id);
+            p.Owner?.Children.Remove(p);
+            _live.RemoveAll(l => l.Part == p);
+            foreach (var r in p.Roots) if (r != null) Ui.DestroyGo(r);
+            p.Roots.Clear();
+        }
+
+        /// <summary>
+        /// Key of a part that shows a lot of state and changes rarely (sub-views): any command (a new state version) rebuilds
+        /// it, a refresh or a NotifyChanged without one keeps it.
+        /// </summary>
+        protected string VersionKey(params object[] local) => K(State.Version, State.PlayerId, K(local));
+
+        /// <summary>A currency chip (<see cref="Kit.CurrencyChip"/>) whose amount updates in place (Live), so its part's key can leave the balance out.</summary>
+        protected RectTransform LiveCurrencyChip(Transform parent, string currency, Action onTap = null, string name = null, float height = 60)
+        {
+            var chip = Kit.CurrencyChip(parent, currency, Fmt.Num(State.Wallet.Get(currency)), onTap, name, height);
+            var amount = chip.Find("Amount");
+            var t = amount != null ? amount.GetComponent<Text>() : null;
+            if (t != null) Live(t, () => State != null ? Fmt.Num(State.Wallet.Get(currency)) : "");
+            return chip;
+        }
+
+        /// <summary>Key helper: the values joined with '|' (null as "~").</summary>
+        protected static string K(params object[] values)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var v in values) { sb.Append(v ?? "~"); sb.Append('|'); }
+            return sb.ToString();
         }
 
         // ---- helpers used by many screens ---------------------------------------------------------
@@ -370,6 +579,13 @@ namespace RogueStars.Client.App
                 Theme.Button, -1, Theme.ButtonHeight, adsLeft > 0);
             int free = TimerSystem.FreeSpeedUpsLeft(State, Content, Now);
             Ui.Button(row, "Free (" + free + ")", () => Run(new TimerSpeedUp { TimerId = timerId, Method = SpeedUpMethod.Free }), Theme.Good, -1, Theme.ButtonHeight, free > 0);
+        }
+
+        /// <summary>What <see cref="TimerControls"/> shows besides its live texts (part keys); "" without a timer.</summary>
+        protected string TimerKey(string timerId)
+        {
+            var t = timerId == null ? null : TimerSystem.Get(State, timerId);
+            return t == null ? "" : K(timerId, TimerSystem.AdsLeft(t, Content), TimerSystem.FreeSpeedUpsLeft(State, Content, Now));
         }
 
         /// <summary>One "label: value" line.</summary>

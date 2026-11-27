@@ -1,6 +1,11 @@
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
+using RogueStars.Client.Screens;
 using RogueStars.Client.UiKit;
+using RogueStars.Rules.Core;
+using RogueStars.Rules.Systems;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -140,6 +145,148 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.App.Router.Current, Is.SameAs(hub));
             Assert.That(hub.Root.gameObject.activeSelf, Is.True);
             Assert.That(hub.BuildCount, Is.EqualTo(hubBuilds), "no state change: the hub was never rebuilt");
+        }
+
+        // ---- step 3: in-place updates --------------------------------------------------------------------------
+
+        private sealed class KeyedScreen : UiScreen
+        {
+            public readonly List<string> Items = new List<string> { "a", "b", "c" };
+            public readonly Dictionary<string, int> Values = new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } };
+            public int Total;
+            protected override bool InPlace => true;
+            public override string Title => "Keyed";
+            protected override void Build(RectTransform body)
+            {
+                foreach (var id in Items)
+                {
+                    var i = id;
+                    Part(body, i, K(Values[i]), b => Ui.Label(b, i + "=" + Values[i]).name = "Item:" + i);
+                }
+                Part(body, "total", "", b => Live(Ui.Label(b, ""), () => "total " + Total).name = "Total");
+            }
+            public Transform Body => BodyFrame.GetComponentsInChildren<Transform>(true).First(t => t.name == "Item:a").parent;
+        }
+
+        private static GameObject Child(UiScreen s, string name) =>
+            s.Root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == name)?.gameObject;
+
+        [Test]
+        public void InPlace_RebuildsOnlyThePartWhoseKeyChanged_KeepsOrder_DropsRemovedParts()
+        {
+            var screen = new KeyedScreen();
+            _f.App.Router.Push(screen);
+            var a = Child(screen, "Item:a"); var b = Child(screen, "Item:b"); var c = Child(screen, "Item:c");
+            int built = screen.PartBuilds;
+
+            screen.Refresh();
+            Assert.That(screen.PartBuilds, Is.EqualTo(built), "nothing changed: nothing rebuilt");
+            Assert.That(Child(screen, "Item:b"), Is.SameAs(b));
+
+            screen.Values["b"] = 20;
+            screen.Refresh();
+            Assert.That(screen.PartBuilds, Is.EqualTo(built + 1), "only b rebuilt");
+            Assert.That(Child(screen, "Item:a"), Is.SameAs(a));
+            Assert.That(Child(screen, "Item:c"), Is.SameAs(c));
+            var b2 = Child(screen, "Item:b");
+            Assert.That(b2, Is.Not.SameAs(b));
+            Assert.That(b2.GetComponent<Text>().text, Is.EqualTo("b=20"));
+
+            screen.Items.Clear(); screen.Items.AddRange(new[] { "c", "d", "a" });
+            screen.Refresh();
+            var body = screen.Body;
+            var order = new List<string>();
+            for (int i = 0; i < body.childCount; i++) order.Add(body.GetChild(i).name);
+            Assert.That(order, Is.EqualTo(new[] { "Item:c", "Item:d", "Item:a", "Total" }), "order follows the Build calls; b is gone");
+            Assert.That(Child(screen, "Item:a"), Is.SameAs(a), "kept across the reorder");
+            Assert.That(Child(screen, "Item:b"), Is.Null);
+        }
+
+        [Test]
+        public void InPlace_LiveTextOfAKeptPart_UpdatesWithoutNewGameObjects()
+        {
+            var screen = new KeyedScreen();
+            _f.App.Router.Push(screen);
+            var total = Child(screen, "Total");
+            screen.Total = 42;
+            _f.App.Session.NotifyChanged();
+            Assert.That(Child(screen, "Total"), Is.SameAs(total));
+            Assert.That(total.GetComponent<Text>().text, Is.EqualTo("total 42"));
+        }
+
+        [Test]
+        public void ResourceBar_BalanceChange_UpdatesTheChipInPlace()
+        {
+            _f.Service.DevGrantStarterKit();
+            var bar = _f.App.Bar;
+            bar.Rebuild();
+            var chip = _f.App.Root.GetComponentsInChildren<Text>(true).First(t => t.name == "Chip:" + Currencies.Diamonds);
+            int builds = bar.Builds;
+            _f.Service.State.Wallet.Add(Currencies.Diamonds, 123);
+            _f.App.Session.NotifyChanged();
+            var after = _f.App.Root.GetComponentsInChildren<Text>(true).First(t => t.name == "Chip:" + Currencies.Diamonds);
+            Assert.That(after, Is.SameAs(chip), "same chip, not a rebuilt bar");
+            Assert.That(bar.Builds, Is.EqualTo(builds));
+            Assert.That(after.text, Is.EqualTo(Fmt.Num(_f.Service.State.Wallet.Get(Currencies.Diamonds))));
+        }
+
+        [Test]
+        public void PartsScreen_StateChange_KeepsUnchangedTiles_AndRebuildsTheChangedOne()
+        {
+            _f.Service.DevGrantStarterKit();
+            _f.App.Router.Push(new PartsScreen());
+            var screen = (PartsScreen)_f.App.Router.Current;
+            Assert.That(screen.ShownParts.Count, Is.GreaterThanOrEqualTo(2));
+            string first = screen.ShownParts[0], second = screen.ShownParts[1];
+            var tile1 = Child(screen, "Part:" + first);
+            var tile2 = Child(screen, "Part:" + second);
+            var ore = Child(screen, "OreChip").transform.Find("Amount").GetComponent<Text>();
+            int goCount = screen.Root.GetComponentsInChildren<Transform>(true).Length;
+
+            // a refresh with nothing changed (periodic refresh, NotifyChanged): every GameObject stays
+            int built = screen.PartBuilds;
+            _f.App.Session.NotifyChanged();
+            Assert.That(screen.PartBuilds, Is.EqualTo(built));
+            Assert.That(Child(screen, "Part:" + first), Is.SameAs(tile1));
+            Assert.That(screen.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(goCount));
+            Assert.That(screen.BuildCount, Is.EqualTo(1), "never fully rebuilt");
+
+            // a number changes: the Ore chip updates in place
+            _f.Service.State.Wallet.Add(Currencies.Ore, 777);
+            _f.App.Session.NotifyChanged();
+            Assert.That(ore.text, Is.EqualTo(Fmt.Num(_f.Service.State.Wallet.Get(Currencies.Ore))));
+            Assert.That(Child(screen, "OreChip").transform.Find("Amount").GetComponent<Text>(), Is.SameAs(ore));
+
+            // one part changes: only its tile is rebuilt
+            _f.Service.State.Parts.Items[first].Level += 1;
+            _f.App.Session.NotifyChanged();
+            Assert.That(Child(screen, "Part:" + first), Is.Not.SameAs(tile1), "the changed part's tile is new");
+            Assert.That(Child(screen, "Part:" + second), Is.SameAs(tile2), "the other tiles stay");
+            Assert.That(screen.BuildCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void EveryConvertedScreen_RefreshesWithoutRebuildingAnything()
+        {
+            _f.Service.DevGrantStarterKit();
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            foreach (var id in new[] { "worm", "parts", "laboratory", "passes", "portals", "heroes", "mounts", "aliens", "city", "shop" })
+            {
+                _f.App.OpenTab(null);
+                _f.App.Open(id);
+                var screen = _f.App.Router.Current;
+                Assert.That(screen, Is.Not.InstanceOf<HubScreen>(), id);
+                int built = screen.PartBuilds, gos = screen.Root.GetComponentsInChildren<Transform>(true).Length;
+                _f.App.Session.NotifyChanged();
+                Assert.That(screen.BuildCount, Is.EqualTo(1), id + ": refreshed in place, not rebuilt");
+                Assert.That(screen.PartBuilds, Is.EqualTo(built), id + ": no part changed");
+                Assert.That(screen.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(gos), id);
+            }
+            _f.App.OpenTab(null);
+            var hub = _f.App.Router.Current;
+            int hubBuilt = hub.PartBuilds;
+            _f.App.Session.NotifyChanged();
+            Assert.That(hub.PartBuilds, Is.EqualTo(hubBuilt), "hub: no part changed");
         }
 
         [Test]

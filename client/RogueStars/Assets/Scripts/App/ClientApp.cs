@@ -161,7 +161,7 @@ namespace RogueStars.Client.App
             Tutorial.Check(Session);
             Bar.Rebuild();
             var cur = Router.Current;
-            if (cur != null && cur.AutoRebuild) cur.Rebuild();
+            if (cur != null && cur.AutoRebuild) cur.StateChanged(); // in-place screens update only what changed
         }
 
         public UiModal ShowModal(UiModal modal) => modal;
@@ -238,8 +238,40 @@ namespace RogueStars.Client.App
         /// Profile chip (worm level, name, power; opens the profile) and the currency chips the player has a use for yet
         /// (<see cref="HubLayout.VisibleCurrencies"/>: stamina always, the rest as their features unlock).
         /// </summary>
+        /// <summary>
+        /// Bring the bar up to date: when its structure is unchanged (same screen, chips, name, level, power) only the live
+        /// numbers update in place; otherwise it is built anew (<see cref="Build"/>).
+        /// </summary>
         public void Rebuild()
         {
+            string key = StructureKey();
+            if (key == _builtKey && _root.childCount > 0) { Tick(); return; }
+            Build();
+            _builtKey = key;
+        }
+
+        private string _builtKey;
+
+        /// <summary>Full builds of the bar so far (tests: a balance change updates in place).</summary>
+        public int Builds { get; private set; }
+
+        /// <summary>Everything the bar shows except the live numbers (the chips' balances and regen timers).</summary>
+        private string StructureKey()
+        {
+            var s = _app.Session;
+            var sb = new System.Text.StringBuilder(ScreenKey());
+            if (s.State == null) return sb.Append("|null").ToString();
+            sb.Append('|').Append(s.State.Worm.Level).Append('|').Append(s.State.DisplayName ?? s.State.PlayerId).Append('|').Append(s.IsOnline ? s.Service.ModeName : "");
+            sb.Append('|').Append(s.Engine != null ? Power() : 0);
+            foreach (var id in ChipsFor(s.State, s.Content, ScreenKey())) sb.Append('|').Append(id);
+            sb.Append('|').Append(HubLayout.VisibleCurrencies(s.State, s.Content).Count > 0);
+            return sb.ToString();
+        }
+
+        /// <summary>Build the bar from scratch.</summary>
+        public void Build()
+        {
+            Builds++;
             Ui.Clear(_root);
             _live.Clear();
             var bar = Ui.Stretch(Ui.Row(_root, -1, 12, BarBg, 0, "Bar"));
@@ -567,7 +599,12 @@ namespace RogueStars.Client.App
         public void Tick()
         {
             if (_builtFor != null && _builtFor != ScreenKey()) { Rebuild(); return; } // another screen: its currencies
-            foreach (var kv in _live) if (kv.Key != null) kv.Key.text = kv.Value();
+            foreach (var kv in _live)
+            {
+                if (kv.Key == null) continue;
+                string v = kv.Value();
+                if (kv.Key.text != v) kv.Key.text = v; // unchanged: no mesh rebuild
+            }
         }
     }
 }

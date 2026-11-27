@@ -110,8 +110,8 @@ namespace RogueStars.Client.UiKit
                 if (b.Target == null) continue; // rebuilt away meanwhile
                 if (b.Group != null)
                 {
+                    b.Group.alpha = b.Alpha; b.Group.interactable = b.Interactable; // tells the selectables first
                     if (b.AddedGroup) DestroyComponent(b.Group);
-                    else { b.Group.alpha = b.Alpha; b.Group.interactable = b.Interactable; }
                 }
                 if (b.Target.localScale == b.Rest * PressScale) b.Target.localScale = b.Rest;
             }

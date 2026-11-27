@@ -154,8 +154,21 @@ AppBootstrap (only object in Main.unity)
   background, `HeaderHeight` 0 and its own top strip (`Screens/RunHud.cs`: `RunHudStrip`, also the boss clock row and the
   skill tile used by the run tray and the battle strip). `UiShapes.CircleRing` is a round ring sprite for radial progress
   (`Image.Type.Filled`, the run level's XP ring).
-- **Screens**: subclass `UiScreen`, implement `Title` and `Build(body)`; the body is rebuilt on every state change
-  (`AutoRebuild`, off for screens with text inputs) and countdowns use `Live(text, () => …)` (ticked twice a second).
+- **Screens**: subclass `UiScreen`, implement `Title` and `Build(body)`; on every state change the screen is updated
+  (`AutoRebuild`, off for screens with text inputs) and countdowns use `Live(text, () => …)` (ticked twice a second; a
+  text is only written when it changed).
+- **In-place updates** (`UiScreen.InPlace`, the UI speed work): an in-place screen builds every direct child of its body
+  and footer through `Part(parent, id, key, build)`. On a state change (`UiScreen.StateChanged` → `Refresh`) Build runs
+  again, but a part whose key is unchanged keeps its GameObjects and Live texts; a part with a new key is rebuilt alone,
+  parts no longer built are removed, the order follows the calls. A part can return a container for child parts (tile
+  grids: one part per tile). Keys hold everything the part shows (`K(...)`); fast-changing numbers are Live texts
+  (`LiveCurrencyChip`), rarely-changing sub-views use `VersionKey(...)` (rebuilt by any command, kept on a refresh).
+  Content built outside `Part()` in an in-place screen logs an error and falls back to a full rebuild. In place today:
+  Worm, Parts (gear inventory), Laboratory, Passes, Portals, Heroes, Mounts, Aliens, City (not in edit mode), Shop, the hub
+  and the resource bar (`ResourceBar.Rebuild` rebuilds only when its chips / profile change); the main tab bar is kept
+  while its tabs are the same. Not yet: the run screen and the smaller screens (full rebuild). Back (`ScreenRouter.Pop`) refreshes an
+  in-place screen, rebuilds others only when the state version changed while hidden (`IsStale`); the main tab bar keeps
+  the hub alive (`ClientApp.OpenTab`). `Canvas.ForceUpdateCanvases` runs only for a scroll target (and in edit mode).
   `TimerControls(parent, timerId)` renders any rules timer with Diamonds / ad −15% / free speed-ups.
 
 ## Screens
