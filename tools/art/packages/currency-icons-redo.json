@@ -1,15 +1,15 @@
 {
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
   "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background, no text, no frame",
-  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
   "width": 512,
   "height": 512,
   "name": "pkg-currency-icons-redo",
   "seeds": [
-    7121,
-    7122
+    7131,
+    7132
   ],
   "subjects": {
-    "signal": "a round purple badge with a white wifi signal symbol printed on its front, one single solid object, flat, bold black outline"
+    "signal": "a small round purple alien communicator orb with one short antenna on top and one glowing green light on its front, one single solid object, bold black outline, flat colors"
   }
 }
