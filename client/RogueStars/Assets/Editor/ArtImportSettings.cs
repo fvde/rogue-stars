@@ -38,9 +38,20 @@ namespace RogueStars.Client.Editor
                     s.spritePivot = SpriteContact.Pivot01(c, w, h);
                 }
             }
+            // City buildings stand on an iso foundation plate: the pivot is the plate's bottom-face centre (SpriteContact.FindPlate),
+            // so CityWorld seats the plate on the building's footprint
+            if (IsBuilding(assetPath))
+            {
+                var c = PlateOfFile(assetPath, out int w, out int h);
+                if (c.Valid)
+                {
+                    s.spriteAlignment = (int)SpriteAlignment.Custom;
+                    s.spritePivot = SpriteContact.Pivot01(c, w, h);
+                }
+            }
             ti.SetTextureSettings(s);
-            // trimmed props / NPCs / markers (≤ 768 px sources): capped at 1024, compressed (ASTC on Android) like the rest
-            if (assetPath.Contains("/Art/Run/") || assetPath.Contains("/Art/Slice/Markers/") || assetPath.Contains("/Art/Slice/SetPieces/"))
+            // trimmed props / NPCs / markers / buildings (≤ 768 px sources): capped at 1024, compressed (ASTC on Android) like the rest
+            if (assetPath.Contains("/Art/Run/") || assetPath.Contains("/Art/Slice/Markers/") || assetPath.Contains("/Art/Slice/SetPieces/") || IsBuilding(assetPath))
             {
                 ti.maxTextureSize = 1024;
                 ti.textureCompression = TextureImporterCompression.Compressed;
@@ -67,6 +78,25 @@ namespace RogueStars.Client.Editor
         /// <summary>Board art that stands on the ground: tile markers, set pieces, scatter props and the hero worm (the board token).</summary>
         public static bool IsStanding(string path) =>
             path.Contains("/Art/Slice/Markers/") || path.Contains("/Art/Slice/SetPieces/") || path.Contains("/Art/Slice/Scatter/") || path.Contains("/Art/Hero/");
+
+        /// <summary>City building art (one per blueprint, standing on its foundation plate).</summary>
+        public static bool IsBuilding(string path) => path.Contains("/Art/City/Buildings/");
+
+        /// <summary>The foundation plate of a building PNG (read from disk): its bottom-face centre and width.</summary>
+        public static ContactInfo PlateOfFile(string path, out int w, out int h)
+        {
+            w = h = 0;
+            try
+            {
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!tex.LoadImage(System.IO.File.ReadAllBytes(path))) { Object.DestroyImmediate(tex); return default; }
+                w = tex.width; h = tex.height;
+                var c = SpriteContact.FindPlate(tex.GetPixels32(), w, h);
+                Object.DestroyImmediate(tex);
+                return c;
+            }
+            catch (System.IO.IOException) { return default; }
+        }
 
         /// <summary>The ground contact of a source PNG (read from disk, so the compressed import does not matter).</summary>
         public static ContactInfo ContactOfFile(string path, out int w, out int h)

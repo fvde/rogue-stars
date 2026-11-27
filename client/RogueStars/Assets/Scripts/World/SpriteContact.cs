@@ -82,6 +82,58 @@ namespace RogueStars.Client.World
             return info;
         }
 
+        /// <summary>
+        /// The contact of a building standing on an iso foundation plate (City building art): the plate's bottom face centre.
+        /// From the bottom vertex the silhouette's left and right edges run outwards up to the plate's side vertices and then
+        /// turn back in (the top face); the side vertices' x is the plate's width, their height over the bottom vertex the plate's
+        /// half depth (so the art's own iso ratio is used, not the board's). Width = the plate's width.
+        /// </summary>
+        public static ContactInfo FindPlate(Color32[] px, int w, int h)
+        {
+            var info = new ContactInfo();
+            if (px == null || w <= 0 || h <= 0) return info;
+            var minX = new int[h];
+            var maxX = new int[h];
+            var count = new int[h];
+            int solidMin = w, solidMax = -1;
+            for (int y = 0; y < h; y++)
+            {
+                minX[y] = w; maxX[y] = -1;
+                for (int x = 0; x < w; x++)
+                    if (px[y * w + x].a > SolidAlpha) { count[y]++; if (x < minX[y]) minX[y] = x; if (x > maxX[y]) maxX[y] = x; }
+                if (maxX[y] >= 0) { solidMin = Mathf.Min(solidMin, minX[y]); solidMax = Mathf.Max(solidMax, maxX[y]); }
+            }
+            if (solidMax < 0) return info;
+            int need = Mathf.Max(2, Mathf.RoundToInt((solidMax - solidMin + 1) * 0.005f));
+            int bottom = 0;
+            while (bottom < h && count[bottom] < need) bottom++;
+            if (bottom >= h) return info;
+            // walk up each edge while it still moves outwards (a step back in by more than a few px ends the plate)
+            int left = minX[bottom], kl = 0, right = maxX[bottom], kr = 0;
+            bool doneL = false, doneR = false;
+            for (int y = bottom; y < h && !(doneL && doneR); y++)
+            {
+                if (maxX[y] < 0) continue;
+                int k = y - bottom;
+                if (!doneL)
+                {
+                    if (minX[y] < left) { left = minX[y]; kl = k; }
+                    else if (minX[y] > left + 4 && k > kl + 2) doneL = true;
+                }
+                if (!doneR)
+                {
+                    if (maxX[y] > right) { right = maxX[y]; kr = k; }
+                    else if (maxX[y] < right - 4 && k > kr + 2) doneR = true;
+                }
+            }
+            info.Valid = true;
+            info.Bottom = bottom;
+            info.Width = right - left + 1;
+            info.X = (left + right + 1) * 0.5f;
+            info.Y = bottom + (kl + kr) * 0.5f;
+            return info;
+        }
+
         /// <summary>Registers the contact of a code-drawn sprite (its pixels are gone once uploaded).</summary>
         public static void Register(Sprite s, ContactInfo c) { if (s != null && c.Valid) Registered[s] = c; }
 

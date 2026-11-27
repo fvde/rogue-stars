@@ -154,14 +154,14 @@ namespace RogueStars.Client.Tests
         private static readonly string[] Batch3Status = { "bleed", "charm", "chill", "delay", "exposed", "freeze", "heat", "radiation", "stun", "guard", "shock" };
         private static readonly string[] Batch3Summon = { "awaken_core", "exchange", "hero_sigil", "packs", "pass", "star", "tasks" };
         /// <summary>
-        /// Approved but not shipped: a pending edit that has not landed (luck_gem), or a visible defect (ground shadow, white
-        /// fill / cut edge, text on the art, the clock that should be gone).
+        /// Approved but not shipped: a pending edit that has not landed (luck_gem), or a visible defect (white fill / cut edge,
+        /// text on the art), or no enemy def (elder_magma, chrono_wyrm). Batch 4 shipped the cleaned magma_tyrant / void_maw /
+        /// prism_tyrant / rust_queen / storm_hive.
         /// </summary>
         private static readonly string[] Batch3HeldBack =
         {
             "Art/Summon/Icons/luck_gem.png", "Art/Summon/Icons/fuel.png", "Art/Summon/Icons/reactor.png",
-            "Art/Enemies/boss_magma_tyrant.png", "Art/Enemies/boss_void_maw.png", "Art/Enemies/boss_hollow_cantor.png", "Art/Enemies/boss_prism_tyrant.png", "Art/Enemies/boss_rust_queen.png",
-            "Art/Enemies/boss_storm_hive.png", "Art/Enemies/boss_elder_magma.png", "Art/Enemies/boss_chrono_wyrm.png",
+            "Art/Enemies/boss_hollow_cantor.png", "Art/Enemies/boss_elder_magma.png", "Art/Enemies/boss_chrono_wyrm.png",
         };
 
         [Test]
@@ -228,6 +228,171 @@ namespace RogueStars.Client.Tests
             Assert.That(ArtCatalog.SkillIcon("gen_guard"), Is.Not.Null);
             Assert.That(ArtCatalog.SkillIcon("gen_regen"), Is.Not.Null);
             foreach (var id in Batch3HeldBack) Assert.That(ArtCatalog.Load(id.Replace(".png", "")), Is.Null, id);
+        }
+
+        // ---- batch 4 (2026-11-27): the cleaned bosses, the City buildings ----
+
+        /// <summary>The bosses cleaned of their ground shadow / white fill (owner, 2026-11-27).</summary>
+        private static readonly string[] Batch4Bosses = { "boss_magma_tyrant", "boss_void_maw", "boss_prism_tyrant", "boss_rust_queen", "boss_storm_hive" };
+
+        [Test]
+        public void Batch4_PicksRouteToTheArtCatalogKeys_EveryBlueprintHasItsBuilding()
+        {
+            var plan = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(File.ReadAllText(PicksPath)));
+            Assert.That(plan.Select(i => i.Dest), Is.Unique);
+            var content = _f.Service.Content;
+            foreach (var id in Batch4Bosses)
+            {
+                var item = plan.Find(i => i.Dest == ArtCatalog.EnemyFolder + "/" + id + ".png");
+                Assert.That(item, Is.Not.Null, id);
+                Assert.That(item.Source.Replace('\\', '/'), Does.Contain("/bosses/" + id + "/"), id);
+                Assert.That(item.Trim, Is.False, "creatures stay square like their peers");
+            }
+            // held back: hollow_cantor is cut off at the edge; elder_magma and chrono_wyrm have no enemy to show them
+            Assert.That(content.Enemies.ContainsKey("boss_hollow_cantor"), Is.True);
+            Assert.That(content.Enemies.ContainsKey("boss_elder_magma"), Is.False);
+            Assert.That(content.Enemies.ContainsKey("boss_chrono_wyrm"), Is.False);
+            Assert.That(content.Blueprints.Count, Is.EqualTo(25));
+            foreach (var id in content.Blueprints.Keys)
+            {
+                var item = plan.Find(i => i.Dest == ArtCatalog.BuildingFolder + "/" + id + ".png");
+                Assert.That(item, Is.Not.Null, id + " has its building");
+                Assert.That(item.Source.Replace('\\', '/'), Does.Contain("/buildings/" + id + "/"), id);
+                Assert.That(item.Trim, Is.True, "trimmed: the sprite is as wide as its foundation plate");
+            }
+            Assert.That(plan.Count(i => i.Dest.StartsWith(ArtCatalog.BuildingFolder + "/")), Is.EqualTo(content.Blueprints.Count), "one building per blueprint, no strays");
+        }
+
+        [Test]
+        public void Batch4_BossesFightWithTheirOwnSprite_AndGuardTheirGate()
+        {
+            var content = _f.Service.Content;
+            foreach (var id in Batch4Bosses)
+            {
+                Assert.That(ArtCatalog.Enemy(id), Is.Not.Null, id);
+                Assert.That(content.Enemies[id].Boss, Is.True, id + " is a boss def");
+                var boss = new BattleFighterInfo { Id = id, Role = CombatRole.Boss, Side = BattleSide.Enemy };
+                Assert.That(BattlePlaybackScreen.FighterSprite(boss, content, out bool family, out _), Is.SameAs(ArtCatalog.Enemy(id)), id + " fights with its own sprite");
+                Assert.That(family, Is.False, id);
+            }
+            int gates = 0;
+            foreach (var kv in content.RunBosses)
+                if (Batch4Bosses.Contains(kv.Value.EnemyId)) { gates++; Assert.That(IsoArt.BossMarker(content, kv.Key), Is.SameAs(ArtCatalog.Enemy(kv.Value.EnemyId)), kv.Key + ": the boss gate shows the boss"); }
+            Assert.That(gates, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void Batch4_FindPlate_TheBottomFaceCentreOfAnIsoPlate_NotTheBuildingOnIt()
+        {
+            // a 200 px wide diamond plate (half depth 60 px, 10 px thick) from row 5, a 60 px wide tower on it up to row 280,
+            // and a crane arm sticking out left above the plate
+            int w = 220, h = 300;
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float dx = Mathf.Abs(x + 0.5f - 110), half = 100;
+                    bool lower = y >= 5 && y < 65 && dx <= half * (y - 5 + 1) / 60f; // bottom face: grows from the bottom vertex
+                    bool sides = y >= 65 && y < 75 && dx <= half; // the plate's thickness at its side vertices
+                    bool top = y >= 75 && y < 135 && dx <= half * (135 - y) / 60f; // top face: back in
+                    bool tower = y >= 60 && y < 280 && dx <= 30;
+                    bool arm = y >= 200 && y < 210 && x >= 0 && x < 110;
+                    if (lower || sides || top || tower || arm) px[y * w + x] = new Color32(90, 100, 140, 255);
+                }
+            var c = SpriteContact.FindPlate(px, w, h);
+            Assert.That(c.Valid, Is.True);
+            Assert.That(c.Bottom, Is.EqualTo(5));
+            Assert.That(c.Width, Is.EqualTo(200).Within(2), "the plate, not the arm");
+            Assert.That(c.X, Is.EqualTo(110).Within(1));
+            Assert.That(c.Y, Is.EqualTo(65).Within(2), "the side vertices' height over the bottom vertex: the bottom face's centre");
+            Assert.That(SpriteContact.FindPlate(new Color32[16], 4, 4).Valid, Is.False);
+        }
+
+        [Test]
+        public void Batch4_EveryBuilding_StandsOnItsPlate_FitsItsFootprint_AndReachesItsIcons()
+        {
+            var content = _f.Service.Content;
+            var go = new GameObject("FitProbe");
+            try
+            {
+                var holder = new GameObject("Body");
+                holder.transform.SetParent(go.transform, false);
+                var sr = holder.AddComponent<SpriteRenderer>();
+                foreach (var def in content.Blueprints.Values)
+                {
+                    var sprite = ArtCatalog.Building(def.Id);
+                    Assert.That(sprite, Is.Not.Null, def.Id);
+                    Assert.That(CityArt.HasOwnArt(def), Is.True, def.Id);
+                    Assert.That(CityArt.Building(def), Is.SameAs(sprite), def.Id + ": the City draws its own building, not the stand-in");
+                    // the import pivot is the plate's bottom-face centre
+                    string path = "Assets/Art/Resources/" + ArtCatalog.BuildingFolder + "/" + def.Id + ".png";
+                    Assert.That(ArtImportSettings.IsBuilding(path), Is.True);
+                    var plate = ArtImportSettings.PlateOfFile(path, out int pw, out int ph);
+                    Assert.That(plate.Valid, Is.True, def.Id);
+                    var want = SpriteContact.Pivot01(plate, pw, ph);
+                    var have = new Vector2(sprite.pivot.x / sprite.rect.width, sprite.pivot.y / sprite.rect.height);
+                    Assert.That(Vector2.Distance(have, want), Is.LessThan(0.01f), def.Id + ": pivot " + have + " should be the plate centre " + want);
+                    Assert.That(plate.Width / pw, Is.GreaterThan(0.9f), def.Id + ": the trimmed sprite is as wide as its plate (FitBuilding scales by it)");
+                    Assert.That(have.y, Is.InRange(0.1f, 0.4f), def.Id + ": the plate centre sits in the lower part");
+                    // on its footprint (either rotation): the plate spans the footprint width unless the tower hits the height cap
+                    foreach (bool rotated in new[] { false, true })
+                    {
+                        CityLayout.Footprint(def, rotated, out int fw, out int fh);
+                        float top = CityWorld.FitBuilding(sr, sprite, true, fw, fh);
+                        float fpW = (fw + fh) * Iso.StepX;
+                        var size = Vector2.Scale(sprite.bounds.size, sr.transform.localScale);
+                        Assert.That(size.x, Is.LessThanOrEqualTo(fpW * CityArt.PlateFill + 1e-3f), def.Id);
+                        Assert.That(size.y, Is.LessThanOrEqualTo(CityArt.BuildingMaxHeight(fw, fh) + 1e-3f), def.Id);
+                        Assert.That(Mathf.Abs(size.x - fpW * CityArt.PlateFill) < 1e-3f || Mathf.Abs(size.y - CityArt.BuildingMaxHeight(fw, fh)) < 1e-3f, Is.True,
+                            def.Id + ": the plate fills the footprint or the height is capped");
+                        Assert.That(size.x, Is.GreaterThan(fpW * 0.7f), def.Id + ": reads at its footprint");
+                        Assert.That(((Vector2)sr.transform.localPosition).magnitude, Is.LessThan(1e-3f), def.Id + ": the pivot is the contact: the plate centre on the footprint centre");
+                        Assert.That(top, Is.GreaterThan(0.5f * size.y).And.LessThan(size.y), def.Id);
+                    }
+                    // icons: reward slots, the pull reveal
+                    var reward = new Reward(RewardKinds.Blueprint, def.Id, 1);
+                    Assert.That(SummonArt.RewardIcon(reward), Is.SameAs(sprite), def.Id);
+                    Assert.That(PullReveal.ArtFor(reward), Is.Not.Null, def.Id);
+                }
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void Batch4_TheCity_DrawsEachBuildingOnItsFootprint_AndTheCardShowsIt()
+        {
+            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
+            var bps = new[] { "bp_gene_lab", "bp_biomass_farm", "bp_fuel_refinery", "bp_ore_mine", "bp_supply_depot" };
+            var grant = new List<Reward> { Reward.Cur(Currencies.Biomass, 9_000_000), Reward.Cur(Currencies.Ore, 9_000_000) };
+            foreach (var b in bps) grant.Add(new Reward(RewardKinds.Blueprint, b, 1));
+            _f.Service.DevGrant(grant);
+            var s = _f.Service.State;
+            var c = _f.Service.Content;
+            var uids = new Dictionary<string, string>();
+            foreach (var bp in bps)
+            {
+                var spot = CityPlanner.Find(s, c, bp, null, 2, null);
+                if (spot == null) continue; // the start land fills up: as many as fit
+                if (spot.Streets.Count > 0) _f.Service.ExecuteNow(new CityStreets { Adds = spot.Streets });
+                var r = _f.Service.ExecuteNow(new CityPlace { BlueprintId = bp, X = spot.X, Y = spot.Y, Rotated = spot.Rotated });
+                if (r.Ok) uids[bp] = (string)r.Payload;
+            }
+            Assert.That(uids.Keys, Does.Contain("bp_gene_lab"));
+            Assert.That(uids.Count, Is.GreaterThanOrEqualTo(2), "the start land holds a few (the showcase digs for all 25)");
+            _f.Clock.Advance(13 * 3_600_000L);
+            _f.Service.Refresh(_ => { });
+            _f.App.Open("city");
+            var city = (CityScreen)_f.App.Router.Current;
+            foreach (var kv in uids)
+            {
+                var body = city.World.BodyOf(kv.Value);
+                Assert.That(body, Is.Not.Null, kv.Key);
+                Assert.That(body.sprite, Is.SameAs(ArtCatalog.Building(kv.Key)), kv.Key);
+                Assert.That(city.World.HeightOf(kv.Value), Is.GreaterThan(CityArt.BuildingHeight(1, 1) * 0.8f), kv.Key + ": the pins sit over the roof");
+            }
+            city.Select(uids["bp_gene_lab"]);
+            var card = Named(city.Root, "BuildingCard");
+            Assert.That(Image(card, "BuildingArt").sprite, Is.SameAs(ArtCatalog.Building("bp_gene_lab")), "the card shows the building");
         }
 
         [Test]

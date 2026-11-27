@@ -196,10 +196,13 @@ namespace RogueStars.Client.Editor
             { "skills-v2", ("Art/Skills", true) },
             { "hub-planet", ("Art/Hub/Planet", false) },
             // art import 3 (2026-11-26): boss sprites (enemy defs, ArtCatalog.Enemy), battle status icons, summon / menu icons, the drone sidekick
+            // (import 4 adds the cleaned magma_tyrant / void_maw / prism_tyrant / rust_queen / storm_hive)
             { "bosses", ("Art/Enemies", false) },
             { "status-icons", ("Art/Status", true) },
             { "summon-icons", ("Art/Summon/Icons", true) },
             { "sidekicks", ("Art/Sidekicks", false) },
+            // art import 4 (2026-11-27): the City buildings (one per blueprint, ArtCatalog.Building), each on its foundation plate
+            { "buildings", ("Art/City/Buildings", true) },
         };
 
         /// <summary>

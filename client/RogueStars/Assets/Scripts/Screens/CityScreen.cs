@@ -561,7 +561,9 @@ namespace RogueStars.Client.Screens
             card.sizeDelta = new Vector2(w, 0);
             card.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var head = Ui.Row(card, 64, 8, null, 0, "Head");
+            var head = Ui.Row(card, 84, 8, null, 0, "Head");
+            var art = SummonKit.Img(head, CityArt.Building(def), "BuildingArt");
+            Ui.Size(art, 84, 84, 0);
             var name = SliceKit.Chunky(head, def.Name, 38, Color.white, TextAnchor.MiddleLeft, "Name");
             Ui.Size(name, -1, 64, 1);
             name.horizontalOverflow = HorizontalWrapMode.Wrap; name.resizeTextForBestFit = true; name.resizeTextMinSize = 24; name.resizeTextMaxSize = 38;

@@ -73,10 +73,12 @@ namespace RogueStars.Client.World
             }
         }
 
-        /// <summary>The building's sprite: its stand-in art, else a drawn hut in its rarity colour.</summary>
+        /// <summary>The building's sprite: its own art (<see cref="ArtCatalog.Building"/>), else its stand-in art, else a drawn hut in its rarity colour.</summary>
         public static Sprite Building(BlueprintDef def)
         {
             if (def == null) return Hut(Color.grey);
+            var own = ArtCatalog.Building(def.Id);
+            if (own != null) return own;
             if (BuildingArtKey.TryGetValue(def.Id, out var key))
             {
                 var s = LoadKey(key);
@@ -85,7 +87,19 @@ namespace RogueStars.Client.World
             return Hut(Theme.RarityColor(def.Rarity));
         }
 
-        /// <summary>Standing height (world units) of a building by footprint size.</summary>
+        /// <summary>True when the blueprint has its own building sprite (a foundation plate fitted to the footprint, not a stand-in).</summary>
+        public static bool HasOwnArt(BlueprintDef def) => def != null && ArtCatalog.Building(def.Id) != null;
+
+        /// <summary>Share of the footprint's width the foundation plate of a building sprite covers.</summary>
+        public const float PlateFill = 0.96f;
+
+        /// <summary>
+        /// Tallest a building sprite may stand (world units) on a w × h footprint: towers on a small plate (Command Spire, Signal
+        /// Beacon) shrink below the footprint width instead of covering half the view. 1×1 3.3, 2×1 4.4, 2×2 5.5, 3×2 6.7, 3×3 7.8.
+        /// </summary>
+        public static float BuildingMaxHeight(int w, int h) => (w + h) * Iso.StepX * 1.35f + 1f;
+
+        /// <summary>Standing height (world units) of a stand-in building (and the scaffold of a construction site) by footprint size.</summary>
         public static float BuildingHeight(int w, int h)
         {
             int a = w * h;

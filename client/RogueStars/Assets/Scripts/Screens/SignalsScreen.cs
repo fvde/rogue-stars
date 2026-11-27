@@ -129,7 +129,7 @@ namespace RogueStars.Client.Screens
             return Fmt.Reward(new Reward(kind, id, 1), Content);
         }
 
-        /// <summary>The featured art on the banner: the alien's sprite when it has one, else a glowing mythic emblem (placeholder).</summary>
+        /// <summary>The featured art on the banner: the alien's / building's sprite when it has one, else a glowing mythic emblem (placeholder).</summary>
         private void FeaturedArt(Transform card, string kind, string id)
         {
             var holder = Ui.Rect(card, "FeaturedArt");
@@ -139,7 +139,7 @@ namespace RogueStars.Client.Screens
             glow.raycastTarget = false;
             SummonKit.Place(glow, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(290, 290));
             UiPulse.On(glow, 0.06f, 1.8f, 1);
-            var art = kind == RewardKinds.Alien ? ArtCatalog.Alien(id) : null;
+            var art = kind == RewardKinds.Alien ? ArtCatalog.Alien(id) : kind == RewardKinds.Blueprint ? ArtCatalog.Building(id) : null;
             var img = SummonKit.Img(holder, art != null ? art : SummonArt.Icon(kind == null ? "token" : "star"), "FeaturedSprite");
             SummonKit.Place(img, new Vector2(0.5f, 0.5f), Vector2.zero, art != null ? new Vector2(280, 280) : new Vector2(200, 200));
             UiBob.On(img.rectTransform, 8, 2.4f);

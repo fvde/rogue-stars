@@ -134,7 +134,7 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>The art of a reward: alien sprite (named "AlienSprite"), hero / mount art, currency icon; parts, runes and blueprints have none yet.</summary>
+        /// <summary>The art of a reward: alien sprite (named "AlienSprite"), building sprite of a blueprint ("BuildingSprite"), hero / mount art, currency icon; parts and runes have none yet.</summary>
         public static Action<RectTransform> ArtFor(Reward r)
         {
             if (r == null) return null;
@@ -146,6 +146,12 @@ namespace RogueStars.Client.Screens
                     if (art == null) return null;
                     return box => { var im = SummonKit.Img(box, art, "AlienSprite"); Ui.Stretch(im.rectTransform); UiCreature.Attach(im, true); };
                 }
+                case RewardKinds.Blueprint:
+                {
+                    var art = ArtCatalog.Building(r.Id);
+                    if (art == null) return null;
+                    return box => Ui.Stretch(SummonKit.Img(box, art, "BuildingSprite").rectTransform, 6, 6, 6, 6);
+                }
                 case RewardKinds.Hero:
                 case RewardKinds.HeroShards:
                     return box => Ui.Stretch(SummonKit.FeaturedArt(box, SummonEventType.Hero, r.Id, "Icon"));
@@ -153,7 +159,7 @@ namespace RogueStars.Client.Screens
                     return box => Ui.Stretch(SummonKit.FeaturedArt(box, SummonEventType.Mount, r.Id, "Icon"));
                 case RewardKinds.Currency:
                     return box => Ui.Stretch(SummonKit.Img(box, SummonArt.CurrencyIcon(r.Id), "Icon").rectTransform, 14, 14, 14, 14);
-                default: return null; // parts (W2 on hold), runes, blueprints: placeholder glyph
+                default: return null; // parts (W2 on hold), runes: placeholder glyph
             }
         }
 

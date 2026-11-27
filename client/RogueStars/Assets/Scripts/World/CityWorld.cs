@@ -377,9 +377,9 @@ namespace RogueStars.Client.World
                 var foot = FootprintCentre(it.X, it.Y, it.W, it.H);
                 int order = Order(it.X + it.W - 1, it.Y + it.H - 1) + 5;
                 var sprite = CityArt.Building(it.Def);
-                float height = CityArt.BuildingHeight(it.W, it.H);
+                float height = CityArt.BuildingHeight(it.W, it.H); // the stand-in's height and the scaffold's
                 float fpW = (it.W + it.H) * Iso.StepX;
-                bool refit = v.Sprite != sprite || v.Order != order || v.Foot != foot || v.Body == null;
+                bool refit = v.Sprite != sprite || v.Order != order || v.Foot != foot || v.Body == null || v.Rect.width != it.W || v.Rect.height != it.H;
                 bool spriteChanged = v.Sprite != sprite;
                 if (refit)
                 {
@@ -390,12 +390,11 @@ namespace RogueStars.Client.World
                         bodyGo.transform.SetParent(v.Go.transform, false);
                         v.Body = bodyGo.AddComponent<SpriteRenderer>();
                     }
-                    FitStanding(v.Body, sprite, fpW * 0.92f, height);
+                    v.Height = FitBuilding(v.Body, sprite, CityArt.HasOwnArt(it.Def), it.W, it.H);
                     v.Body.sortingOrder = order;
                     v.Sprite = sprite;
                     v.Foot = foot;
                     v.Order = order;
-                    v.Height = height;
                 }
                 v.Rect = new RectInt(it.X, it.Y, it.W, it.H);
                 v.Built = b.Level >= 1;
@@ -428,7 +427,7 @@ namespace RogueStars.Client.World
                     v.Glow.sprite = CityArt.Glow();
                     v.Glow.sortingOrder = 32100;
                 }
-                v.Glow.transform.localPosition = new Vector2(0, height * 0.35f);
+                v.Glow.transform.localPosition = new Vector2(0, Mathf.Min(v.Height, height * 1.6f) * 0.35f);
                 v.Glow.transform.localScale = Vector3.one * (0.9f + 0.25f * (it.W + it.H));
                 _last[it.Uid] = v;
             }
@@ -977,7 +976,7 @@ namespace RogueStars.Client.World
             var holder = _ghostBody.transform.parent;
             holder.gameObject.SetActive(true);
             holder.localPosition = foot;
-            FitStanding(_ghostBody, CityArt.Building(def), (w + h) * Iso.StepX * 0.92f, CityArt.BuildingHeight(w, h));
+            FitBuilding(_ghostBody, CityArt.Building(def), CityArt.HasOwnArt(def), w, h);
             _ghostBody.sortingOrder = 31500;
             _ghostBody.color = ok ? new Color(1, 1, 1, 0.82f) : new Color(1, 0.7f, 0.7f, 0.7f);
         }
@@ -1153,6 +1152,12 @@ namespace RogueStars.Client.World
             return v.Foot + new Vector2(0, v.Height * 0.95f);
         }
 
+        /// <summary>The building's body sprite renderer (tests, showcase), or null.</summary>
+        public SpriteRenderer BodyOf(string uid) => _buildings.TryGetValue(uid, out var v) ? v.Body : null;
+
+        /// <summary>How high the building stands (world units, ground to top), or 0.</summary>
+        public float HeightOf(string uid) => _buildings.TryGetValue(uid, out var v) ? v.Height : 0;
+
         public Vector2? FootOf(string uid) => _buildings.TryGetValue(uid, out var v) ? v.Foot : (Vector2?)null;
 
         public bool HasBuilding(string uid) => _buildings.ContainsKey(uid);
@@ -1200,6 +1205,28 @@ namespace RogueStars.Client.World
             sr.sortingOrder = order;
             FitStanding(sr, sprite, maxW, maxH);
             return sr;
+        }
+
+        /// <summary>
+        /// Seats a building on its w × h footprint (the parent's origin = the footprint centre) and returns how high it stands
+        /// (world units, ground to top). Own building art: the trimmed sprite is as wide as its foundation plate, so the plate
+        /// spans <see cref="CityArt.PlateFill"/> of the footprint's width (an iso w × h footprint's bounding box is (w + h) steps
+        /// wide whatever the rotation), capped at <see cref="CityArt.BuildingMaxHeight"/>; the plate's centre (the import pivot)
+        /// sits on the footprint centre. Stand-ins: fitted into the footprint width × <see cref="CityArt.BuildingHeight"/>.
+        /// </summary>
+        public static float FitBuilding(SpriteRenderer sr, Sprite sprite, bool own, int w, int h)
+        {
+            float fpW = (w + h) * Iso.StepX;
+            if (!own || sprite == null)
+            {
+                FitStanding(sr, sprite, fpW * 0.92f, CityArt.BuildingHeight(w, h));
+                return CityArt.BuildingHeight(w, h);
+            }
+            var b = sprite.bounds;
+            float k = Mathf.Min(fpW * CityArt.PlateFill / Mathf.Max(0.01f, b.size.x), CityArt.BuildingMaxHeight(w, h) / Mathf.Max(0.01f, b.size.y));
+            FitStanding(sr, sprite, b.size.x * k, b.size.y * k);
+            var c = SpriteContact.Of(sprite);
+            return (sprite.rect.height - c.Y) / sprite.pixelsPerUnit * k;
         }
 
         /// <summary>Fits a sprite into maxW × maxH with its ground contact (<see cref="SpriteContact"/>) on the parent's origin.</summary>

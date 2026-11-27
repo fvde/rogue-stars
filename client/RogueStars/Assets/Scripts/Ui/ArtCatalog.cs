@@ -373,6 +373,12 @@ namespace RogueStars.Client.UiKit
         /// <summary>A status icon by key (bleed, heat, radiation, guard…), or null (the drawn glyph, World.StatusArt).</summary>
         public static Sprite StatusIcon(string key) => string.IsNullOrEmpty(key) ? null : Load(StatusFolder + "/" + key);
 
+        /// <summary>City buildings: <c>Art/City/Buildings/&lt;blueprint id&gt;</c>, each standing on its foundation plate (pivot = the plate's centre).</summary>
+        public const string BuildingFolder = "Art/City/Buildings";
+
+        /// <summary>A building's own sprite by blueprint id (bp_ore_mine…), or null (CityArt's stand-in set piece / drawn hut).</summary>
+        public static Sprite Building(string blueprintId) => string.IsNullOrEmpty(blueprintId) ? null : Load(BuildingFolder + "/" + blueprintId);
+
         /// <summary>A summoned sidekick's sprite (sk_drone…), or null (the drawn drone, HudArt.Drone).</summary>
         public static Sprite Sidekick(string sidekickId) => string.IsNullOrEmpty(sidekickId) ? null : Load(SidekickFolder + "/" + sidekickId);
 

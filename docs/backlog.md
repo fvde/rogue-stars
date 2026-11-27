@@ -25,7 +25,7 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 |---|---|---|
 | D1 | **Part icons** (all 31 parts have no dedicated icon, and the client has no part-icon lookup: part tiles are text-only) | On hold until the general parts review; needs a code slot on every part tile as well as the art. |
 | D2 | **Parts review**: Gear Cores as a second currency, the "Legs" slot on a legless worm | Owner review pending. |
-| D3 | **Building art**: all buildings use stand-in set pieces and markers | Real building sprites (1x1, 2x1, 2x2, 3x2, 3x3) and "lights on" overlays are an art task. |
+| D3 | **Building "lights on" overlays**: at night the City lights a working building with a code-drawn warm glow | The 25 building sprites are imported (art import 4, each plate fitted to its 1x1 to 3x3 footprint); lit-window overlays per building are still an art task. |
 | D4 | **13 of 21 alien species have no sprite** (coloured placeholders) | Art queue (3 approved, being imported). |
 | D5 | **Skill icons**: skills show letters or stars | Art queue (skills-v2, about 160 icons). |
 | D6 | **Shard Reactor screen** (empty state, selected chip colour) | Fix with the building UI work. |
@@ -37,7 +37,7 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | D12 | **Enemy, boss, event, mount, mini-game, status, currency and shop-pack art** | Art queue (see the art page). |
 | D13 | **Playtest 0.1.251 findings** | Owner is reviewing; do not re-report. |
 | D14 | **The cut-out sprite pedestal on the dice button is code-drawn** | The imported pedestal art does not fit the button shape. |
-| D16 | **Camp mode (levels 6 to 14) is sparse**: large empty land, pod uses a burrow-mound stand-in and sits behind the saucer | Real pod art and a tighter camp layout come with the building art. |
+| D16 | **Camp mode (levels 6 to 14) is sparse**: large empty land, the pod sits behind the saucer | The pod has its own art now (art import 4); a tighter camp layout is still open. |
 | D17 | **"Watch 1 ad" daily quest needs an "ads enabled" gate** | `d_ad` requires the Shop feature and hides while `ShopConfig.AdsDisabled` is set (the only ad notion the rules have). When ads ship, give it a real gate (ad gateway ready, ad placement available to the player) instead of the global flag. The early daily track (100 points) never depends on it. |
 | D15 | **Animation** | Deferred completely (owner, 2026-11-26); code is behind `AnimSettings.Enabled` (false: static sprites, no taps, no Settings control). |
 

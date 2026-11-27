@@ -81,6 +81,7 @@ namespace RogueStars.Client.World
             if (r.Kind == RewardKinds.Mount) return Featured(SummonEventType.Mount, r.Id);
             if (r.Kind == RewardKinds.HeroShards) return Icon("shards");
             if (r.Kind == RewardKinds.FreePull) return Icon(FreePullIcon(r.Id));
+            if (r.Kind == RewardKinds.Blueprint) return ArtCatalog.Building(r.Id) ?? Icon("token");
             return Icon(IconOfCurrency(r.Kind == RewardKinds.Currency ? r.Id : null));
         }
 
