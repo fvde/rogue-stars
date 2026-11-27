@@ -61,7 +61,7 @@ namespace RogueStars.Client.World
             if (currency == Currencies.Biomass) return "biomass";
             if (currency == Currencies.Data) return "data";
             if (currency == RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores) return "awaken_core";
-            if (currency == Currencies.GearCores) return "core";
+            if (currency == Currencies.GearCores || currency == Currencies.Metal) return "core"; // parts v2: Metal (own icon in phase 2)
             if (currency == Currencies.ArenaTickets || currency == Currencies.InvasionAttempts) return "arena_ticket";
             if (currency == Currencies.ArenaMedals || currency == Currencies.GuildMarks) return "medal";
             if (currency == Currencies.BurrowKeys) return "key";

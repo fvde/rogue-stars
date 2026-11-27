@@ -249,16 +249,8 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>A part's ladder rarity (14 steps) on the five-step reveal scale.</summary>
-        private static Rarity RunTierOfPart(int partRarity)
-        {
-            // ladder: 0 Common, 1 Uncommon, 2 Rare, 3 Epic, 4 Legendary, 5+ Mythic and up
-            if (partRarity >= 5) return Rarity.Mythic;
-            if (partRarity == 4) return Rarity.Legendary;
-            if (partRarity == 3) return Rarity.Epic;
-            if (partRarity >= 1) return Rarity.Rare;
-            return Rarity.Common;
-        }
+        /// <summary>A part's rarity on the five-step reveal scale (parts v2: 0 Common … 3 Legendary, 4+ Mythic and its ladder steps).</summary>
+        private static Rarity RunTierOfPart(int partRarity) => (Rarity)Mathf.Clamp(partRarity, 0, 4);
 
         // ---- the ceremony -------------------------------------------------------------------------------
 

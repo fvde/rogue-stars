@@ -200,7 +200,7 @@ namespace RogueStars.Client.Tests
             var cost1 = Child(modal, "LevelCost").GetComponent<Text>().text;
             Assert.That(cost1, Does.Contain(Fmt.Num(cost) + " Ore"));
             Assert.That(Child(modal, "ReadyChip"), Is.Not.Null, "affordable: READY");
-            Assert.That(Child(modal, "Skill:off"), Is.Not.Null, "skills by rarity are listed");
+            Assert.That(Child(modal, "Skill:on"), Is.Null, "parts v2: a Common part has no skills"); // Epic+ list theirs (PartsLabArenaScreenTests)
             var up = Named(modal, "PartLevelUp");
             Assert.That(up.interactable, Is.True);
             long ore = S.Wallet.Get(Currencies.Ore);

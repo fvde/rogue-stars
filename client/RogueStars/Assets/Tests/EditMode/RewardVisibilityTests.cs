@@ -72,8 +72,8 @@ namespace RogueStars.Client.Tests
         {
             Assert.That(HubLayout.VisibleCurrencies(S, C), Is.EqualTo(new[] { Currencies.Stamina, Currencies.Diamonds }), "brand-new account");
             Unlock(Features.Parts);
-            Assert.That(HubLayout.VisibleCurrencies(S, C), Is.EqualTo(new[] { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.PartTokens }), "Part Signals come with Parts");
-            S.Counters["part_rarity_max"] = (int)PartRarity.Uncommon; // a part that can pass level 10: Gear Cores have a use
+            Assert.That(HubLayout.VisibleCurrencies(S, C), Is.EqualTo(new[] { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.Metal, Currencies.PartTokens }), "Part Signals and Metal come with Parts");
+            S.Counters["part_rarity_max"] = (int)PartRarity.Rare; // a part that can pass level 10: Gear Cores have a use
             Assert.That(HubLayout.VisibleCurrencies(S, C), Does.Contain(Currencies.GearCores));
             Unlock(Features.Laboratory, Features.Mounts);
             var visible = HubLayout.VisibleCurrencies(S, C);

@@ -36,7 +36,7 @@ namespace RogueStars.Client.Screens
             ("Offense", new[]
             {
                 StatId.CritChance, StatId.CritDamage, StatId.ComboChance, StatId.CounterChance, StatId.DodgeIgnore, StatId.BossDamage,
-                StatId.RageGain, StatId.ArcDamage, StatId.EchoDamage, StatId.SupernovaDamage,
+                StatId.RageGain, StatId.ArcDamage, StatId.EchoDamage, StatId.SupernovaDamage, StatId.DamageDealt,
             }),
             ("Defense", new[]
             {
@@ -98,7 +98,7 @@ namespace RogueStars.Client.Screens
         {
             if (!StatMod.IsPointStat(id)) return Fmt.Num(Math.Round(v));
             string s = Fmt.Pct(v);
-            return (id == StatId.DamageTaken || id == StatId.HealReceived) && v > 0 ? "+" + s : s;
+            return (id == StatId.DamageTaken || id == StatId.HealReceived || id == StatId.DamageDealt) && v > 0 ? "+" + s : s;
         }
 
         /// <summary>The note of a soft-capped stat: what the battle actually uses, when that differs from the stat.</summary>

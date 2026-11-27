@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace RogueStars.Client.Tests
 {
-    /// <summary>Parts merge picker / Replicator / awakening preview, laboratory tree, arena shop and the new currency surfaces.</summary>
+    /// <summary>Parts ladder picker / Replicator / awakening preview, laboratory tree, arena shop and the new currency surfaces.</summary>
     public sealed class PartsLabArenaScreenTests
     {
         private AppFixture _f;
@@ -75,122 +75,98 @@ namespace RogueStars.Client.Tests
             return null;
         }
 
-        // ---- merge picker ----------------------------------------------------------------------------
+        // ---- Mythic ladder picker (parts v2) -----------------------------------------------------------
+
+        private const string Blaster = "myth_firebrand_blaster", Cannon = "myth_shatter_cannon", Whip = "myth_chainlash_whip", Crown = "myth_cinder_crown";
 
         [Test]
-        public void PickFodder_CoversTheNeed_WithoutSuperfluousParts_AndPrefersTheCheapestSet()
+        public void ClimbPicker_AutoSelectsCopiesAndOtherMythicsOfTheSlot_AndClimbs()
         {
-            var ids = DefIds();
-            var pool = new List<PartItem>();
-            foreach (var r in new[] { PartRarity.Epic, PartRarity.Epic, PartRarity.Epic, PartRarity.Legendary, PartRarity.Mythic })
-                pool.Add(new PartItem { Uid = "x" + pool.Count, DefId = ids[1], Rarity = (int)r });
-            long Sum(List<PartItem> l) { long s = 0; foreach (var p in l) s += PartsSystem.FodderValue(C, p); return s; }
-            foreach (long need in new long[] { 27, 54, 81, 100, 162, 300, 324, 400 })
-            {
-                var pick = PartPlanner.PickFodder(C, pool, need);
-                Assert.That(pick, Is.Not.Null, "need " + need);
-                long sum = Sum(pick), min = long.MaxValue;
-                foreach (var p in pick) min = System.Math.Min(min, PartsSystem.FodderValue(C, p));
-                Assert.That(sum, Is.GreaterThanOrEqualTo(need), "covers " + need);
-                Assert.That(sum - min, Is.LessThan(need), "no superfluous part for " + need);
-            }
-            Assert.That(Sum(PartPlanner.PickFodder(C, pool, 162)), Is.EqualTo(162), "Epic×3 + Legendary, not the Mythic");
-            Assert.That(PartPlanner.PickFodder(C, pool, 10_000), Is.Null);
-        }
-
-        [Test]
-        public void MergePicker_AutoSelectsCopyAndBestFodder_ForMythic_AndMerges()
-        {
-            var ids = DefIds();
-            var target = Grant(ids[0], PartRarity.Legendary, 1)[0];
-            var copy = Grant(ids[0], PartRarity.Legendary, 1)[0];
-            var fodder = Grant(ids[1], PartRarity.Legendary, 3);
-            var mythic = Grant(ids[2], PartRarity.Mythic, 1)[0];
-            Grant(ids[3], PartRarity.Epic, 4); // below the minimum rarity: never used
+            var target = Grant(Blaster, PartRarity.MythicS, 1)[0];
+            var copies = Grant(Blaster, PartRarity.Mythic, 2);
+            var others = new List<string> { Grant(Cannon, PartRarity.Mythic, 1)[0], Grant(Whip, PartRarity.Mythic, 1)[0] };
+            var head = Grant(Crown, PartRarity.Mythic, 1)[0]; // another slot: never an other Mythic of an arm
             GrantCurrency(Currencies.Ore, 100_000);
+            GrantCurrency(Currencies.Metal, 1000);
             var screen = OpenParts();
             screen.OpenMergePicker(target, false);
             var plan = screen.PickerPlan;
             Assert.That(plan, Is.Not.Null);
             Assert.That(plan.Valid, Is.True, plan.Error);
-            Assert.That(plan.NextRarity, Is.EqualTo((int)PartRarity.Mythic));
-            Assert.That(plan.Copies, Is.EqualTo(new[] { copy }));
-            Assert.That(plan.Fodder.Count, Is.EqualTo(2), "2 LE of fodder");
-            Assert.That(plan.FodderPoints, Is.EqualTo(plan.FodderNeeded));
-            Assert.That(plan.Materials, Does.Not.Contain(mythic), "Mythic parts are not auto-used while plain fodder exists");
+            Assert.That(plan.NextRarity, Is.EqualTo((int)PartRarity.MythicS1));
+            Assert.That(plan.Copies, Is.EquivalentTo(copies));
+            Assert.That(plan.Fodder, Is.EquivalentTo(others));
+            Assert.That(plan.Materials, Does.Not.Contain(head));
+            Assert.That(plan.Metal, Is.EqualTo(300));
+            Assert.That(plan.Ore, Is.EqualTo(C.PartsConfig.Rarities[(int)PartRarity.MythicS1].Climb.Ore));
             Assert.That(plan.NeedsConfirmation, Is.False);
-            Assert.That(plan.Ore, Is.EqualTo(C.PartsConfig.Rarities[(int)PartRarity.Mythic].Merge.Ore));
-            Assert.That(PartPlanner.Le(C, plan.FodderNeeded), Is.EqualTo("2 LE"));
             long ore = S.Wallet.Get(Currencies.Ore);
             screen.ConfirmPick();
-            Assert.That(S.Parts.Items[target].Rarity, Is.EqualTo((int)PartRarity.Mythic));
-            Assert.That(S.Parts.Items.ContainsKey(copy), Is.False);
+            Assert.That(S.Parts.Items[target].Rarity, Is.EqualTo((int)PartRarity.MythicS1));
             Assert.That(S.Wallet.Get(Currencies.Ore), Is.EqualTo(ore - plan.Ore));
-            Assert.That(S.Parts.Items.ContainsKey(mythic), Is.True);
+            Assert.That(S.Wallet.Get(Currencies.Metal), Is.EqualTo(700));
+            Assert.That(S.Parts.Items.ContainsKey(head), Is.True);
         }
 
         [Test]
-        public void MergePicker_NeverUsesEquippedParts_AndAsksBeforeLockedOrMythicParts()
+        public void ClimbPicker_NeverUsesEquippedMythics_AndAsksBeforeLockedOnes()
         {
-            var ids = DefIds();
-            var target = Grant(ids[0], PartRarity.Epic, 1)[0];
-            var locked = Grant(ids[1], PartRarity.Epic, 2);
+            var target = Grant(Blaster, PartRarity.MythicS, 1)[0];
+            Grant(Blaster, PartRarity.Mythic, 2);
+            var locked = new List<string> { Grant(Cannon, PartRarity.Mythic, 1)[0], Grant(Cannon, PartRarity.Mythic, 1)[0] };
             PartLocks.Set(S.PlayerId, locked[0], true);
             PartLocks.Set(S.PlayerId, locked[1], true);
-            // an equipped Epic of the right kind: rules refuse it, the planner never offers it
-            string equipped = null;
-            foreach (var id in ids)
-            {
-                if (C.PartsConfig.Defs[id].Kind == PartKind.Arm) continue;
-                equipped = Grant(id, PartRarity.Epic, 1)[0];
-                Assert.That(_f.Service.ExecuteNow(new PartEquip { Uid = equipped, Slot = (PartSlot)(int)C.PartsConfig.Defs[id].Kind }).Ok, Is.True);
-                break;
-            }
+            var equipped = Grant(Whip, PartRarity.Mythic, 1)[0];
+            Assert.That(_f.Service.ExecuteNow(new PartEquip { Uid = equipped, Slot = PartSlot.LeftArm }).Ok, Is.True);
+            GrantCurrency(Currencies.Ore, 100_000);
+            GrantCurrency(Currencies.Metal, 1000);
             var screen = OpenParts();
             screen.OpenMergePicker(target, false);
             var plan = screen.PickerPlan;
             Assert.That(plan.Valid, Is.True, plan.Error);
             Assert.That(plan.Materials, Does.Not.Contain(equipped));
-            Assert.That(plan.NeedsConfirmation, Is.True, "only locked parts can cover the fodder");
+            Assert.That(plan.NeedsConfirmation, Is.True, "only locked Mythics can be the other Mythics");
             Assert.That(plan.Protected, Is.EquivalentTo(locked));
             int parts = S.Parts.Items.Count;
             screen.ConfirmPick();
-            Assert.That(S.Parts.Items.Count, Is.EqualTo(parts), "nothing merged before the confirmation");
+            Assert.That(S.Parts.Items.Count, Is.EqualTo(parts), "nothing climbed before the confirmation");
             Assert.That(_f.App.ModalLayer.GetChild(_f.App.ModalLayer.childCount - 1).name, Is.EqualTo("Modal:ConfirmProtected"));
 
-            // with free fodder available the locked parts are left alone
-            var free = Grant(ids[2], PartRarity.Epic, 2);
+            // with free other Mythics available the locked ones are left alone
+            // (not the equipped Whip's def: those are its own copies, protected)
+            var free = new List<string> { Grant("myth_arcwright_drill", PartRarity.Mythic, 1)[0], Grant("myth_bloodletter_claw", PartRarity.Mythic, 1)[0] };
             screen.AutoPick();
             Assert.That(screen.PickerPlan.NeedsConfirmation, Is.False);
             Assert.That(screen.PickerPlan.Fodder, Is.EquivalentTo(free));
         }
 
         [Test]
-        public void MergePicker_ManualSelection_IsCheckedByTheRules()
+        public void ClimbPicker_ManualSelection_IsCheckedByTheRules()
         {
-            var ids = DefIds();
-            var target = Grant(ids[0], PartRarity.Common, 1)[0];
-            var commons = Grant(ids[1], PartRarity.Common, 3);
+            var target = Grant(Blaster, PartRarity.Mythic, 1)[0];
+            var copy = Grant(Blaster, PartRarity.Mythic, 1)[0];
+            var other = Grant(Cannon, PartRarity.Mythic, 1)[0];
+            GrantCurrency(Currencies.Ore, 100_000);
+            GrantCurrency(Currencies.Metal, 1000);
             var screen = OpenParts();
             screen.OpenMergePicker(target, false);
             Assert.That(screen.PickerPlan.Valid, Is.True, screen.PickerPlan.Error);
-            Assert.That(screen.PickerPlan.Fodder.Count, Is.EqualTo(2));
-            foreach (var uid in commons) if (!screen.PickerPlan.Fodder.Contains(uid)) screen.TogglePick(uid);
-            Assert.That(screen.PickerPlan.Valid, Is.False, "three Commons for 2 points: superfluous");
-            Assert.That(screen.PickerPlan.Error, Does.Contain("superfluous"));
+            Assert.That(screen.PickerPlan.Copies, Is.EqualTo(new[] { copy }));
+            screen.TogglePick(other);
+            Assert.That(screen.PickerPlan.Valid, Is.False, "Mythic → +1 takes one copy and no other Mythics");
+            Assert.That(screen.PickerPlan.Error, Does.Contain("other Mythics"));
             screen.ClearPick();
             Assert.That(screen.PickerPlan.Valid, Is.False);
             Assert.That(screen.PickerPlan.FodderPoints, Is.EqualTo(0));
         }
 
         [Test]
-        public void Replicator_TurnsTenLegendaryEquivalentsIntoALegendaryCopy()
+        public void Replicator_TurnsThreeSpareMythicsIntoACopy()
         {
-            var ids = DefIds();
-            var target = Grant(ids[0], PartRarity.Mythic, 1)[0];
-            Grant(ids[0], PartRarity.Legendary, 1); // own def: never replicator fodder
-            Grant(ids[1], PartRarity.Legendary, 6);
-            Grant(ids[2], PartRarity.Legendary, 5);
+            var target = Grant(Blaster, PartRarity.MythicS, 1)[0];
+            Grant(Crown, PartRarity.Mythic, 1);
+            Grant("myth_rimeguard_plate", PartRarity.Mythic, 1);
+            Grant("myth_storm_coil", PartRarity.Mythic, 1);
             GrantCurrency(Currencies.Ore, C.PartsConfig.ReplicateOre);
             long ore = S.Wallet.Get(Currencies.Ore);
             var screen = OpenParts();
@@ -198,32 +174,31 @@ namespace RogueStars.Client.Tests
             var plan = screen.PickerPlan;
             Assert.That(plan.Replicate, Is.True);
             Assert.That(plan.Valid, Is.True, plan.Error);
-            Assert.That(plan.FodderPoints, Is.EqualTo(C.PartsConfig.ReplicateFodderPoints));
-            foreach (var uid in plan.Materials) Assert.That(S.Parts.Items[uid].DefId, Is.Not.EqualTo(ids[0]));
-            int copies = 0;
-            foreach (var p in S.Parts.Items.Values) if (p.DefId == ids[0] && p.Rarity == (int)PartRarity.Legendary) copies++;
+            Assert.That(plan.Materials.Count, Is.EqualTo(3));
+            foreach (var uid in plan.Materials) Assert.That(S.Parts.Items[uid].DefId, Is.Not.EqualTo(Blaster));
             screen.ConfirmPick();
-            int after = 0;
-            foreach (var p in S.Parts.Items.Values) if (p.DefId == ids[0] && p.Rarity == (int)PartRarity.Legendary) after++;
-            Assert.That(after, Is.EqualTo(copies + 1));
+            int copies = 0;
+            foreach (var p in S.Parts.Items.Values) if (p.DefId == Blaster && p.Rarity == (int)PartRarity.Mythic) copies++;
+            Assert.That(copies, Is.EqualTo(1));
             Assert.That(S.Wallet.Get(Currencies.Ore), Is.EqualTo(ore - C.PartsConfig.ReplicateOre));
         }
 
         // ---- skills / awakening ------------------------------------------------------------------------
 
         [Test]
-        public void PartSkills_FiveSkills_UnlockByRarity()
+        public void PartSkills_MythicFive_ActiveByLadderStep_StandardByRarity()
         {
-            var ids = DefIds();
-            foreach (var (rarity, unlocked) in new[] { (PartRarity.Common, 0), (PartRarity.Epic, 1), (PartRarity.Legendary, 2), (PartRarity.Mythic2, 3), (PartRarity.MythicS, 4), (PartRarity.MythicSS2, 5) })
+            foreach (var (rarity, unlocked) in new[] { (PartRarity.Mythic, 3), (PartRarity.Mythic2, 3), (PartRarity.MythicS, 4), (PartRarity.MythicSS, 5) })
             {
-                var p = new PartItem { Uid = "t", DefId = ids[0], Rarity = (int)rarity };
+                var p = new PartItem { Uid = "t", DefId = Blaster, Rarity = (int)rarity };
                 var lines = PartPlanner.SkillLines(C, p, false);
                 Assert.That(lines.Count, Is.EqualTo(5));
                 Assert.That(lines.FindAll(l => l.Unlocked).Count, Is.EqualTo(unlocked), rarity.ToString());
                 Assert.That(lines.FindAll(l => l.Unlocked).ConvertAll(l => l.SkillId), Is.EqualTo(PartsSystem.PartSkills(C, p)));
             }
-            var target = Grant(ids[0], PartRarity.MythicS, 1)[0];
+            Assert.That(PartPlanner.SkillLines(C, new PartItem { DefId = "c_head_guard", Rarity = 0 }, false), Is.Empty);
+            Assert.That(PartPlanner.SkillLines(C, new PartItem { DefId = "l_head_guard", Rarity = (int)PartRarity.Legendary }, false).FindAll(l => l.Unlocked).Count, Is.EqualTo(2));
+            var target = Grant(Blaster, PartRarity.MythicS, 1)[0];
             var screen = OpenParts();
             screen.Detail(target);
             int on = 0, off = 0;
@@ -235,9 +210,8 @@ namespace RogueStars.Client.Tests
         [Test]
         public void AwakenPreview_ShowsRedesignedNameStatsAndSkills_AndAwakensOnceForCores()
         {
-            var ids = DefIds();
-            var uid = Grant(ids[0], PartRarity.Mythic, 1)[0];
-            var def = C.PartsConfig.Defs[ids[0]];
+            var uid = Grant(Blaster, PartRarity.Mythic, 1)[0];
+            var def = C.PartsConfig.Defs[Blaster];
             var p = S.Parts.Items[uid];
             var pv = PartPlanner.Awaken(S, C, p);
             Assert.That(pv.NameBefore, Is.EqualTo(def.Name));
@@ -250,7 +224,7 @@ namespace RogueStars.Client.Tests
             Assert.That(pv.SkillsAfter.ConvertAll(s => s.SkillId), Is.EqualTo(def.AwakenedSkillIds));
             Assert.That(pv.SkillsAfter.FindAll(s => s.Unlocked).Count, Is.EqualTo(3), "an awakened Mythic has three skills");
             Assert.That(pv.BlockReason, Does.Contain("Awaken Cores"));
-            Assert.That(PartPlanner.Awaken(S, C, new PartItem { Uid = "e", DefId = ids[0], Rarity = (int)PartRarity.Legendary }).BlockReason, Does.Contain("Mythic"));
+            Assert.That(PartPlanner.Awaken(S, C, new PartItem { Uid = "e", DefId = "l_arm_fury", Rarity = (int)PartRarity.Legendary }).BlockReason, Does.Contain("Mythic"));
 
             GrantCurrency(ProgressionCurrencies.PartAwakenCores, C.PartsConfig.AwakenCost);
             var screen = OpenParts();

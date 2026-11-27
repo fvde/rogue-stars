@@ -476,27 +476,28 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Parts_MergeFinderPicksValidMaterials()
+        public void Parts_LadderFinderPicksValidMaterials()
         {
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.Service.DevGrantStarterKit();
+            _f.Service.DevGrant(new[] { new Reward(RewardKinds.Part, "myth_firebrand_blaster", 2, (int)PartRarity.Mythic) });
             _f.App.Open("parts");
             var screen = (PartsScreen)_f.App.Router.Current;
-            int merged = 0;
+            int climbed = 0;
             foreach (var uid in PartsSystem.SortedPartUids(_f.Service.State))
             {
                 var p = PartsSystem.Get(_f.Service.State, uid);
                 if (p == null) continue;
                 var mats = screen.FindMergeMaterials(p, out _);
                 if (mats == null) continue;
-                var cmd = new PartMerge { TargetUid = uid };
+                var cmd = new PartClimb { TargetUid = uid };
                 cmd.MaterialUids.AddRange(mats);
                 var r = _f.Service.ExecuteNow(cmd);
                 Assert.That(r.Ok, Is.True, r.Error);
-                merged++;
+                climbed++;
                 break;
             }
-            Assert.That(merged, Is.EqualTo(1), "three common copies merge");
+            Assert.That(climbed, Is.EqualTo(1), "a Mythic and one copy climb to Mythic+1");
         }
 
         [Test]

@@ -417,7 +417,7 @@ namespace RogueStars.Client.App
             switch (screen)
             {
                 case "WormScreen": case "PartsScreen": case "GearScreen":
-                    return new[] { Currencies.Ore, Currencies.GearCores, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, Currencies.Diamonds };
+                    return new[] { Currencies.Ore, Currencies.Metal, Currencies.GearCores, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, Currencies.Diamonds };
                 case "CityScreen": return new[] { Currencies.Biomass, Currencies.Grain, Currencies.Ore, Currencies.Diamonds };
                 case "HeroesScreen": return new[] { Currencies.HeroXp, Currencies.HeroSigils, Currencies.Diamonds };
                 case "MountsScreen": return new[] { Currencies.Fuel, Currencies.MountBolts, Currencies.Diamonds };

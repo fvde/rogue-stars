@@ -39,7 +39,7 @@ namespace RogueStars.Client.App
         private static readonly Dictionary<string, string> Names = new Dictionary<string, string>
         {
             { Currencies.Biomass, "Biomass" }, { Currencies.Grain, "Grain" }, { Currencies.Ore, "Ore" },
-            { Currencies.GearCores, "Gear Cores" }, { Currencies.AdvancementPlates, "Adv. Plates" }, { Currencies.Fuel, "Fuel" },
+            { Currencies.GearCores, "Gear Cores" }, { Currencies.Metal, "Metal" }, { Currencies.AdvancementPlates, "Adv. Plates" }, { Currencies.Fuel, "Fuel" },
             { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Schematics" },
             { Currencies.PartTokens, "Crates" }, { Currencies.AlienTokens, "Signals" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
@@ -63,7 +63,7 @@ namespace RogueStars.Client.App
         private static readonly Dictionary<string, string> Short = new Dictionary<string, string>
         {
             { Currencies.Biomass, "BIO" }, { Currencies.Grain, "GRN" }, { Currencies.Ore, "ORE" }, { Currencies.Diamonds, "DIA" },
-            { Currencies.Stamina, "STA" }, { Currencies.Fuel, "FUEL" }, { Currencies.GearCores, "CORE" }, { Currencies.ArenaTickets, "TIX" },
+            { Currencies.Stamina, "STA" }, { Currencies.Fuel, "FUEL" }, { Currencies.GearCores, "CORE" }, { Currencies.Metal, "METAL" }, { Currencies.ArenaTickets, "TIX" },
             { Currencies.Data, "DATA" }, { Currencies.ArenaMedals, "MEDAL" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "AWAKEN" },
         };
 

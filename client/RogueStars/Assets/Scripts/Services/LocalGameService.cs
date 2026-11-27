@@ -190,7 +190,7 @@ namespace RogueStars.Client.Services
             rewards.Add(Reward.Cur(Currencies.GearCores, 2000));
             rewards.Add(Reward.Cur(Currencies.Fuel, 5000));
             rewards.Add(Reward.Cur(Currencies.HeroXp, 5000));
-            rewards.Add(Reward.Cur(Currencies.AdvancementPlates, 50));
+            rewards.Add(Reward.Cur(Currencies.Metal, 1000));
             var alienIds = new List<string>(Content.AlienTypes.Keys);
             alienIds.Sort(string.CompareOrdinal);
             for (int i = 0; i < alienIds.Count && i < 4; i++) rewards.Add(new Reward(RewardKinds.Alien, alienIds[i], 2));

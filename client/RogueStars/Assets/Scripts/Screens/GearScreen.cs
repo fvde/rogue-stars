@@ -134,10 +134,12 @@ namespace RogueStars.Client.Screens
                 Part(body, "inv:empty", empty, b => Note(b, empty));
             }
 
-            Part(body, "inv:foot", K(count >= 3, FooterExtrasKey()), b =>
+            Part(body, "inv:foot", K(count, PartPlanner.Feedable(State, Content, Locks).Count, FooterExtrasKey()), b =>
             {
                 var foot = Ui.Row(b, 80, 10, null, 0, "InventoryFoot");
-                Ui.Button(foot, "Quick merge\n<size=20>3→1 up to " + RarityName(Content, (int)Content.PartsConfig.QuickMergeMaxTarget) + "</size>", QuickMerge, Theme.Button, -1, 80, count >= 3, 26).name = "QuickMerge";
+                // parts v2: nothing merges; spare standard parts become Metal for the Mythic ladder
+                int spare = PartPlanner.Feedable(State, Content, Locks).Count;
+                Ui.Button(foot, "Feed spares\n<size=20>" + spare + " part" + (spare == 1 ? "" : "s") + " → Metal</size>", FeedSpares, Theme.Button, -1, 80, spare > 0, 26).name = "FeedSpares";
                 InventoryFooterExtras(foot);
             });
 
@@ -156,7 +158,7 @@ namespace RogueStars.Client.Screens
         /// <summary>What <see cref="InventoryFooterExtras"/> shows depends on (part key).</summary>
         protected virtual string FooterExtrasKey() => "";
 
-        /// <summary>More buttons next to Quick merge (the Worm adds Runes).</summary>
+        /// <summary>More buttons next to Feed spares (the Worm adds Runes).</summary>
         protected virtual void InventoryFooterExtras(RectTransform row) { }
 
         /// <summary>Tile grid: three columns of 296 + 2 × 14 = 916 ≤ the 930-unit body (978 − 2 × 24 padding).</summary>
@@ -173,7 +175,7 @@ namespace RogueStars.Client.Screens
             Kit.RarityCard(grid, "Part:" + p.Uid, rc, () => Detail(p.Uid), out var c, 30, 16, 4, eq, null, eq ? 0.38f : 0.26f);
             var kindRow = Ui.Row(c, 30, 0, null, 0, "KindRow");
             Ui.Spacer(kindRow, 34).GetComponent<LayoutElement>().flexibleWidth = 0; // room for the rarity gem
-            Ui.Label(kindRow, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · " + def.Style.ToString().ToUpperInvariant() : ""), 20, Theme.TextDim, TextAnchor.MiddleLeft, "Kind").fontStyle = FontStyle.Bold;
+            Ui.Label(kindRow, def.Kind.ToString().ToUpperInvariant() + (def.IsMythic ? " · " + (def.Synergy ?? "").ToUpperInvariant() : " · " + def.Role.ToString().ToUpperInvariant()), 20, Theme.TextDim, TextAnchor.MiddleLeft, "Kind").fontStyle = FontStyle.Bold;
             var name = Ui.Display(c, PartName(Content, p), 28, Color.Lerp(rc, Color.white, 0.6f), TextAnchor.UpperLeft, "Name");
             Ui.Size(name, -1, 66, 1);
             var lvRow = Ui.Row(c, 38, 8, null, 0, "Level");
@@ -205,15 +207,16 @@ namespace RogueStars.Client.Screens
             }, new ModalButton("Close", null));
         }
 
-        /// <summary>Quick merge (rules: 3→1 below Legendary, never equipped parts); asks first if locked parts could be used.</summary>
-        protected void QuickMerge()
+        /// <summary>Feed every spare standard part (not equipped, locked or forged; never Mythics) for Metal, after a confirmation.</summary>
+        protected void FeedSpares()
         {
-            int locked = 0;
-            foreach (var p in PartPlanner.Candidates(State, null))
-                if (Locks.Contains(p.Uid) && p.Rarity < (int)Content.PartsConfig.QuickMergeMaxTarget) locked++;
-            if (locked == 0) { Run(new PartQuickMerge()); return; }
-            Modal("Quick merge", b => Note(b, "Quick merge may use " + locked + " locked part(s) below " + RarityName(Content, (int)Content.PartsConfig.QuickMergeMaxTarget) + " as fodder."),
-                new ModalButton("Cancel", null), new ModalButton("Merge anyway", () => Run(new PartQuickMerge()), Theme.Warn));
+            var spare = PartPlanner.Feedable(State, Content, Locks);
+            if (spare.Count == 0) return;
+            long metal = 0;
+            foreach (var p in spare) metal += PartsSystem.MetalValue(Content, p);
+            void Go() { var cmd = new PartFeed(); foreach (var p in spare) cmd.Uids.Add(p.Uid); Run(cmd); }
+            Modal("Feed " + spare.Count + " spare part" + (spare.Count == 1 ? "" : "s") + "?", b => Note(b, "They become " + Fmt.Num(metal) + " Metal for the Mythic ladder (Common 1, Rare 2, Epic 6, Legendary 20); their level Ore and runes come back."),
+                new ModalButton("Cancel", null), new ModalButton("Feed", Go, Theme.Warn)).Root.name = "Modal:FeedSpares";
         }
 
         // ---- part detail -------------------------------------------------------------------------
@@ -229,15 +232,16 @@ namespace RogueStars.Client.Screens
             var def = PartsSystem.Def(Content, p);
             var cfg = Content.PartsConfig;
             var slot = GearGuide.EquippedSlot(State, uid);
-            bool locked = Locks.Contains(uid);
+            bool locked = Locks.Contains(uid) || p.Locked;
             var rc = RarityColor(p.Rarity);
             var modal = Modal(PartName(Content, p), outer => Ui.ScrollingColumn(outer, DetailMaxHeight, b =>
             {
                 // who: rarity, slot, family, equipped
                 var tags = Ui.ChipRow(b, 46, 8);
                 Ui.Chip(tags, RarityName(Content, p.Rarity).ToUpperInvariant(), rc, Theme.TextOn(rc), 22, 44, null, "Rarity");
-                Ui.Chip(tags, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · " + def.Style.ToString().ToUpperInvariant() : ""), null, Theme.Text, 22, 44);
-                Ui.Chip(tags, SkillText.FamilyName(def.Family).ToUpperInvariant(), null, Theme.TextDim, 22, 44);
+                Ui.Chip(tags, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · EITHER ARM" : ""), null, Theme.Text, 22, 44);
+                Ui.Chip(tags, (def.IsMythic ? def.Synergy ?? "" : def.Role.ToString()).ToUpperInvariant(), null, Theme.TextDim, 22, 44);
+                if (def.IsMythic && !string.IsNullOrEmpty(def.Identity)) Note(b, def.Identity);
                 if (slot.HasValue) Ui.Chip(tags, "ON " + GearGuide.SlotName(slot.Value).ToUpperInvariant(), Theme.Good, Theme.OnAccent, 22, 44, null, "EquippedChip");
                 if (p.Awaken > 0) Note(b, "Awakened (" + def.Name + ")");
 
@@ -248,7 +252,7 @@ namespace RogueStars.Client.Screens
                 var stats = PartsSystem.PartStats(State, Content, p);
                 StatBlock next = null;
                 if (GearGuide.NextLevelCost(Content, p, out _, out _))
-                    next = PartsSystem.PartStats(State, Content, new PartItem { Uid = p.Uid, DefId = p.DefId, Rarity = p.Rarity, Level = p.Level + 1, CapRaises = p.CapRaises, ForgedSlots = p.ForgedSlots, Awaken = p.Awaken, Runes = p.Runes });
+                    next = PartsSystem.PartStats(State, Content, new PartItem { Uid = p.Uid, DefId = p.DefId, Rarity = p.Rarity, Level = p.Level + 1, ForgedSlots = p.ForgedSlots, Awaken = p.Awaken, Runes = p.Runes });
                 var sg = Ui.Column(b, 2, 0, null, "Stats");
                 foreach (var kv in stats.Flat)
                 {
@@ -280,18 +284,29 @@ namespace RogueStars.Client.Screens
                     var s = slot.Value;
                     Ui.Button(eqRow, "Unequip", () => Run(new PartUnequip { Slot = s }, _ => Reopen(uid)), Theme.Button, 200, 80, true, 26).name = "Unequip";
                 }
-                Ui.Button(eqRow, locked ? "Unlock" : "Lock", () => { PartLocks.Set(State.PlayerId, uid, !locked); Reopen(uid); Refresh(); }, locked ? Theme.Warn : Theme.Button, 190, 80, true, 26).name = "PartLock";
+                Ui.Button(eqRow, locked ? "Unlock" : "Lock", () =>
+                {
+                    PartLocks.Set(State.PlayerId, uid, !locked);
+                    Run(new PartLock { Uid = uid, Locked = !locked }, _ => { Reopen(uid); Refresh(); });
+                }, locked ? Theme.Warn : Theme.Button, 190, 80, true, 26).name = "PartLock";
 
-                SkillList(b, PartPlanner.SkillLines(Content, p, p.Awaken > 0), "Skills (" + PartsSystem.SkillCount(Content, p.Rarity) + "/5 unlocked)");
+                var lines = PartPlanner.SkillLines(Content, p, p.Awaken > 0);
+                if (lines.Count > 0) SkillList(b, lines, "Skills (" + Math.Min(lines.Count, PartsSystem.SkillCount(Content, p.Rarity)) + "/" + lines.Count + " active)");
 
-                // merge / replicate
-                Ui.Caption(b, "Upgrade rarity");
-                var plan = PartPlanner.AutoMerge(State, Content, p, Locks);
-                var mRow = Ui.Row(b, 84, 10);
-                string mergeText = plan.NextRarity < 0 ? "Max rarity" : "Merge → " + RarityName(Content, plan.NextRarity) + "\n<size=20>" + (plan.Valid ? "materials ready" + (plan.NeedsConfirmation ? " (uses protected parts)" : "") : Fmt.Humanize(plan.Error)) + "</size>";
-                Ui.Button(mRow, mergeText, () => OpenMergePicker(uid, false), plan.Valid ? Theme.Warn : Theme.Button, -1, 84, plan.NextRarity >= 0, 24).name = "OpenMerge";
-                if (p.Rarity >= (int)cfg.ReplicateMinTargetRarity)
-                    Ui.Button(mRow, "Replicator\n<size=20>Legendary copy</size>", () => OpenMergePicker(uid, true), Theme.Premium, 260, 84, true, 24).name = "OpenReplicator";
+                // the Mythic ladder (parts v2: only Mythics climb; copies + other Mythics of the slot, Metal, Ore) and the Replicator
+                if (def.IsMythic)
+                {
+                    Ui.Caption(b, "Mythic ladder");
+                    var plan = PartPlanner.AutoMerge(State, Content, p, Locks);
+                    var mRow = Ui.Row(b, 84, 10);
+                    string mergeText = plan.NextRarity < 0 ? "Mythic SS (final)" : "Climb → " + RarityName(Content, plan.NextRarity) + "\n<size=20>" + (plan.Valid ? "materials ready" + (plan.NeedsConfirmation ? " (uses protected parts)" : "") : Fmt.Humanize(plan.Error)) + "</size>";
+                    Ui.Button(mRow, mergeText, () => OpenMergePicker(uid, false), plan.Valid ? Theme.Warn : Theme.Button, -1, 84, plan.NextRarity >= 0, 24).name = "OpenMerge";
+                    Ui.Button(mRow, "Replicator\n<size=20>3 Mythics → copy</size>", () => OpenMergePicker(uid, true), Theme.Premium, 260, 84, true, 24).name = "OpenReplicator";
+                    if (plan.NextRarity >= 0)
+                        Note(b, "Next step: " + plan.CopiesNeeded + " cop" + (plan.CopiesNeeded == 1 ? "y" : "ies") + (plan.FodderNeeded > 0 ? " + " + plan.FodderNeeded + " other " + def.Kind + " Mythics" : "")
+                            + ", " + Fmt.Num(plan.Metal) + " Metal (have " + Fmt.Num(State.Wallet.Get(Currencies.Metal)) + "), " + Fmt.Num(plan.Ore) + " Ore.");
+                }
+                else Note(b, "Standard parts never merge. A spare one becomes " + PartsSystem.MetalValue(Content, p) + " Metal for the Mythic ladder.");
 
                 // runes
                 int runeSlots = PartsSystem.RuneSlotCount(Content, p);
@@ -319,12 +334,13 @@ namespace RogueStars.Client.Screens
                     bool forge = p.ForgedSlots < cfg.Forge.Count;
                     Ui.Button(row, "Forge\n<size=20>" + (forge ? cfg.Forge[p.ForgedSlots].Diamonds + " Diamonds" : "done") + "</size>", () => Run(new PartForgeUnlock { Uid = uid }, _ => Reopen(uid)), Theme.Premium, -1, 80, forge, 24);
                 }
-                if (p.Rarity >= (int)cfg.AwakenMinRarity)
+                if (def.IsMythic && p.Rarity >= (int)cfg.AwakenMinRarity)
                 {
                     string awText = p.Awaken > 0 ? "Awakened" : "Awaken\n<size=20>" + State.Wallet.Get(ProgressionCurrencies.PartAwakenCores) + "/" + cfg.AwakenCost + " cores</size>";
                     Ui.Button(row, awText, () => AwakenModal(uid), Theme.Warn, -1, 80, p.Awaken == 0, 24).name = "OpenAwaken";
                 }
-                Ui.Button(row, "Dismantle\n<size=20>+" + Fmt.Num(cfg.RarityDef(p.Rarity).DismantleOre + p.SpentOre) + " Ore</size>", () => Dismantle(uid), Theme.Bad, -1, 80, !slot.HasValue && p.Awaken == 0, 24).name = "Dismantle";
+                if (!def.IsMythic)
+                    Ui.Button(row, "Feed\n<size=20>+" + PartsSystem.MetalValue(Content, p) + " Metal</size>", () => Feed(uid), Theme.Bad, -1, 80, PartsSystem.IsFeedable(State, Content, p), 24).name = "Dismantle";
             }), new ModalButton("Close", null));
             modal.Root.name = "Modal:PartDetail";
         }
@@ -360,13 +376,9 @@ namespace RogueStars.Client.Screens
             }
             else
             {
-                bool canCap = p.CapRaises < cfg.RarityDef(p.Rarity).MaxCapRaises && p.CapRaises < cfg.CapRaisePlates.Count;
-                int nextRarity = p.Rarity + 1 < cfg.Rarities.Count ? p.Rarity + 1 : -1;
-                Ui.Label(card, "Level cap reached." + (canCap ? " Raise the cap with Advancement Plates" : "")
-                    + (nextRarity >= 0 ? (canCap ? " or merge" : " Merge") + " it to " + RarityName(Content, nextRarity) + " for a higher cap (" + cfg.RarityDef(nextRarity).BaseLevelCap + ")." : "."), 22, Theme.TextDim, TextAnchor.MiddleLeft, "LevelCost");
-                if (canCap)
-                    Ui.Button(card, "Raise cap · " + cfg.CapRaisePlates[p.CapRaises] + " plates", () => Run(new PartRaiseCap { Uid = uid }, _ => Reopen(uid)), Theme.Button, -1, 72,
-                        State.Wallet.CanAfford(Currencies.AdvancementPlates, cfg.CapRaisePlates[p.CapRaises]), 24).name = "RaiseCap";
+                var step = PartsSystem.NextClimb(Content, p);
+                Ui.Label(card, "Level cap reached." + (step != null ? " Climb it to " + RarityName(Content, p.Rarity + 1) + " for a higher cap (" + cfg.RarityDef(p.Rarity + 1).LevelCap + ")."
+                    : PartsSystem.Def(Content, p).IsMythic ? "" : " Standard parts keep their rarity's cap (" + cap + ")."), 22, Theme.TextDim, TextAnchor.MiddleLeft, "LevelCost");
             }
             if (p.Level > 1)
                 Ui.Button(card, "Reset to level 1 · refunds " + Fmt.Num(p.SpentOre) + " Ore", () => Run(new PartLevelDown { Uid = uid }, _ => Reopen(uid)), Theme.Button, -1, 60, true, 22).name = "ResetLevel";
@@ -380,7 +392,7 @@ namespace RogueStars.Client.Screens
             if (next != null) Ui.Label(row, "→ " + next + " next level", 22, Theme.Good);
         }
 
-        /// <summary>The part's five skills: unlocked ones in the family colour with their effect, locked ones dimmed with the unlock rarity.</summary>
+        /// <summary>The part's skills: active ones with their effect, the others dimmed with the rarity / ladder step they need.</summary>
         private void SkillList(Transform parent, List<PartSkillLine> skills, string title)
         {
             Ui.Caption(parent, title);
@@ -392,15 +404,15 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        private void Dismantle(string uid)
+        private void Feed(string uid)
         {
             var p = PartsSystem.Get(State, uid);
             if (p == null) return;
-            void Go() { var cmd = new PartDismantle(); cmd.Uids.Add(uid); Run(cmd); Ui.Clear(App.ModalLayer); }
+            void Go() { var cmd = new PartFeed(); cmd.Uids.Add(uid); Run(cmd); Ui.Clear(App.ModalLayer); }
             if (p.Rarity < (int)PartRarity.Legendary && !Locks.Contains(uid)) { Go(); return; }
-            Modal("Dismantle " + PartName(Content, p) + "?", b => Note(b, RarityName(Content, p.Rarity) + (Locks.Contains(uid) ? ", locked" : "") + ": worth " + PartsSystem.FodderValue(Content, p)
-                + " fodder points as merge material."),
-                new ModalButton("Cancel", null), new ModalButton("Dismantle", Go, Theme.Bad));
+            Modal("Feed " + PartName(Content, p) + "?", b => Note(b, RarityName(Content, p.Rarity) + (Locks.Contains(uid) ? ", locked" : "") + ": becomes " + PartsSystem.MetalValue(Content, p)
+                + " Metal for the Mythic ladder; its level Ore and runes come back."),
+                new ModalButton("Cancel", null), new ModalButton("Feed", Go, Theme.Bad));
         }
 
         /// <summary>Close the open modals and reopen the detail on the updated state.</summary>
@@ -449,14 +461,15 @@ namespace RogueStars.Client.Screens
             if (t == null) { PickerPlan = null; return; }
             var plan = PartPlanner.Evaluate(State, Content, t, _picked, Locks, _pickReplicate);
             PickerPlan = plan;
-            string title = _pickReplicate ? "Replicator: " + PartsSystem.Def(Content, t).Name : "Merge " + PartName(Content, t) + (plan.NextRarity >= 0 ? " → " + RarityName(Content, plan.NextRarity) : "");
+            string title = _pickReplicate ? "Replicator: " + PartsSystem.Def(Content, t).Name : "Climb " + PartName(Content, t) + (plan.NextRarity >= 0 ? " → " + RarityName(Content, plan.NextRarity) : "");
             Modal(title, b =>
             {
                 var rc = Card(b, Theme.PanelAlt, 4);
-                if (_pickReplicate) Note(rc, "Turns Legendary+ surplus of any other def into a Legendary copy of " + PartsSystem.Def(Content, t).Name + " (copy for its Mythic S / SS steps).");
+                if (_pickReplicate) Note(rc, "Turns 3 spare Mythics (any slot, base step) into a copy of " + PartsSystem.Def(Content, t).Name + " for its ladder steps.");
                 else KeyValue(rc, "Copies", plan.CopiesNeeded == 0 ? "none" : plan.Copies.Count + "/" + plan.CopiesNeeded,
                     plan.Copies.Count >= plan.CopiesNeeded ? Theme.Good : Theme.Bad);
-                KeyValue(rc, "Fodder", plan.FodderPoints + "/" + plan.FodderNeeded, plan.FodderPoints >= plan.FodderNeeded ? Theme.Good : Theme.Bad);
+                KeyValue(rc, _pickReplicate ? "Spare Mythics" : "Other Mythics", plan.FodderNeeded == 0 ? "none" : plan.FodderPoints + "/" + plan.FodderNeeded, plan.FodderPoints >= plan.FodderNeeded ? Theme.Good : Theme.Bad);
+                if (!_pickReplicate) KeyValue(rc, "Metal", Fmt.Num(plan.Metal) + " (have " + Fmt.Num(State.Wallet.Get(Currencies.Metal)) + ")", State.Wallet.CanAfford(Currencies.Metal, plan.Metal) ? Theme.Text : Theme.Bad);
                 KeyValue(rc, "Ore", plan.Ore <= 0 ? "none" : Fmt.Num(plan.Ore) + " (have " + Fmt.Num(State.Wallet.Get(Currencies.Ore)) + ")", State.Wallet.CanAfford(Currencies.Ore, plan.Ore) ? Theme.Text : Theme.Bad);
                 var status = Ui.Label(b, plan.Valid ? (plan.NeedsConfirmation ? "Ready — uses " + plan.Protected.Count + " protected part(s), you will be asked to confirm." : "Ready.") : Fmt.Humanize(plan.Error),
                     Theme.FontSmall, plan.Valid ? (plan.NeedsConfirmation ? Theme.Warn : Theme.Good) : Theme.Bad);
@@ -469,8 +482,8 @@ namespace RogueStars.Client.Screens
                 {
                     var cand = c;
                     bool sel = _picked.Contains(c.Uid);
-                    string reason = PartPlanner.ProtectReason(State, Content, c, Locks);
-                    bool copy = plan.Copies.Contains(c.Uid) || (!_pickReplicate && c.DefId == t.DefId && c.Rarity >= (int)plan.CopyMinRarity && plan.CopiesNeeded > 0);
+                    string reason = PartPlanner.ProtectReason(State, Content, c, Locks, _pickReplicate ? null : t);
+                    bool copy = plan.Copies.Contains(c.Uid) || (!_pickReplicate && c.DefId == t.DefId && plan.CopiesNeeded > 0);
                     var row = Ui.Row(list, 74, 8, sel ? Color.Lerp(RarityColor(c.Rarity), Theme.Panel, 0.45f) : Theme.Panel, 8);
                     // W5: "Legendary · Lv 1 · 81 pts"; copies say so; protected parts carry a lock icon
                     if (reason != null)
@@ -481,35 +494,34 @@ namespace RogueStars.Client.Screens
                         li.sprite = RogueStars.Client.World.SummonArt.Icon("lock"); li.preserveAspect = true; li.raycastTarget = false;
                     }
                     Ui.Label(row, (sel ? "✓ " : "") + PartName(Content, c) + "\n<size=20>" + RarityName(Content, c.Rarity) + " · Lv " + c.Level + " · "
-                                  + (copy ? "copy" : PartsSystem.FodderValue(Content, c) + " pts") + "</size>", 22, reason != null ? Theme.Warn : Theme.Text);
+                                  + (copy ? "copy" : _pickReplicate ? "spare" : "other Mythic") + "</size>", 22, reason != null ? Theme.Warn : Theme.Text);
                     Ui.Button(row, sel ? "Remove" : "Add", () => TogglePick(cand.Uid), sel ? Theme.Button : Theme.Accent, 160, 60, true, 22).name = "Pick:" + c.Uid;
                     shown++;
                 }
-                if (shown == 0) Note(list, "No eligible parts (equipped, awakened and forged parts are never materials).");
+                if (shown == 0) Note(list, "No eligible Mythics (only base-step Mythics that are not equipped, awakened, locked or forged).");
                 var tools = Ui.Row(b, 70, 8);
                 Ui.Button(tools, "Auto-select best", AutoPick, Theme.Accent, -1, 70, true, 24).name = "PickAuto";
                 Ui.Button(tools, "Clear", ClearPick, Theme.Button, 200, 70, true, 24);
             },
             new ModalButton("Cancel", () => { PickerPlan = null; Reopen(_pickTarget); }),
-            new ModalButton(_pickReplicate ? "Replicate" : "Merge", ConfirmPick, plan.Valid ? Theme.Warn : Theme.Locked, true));
+            new ModalButton(_pickReplicate ? "Replicate" : "Climb", ConfirmPick, plan.Valid ? Theme.Warn : Theme.Locked, true));
         }
 
         /// <summary>Eligible candidates for the picker: selected ones first, then by fodder value and level.</summary>
         private List<PartItem> PickerCandidates(PartItem t, MergePlan plan)
         {
             var list = new List<PartItem>();
-            foreach (var p in PartPlanner.Candidates(State, t))
+            var kind = PartsSystem.Def(Content, t).Kind;
+            foreach (var p in PartPlanner.Candidates(State, Content, t))
             {
-                bool copyOk = !_pickReplicate && plan.CopiesNeeded > 0 && p.DefId == t.DefId && p.Rarity >= (int)plan.CopyMinRarity;
-                bool fodderOk = plan.FodderNeeded > 0 && p.Rarity >= (int)plan.FodderMinRarity && !(_pickReplicate && p.DefId == t.DefId);
-                if (copyOk || fodderOk || _picked.Contains(p.Uid)) list.Add(p);
+                bool copyOk = !_pickReplicate && plan.CopiesNeeded > 0 && p.DefId == t.DefId;
+                bool otherOk = plan.FodderNeeded > 0 && p.DefId != t.DefId && (_pickReplicate || PartsSystem.Def(Content, p).Kind == kind);
+                if (copyOk || otherOk || _picked.Contains(p.Uid)) list.Add(p);
             }
             list.Sort((a, b) =>
             {
                 bool sa = _picked.Contains(a.Uid), sb = _picked.Contains(b.Uid);
                 if (sa != sb) return sa ? -1 : 1;
-                long va = PartsSystem.FodderValue(Content, a), vb = PartsSystem.FodderValue(Content, b);
-                if (va != vb) return va.CompareTo(vb);
                 if (a.Level != b.Level) return a.Level.CompareTo(b.Level);
                 return string.CompareOrdinal(a.Uid, b.Uid);
             });
@@ -528,7 +540,7 @@ namespace RogueStars.Client.Screens
                 foreach (var uid in plan.Protected)
                 {
                     var p = PartsSystem.Get(State, uid);
-                    if (p != null) names.Add(PartName(Content, p) + " (" + PartPlanner.ProtectReason(State, Content, p, Locks) + ")");
+                    if (p != null) names.Add(PartName(Content, p) + " (" + PartPlanner.ProtectReason(State, Content, p, Locks, plan.Replicate ? null : PartsSystem.Get(State, _pickTarget)) + ")");
                 }
                 Modal("Use protected parts?", b => Note(b, "This consumes: " + string.Join(", ", names) + "."),
                     new ModalButton("Cancel", null), new ModalButton("Use them", ExecutePick, Theme.Bad)).Root.name = "Modal:ConfirmProtected";
@@ -544,7 +556,7 @@ namespace RogueStars.Client.Screens
             if (plan == null || target == null) return;
             GameCommand cmd;
             if (plan.Replicate) { var r = new PartReplicate { TargetUid = target }; r.MaterialUids.AddRange(plan.Materials); cmd = r; }
-            else { var m = new PartMerge { TargetUid = target }; m.MaterialUids.AddRange(plan.Materials); cmd = m; }
+            else { var m = new PartClimb { TargetUid = target }; m.MaterialUids.AddRange(plan.Materials); cmd = m; }
             foreach (var uid in plan.Materials) PartLocks.Set(State.PlayerId, uid, false);
             PickerPlan = null;
             _picked.Clear();
@@ -674,7 +686,7 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>Auto-selected merge materials for the next rarity (null + reason when not possible). Used by tests and the detail.</summary>
+        /// <summary>Auto-selected ladder materials for the next step (null + reason when not possible). Used by tests and the detail.</summary>
         public List<string> FindMergeMaterials(PartItem target, out string why)
         {
             var plan = PartPlanner.AutoMerge(State, Content, target, Locks);

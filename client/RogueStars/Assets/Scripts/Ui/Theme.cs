@@ -117,13 +117,14 @@ namespace RogueStars.Client.UiKit
         /// </summary>
         public static Color SkillTierColor(Rarity r) => RarityColor(RogueStars.Rules.Content.RunTuning.RunTier(r));
 
-        /// <summary>Colours of the 14-step part ladder, matching RarityColor: Common grey, Uncommon pale green, Rare green, Epic blue, Legendary purple, Mythic rich red; Mythic S red-orange, Mythic SS gold, lighter per +1/+2.</summary>
+        /// <summary>Colours of the part rarities (parts v2), matching RarityColor: Common grey, Rare green, Epic blue, Legendary purple, Mythic rich red
+        /// (lighter per +1/+2), Mythic S red-orange (lighter per +1/+2), Mythic SS gold.</summary>
         private static readonly int[] PartLadder =
         {
-            0x9AA0A6, 0x8FBF94, 0x4CC25A, 0x3D8BFF, 0xA65BFF,
+            0x9AA0A6, 0x4CC25A, 0x3D8BFF, 0xA65BFF,
             0xC8102E, 0xDA3A52, 0xE8687A,
             0xFF4A1F, 0xFF6A45, 0xFF8A6B,
-            0xF5C518, 0xFFD54A, 0xFFE57F,
+            0xF5C518,
         };
 
         public static Color PartRarityColor(int partRarity) => Hex(PartLadder[Mathf.Clamp(partRarity, 0, PartLadder.Length - 1)]);

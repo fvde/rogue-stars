@@ -194,14 +194,13 @@ namespace RogueStars.Client.PlayTests
         /// <summary>Parts (detail with five skills, merge picker, awakening preview), laboratory tree + node, arena shop, Dark Side.</summary>
         private IEnumerator RedesignScreens()
         {
-            var ids = new List<string>(_svc.Content.PartsConfig.Defs.Keys);
-            ids.Sort(string.CompareOrdinal);
+            // parts v2: a Mythic with a copy (its ladder step) and a Mythic S to look at
+            var ids = new List<string> { "myth_firebrand_blaster", "myth_cinder_crown" };
             var before = new HashSet<string>(_svc.State.Parts.Items.Keys);
             _svc.DevGrant(new[]
             {
-                new Reward(RewardKinds.Part, ids[0], 2, (int)PartRarity.Legendary), new Reward(RewardKinds.Part, ids[1], 3, (int)PartRarity.Legendary),
-                new Reward(RewardKinds.Part, ids[2], 1, (int)PartRarity.MythicS),
-                Reward.Cur(Currencies.Ore, 20000), Reward.Cur(ProgressionCurrencies.PartAwakenCores, 50), Reward.Cur(Currencies.Data, 2000), Reward.Cur(Currencies.ArenaMedals, 450),
+                new Reward(RewardKinds.Part, ids[0], 2, (int)PartRarity.Mythic), new Reward(RewardKinds.Part, ids[1], 1, (int)PartRarity.MythicS),
+                Reward.Cur(Currencies.Ore, 20000), Reward.Cur(Currencies.Metal, 500), Reward.Cur(ProgressionCurrencies.PartAwakenCores, 50), Reward.Cur(Currencies.Data, 2000), Reward.Cur(Currencies.ArenaMedals, 450),
             });
             string legendary = null, mythic = null;
             foreach (var uid in PartsSystem.SortedPartUids(_svc.State))
@@ -209,7 +208,7 @@ namespace RogueStars.Client.PlayTests
                 if (before.Contains(uid)) continue;
                 var p = _svc.State.Parts.Items[uid];
                 if (legendary == null && p.DefId == ids[0]) legendary = uid;
-                if (mythic == null && p.DefId == ids[2]) mythic = uid;
+                if (mythic == null && p.DefId == ids[1]) mythic = uid;
             }
             Assert.That(legendary, Is.Not.Null);
             Assert.That(mythic, Is.Not.Null);
