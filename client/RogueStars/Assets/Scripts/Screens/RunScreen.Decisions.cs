@@ -100,14 +100,16 @@ namespace RogueStars.Client.Screens
             {
                 int index = visible[k];
                 var o = ev.Options[index];
-                bool ok = Affordable(run, o);
-                string outcome = RunScenes.OutcomeText(o, Content);
+                string useless = RunSystem.OptionUselessReason(run, o);
+                bool ok = Affordable(run, o) && useless == null;
+                string outcome = RunScenes.OutcomeText(o, Content, run);
                 // #17: the campfire's results in the shared choice palette (they were pale olive on the cream paper)
                 if (campfire && RunSystem.ImprovesSkill(o))
                     outcome = RunSystem.TrainChoices(Content, run).Count > 0 ? RunScenes.Good("Improve 1 existing skill")
                         : "Nothing to train: " + RunScenes.Good("+" + Content.RunTuning.DraftEmptyCoins) + " coins";
                 else if (campfire) outcome = RunScenes.Good((RunScenes.EffectLines(o, Content).Find(l => l.Key).Value ?? "Rest").Replace("+", ""));
-                if (!ok) outcome = RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
+                if (!Affordable(run, o)) outcome = RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
+                else if (useless != null) outcome = RunScenes.Bad(useless); // Rest at full HP: said on the button, not resolved to nothing
                 var tile = RunScenes.OptionTile(frame, s, xs[k], 1915, size, o.Text, RunScenes.IconSprite(RunScenes.OptionIcon(o)), outcome, ok,
                     () => ChooseOption(run, ev, index, modal), OptionName(o), n <= 2 ? (campfire ? 62 : 46) : 38, n <= 2 ? (campfire ? 56 : 46) : 36, n <= 2 ? 400 : 330);
                 if (campfire) AddAlias(tile, RunSystem.ImprovesSkill(o) ? "Option:Train" : "Option:Rest");
@@ -143,11 +145,13 @@ namespace RogueStars.Client.Screens
             {
                 int index = visible[k];
                 var o = ev.Options[index];
-                bool ok = Affordable(run, o);
-                RunScenes.Halves(o, Content, out var blessing, out var curse);
+                string useless = RunSystem.OptionUselessReason(run, o);
+                bool ok = Affordable(run, o) && useless == null;
+                RunScenes.Halves(o, Content, out var blessing, out var curse, run);
                 bool nothing = o.Outcomes.TrueForAll(oc => oc.Effects.Count == 0) && o.CoinCost == 0 && o.ShardCost == 0;
                 string sign = nothing ? "Leave" : o.CoinCost > 0 || o.ShardCost > 0 ? "Pay" : "Sign";
-                if (!ok) curse += "\n" + RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
+                if (!Affordable(run, o)) curse += "\n" + RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
+                else if (useless != null) curse += "\n" + RunScenes.Bad(useless); // the tonic at full HP
                 RunScenes.VendorCard(frame, s, xs[k], blessing, curse, sign, ok, () => ChooseOption(run, ev, index, modal), OptionName(o));
             }
             var or = SliceKit.Chunky(frame, "OR", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "Or");

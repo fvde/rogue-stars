@@ -210,18 +210,17 @@ namespace RogueStars.Client.Tests
             var run = StartRun();
             run.Skills.AddRange(Commons(2));
             run.Phase = RunPhase.Event; run.EventId = "campfire"; run.EventTile = -1;
+            run.WormHp = run.WormMaxHp / 2; // Rest has something to heal
             var screen = Open();
             // run UI glitches #9: only skill selection screens have the book: Train does, the rest scene and its result do not
             Assert.That(FindNamed(OverlayOf(FindNamed(_f.App.ModalLayer, "Stage")), "SkillsBook"), Is.Null, "no book on the rest scene");
             Btn(_f.App.ModalLayer, "Option:Train").onClick.Invoke();
             AssertBookOpensOver("Modal:Train", "Train picker");
             Btn(FindNamed(_f.App.ModalLayer, "Modal:Train"), "Button:Back").onClick.Invoke();
-            // the outcome sheet after resting
+            // resting flies in (event outcome rules: no result sheet for a deterministic result, so no book on it either)
             Btn(_f.App.ModalLayer, "Button:Rest").onClick.Invoke();
-            if (!screen.OutcomeOpen) screen.Rebuild();
-            Assert.That(screen.OutcomeOpen, Is.True);
-            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Modal:Outcome"), "SkillsBook"), Is.Null, "no book on a result");
-            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Modal:Outcome"), "Hint"), Is.Null, "#20: no \"Tap Continue.\" hint");
+            screen.Rebuild();
+            Assert.That(screen.OutcomeOpen, Is.False, "no sheet after resting");
         }
 
         [Test]

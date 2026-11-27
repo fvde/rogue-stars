@@ -87,7 +87,7 @@ namespace RogueStars.Client.PlayTests
             _svc.ExecuteNow(new RunAbandon());
             Ui.Clear(_app.ModalLayer);
 
-            // 4) unlock screens: Shops (run content, a tapping hand), Two Dice & Forks (spinning dice)
+            // 4) unlock screens: Signatures (run content, a tapping hand), Two Dice & Forks (spinning dice)
             _svc.State.Counters[Requirements.MainLevelCounter] = 2;
             _svc.State.Run.Levels[c.MainLevelId(1)] = new LevelProgress { Cleared = true, Clears = 1 };
             _svc.State.Run.Levels[c.MainLevelId(2)] = new LevelProgress { Cleared = true, Clears = 1 };
@@ -98,22 +98,22 @@ namespace RogueStars.Client.PlayTests
             yield return Wait(0.3f);
             if (!(_app.Router.Current is UnlockScreen)) Assert.That(hub.ShowPendingUnlock(), Is.True); // the hub opens it by itself
             var moment = (UnlockScreen)_app.Router.Current;
-            Assert.That(moment.FeatureIds, Is.EqualTo(new[] { Features.RunShop }));
+            Assert.That(moment.FeatureIds, Is.EqualTo(new[] { Features.RunSignatures }));
             var art = moment.Root.GetComponentsInChildren<Image>(true).First(i => i.name == "IntroArt").rectTransform;
             Vector2 a0 = art.anchoredPosition;
             yield return Wait(0.45f);
-            yield return Shot("lu_unlock_shops_1");
+            yield return Shot("lu_unlock_signatures_1");
             Assert.That(Vector2.Distance(a0, art.anchoredPosition), Is.GreaterThan(1), "the shop hops (bounce)");
             Click("IntroNext");
             yield return Wait(0.9f);
-            yield return Shot("lu_unlock_shops_2");
+            yield return Shot("lu_unlock_signatures_2");
             Click("IntroNext");
             Assert.That(moment.OnLastPage, Is.True);
             var hand = moment.Root.GetComponentsInChildren<Image>(true).First(i => i.name == "Hand").rectTransform;
             Vector2 h0 = hand.anchoredPosition;
             yield return Wait(0.25f); // mid-press (a tap takes 1.4 s)
             Assert.That(Vector2.Distance(h0, hand.anchoredPosition), Is.GreaterThan(1), "the hand taps");
-            yield return Shot("lu_unlock_shops_3_last");
+            yield return Shot("lu_unlock_signatures_3_last");
             moment.Claim();
             yield return Wait(0.3f);
 

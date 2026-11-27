@@ -251,7 +251,7 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Teaser_ShowsTheLevelToClear_NeverADay()
         {
-            Unlock(Features.Parts, Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
+            Unlock(Features.Parts, Features.RunSignatures, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice);
             S.Counters[Requirements.MainLevelCounter] = 4;
             Assert.That(Named(Hub.Root, "TeaserText").text, Is.EqualTo("2 more levels to the next feature"));
             Assert.That(Named(Hub.Root, "Figure"), Is.Null);
@@ -268,7 +268,7 @@ namespace RogueStars.Client.Tests
             S.Counters[Requirements.MainLevelCounter] = 15; // no calendar gate: everything up to level 15 (the City) at once
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
-            Celebrated(Features.RunShop, Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
+            Celebrated(Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
                 Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.AlienPulls,
                 Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
@@ -289,12 +289,12 @@ namespace RogueStars.Client.Tests
         {
             Unlock(Features.Parts);
             Celebrated(Features.Parts);
-            Unlock(Features.RunShop);
+            Unlock(Features.RunSignatures);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;
-            var intro = C.Feature(Features.RunShop).Intro;
+            var intro = C.Feature(Features.RunSignatures).Intro;
             Assert.That(Named(moment.Root, "Kicker").text, Is.EqualTo("NEW IN YOUR RUNS"));
-            Assert.That(Named(moment.Root, "FeatureName").text, Is.EqualTo("Shops"));
+            Assert.That(Named(moment.Root, "FeatureName").text, Is.EqualTo("Signatures"));
             Assert.That(moment.PageCount, Is.EqualTo(intro.Count));
             Assert.That(moment.Root.GetComponentsInChildren<Image>(true).Count(i => i.name.StartsWith("Dot:")), Is.EqualTo(intro.Count));
             Assert.That(moment.Root.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "IntroArt"), Is.True, "an art slot");
@@ -306,7 +306,7 @@ namespace RogueStars.Client.Tests
             Assert.That(moment.OnLastPage, Is.True);
             Assert.That(moment.Action.GetComponentInChildren<Text>().text, Is.EqualTo("PLAY"));
             moment.Claim();
-            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.RunShop));
+            Assert.That(S.Onboarding.Celebrated, Does.Contain(Features.RunSignatures));
             Assert.That(_f.App.Router.Current, Is.InstanceOf<PortalsScreen>());
         }
 

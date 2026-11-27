@@ -35,10 +35,22 @@ namespace RogueStars.Client.Tests
         private static Transform Find(Transform root, string name) => root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == name);
 
         [Test]
-        public void FirstRun_StartsWithTheSignaturePick_OfThreeCards()
+        public void SignaturePick_IsTheSecondUnlock_ThenEveryRunStartsWithIt_OfThreeCards()
         {
-            var level = C.MainLevel(1);
+            // owner, 2026-11-27: the first levels' runs have no signature; the pick unlocks in the level-2 slot (first board: level 3)
+            var first = C.MainLevel(1);
             Assert.That(Features.IsUnlocked(S, C, Features.RunSignatures), Is.False, "a brand-new player");
+            bool ok = false;
+            SignaturePick.StartRun(_f.App, new RunStart { PortalId = first.PortalId, LevelId = first.Id, Mode = RunMode.Normal }, r => ok = r.Ok);
+            Assert.That(ok, Is.True);
+            Assert.That(S.Run.Active.Phase, Is.Not.EqualTo(RunPhase.Signature), "no pick before the unlock");
+            Assert.That(RunSystem.Signatures(S.Run.Active), Is.Empty);
+            Assert.That(_f.Service.ExecuteNow(new RunAbandon()).Ok, Is.True);
+            int from = C.Campaign.SignatureChoiceFromLevel;
+            S.Counters[Requirements.MainLevelCounter] = from - 1;
+            for (int n = 1; n < from; n++) S.Run.Levels[C.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+            S.Wallet.Add(Currencies.Stamina, 100);
+            var level = C.MainLevel(from);
             var offer = RunSystem.SignatureOffer(_f.Service.Engine, S, _f.Service.NowMs);
             Assert.That(offer.Count, Is.EqualTo(3));
             bool started = false;

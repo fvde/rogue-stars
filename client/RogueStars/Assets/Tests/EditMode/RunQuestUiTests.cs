@@ -148,11 +148,10 @@ namespace RogueStars.Client.Tests
             Assert.That(texts, Does.Contain("Starglint: +1 → +2"));
             Option(0).onClick.Invoke();
             screen.Rebuild();
-            Assert.That(screen.OutcomeOpen, Is.True);
-            string sheet = Texts(FindNamed(_f.App.ModalLayer, "Modal:Outcome"));
-            Assert.That(sheet, Does.Contain("STORY RESULT"));
-            Assert.That(sheet, Does.Contain("Starglint: +2 coins on every coin gain, forever"));
-            Assert.That(sheet, Does.Contain("The story moves on: chapter 20"));
+            // event outcome rules: a mid-chain boon is no news (the button said it): it flies in with the journal line as a toast
+            Assert.That(screen.OutcomeOpen, Is.False, "no sheet");
+            Assert.That(screen.LastToast, Does.StartWith("Chapter 20: "));
+            Assert.That(screen.LastPopups, Does.Contain("Starglint: +2 coins on every coin gain, forever"));
         }
 
         [Test]
