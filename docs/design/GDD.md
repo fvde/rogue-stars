@@ -539,6 +539,9 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
   *Daily Diamonds* (X Diamonds per day forever).
 - **Monthly pass**: daily Diamonds, battle speed ×3, extra patrol/production, stamina cap +.
 - **Season pass** (4 weeks): free + premium track, premium is retroactive.
+- **Passes page** (Shop → Passes): the free daily gift, then one card per pass (Monthly Pass, No Ads, Daily Diamonds
+  Forever, running gift packs) with its one-time purchase contents, perks and today's claim; season pass and funds below.
+  "Claim all" (`PassesClaimAll`) takes everything claimable there; daily claims renew at the daily reset.
 - **Summon events:** a premium day pass per event ($9.99 heroes / $4.99 mounts) and ticket packs with daily limits (§12.1).
 - **Funds** (one-time paid reward tracks per system: worm level, hero, mount, city).
 - Rewarded ads in many placements (stamina refill, revive, timer −15%, extra free pull per day, double run

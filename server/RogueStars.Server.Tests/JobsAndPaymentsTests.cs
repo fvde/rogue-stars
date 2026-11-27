@@ -61,6 +61,22 @@ public class JobsAndPaymentsTests : IDisposable
     }
 
     [Fact]
+    public async Task PassesClaimAll_AfterAVerifiedPassPurchase_ClaimsOncePerDay()
+    {
+        var p = await _app.PlayerAsync("pass_buyer");
+        Assert.True((await p.CommandAsync("PurchaseStart", new { productId = "perm_daily_diamonds" })).Body.GetProperty("ok").GetBoolean());
+        Assert.True((await p.PostAsync("/v1/iap/verify", new { productId = "perm_daily_diamonds", purchaseToken = "fake-pass1" })).Body.GetProperty("ok").GetBoolean());
+        long diamonds = await p.BalanceAsync(Currencies.Diamonds);
+        var (status, body) = await p.CommandAsync("PassesClaimAll");
+        Assert.Equal(200, status);
+        Assert.True(body.GetProperty("ok").GetBoolean(), body.ToString());
+        Assert.Equal(diamonds + 10 + 50, await p.BalanceAsync(Currencies.Diamonds)); // free daily gift + Daily Diamonds Forever
+        var (_, again) = await p.CommandAsync("PassesClaimAll");
+        Assert.False(again.GetProperty("ok").GetBoolean());
+        Assert.Equal(diamonds + 10 + 50, await p.BalanceAsync(Currencies.Diamonds));
+    }
+
+    [Fact]
     public async Task Iap_WithoutPurchaseCommand_Is501()
     {
         _app.DisableHook("PurchaseComplete");

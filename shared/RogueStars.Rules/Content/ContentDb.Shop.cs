@@ -144,6 +144,8 @@ namespace RogueStars.Rules.Content
         public bool AdsDisabled;
         public string BattleSpeedFlag = "battle_speed_3";
         public string MonthlyPassProductId = "monthly_pass";
+        /// <summary>The free once-a-day shop item shown as the Passes page's daily gift (claimed by PassesClaimAll too).</summary>
+        public string DailyGiftItemId = "daily_free_gift";
         public long MonthlyPassStaminaCapBonus = 30;
         /// <summary>Production multiplier (all production) while the monthly pass is active.</summary>
         public double MonthlyPassProductionMultiplier = 1.2;

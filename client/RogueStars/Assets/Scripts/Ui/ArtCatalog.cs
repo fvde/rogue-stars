@@ -300,6 +300,15 @@ namespace RogueStars.Client.UiKit
         /// <summary>Run result art: <c>Art/Result/&lt;id&gt;</c> (crown = victory crest, crest_broken = defeat crest, banner = the hanging pennant).</summary>
         public const string ResultArt = "Art/Result";
 
+        /// <summary>
+        /// Passes page ticket illustrations: <c>Art/Shop/Passes/&lt;product id&gt;</c> (monthly_pass, perm_no_ads,
+        /// perm_daily_diamonds, gift_diamond_week, gift_token_week): one flat ticket object per pass, transparent, about
+        /// 3:2 landscape. Without art the page draws a tilted kit plate with the pass's icon (PassesScreen.Ticket).
+        /// </summary>
+        public const string PassTickets = "Art/Shop/Passes";
+
+        public static Sprite PassTicket(string productId) => string.IsNullOrEmpty(productId) ? null : Load(PassTickets + "/" + productId);
+
         public static Sprite RunCharacter(string id) => string.IsNullOrEmpty(id) ? null : Load(RunCharacters + "/" + id);
         public static Sprite RunProp(string id) => string.IsNullOrEmpty(id) ? null : Load(RunProps + "/" + id);
         /// <summary>

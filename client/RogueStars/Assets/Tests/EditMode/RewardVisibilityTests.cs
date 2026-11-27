@@ -156,7 +156,10 @@ namespace RogueStars.Client.Tests
         {
             Unlock(Features.Parts, Features.PartPulls, Features.Shop);
             _f.App.Open("shop");
-            var all = AllTabTexts("Offers", "Diamonds", "Passes", "Forever", "Items", "Ads");
+            var all = AllTabTexts("Offers", "Diamonds", "Items", "Ads");
+            _f.App.Open("passes"); // the Passes page (Shop → "Passes"): daily gift, passes, Forever products, season pass, funds
+            Assert.That(_f.App.Router.Current, Is.InstanceOf<PassesScreen>());
+            all.AddRange(Texts(_f.App.Router.Current.Root));
             Assert.That(all.Any(t => t.Contains("Fuel") || t.Contains("Hero XP") || t.Contains("Grain") || t.Contains("Arena Tickets")), Is.False,
                 string.Join(" | ", all.Where(t => t.Contains("Fuel") || t.Contains("Hero XP") || t.Contains("Grain") || t.Contains("Arena Tickets"))));
             Assert.That(all.Any(t => t.Contains("Diamonds")), Is.True, "Diamond packs stay");

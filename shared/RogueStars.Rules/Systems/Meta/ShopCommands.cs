@@ -38,6 +38,13 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class SeasonPassClaimAll : GameCommand { }
 
+    /// <summary>
+    /// The Passes page's "Claim all": everything claimable there in one go (the free daily gift, today's reward of every owned
+    /// pass / gift pack / Forever product, reached season pass levels and reached steps of owned funds). Payload: claims made.
+    /// </summary>
+    [Serializable]
+    public sealed class PassesClaimAll : GameCommand { }
+
     /// <summary>Claim a reached step of an owned fund.</summary>
     [Serializable]
     public sealed class FundClaim : GameCommand { public string FundId; public int Step; }

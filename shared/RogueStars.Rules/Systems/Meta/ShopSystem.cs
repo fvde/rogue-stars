@@ -30,6 +30,7 @@ namespace RogueStars.Rules.Systems
             e.Register<SeasonPassClaim>(HandleSeasonClaim);
             e.Register<SeasonPassClaimAll>(HandleSeasonClaimAll);
             e.Register<FundClaim>(HandleFundClaim);
+            e.Register<PassesClaimAll>(HandlePassesClaimAll);
         }
 
         public const string MonthlyPassModifierId = "pass:monthly";
@@ -89,6 +90,17 @@ namespace RogueStars.Rules.Systems
         public static bool CanClaimDaily(GameState s, ContentDb content, string productId, long nowMs) =>
             DailyGrantActive(s, content, productId, nowMs) && s.Shop.DailyGrants[productId].LastClaimDay < MetaTime.DayIndex(content, nowMs);
 
+        /// <summary>When a daily entitlement stops (start of its first uncovered reset day); long.MaxValue = forever, 0 = none.</summary>
+        public static long DailyGrantEndMs(GameState s, ContentDb content, string productId) =>
+            !s.Shop.DailyGrants.TryGetValue(productId, out var g) ? 0 : g.EndDay == long.MaxValue ? long.MaxValue : MetaTime.DayStartMs(content, g.EndDay);
+
+        /// <summary>True when today's reward of an active daily entitlement was already claimed.</summary>
+        public static bool ClaimedDailyToday(GameState s, ContentDb content, string productId, long nowMs) =>
+            DailyGrantActive(s, content, productId, nowMs) && s.Shop.DailyGrants[productId].LastClaimDay >= MetaTime.DayIndex(content, nowMs);
+
+        /// <summary>Start of the next daily reset (when daily claims and daily item limits renew).</summary>
+        public static long NextDailyResetMs(ContentDb content, long nowMs) => MetaTime.DayStartMs(content, MetaTime.DayIndex(content, nowMs) + 1);
+
         public static bool HasMonthlyPass(GameState s, ContentDb content, long nowMs) => DailyGrantActive(s, content, content.Shop.MonthlyPassProductId, nowMs);
 
         /// <summary>No Ads entitlement (or the global ads-disabled mode): every ad placement becomes instant (caps still apply).</summary>
@@ -109,6 +121,67 @@ namespace RogueStars.Rules.Systems
             if (def == null) return 0;
             int used = s.Shop.AdDay == MetaTime.DayIndex(content, nowMs) && s.Shop.AdViews.TryGetValue(placementId, out var n) ? n : 0;
             return Math.Max(0, def.DailyCap - used);
+        }
+
+        // Shop items --------------------------------------------------------------------------------
+
+        /// <summary>The limit period an item purchase counts in now (reset day, reset week, or 0 for lifetime limits).</summary>
+        public static long ItemPeriod(ContentDb content, ShopItemDef item, long nowMs) =>
+            item.Period == LimitPeriod.Daily ? MetaTime.DayIndex(content, nowMs)
+            : item.Period == LimitPeriod.Weekly ? MetaTime.WeekIndex(content, nowMs) : 0;
+
+        /// <summary>Purchases of <paramref name="item"/> in its current limit period (Diamond-shop counts).</summary>
+        public static int ItemBought(GameState s, ContentDb content, ShopItemDef item, long nowMs) =>
+            s.Shop.ItemBuys.TryGetValue(item.Id, out var pc) && pc.Period == ItemPeriod(content, item, nowMs) ? pc.Count : 0;
+
+        /// <summary>The Passes page's free daily gift (<see cref="ShopConfig.DailyGiftItemId"/>), or null.</summary>
+        public static ShopItemDef DailyGift(ContentDb content) => content.ShopItem(content.Shop.DailyGiftItemId);
+
+        /// <summary>True when the free daily gift can be taken now (requirements met, today's limit not used).</summary>
+        public static bool CanClaimDailyGift(GameState s, ContentDb content, long nowMs)
+        {
+            var item = DailyGift(content);
+            return item != null && Requirements.IsMet(s, content, item.Requires, nowMs)
+                && (item.Limit <= 0 || ItemBought(s, content, item, nowMs) < item.Limit) && s.Wallet.CanAfford(item.Price);
+        }
+
+        // Passes page --------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Everything the Passes page's "Claim all" (<see cref="PassesClaimAll"/>) takes now, in claim order: the free daily
+        /// gift, today's reward of every owned daily entitlement (product id order), reached season pass levels (free, then
+        /// premium when owned) and reached steps of owned funds (fund id order).
+        /// </summary>
+        public static List<PassClaim> PassClaimables(GameState s, ContentDb content, long nowMs)
+        {
+            var list = new List<PassClaim>();
+            if (CanClaimDailyGift(s, content, nowMs)) list.Add(new PassClaim { Kind = PassClaimKind.DailyGift, Id = content.Shop.DailyGiftItemId });
+            var daily = new List<string>();
+            foreach (var p in content.Products.Values) if (p.DailyRewards.Count > 0 && CanClaimDaily(s, content, p.Id, nowMs)) daily.Add(p.Id);
+            daily.Sort(string.CompareOrdinal);
+            foreach (var id in daily) list.Add(new PassClaim { Kind = PassClaimKind.Daily, Id = id });
+            if (Features.IsUnlocked(s, content, Features.SeasonPass))
+            {
+                int reached = SeasonLevel(s, content);
+                bool premium = HasPremiumSeason(s, content, nowMs);
+                for (int lvl = 1; lvl <= reached; lvl++)
+                {
+                    if (!s.Shop.SeasonClaims.Contains("f:" + lvl)) list.Add(new PassClaim { Kind = PassClaimKind.SeasonLevel, Step = lvl });
+                    if (premium && !s.Shop.SeasonClaims.Contains("p:" + lvl)) list.Add(new PassClaim { Kind = PassClaimKind.SeasonLevel, Step = lvl, Premium = true });
+                }
+            }
+            var funds = new List<string>(s.Shop.FundsOwned);
+            funds.Sort(string.CompareOrdinal);
+            foreach (var id in funds)
+            {
+                var fund = content.Fund(id);
+                if (fund == null) continue;
+                long progress = FundProgress(s, content, fund);
+                for (int i = 0; i < fund.Steps.Count; i++)
+                    if (progress >= fund.Steps[i].Target && !s.Shop.FundClaims.Contains(fund.Id + ":" + i))
+                        list.Add(new PassClaim { Kind = PassClaimKind.FundStep, Id = fund.Id, Step = i });
+            }
+            return list;
         }
 
         // Season pass ------------------------------------------------------------------------------
@@ -170,10 +243,8 @@ namespace RogueStars.Rules.Systems
             var s = ctx.State;
             GameEngine.Require(item != null, "unknown item");
             GameEngine.Require(Requirements.IsMet(s, ctx.Content, item.Requires, ctx.NowMs), "item locked");
-            long period = item.Period == LimitPeriod.Daily ? MetaTime.DayIndex(ctx.Content, ctx.NowMs)
-                : item.Period == LimitPeriod.Weekly ? MetaTime.WeekIndex(ctx.Content, ctx.NowMs) : 0;
-            counts.TryGetValue(item.Id, out var pc);
-            int bought = pc != null && pc.Period == period ? pc.Count : 0;
+            long period = ItemPeriod(ctx.Content, item, ctx.NowMs);
+            int bought = counts.TryGetValue(item.Id, out var pc) && pc.Period == period ? pc.Count : 0;
             GameEngine.Require(item.Limit <= 0 || bought < item.Limit, "item limit reached");
             GameEngine.Require(s.Wallet.CanAfford(item.Price), "not enough currency");
             s.Wallet.TrySpend(item.Price);
@@ -302,10 +373,15 @@ namespace RogueStars.Rules.Systems
             var p = ctx.Content.Product(cmd.ProductId);
             GameEngine.Require(p != null && p.DailyRewards.Count > 0, "no daily rewards");
             GameEngine.Require(DailyGrantActive(ctx.State, ctx.Content, p.Id, ctx.NowMs), "not active");
+            ClaimDaily(ctx, p);
+            return CommandResult.Success();
+        }
+
+        private static void ClaimDaily(CommandContext ctx, ProductDef p)
+        {
             GameEngine.Require(CanClaimDaily(ctx.State, ctx.Content, p.Id, ctx.NowMs), "already claimed today");
             ctx.State.Shop.DailyGrants[p.Id].LastClaimDay = MetaTime.DayIndex(ctx.Content, ctx.NowMs);
             ctx.GrantAll(p.DailyRewards);
-            return CommandResult.Success();
         }
 
         private static CommandResult HandleBuyItem(ShopBuyItem cmd, CommandContext ctx)
@@ -364,18 +440,53 @@ namespace RogueStars.Rules.Systems
 
         private static CommandResult HandleFundClaim(FundClaim cmd, CommandContext ctx)
         {
+            ClaimFundStep(ctx, cmd.FundId, cmd.Step);
+            return CommandResult.Success();
+        }
+
+        private static void ClaimFundStep(CommandContext ctx, string fundId, int stepIndex)
+        {
             var s = ctx.State;
-            var fund = ctx.Content.Fund(cmd.FundId);
+            var fund = ctx.Content.Fund(fundId);
             GameEngine.Require(fund != null, "unknown fund");
             GameEngine.Require(s.Shop.FundsOwned.Contains(fund.Id), "fund not owned");
-            GameEngine.Require(cmd.Step >= 0 && cmd.Step < fund.Steps.Count, "invalid step");
-            var step = fund.Steps[cmd.Step];
+            GameEngine.Require(stepIndex >= 0 && stepIndex < fund.Steps.Count, "invalid step");
+            var step = fund.Steps[stepIndex];
             GameEngine.Require(FundProgress(s, ctx.Content, fund) >= step.Target, "step not reached");
-            string key = fund.Id + ":" + cmd.Step;
+            string key = fund.Id + ":" + stepIndex;
             GameEngine.Require(!s.Shop.FundClaims.Contains(key), "already claimed");
             s.Shop.FundClaims.Add(key);
             ctx.GrantAll(step.Rewards);
-            return CommandResult.Success();
         }
+
+        private static CommandResult HandlePassesClaimAll(PassesClaimAll cmd, CommandContext ctx)
+        {
+            var claims = PassClaimables(ctx.State, ctx.Content, ctx.NowMs);
+            GameEngine.Require(claims.Count > 0, "nothing to claim");
+            foreach (var c in claims)
+            {
+                switch (c.Kind)
+                {
+                    case PassClaimKind.DailyGift: BuyItem(ctx, ctx.Content.ShopItem(c.Id), ctx.State.Shop.ItemBuys); break;
+                    case PassClaimKind.Daily: ClaimDaily(ctx, ctx.Content.Product(c.Id)); break;
+                    case PassClaimKind.SeasonLevel: ClaimSeasonLevel(ctx, c.Step, c.Premium); break;
+                    case PassClaimKind.FundStep: ClaimFundStep(ctx, c.Id, c.Step); break;
+                }
+            }
+            return CommandResult.Success(claims.Count);
+        }
+    }
+
+    public enum PassClaimKind { DailyGift, Daily, SeasonLevel, FundStep }
+
+    /// <summary>One claim of the Passes page's "Claim all": the daily gift item, a product's daily reward, a season level or a fund step.</summary>
+    public struct PassClaim
+    {
+        public PassClaimKind Kind;
+        /// <summary>Item id (DailyGift), product id (Daily) or fund id (FundStep).</summary>
+        public string Id;
+        /// <summary>Season level (1-based) or fund step index.</summary>
+        public int Step;
+        public bool Premium;
     }
 }

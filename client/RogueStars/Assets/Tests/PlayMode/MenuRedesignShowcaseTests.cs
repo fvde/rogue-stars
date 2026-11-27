@@ -101,7 +101,7 @@ namespace RogueStars.Client.PlayTests
                 yield return Shot("s1_shop_offers");
                 yield return Scroll(0f);
                 yield return Shot("s1b_shop_offers_scrolled");
-                foreach (var tab in new[] { "Diamonds", "Passes", "Forever", "Items", "Ads" })
+                foreach (var tab in new[] { "Diamonds", "Items", "Ads" })
                 {
                     yield return OpenTab(tab);
                     yield return Shot("s2_shop_" + tab.ToLowerInvariant());

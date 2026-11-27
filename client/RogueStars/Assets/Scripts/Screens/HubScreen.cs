@@ -122,7 +122,7 @@ namespace RogueStars.Client.Screens
             bool done = tier >= Content.SeasonPass.Levels.Count;
             var label = SliceKit.Chunky(_frame, "Season " + (ShopSystem.SeasonIndex(Content, Now) + 1), (int)(44 * _s), Color.white, TextAnchor.MiddleCenter, "SeasonLabel");
             At(label.rectTransform, 540, 36, 500, 56);
-            var bar = Ui.Button(_frame, "", () => App.Open("shop"), new Color(0, 0, 0, 0), 620 * _s, 110 * _s, true, 20);
+            var bar = Ui.Button(_frame, "", () => App.Open("passes"), new Color(0, 0, 0, 0), 620 * _s, 110 * _s, true, 20);
             bar.name = "SeasonBar";
             At((RectTransform)bar.transform, 540, 122, 620, 110);
             var edge = Ui.RoundPanel(bar.transform, SliceKit.Ink, 24 * _s, "Edge");
@@ -182,7 +182,10 @@ namespace RogueStars.Client.Screens
             if (Session.IsUnlocked(Features.Invasions) && (events.Count == 0 || events.Count > HubLayout.MaxLiveIcons))
                 left.Add(y => SideIcon(85, y, "observatory", "Events", () => App.Open("observatory"), "Side:observatory", out _, out _));
             var right = new List<System.Action<float>>();
-            foreach (var entry in HubLayout.RightColumn(State, Content, Now))
+            var rightEntries = HubLayout.RightColumn(State, Content, Now);
+            // things to claim on the Passes page: a count on the Pass icon, or on the Shop while the season pass is locked
+            string passBadgeOn = rightEntries.Exists(x => x.Id == "pass") ? "pass" : "shop";
+            foreach (var entry in rightEntries)
             {
                 var e = entry;
                 right.Add(y =>
@@ -190,6 +193,7 @@ namespace RogueStars.Client.Screens
                     SideIcon(995, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
                     // the pass shows its tier as a small "Lv n" chip under the icon (was a cryptic "T0" in the label)
                     if (e.Id == "pass") timer.text = "Lv " + ShopSystem.SeasonLevel(State, Content);
+                    if (e.Id == passBadgeOn) { int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; badge.text = claimable > 0 ? claimable.ToString() : ""; }
                     if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); badge.text = unread > 0 ? unread.ToString() : ""; }
                     else if (e.Id == "offer") Live(timer, OfferTimer);
                 });

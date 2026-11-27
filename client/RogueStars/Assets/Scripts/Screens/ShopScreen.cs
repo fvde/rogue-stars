@@ -10,23 +10,35 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Catalogue, offers, passes, funds, permanent purchases, Diamond items and rewarded ads. Real-money products go
-    /// through GameSession.Purchase (IStoreGateway → dev receipt offline / /v1/iap/verify online).
+    /// Catalogue, offers, Diamond items and rewarded ads. Real-money products go through GameSession.Purchase (IStoreGateway →
+    /// dev receipt offline / /v1/iap/verify online). The "Passes" chip opens the Passes page (<see cref="PassesScreen"/>: daily
+    /// gift, Monthly Pass, the Forever products, season pass, funds) instead of switching the tab.
     /// </summary>
     public sealed class ShopScreen : UiScreen
     {
-        private static readonly string[] Tabs = { "Offers", "Diamonds", "Passes", "Forever", "Items", "Ads" };
+        private static readonly string[] Tabs = { "Offers", "Diamonds", "Passes", "Items", "Ads" };
+        /// <summary>Index of the "Passes" chip: opens the Passes page.</summary>
+        public const int PassesTab = 2;
         private int _tab;
 
         public override string Title => "Shop";
-        public override string[] IntroFeatures => new[] { Features.Shop, Features.Funds, Features.SeasonPass };
+        public override string[] IntroFeatures => new[] { Features.Shop };
 
         /// <summary>The section chips sit at the bottom (kit chip tabs in the footer), the back button in the header.</summary>
         public override float FooterHeight => 124;
 
         protected override void Build(RectTransform body)
         {
-            if (Footer != null) Kit.TabChips(Footer, Tabs, _tab, i => { _tab = i; Rebuild(); }, 84);
+            if (Footer != null)
+            {
+                var dots = new bool[Tabs.Length];
+                dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
+                Kit.TabChips(Footer, Tabs, _tab, i =>
+                {
+                    if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
+                    _tab = i; Rebuild();
+                }, 84, dots);
+            }
             // G7: store / offline hints are for developers only
             if (Debug.isDebugBuild) Note(body, !Session.IsOnline ? "Offline mode: purchases complete instantly with dev receipts." : "Store: " + Session.Store.Name + ".").name = "DevHint";
             switch (_tab)
@@ -40,10 +52,8 @@ namespace RogueStars.Client.Screens
                     Products(body, ProductKind.GiftPack);
                     break;
                 case 1: Products(body, ProductKind.DiamondPack); break;
-                case 2: Products(body, ProductKind.MonthlyPass); SeasonPass(body); FundsSection(body); break;
-                case 3: Products(body, ProductKind.Permanent); break;
-                case 4: Items(body); break;
-                case 5: Ads(body); break;
+                case 3: Items(body); break;
+                case 4: Ads(body); break;
             }
         }
 
@@ -86,10 +96,12 @@ namespace RogueStars.Client.Screens
         /// Rewards follow use: an offer is only shown when its headline (first) reward has a use now; offers for locked
         /// features stay hidden (bought anyway, their contents would wait in the reward stash, kept in full).
         /// </summary>
-        private bool Usable(ProductDef p)
+        private bool Usable(ProductDef p) => Usable(State, Content, p, Now);
+
+        public static bool Usable(GameState state, ContentDb content, ProductDef p, long now)
         {
             var list = p.Contents.Count > 0 ? p.Contents : p.DailyRewards.Count > 0 ? p.DailyRewards : p.FirstPurchaseBonus;
-            return list.Count == 0 || RewardGate.HasUse(State, Content, list[0], Now);
+            return list.Count == 0 || RewardGate.HasUse(state, content, list[0], now);
         }
 
         /// <summary>MS1: offers outside their schedule are hidden instead of listed as "offer not active".</summary>
@@ -170,11 +182,30 @@ namespace RogueStars.Client.Screens
             var row = wide ? Ui.Row(card, 84) : Ui.Column(card, 8, 0, null, "Buy");
             if (block != null) Ui.Label(row, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, anchor);
             else if (p.PriceUsdCents == 0) Kit.Button(row, "Claim free", () => Run(new ShopClaimFree { ProductId = p.Id }), KitButtonColor.Positive, -1, 80);
-            else if (!Session.IsOffered(p.Id)) Kit.Button(row, "Soon", null, KitButtonColor.Secondary, -1, 80, false).name = "ComingSoon:" + p.Id; // T53
-            else if (Session.PendingPayments.Contains(p.Id)) Ui.ButtonWithReason(row, "PENDING", null, Theme.Button, -1, 80, false, "Arrives once the payment is approved").name = "Pending:" + p.Id; // T52
-            else Kit.Button(row, "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), KitButtonColor.Primary, -1, 80);
+            else PurchaseButton(row, Session, p, "Buy ", -1, 80);
             if (p.DailyRewards.Count > 0 && ShopSystem.DailyGrantActive(State, Content, p.Id, Now))
                 Kit.Button(row, "Claim daily", () => Run(new ShopClaimDaily { ProductId = p.Id }), KitButtonColor.Positive, -1, 80, ShopSystem.CanClaimDaily(State, Content, p.Id, Now));
+        }
+
+        /// <summary>
+        /// The buy button of a real-money product: "Soon" while the store does not offer it yet (T53), "PENDING" while a
+        /// payment waits for approval (T52), else <paramref name="verb"/> + price.
+        /// </summary>
+        public static Button PurchaseButton(Transform row, GameSession session, ProductDef p, string verb, float width, float height)
+        {
+            if (!session.IsOffered(p.Id))
+            {
+                var soon = Kit.Button(row, "Soon", null, KitButtonColor.Secondary, width, height, false);
+                soon.name = "ComingSoon:" + p.Id;
+                return soon;
+            }
+            if (session.PendingPayments.Contains(p.Id))
+            {
+                var pending = Ui.ButtonWithReason(row, "PENDING", null, Theme.Button, width, height, false, "Arrives once the payment is approved");
+                pending.name = "Pending:" + p.Id;
+                return pending;
+            }
+            return Kit.Button(row, verb + Fmt.Price(p.PriceUsdCents), () => session.Purchase(p.Id), KitButtonColor.Primary, width, height);
         }
 
         /// <summary>The Offers tab's banner: the best usable offer on sale (flash, rolling, starter, then gift), wide.</summary>
@@ -199,78 +230,13 @@ namespace RogueStars.Client.Screens
         private static string OfferName(ProductDef p) =>
             p.Kind == ProductKind.RollingOffer && p.Name != null && p.Name.StartsWith("Rolling Offer ") ? "Special Offer · Step " + p.Name.Substring(14) : p.Name;
 
-        private void SeasonPass(RectTransform body)
-        {
-            Kit.Ribbon(body, "Season pass", new Color32(0x5A, 0x4A, 0x9C, 255));
-            if (!Session.IsUnlocked(Features.SeasonPass)) { Note(body, "Locked: " + Requirements.Describe(Content, Content.Feature(Features.SeasonPass)?.Requires ?? new RequirementSet())); return; }
-            var sp = Content.SeasonPass;
-            int level = ShopSystem.SeasonLevel(State, Content);
-            bool premium = ShopSystem.HasPremiumSeason(State, Content, Now);
-            var card = Card(body, Theme.Header);
-            long xp = ShopSystem.SeasonXp(State, Content);
-            Kit.ProgressPill(card, sp.XpPerLevel > 0 ? (xp % sp.XpPerLevel) / (float)sp.XpPerLevel : 0, Theme.Premium, "Level " + level + " — " + xp + " XP");
-            Live(Note(card, ""), () => "Season ends in " + Fmt.Duration(ShopSystem.SeasonEndMs(Content, Now) - Now));
-            var row = Ui.Row(card, 84);
-            if (!premium) { var pp = Content.Product(sp.PremiumProductId); if (pp != null) Ui.Button(row, !Session.IsOffered(pp.Id) ? "Premium: soon" : Session.PendingPayments.Contains(pp.Id) ? "Premium: PENDING" : "Premium " + Fmt.Price(pp.PriceUsdCents), () => Session.Purchase(pp.Id), Theme.Accent, -1, 84, Session.IsOffered(pp.Id) && !Session.PendingPayments.Contains(pp.Id)); }
-            else Ui.Label(row, "Premium owned", Theme.FontSmall, Theme.Good);
-            Ui.Button(row, "Claim all", () => Run(new SeasonPassClaimAll()), Theme.Good, -1, 84);
-            foreach (var l in sp.Levels)
-            {
-                var lv = l;
-                if (lv.Level > level + 3) break;
-                var r = Ui.Row(body, 80, 8, Theme.Panel, 10);
-                var lab = Kit.LevelBadge(r, "Lv " + lv.Level, lv.Level <= level ? Theme.Gold : Theme.TextDim, 40);
-                Ui.Size(lab, 120, 40, 0, 0);
-                LevelButton(r, lv.Level, false, Fmt.Rewards(lv.Free, Content, State, Now), level);
-                LevelButton(r, lv.Level, true, Fmt.Rewards(lv.Premium, Content, State, Now), level, premium);
-            }
-        }
-
-        private void LevelButton(Transform row, int level, bool premiumTrack, string rewards, int reached, bool premiumOwned = true)
-        {
-            bool claimed = State.Shop.SeasonClaims.Contains((premiumTrack ? "p:" : "f:") + level);
-            bool can = !claimed && level <= reached && premiumOwned;
-            Kit.Button(row, (claimed ? "done: " : "") + rewards, () => Run(new SeasonPassClaim { Level = level, Premium = premiumTrack }),
-                premiumTrack ? KitButtonColor.Premium : can ? KitButtonColor.Positive : KitButtonColor.Secondary, -1, 72, can, Theme.FontSmall);
-        }
-
-        private void FundsSection(RectTransform body)
-        {
-            Kit.Ribbon(body, "Funds", new Color32(0x2E, 0x7A, 0x5A, 255));
-            foreach (var f in Content.Funds.Values)
-            {
-                var fund = f;
-                var card = Card(body, Theme.PanelAlt);
-                bool owned = State.Shop.FundsOwned.Contains(fund.Id);
-                long progress = ShopSystem.FundProgress(State, Content, fund);
-                var p = Content.Product(fund.ProductId);
-                var head = Ui.Row(card, 60);
-                Ui.Label(head, fund.Name + " — progress " + progress, Theme.FontNormal);
-                if (!owned && p != null)
-                {
-                    string block = ShopSystem.PurchaseBlockReason(State, Content, p, Now);
-                    if (block == null) Ui.Button(head, !Session.IsOffered(p.Id) ? "Soon" : Session.PendingPayments.Contains(p.Id) ? "PENDING" : "Buy " + Fmt.Price(p.PriceUsdCents), () => Session.Purchase(p.Id), Theme.Accent, 240, 60, Session.IsOffered(p.Id) && !Session.PendingPayments.Contains(p.Id));
-                    else Ui.Label(head, Fmt.Humanize(block), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
-                }
-                var steps = Ui.Grid(card, new Vector2(204, 96), 4, 8);
-                for (int i = 0; i < fund.Steps.Count; i++)
-                {
-                    int step = i;
-                    var s = fund.Steps[i];
-                    bool claimed = State.Shop.FundClaims.Contains(fund.Id + ":" + step);
-                    bool can = owned && !claimed && progress >= s.Target;
-                    Kit.Button(steps, s.Target + "\n" + (claimed ? "done" : Fmt.Rewards(s.Rewards, Content, State, Now)), () => Run(new FundClaim { FundId = fund.Id, Step = step }),
-                        can ? KitButtonColor.Positive : KitButtonColor.Secondary, -1, 90, can, 22);
-                }
-            }
-        }
-
         private void Items(RectTransform body)
         {
             var bySection = new SortedDictionary<string, List<ShopItemDef>>();
             foreach (var it in Content.ShopItems.Values)
             {
                 if (it.Section == GuildSystem.ShopSection || it.Section == ContentDb.ArenaShopSection) continue; // own shops (Guild, Arena)
+                if (it.Id == Content.Shop.DailyGiftItemId) continue; // the free daily gift lives on the Passes page
                 if (it.Contents.Count > 0 && !RewardGate.AnyUsable(State, Content, it.Contents, Now)) continue; // for a locked feature
                 if (!bySection.TryGetValue(it.Section, out var l)) bySection[it.Section] = l = new List<ShopItemDef>();
                 l.Add(it);

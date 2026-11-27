@@ -42,7 +42,7 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 | D15 | **Animation** | Deferred completely (owner, 2026-11-26); code is behind `AnimSettings.Enabled` (false: static sprites, no taps, no Settings control). |
 
 | D18 | **Menu UI redesign, remaining screens** | Menu audit: docs/design/menu-ui-audit.md. Worm, Shop, Laboratory, Aliens and Quests are being redesigned on a shared UI kit (docs/design/ui-kit.md). The rest waits: Observatory, Breeding Pen / Shard Reactor, Heroes + Mounts (merge into one layout), the "More" menu, Guild/Arena (F2/F1), run overlays and mini-games. |
-| D19 | **Menu art kit** (P0 first): 27 currency icons, panel/card/modal frames, button skins (7 colours), rarity frames and gems, 13 hub icons, worm slot silhouettes, tab bar, headers, backgrounds, progress bars, shop pack illustrations (~16), hero/mount portraits (9+9), rune icons | Art queue after the kit sprite names are fixed (see ui-kit.md). Currency icons are the most visible placeholder everywhere. |
+| D19 | **Menu art kit** (P0 first): 27 currency icons, panel/card/modal frames, button skins (7 colours), rarity frames and gems, 13 hub icons, worm slot silhouettes, tab bar, headers, backgrounds, progress bars, shop pack illustrations (~16), Passes page ticket illustrations (5: `Art/Shop/Passes/<product id>`, monthly_pass, perm_no_ads, perm_daily_diamonds, gift_diamond_week, gift_token_week; one flat ticket object each), hero/mount portraits (9+9), rune icons | Art queue after the kit sprite names are fixed (see ui-kit.md). Currency icons are the most visible placeholder everywhere. |
 | D20 | **Shop tab "Diamonds" wraps onto two lines** with 6 tabs | Fixed by the Shop redesign. |
 
 ## 3. How to use this file

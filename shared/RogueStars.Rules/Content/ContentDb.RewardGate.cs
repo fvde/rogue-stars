@@ -130,7 +130,7 @@ namespace RogueStars.Rules.Content
 
             GateConfig.KeepAllCommands.AddRange(new[]
             {
-                "PurchaseComplete", "ShopClaimDaily", "ShopBuyItem", "SeasonPassClaim", "SeasonPassClaimAll", "FundClaim",
+                "PurchaseComplete", "ShopClaimDaily", "ShopBuyItem", "SeasonPassClaim", "SeasonPassClaimAll", "FundClaim", "PassesClaimAll",
                 "MailClaim", "MailClaimAll", "GachaPull", "SummonPull", "SummonExchangeBuy", "SummonPassClaim", "SummonPassClaimAll",
             });
         }

@@ -65,7 +65,7 @@ namespace RogueStars.Client.App
                 list.Add(new Entry("shop", "Shop", "$", "shop"));
                 if (LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
             }
-            if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "shop"));
+            if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "passes"));
             // Mail from day 1, but not before the first run (the very first hub is PLAY only, even with the welcome mail waiting).
             if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("mail", "Mail", "@", "mail"));
             if (MoreScreens(s, c).Count > 0) list.Add(new Entry("more", "More", "+", null));
@@ -93,7 +93,7 @@ namespace RogueStars.Client.App
         public static List<ScreenEntry> MoreScreens(GameState s, ContentDb c)
         {
             // parts: its inventory is on the Worm tab (the Runes button opens the screen), so day 1 stays PLAY + Worm.
-            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "mail", "summon" };
+            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "passes", "mail", "summon" };
             var list = new List<ScreenEntry>();
             foreach (var e in ScreenCatalog.All)
             {
@@ -119,6 +119,7 @@ namespace RogueStars.Client.App
             foreach (var l in LeftColumn(s, c)) if (l.ScreenId != null) set.Add(l.ScreenId);
             if (Features.IsUnlocked(s, c, Features.Invasions)) set.Add("observatory");
             foreach (var m in MoreScreens(s, c)) set.Add(m.Id);
+            if (Features.IsUnlocked(s, c, Features.Shop)) set.Add("passes"); // Shop → "Passes" (and the Pass icon once the season pass is unlocked)
             return set;
         }
 
@@ -161,9 +162,9 @@ namespace RogueStars.Client.App
                 case Features.OreMine: return new Entry(featureId, "BUILD THE ORE MINE", null, "city");
                 case Features.Runes: return new Entry(featureId, "SEE YOUR PARTS", null, "parts");
                 case Features.Mounts: return new Entry(featureId, "SADDLE UP", null, "mounts");
-                case Features.Funds: return new Entry(featureId, "SEE THE FUNDS", null, "shop");
+                case Features.Funds: return new Entry(featureId, "SEE THE FUNDS", null, "passes");
                 case Features.Breeding: return new Entry(featureId, "BUILD THE PEN", null, "city");
-                case Features.SeasonPass: return new Entry(featureId, "SEE THE PASS", null, "shop");
+                case Features.SeasonPass: return new Entry(featureId, "SEE THE PASS", null, "passes");
                 case Features.Arena: return new Entry(featureId, "ENTER THE ARENA", null, "arena");
                 case Features.Overcharged: return new Entry(featureId, "PLAY OVERCHARGED", null, "portals");
                 case Features.Guilds: return new Entry(featureId, "FIND A GUILD", null, "guild");

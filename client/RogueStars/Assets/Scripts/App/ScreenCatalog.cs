@@ -44,6 +44,8 @@ namespace RogueStars.Client.App
             new ScreenEntry { Id = "breeding", Title = "Breeding Pen", FeatureId = Features.Breeding, Workstream = "City", Create = () => new BreedingScreen() },
             new ScreenEntry { Id = "quests", Title = "Daily Quests", FeatureId = Features.Parts, Workstream = "Meta", Create = () => new QuestsScreen() },
             new ScreenEntry { Id = "shop", Title = "Shop", FeatureId = Features.Shop, Workstream = "Meta", Create = () => new ShopScreen() },
+            // The Passes page: Shop → "Passes" and the hub's Pass icon (daily gift, Monthly Pass, Forever products, season pass, funds).
+            new ScreenEntry { Id = "passes", Title = "Passes", FeatureId = Features.Shop, Workstream = "Meta", Create = () => new PassesScreen() },
             new ScreenEntry { Id = "mail", Title = "Mail", Workstream = "Meta", Create = () => new MailScreen() },
             new ScreenEntry { Id = "observatory", Title = "Observatory", FeatureId = Features.Invasions, Workstream = "Meta", Create = () => new ObservatoryScreen() },
             new ScreenEntry { Id = "arena", Title = "Arena", FeatureId = Features.Arena, Workstream = "Meta", Create = () => new ArenaScreen() },
