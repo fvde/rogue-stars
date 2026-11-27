@@ -4,22 +4,26 @@ using RogueStars.Rules.Core;
 
 namespace RogueStars.Rules.Content
 {
-    /// <summary>What kind of body part a definition is. Arm parts fit either arm slot.</summary>
+    /// <summary>What kind of body part a definition is. Arm parts fit either arm slot (arms are interchangeable).</summary>
     public enum PartKind { Head, Body, Tail, Legs, Arm }
 
     /// <summary>The six equipment slots of the worm.</summary>
     public enum PartSlot { Head, Body, Tail, Legs, LeftArm, RightArm }
 
+    /// <summary>Standard part roles (parts v2): every standard rarity has one item per slot and role. Mythics have none.</summary>
+    public enum PartRole { None, Guard, Strike, Swift, Keen, Mend, Fury }
+
     /// <summary>
-    /// The 14-step part rarity ladder raised by merging (docs/design/parts.md). Mythic S and Mythic SS are rungs of the
-    /// ladder (each unlocks a part skill); awakening is separate (<see cref="PartsConfig.AwakenCost"/>).
+    /// Parts v2 (docs/design/parts.md, docs/design/parts-v2/): Common, Rare, Epic and Legendary are four separate item sets that
+    /// never merge; Mythic items climb their own ladder Mythic → +1 → +2 → S → S+1 → S+2 → SS (SS is final). An item's
+    /// rarity is its def's rarity, a Mythic's plus its ladder step. Saves store the int.
     /// </summary>
     public enum PartRarity
     {
-        Common, Uncommon, Rare, Epic, Legendary,
+        Common, Rare, Epic, Legendary,
         Mythic, Mythic1, Mythic2,
         MythicS, MythicS1, MythicS2,
-        MythicSS, MythicSS1, MythicSS2,
+        MythicSS,
     }
 
     [Serializable]
@@ -28,41 +32,37 @@ namespace RogueStars.Rules.Content
         public string Id;
         public string Name;
         public PartKind Kind;
-        /// <summary>Attack style; only meaningful for arm parts.</summary>
-        public AttackStyle Style;
-        /// <summary>Family this part favours (its skills are built around it).</summary>
+        /// <summary>The item set the def belongs to (Common … Legendary, or Mythic for the 30 build enablers).</summary>
+        public PartRarity Rarity;
+        /// <summary>Standard role (Guard, Strike, Swift, Keen, Mend, Fury); None for a Mythic.</summary>
+        public PartRole Role;
+        /// <summary>Mythic: its synergy family (None for the General Mythics and the standard parts, Crit for Keen parts).</summary>
         public SkillFamily Family;
-        /// <summary>Stats at Common, level 1 (scaled by rarity multiplier and Forge bonus).</summary>
+        /// <summary>Mythic: the synergy name shown ("Fire", "Radiation", "General" …) and its build identity.</summary>
+        public string Synergy, Identity;
+        /// <summary>Stats at level 1 (slot core × rarity multiplier + role stat; a Mythic's synergy stat).</summary>
         public List<StatMod> BaseStats = new List<StatMod>();
-        /// <summary>Stats per level above 1 (scaled by rarity multiplier, not by Forge).</summary>
+        /// <summary>Stats per level above 1: flat stats +15% of level 1; percentage stats linear to 3× at the part's max level.</summary>
         public List<StatMod> StatsPerLevel = new List<StatMod>();
-        /// <summary>
-        /// The part's five skills (Source = Part); skill i is active from PartsConfig.SkillUnlockRarities[i]
-        /// (Epic, Legendary, Mythic, Mythic S, Mythic SS).
-        /// </summary>
+        /// <summary>Skill ids (Source = Part): Epic 1, Legendary 2, Mythic 5 (active: 3 at Mythic, the 4th at S, the 5th at SS).</summary>
         public List<string> SkillIds = new List<string>();
 
-        /// <summary>Awakened version (Mythic+ parts, once): new name, stronger stats, five redesigned skills (same unlock rarities).</summary>
+        /// <summary>Awakened version (Mythic+, once): new name, ×1.4 stats, each skill replaced by its awakened version.</summary>
         public string AwakenedName;
         public List<StatMod> AwakenedBaseStats = new List<StatMod>();
         public List<StatMod> AwakenedStatsPerLevel = new List<StatMod>();
         public List<string> AwakenedSkillIds = new List<string>();
+
+        public bool IsMythic => Rarity >= PartRarity.Mythic;
     }
 
-    /// <summary>
-    /// Merge recipe to reach a rarity step: the target part (one step below) plus materials.
-    /// <see cref="SameDefCount"/> copies of the target's own def at <see cref="SameDefRarity"/> or higher, plus other parts
-    /// (any def, any kind, each at <see cref="FodderMinRarity"/> or higher) worth at least <see cref="FodderPoints"/>
-    /// fodder points (<see cref="PartRarityDef.FodderValue"/>; no superfluous material).
-    /// </summary>
+    /// <summary>One step of the Mythic ladder: copies of the same Mythic + other Mythics of the same slot (base step, not awakened), Metal and Ore.</summary>
     [Serializable]
-    public sealed class PartMergeRecipe
+    public sealed class PartClimbStep
     {
-        public int SameDefCount;
-        public PartRarity SameDefRarity;
-        public long FodderPoints;
-        public PartRarity FodderMinRarity;
-        /// <summary>Ore paid for the merge (Mythic and above; ×1.5 per step).</summary>
+        public int Copies;
+        public int Others;
+        public long Metal;
         public long Ore;
     }
 
@@ -71,21 +71,16 @@ namespace RogueStars.Rules.Content
     {
         public PartRarity Rarity;
         public string Name;
-        public double StatMultiplier;
-        public int BaseLevelCap;
-        /// <summary>How many Advancement Plate cap raises this rarity allows.</summary>
-        public int MaxCapRaises;
+        /// <summary>Level cap at this rarity / Mythic step (Common 10 … Legendary 50; Mythic 70 … SS 100).</summary>
+        public int LevelCap;
         /// <summary>Rune slots granted by rarity alone (the Forge adds more, up to PartsConfig.MaxRuneSlots).</summary>
         public int RuneSlots;
-        /// <summary>Ore granted on dismantle (in addition to the 100% level refund).</summary>
-        public long DismantleOre;
-        /// <summary>Recipe to reach this rarity from the previous step (null for Common).</summary>
-        public PartMergeRecipe Merge;
-        /// <summary>
-        /// Fodder points this part is worth as merge material: everything that went into it (Common 1, ×3 per step up to
-        /// Legendary = 81, then the cumulative recipe cost).
-        /// </summary>
-        public long FodderValue;
+        /// <summary>Skills active at this rarity (Epic 1, Legendary 2, Mythic 3, S 4, SS 5).</summary>
+        public int SkillCount;
+        /// <summary>Metal a spare part of this rarity is worth when fed (Common 1, Rare 2, Epic 6, Legendary 20; Mythics never).</summary>
+        public long Metal;
+        /// <summary>Mythic ladder: the cost to reach this step from the one below (null below Mythic +1).</summary>
+        public PartClimbStep Climb;
     }
 
     [Serializable]
@@ -118,30 +113,22 @@ namespace RogueStars.Rules.Content
         /// <summary>LevelOreCosts[L] / LevelGearCoreCosts[L]: cost from level L to L+1 (index 0 unused).</summary>
         public List<long> LevelOreCosts = new List<long>();
         public List<long> LevelGearCoreCosts = new List<long>();
-        public int CapRaiseLevels = 5;
-        /// <summary>Advancement Plates for the n-th cap raise (index = raises already done).</summary>
-        public List<long> CapRaisePlates = new List<long>();
         public int MaxRuneSlots = 5;
         public PartRarity ForgeMinRarity = PartRarity.Epic;
         public List<ForgeStep> Forge = new List<ForgeStep>();
-        /// <summary>Rarity at which each of a part's five skills becomes active (index = skill index).</summary>
-        public List<PartRarity> SkillUnlockRarities = new List<PartRarity>();
-        /// <summary>Awakening: Mythic or higher, once per part, for AwakenCost Awaken Cores.</summary>
+        /// <summary>Awakening: Mythic or higher, once per part, for AwakenCost Awaken Cores; ×AwakenStatMult level-1 stats.</summary>
         public PartRarity AwakenMinRarity = PartRarity.Mythic;
         public long AwakenCost = 50;
-        /// <summary>Scale on the numbers of part skills (normal / awakened): the balance knob for part-skill power.</summary>
-        public double SkillPowerScale = 0.25, AwakenedSkillPowerScale = 0.3;
-        /// <summary>One Legendary part in fodder points (the unit of the recipe table in docs/design/parts.md).</summary>
-        public long LegendaryFodder = 81;
-        /// <summary>Quick-merge never produces parts above this rarity.</summary>
-        public PartRarity QuickMergeMaxTarget = PartRarity.Legendary;
-        /// <summary>
-        /// Replicator: turns Legendary+ surplus (any def, ReplicateFodderPoints) + Ore into a Legendary copy of the def of a
-        /// Mythic+ part the player is building, so copies for Mythic S / SS never strand the surplus.
-        /// </summary>
-        public long ReplicateFodderPoints = 10 * 81;
+        public double AwakenStatMult = 1.4;
+        /// <summary>Flat stats grow by this share of their level-1 value per level (rounded to whole numbers).</summary>
+        public double FlatGrowth = 0.15;
+        /// <summary>Percentage stats grow linearly from their level-1 value to this multiple at the part's max level.</summary>
+        public double PercentMaxMult = 3;
+        /// <summary>Replicator: ReplicateMythics spare Mythics (any slot, base step) + ReplicateOre → 1 copy of a Mythic the player owns.</summary>
+        public int ReplicateMythics = 3;
         public long ReplicateOre = 5000;
-        public PartRarity ReplicateMinTargetRarity = PartRarity.Mythic;
+        /// <summary>Starter set: one Common per slot (new players' kit; old saves are reset to it, parts v2 has no migration).</summary>
+        public List<string> StarterParts = new List<string>();
 
         public Dictionary<string, RuneDef> Runes = new Dictionary<string, RuneDef>();
         /// <summary>Indexed by (int)Rarity (Common..Mythic).</summary>
@@ -151,52 +138,66 @@ namespace RogueStars.Rules.Content
 
         public PartRarityDef RarityDef(int r) => Rarities[Math.Max(0, Math.Min(Rarities.Count - 1, r))];
         public int MaxLevel => LevelOreCosts.Count;
+        /// <summary>The top of the Mythic ladder (Mythic SS).</summary>
+        public PartRarity TopRarity => (PartRarity)(Rarities.Count - 1);
     }
 
     public sealed partial class ContentDb
     {
-        /// <summary>Parts, rarity ladder, merge recipes, runes, Forge and awakening (Progression).</summary>
+        /// <summary>Parts v2: 120 standard items, 30 Mythics, the Mythic ladder, Metal, runes, Forge and awakening (Progression).</summary>
         public readonly PartsConfig PartsConfig = new PartsConfig();
+
+        /// <summary>Slot core stats at Common level 1 (× the rarity multiplier), data.py CORE.</summary>
+        private static readonly Dictionary<PartKind, (StatId, double)[]> PartCore = new Dictionary<PartKind, (StatId, double)[]>
+        {
+            [PartKind.Head] = new[] { (StatId.Hp, 50.0) },
+            [PartKind.Body] = new[] { (StatId.Hp, 100.0), (StatId.Def, 6.0) },
+            [PartKind.Tail] = new[] { (StatId.Hp, 40.0), (StatId.Atk, 5.0) },
+            [PartKind.Legs] = new[] { (StatId.Def, 8.0), (StatId.Speed, 3.0) },
+            [PartKind.Arm] = new[] { (StatId.Atk, 15.0) },
+        };
+
+        /// <summary>Role stat at Common level 1 (× the rarity multiplier); point stats are percentage stats.</summary>
+        private static readonly Dictionary<PartRole, (StatId, double)> PartRoleStat = new Dictionary<PartRole, (StatId, double)>
+        {
+            [PartRole.Guard] = (StatId.Def, 6), [PartRole.Strike] = (StatId.Atk, 5), [PartRole.Swift] = (StatId.Speed, 4),
+            [PartRole.Keen] = (StatId.CritChance, 3), [PartRole.Mend] = (StatId.LifeSteal, 2), [PartRole.Fury] = (StatId.RageGain, 6),
+        };
+
+        public static readonly PartRole[] PartRoles = { PartRole.Guard, PartRole.Strike, PartRole.Swift, PartRole.Keen, PartRole.Mend, PartRole.Fury };
+        public static readonly PartKind[] PartKinds = { PartKind.Head, PartKind.Body, PartKind.Tail, PartKind.Legs, PartKind.Arm };
+        private static readonly string[] PartTier = { "Scrap", "Alloy", "Plasma", "Quantum" };
+        private static readonly double[] PartMult = { 1.0, 1.7, 2.4, 3.6, 5.6 };
+        private static readonly string[] PartPrefix = { "c", "r", "e", "l" };
+
+        /// <summary>Standard item id: rarity prefix (c / r / e / l), slot, role ("e_head_guard").</summary>
+        public static string StdPartId(PartRarity r, PartKind k, PartRole role) =>
+            PartPrefix[(int)r] + "_" + k.ToString().ToLowerInvariant() + "_" + role.ToString().ToLowerInvariant();
+
+        /// <summary>The page's rounding: below 20 whole numbers, from 20 multiples of 5 (build.py rnd, banker's rounding like Python).</summary>
+        internal static double PartRound(double x) => x < 20 ? Math.Floor(x + 0.5) : Math.Round(x / 5.0) * 5;
 
         partial void BuildParts()
         {
             var p = PartsConfig;
 
-            // ---- rarity ladder (docs/design/parts.md) ---------------------------------------------
-            // Below Mythic every step takes any surplus of the step's rarity (3 → 1, any def and kind), so every drop ends
-            // up as Legendary fodder. Mythic and above take Legendary+ fodder in Legendary-equivalents (LE = 81 points)
-            // growing ~1.7× per step; Mythic, S, SS and SS+2 also need copies of the part's own def (Legendary or higher).
-            long le = p.LegendaryFodder;
-            // name, stat mult, base cap, cap raises, rune slots, dismantle ore, recipe
-            AddPartRarity(PartRarity.Common, "Common", 1.0, 10, 0, 0, 50, null);
-            AddPartRarity(PartRarity.Uncommon, "Uncommon", 1.3, 15, 0, 0, 100, PartRecipe(0, PartRarity.Common, 2, PartRarity.Common));
-            AddPartRarity(PartRarity.Rare, "Rare", 1.7, 20, 1, 1, 250, PartRecipe(0, PartRarity.Uncommon, 6, PartRarity.Uncommon));
-            AddPartRarity(PartRarity.Epic, "Epic", 2.4, 30, 1, 1, 600, PartRecipe(0, PartRarity.Rare, 18, PartRarity.Rare));
-            AddPartRarity(PartRarity.Legendary, "Legendary", 3.6, 50, 2, 2, 2000, PartRecipe(0, PartRarity.Epic, 54, PartRarity.Epic));
-            AddPartRarity(PartRarity.Mythic, "Mythic", 5.6, 70, 3, 3, 6000, PartRecipe(1, PartRarity.Legendary, 2 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 6.2, 75, 3, 3, 9000, PartRecipe(0, PartRarity.Legendary, 8 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 6.8, 80, 3, 3, 13000, PartRecipe(0, PartRarity.Legendary, 14 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS, "Mythic S", 7.8, 90, 4, 4, 20000, PartRecipe(2, PartRarity.Legendary, 24 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS1, "Mythic S+1", 8.4, 95, 4, 4, 28000, PartRecipe(0, PartRarity.Legendary, 40 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicS2, "Mythic S+2", 9.0, 100, 5, 4, 38000, PartRecipe(0, PartRarity.Legendary, 70 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS, "Mythic SS", 9.8, 105, 5, 5, 55000, PartRecipe(3, PartRarity.Legendary, 120 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS1, "Mythic SS+1", 10.4, 110, 6, 5, 75000, PartRecipe(0, PartRarity.Legendary, 200 * le, PartRarity.Legendary));
-            AddPartRarity(PartRarity.MythicSS2, "Mythic SS+2", 11.0, 115, 6, 5, 100000, PartRecipe(1, PartRarity.Legendary, 340 * le, PartRarity.Legendary));
-            // Ore per merge from Mythic on: 1.5k, ×1.5 per step (Mythic SS+2 ≈ 38k).
-            for (int r = (int)PartRarity.Mythic; r < p.Rarities.Count; r++)
-                p.Rarities[r].Merge.Ore = (long)Math.Round(1500 * Math.Pow(1.5, r - (int)PartRarity.Mythic) / 100.0) * 100;
-            // Fodder value = everything that went into a part (Common 1; Legendary 81; then the cumulative recipe cost).
-            for (int r = 0; r < p.Rarities.Count; r++)
-            {
-                var rd = p.Rarities[r];
-                if (rd.Merge == null) { rd.FodderValue = 1; continue; }
-                rd.FodderValue = p.Rarities[r - 1].FodderValue + rd.Merge.SameDefCount * p.Rarities[(int)rd.Merge.SameDefRarity].FodderValue + rd.Merge.FodderPoints;
-            }
+            // ---- rarities and the Mythic ladder (docs/design/parts.md) ----------------------------------
+            // name, level cap, rune slots (today's mapping), skills active, Metal when fed
+            AddPartRarity(PartRarity.Common, "Common", 10, 0, 0, 1, null);
+            AddPartRarity(PartRarity.Rare, "Rare", 20, 1, 0, 2, null);
+            AddPartRarity(PartRarity.Epic, "Epic", 30, 1, 1, 6, null);
+            AddPartRarity(PartRarity.Legendary, "Legendary", 50, 2, 2, 20, null);
+            AddPartRarity(PartRarity.Mythic, "Mythic", 70, 3, 3, 0, null);
+            // copies, other Mythics of the same slot, Metal, Ore (pacing.py LADDER_REQ, Ore = today's Mythic-ladder Ore)
+            AddPartRarity(PartRarity.Mythic1, "Mythic+1", 75, 3, 3, 0, Climb(1, 0, 100, 2200));
+            AddPartRarity(PartRarity.Mythic2, "Mythic+2", 80, 3, 3, 0, Climb(1, 0, 150, 3400));
+            AddPartRarity(PartRarity.MythicS, "Mythic S", 85, 4, 4, 0, Climb(1, 0, 200, 5100));
+            AddPartRarity(PartRarity.MythicS1, "Mythic S+1", 90, 4, 4, 0, Climb(2, 2, 300, 7600));
+            AddPartRarity(PartRarity.MythicS2, "Mythic S+2", 95, 4, 4, 0, Climb(2, 2, 450, 11400));
+            AddPartRarity(PartRarity.MythicSS, "Mythic SS", 100, 5, 5, 0, Climb(5, 5, 600, 17100));
 
-            // ---- levels, cap raises ----------------------------------------------------------------
-            p.CapRaiseLevels = 5;
-            p.CapRaisePlates.AddRange(new long[] { 60, 160, 320, 600, 1000, 1600 });
-            int maxLevel = p.Rarities[p.Rarities.Count - 1].BaseLevelCap + 6 * p.CapRaiseLevels; // top base cap + all raises
+            // ---- levels: today's curves (Ore 30·L^1.4, Gear Cores 2·(L−9)^1.25 from level 10) up to the top cap ------
+            int maxLevel = p.Rarities[p.Rarities.Count - 1].LevelCap;
             p.LevelOreCosts.Add(0); p.LevelGearCoreCosts.Add(0);
             for (int l = 1; l < maxLevel; l++)
             {
@@ -204,15 +205,16 @@ namespace RogueStars.Rules.Content
                 p.LevelGearCoreCosts.Add(l < 10 ? 0 : (long)Math.Round(2 * Math.Pow(l - 9, 1.25)));
             }
 
-            // ---- forge, skills, awakening ----------------------------------------------------------
+            // ---- forge, awakening, replicator ----------------------------------------------------------
             p.MaxRuneSlots = 5;
             p.ForgeMinRarity = PartRarity.Epic;
             p.Forge.Add(new ForgeStep { Diamonds = 300, GearCores = 400, BonusPercent = 10 });
             p.Forge.Add(new ForgeStep { Diamonds = 900, GearCores = 1200, BonusPercent = 15 });
-            p.SkillUnlockRarities.AddRange(new[] { PartRarity.Epic, PartRarity.Legendary, PartRarity.Mythic, PartRarity.MythicS, PartRarity.MythicSS });
             p.AwakenMinRarity = PartRarity.Mythic;
             p.AwakenCost = 50;
-            p.QuickMergeMaxTarget = PartRarity.Legendary;
+            p.AwakenStatMult = 1.4;
+            p.ReplicateMythics = 3;
+            p.ReplicateOre = 5000;
 
             // ---- runes -----------------------------------------------------------------------------
             p.RuneRarityMultipliers.AddRange(new double[] { 1, 2.2, 4, 6.5, 10 });
@@ -230,159 +232,160 @@ namespace RogueStars.Rules.Content
             AddRuneDef("rune_ember", "Ember Rune", StatId.FireDamage, false, 2);
             AddRuneDef("rune_volt", "Volt Rune", StatId.LightningDamage, false, 2);
 
-            // ---- part defs (30): id, name, kind, arm style, family, awakened name ---------------------------------------------------------------------
-            AddPartDef("head_scanner_visor", "Scanner Visor", PartKind.Head, AttackStyle.Slam, SkillFamily.Crit, "Omniscope Visor");
-            AddPartDef("head_ember_crown", "Ember Crown", PartKind.Head, AttackStyle.Slam, SkillFamily.Fire, "Sunfire Diadem");
-            AddPartDef("head_frost_helm", "Frost Helm", PartKind.Head, AttackStyle.Slam, SkillFamily.Ice, "Winter King's Helm");
-            AddPartDef("head_hive_antenna", "Hive Antenna", PartKind.Head, AttackStyle.Slam, SkillFamily.AlienSynergy, "Overmind Antenna");
-            AddPartDef("head_duelist_mask", "Duelist Mask", PartKind.Head, AttackStyle.Slam, SkillFamily.Counter, "Grandmaster Mask");
-            AddPartDef("body_plated_shell", "Plated Shell", PartKind.Body, AttackStyle.Slam, SkillFamily.Counter, "Bastion Carapace");
-            AddPartDef("body_reactor_core", "Reactor Core", PartKind.Body, AttackStyle.Slam, SkillFamily.Lightning, "Singularity Core");
-            AddPartDef("body_toxic_tank", "Toxic Tank", PartKind.Body, AttackStyle.Slam, SkillFamily.Poison, "Plague Reactor");
-            AddPartDef("body_glacier_plate", "Glacier Plate", PartKind.Body, AttackStyle.Slam, SkillFamily.Ice, "Permafrost Aegis");
-            AddPartDef("body_spiked_mail", "Spiked Mail", PartKind.Body, AttackStyle.Slam, SkillFamily.Bleed, "Thornstorm Mail");
-            AddPartDef("tail_rocket_booster", "Rocket Booster", PartKind.Tail, AttackStyle.Slam, SkillFamily.Combo, "Hyperdrive Thruster");
-            AddPartDef("tail_stinger", "Stinger Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Poison, "Widowmaker Stinger");
-            AddPartDef("tail_coil_spring", "Coil Spring", PartKind.Tail, AttackStyle.Slam, SkillFamily.Lightning, "Tesla Coilwhip");
-            AddPartDef("tail_razor_fin", "Razor Fin", PartKind.Tail, AttackStyle.Slam, SkillFamily.Bleed, "Crimson Scythe Fin");
-            AddPartDef("tail_comet_tail", "Comet Tail", PartKind.Tail, AttackStyle.Slam, SkillFamily.Fire, "Meteor Wake");
-            AddPartDef("legs_hover_treads", "Hover Treads", PartKind.Legs, AttackStyle.Slam, SkillFamily.Combo, "Phantom Treads");
-            AddPartDef("legs_spider_legs", "Spider Legs", PartKind.Legs, AttackStyle.Slam, SkillFamily.Crit, "Arachnid Executor");
-            AddPartDef("legs_magma_stompers", "Magma Stompers", PartKind.Legs, AttackStyle.Slam, SkillFamily.Fire, "Volcano Striders");
-            AddPartDef("legs_grav_boots", "Grav Boots", PartKind.Legs, AttackStyle.Slam, SkillFamily.Counter, "Event Horizon Boots");
-            AddPartDef("legs_cryo_skates", "Cryo Skates", PartKind.Legs, AttackStyle.Slam, SkillFamily.Ice, "Glacial Phase Skates");
-            AddPartDef("arm_slam_hammer", "Slam Hammer", PartKind.Arm, AttackStyle.Slam, SkillFamily.Counter, "Worldbreaker Maul");
-            AddPartDef("arm_mantis_claw", "Mantis Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Bleed, "Reaper Mantis");
-            AddPartDef("arm_plasma_blaster", "Plasma Blaster", PartKind.Arm, AttackStyle.Blaster, SkillFamily.Fire, "Nova Lance");
-            AddPartDef("arm_drill_lance", "Drill Lance", PartKind.Arm, AttackStyle.Drill, SkillFamily.Crit, "Starpiercer");
-            AddPartDef("arm_tesla_whip", "Tesla Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.Lightning, "Thunderlord Lash");
-            AddPartDef("arm_rail_cannon", "Rail Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Crit, "Annihilator Rail");
-            AddPartDef("arm_venom_claw", "Venom Claw", PartKind.Arm, AttackStyle.Claw, SkillFamily.Poison, "Viper Queen's Talon");
-            AddPartDef("arm_frost_cannon", "Frost Cannon", PartKind.Arm, AttackStyle.Cannon, SkillFamily.Ice, "Absolute Zero Cannon");
-            AddPartDef("arm_ripper_drill", "Ripper Drill", PartKind.Arm, AttackStyle.Drill, SkillFamily.Combo, "Maelstrom Drill");
-            AddPartDef("arm_hive_whip", "Hive Whip", PartKind.Arm, AttackStyle.Whip, SkillFamily.AlienSynergy, "Swarmmother Lash");
+            // ---- 120 standard items: 4 rarities × 5 slots × 6 roles ----------------------------------
+            for (int r = 0; r < 4; r++)
+                foreach (var kind in PartKinds)
+                    foreach (var role in PartRoles)
+                        AddStdPart((PartRarity)r, kind, role);
+
+            // ---- 30 Mythics (data.py M) ------------------------------------------------------------------
+            foreach (var m in PartMythicData) AddMythicPart(m);
+
+            // Starter set: one Common per slot (both arms), auto-equipped on an old save's reset.
+            p.StarterParts.AddRange(new[]
+            {
+                StdPartId(PartRarity.Common, PartKind.Head, PartRole.Keen), StdPartId(PartRarity.Common, PartKind.Body, PartRole.Guard),
+                StdPartId(PartRarity.Common, PartKind.Tail, PartRole.Strike), StdPartId(PartRarity.Common, PartKind.Legs, PartRole.Swift),
+                StdPartId(PartRarity.Common, PartKind.Arm, PartRole.Strike), StdPartId(PartRarity.Common, PartKind.Arm, PartRole.Fury),
+            });
+
+            BuildPartSkills();
         }
 
-        private static PartMergeRecipe PartRecipe(int same, PartRarity sameMinRarity, long fodderPoints, PartRarity fodderMinRarity) =>
-            new PartMergeRecipe { SameDefCount = same, SameDefRarity = sameMinRarity, FodderPoints = fodderPoints, FodderMinRarity = fodderMinRarity };
+        private static PartClimbStep Climb(int copies, int others, long metal, long ore) =>
+            new PartClimbStep { Copies = copies, Others = others, Metal = metal, Ore = ore };
 
-        private void AddPartRarity(PartRarity r, string name, double mult, int cap, int raises, int slots, long ore, PartMergeRecipe merge)
+        private void AddPartRarity(PartRarity r, string name, int cap, int runeSlots, int skills, long metal, PartClimbStep climb)
         {
             if ((int)r != PartsConfig.Rarities.Count) throw new InvalidOperationException("rarities must be added in order");
-            PartsConfig.Rarities.Add(new PartRarityDef { Rarity = r, Name = name, StatMultiplier = mult, BaseLevelCap = cap, MaxCapRaises = raises, RuneSlots = slots, DismantleOre = ore, Merge = merge });
+            PartsConfig.Rarities.Add(new PartRarityDef { Rarity = r, Name = name, LevelCap = cap, RuneSlots = runeSlots, SkillCount = skills, Metal = metal, Climb = climb });
         }
 
         private void AddRuneDef(string id, string name, StatId stat, bool percent, double value) =>
             PartsConfig.Runes[id] = new RuneDef { Id = id, Name = name, Stat = stat, IsPercent = percent, BaseValue = value };
 
-        private void AddPartDef(string id, string name, PartKind kind, AttackStyle style, SkillFamily family, string awakenedName)
+        /// <summary>Weapon noun of an arm by role (cosmetic only: arms are interchangeable, no attack styles).</summary>
+        private static string PartNoun(PartKind k, PartRole role)
         {
-            var d = new PartDef { Id = id, Name = name, Kind = kind, Style = style, Family = family };
-            switch (kind)
+            switch (k)
             {
-                case PartKind.Head:
-                    d.BaseStats.Add(new StatMod(StatId.Hp, 60)); d.BaseStats.Add(new StatMod(StatId.CritChance, 1));
-                    d.StatsPerLevel.Add(new StatMod(StatId.Hp, 8));
-                    break;
-                case PartKind.Body:
-                    d.BaseStats.Add(new StatMod(StatId.Hp, 120)); d.BaseStats.Add(new StatMod(StatId.Def, 8));
-                    d.StatsPerLevel.Add(new StatMod(StatId.Hp, 14)); d.StatsPerLevel.Add(new StatMod(StatId.Def, 1));
-                    break;
-                case PartKind.Tail:
-                    d.BaseStats.Add(new StatMod(StatId.Hp, 50)); d.BaseStats.Add(new StatMod(StatId.Atk, 6)); d.BaseStats.Add(new StatMod(StatId.Speed, 2));
-                    d.StatsPerLevel.Add(new StatMod(StatId.Hp, 6)); d.StatsPerLevel.Add(new StatMod(StatId.Atk, 0.8));
-                    break;
-                case PartKind.Legs:
-                    d.BaseStats.Add(new StatMod(StatId.Def, 10)); d.BaseStats.Add(new StatMod(StatId.Speed, 4)); d.BaseStats.Add(new StatMod(StatId.Dodge, 1));
-                    d.StatsPerLevel.Add(new StatMod(StatId.Def, 1.2));
-                    break;
-                default:
-                    d.BaseStats.Add(new StatMod(StatId.Atk, 15));
-                    d.StatsPerLevel.Add(new StatMod(StatId.Atk, 2));
-                    switch (style)
-                    {
-                        case AttackStyle.Slam: d.BaseStats.Add(new StatMod(StatId.CounterChance, 2)); break;
-                        case AttackStyle.Claw: d.BaseStats.Add(new StatMod(StatId.CritChance, 1)); break;
-                        case AttackStyle.Blaster: d.BaseStats.Add(new StatMod(StatId.Atk, 2)); break;
-                        case AttackStyle.Drill: d.BaseStats.Add(new StatMod(StatId.CritDamage, 5)); break;
-                        case AttackStyle.Whip: d.BaseStats.Add(new StatMod(StatId.ComboChance, 2)); break;
-                        case AttackStyle.Cannon: d.BaseStats.Add(new StatMod(StatId.Atk, 4)); break;
-                    }
-                    break;
+                case PartKind.Head: return "Helm";
+                case PartKind.Body: return "Shell";
+                case PartKind.Tail: return "Tail";
+                case PartKind.Legs: return "Legs";
             }
-
-            // Awakened version: ×1.4 stats plus the family's signature stat (PartAwakenedSignatureStat).
-            d.AwakenedName = awakenedName;
-            foreach (var m in d.BaseStats) d.AwakenedBaseStats.Add(new StatMod(m.Stat, Math.Round(m.Flat * 1.4, 2), Math.Round(m.Percent * 1.4, 2)));
-            foreach (var m in d.StatsPerLevel) d.AwakenedStatsPerLevel.Add(new StatMod(m.Stat, Math.Round(m.Flat * 1.4, 2), Math.Round(m.Percent * 1.4, 2)));
-            d.AwakenedBaseStats.Add(PartAwakenedSignatureStat(family));
-            BuildPartSkills(d);
-            PartsConfig.Defs[id] = d;
+            switch (role)
+            {
+                case PartRole.Guard: return "Hammer";
+                case PartRole.Strike: return "Cannon";
+                case PartRole.Swift: return "Whip";
+                case PartRole.Keen: return "Claw";
+                case PartRole.Mend: return "Drill";
+                default: return "Blaster";
+            }
         }
 
         /// <summary>
-        /// Builds a non-draftable meta skill for a family at a given power (1 = baseline). Parts only (hero &amp; mount kits are
-        /// hand-written: ContentDb.Heroes / ContentDb.Mounts); kept until the parts redesign.
+        /// A stat line: level-1 value <paramref name="b"/>; flat stats add FlatGrowth × b per level (whole numbers), percentage
+        /// stats (point stats, HP %) grow linearly to PercentMaxMult × b at <paramref name="cap"/>.
         /// </summary>
-        internal static SkillDef ProgFamilySkill(string id, string name, SkillFamily family, Rarity rarity, SkillSource source, double power, string upgradesFrom)
+        private void AddPartStat(List<StatMod> baseStats, List<StatMod> perLevel, StatId stat, double b, bool percentOfStat, int cap)
         {
-            var s = new SkillDef { Id = id, Name = name, Family = family, Rarity = rarity, Source = source, Draftable = false, UpgradesFrom = upgradesFrom };
-            double v = power;
-            switch (family)
+            var cfg = PartsConfig;
+            bool pctStat = percentOfStat || StatMod.IsPointStat(stat);
+            baseStats.Add(percentOfStat ? new StatMod(stat, 0, b) : new StatMod(stat, b));
+            double step = pctStat ? b * (cfg.PercentMaxMult - 1) / Math.Max(1, cap - 1) : PartRound(b * cfg.FlatGrowth);
+            perLevel.Add(percentOfStat ? new StatMod(stat, 0, step) : new StatMod(stat, step));
+        }
+
+        private void AddStdPart(PartRarity r, PartKind kind, PartRole role)
+        {
+            var cfg = PartsConfig;
+            double mult = PartMult[(int)r];
+            int cap = cfg.Rarities[(int)r].LevelCap;
+            var d = new PartDef
             {
-                case SkillFamily.Fire:
-                    s.Stats.Add(new StatMod(StatId.FireDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(15 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 1 + (int)(v / 1.5), Duration = 3 });
-                    s.Description = "Hits can set the enemy on fire.";
-                    break;
-                case SkillFamily.Ice:
-                    s.Stats.Add(new StatMod(StatId.IceDamage, Math.Round(5 * v, 1)));
-                    // CC pass (owner): Ice gear no longer freezes; it chills (Freeze comes from Ice's own sources)
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(25 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Chill, Stacks = 1 + (int)(v / 1.5) });
-                    s.Description = "Hits can chill the enemy.";
-                    break;
-                case SkillFamily.Lightning:
-                    s.Stats.Add(new StatMod(StatId.LightningDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnAttack, Chance = Math.Min(100, Math.Round(20 * v)), Effect = EffectKind.Damage, Target = TargetKind.RandomEnemy, Value = Math.Round(30 * v) });
-                    s.Description = "Attacks can arc lightning to a random enemy.";
-                    break;
-                case SkillFamily.Poison:
-                    s.Stats.Add(new StatMod(StatId.PoisonDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnHit, Chance = Math.Min(100, Math.Round(20 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 1 + (int)v, Duration = 4 });
-                    s.Description = "Hits can irradiate the enemy.";
-                    break;
-                case SkillFamily.Bleed:
-                    s.Stats.Add(new StatMod(StatId.BleedDamage, Math.Round(5 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCrit, Chance = Math.Min(100, Math.Round(40 * v)), Effect = EffectKind.ApplyStatus, Status = StatusId.Bleed, Stacks = 1 + (int)v, Duration = 3 });
-                    s.Description = "Critical hits make the enemy bleed.";
-                    break;
-                case SkillFamily.Crit:
-                    s.Stats.Add(new StatMod(StatId.CritChance, Math.Round(3 * v, 1)));
-                    s.Stats.Add(new StatMod(StatId.CritDamage, Math.Round(10 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCrit, Chance = Math.Min(100, Math.Round(15 * v)), Effect = EffectKind.GainRage, Target = TargetKind.Self, Value = Math.Round(10 * v) });
-                    s.Description = "More crits; crits can build rage.";
-                    break;
-                case SkillFamily.Combo:
-                    s.Stats.Add(new StatMod(StatId.ComboChance, Math.Round(3 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Chance = Math.Min(100, Math.Round(25 * v)), Effect = EffectKind.Damage, Value = Math.Round(25 * v) });
-                    s.Description = "More combos; combos hit harder.";
-                    break;
-                case SkillFamily.Counter:
-                    s.Stats.Add(new StatMod(StatId.CounterChance, Math.Round(3 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Chance = Math.Min(100, Math.Round(30 * v)), Effect = EffectKind.Shield, Target = TargetKind.Self, Value = Math.Round(3 * v, 1) });
-                    s.Description = "More counters; counters grant a shield.";
-                    break;
-                case SkillFamily.AlienSynergy:
-                    s.Stats.Add(new StatMod(StatId.AlienPower, Math.Round(6 * v, 1)));
-                    s.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = Math.Max(1, (int)Math.Round(v / 1.2)) });
-                    s.Description = "Sidekicks are stronger and act at battle start.";
-                    break;
-                default:
-                    s.Stats.Add(new StatMod(StatId.Atk, 0, Math.Round(4 * v, 1)));
-                    s.Description = "More attack.";
-                    break;
+                Id = StdPartId(r, kind, role), Name = PartTier[(int)r] + " " + role + " " + PartNoun(kind, role), Kind = kind, Rarity = r, Role = role,
+                Family = role == PartRole.Keen ? SkillFamily.Crit : SkillFamily.None,
+            };
+            // slot core + role stat (+ the arm's second role stat), merged per stat like data.py stats_for, then × the rarity multiplier
+            var raw = new List<(StatId, double)>();
+            void Add(StatId s, double v)
+            {
+                for (int i = 0; i < raw.Count; i++) if (raw[i].Item1 == s) { raw[i] = (s, raw[i].Item2 + v); return; }
+                raw.Add((s, v));
             }
-            return s;
+            foreach (var (s, v) in PartCore[kind]) Add(s, v);
+            var rs = PartRoleStat[role]; Add(rs.Item1, rs.Item2);
+            if (kind == PartKind.Arm && role == PartRole.Guard) Add(StatId.CounterChance, 3);
+            if (kind == PartKind.Arm && role == PartRole.Swift) Add(StatId.ComboChance, 3);
+            foreach (var (s, v) in raw) AddPartStat(d.BaseStats, d.StatsPerLevel, s, PartRound(v * mult), false, cap);
+            int n = r == PartRarity.Epic ? 1 : r == PartRarity.Legendary ? 2 : 0;
+            for (int i = 0; i < n; i++) d.SkillIds.Add(d.Id + "_sk" + (i + 1));
+            PartsConfig.Defs[d.Id] = d;
+        }
+
+        /// <summary>A Mythic's synergy stat ("+10% fire damage" …): the stat and whether it is a % of the stat (HP) or points.</summary>
+        private static (StatId stat, double value, bool percentOfStat) MythicStat(string text)
+        {
+            var parts = text.TrimStart('+').Split(new[] { '%' }, 2);
+            double v = double.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+            switch (parts[1].Trim())
+            {
+                case "fire damage": return (StatId.FireDamage, v, false);
+                case "ice damage": return (StatId.IceDamage, v, false);
+                case "Arc damage": return (StatId.ArcDamage, v, false);
+                case "radiation damage": return (StatId.PoisonDamage, v, false);
+                case "bleed damage": return (StatId.BleedDamage, v, false);
+                case "combo chance": return (StatId.ComboChance, v, false);
+                case "counter chance": return (StatId.CounterChance, v, false);
+                case "alien power": return (StatId.AlienPower, v, false);
+                case "Echo damage": return (StatId.EchoDamage, v, false);
+                case "crit chance": return (StatId.CritChance, v, false);
+                case "HP": return (StatId.Hp, v, true);
+                case "rage gain": return (StatId.RageGain, v, false);
+                default: throw new InvalidOperationException("unknown Mythic stat " + text);
+            }
+        }
+
+        internal static SkillFamily SynergyFamily(string syn)
+        {
+            switch (syn)
+            {
+                case "Fire": return SkillFamily.Fire;
+                case "Ice": return SkillFamily.Ice;
+                case "Lightning": return SkillFamily.Lightning;
+                case "Radiation": return SkillFamily.Poison;
+                case "Bleed": return SkillFamily.Bleed;
+                case "Combo": return SkillFamily.Combo;
+                case "Counter": return SkillFamily.Counter;
+                case "Alien": return SkillFamily.AlienSynergy;
+                case "Time": return SkillFamily.Time;
+                default: return SkillFamily.None;
+            }
+        }
+
+        private void AddMythicPart(MythicData m)
+        {
+            var cfg = PartsConfig;
+            var kind = (PartKind)Enum.Parse(typeof(PartKind), m.Slot);
+            int cap = cfg.Rarities[cfg.Rarities.Count - 1].LevelCap; // percentage stats reach 3× at level 100 (SS, final)
+            var d = new PartDef
+            {
+                Id = m.Id, Name = m.Name, AwakenedName = m.AwakenedName, Kind = kind, Rarity = PartRarity.Mythic, Role = PartRole.None,
+                Family = SynergyFamily(m.Synergy), Synergy = m.Synergy, Identity = m.Identity,
+            };
+            var syn = MythicStat(m.Stat);
+            foreach (var aw in new[] { false, true })
+            {
+                var bs = aw ? d.AwakenedBaseStats : d.BaseStats;
+                var pl = aw ? d.AwakenedStatsPerLevel : d.StatsPerLevel;
+                double am = aw ? cfg.AwakenStatMult : 1;
+                foreach (var (s, v) in PartCore[kind]) AddPartStat(bs, pl, s, PartRound(PartRound(v * PartMult[4]) * am), false, cap);
+                AddPartStat(bs, pl, syn.stat, PartRound(syn.value * am), syn.percentOfStat, cap);
+            }
+            for (int i = 0; i < 5; i++) { d.SkillIds.Add(d.Id + "_sk" + (i + 1)); d.AwakenedSkillIds.Add(d.Id + "_aw" + (i + 1)); }
+            PartsConfig.Defs[d.Id] = d;
         }
     }
 }

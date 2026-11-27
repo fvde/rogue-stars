@@ -171,7 +171,7 @@ public class CrossSystemTests
         s.Counters[Requirements.MainLevelCounter] = 1;
         var r = Ok(e, ref s, new CityCollect(), T0 + 1000);
         Assert.Contains(r.Events, ev => ev.Type == "feature_unlocked" && ev.Args[0] == Features.Parts);
-        Assert.Equal(3, s.Parts.Items.Count); // released by the Parts unlock
+        Assert.Equal(6, s.Parts.Items.Count); // released by the Parts unlock (parts v2: one Common per slot)
         Assert.Equal(500, s.Wallet.Get(Currencies.Ore));
         Assert.Contains(RewardGate.ReleasedAt(s, Features.Parts), x => x.Kind == RewardKinds.Part);
         Assert.Null(CitySystem.Owned(s, "bp_biomass_farm"));

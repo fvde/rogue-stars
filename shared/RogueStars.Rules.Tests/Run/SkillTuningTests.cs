@@ -238,6 +238,18 @@ public class SkillTuningTests
         c.AddSkill(new SkillDef { Id = "kit_combo", Name = "Combo", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.ComboChance, 80) } });
         c.AddSkill(new SkillDef { Id = "kit_bigshield", Name = "Big Shield", Source = SkillSource.Building, Draftable = false,
             Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Shield, Value = 8, Target = TargetKind.Self } } });
+        // parts v2 situations (DeadEffectsTests.PartContext): a dodgy worm, a raging worm
+        c.AddSkill(new SkillDef { Id = "kit_dodge", Name = "Dodge", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Dodge, 40) } });
+        c.AddSkill(new SkillDef { Id = "kit_rage", Name = "Rage", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.RageGain, 150) } });
+        c.AddSkill(new SkillDef { Id = "kit_evasive", Name = "Evasive", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.Dodge, 250) } });
+        c.AddSkill(new SkillDef { Id = "kit_overcrit", Name = "Overcrit", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.CritChance, 130) } });
+        // the worm carries statuses (cleanses), the enemies crit (when-hit-by-a-crit skills)
+        c.AddSkill(new SkillDef { Id = "kit_cursed", Name = "Cursed", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 3, Target = TargetKind.Self } } });
+        c.AddSkill(new SkillDef { Id = "kit_brutes", Name = "Brutes", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Stat = new StatMod(StatId.Atk, 0, 400), Target = TargetKind.AllEnemies } } });
+        c.AddSkill(new SkillDef { Id = "kit_enemy_crit", Name = "Enemy crit", Source = SkillSource.Building, Draftable = false,
+            Triggers = { new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.BuffStat, Stat = new StatMod(StatId.CritChance, 60), Target = TargetKind.AllEnemies } } });
         // a sharp eye: skills gated on a critical rage attack (lab Frost Nova) are judged where rage attacks crit
         c.AddSkill(new SkillDef { Id = "kit_keen", Name = "Keen", Source = SkillSource.Building, Draftable = false, Stats = { new StatMod(StatId.CritChance, 60) } });
         // heavy stackers: skills gated on many stacks (20 Radiation, max Bleed / Shock) are judged where those stacks happen

@@ -21,21 +21,20 @@ namespace RogueStars.Rules.Systems
     {
         public string Uid;
         public string DefId;
-        /// <summary>(int)PartRarity.</summary>
+        /// <summary>(int)PartRarity: the def's rarity; a Mythic's ladder step (Mythic … Mythic SS).</summary>
         public int Rarity;
         public int Level = 1;
-        /// <summary>Advancement Plate cap raises done.</summary>
-        public int CapRaises;
         /// <summary>Forge slot unlocks done.</summary>
         public int ForgedSlots;
         /// <summary>1 once awakened (Mythic+, one time): awakened name, stats and skills; 0 otherwise.</summary>
         public int Awaken;
+        /// <summary>A locked part is never fed for Metal or used as ladder / Replicator material.</summary>
+        public bool Locked;
         /// <summary>Socketed rune uid per slot; "" = empty. Length grows with available slots.</summary>
         public List<string> Runes = new List<string>();
-        /// <summary>Level materials invested (refunded 100% on level-down / dismantle / use as merge material).</summary>
+        /// <summary>Level materials invested (refunded 100% on level-down, feeding, or use as ladder / Replicator material).</summary>
         public long SpentOre;
         public long SpentGearCores;
-        public long SpentPlates;
     }
 
     /// <summary>One owned rune instance.</summary>
@@ -59,5 +58,10 @@ namespace RogueStars.Rules.Systems
         public Dictionary<PartSlot, string> Equipped = new Dictionary<PartSlot, string>();
         /// <summary>Counter for deterministic uids ("p00000001", "r00000001").</summary>
         public long NextUid = 1;
+        /// <summary>
+        /// Parts model of the save (PartsSystem.ModelVersion): 2 = parts v2. Older saves are reset to the starter set on load
+        /// (pre-release, no migration: the old ladder's items do not exist any more).
+        /// </summary>
+        public int Model;
     }
 }

@@ -28,6 +28,8 @@ namespace RogueStars.Rules.Core
         DamageTaken,
         /// <summary>% more healing received (negative = less: Chain Fission's cost).</summary>
         HealReceived,
+        /// <summary>Parts v2: % more damage dealt by every hit (negative = less: Quantum Guard Helm's opener on enemies).</summary>
+        DamageDealt,
     }
 
     /// <summary>A flat + percent modification of one stat. Percent is additive within a block (10 = +10%).</summary>

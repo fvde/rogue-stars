@@ -19,7 +19,7 @@ public class KitMigrationTests
         var lo = new CombatLoadout { DisplayName = "Old", HeroId = "hero_chef", MountId = "mount_frost_frigate" };
         lo.WormStats.Add(new StatMod(StatId.Hp, 4000)).Add(new StatMod(StatId.Atk, 120)).Add(new StatMod(StatId.Speed, 100));
         // a 7★ Chef (a1 → a2 → a3, b1) and a 5★ A3 Frost Frigate (w3, s2) as the old contributors listed them
-        lo.MetaSkillIds.AddRange(new[] { "hero_chef_a3", "hero_chef_b1", "mount_frost_frigate_w3", "mount_frost_frigate_s2", "arm_tesla_whip_sk1" });
+        lo.MetaSkillIds.AddRange(new[] { "hero_chef_a3", "hero_chef_b1", "mount_frost_frigate_w3", "mount_frost_frigate_s2", "myth_arcwright_drill_sk1" });
         lo.MountStats.Add(new StatMod(StatId.Atk, 90)).Add(new StatMod(StatId.Hp, 900)).Add(new StatMod(StatId.DamageReduction, 5));
         return lo;
     }
@@ -28,7 +28,7 @@ public class KitMigrationTests
     public void OldStepIds_ReadAsTheKitAtThatStep()
     {
         var ids = KitMigration.MetaSkillIds(C, OldLoadout());
-        Assert.Equal(new[] { "arm_tesla_whip_sk1" }.Concat(HeroSystem.TraitSkills(C, "hero_chef", 7)).Concat(MountSystem.WeaponSkills(C, "mount_frost_frigate", 5 + 3)), ids);
+        Assert.Equal(new[] { "myth_arcwright_drill_sk1" }.Concat(HeroSystem.TraitSkills(C, "hero_chef", 7)).Concat(MountSystem.WeaponSkills(C, "mount_frost_frigate", 5 + 3)), ids);
         Assert.Contains("hero_chef_c7", ids);                 // 7★: Second Course
         Assert.Contains("mount_frost_frigate_passive_4", ids); // A3
         // the highest old step wins (b2 = 10★; w4 = A5); old steps between kit steps land on the kit step below (w2 = 2★ → 1★)

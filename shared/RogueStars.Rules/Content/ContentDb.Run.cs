@@ -421,8 +421,9 @@ namespace RogueStars.Rules.Content
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
                 RunOpt("Trade vitality", "-10% max HP for a Legendary+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Legendary))),
                 RunOpt("Decline", "Nothing happens.", RunNothing));
-            var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (reward chest, paid on clear).",
-                RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
+            // parts v2: runs drop no parts (Parts pulls are the source); the echo leaves a Parts Crate instead
+            var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a Parts Crate (reward chest, paid on clear).",
+                RunOut(1, "The echo fades, leaving a crate behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(Reward.Cur(Currencies.PartTokens, 1))));
             RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 3, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 4,
                 RunOpt("Search it", "65%: 1 reward chest (paid on clear, +Danger) and the alarm wakes the boss 8% sooner. 35%: trapped — lose 20% HP and 5% max HP for the run.",
@@ -527,12 +528,10 @@ namespace RogueStars.Rules.Content
             var burrow = new LootTableDef { Id = "loot_burrow" };
             burrow.Entries.AddRange(RunLootTables["loot_p2"].Entries);
             burrow.Entries.Add(new LootEntry(2, RewardKinds.Currency, Currencies.AdvancementPlates, 1, 2));
-            burrow.Entries.Add(new LootEntry(2, RewardKinds.Part, "*", 1, 1, 2));
             RunLootTables[burrow.Id] = burrow;
             var darkLoot = new LootTableDef { Id = "loot_dark" };
             darkLoot.Entries.AddRange(RunLootTables["loot_p3"].Entries);
             darkLoot.Entries.Add(new LootEntry(5, RewardKinds.Currency, Currencies.Diamonds, 10, 30));
-            darkLoot.Entries.Add(new LootEntry(3, RewardKinds.Part, "*", 1, 1, 3)); // Legendary: the Mythic+ fodder
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.BlueprintTokens, 1, 2)); // pull resources, never shards
             darkLoot.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.AlienTokens, 1, 2));
             RunLootTables[darkLoot.Id] = darkLoot;

@@ -50,7 +50,6 @@ namespace RogueStars.Rules.Systems
                 loadout.WormStats.Add(new StatMod(StatId.Speed, 100 + i));
                 loadout.WormStats.Add(new StatMod(StatId.CritChance, i % 30));
                 loadout.WormStats.Add(new StatMod(StatId.Dodge, (i * 3) % 25));
-                loadout.ArmStyles.Add((AttackStyle)(i % 6));
                 if (mountSkills.Count > 0 && i % 3 != 2)
                 {
                     loadout.MountId = "probe_mount";
@@ -66,7 +65,8 @@ namespace RogueStars.Rules.Systems
                 }
                 // every worm skill appears: skill k goes into battle k % count, up to ~8 per battle (wrapping)
                 var run = new List<string>();
-                for (int k = i; k < skills.Count && run.Count < 10; k += count) run.Add(skills[k]);
+                int per = Math.Max(10, (skills.Count + count - 1) / count);
+                for (int k = i; k < skills.Count && run.Count < per; k += count) run.Add(skills[k]);
                 if (run.Count < 4) for (int k = 0; k < 4 && skills.Count > 0; k++) run.Add(skills[(i * 13 + k * 31) % skills.Count]);
                 var setup = new BattleSetup { RoundCap = i % 4 == 0 ? content.Combat.BossRoundCap : content.Combat.RoundCap };
                 setup.Player.AddRange(BattleSimulator.BuildPlayerSide(loadout, content, run));

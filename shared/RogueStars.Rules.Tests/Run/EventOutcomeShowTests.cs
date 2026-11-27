@@ -192,7 +192,7 @@ public class EventOutcomeShowTests
     [Theory]
     [InlineData("training_dummy", "Spar with an elite", "Elite beaten!", OutcomeKind.Stat)]
     [InlineData("boss_scout", "Chase it down", "The scout is silenced.", OutcomeKind.Awakening)]
-    [InlineData("rift_echo", "Fight the echo", "The echo fades, leaving a part behind.", OutcomeKind.AccountLoot)]
+    [InlineData("rift_echo", "Fight the echo", "The echo fades, leaving a crate behind.", OutcomeKind.AccountLoot)]
     public void LostEventFight_GoesToTheRevive_WithLossText_AndTheRetryWinPublishesTheFollowUps(string ev, string option, string winText, OutcomeKind followUp)
     {
         var (e, s) = AtEvent(ev, RunTestKit.Weak());

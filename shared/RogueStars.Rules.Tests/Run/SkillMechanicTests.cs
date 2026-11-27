@@ -511,7 +511,9 @@ public class SkillMechanicTests
         Assert.Equal(2, link.Log.Count(e => e.Action == BattleAction.SidekickAct));
 
         var sym = Fight(c, new[] { Alien("a0"), Alien("a1"), Raging("mythic_symbiote") }, 2);
-        Assert.Equal(new[] { 1, 1 }, sym.Log.Where(e => e.Action == BattleAction.SidekickAct).Select(e => e.Round)); // only with the rage attack
+        // parts v2 (Symbiote rework): the rage attack fires both aliens; they keep their own turns too
+        Assert.Equal(2, sym.Log.Count(e => e.Action == BattleAction.SidekickAct && e.Round == 1 && e.Stacks == 1));
+        Assert.Contains(sym.Log, e => e.Action == BattleAction.SidekickAct && e.Stacks == 0);
 
         var w = Worm("mythic_sacrifice"); w.StartHp = 100;
         var sac = Fight(c, new[] { Alien("a0", 1), w }, 1, Hitter("x", 500));

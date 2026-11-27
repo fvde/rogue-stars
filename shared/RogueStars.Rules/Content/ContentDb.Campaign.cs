@@ -262,6 +262,7 @@ namespace RogueStars.Rules.Content
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
                 if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
                 l.FirstClearRewards.AddRange(c.MilestoneRewards(n));
+                l.FirstClearPart = true; // parts v2: a boss first clear gives one random Rare or Epic part
                 CampaignIntroduceRunContent(l, n);
                 levels.Add(l);
                 portal.LevelIds.Add(l.Id);
@@ -302,8 +303,7 @@ namespace RogueStars.Rules.Content
             t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.Fuel, 10 * s, 20 * s));
             t.Entries.Add(new LootEntry(8, RewardKinds.Currency, Currencies.HeroXp, 15 * s, 30 * s));
             t.Entries.Add(new LootEntry(6, RewardKinds.Currency, Currencies.GearCores, 1 * s, 2 * s));
-            t.Entries.Add(new LootEntry(5, RewardKinds.Part, "*", 1, 1, R(0)));
-            t.Entries.Add(new LootEntry(2, RewardKinds.Part, "*", 1, 1, R(1)));
+            // parts v2: runs and chests drop no parts (Parts pulls, boss first clears and Dark Side clears are the sources)
             t.Entries.Add(new LootEntry(3, RewardKinds.Rune, "*", 1, 1, R(0)));
             t.Entries.Add(new LootEntry(2, RewardKinds.Currency, Currencies.PartTokens, 1, 1));
             t.Entries.Add(new LootEntry(1, RewardKinds.Currency, Currencies.Diamonds, 5, 15));
@@ -333,6 +333,8 @@ namespace RogueStars.Rules.Content
                 Text = "Enemies +" + extreme + "% ATK/HP, healing -50%, danger +50%.",
             };
             l.CompletionRewards.Add(Reward.Cur(Currencies.Data, DarkSideData(i)));
+            // parts v2: a Dark Side clear has a 5% chance of a random Legendary part
+            l.RareDrops.Add(new RareDrop(new Reward(RewardKinds.Part, "*", 1, (int)Rarity.Legendary), Campaign.DarkSideLegendaryPartPct));
             l.CompletionRewards.Add(Reward.Cur(Currencies.Diamonds, 8));
             l.CompletionRewards.Add(Reward.Cur(Currencies.Fuel, 300 * (1 + Math.Min(i, 12) / 4))); // was 1–4 Mount Cores (1 core = 300 Fuel)
             return l;

@@ -299,6 +299,8 @@ namespace RogueStars.Rules.Content
         /// won run (no run-reward modifiers; the double-rewards ad doubles them like every listed reward). E.g. Awaken Cores on deep Burrow floors.
         /// </summary>
         public List<RareDrop> RareDrops = new List<RareDrop>();
+        /// <summary>Parts v2: the first Normal clear (the boss beaten for the first time) gives one random Rare or Epic part.</summary>
+        public bool FirstClearPart;
         /// <summary>
         /// Main campaign: one-time rewards of the first Normal clear (milestone chest every 10 levels, portal-completion bonus
         /// every 50; <see cref="CampaignDef"/>). Paid unscaled (the double-rewards ad doubles them too), never again on later clears.
@@ -746,6 +748,10 @@ namespace RogueStars.Rules.Content
 
         /// <summary>One-time milestone chest on the first clear of every MilestoneEveryLevels-th main level.</summary>
         public int MilestoneEveryLevels = 10;
+        /// <summary>Parts v2: a boss first clear's part is Epic with this chance, else Rare (the Parts pull ratio 9.5 : 28).</summary>
+        public double FirstClearEpicPartPct = 25;
+        /// <summary>Parts v2: chance of a random Legendary part on every Dark Side clear.</summary>
+        public double DarkSideLegendaryPartPct = 5;
         /// <summary>Chest Diamonds: MilestoneDiamonds × (1 + n / MilestoneGrowthLevels), rounded to 5.</summary>
         public long MilestoneDiamonds = 50;
         public int MilestoneGrowthLevels = 500;

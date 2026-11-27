@@ -91,7 +91,7 @@ public class RewardGateTests
         Assert.Empty(s.Parts.Items);
         Assert.Empty(s.City.Blueprints);
         // The starter parts / farm blueprint, arena tickets and burrow keys wait in the stash for their features.
-        Assert.Equal(3, s.Stash.Items.Count(r => r.Kind == RewardKinds.Part));
+        Assert.Equal(6, s.Stash.Items.Count(r => r.Kind == RewardKinds.Part)); // parts v2: one Common per slot
         Assert.Contains(s.Stash.Items, r => r.Kind == RewardKinds.Blueprint && r.Id == "bp_biomass_farm");
         Assert.Equal(e.Content.Arena.StartTickets, RewardGate.Stashed(s, Currencies.ArenaTickets));
         Assert.Equal(e.Content.Regen(Currencies.BurrowKeys)!.BaseCap, RewardGate.Stashed(s, Currencies.BurrowKeys));
@@ -244,13 +244,13 @@ public class RewardGateTests
     }
 
     [Fact]
-    public void NonFeatureUse_GearCores_ReleaseWithTheFirstUncommonPart()
+    public void NonFeatureUse_GearCores_ReleaseWithTheFirstRarePart()
     {
         var e = Engine(); var s = Player(e); long t = TestHelpers.T0;
         Unlock(s, Features.Parts);
         var ctx = new CommandContext { State = s, Content = e.Content, Engine = e, NowMs = t };
         Assert.False(ctx.Grant(Reward.Cur(Currencies.GearCores, 50))); // only Commons (cap 10): no Gear Core cost yet
-        Assert.True(ctx.Grant(new Reward(RewardKinds.Part, "arm_slam_hammer", 1, (int)PartRarity.Uncommon)));
+        Assert.True(ctx.Grant(new Reward(RewardKinds.Part, "r_arm_guard", 1, (int)PartRarity.Rare)));
         Ok(e, ref s, new LobbyPopupShown(), t);
         Assert.Equal(50, Bal(s, Currencies.GearCores));
     }

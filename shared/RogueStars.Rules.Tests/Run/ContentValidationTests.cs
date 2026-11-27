@@ -100,15 +100,16 @@ public class ContentValidationTests
         Assert.All(allowed, id => Assert.True(C.Skill(id) is { Rarity: Rarity.Common } s && AppliesCc(s), id)); // the allowlist stays exact
     }
 
-    /// <summary>CC pass: Ice gear and Ice family skills (parts, hero traits, mount weapons) chill instead of freezing; only an Ice
-    /// part's ultimate (Frost Apex) still freezes.</summary>
+    /// <summary>CC pass: Ice gear and Ice family skills (parts, hero traits, mount weapons) chill instead of freezing; parts v2: only
+    /// the Ice Mythics' S and SS skills (and their awakened versions) freeze, once per enemy.</summary>
     [Fact]
     public void IceGear_Chills_OnlyTheIcePartUltimateFreezes()
     {
         var gear = C.Skills.Values.Where(s => s.Source is SkillSource.Part or SkillSource.Hero or SkillSource.Mount).ToList();
         var freezing = gear.Where(s => s.Triggers.Any(t => t.Effect == EffectKind.ApplyStatus && t.Status == StatusId.Freeze)).ToList();
         Assert.NotEmpty(freezing);
-        Assert.All(freezing, s => Assert.True(s.Source == SkillSource.Part && s.Family == SkillFamily.Ice && s.Id.EndsWith("_sk5", StringComparison.Ordinal), s.Id));
+        Assert.All(freezing, s => Assert.True(s.Source == SkillSource.Part && s.Family == SkillFamily.Ice && (s.Id.EndsWith("4", StringComparison.Ordinal) || s.Id.EndsWith("5", StringComparison.Ordinal))
+            && s.Triggers.Any(t => t.Status == StatusId.Freeze && (t.Param ?? "").Contains("per_target:1")), s.Id));
         Assert.Contains(gear, s => s.Family == SkillFamily.Ice && s.Triggers.Any(t => t.Effect == EffectKind.ApplyStatus && t.Status == StatusId.Chill));
     }
 

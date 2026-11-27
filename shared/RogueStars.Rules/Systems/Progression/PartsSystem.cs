@@ -6,14 +6,17 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>
-    /// Parts (worm equipment): six slots, 14-step merge ladder (Common … Mythic S … Mythic SS+2) with fodder points,
-    /// five skills per part unlocking by rarity, level/cap, runes, Forge rune slots, one-time awakening (Mythic+,
-    /// Awaken Cores), dismantle. See docs/design/parts.md. Granters for RewardKinds.Part (Rarity = PartRarity index) and
-    /// RewardKinds.Rune (Rarity = Core.Rarity index).
+    /// Parts v2 (docs/design/parts.md): six slots (arms interchangeable), four standard item sets (Common … Legendary, no merging)
+    /// and 30 Mythics that climb their own ladder (Mythic → +1 → +2 → S → S+1 → S+2 → SS) with copies and other Mythics of the same
+    /// slot, Metal (from feeding spare standard parts) and Ore; the Replicator; levels and caps; runes; Forge; one-time awakening.
+    /// Granters for RewardKinds.Part (Rarity = PartRarity index; Id "*" = a random def of that rarity) and RewardKinds.Rune.
     /// </summary>
     public static class PartsSystem
     {
-        private static readonly PartSlot[] AllSlots = { PartSlot.Head, PartSlot.Body, PartSlot.Tail, PartSlot.Legs, PartSlot.LeftArm, PartSlot.RightArm };
+        /// <summary>The parts model of this build (PartsState.Model): older saves are reset to the starter set.</summary>
+        public const int ModelVersion = 2;
+
+        public static readonly PartSlot[] AllSlots = { PartSlot.Head, PartSlot.Body, PartSlot.Tail, PartSlot.Legs, PartSlot.LeftArm, PartSlot.RightArm };
 
         public static void Register(GameEngine e)
         {
@@ -21,29 +24,56 @@ namespace RogueStars.Rules.Systems
             e.Register<PartUnequip>(HandleUnequip);
             e.Register<PartLevelUp>(HandleLevelUp);
             e.Register<PartLevelDown>(HandleLevelDown);
-            e.Register<PartRaiseCap>(HandleRaiseCap);
-            e.Register<PartMerge>(HandleMerge);
-            e.Register<PartQuickMerge>(HandleQuickMerge);
-            e.Register<PartDismantle>(HandleDismantle);
+            e.Register<PartLock>(HandleLock);
+            e.Register<PartFeed>(HandleFeed);
+            e.Register<PartClimb>(HandleClimb);
+            e.Register<PartReplicate>(HandleReplicate);
             e.Register<RuneSocket>(HandleRuneSocket);
             e.Register<RuneUnsocket>(HandleRuneUnsocket);
             e.Register<RuneMerge>(HandleRuneMerge);
             e.Register<RuneLock>(HandleRuneLock);
             e.Register<PartForgeUnlock>(HandleForge);
             e.Register<PartAwaken>(HandleAwaken);
-            e.Register<PartReplicate>(HandleReplicate);
             e.Rewards.Register(RewardKinds.Part, GrantPart);
             e.Rewards.Register(RewardKinds.Rune, GrantRune);
             e.RegisterLoadoutContributor(Contribute);
+            e.RegisterNewPlayer(ctx => ctx.State.Parts.Model = ModelVersion); // a new save starts on v2 (the starter kit grants its parts)
+            e.RegisterSettler(ResetOldModel);
+        }
+
+        /// <summary>
+        /// Pre-release, no migration (owner): a save from before parts v2 drops its old parts and gets the starter set (one Common per
+        /// slot, equipped). Runes stay in the inventory (unsocketed).
+        /// </summary>
+        private static void ResetOldModel(CommandContext ctx)
+        {
+            var s = ctx.State;
+            if (s.Parts.Model >= ModelVersion) return;
+            s.Parts.Model = ModelVersion;
+            s.Parts.Items.Clear();
+            s.Parts.Equipped.Clear();
+            foreach (var r in s.Parts.Runes.Values) r.SocketedIn = "";
+            var slots = new List<PartSlot>(AllSlots);
+            foreach (var id in ctx.Content.PartsConfig.StarterParts)
+            {
+                if (!ctx.Content.PartsConfig.Defs.TryGetValue(id, out var def)) continue;
+                var item = AddPart(s, ctx.Content, id, (int)def.Rarity);
+                foreach (var slot in slots)
+                    if (Fits(def, slot) && !s.Parts.Equipped.ContainsKey(slot)) { s.Parts.Equipped[slot] = item.Uid; break; }
+            }
         }
 
         // ---- inventory helpers (public: used by tests, debug tools and other grant paths) ---------
 
-        /// <summary>Add a part instance directly (granters use this). Returns the new item.</summary>
+        /// <summary>
+        /// Add a part instance directly (granters use this). A standard def is always its own rarity; a Mythic may be added at a ladder
+        /// step (tests, tools). Returns the new item.
+        /// </summary>
         public static PartItem AddPart(GameState s, ContentDb c, string defId, int rarity)
         {
-            if (!c.PartsConfig.Defs.ContainsKey(defId)) throw new InvalidOperationException("unknown part " + defId);
-            var item = new PartItem { Uid = "p" + (s.Parts.NextUid++).ToString("D8"), DefId = defId, Rarity = Math.Max(0, Math.Min(c.PartsConfig.Rarities.Count - 1, rarity)) };
+            if (!c.PartsConfig.Defs.TryGetValue(defId, out var def)) throw new InvalidOperationException("unknown part " + defId);
+            int r = def.IsMythic ? Math.Max((int)PartRarity.Mythic, Math.Min((int)c.PartsConfig.TopRarity, rarity)) : (int)def.Rarity;
+            var item = new PartItem { Uid = "p" + (s.Parts.NextUid++).ToString("D8"), DefId = defId, Rarity = r };
             s.Parts.Items[item.Uid] = item;
             s.Count("parts_obtained");
             ProgressionUtil.CountMax(s, "part_rarity_max", item.Rarity);
@@ -66,11 +96,15 @@ namespace RogueStars.Rules.Systems
 
         public static PartDef Def(ContentDb c, PartItem p) => c.PartsConfig.Defs[p.DefId];
 
-        public static int LevelCap(ContentDb c, PartItem p)
+        /// <summary>True if a def fits a slot: an arm in either arm, every other kind in its own slot.</summary>
+        public static bool Fits(PartDef def, PartSlot slot)
         {
-            var cfg = c.PartsConfig;
-            return Math.Min(cfg.MaxLevel, cfg.RarityDef(p.Rarity).BaseLevelCap + p.CapRaises * cfg.CapRaiseLevels);
+            bool armSlot = slot == PartSlot.LeftArm || slot == PartSlot.RightArm;
+            return def.Kind == PartKind.Arm ? armSlot : !armSlot && (int)def.Kind == (int)slot;
         }
+
+        /// <summary>Level cap: the rarity's (Common 10, Rare 20, Epic 30, Legendary 50; Mythic 70 … SS 100).</summary>
+        public static int LevelCap(ContentDb c, PartItem p) => Math.Min(c.PartsConfig.MaxLevel, c.PartsConfig.RarityDef(p.Rarity).LevelCap);
 
         public static int RuneSlotCount(ContentDb c, PartItem p) =>
             Math.Min(c.PartsConfig.MaxRuneSlots, c.PartsConfig.RarityDef(p.Rarity).RuneSlots + p.ForgedSlots);
@@ -90,21 +124,25 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>
-        /// Stats of a part: base × rarity mult × (1 + forge%) + per-level × (level − 1) × rarity mult, plus socketed runes.
-        /// Awakened parts use their def's awakened base and per-level stats.
+        /// Stats of a part: level-1 stats × (1 + forge%) + per-level stats × (level − 1), plus socketed runes. Awakened parts use their
+        /// def's awakened stats (×1.4 level-1 values).
         /// </summary>
         public static StatBlock PartStats(GameState s, ContentDb c, PartItem p)
         {
-            var cfg = c.PartsConfig; var def = Def(c, p);
-            double mult = cfg.RarityDef(p.Rarity).StatMultiplier;
-            bool aw = p.Awaken > 0;
-            var b = ProgressionUtil.Scaled(aw ? def.AwakenedBaseStats : def.BaseStats, mult * (1 + ForgeBonusPercent(c, p) / 100.0));
-            b.AddBlock(ProgressionUtil.Scaled(aw ? def.AwakenedStatsPerLevel : def.StatsPerLevel, (p.Level - 1) * mult));
+            var b = DefStats(c, Def(c, p), p.Level, p.Awaken > 0, ForgeBonusPercent(c, p));
             foreach (var ru in p.Runes)
             {
                 if (string.IsNullOrEmpty(ru) || !s.Parts.Runes.TryGetValue(ru, out var rune)) continue;
                 b.Add(RuneStat(c, rune));
             }
+            return b;
+        }
+
+        /// <summary>A def's stats at a level (no runes): level-1 × (1 + forge%) + per level × (level − 1).</summary>
+        public static StatBlock DefStats(ContentDb c, PartDef def, int level, bool awakened = false, double forgePct = 0)
+        {
+            var b = ProgressionUtil.Scaled(awakened ? def.AwakenedBaseStats : def.BaseStats, 1 + forgePct / 100.0);
+            b.AddBlock(ProgressionUtil.Scaled(awakened ? def.AwakenedStatsPerLevel : def.StatsPerLevel, Math.Max(0, level - 1)));
             return b;
         }
 
@@ -122,32 +160,39 @@ namespace RogueStars.Rules.Systems
             return p.Awaken > 0 && !string.IsNullOrEmpty(d.AwakenedName) ? d.AwakenedName : d.Name;
         }
 
-        /// <summary>Number of the part's skills active at a rarity (0..5).</summary>
-        public static int SkillCount(ContentDb c, int rarity)
-        {
-            int n = 0;
-            foreach (var r in c.PartsConfig.SkillUnlockRarities) if (rarity >= (int)r) n++;
-            return n;
-        }
+        /// <summary>Number of a part's skills active at a rarity (0..5): Epic 1, Legendary 2, Mythic 3, Mythic S 4, Mythic SS 5.</summary>
+        public static int SkillCount(ContentDb c, int rarity) => c.PartsConfig.RarityDef(rarity).SkillCount;
 
-        /// <summary>
-        /// Skills a part grants while equipped: skill i from PartsConfig.SkillUnlockRarities[i] on (Epic, Legendary,
-        /// Mythic, Mythic S, Mythic SS); the awakened redesigns once awakened.
-        /// </summary>
+        /// <summary>Skills a part grants while equipped (the first SkillCount of its list; the awakened versions once awakened).</summary>
         public static List<string> PartSkills(ContentDb c, PartItem p)
         {
-            var cfg = c.PartsConfig; var def = Def(c, p); var list = new List<string>();
-            var ids = p.Awaken > 0 ? def.AwakenedSkillIds : def.SkillIds;
-            for (int i = 0; i < ids.Count && i < cfg.SkillUnlockRarities.Count; i++)
-                if (p.Rarity >= (int)cfg.SkillUnlockRarities[i]) list.Add(ids[i]);
+            var def = Def(c, p);
+            var ids = p.Awaken > 0 && def.AwakenedSkillIds.Count > 0 ? def.AwakenedSkillIds : def.SkillIds;
+            var list = new List<string>();
+            int n = SkillCount(c, p.Rarity);
+            for (int i = 0; i < ids.Count && i < n; i++) list.Add(ids[i]);
             return list;
         }
 
-        /// <summary>Fodder points a part is worth as merge material.</summary>
-        public static long FodderValue(ContentDb c, PartItem p) => c.PartsConfig.RarityDef(p.Rarity).FodderValue;
+        /// <summary>Metal a part is worth when fed (0 for Mythics: they are ladder material, never Metal).</summary>
+        public static long MetalValue(ContentDb c, PartItem p) => Def(c, p).IsMythic ? 0 : c.PartsConfig.RarityDef(p.Rarity).Metal;
 
-        /// <summary>True if the part may be consumed as merge material (unequipped, never awakened or forged).</summary>
-        public static bool IsMergeMaterial(GameState s, PartItem p) => p.Awaken == 0 && p.ForgedSlots == 0 && !IsEquipped(s, p.Uid);
+        /// <summary>True if a spare standard part may be fed for Metal: not equipped, locked or forged, never a Mythic.</summary>
+        public static bool IsFeedable(GameState s, ContentDb c, PartItem p) =>
+            !Def(c, p).IsMythic && !p.Locked && p.ForgedSlots == 0 && !IsEquipped(s, p.Uid);
+
+        /// <summary>
+        /// True if a Mythic may be ladder or Replicator material: base step (not climbed), not awakened, not equipped, locked or forged.
+        /// </summary>
+        public static bool IsMythicMaterial(GameState s, ContentDb c, PartItem p) =>
+            Def(c, p).IsMythic && p.Rarity == (int)PartRarity.Mythic && p.Awaken == 0 && !p.Locked && p.ForgedSlots == 0 && !IsEquipped(s, p.Uid);
+
+        /// <summary>The next ladder step of a Mythic (null at SS or for a standard part).</summary>
+        public static PartClimbStep NextClimb(ContentDb c, PartItem p)
+        {
+            if (!Def(c, p).IsMythic || p.Rarity >= (int)c.PartsConfig.TopRarity) return null;
+            return c.PartsConfig.Rarities[p.Rarity + 1].Climb;
+        }
 
         /// <summary>Uids sorted ordinally (deterministic iteration).</summary>
         public static List<string> SortedPartUids(GameState s)
@@ -163,10 +208,9 @@ namespace RogueStars.Rules.Systems
             {
                 if (!s.Parts.Equipped.TryGetValue(slot, out var uid)) continue;
                 var p = Get(s, uid);
-                if (p == null) continue;
+                if (p == null || !c.PartsConfig.Defs.ContainsKey(p.DefId)) continue;
                 l.WormStats.AddBlock(PartStats(s, c, p));
-                var def = Def(c, p);
-                if (def.Kind == PartKind.Arm) l.ArmStyles.Add(def.Style);
+                // the same skill twice (two copies of an arm) counts once
                 foreach (var sk in PartSkills(c, p)) if (!l.MetaSkillIds.Contains(sk)) l.MetaSkillIds.Add(sk);
             }
         }
@@ -177,8 +221,10 @@ namespace RogueStars.Rules.Systems
         {
             if (RewardWildcard.IsWildcard(r))
             {
-                for (long i = 0; i < r.Amount; i++)
-                    AddPart(ctx.State, ctx.Content, RewardWildcard.PickAny(ctx.Rng, ctx.Content.PartsConfig.Defs), RewardWildcard.PartRarityForTier(r.Rarity));
+                int rarity = RewardWildcard.PartRarityForTier(r.Rarity);
+                var pool = new Dictionary<string, PartDef>();
+                foreach (var kv in ctx.Content.PartsConfig.Defs) if ((int)kv.Value.Rarity == Math.Min(rarity, (int)PartRarity.Mythic)) pool[kv.Key] = kv.Value;
+                for (long i = 0; i < r.Amount; i++) AddPart(ctx.State, ctx.Content, RewardWildcard.PickAny(ctx.Rng, pool), rarity);
                 return;
             }
             for (long i = 0; i < r.Amount; i++) AddPart(ctx.State, ctx.Content, r.Id, r.Rarity);
@@ -205,18 +251,18 @@ namespace RogueStars.Rules.Systems
             while (p.Runes.Count < n) p.Runes.Add("");
         }
 
-        /// <summary>Refund 100% of level and cap materials and return socketed runes to the inventory.</summary>
-        private static void RefundAndStrip(GameState s, PartItem p)
+        /// <summary>Refund 100% of level materials and return socketed runes to the inventory, then remove the part.</summary>
+        private static void Consume(GameState s, PartItem p)
         {
             s.Wallet.Add(Currencies.Ore, p.SpentOre);
             s.Wallet.Add(Currencies.GearCores, p.SpentGearCores);
-            s.Wallet.Add(Currencies.AdvancementPlates, p.SpentPlates);
-            p.SpentOre = p.SpentGearCores = p.SpentPlates = 0;
+            p.SpentOre = p.SpentGearCores = 0;
             for (int i = 0; i < p.Runes.Count; i++)
             {
                 if (!string.IsNullOrEmpty(p.Runes[i]) && s.Parts.Runes.TryGetValue(p.Runes[i], out var r)) r.SocketedIn = "";
                 p.Runes[i] = "";
             }
+            s.Parts.Items.Remove(p.Uid);
         }
 
         // ---- handlers ------------------------------------------------------------------------------
@@ -224,9 +270,8 @@ namespace RogueStars.Rules.Systems
         private static CommandResult HandleEquip(PartEquip cmd, CommandContext ctx)
         {
             var s = ctx.State; var p = RequirePart(s, cmd.Uid); var def = Def(ctx.Content, p);
-            bool armSlot = cmd.Slot == PartSlot.LeftArm || cmd.Slot == PartSlot.RightArm;
-            if (def.Kind == PartKind.Arm) GameEngine.Require(armSlot, "arm parts go into an arm slot");
-            else GameEngine.Require(!armSlot && (int)def.Kind == (int)cmd.Slot, "part does not fit this slot");
+            if (def.Kind == PartKind.Arm) GameEngine.Require(cmd.Slot == PartSlot.LeftArm || cmd.Slot == PartSlot.RightArm, "arm parts go into an arm slot");
+            else GameEngine.Require(Fits(def, cmd.Slot), "part does not fit this slot");
             // An arm part moved from the other arm leaves that arm empty.
             foreach (var slot in AllSlots)
                 if (slot != cmd.Slot && s.Parts.Equipped.TryGetValue(slot, out var u) && u == p.Uid) s.Parts.Equipped.Remove(slot);
@@ -265,175 +310,114 @@ namespace RogueStars.Rules.Systems
             return CommandResult.Success();
         }
 
-        private static CommandResult HandleRaiseCap(PartRaiseCap cmd, CommandContext ctx)
+        private static CommandResult HandleLock(PartLock cmd, CommandContext ctx)
         {
-            var s = ctx.State; var cfg = ctx.Content.PartsConfig; var p = RequirePart(s, cmd.Uid);
-            GameEngine.Require(p.CapRaises < cfg.RarityDef(p.Rarity).MaxCapRaises && p.CapRaises < cfg.CapRaisePlates.Count, "no more cap raises at this rarity");
-            long plates = cfg.CapRaisePlates[p.CapRaises];
-            ProgressionUtil.Spend(s, Currencies.AdvancementPlates, plates);
-            p.CapRaises++; p.SpentPlates += plates;
-            s.Count("part_cap_raises");
-            return CommandResult.Success(LevelCap(ctx.Content, p));
+            RequirePart(ctx.State, cmd.Uid).Locked = cmd.Locked;
+            return CommandResult.Success();
         }
 
-        /// <summary>
-        /// Validate a merge; throws RuleException on any problem. Public for UI previews. Materials: SameDefCount copies of
-        /// the target's def at SameDefRarity or higher (the lowest-valued eligible copies fill that role), every other
-        /// material any part at FodderMinRarity or higher, together worth at least FodderPoints with no superfluous material.
-        /// </summary>
-        public static void ValidateMerge(GameState s, ContentDb c, string targetUid, IList<string> materialUids)
+        /// <summary>Metal from feeding these parts; throws RuleException on any part that may not be fed (UI preview).</summary>
+        public static long ValidateFeed(GameState s, ContentDb c, IList<string> uids)
         {
-            var cfg = c.PartsConfig; var target = RequirePart(s, targetUid);
-            GameEngine.Require(target.Rarity + 1 < cfg.Rarities.Count, "part is at max rarity");
-            var recipe = cfg.Rarities[target.Rarity + 1].Merge;
-            GameEngine.Require(recipe != null, "no merge recipe");
-            GameEngine.Require(materialUids != null && materialUids.Count > 0, "no materials");
+            GameEngine.Require(uids != null && uids.Count > 0, "nothing to feed");
             var seen = new HashSet<string>();
-            var mats = new List<PartItem>();
-            foreach (var uid in materialUids)
-            {
-                GameEngine.Require(uid != targetUid && seen.Add(uid), "duplicate material");
-                var m = RequirePart(s, uid);
-                GameEngine.Require(!IsEquipped(s, uid), "equipped parts cannot be merge materials");
-                GameEngine.Require(m.Awaken == 0 && m.ForgedSlots == 0, "awakened or forged parts cannot be merge materials");
-                mats.Add(m);
-            }
-            // Same-def copies: the cheapest eligible ones.
-            var copies = new List<PartItem>();
-            foreach (var m in mats) if (m.DefId == target.DefId && m.Rarity >= (int)recipe.SameDefRarity) copies.Add(m);
-            copies.Sort((a, b) => a.Rarity != b.Rarity ? a.Rarity.CompareTo(b.Rarity) : string.CompareOrdinal(a.Uid, b.Uid));
-            GameEngine.Require(copies.Count >= recipe.SameDefCount, "needs " + recipe.SameDefCount + " copies of this part");
-            var used = new HashSet<string>();
-            for (int i = 0; i < recipe.SameDefCount; i++) used.Add(copies[i].Uid);
-            long points = 0, smallest = long.MaxValue; int fodder = 0;
-            foreach (var m in mats)
-            {
-                if (used.Contains(m.Uid)) continue;
-                GameEngine.Require(recipe.FodderPoints > 0, "material does not match the recipe");
-                GameEngine.Require(m.Rarity >= (int)recipe.FodderMinRarity, "material rarity too low");
-                long v = FodderValue(c, m);
-                points += v; smallest = Math.Min(smallest, v); fodder++;
-            }
-            GameEngine.Require(points >= recipe.FodderPoints, "not enough fodder (" + points + "/" + recipe.FodderPoints + ")");
-            GameEngine.Require(fodder == 0 || points - smallest < recipe.FodderPoints, "superfluous material");
-            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, recipe.Ore), "not enough ore");
-        }
-
-        private static void DoMerge(CommandContext ctx, PartItem target, IList<string> materialUids)
-        {
-            var s = ctx.State;
-            long ore = ctx.Content.PartsConfig.Rarities[target.Rarity + 1].Merge.Ore;
-            if (ore > 0) ProgressionUtil.Spend(s, Currencies.Ore, ore);
-            foreach (var uid in materialUids)
-            {
-                var m = s.Parts.Items[uid];
-                RefundAndStrip(s, m);
-                s.Parts.Items.Remove(uid);
-            }
-            target.Rarity++;
-            EnsureRuneSlots(ctx.Content, target);
-            s.Count("part_merges");
-            ProgressionUtil.CountMax(s, "part_rarity_max", target.Rarity);
-            ctx.Emit("part_merged", target.Uid, target.Rarity.ToString());
-        }
-
-        private static CommandResult HandleMerge(PartMerge cmd, CommandContext ctx)
-        {
-            ValidateMerge(ctx.State, ctx.Content, cmd.TargetUid, cmd.MaterialUids);
-            var target = ctx.State.Parts.Items[cmd.TargetUid];
-            DoMerge(ctx, target, cmd.MaterialUids);
-            return CommandResult.Success(target.Rarity);
-        }
-
-        private static CommandResult HandleQuickMerge(PartQuickMerge cmd, CommandContext ctx)
-        {
-            var s = ctx.State; var c = ctx.Content; var cfg = c.PartsConfig;
-            int merges = 0; bool changed = true;
-            while (changed)
-            {
-                changed = false;
-                for (int t = 1; t <= (int)cfg.QuickMergeMaxTarget && t < cfg.Rarities.Count; t++)
-                {
-                    var recipe = cfg.Rarities[t].Merge;
-                    if (recipe == null) continue;
-                    // Targets: equipped first, then highest level, then uid.
-                    var targets = new List<PartItem>();
-                    foreach (var uid in SortedPartUids(s)) { var p = s.Parts.Items[uid]; if (p.Rarity == t - 1 && p.Awaken == 0) targets.Add(p); }
-                    if (targets.Count == 0) continue;
-                    targets.Sort((a, b) =>
-                    {
-                        int ea = IsEquipped(s, a.Uid) ? 0 : 1, eb = IsEquipped(s, b.Uid) ? 0 : 1;
-                        if (ea != eb) return ea.CompareTo(eb);
-                        if (a.Level != b.Level) return b.Level.CompareTo(a.Level);
-                        return string.CompareOrdinal(a.Uid, b.Uid);
-                    });
-                    foreach (var target in targets)
-                    {
-                        if (!s.Parts.Items.ContainsKey(target.Uid) || target.Rarity != t - 1) continue;
-                        var mats = PickMaterials(s, c, target, recipe);
-                        if (mats == null) continue;
-                        DoMerge(ctx, target, mats);
-                        merges++; changed = true;
-                    }
-                }
-            }
-            return CommandResult.Success(merges);
-        }
-
-        /// <summary>
-        /// Quick-merge materials: same-def copies at the recipe's minimum rarity, then fodder at exactly the recipe's
-        /// minimum fodder rarity (never burns higher parts), other defs first and lowest level first. Null if short.
-        /// </summary>
-        private static List<string> PickMaterials(GameState s, ContentDb c, PartItem target, PartMergeRecipe recipe)
-        {
-            var pool = new List<PartItem>();
-            foreach (var uid in SortedPartUids(s))
-            {
-                var p = s.Parts.Items[uid];
-                if (p.Uid == target.Uid || !IsMergeMaterial(s, p)) continue;
-                pool.Add(p);
-            }
-            pool.Sort((a, b) => a.Level != b.Level ? a.Level.CompareTo(b.Level) : string.CompareOrdinal(a.Uid, b.Uid));
-            var picked = new List<string>();
-            int same = 0;
-            foreach (var p in pool)
-                if (same < recipe.SameDefCount && p.DefId == target.DefId && p.Rarity == (int)recipe.SameDefRarity) { picked.Add(p.Uid); same++; }
-            if (same < recipe.SameDefCount) return null;
-            long points = 0, unit = c.PartsConfig.RarityDef((int)recipe.FodderMinRarity).FodderValue;
-            for (int pass = 0; pass < 2 && points < recipe.FodderPoints; pass++)
-                foreach (var p in pool)
-                {
-                    if (points >= recipe.FodderPoints) break;
-                    if (picked.Contains(p.Uid) || p.Rarity != (int)recipe.FodderMinRarity) continue;
-                    if (pass == 0 && p.DefId == target.DefId) continue;
-                    picked.Add(p.Uid); points += unit;
-                }
-            return points >= recipe.FodderPoints ? picked : null;
-        }
-
-        private static CommandResult HandleDismantle(PartDismantle cmd, CommandContext ctx)
-        {
-            var s = ctx.State; var cfg = ctx.Content.PartsConfig;
-            GameEngine.Require(cmd.Uids != null && cmd.Uids.Count > 0, "nothing to dismantle");
-            var seen = new HashSet<string>();
-            foreach (var uid in cmd.Uids)
+            long metal = 0;
+            foreach (var uid in uids)
             {
                 var p = RequirePart(s, uid);
                 GameEngine.Require(seen.Add(uid), "duplicate part");
+                GameEngine.Require(!Def(c, p).IsMythic, "Mythics are never fed: they are ladder material");
                 GameEngine.Require(!IsEquipped(s, uid), "unequip the part first");
-                GameEngine.Require(p.Awaken == 0, "awakened parts cannot be dismantled");
+                GameEngine.Require(!p.Locked, "the part is locked");
+                GameEngine.Require(p.ForgedSlots == 0, "forged parts are never fed");
+                metal += MetalValue(c, p);
             }
-            long ore = 0;
-            foreach (var uid in cmd.Uids)
+            return metal;
+        }
+
+        private static CommandResult HandleFeed(PartFeed cmd, CommandContext ctx)
+        {
+            var s = ctx.State;
+            long metal = ValidateFeed(s, ctx.Content, cmd.Uids);
+            foreach (var uid in cmd.Uids) Consume(s, s.Parts.Items[uid]);
+            s.Wallet.Add(Currencies.Metal, metal);
+            s.Count("parts_fed", cmd.Uids.Count);
+            ctx.Emit("parts_fed", cmd.Uids.Count.ToString(), metal.ToString());
+            return CommandResult.Success(metal);
+        }
+
+        /// <summary>
+        /// Validate a ladder step (UI preview); throws RuleException. Materials are exactly the step's copies (same def) and other Mythics
+        /// (a different def of the same slot; every arm Mythic is an arm), each at the base step, not awakened, equipped, locked or
+        /// forged. A copy of the climbed item always counts as a copy, never as an other Mythic.
+        /// </summary>
+        public static void ValidateClimb(GameState s, ContentDb c, string targetUid, IList<string> materialUids)
+        {
+            var target = RequirePart(s, targetUid);
+            var def = Def(c, target);
+            GameEngine.Require(def.IsMythic, "only Mythics climb");
+            var step = NextClimb(c, target);
+            GameEngine.Require(step != null, "the part is at Mythic SS");
+            var mats = materialUids ?? new List<string>();
+            var seen = new HashSet<string>();
+            int copies = 0, others = 0;
+            foreach (var uid in mats)
             {
-                var p = s.Parts.Items[uid];
-                RefundAndStrip(s, p);
-                ore += cfg.RarityDef(p.Rarity).DismantleOre;
-                s.Parts.Items.Remove(uid);
+                GameEngine.Require(uid != targetUid && seen.Add(uid), "duplicate material");
+                var m = RequirePart(s, uid);
+                GameEngine.Require(IsMythicMaterial(s, c, m), "materials are base-step Mythics that are not awakened, equipped, locked or forged");
+                var md = Def(c, m);
+                if (m.DefId == target.DefId) copies++;
+                else if (md.Kind == def.Kind) others++;
+                else throw new RuleException("other Mythics must be of the same slot");
             }
-            s.Wallet.Add(Currencies.Ore, ore);
-            s.Count("parts_dismantled", cmd.Uids.Count);
-            return CommandResult.Success(ore);
+            GameEngine.Require(copies == step.Copies, "needs " + step.Copies + " copies of this Mythic");
+            GameEngine.Require(others == step.Others, "needs " + step.Others + " other Mythics of this slot");
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Metal, step.Metal), "not enough metal");
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, step.Ore), "not enough ore");
+        }
+
+        private static CommandResult HandleClimb(PartClimb cmd, CommandContext ctx)
+        {
+            var s = ctx.State; var c = ctx.Content;
+            ValidateClimb(s, c, cmd.TargetUid, cmd.MaterialUids);
+            var target = s.Parts.Items[cmd.TargetUid];
+            var step = NextClimb(c, target);
+            ProgressionUtil.Spend(s, new[] { new Cost(Currencies.Metal, step.Metal), new Cost(Currencies.Ore, step.Ore) });
+            foreach (var uid in cmd.MaterialUids) Consume(s, s.Parts.Items[uid]);
+            target.Rarity++;
+            EnsureRuneSlots(c, target);
+            s.Count("part_climbs");
+            ProgressionUtil.CountMax(s, "part_rarity_max", target.Rarity);
+            ctx.Emit("part_climbed", target.Uid, target.Rarity.ToString());
+            return CommandResult.Success(target.Rarity);
+        }
+
+        /// <summary>Validate a replication (UI preview); throws RuleException.</summary>
+        public static void ValidateReplicate(GameState s, ContentDb c, string targetUid, IList<string> materialUids)
+        {
+            var cfg = c.PartsConfig; var target = RequirePart(s, targetUid);
+            GameEngine.Require(Def(c, target).IsMythic, "the Replicator copies Mythics only");
+            GameEngine.Require(materialUids != null && materialUids.Count == cfg.ReplicateMythics, "needs " + cfg.ReplicateMythics + " spare Mythics");
+            var seen = new HashSet<string>();
+            foreach (var uid in materialUids)
+            {
+                GameEngine.Require(uid != targetUid && seen.Add(uid), "duplicate material");
+                GameEngine.Require(IsMythicMaterial(s, c, RequirePart(s, uid)), "materials are base-step Mythics that are not awakened, equipped, locked or forged");
+            }
+            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, cfg.ReplicateOre), "not enough ore");
+        }
+
+        private static CommandResult HandleReplicate(PartReplicate cmd, CommandContext ctx)
+        {
+            var s = ctx.State; var cfg = ctx.Content.PartsConfig;
+            ValidateReplicate(s, ctx.Content, cmd.TargetUid, cmd.MaterialUids);
+            ProgressionUtil.Spend(s, Currencies.Ore, cfg.ReplicateOre);
+            foreach (var uid in cmd.MaterialUids) Consume(s, s.Parts.Items[uid]);
+            var copy = AddPart(s, ctx.Content, s.Parts.Items[cmd.TargetUid].DefId, (int)PartRarity.Mythic);
+            s.Count("part_replications");
+            ctx.Emit("part_replicated", copy.Uid, copy.DefId);
+            return CommandResult.Success(copy.Uid);
         }
 
         private static RuneItem RequireRune(GameState s, string uid)
@@ -513,49 +497,11 @@ namespace RogueStars.Rules.Systems
             return CommandResult.Success(RuneSlotCount(ctx.Content, p));
         }
 
-        /// <summary>Validate a replication (UI preview); throws RuleException.</summary>
-        public static void ValidateReplicate(GameState s, ContentDb c, string targetUid, IList<string> materialUids)
-        {
-            var cfg = c.PartsConfig; var target = RequirePart(s, targetUid);
-            GameEngine.Require(target.Rarity >= (int)cfg.ReplicateMinTargetRarity, "replicate copies of Mythic+ parts only");
-            GameEngine.Require(materialUids != null && materialUids.Count > 0, "no materials");
-            var seen = new HashSet<string>();
-            long points = 0, smallest = long.MaxValue;
-            foreach (var uid in materialUids)
-            {
-                GameEngine.Require(uid != targetUid && seen.Add(uid), "duplicate material");
-                var m = RequirePart(s, uid);
-                GameEngine.Require(IsMergeMaterial(s, m), "equipped, awakened or forged parts cannot be materials");
-                GameEngine.Require(m.Rarity >= (int)PartRarity.Legendary, "material rarity too low");
-                long v = FodderValue(c, m);
-                points += v; smallest = Math.Min(smallest, v);
-            }
-            GameEngine.Require(points >= cfg.ReplicateFodderPoints, "not enough fodder (" + points + "/" + cfg.ReplicateFodderPoints + ")");
-            GameEngine.Require(points - smallest < cfg.ReplicateFodderPoints, "superfluous material");
-            GameEngine.Require(s.Wallet.CanAfford(Currencies.Ore, cfg.ReplicateOre), "not enough ore");
-        }
-
-        private static CommandResult HandleReplicate(PartReplicate cmd, CommandContext ctx)
-        {
-            var s = ctx.State; var cfg = ctx.Content.PartsConfig;
-            ValidateReplicate(s, ctx.Content, cmd.TargetUid, cmd.MaterialUids);
-            ProgressionUtil.Spend(s, Currencies.Ore, cfg.ReplicateOre);
-            foreach (var uid in cmd.MaterialUids)
-            {
-                RefundAndStrip(s, s.Parts.Items[uid]);
-                s.Parts.Items.Remove(uid);
-            }
-            var copy = AddPart(s, ctx.Content, s.Parts.Items[cmd.TargetUid].DefId, (int)PartRarity.Legendary);
-            s.Count("part_replications");
-            ctx.Emit("part_replicated", copy.Uid, copy.DefId);
-            return CommandResult.Success(copy.Uid);
-        }
-
         private static CommandResult HandleAwaken(PartAwaken cmd, CommandContext ctx)
         {
             var s = ctx.State; var cfg = ctx.Content.PartsConfig; var p = RequirePart(s, cmd.Uid);
             GameEngine.Require(p.Awaken == 0, "part is already awakened");
-            GameEngine.Require(p.Rarity >= (int)cfg.AwakenMinRarity, "part rarity too low to awaken");
+            GameEngine.Require(Def(ctx.Content, p).IsMythic && p.Rarity >= (int)cfg.AwakenMinRarity, "part rarity too low to awaken");
             ProgressionUtil.Spend(s, ProgressionCurrencies.PartAwakenCores, cfg.AwakenCost);
             p.Awaken = 1;
             s.Count("part_awakens");

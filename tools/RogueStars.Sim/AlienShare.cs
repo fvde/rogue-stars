@@ -66,7 +66,6 @@ public static class AlienShare
         var l = new CombatLoadout { DisplayName = lo.DisplayName, MountId = lo.MountId, HeroId = lo.HeroId };
         l.WormStats.AddBlock(lo.WormStats);
         l.MountStats.AddBlock(lo.MountStats);
-        l.ArmStyles.AddRange(lo.ArmStyles);
         l.MetaSkillIds.AddRange(lo.MetaSkillIds);
         if (alien != null) l.Aliens.Add(alien);
         var setup = new BattleSetup { RoundCap = 20 };

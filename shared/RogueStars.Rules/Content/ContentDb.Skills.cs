@@ -459,10 +459,10 @@ namespace RogueStars.Rules.Content
             RunSkill("mythic_swarm_link", "Swarm Link", SkillFamily.AlienSynergy, Rarity.Mythic).Needs("aliens").Desc("A kill rallies the squad.")
                 .Add(Tg(TriggerKind.OnKill, EffectKind.AllyAction, target: TargetKind.Self, param: "all"))
                 .Text("When the worm kills an enemy, every alien acts immediately.");
+            // parts v2 (owner rev 3f): the aliens keep their own turns; joining the rage attack costs each of them 50 charge
             RunSkill("mythic_symbiote", "Symbiote", SkillFamily.AlienSynergy, Rarity.Mythic).Needs("aliens").Desc("The squad moves with the worm.")
-                .Add(Tg(Passive, Rule, target: TargetKind.Self, param: "symbiote"))
-                .Add(Tg(Rage, EffectKind.AllyAction, target: TargetKind.Self, param: "all"))
-                .Text("!Your aliens stop acting alone|Your rage attack also fires every alien's ability");
+                .Add(Tg(Rage, EffectKind.AllyAction, target: TargetKind.Self, param: "all;charge:-50"))
+                .Text("Your rage attack also fires every alien's ability|!Each alien that joins loses 50 charge");
             RunSkill("mythic_sacrifice", "Sacrifice Protocol", SkillFamily.AlienSynergy, Rarity.Mythic).Needs("aliens").Desc("One falls so you stand.")
                 .Add(Tg(TriggerKind.OnFatal, EffectKind.Sacrifice, 30, TargetKind.Self, "sidekicks", maxPerBattle: 1))
                 .Text("Once per battle, an alien takes a fatal hit for you. It leaves the battle; you heal {v0}%.");

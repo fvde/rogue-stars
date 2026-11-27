@@ -188,9 +188,9 @@ public class LoadoutTests
         Assert.True(bare.Power > 0);
         Assert.Equal(C.WormConfig.BaseStats.First(m => m.Stat == StatId.Hp).Flat, bare.WormStats.Value(StatId.Hp), 6);
 
-        var left = PartsSystem.AddPart(s, C, "arm_tesla_whip", (int)PartRarity.Mythic);
-        var right = PartsSystem.AddPart(s, C, "arm_drill_lance", (int)PartRarity.Common);
-        var body = PartsSystem.AddPart(s, C, "body_plated_shell", (int)PartRarity.Rare);
+        var left = PartsSystem.AddPart(s, C, "myth_arcwright_drill", (int)PartRarity.Mythic);
+        var right = PartsSystem.AddPart(s, C, "c_arm_keen", (int)PartRarity.Common);
+        var body = PartsSystem.AddPart(s, C, "r_body_guard", (int)PartRarity.Rare);
         Grant(e, s, new Reward(RewardKinds.HeroShards, "hero_chef", 50));
         Grant(e, s, new Reward(RewardKinds.Mount, "mount_scout_saucer", 1));
         Ok(e, ref s, new HeroUnlock { HeroId = "hero_chef" });
@@ -201,12 +201,11 @@ public class LoadoutTests
         var l = e.BuildLoadout(s, TestHelpers.T0);
         Assert.Equal("hero_chef", l.HeroId);
         Assert.Equal("mount_scout_saucer", l.MountId);
-        Assert.Equal(new[] { AttackStyle.Whip, AttackStyle.Drill }, l.ArmStyles);
         Assert.Contains("hero_chef_trait", l.MetaSkillIds);
         Assert.Contains("mount_scout_saucer_active_1", l.MetaSkillIds);
-        Assert.Contains("arm_tesla_whip_sk3", l.MetaSkillIds);    // Mythic: skills 1-3
-        Assert.DoesNotContain("arm_tesla_whip_sk4", l.MetaSkillIds);
-        Assert.DoesNotContain("arm_drill_lance_sk1", l.MetaSkillIds); // Common: none
+        Assert.Contains("myth_arcwright_drill_sk3", l.MetaSkillIds);    // Mythic: skills 1-3
+        Assert.DoesNotContain("myth_arcwright_drill_sk4", l.MetaSkillIds);
+        Assert.DoesNotContain(l.MetaSkillIds, id => id.StartsWith("c_arm_keen", StringComparison.Ordinal)); // Common: none
         Assert.True(l.WormStats.Value(StatId.Atk) > bare.WormStats.Value(StatId.Atk));
         Assert.True(l.WormStats.Value(StatId.Def) > bare.WormStats.Value(StatId.Def));
         Assert.True(l.Power > bare.Power);
@@ -217,7 +216,7 @@ public class LoadoutTests
     public void State_RoundTripsThroughJson()
     {
         var e = Engine(); var s = Player(e);
-        var p = PartsSystem.AddPart(s, C, "head_frost_helm", (int)PartRarity.Legendary);
+        var p = PartsSystem.AddPart(s, C, "l_head_guard", (int)PartRarity.Legendary);
         Ok(e, ref s, new PartEquip { Uid = p.Uid, Slot = PartSlot.Head });
         s.Wallet.Add(Currencies.PartTokens, 1); // not in the starting wallet any more (they come with the Part Signal)
         Ok(e, ref s, new GachaPull { PullType = GachaType.Part, Payment = GachaPayment.Tokens });

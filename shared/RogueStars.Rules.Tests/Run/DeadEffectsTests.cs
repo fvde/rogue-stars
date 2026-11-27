@@ -30,6 +30,9 @@ public class DeadEffectsTests
         // hero and mount kits
         EffectKind.CarrySignatures, EffectKind.AdvanceTimer, EffectKind.MountFire, EffectKind.FireAbility, EffectKind.RiderAttack, EffectKind.Whistle,
         EffectKind.SpreadStatus, EffectKind.ChargeAllies,
+        // parts v2
+        EffectKind.ExtraTurn, EffectKind.SureCrit, EffectKind.ForceMiss, EffectKind.Empower, EffectKind.TurnFlag, EffectKind.ForceCombo,
+        EffectKind.Repeat, EffectKind.MultiplyShield,
     };
 
     /// <summary>Run-only stats: read by the board (run XP, loot luck), never by a battle.</summary>
@@ -135,6 +138,56 @@ public class DeadEffectsTests
         return ctx;
     }
 
+    /// <summary>
+    /// Parts v2: a part skill is judged in its item as the player has it when the skill unlocks: a Mythic's earlier skills of the same
+    /// set (base or awakened) and its synergy's signature, plus the situation its gates need (low HP, shields, dodges, crits, combos,
+    /// heavy stacks, an Echo or rage source).
+    /// </summary>
+    internal static List<string> PartContext(ContentDb c, SkillDef s)
+    {
+        var ctx = new List<string>();
+        void Add(string id) { if (id != s.Id && c.Skill(id) != null && !ctx.Contains(id)) ctx.Add(id); }
+        foreach (var d in c.PartsConfig.Defs.Values)
+            foreach (var ids in new[] { d.SkillIds, d.AwakenedSkillIds })
+            {
+                int at = ids.IndexOf(s.Id);
+                for (int i = 0; i < at; i++) Add(ids[i]);
+            }
+        if (s.Family != SkillFamily.None && s.Family != SkillFamily.Crit)
+        {
+            var sig = c.Skills.Values.Where(x => x.Signature && x.Family == s.Family).OrderBy(x => x.Id, StringComparer.Ordinal).FirstOrDefault();
+            if (sig != null) Add(sig.Id);
+        }
+        string all = string.Join(" ", s.Triggers.Select(t => t.When + " " + t.Effect + " " + t.If + " " + t.Param + " " + t.Status + " " + t.Stat?.Stat));
+        bool Has(string x) => all.Contains(x, StringComparison.Ordinal);
+        if (Has("self_hp_below") || Has("Rewind") || Has("OnUndo") || Has("low_hp") || Has("missing_hp") || Has("rage_cost_low") || Has("hit_cap") || Has("amount_pct")) Add("kit_frail");
+        if (Has("Shield") || Has("self_shielded") || Has("counter_aoe") || Has("MultiplyShield")) Add("kit_shield");
+        if (Has("OnDodge") || Has("dodge_") || Has("nth_miss") || Has("ForceMiss")) Add("kit_dodge");
+        if (Has("OnCrit") || Has("crit") || Has("Crit")) Add("kit_keen");
+        if (Has("OnCombo") || Has("combo_min") || Has("ForceCombo") || Has("combo_full") || Has("combo_kill") || Has("combo_target") || Has("combo_falloff")) { Add("kit_combo"); Add("sig_combo"); }
+        if (Has("dodge_as_combo")) Add("sig_combo");
+        if (Has("dodge_cap_vs")) Add("kit_evasive");
+        if (Has("crit_overflow")) Add("kit_overcrit");
+        if (Has("RemoveStatus")) Add("kit_cursed");
+        if (Has("crit_in")) Add("kit_enemy_crit");
+        if (Has("overheal") || Has("HealReceived")) Add("kit_leech");
+        if (Has("HealReceived")) Add("kit_frail");
+        if (Has("OnShieldBreak")) Add("kit_brutes");
+        if (Has("arc_crit")) Add("mythic_swarm_call");
+        if (Has("execute_at")) Add("kit_flood");
+        if (Has("rage_area_vs")) Add("kit_ice");
+        if (Has("OnCounter") || Has("counter") || Has("Counter")) Add("sig_counter");
+        if (Has("OnEcho") || Has("echo") || Has("Echo")) Add("sig_time");
+        if (Has("OnRageAttack") || Has("rage_") || Has("in_rage") || Has("FreeRageAttack")) Add("kit_rage");
+        if (Has("OnBlock") || Has("guard")) Add("kit_guards");
+        if (Has("Poison")) { Add("kit_heavy_Poison"); Add("sig_radiation"); }
+        if (Has("Bleed")) { Add("kit_heavy_Bleed"); Add("sig_bleed"); }
+        if (Has("Shock") || Has("OnArcJump") || Has("arc_")) { Add("kit_heavy_Shock"); Add("sig_lightning"); }
+        if (Has("Chill") || Has("Freeze")) Add("sig_ice");
+        if (Has("Heat") || Has("Supernova")) { Add("kit_fire"); Add("sig_fire"); }
+        return ctx;
+    }
+
     private static readonly string[] AllSignatures =
         { "sig_fire", "sig_radiation", "sig_bleed", "sig_ice", "sig_lightning", "sig_combo", "sig_counter", "sig_alien", "sig_time" };
 
@@ -234,7 +287,7 @@ public class DeadEffectsTests
             if (ActsInBattle(s) && !SkillTuningTests.IsBoardSkill(s)) // Plague: a run-scoped carry, its own run tests
             {
                 battle++;
-                var ctx = s.Source is SkillSource.Mount or SkillSource.Hero ? KitContext(c, s.Id) : SkillTuningTests.Context(c, s);
+                var ctx = s.Source is SkillSource.Mount or SkillSource.Hero ? KitContext(c, s.Id) : s.Source == SkillSource.Part ? PartContext(c, s) : SkillTuningTests.Context(c, s);
                 foreach (bool brawl in new[] { false, true })
                     for (int seed = 0; seed < 8 && !changed; seed++)
                         changed = Sig(Fight(c, s.Id, seed, brawl, ctx))
@@ -350,6 +403,7 @@ public class DeadEffectsTests
             }
             if (enemySkills.Contains(s.Id) || sidekickSummon || C.Sidekicks.Values.Any(k => k.AbilitySkillId == s.Id)) continue;
             if (s.Id.StartsWith("mount_hive_carrier_", StringComparison.Ordinal)) continue; // Wingman: the Hive Carrier's drones strike
+            if (s.Id.StartsWith("myth_hatchery_tail_", StringComparison.Ordinal)) continue; // parts v2: Hatchery Tail's Drones (its skills 1 / 5 summon them)
             foreach (var text in new[] { s.Name, s.Description, SkillText.Full(s) })
                 Assert.DoesNotContain("drone", text ?? "", StringComparison.OrdinalIgnoreCase);
         }

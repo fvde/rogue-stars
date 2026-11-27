@@ -30,7 +30,6 @@ namespace RogueStars.Rules.Core
         public string PlayerId;
         public string DisplayName;
         public StatBlock WormStats = new StatBlock();
-        public List<AttackStyle> ArmStyles = new List<AttackStyle>();
         public string HeroId;
         public string MountId;
         public StatBlock MountStats = new StatBlock();

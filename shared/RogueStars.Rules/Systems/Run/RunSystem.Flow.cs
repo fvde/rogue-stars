@@ -1520,6 +1520,13 @@ namespace RogueStars.Rules.Systems
                         s.Count("milestone_chests");
                         ctx.Emit("run_milestone", run.LevelId, level.Number.ToString());
                     }
+                    // parts v2: the boss's first clear gives one random Rare or Epic part
+                    if (firstClear && run.Mode == RunMode.Normal && level.FirstClearPart)
+                    {
+                        bool epic = run.Rng.NextDouble() * 100 < c.Campaign.FirstClearEpicPartPct;
+                        rewards.Add(new Reward(RewardKinds.Part, RewardWildcard.Any, 1, (int)(epic ? Rarity.Epic : Rarity.Rare)));
+                        sources.Add(RunRewardLine.Milestone);
+                    }
                     bool[] feats =
                     {
                         true,

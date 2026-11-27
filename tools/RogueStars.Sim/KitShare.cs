@@ -34,7 +34,6 @@ public static class KitShare
         baseLo.WormStats.AddBlock(lo.WormStats);
         if (!string.IsNullOrEmpty(lo.HeroId) && HeroSystem.Get(bot.S, lo.HeroId) is HeroEntry own) baseLo.WormStats.AddBlock(Neg(HeroSystem.HeroStats(c, lo.HeroId, own)));
         baseLo.WormStats.AddBlock(heroBudget);
-        baseLo.ArmStyles.AddRange(lo.ArmStyles);
         baseLo.Aliens.AddRange(lo.Aliens);
         baseLo.UnlockedFamilies.AddRange(lo.UnlockedFamilies);
         foreach (var id in lo.MetaSkillIds) { var s = c.Skill(id); if (s != null && s.Source != SkillSource.Hero && s.Source != SkillSource.Mount) baseLo.MetaSkillIds.Add(id); }
@@ -111,7 +110,6 @@ public static class KitShare
         {
             var l = new CombatLoadout { DisplayName = "Worm", MountId = mount };
             l.WormStats.AddBlock(baseLo.WormStats);
-            l.ArmStyles.AddRange(baseLo.ArmStyles);
             l.Aliens.AddRange(baseLo.Aliens);
             l.MetaSkillIds.AddRange(baseLo.MetaSkillIds);
             if (kit != null) l.MetaSkillIds.AddRange(kit);

@@ -75,6 +75,15 @@ namespace RogueStars.Rules.Core
         OnSkipTurn,
         /// <summary>On the worm: one of its sidekicks' actions hit an enemy (once per action; context = the enemy hit).</summary>
         OnSidekickHit,
+        // ---- parts v2 (appended, saves store ints) ----
+        /// <summary>An attack emptied the owner's shield (context = the attacker).</summary>
+        OnShieldBreak,
+        /// <summary>The owner's Echo struck (context = the struck enemy, amount = its damage); Echo chains stop at Combat depth 2.</summary>
+        OnEcho,
+        /// <summary>A hit on the owner was undone by a Rewind (context = its attacker, amount = the damage undone).</summary>
+        OnUndo,
+        /// <summary>One of the owner's statuses ticked on a fighter (context = that fighter; Param = status filter; amount = damage).</summary>
+        OnStatusTick,
     }
 
     public enum EffectKind
@@ -130,6 +139,16 @@ namespace RogueStars.Rules.Core
         Whistle,           // every sidekick acts (fastest first), then the mount fires; Value = shield % max HP per ally that acted, Param "follow:N"
         SpreadStatus,      // every other enemy gets Value % of the context enemy's largest status (Param "cap:N", "dmg_per:X", "dmg_cap:Y")
         ChargeAllies,      // every sidekick of the owner's side gains Value charge
+        // ---- parts v2 (appended) ----
+        ExtraTurn,         // the owner takes Stacks extra turns (at most 2 per round, the rest move on; an extra turn never grants another)
+        SureCrit,          // the owner's next Stacks attacks always crit (Param "turn": every attack this turn)
+        ForceMiss,         // the next Stacks attacks on the owner miss (fully avoided hits: at most 1 per round from every source)
+        Empower,           // the owner's next landed attack hit deals +Value % (Param "rage": the next rage attack; "def": the next attack ignores Value % DEF)
+        TurnFlag,          // a flag for the owner's turn / window: Param "aoe" (attacks this turn hit every enemy), "counter_hit" (this hit is countered),
+                           // "counter_window" (counter every hit until the next turn; Duration = rounds instead)
+        ForceCombo,        // the owner's next attack this turn strikes Stacks times in a row (combo strikes)
+        Repeat,            // the owner's current attack is made once more (Value %)
+        MultiplyShield,    // the owner's shield × Value/100 (Param "cap:N": at most N % max HP added)
     }
 
     /// <summary>

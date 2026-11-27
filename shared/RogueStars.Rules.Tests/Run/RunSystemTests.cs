@@ -319,11 +319,11 @@ public class RunSystemTests
         Assert.Equal(10, s.Run.Active!.Coins);
         Assert.True(s.Run.Active.WormHp > 10);
 
-        // Rift echo: battle, then a part drop added to pending loot
+        // Rift echo: battle, then a Parts Crate added to pending loot (parts v2: runs drop no parts)
         s.Run.Active.Phase = RunPhase.Event;
         s.Run.Active.EventId = "rift_echo";
         Assert.True(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = 0 }).Ok);
-        Assert.Contains(s.Run.Active!.PendingLoot, r => r.Kind == RewardKinds.Part);
+        Assert.Contains(s.Run.Active!.PendingLoot, r => r.Kind == RewardKinds.Currency && r.Id == Currencies.PartTokens);
         Assert.NotNull(s.Run.Active.LastBattle);
     }
 
@@ -471,7 +471,8 @@ public class AwakenCoreSourceTests
         foreach (var l in c.RunLevels.Values)
         {
             Assert.DoesNotContain(l.CompletionRewards, r => r.Id == core);
-            if (l.PortalId != "the_burrow") Assert.Empty(l.RareDrops);
+            // parts v2: Dark Side clears carry their 5% Legendary part, nothing else
+            if (l.PortalId != "the_burrow") Assert.All(l.RareDrops, d => Assert.Equal(RewardKinds.Part, d.Reward.Kind));
         }
         foreach (var t in c.RunLootTables.Values) Assert.DoesNotContain(t.Entries, x => x.Id == core);
         var burrow = c.Portal("the_burrow")!;

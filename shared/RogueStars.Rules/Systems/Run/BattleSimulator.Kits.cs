@@ -57,6 +57,7 @@ namespace RogueStars.Rules.Systems
                 case "coil_counter": CoilCounterPct = value; break;
                 case "coil_window": CoilWindow = true; break;
                 case "siphon_cap": SiphonCapPct = value; break;
+                default: AddPartRule(name, arg, value, skillId); break;
             }
         }
     }
@@ -530,6 +531,8 @@ namespace RogueStars.Rules.Systems
             {
                 if (o.Side != def.Side || !o.Alive || o.DroneGuardPct <= 0) continue;
                 double prevented = dmg * Math.Min(100, o.DroneGuardPct) / 100.0;
+                // parts v2: Swarmqueen Tail's Drones guard 2 hits before they break
+                if (o.DroneGuardHits > 1) { o.DroneGuardHits--; var g2 = Log(BattleAction.Guarded, o, def, prevented); if (g2 != null) g2.Stacks = o.DroneGuardHits; return dmg - prevented; }
                 o.Alive = false;
                 var g = Log(BattleAction.Guarded, o, def, prevented);
                 if (g != null) g.Stacks = 0;
@@ -583,7 +586,7 @@ namespace RogueStars.Rules.Systems
                     break;
                 case EffectKind.ChargeAllies:
                     foreach (var o in F)
-                        if (o.Side == owner.Side && o.Alive && o.Sidekick) o.Charge = Math.Min(T.SidekickActAt, o.Charge + t.Value);
+                        if (o.Side == owner.Side && o.Alive && o.Sidekick) o.Charge = Math.Min(ActAt(o), o.Charge + t.Value);
                     break;
                 case EffectKind.GainRunCoins:
                     // in-battle coins (Plunder); on OnBattleWon they are the board's (RunSystem pays Prospector after the battle)
@@ -684,19 +687,23 @@ namespace RogueStars.Rules.Systems
             var worm = owner.Role == CombatRole.Worm ? owner : FirstWorm(owner.Side);
             var front = ctx != null && ctx.Alive && ctx.Side != owner.Side && ctx.Targetable ? ctx : DefaultTarget(owner);
             if (worm == null || front == null) return;
-            var id = Largest(front);
+            // parts v2: a named status (Isotope Visor's Radiation, Firebrand Blaster's Heat) instead of the largest; "behind": only the
+            // enemy behind the context one; the applier's spread rule multiplies the copy
+            var id = t.Status != StatusId.None ? t.Status : Largest(front);
             var st = id != StatusId.None ? front.Status(id) : null;
             int copied = 0;
+            List<Fighter> only = HasToken(t.Param, "behind") ? Targets(owner, TargetKind.SecondEnemy, front) : null;
             if (st != null)
             {
                 int n = (int)Math.Floor(st.Stacks * t.Value / 100.0);
                 double cap = ParamNumber(t.Param, "cap");
                 if (cap > 0) n = Math.Min(n, (int)cap);
+                if (t.Status != StatusId.None) n = SpreadStacks(worm, id, n);
                 if (n > 0)
                     foreach (var o in new List<Fighter>(F))
                     {
                         if (Over) break;
-                        if (o == front || o.Side == owner.Side || !o.Alive || !o.Targetable) continue;
+                        if (o == front || o.Side == owner.Side || !o.Alive || !o.Targetable || (only != null && !only.Contains(o))) continue;
                         var had = o.Status(id);
                         int prev = had != null ? had.Stacks : 0;
                         ApplyStatus(worm, o, id, n, 0, skill.Id);

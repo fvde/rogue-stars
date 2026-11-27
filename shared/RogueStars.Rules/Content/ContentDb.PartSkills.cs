@@ -5,411 +5,377 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Content
 {
     /// <summary>
-    /// Part skills (Progression): every part def has five skills (Source = Part) that unlock at Epic, Legendary, Mythic,
-    /// Mythic S and Mythic SS, and five awakened redesigns with the same unlock pattern. Skills are built from the part's
-    /// family (element status, crit, combo, counter, alien squad) and its kind (head = precision, body = defence,
-    /// tail = momentum, legs = evasion, arm = attack style). Awakened skills pair the family with a "twin" family and
-    /// use different triggers (status chains, turn-start pulses, opening barrages, overheal shields, last stands) so an
-    /// awakened part can open a new build. Roles: docs/design/parts.md.
+    /// Part skills (parts v2, docs/design/parts.md, docs/design/parts-v2/data.py): Epic parts have 1 skill, Legendary 2, every
+    /// Mythic 5 (3 active at Mythic, the 4th at Mythic S, the 5th at Mythic SS) and an awakened version of each. Each skill is a
+    /// SkillDef (Source = Part, not draftable) whose card text is the approved text (ContentDb.PartData.g.cs, generated from data.py);
+    /// its numbers match the text (PartsV2SkillTests). Slot trigger languages: head = openers and crits, body = when hit / low HP,
+    /// tail = rhythm, legs = dodges and speed, arm = attacks.
     /// </summary>
     public sealed partial class ContentDb
     {
-        /// <summary>Second family of an awakened part (its redesigned skills mix both).</summary>
-        public static SkillFamily PartTwinFamily(SkillFamily f)
-        {
-            switch (f)
-            {
-                case SkillFamily.Fire: return SkillFamily.Crit;
-                case SkillFamily.Ice: return SkillFamily.Counter;
-                case SkillFamily.Lightning: return SkillFamily.Combo;
-                case SkillFamily.Poison: return SkillFamily.AlienSynergy;
-                case SkillFamily.Bleed: return SkillFamily.Counter;
-                case SkillFamily.Crit: return SkillFamily.Lightning;
-                case SkillFamily.Combo: return SkillFamily.Fire;
-                case SkillFamily.Counter: return SkillFamily.Poison;
-                case SkillFamily.AlienSynergy: return SkillFamily.Bleed;
-                default: return SkillFamily.Crit;
-            }
-        }
+        private const TriggerKind Passive = TriggerKind.Passive;
 
-        private static StatusId PartFamilyStatus(SkillFamily f)
-        {
-            switch (f)
-            {
-                case SkillFamily.Fire: return StatusId.Heat;
-                case SkillFamily.Ice: return StatusId.Chill; // CC pass: Ice parts chill, only the Ice Apex freezes
-                case SkillFamily.Lightning: return StatusId.Shock;
-                case SkillFamily.Poison: return StatusId.Poison;
-                case SkillFamily.Bleed: return StatusId.Bleed;
-                default: return StatusId.None;
-            }
-        }
+        // ---- trigger helpers ---------------------------------------------------------------------
 
-        private static StatId PartFamilyElementStat(SkillFamily f)
-        {
-            switch (f)
+        private static SkillTrigger PT(TriggerKind when, EffectKind eff, double value = 0, TargetKind tg = TargetKind.Self, StatusId st = StatusId.None,
+            int stacks = 1, string param = null, string iff = null, int every = 0, int maxBattle = 0, int dur = 0, double chance = 100) =>
+            new SkillTrigger
             {
-                case SkillFamily.Fire: return StatId.FireDamage;
-                case SkillFamily.Ice: return StatId.IceDamage;
-                case SkillFamily.Lightning: return StatId.LightningDamage;
-                case SkillFamily.Poison: return StatId.PoisonDamage;
-                default: return StatId.BleedDamage;
-            }
-        }
+                When = when, Effect = eff, Value = value, Target = tg, Status = st, Stacks = stacks, Param = param, If = iff, EveryN = every,
+                MaxPerBattle = maxBattle, Duration = dur, Chance = chance,
+            };
 
-        /// <summary>Extra base stat of an awakened part: the family's signature stat.</summary>
-        private static StatMod PartAwakenedSignatureStat(SkillFamily f)
-        {
-            switch (f)
-            {
-                case SkillFamily.Crit: return new StatMod(StatId.CritDamage, 12);
-                case SkillFamily.Combo: return new StatMod(StatId.ComboChance, 3);
-                case SkillFamily.Counter: return new StatMod(StatId.CounterChance, 3);
-                case SkillFamily.AlienSynergy: return new StatMod(StatId.AlienPower, 8);
-                default: return new StatMod(PartFamilyElementStat(f), 8);
-            }
-        }
+        /// <summary>A status on enemies (Target Enemy = the context enemy, else the front one).</summary>
+        private static SkillTrigger PApply(TriggerKind when, StatusId st, int stacks, TargetKind tg = TargetKind.Enemy, string param = null, string iff = null,
+            int every = 0, int dur = 0, double chance = 100, int maxBattle = 0) =>
+            PT(when, EffectKind.ApplyStatus, 0, tg, st, stacks, param, iff, every, maxBattle, dur, chance);
 
-        /// <summary>The family's stat package scaled by power (passive part of most part skills).</summary>
-        private static void PartFamilyStats(SkillDef s, SkillFamily f, double p)
-        {
-            switch (f)
-            {
-                case SkillFamily.Crit: s.Stats.Add(new StatMod(StatId.CritChance, R(2 * p))); s.Stats.Add(new StatMod(StatId.CritDamage, R(6 * p))); break;
-                case SkillFamily.Combo: s.Stats.Add(new StatMod(StatId.ComboChance, R(2 * p))); break;
-                case SkillFamily.Counter: s.Stats.Add(new StatMod(StatId.CounterChance, R(3 * p))); break; // parry removed: its points went to counter chance
-                case SkillFamily.AlienSynergy: s.Stats.Add(new StatMod(StatId.AlienPower, R(5 * p))); break;
-                default: s.Stats.Add(new StatMod(PartFamilyElementStat(f), R(5 * p))); break;
-            }
-        }
+        /// <summary>Crowd control once per enemy per battle; bosses lose 20 rage instead.</summary>
+        private static SkillTrigger PCc(TriggerKind when, StatusId st, TargetKind tg = TargetKind.Enemy, string param = null, string iff = null, int every = 0, double chance = 100)
+            => PApply(when, st, 1, tg, "per_target:1;boss_rage:20" + (param != null ? ";" + param : ""), iff, every, 1, chance);
 
-        /// <summary>The family's effect when a part skill fires (status, arc, shield, rage, squad buff).</summary>
-        private static List<SkillTrigger> PartPayload(SkillFamily f, TriggerKind when, double chance, double p, TargetKind target, int cooldown = 0)
-        {
-            var list = new List<SkillTrigger>();
-            SkillTrigger T(EffectKind e) { var t = new SkillTrigger { When = when, Chance = Math.Min(100, Math.Round(chance)), Effect = e, Target = target, CooldownRounds = cooldown }; list.Add(t); return t; }
-            switch (f)
-            {
-                case SkillFamily.Fire: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Heat; t.Stacks = 1 + (int)(p / 1.2); t.Duration = 3; break; }
-                case SkillFamily.Ice:
-                {
-                    // CC pass (owner): part skills no longer freeze, they chill (was Freeze at half the chance)
-                    var d = T(EffectKind.Damage); d.Value = R(20 * p);
-                    var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Chill; t.Stacks = 1 + (int)(p / 1.2);
-                    break;
-                }
-                case SkillFamily.Lightning:
-                {
-                    var d = T(EffectKind.Damage); d.Value = R(28 * p); if (target == TargetKind.Enemy) d.Target = TargetKind.RandomEnemy;
-                    var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Shock; t.Stacks = 1; t.Duration = 2;
-                    break;
-                }
-                case SkillFamily.Poison: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Poison; t.Stacks = 1 + (int)p; t.Duration = 4; break; }
-                case SkillFamily.Bleed: { var t = T(EffectKind.ApplyStatus); t.Status = StatusId.Bleed; t.Stacks = 1 + (int)(p / 1.2); t.Duration = 3; break; }
-                case SkillFamily.Crit: { var t = T(EffectKind.BuffStat); t.Target = TargetKind.Self; t.Stat = new StatMod(StatId.CritDamage, R(12 * p)); t.Duration = 2; var r = T(EffectKind.GainRage); r.Target = TargetKind.Self; r.Value = R(6 * p); break; }
-                case SkillFamily.Combo: { var d = T(EffectKind.Damage); d.Value = R(22 * p); var b = T(EffectKind.BuffStat); b.Target = TargetKind.Self; b.Stat = new StatMod(StatId.ComboChance, R(4 * p)); b.Duration = 2; break; }
-                case SkillFamily.Counter: { var t = T(EffectKind.Shield); t.Target = TargetKind.Self; t.Value = R(3 * p); var b = T(EffectKind.BuffStat); b.Target = TargetKind.Self; b.Stat = new StatMod(StatId.CounterChance, R(5 * p)); b.Duration = 2; break; }
-                case SkillFamily.AlienSynergy: { var t = T(EffectKind.BuffStat); t.Target = TargetKind.AllAllies; t.Stat = new StatMod(StatId.Atk, 0, R(6 * p)); t.Duration = 2; var r = T(EffectKind.GainRage); r.Target = TargetKind.AllAllies; r.Value = R(8 * p); break; }
-                default: { var d = T(EffectKind.Damage); d.Value = R(25 * p); break; }
-            }
-            return list;
-        }
+        private static SkillTrigger PBuff(TriggerKind when, StatId stat, double v, string param = null, TargetKind tg = TargetKind.Self, string iff = null, int every = 0, int dur = 0)
+            => new SkillTrigger { When = when, Effect = EffectKind.BuffStat, Stat = StatMod.Bonus(stat, v), Target = tg, Param = param, If = iff, EveryN = every, Duration = dur };
 
-        private static double R(double v) => Math.Round(v, 1);
+        private static SkillTrigger PRule(string param, double v = 0, StatusId st = StatusId.None, int dur = 0) =>
+            new SkillTrigger { When = Passive, Effect = EffectKind.Rule, Target = TargetKind.Self, Param = param, Value = v, Status = st, Duration = dur };
 
-        /// <summary>Kind trigger: when a part of this kind (arms: this attack style) fires its technique, and how often.</summary>
-        private static void PartKindTrigger(PartDef d, out TriggerKind when, out double chance, out int cooldown, out string what)
-        {
-            cooldown = 0;
-            switch (d.Kind)
-            {
-                case PartKind.Head: when = TriggerKind.OnCrit; chance = 45; what = "Critical hits"; return;
-                case PartKind.Body: when = TriggerKind.OnDamaged; chance = 30; cooldown = 1; what = "Taking damage"; return;
-                case PartKind.Tail: when = TriggerKind.OnCombo; chance = 50; what = "Combos"; return;
-                case PartKind.Legs: when = TriggerKind.OnDodge; chance = 100; what = "Dodging"; return;
-            }
-            switch (d.Style)
-            {
-                case AttackStyle.Slam: when = TriggerKind.OnCounter; chance = 70; what = "Counters"; return;
-                case AttackStyle.Claw: when = TriggerKind.OnCrit; chance = 55; what = "Critical hits"; return;
-                case AttackStyle.Drill: when = TriggerKind.OnHit; chance = 30; cooldown = 1; what = "Hits"; return;
-                case AttackStyle.Whip: when = TriggerKind.OnCombo; chance = 60; what = "Combos"; return;
-                default: when = TriggerKind.OnRageAttack; chance = 100; what = "Rage attacks"; return; // Blaster, Cannon
-            }
-        }
+        private static SkillTrigger PCond(string cond, double v, string iff = null) =>
+            new SkillTrigger { When = Passive, Effect = EffectKind.Damage, Target = TargetKind.Self, Param = "cond:" + cond, Value = v, If = iff };
 
-        /// <summary>Kind stat added to the technique skill (head precision, body toughness, tail momentum, legs evasion, arm style).</summary>
-        private static StatMod PartKindStat(PartDef d, double p)
-        {
-            switch (d.Kind)
-            {
-                case PartKind.Head: return new StatMod(StatId.CritChance, R(3 * p));
-                case PartKind.Body: return new StatMod(StatId.DamageReduction, R(3 * p));
-                case PartKind.Tail: return new StatMod(StatId.ComboChance, R(3 * p));
-                case PartKind.Legs: return new StatMod(StatId.Dodge, R(2.5 * p));
-            }
-            switch (d.Style)
-            {
-                case AttackStyle.Slam: return new StatMod(StatId.CounterChance, R(3 * p));
-                case AttackStyle.Claw: return new StatMod(StatId.CritChance, R(3 * p));
-                case AttackStyle.Drill: return new StatMod(StatId.DodgeIgnore, R(5 * p));
-                case AttackStyle.Whip: return new StatMod(StatId.ComboChance, R(3 * p));
-                case AttackStyle.Cannon: return new StatMod(StatId.BossDamage, R(8 * p));
-                default: return new StatMod(StatId.RageGain, R(8 * p)); // Blaster
-            }
-        }
-
-        private static string FamilyWord(SkillFamily f)
-        {
-            switch (f)
-            {
-                case SkillFamily.Fire: return "Ember";
-                case SkillFamily.Ice: return "Frost";
-                case SkillFamily.Lightning: return "Storm";
-                case SkillFamily.Poison: return "Isotope";
-                case SkillFamily.Bleed: return "Razor";
-                case SkillFamily.Crit: return "Precision";
-                case SkillFamily.Combo: return "Flurry";
-                case SkillFamily.Counter: return "Riposte";
-                case SkillFamily.AlienSynergy: return "Hive";
-                default: return "Core";
-            }
-        }
-
-        private static string KindWord(PartDef d)
-        {
-            switch (d.Kind)
-            {
-                case PartKind.Head: return "Gaze";
-                case PartKind.Body: return "Hide";
-                case PartKind.Tail: return "Wake";
-                case PartKind.Legs: return "Step";
-                default: return d.Style.ToString();
-            }
-        }
-
-        private static string FamilyEffectText(SkillFamily f)
-        {
-            switch (f)
-            {
-                case SkillFamily.Fire: return "set enemies on fire";
-                case SkillFamily.Ice: return "strike with frost and chill";
-                case SkillFamily.Lightning: return "arc lightning and shock";
-                case SkillFamily.Poison: return "irradiate";
-                case SkillFamily.Bleed: return "cause bleeding";
-                case SkillFamily.Crit: return "sharpen your crits and build rage";
-                case SkillFamily.Combo: return "strike again and raise combo chance";
-                case SkillFamily.Counter: return "raise a shield and counter more";
-                case SkillFamily.AlienSynergy: return "rally your aliens";
-                default: return "deal damage";
-            }
-        }
-
-        private SkillDef NewPartSkill(PartDef d, int index, bool awakened, string name, Rarity rarity, SkillFamily family, string desc)
+        private void PartSkill(string id, string name, SkillFamily family, Rarity rarity, string text, params SkillTrigger[] triggers)
         {
             var s = new SkillDef
             {
-                Id = d.Id + (awakened ? "_aw" : "_sk") + (index + 1), Name = name, Family = family, Rarity = rarity,
-                Source = SkillSource.Part, Draftable = false, Description = desc,
+                Id = id, Name = name, Family = family, Rarity = rarity, Source = SkillSource.Part, Draftable = false,
+                Description = text, Text = text,
             };
+            s.Triggers.AddRange(triggers);
             AddSkill(s);
-            (awakened ? d.AwakenedSkillIds : d.SkillIds).Add(s.Id);
-            return s;
         }
 
-        /// <summary>Builds the five skills and the five awakened skills of a part def (see class summary).</summary>
-        private void BuildPartSkills(PartDef d)
+        // ---- build ---------------------------------------------------------------------------------
+
+        private void BuildPartSkills()
         {
-            var f = d.Family; var twin = PartTwinFamily(f);
-            var status = PartFamilyStatus(f);
-            string fw = FamilyWord(f), kw = KindWord(d);
-            PartKindTrigger(d, out var kindWhen, out var kindChance, out var kindCd, out var kindWhat);
-
-            // 1 (Epic) core: family stats + a light family proc on hit.
-            var core = NewPartSkill(d, 0, false, fw + " Core", Rarity.Epic, f, "Family stats; hits may " + FamilyEffectText(f) + ".");
-            PartFamilyStats(core, f, 0.8);
-            core.Triggers.AddRange(PartPayload(f, TriggerKind.OnHit, 12, 0.7, TargetKind.Enemy, 1));
-
-            // 2 (Legendary) technique: the kind's trigger fires the family payload; kind stat.
-            var tech = NewPartSkill(d, 1, false, fw + " " + kw, Rarity.Legendary, f, kindWhat + " " + FamilyEffectText(f) + ".");
-            tech.Stats.Add(PartKindStat(d, 1));
-            tech.Triggers.AddRange(PartPayload(f, kindWhen, kindChance, 1.1, TargetKind.Enemy, kindCd));
-
-            // 3 (Mythic) synergy: the build hook — bonus damage against the family's condition.
-            var syn = NewPartSkill(d, 2, false, fw + " Hunter", Rarity.Mythic, f, "");
-            switch (f)
+            foreach (var d in PartsConfig.Defs.Values)
             {
-                case SkillFamily.Crit: syn.Triggers.Add(Cond("vs_low_hp", 22)); syn.Stats.Add(new StatMod(StatId.CritDamage, 15)); syn.Description = "+{22}% damage vs enemies under 40% HP, +{15} crit damage."; break;
-                case SkillFamily.Combo: syn.Triggers.Add(Cond("combo", 28)); syn.Stats.Add(new StatMod(StatId.ComboChance, 4)); syn.Description = "Combos deal +{28}%; +{4} combo chance."; break;
-                case SkillFamily.Counter: syn.Triggers.Add(Cond("counter", 32)); syn.Stats.Add(new StatMod(StatId.CounterChance, 5)); syn.Description = "Counters deal +{32}%; +{5} counter chance."; break;
-                case SkillFamily.AlienSynergy:
-                    syn.Stats.Add(new StatMod(StatId.AlienPower, 18));
-                    syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnSidekickAct, Effect = EffectKind.GainRage, Target = TargetKind.Worm, Value = 10 });
-                    syn.Description = "Sidekicks +{18}% power; each sidekick action gives the worm {10} rage."; break;
-                default:
-                    syn.Triggers.Add(Cond("vs_status:" + status, 22)); syn.Stats.Add(new StatMod(StatId.StatusChance, 8));
-                    syn.Description = "+{22}% damage vs enemies with " + status + "; +{8} status chance."; break;
+                if (d.Rarity == PartRarity.Epic || d.Rarity == PartRarity.Legendary)
+                    for (int i = 0; i < d.SkillIds.Count; i++)
+                    {
+                        string key = d.Rarity + "|" + d.Kind + "|" + d.Role + "|" + i;
+                        PartSkill(d.SkillIds[i], d.Name, d.Family, d.Rarity == PartRarity.Epic ? Rarity.Epic : Rarity.Legendary, PartStdTexts[key], StdSkill(d.Rarity, d.Kind, d.Role, i));
+                    }
             }
-
-            // 4 (Mythic S) signature: a kind-shaped, battle-defining effect.
-            var sig = NewPartSkill(d, 3, false, kw + " of the " + fw + " Star", Rarity.Mythic, f, "");
-            PartFamilyStats(sig, f, 1.2);
-            switch (d.Kind)
+            foreach (var m in PartMythicData)
             {
-                case PartKind.Head:
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnBattleStart, 100, 1.6, TargetKind.AllEnemies));
-                    sig.Description = "Battle start: " + FamilyEffectText(f) + " on every enemy."; break;
-                case PartKind.Body:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 25 });
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnLowHp, 100, 2.0, TargetKind.AllEnemies));
-                    sig.Description = "Below 30% HP: a {25}% shield, then " + FamilyEffectText(f) + " on every enemy."; break;
-                case PartKind.Tail:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 30, CooldownRounds = 1 });
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnRoundStart, 100, 1.2, TargetKind.AllEnemies, 1));
-                    sig.Description = "Every other round: a {30}% ATK sweep that " + FamilyEffectText(f) + "."; break;
-                case PartKind.Legs:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnDodge, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 55 });
-                    sig.Stats.Add(new StatMod(StatId.Dodge, 4));
-                    sig.Description = "Dodges strike back for {55}% ATK true damage; +{4} dodge."; break;
-                default:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 70 });
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnRageAttack, 100, 1.4, TargetKind.AllEnemies));
-                    sig.Description = "Rage attacks hit every enemy for {70}% ATK and " + FamilyEffectText(f) + "."; break;
+                var d = PartsConfig.Defs[m.Id];
+                for (int i = 0; i < 5; i++)
+                {
+                    PartSkill(d.SkillIds[i], m.Name + " " + Ladder[i], d.Family, Rarity.Mythic, m.Skills[i], MythicSkill(m.Id, i, false));
+                    PartSkill(d.AwakenedSkillIds[i], m.AwakenedName + " " + Ladder[i], d.Family, Rarity.Mythic, m.Awakened[i], MythicSkill(m.Id, i, true));
+                }
             }
-
-            // 5 (Mythic SS) ultimate: the family's capstone.
-            var ult = NewPartSkill(d, 4, false, fw + " Apex", Rarity.Mythic, f, "");
-            switch (f)
-            {
-                case SkillFamily.Fire:
-                    ult.Triggers.Add(St(TriggerKind.OnKill, 100, StatusId.Heat, 4, TargetKind.AllEnemies, 3));
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnKill, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 6 });
-                    ult.Stats.Add(new StatMod(StatId.FireDamage, 25)); ult.Description = "Kills spread 4 Heat to all enemies and heal {6}%; +{25}% fire damage."; break;
-                case SkillFamily.Ice:
-                    ult.Triggers.Add(St(TriggerKind.OnBattleStart, 100, StatusId.Freeze, 1, TargetKind.AllEnemies, 1));
-                    ult.Triggers.Add(Cond("vs_status:Freeze", 30)); ult.Description = "Battle start: freeze every enemy; +{30}% damage vs frozen."; break;
-                case SkillFamily.Lightning:
-                    ult.Triggers.Add(St(TriggerKind.OnRoundStart, 25, StatusId.Stun, 1, TargetKind.RandomEnemy, 1));
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 25 });
-                    ult.Description = "Every round: {25}% ATK lightning on all enemies, 25% chance to stun one."; break;
-                case SkillFamily.Poison:
-                    ult.Triggers.Add(St(TriggerKind.OnRoundEnd, 100, StatusId.Poison, 2, TargetKind.AllEnemies, 4));
-                    ult.Stats.Add(new StatMod(StatId.Regen, 2)); ult.Description = "Every round end: 2 Radiation on all enemies; regenerate {2}% per turn."; break;
-                case SkillFamily.Bleed:
-                    ult.Triggers.Add(St(TriggerKind.OnCrit, 100, StatusId.Bleed, 2, TargetKind.AllEnemies, 3));
-                    ult.Stats.Add(new StatMod(StatId.LifeSteal, 8)); ult.Description = "Crits make every enemy bleed; +{8}% lifesteal."; break;
-                case SkillFamily.Crit:
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCrit, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 45 });
-                    ult.Stats.Add(new StatMod(StatId.CritDamage, 30)); ult.Description = "Crits add a {45}% ATK true-damage strike; +{30} crit damage."; break;
-                case SkillFamily.Combo:
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Effect = EffectKind.GainRage, Target = TargetKind.Self, Value = 12 });
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCombo, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Atk, 0, 3) });
-                    ult.Description = "Each combo: +{12} rage and +{3}% ATK for the battle."; break;
-                case SkillFamily.Counter:
-                    // parry removed (skill redesign): the reflect moved onto counterattacks
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnCounter, Effect = EffectKind.TrueDamage, Target = TargetKind.Enemy, Value = 80 });
-                    ult.Stats.Add(new StatMod(StatId.CounterChance, 10)); ult.Description = "Counters add an {80}% ATK true-damage strike; +{10} counter chance."; break;
-                default:
-                    // the squad opens every battle: two sidekick actions (sidekick pass; was squad rage, which sidekicks do not use)
-                    ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.AllyAction, Target = TargetKind.Self, Stacks = 2 });
-                    ult.Stats.Add(new StatMod(StatId.AlienPower, 25)); ult.Description = "Battle start: 2 sidekick actions; sidekicks +{25}% power."; break;
-            }
-
-            BuildAwakenedPartSkills(d, twin);
-            foreach (var id in d.SkillIds) ScalePartSkill(Skills[id], PartsConfig.SkillPowerScale);
-            foreach (var id in d.AwakenedSkillIds) ScalePartSkill(Skills[id], PartsConfig.AwakenedSkillPowerScale);
         }
 
-        /// <summary>Scales a part skill's amounts (stats, damage/heal/shield/rage values, buffs, conditional bonuses); chances and stacks stay.</summary>
-        private static void ScalePartSkill(SkillDef s, double k)
+        private static readonly string[] Ladder = { "I", "II", "III", "S", "SS" };
+
+        // ---- standard parts: Epic (1 skill) and Legendary (2 skills) ---------------------------------------
+
+        private static SkillTrigger[] StdSkill(PartRarity r, PartKind k, PartRole role, int i)
         {
-            // Descriptions mark scaled amounts as {n}.
-            s.Description = System.Text.RegularExpressions.Regex.Replace(s.Description ?? "", @"\{(\d+(?:\.\d+)?)\}",
-                m => NumFmt.OneDecimal(R(double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) * k)));
-            foreach (var m in s.Stats) { m.Flat = R(m.Flat * k); m.Percent = R(m.Percent * k); }
-            foreach (var t in s.Triggers)
+            const TriggerKind Start = TriggerKind.OnBattleStart, Hit = TriggerKind.OnHit, Hurt = TriggerKind.OnDamaged, Dodge = TriggerKind.OnDodge,
+                Kill = TriggerKind.OnKill, Crit = TriggerKind.OnCrit, Rage = TriggerKind.OnRageAttack, TurnS = TriggerKind.OnTurnStart,
+                TurnE = TriggerKind.OnTurnEnd, RoundS = TriggerKind.OnRoundStart, Atk = TriggerKind.OnAttack;
+            bool epic = r == PartRarity.Epic;
+            string key = (epic ? "E" : "L" + i) + k + role;
+            switch (key)
             {
-                t.Value = R(t.Value * k);
-                if (t.Stat != null) { t.Stat.Flat = R(t.Stat.Flat * k); t.Stat.Percent = R(t.Stat.Percent * k); }
+                // HEAD: openers and precision
+                case "EHeadGuard": return new[] { PT(Start, EffectKind.Shield, 10) };
+                case "EHeadStrike": return new[] { PT(Start, EffectKind.Empower, 100) };
+                case "EHeadSwift": return new[] { PBuff(Start, StatId.Speed, 20, dur: 2) };
+                case "EHeadKeen": return new[] { PRule("first_hit_crit") };
+                case "EHeadMend": return new[] { PT(Kill, EffectKind.Heal, 5) };
+                case "EHeadFury": return new[] { PT(Start, EffectKind.GainRage, 30) };
+                case "L0HeadGuard": return new[] { PBuff(Start, StatId.DamageDealt, -10, tg: TargetKind.AllEnemies, dur: 3) };
+                case "L1HeadGuard": return new[] { PT(Kill, EffectKind.Shield, 8) };
+                case "L0HeadStrike": return new[] { PT(Start, EffectKind.Damage, 50, TargetKind.AllEnemies) };
+                case "L1HeadStrike": return new[] { PT(Kill, EffectKind.Empower, 100) };
+                case "L0HeadSwift": return new[] { PT(TurnE, EffectKind.ExtraTurn, iff: "first_turn", maxBattle: 1) };
+                case "L1HeadSwift": return new[] { PRule("slower_taken", 15) };
+                case "L0HeadKeen": return new[] { PT(Start, EffectKind.SureCrit, stacks: 3) };
+                case "L1HeadKeen": return new[] { PRule("crit_def_ignore", 50) };
+                case "L0HeadMend": return new[] { PRule("overheal_cap", 15) };
+                case "L1HeadMend": return new[] { PT(Crit, EffectKind.Heal, 2) };
+                case "L0HeadFury": return new[] { PT(Start, EffectKind.Empower, 100, param: "rage") };
+                case "L1HeadFury": return new[] { PT(Kill, EffectKind.GainRage, 25) };
+                // BODY: defence when hit and at low HP
+                case "EBodyGuard": return new[] { PRule("first_taken", 20) };
+                case "EBodyStrike": return new[] { PBuff(Hurt, StatId.Atk, 4, "stack:5") };
+                case "EBodySwift": return new[] { PBuff(Hurt, StatId.Dodge, 30, "until_turn", iff: "self_hp_below:50") };
+                case "EBodyKeen": return new[] { PBuff(Hurt, StatId.CritChance, 15, "next_attack") };
+                case "EBodyMend": return new[] { PT(Hurt, EffectKind.Heal, 2, param: "rnd_cap:1") };
+                case "EBodyFury": return new[] { PT(Hurt, EffectKind.GainRage, 10) };
+                case "L0BodyGuard": return new[] { PRule("hit_cap", 20) };
+                case "L1BodyGuard": return new[] { PT(Hurt, EffectKind.Shield, 30, iff: "self_hp_below:30", maxBattle: 1) };
+                case "L0BodyStrike": return new[] { PT(Hurt, EffectKind.Reflect, 30, TargetKind.AllOtherEnemies, param: "arm") };
+                case "L1BodyStrike": return new[] { PT(Hurt, EffectKind.Damage, 150, TargetKind.AllEnemies, iff: "self_hp_below:30", maxBattle: 1) };
+                case "L0BodySwift": return new[] { PT(Hurt, EffectKind.ExtraTurn, iff: "self_hp_below:30", maxBattle: 1) };
+                case "L1BodySwift": return new[] { PBuff(Hurt, StatId.Speed, 3, "stack:5") };
+                case "L0BodyKeen": return new[] { PT(Crit, EffectKind.Shield, 5, param: "of_amount") };
+                case "L1BodyKeen": return new[] { PT(Hurt, EffectKind.SureCrit, iff: "crit_in") };
+                case "L0BodyMend": return new[] { PT(Hurt, EffectKind.Heal, 50, param: "of_amount", iff: "amount_pct:15") };
+                case "L1BodyMend": return new[] { PT(Hurt, EffectKind.RemoveStatus, 0, TargetKind.Self, stacks: 1, param: "largest") };
+                case "L0BodyFury": return new[] { PRule("rage_cost_low:50", 20) };
+                case "L1BodyFury": return new[] { PT(Hurt, EffectKind.GainRage, 25, iff: "crit_in") };
+                // TAIL: rhythm
+                case "ETailGuard": return new[] { PT(TurnS, EffectKind.Shield, 8, every: 3) };
+                case "ETailStrike": return new[] { PT(TurnS, EffectKind.Damage, 80, TargetKind.LowestHpEnemy, every: 3) };
+                case "ETailSwift": return new[] { PBuff(RoundS, StatId.Speed, 2, "stack:10") };
+                case "ETailKeen": return new[] { PT(TurnS, EffectKind.SureCrit, param: "turn", every: 3) };
+                case "ETailMend": return new[] { PT(TurnE, EffectKind.Heal, 4, iff: "self_hp_below:50") };
+                case "ETailFury": return new[] { PT(TurnS, EffectKind.GainRage, 25, every: 4) };
+                case "L0TailGuard": return new[] { PT(TriggerKind.OnRoundEnd, EffectKind.Shield, 3, iff: "self_shielded") };
+                case "L1TailGuard": return new[] { PT(RoundS, EffectKind.Guard, 50, param: "hits:2", every: 4) };
+                case "L0TailStrike": return new[] { PBuff(TurnS, StatId.Atk, 3, "stack:10") };
+                case "L1TailStrike": return new[] { PT(TurnS, EffectKind.TurnFlag, param: "aoe", every: 4) };
+                case "L0TailSwift": return new[] { PT(TurnE, EffectKind.ExtraTurn, every: 5) };
+                case "L1TailSwift": return new[] { PRule("act_first:3") };
+                case "L0TailKeen": return new[] { PBuff(TurnE, StatId.CritChance, 10, "until_crit", iff: "no_crit_turn") };
+                case "L1TailKeen": return new[] { PT(TurnS, EffectKind.Damage, 100, TargetKind.Enemy, param: "crit", every: 4) };
+                case "L0TailMend": return new[] { PT(RoundS, EffectKind.Heal, 1, param: "per_round;max:6") };
+                case "L1TailMend": return new[] { PT(TurnS, EffectKind.RemoveStatus, 0, TargetKind.Self, stacks: 0, param: "all", every: 4) };
+                case "L0TailFury": return new[] { PT(RoundS, EffectKind.GainRage, 5, param: "per_enemy") };
+                case "L1TailFury": return new[] { PRule("rage_target_lowest") };
+                // LEGS: evasion
+                case "ELegsGuard": return new[] { PT(Dodge, EffectKind.Shield, 4) };
+                case "ELegsStrike": return new[] { PT(Dodge, EffectKind.Damage, 40, TargetKind.Enemy) };
+                case "ELegsSwift": return new[] { PBuff(Start, StatId.Dodge, 20, dur: 1) };
+                case "ELegsKeen": return new[] { PT(Dodge, EffectKind.SureCrit) };
+                case "ELegsMend": return new[] { PT(Dodge, EffectKind.Heal, 3) };
+                case "ELegsFury": return new[] { PT(Dodge, EffectKind.GainRage, 10) };
+                case "L0LegsGuard": return new[] { PT(Dodge, EffectKind.Guard, 50, param: "hits:1") };
+                case "L1LegsGuard": return new[] { PBuff(Hurt, StatId.Dodge, 3, "until_dodge;stack:5") };
+                case "L0LegsStrike": return new[] { PT(Dodge, EffectKind.Empower, 100) };
+                case "L1LegsStrike": return new[] { PT(Dodge, EffectKind.Damage, 20, TargetKind.AllEnemies) };
+                case "L0LegsSwift": return new[] { PBuff(Dodge, StatId.Speed, 5, "stack:5") };
+                case "L1LegsSwift": return new[] { PT(Start, EffectKind.ForceMiss, stacks: 1) };
+                case "L0LegsKeen": return new[] { PBuff(Dodge, StatId.CritDamage, 10, "stack:5") };
+                case "L1LegsKeen": return new[] { PT(Dodge, EffectKind.Damage, 50, TargetKind.Enemy, param: "crit") };
+                case "L0LegsMend": return new[] { PBuff(Dodge, StatId.Regen, 1, "stack:5") };
+                case "L1LegsMend": return new[] { PBuff(Dodge, StatId.HealReceived, 100, "until_turn") };
+                case "L0LegsFury": return new[] { PBuff(Rage, StatId.Dodge, 20, "until_turn") };
+                case "L1LegsFury": return new[] { PT(Dodge, EffectKind.FreeRageAttack, 0, TargetKind.Enemy, param: "spend", iff: "rage_within:25") };
+                // ARM: attacks
+                case "EArmGuard": return new[] { PT(Rage, EffectKind.Shield, 15) };
+                case "EArmStrike": return new[] { PT(Atk, EffectKind.Empower, 50, every: 3) };
+                case "EArmSwift": return new[] { PBuff(Atk, StatId.Speed, 3, "stack:10") };
+                case "EArmKeen": return new[] { PT(Crit, EffectKind.Damage, 30, TargetKind.OtherEnemies, stacks: 1, param: "noarc") };
+                case "EArmMend": return new[] { PT(Rage, EffectKind.Heal, 15, param: "of_amount") };
+                case "EArmFury": return new[] { PT(Rage, EffectKind.GainRage, 20) };
+                case "L0ArmGuard": return new[] { PBuff(Rage, StatId.DamageTaken, -30, "until_turn") };
+                case "L1ArmGuard": return new[] { PT(Hit, EffectKind.Shield, 5, param: "of_amount") };
+                case "L0ArmStrike": return new[] { PT(Hit, EffectKind.Damage, 30, TargetKind.SecondEnemy) };
+                case "L1ArmStrike": return new[] { PT(Atk, EffectKind.Empower, 100, param: "def", every: 4) };
+                case "L0ArmSwift": return new[] { PT(Kill, EffectKind.ExtraTurn, maxBattle: 1) };
+                case "L1ArmSwift": return new[] { PT(Atk, EffectKind.Repeat, 100, every: 4) };
+                case "L0ArmKeen": return new[] { PApply(Crit, StatusId.Exposed, 3) };
+                case "L1ArmKeen": return new[] { PT(Kill, EffectKind.Strike, 0, TargetKind.Enemy, iff: "crit_kill") };
+                case "L0ArmMend": return new[] { PT(Hit, EffectKind.Heal, 20, param: "of_amount", iff: "hp_below:30") };
+                case "L1ArmMend": return new[] { PRule("overkill_heal", 50) };
+                case "L0ArmFury": return new[] { PT(Kill, EffectKind.GainRage, 50, iff: "in_rage") };
+                case "L1ArmFury": return new[] { PT(Crit, EffectKind.GainRage, 5) };
             }
+            throw new InvalidOperationException("no standard part skill " + key);
         }
 
-        private void BuildAwakenedPartSkills(PartDef d, SkillFamily twin)
+        // ---- Mythics: 5 skills + awakened versions -----------------------------------------------------
+
+        private static SkillTrigger[] MythicSkill(string id, int i, bool aw)
         {
-            var f = d.Family;
-            var status = PartFamilyStatus(f); var twinStatus = PartFamilyStatus(twin);
-            string fw = FamilyWord(f), tw = FamilyWord(twin), kw = KindWord(d);
-            PartKindTrigger(d, out var kindWhen, out var kindChance, out var kindCd, out var kindWhat);
-            // The status this awakened part builds around (the family's own, else the twin's element).
-            var chainStatus = status != StatusId.None ? status : twinStatus;
-
-            // 1A core: both families' stats; the twin's trigger now delivers the family payload.
-            var core = NewPartSkill(d, 0, true, tw + "-" + fw + " Core", Rarity.Epic, f, "Stats of both families; " + kindWhat.ToLowerInvariant() + " also " + FamilyEffectText(twin) + ".");
-            PartFamilyStats(core, f, 1.1); PartFamilyStats(core, twin, 0.7);
-            core.Triggers.AddRange(PartPayload(f, TriggerKind.OnHit, 15, 1.0, TargetKind.Enemy, 1));
-            core.Triggers.AddRange(PartPayload(twin, kindWhen, kindChance * 0.6, 0.8, TargetKind.Enemy, Math.Max(1, kindCd)));
-
-            // 2A technique: a turn-start pulse (no longer waits for a hit) on a random enemy.
-            var tech = NewPartSkill(d, 1, true, "Pulsing " + fw + " " + kw, Rarity.Legendary, f, "Every second turn: " + FamilyEffectText(f) + " and " + FamilyEffectText(twin) + " on a random enemy.");
-            tech.Stats.Add(PartKindStat(d, 1.4));
-            tech.Triggers.AddRange(PartPayload(f, TriggerKind.OnTurnStart, 100, 1.4, TargetKind.RandomEnemy, 1));
-            tech.Triggers.AddRange(PartPayload(twin, TriggerKind.OnTurnStart, 60, 1.0, TargetKind.RandomEnemy, 1));
-
-            // 3A synergy: a status chain — every application of the build status pays out (builds around status counts).
-            var syn = NewPartSkill(d, 2, true, chainStatus + " Resonance", Rarity.Mythic, f, "");
-            if (chainStatus != StatusId.None)
+            const TriggerKind Start = TriggerKind.OnBattleStart, Hit = TriggerKind.OnHit, Hurt = TriggerKind.OnDamaged, Dodge = TriggerKind.OnDodge,
+                Kill = TriggerKind.OnKill, Crit = TriggerKind.OnCrit, Rage = TriggerKind.OnRageAttack, TurnS = TriggerKind.OnTurnStart,
+                TurnE = TriggerKind.OnTurnEnd, RoundS = TriggerKind.OnRoundStart, Nova = TriggerKind.OnSupernova, Arc = TriggerKind.OnArcJump,
+                Counter = TriggerKind.OnCounter, Combo = TriggerKind.OnCombo, Echo = TriggerKind.OnEcho, Undo = TriggerKind.OnUndo,
+                Break = TriggerKind.OnShieldBreak, Consumed = TriggerKind.OnStatusConsumed, Block = TriggerKind.OnBlock;
+            const StatusId Heat = StatusId.Heat, Chill = StatusId.Chill, Shock = StatusId.Shock, Rad = StatusId.Poison, Bleed = StatusId.Bleed;
+            const TargetKind Enemy = TargetKind.Enemy, All = TargetKind.AllEnemies, Others = TargetKind.AllOtherEnemies, Self = TargetKind.Self;
+            int A(int b, int a) => aw ? a : b;
+            double V(double b, double a) => aw ? a : b;
+            switch (id + "_" + (i + 1))
             {
-                syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnStatusApplied, Param = chainStatus.ToString(), Effect = EffectKind.Damage, Target = TargetKind.Enemy, Value = 18, Chance = 60 });
-                syn.Triggers.Add(new SkillTrigger { When = TriggerKind.OnStatusApplied, Param = chainStatus.ToString(), Effect = EffectKind.GainRage, Target = TargetKind.Self, Value = 4 });
-                syn.Triggers.Add(Cond("vs_status:" + chainStatus, 25));
-                syn.Stats.Add(new StatMod(StatId.StatusChance, 12));
-                syn.Description = "Whenever you apply " + chainStatus + ": 60% chance of an {18}% ATK strike and +{4} rage; +{25}% damage vs " + chainStatus + "; +{12} status chance.";
+                // ---- FIRE ----
+                case "myth_cinder_crown_1": return new[] { aw ? PApply(Start, Heat, 5, param: "pick_front:2") : PApply(Start, Heat, 6) };
+                case "myth_cinder_crown_2":
+                    return new[] { PT(TriggerKind.OnEnemyDeath, EffectKind.TransferStatus, 100, aw ? Others : Enemy, Heat, param: aw ? null : "next", iff: "has:Heat") };
+                case "myth_cinder_crown_3": return new[] { PT(Nova, EffectKind.Shield, V(10, 20)) };
+                case "myth_cinder_crown_4": return new[] { PRule("burst_delta", V(2, 4), Heat) };
+                case "myth_cinder_crown_5":
+                    return new[] { PT(Kill, EffectKind.ForceSupernova, 0, Enemy, param: (aw ? "pick_has:Heat:1;turn_cap:2" : "pick_has:Heat:3;turn_cap:1"), iff: "nova_kill") };
+                case "myth_ashwalkers_1": return new[] { PApply(Dodge, Heat, A(2, 4)) };
+                case "myth_ashwalkers_2": return new[] { PT(Dodge, EffectKind.ForceSupernova, 0, Enemy, iff: aw ? "within_heat:5" : "within_heat:2") };
+                case "myth_ashwalkers_3": return new[] { PBuff(Nova, StatId.Dodge, V(5, 10), aw ? "stack:3" : "stack:4") };
+                case "myth_ashwalkers_4": return new[] { PRule("dodge_nova", V(0, 100)) };
+                case "myth_ashwalkers_5": return new[] { PRule(aw ? "nth_miss:3" : "nth_miss:4"), PApply(Dodge, Heat, A(3, 5), iff: "forced") };
+                case "myth_firebrand_blaster_1": return new[] { PApply(Rage, Heat, A(4, 8)) };
+                case "myth_firebrand_blaster_2": return new[] { PT(Nova, EffectKind.GainRage, V(40, 60)) };
+                case "myth_firebrand_blaster_3": return new[] { PT(Rage, EffectKind.SpreadStatus, 100, Enemy, Heat, param: aw ? null : "behind") };
+                case "myth_firebrand_blaster_4": return new[] { PCc(Nova, StatusId.Stun, All, iff: aw ? null : "nova_rage") };
+                case "myth_firebrand_blaster_5": return new[] { PT(Nova, EffectKind.FreeRageAttack, 0, Enemy, param: aw ? "turn_cap:2" : "turn_cap:1", iff: "nova_rage") };
+                // ---- ICE ----
+                case "myth_rimeguard_plate_1": return new[] { PT(RoundS, EffectKind.Shield, V(2, 4), param: "per_status_enemy:Chill") };
+                case "myth_rimeguard_plate_2": return new[] { PApply(Break, Chill, A(3, 6), All) };
+                case "myth_rimeguard_plate_3": return new[] { PT(TriggerKind.OnStatusApplied, EffectKind.Shield, V(2, 5), param: "Chill;turn_cap:1") };
+                case "myth_rimeguard_plate_4": return new[] { aw ? PCc(Break, StatusId.Freeze, All, "tg_has:Chill") : PCc(Break, StatusId.Freeze) };
+                case "myth_rimeguard_plate_5":
+                    return aw
+                        ? new[] { PRule("no_expire_shielded", 0, Chill), PApply(RoundS, Chill, 1, All, "tg_has:Chill", "self_shielded") }
+                        : new[] { PRule("no_expire_shielded", 0, Chill) };
+                case "myth_frostglide_skates_1": return new[] { PApply(RoundS, Chill, 1, aw ? All : Enemy, "per_stat:Dodge:10") };
+                case "myth_frostglide_skates_2": return new[] { PRule("dodge_per_stack", V(2, 3), Chill) };
+                case "myth_frostglide_skates_3": return new[] { PT(Dodge, EffectKind.Damage, V(80, 120), Enemy, iff: aw ? "has:Chill:3" : "has:Chill:5") };
+                case "myth_frostglide_skates_4": return new[] { PCc(Dodge, StatusId.Freeze, Enemy, "pick_most:Chill", every: A(3, 2)) };
+                case "myth_frostglide_skates_5": return new[] { PRule("dodge_cap_vs", V(5, 10), Chill) };
+                case "myth_shatter_cannon_1": return new[] { PApply(Rage, Chill, A(3, 5), All) };
+                case "myth_shatter_cannon_2": return new[] { PT(Rage, EffectKind.ConsumeStatus, V(15, 25), Enemy, Chill) };
+                case "myth_shatter_cannon_3": return new[] { PApply(RoundS, Chill, A(1, 2), All, aw ? "tg_has:Chill:3" : "tg_has:Chill:5") };
+                case "myth_shatter_cannon_4": return new[] { aw ? PCc(Rage, StatusId.Freeze, All, "tg_has:Chill") : PCc(Rage, StatusId.Freeze, Enemy, "pick_has:Chill:1") };
+                case "myth_shatter_cannon_5": return new[] { PRule("rage_area_vs", 0, aw ? Chill : StatusId.Freeze) };
+                // ---- LIGHTNING ----
+                case "myth_dynamo_hull_1": return new[] { PApply(Hurt, Shock, A(1, 2)) };
+                case "myth_dynamo_hull_2": return new[] { PT(Hurt, EffectKind.Damage, V(40, 60), TargetKind.OtherEnemies, stacks: A(1, 2)) };
+                case "myth_dynamo_hull_3": return new[] { PT(Arc, EffectKind.Shield, 2, param: aw ? "turn_cap:3" : "turn_cap:1") };
+                case "myth_dynamo_hull_4": return new[] { PCc(Hurt, StatusId.Stun, Enemy, iff: aw ? "has:Shock:3" : "has:Shock:4") };
+                case "myth_dynamo_hull_5": return new[] { PT(Arc, EffectKind.ConsumeStatus, 30, All, Shock, every: A(6, 4)) };
+                case "myth_storm_coil_1": return new[] { PRule("arc_volley:3", V(40, 60)) };
+                case "myth_storm_coil_2": return new[] { PBuff(Arc, StatId.ArcDamage, V(2, 3), "stack:20") };
+                case "myth_storm_coil_3": return new[] { PApply(RoundS, Shock, 1, Enemy, aw ? "pick_least:Shock:2" : "pick_least:Shock:1") };
+                case "myth_storm_coil_4": return new[] { PRule(aw ? "volley_stun:3" : "volley_stun:4", 0, StatusId.None, 1) };
+                case "myth_storm_coil_5": return aw ? new[] { PRule("arc_volley:2"), PRule("arc_volley_first") } : new[] { PRule("arc_volley:2") };
+                case "myth_arcwright_drill_1": return new[] { PT(Hit, EffectKind.Damage, 50, TargetKind.OtherEnemies, stacks: A(1, 2), iff: "basic_hit") };
+                case "myth_arcwright_drill_2": return new[] { PRule("arc_crit", V(0, 20)) };
+                case "myth_arcwright_drill_3": return new[] { PT(Arc, EffectKind.Heal, 2, param: "turn_cap:1", iff: aw ? "has:Shock" : "has:Shock:3") };
+                case "myth_arcwright_drill_4": return new[] { PCc(Arc, StatusId.Stun, Enemy, every: A(5, 3)) };
+                case "myth_arcwright_drill_5": return new[] { PApply(Arc, Shock, A(1, 2), iff: "hit_crit") };
+                // ---- RADIATION ----
+                case "myth_isotope_visor_1": return new[] { PApply(Hit, Rad, A(6, 10), param: "per_target:1") };
+                case "myth_isotope_visor_2": return new[] { PT(Crit, EffectKind.SpreadStatus, V(20, 40), Enemy, Rad, param: aw ? "cap:20" : "cap:10") };
+                case "myth_isotope_visor_3": return new[] { aw ? PApply(Hit, Rad, 2, Enemy, "behind:2") : PApply(Hit, Rad, 1, TargetKind.SecondEnemy) };
+                case "myth_isotope_visor_4": return new[] { PApply(RoundS, Rad, A(5, 10), Others, "pick_most:Poison;spread") };
+                case "myth_isotope_visor_5": return new[] { PRule("spread_mult", V(100, 200), Rad) };
+                case "myth_hotcell_tank_1": return new[] { PApply(Hurt, Rad, A(1, 2), All) };
+                case "myth_hotcell_tank_2": return new[] { PT(RoundS, EffectKind.Heal, 1, param: aw ? "per_total:Poison:10;max:10" : "per_total:Poison:20;max:5") };
+                case "myth_hotcell_tank_3": return new[] { PRule(aw ? "taken_vs:10" : "taken_vs:20", V(15, 25), Rad) };
+                case "myth_hotcell_tank_4":
+                    return new[] { PT(Hurt, EffectKind.MultiplyStatus, 200, All, Rad, param: aw ? "cap:60" : "cap:40", iff: aw ? "self_hp_below:50" : "self_hp_below:30", maxBattle: 1) };
+                case "myth_hotcell_tank_5": return new[] { PT(Hurt, EffectKind.TickStatus, 100, Enemy, Rad, stacks: A(1, 2), iff: "has:Poison") };
+                case "myth_decay_stinger_1": return new[] { PApply(TurnS, Rad, A(5, 10), every: 2) };
+                case "myth_decay_stinger_2": return new[] { PT(TurnS, EffectKind.TickStatus, 100, All, Rad, every: A(4, 3)) };
+                case "myth_decay_stinger_3": return new[] { PT(Rage, EffectKind.TickStatus, V(100, 150), Enemy, Rad, stacks: 2) };
+                case "myth_decay_stinger_4": return new[] { PRule(aw ? "execute_at:30" : "execute_at:40", V(20, 30), Rad) };
+                case "myth_decay_stinger_5": return new[] { PApply(TriggerKind.OnStatusTick, Rad, A(1, 2), param: "Poison") };
+                // ---- BLEED ----
+                case "myth_bloodtide_fin_1": return new[] { PApply(TurnS, Bleed, A(2, 4), All, every: 3) };
+                case "myth_bloodtide_fin_2": return new[] { PT(TurnE, EffectKind.ConsumeStatus, V(25, 30), Enemy, Bleed, iff: aw ? "has:Bleed:5" : "has:Bleed:8") };
+                case "myth_bloodtide_fin_3": return new[] { PT(Consumed, EffectKind.Shield, V(20, 40), param: "Bleed;of_consume") };
+                case "myth_bloodtide_fin_4": return new[] { PApply(Consumed, Bleed, 1, aw ? Others : TargetKind.OtherEnemies, "Bleed;half") };
+                case "myth_bloodtide_fin_5": return new[] { PRule(aw ? "dot_twice_at:5" : "dot_twice_at:0", 0, Bleed) };
+                case "myth_thornstep_legs_1": return new[] { PApply(Dodge, Bleed, A(3, 6), param: "arm") };
+                case "myth_thornstep_legs_2": return new[] { aw ? PT(Dodge, EffectKind.TickStatus, 100, All, Bleed, param: "tg_has:Bleed") : PT(Dodge, EffectKind.TickStatus, 100, Enemy, Bleed, iff: "has:Bleed") };
+                case "myth_thornstep_legs_3": return new[] { PT(Dodge, EffectKind.GainRage, V(-10, -20), Enemy, iff: "has:Bleed") };
+                case "myth_thornstep_legs_4": return new[] { PApply(Dodge, Bleed, A(1, 2), Others, aw ? null : "tg_has:Bleed") };
+                case "myth_thornstep_legs_5": return new[] { PT(Dodge, EffectKind.ConsumeStatus, V(30, 45), Enemy, Bleed) };
+                case "myth_bloodletter_claw_1": return new[] { PApply(Crit, Bleed, A(3, 5)) };
+                case "myth_bloodletter_claw_2": return new[] { PT(Crit, EffectKind.ConsumeStatus, V(20, 30), Enemy, Bleed, iff: aw ? "has:Bleed:7" : "max:Bleed") };
+                case "myth_bloodletter_claw_3": return new[] { PT(Consumed, EffectKind.Heal, V(2, 3), param: "Bleed;per_unit") };
+                case "myth_bloodletter_claw_4": return new[] { PT(TriggerKind.OnEnemyDeath, EffectKind.Heal, V(2, 4), param: "per_ctx_stack:Bleed", iff: "has:Bleed") };
+                case "myth_bloodletter_claw_5": return new[] { PT(Crit, EffectKind.TickStatus, 100, All, Bleed, stacks: A(1, 2)) };
+                // ---- COMBO ----
+                case "myth_afterburner_tail_1": return new[] { PT(TurnS, EffectKind.ForceCombo, stacks: A(3, 5), every: 3) };
+                case "myth_afterburner_tail_2": return new[] { PT(TurnE, EffectKind.GainRage, V(20, 30), iff: aw ? "combo_min:2" : "combo_min:3") };
+                case "myth_afterburner_tail_3": return new[] { PT(Combo, EffectKind.Shield, V(2, 4), iff: "turn_every:3") };
+                case "myth_afterburner_tail_4": return new[] { PT(TurnE, EffectKind.ExtraTurn, iff: "combo_min:4", maxBattle: A(1, 2)) };
+                case "myth_afterburner_tail_5": return new[] { PRule(aw ? "combo_full_every:2" : "combo_full_every:3") };
+                case "myth_flicker_treads_1": return new[] { PBuff(Dodge, StatId.ComboChance, V(20, 35), "next_turn") };
+                case "myth_flicker_treads_2": return new[] { PBuff(Combo, StatId.Dodge, V(2, 4), "until_turn;stack:5") };
+                case "myth_flicker_treads_3": return new[] { PT(Dodge, EffectKind.Strike, 0, Enemy, param: "chain", chance: V(50, 100)) };
+                case "myth_flicker_treads_4": return new[] { PT(TurnE, EffectKind.ForceMiss, stacks: A(1, 2), iff: "combo_min:3") };
+                case "myth_flicker_treads_5": return new[] { PRule("dodge_as_combo", V(50, 100)) };
+                case "myth_chainlash_whip_1": return new[] { PT(Combo, EffectKind.Damage, V(30, 50), TargetKind.OtherEnemies, stacks: 1, param: "noarc") };
+                case "myth_chainlash_whip_2": return new[] { PRule("combo_falloff", V(-10, -20)) };
+                case "myth_chainlash_whip_3": return new[] { PRule("combo_kill_carry", V(0, 1)) };
+                case "myth_chainlash_whip_4": return new[] { PRule("combo_target_lowest", V(0, 100)) };
+                case "myth_chainlash_whip_5": return new[] { PT(Combo, EffectKind.FreeRageAttack, 0, Enemy, every: A(10, 6)) };
+                // ---- COUNTER ----
+                case "myth_feint_mask_1": return new[] { PRule("first_hit_counter", V(40, 70)) };
+                case "myth_feint_mask_2": return new[] { PBuff(Counter, StatId.CritChance, -1000, aw ? "until_turn:2" : "until_turn", Enemy) };
+                case "myth_feint_mask_3": return new[] { PT(Counter, EffectKind.GainRage, V(-10, -20), Enemy) };
+                case "myth_feint_mask_4": return new[] { PT(Counter, EffectKind.Reflect, V(50, 100), Enemy, param: "of_taken", iff: "rage_in") };
+                case "myth_feint_mask_5": return new[] { PCc(Counter, StatusId.Delay, Enemy, aw ? "every_target:2" : "every_target:3") };
+                case "myth_rampart_carapace_1": return new[] { PT(Counter, EffectKind.MultiplyShield, 200, param: aw ? "cap:25" : "cap:15") };
+                case "myth_rampart_carapace_2": return new[] { PT(TriggerKind.OnShieldHit, EffectKind.TurnFlag, param: aw ? "counter_hit;rnd_cap:2" : "counter_hit;rnd_cap:1") };
+                case "myth_rampart_carapace_3": return new[] { PT(Counter, EffectKind.Reflect, V(5, 10), Enemy, param: "maxhp") };
+                case "myth_rampart_carapace_4": return new[] { PT(Break, EffectKind.TurnFlag, param: "counter_window", dur: A(0, 2)) };
+                case "myth_rampart_carapace_5": return new[] { PRule(aw ? "counter_aoe" : "counter_aoe_shielded") };
+                case "myth_backlash_hammer_1": return new[] { PT(Counter, EffectKind.GainRage, V(15, 25)) };
+                case "myth_backlash_hammer_2": return new[] { PT(Counter, EffectKind.Charge, V(10, 20), param: aw ? "rage;cap:100" : "rage;cap:50") };
+                case "myth_backlash_hammer_3": return new[] { PBuff(Rage, StatId.CounterChance, V(25, 50), "until_turn") };
+                case "myth_backlash_hammer_4": return new[] { PT(Counter, EffectKind.FreeRageAttack, 0, Enemy, every: A(3, 2)) };
+                case "myth_backlash_hammer_5": return new[] { PRule("rage_counter", V(0, 50)) };
+                // ---- ALIEN ----
+                case "myth_swarmcaller_antenna_1": return new[] { PT(Start, EffectKind.AllyAction, 0, Self, stacks: A(1, 2), param: "all") };
+                case "myth_swarmcaller_antenna_2": return new[] { PT(Crit, EffectKind.AllyAction, 0, Self, stacks: 1, param: aw ? "random;turn_cap:2" : "random;turn_cap:1") };
+                case "myth_swarmcaller_antenna_3": return new[] { PT(TriggerKind.OnStatusApplied, EffectKind.ChargeAllies, V(10, 20), param: "turn_cap:1") };
+                case "myth_swarmcaller_antenna_4": return new[] { PRule(aw ? "sidekick_twice:2" : "sidekick_twice:1") };
+                case "myth_swarmcaller_antenna_5": return new[] { PRule("sidekick_act", V(25, 50)) };
+                case "myth_broodguard_legs_1": return new[] { PT(Dodge, EffectKind.Guard, V(30, 50), TargetKind.Worm, param: "kick;hits:1") };
+                case "myth_broodguard_legs_2": return new[] { PT(Block, EffectKind.Damage, V(50, 80), Enemy) };
+                case "myth_broodguard_legs_3": return new[] { PT(Block, EffectKind.AllyAction, 0, Self, stacks: A(1, 2)) };
+                case "myth_broodguard_legs_4": return new[] { PT(Dodge, EffectKind.ChargeAllies, V(20, 35)) };
+                case "myth_broodguard_legs_5": return aw ? new[] { PRule("guard_full"), PRule("guard_reflect", 50) } : new[] { PRule("guard_full") };
+                case "myth_hatchery_tail_1": return new[] { PT(TurnS, EffectKind.Summon, 25, Self, stacks: 1, param: aw ? "sk_drone;max:4" : "sk_drone;max:3", every: A(3, 2)) };
+                case "myth_hatchery_tail_2": return new[] { PT(Rage, EffectKind.AllyAction, 0, Self, stacks: A(1, 2), param: "drones") };
+                case "myth_hatchery_tail_3": return new[] { PRule(aw ? "drone_guard:2" : "drone_guard:1", V(30, 50)) };
+                case "myth_hatchery_tail_4": return new[] { PRule(aw ? "drone_status:2" : "drone_status:1") };
+                case "myth_hatchery_tail_5":
+                    return aw
+                        ? new[] { PT(Start, EffectKind.Summon, 25, Self, stacks: 4, param: "sk_drone;max:4"), PT(RoundS, EffectKind.Summon, 25, Self, stacks: 4, param: "sk_drone;max:4", every: 5) }
+                        : new[] { PT(Start, EffectKind.Summon, 25, Self, stacks: 3, param: "sk_drone;max:3") };
+                // ---- TIME ----
+                case "myth_foresight_visor_1": return new[] { PT(TurnE, EffectKind.Echo, 0, Enemy, stacks: A(1, 2), iff: "first_turn", maxBattle: 1) };
+                case "myth_foresight_visor_2": return new[] { PT(Rage, EffectKind.Echo, 0, Enemy, stacks: 1, param: aw ? "mult:200" : null) };
+                case "myth_foresight_visor_3": return new[] { PCond("echo", 100, aw ? "hp_above:50" : "hp_above:70") };
+                case "myth_foresight_visor_4": return new[] { PT(Echo, EffectKind.Echo, 0, Enemy, stacks: 1, chance: V(25, 50)) };
+                case "myth_foresight_visor_5": return new[] { PT(Echo, EffectKind.Reflect, V(50, 80), Others) };
+                case "myth_hindsight_shell_1": return new[] { PT(Hurt, EffectKind.Rewind, 0, Self, stacks: 1, maxBattle: A(1, 2)) };
+                case "myth_hindsight_shell_2": return new[] { PT(Undo, EffectKind.GainRage, V(20, 40)) };
+                case "myth_hindsight_shell_3": return new[] { PT(Undo, EffectKind.Shield, V(5, 10)) };
+                case "myth_hindsight_shell_4": return new[] { PT(Hurt, EffectKind.Rewind, 0, Enemy, stacks: 1, param: aw ? "per_target:2" : "per_target:1", iff: "rage_in") };
+                case "myth_hindsight_shell_5": return new[] { PRule("undo_reflect", V(100, 200)) };
+                case "myth_timeslip_boots_1": return new[] { PBuff(Dodge, StatId.Speed, V(-10, -15), "stack:3", Enemy) };
+                case "myth_timeslip_boots_2": return new[] { PT(Dodge, EffectKind.ExtraTurn, every: A(3, 2)) };
+                case "myth_timeslip_boots_3": return new[] { PT(Dodge, EffectKind.Echo, 0, Enemy, stacks: 1, param: aw ? "mult:70" : "mult:40") };
+                case "myth_timeslip_boots_4": return new[] { PCc(Dodge, StatusId.Delay, Enemy, chance: V(25, 50)) };
+                case "myth_timeslip_boots_5": return new[] { PT(TurnE, EffectKind.Echo, 0, Enemy, stacks: A(1, 2), iff: "extra_turn") };
+                // ---- GENERAL ----
+                case "myth_deadeye_visor_1": return new[] { PRule(aw ? "nth_hit_crit:3" : "nth_hit_crit:4") };
+                case "myth_deadeye_visor_2": return new[] { PBuff(Crit, StatId.CritChance, V(2, 3), "stack:15") };
+                case "myth_deadeye_visor_3": return new[] { PT(Kill, EffectKind.GainRage, V(25, 40), iff: "crit_kill") };
+                case "myth_deadeye_visor_4": return new[] { PT(Crit, EffectKind.Execute, V(30, 40), Enemy, iff: "not_boss") };
+                case "myth_deadeye_visor_5": return new[] { PRule("crit_overflow", V(2, 3)) };
+                case "myth_last_stand_plate_1": return new[] { PCond(aw ? "missing_hp:1" : "missing_hp:2", 1) };
+                case "myth_last_stand_plate_2": return new[] { PT(Hurt, EffectKind.GainRage, 100, iff: aw ? "self_hp_below:50" : "self_hp_below:30", maxBattle: 1) };
+                case "myth_last_stand_plate_3": return new[] { PT(Kill, EffectKind.Heal, V(15, 25), iff: "self_hp_below:50") };
+                case "myth_last_stand_plate_4": return new[] { PT(Hurt, EffectKind.ExtraTurn, stacks: A(2, 3), iff: "self_hp_below:30", maxBattle: 1) };
+                case "myth_last_stand_plate_5": return new[] { PRule(aw ? "low_hp_aoe:50" : "low_hp_aoe:30", 100) };
+                case "myth_rage_turbine_1": return new[] { PT(TurnS, EffectKind.GainRage, V(10, 20)) };
+                case "myth_rage_turbine_2": return new[] { PT(Rage, EffectKind.FreeRageAttack, 0, Enemy, every: A(3, 2)) };
+                case "myth_rage_turbine_3": return new[] { PT(Rage, EffectKind.Heal, V(5, 10)) };
+                case "myth_rage_turbine_4": return new[] { PRule("rage_aoe", V(60, 100)) };
+                case "myth_rage_turbine_5": return new[] { PRule("rage_cost", V(25, 40)) };
             }
-            else
-            {
-                syn.Triggers.Add(Cond("skill", 30));
-                syn.Stats.Add(new StatMod(StatId.RageGain, 15));
-                syn.Description = "Skill damage +{30}%; +{15} rage gain.";
-            }
-
-            // 4A signature: a new battle opener — barrages, overheal shields or evasive counters by kind.
-            var sig = NewPartSkill(d, 3, true, "Awakened " + kw, Rarity.Mythic, f, "");
-            PartFamilyStats(sig, twin, 1.4);
-            switch (d.Kind)
-            {
-                case PartKind.Body:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnTurnStart, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 4, Param = "overheal_shield" });
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnDamaged, 40, 1.5, TargetKind.Enemy, 1));
-                    sig.Description = "Heal {4}% every turn; overheal becomes a shield. Taking damage may " + FamilyEffectText(f) + "."; break;
-                case PartKind.Legs:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnDodge, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 5 });
-                    sig.Triggers.AddRange(PartPayload(twin, TriggerKind.OnDodge, 100, 1.5, TargetKind.AllEnemies));
-                    sig.Stats.Add(new StatMod(StatId.Dodge, 6));
-                    sig.Description = "Dodges grant a {5}% shield and " + FamilyEffectText(twin) + " on all enemies; +{6} dodge."; break;
-                case PartKind.Tail:
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Stat = new StatMod(StatId.Speed, 4), Duration = 0 });
-                    sig.Triggers.AddRange(PartPayload(twin, TriggerKind.OnRoundStart, 100, 1.2, TargetKind.AllEnemies, 1));
-                    sig.Description = "Gain speed every round; every other round " + FamilyEffectText(twin) + " on all enemies."; break;
-                default:
-                    // (was a drone summon: drones are gone) an opening barrage on every enemy
-                    sig.Triggers.Add(new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Damage, Target = TargetKind.AllEnemies, Value = 45 });
-                    sig.Triggers.AddRange(PartPayload(f, TriggerKind.OnBattleStart, 100, 1.8, TargetKind.AllEnemies));
-                    sig.Description = "Battle start: a {45}% ATK " + fw.ToLowerInvariant() + " barrage that " + FamilyEffectText(f) + " on every enemy."; break;
-            }
-
-            // 5A ultimate: a last stand that turns a losing battle (once, below 30% HP) plus a permanent skill-damage hook.
-            var ult = NewPartSkill(d, 4, true, fw + " Ascension", Rarity.Mythic, f,
-                "Below 30% HP (once): heal {30}%, {150}% ATK true damage to all enemies, " + FamilyEffectText(f) + " on all; skill damage +{25}%.");
-            ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 30 });
-            ult.Triggers.Add(new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.TrueDamage, Target = TargetKind.AllEnemies, Value = 150 });
-            ult.Triggers.AddRange(PartPayload(f, TriggerKind.OnLowHp, 100, 3.0, TargetKind.AllEnemies));
-            ult.Triggers.Add(Cond("skill", 25));
+            throw new InvalidOperationException("no Mythic part skill " + id + " " + (i + 1));
         }
-
-        private static SkillTrigger Cond(string condition, double pct) =>
-            new SkillTrigger { When = TriggerKind.Passive, Effect = EffectKind.BuffStat, Param = "cond:" + condition, Value = pct };
-
-        private static SkillTrigger St(TriggerKind when, double chance, StatusId status, int stacks, TargetKind target, int duration) =>
-            new SkillTrigger { When = when, Chance = chance, Effect = EffectKind.ApplyStatus, Status = status, Stacks = stacks, Target = target, Duration = duration };
     }
 }

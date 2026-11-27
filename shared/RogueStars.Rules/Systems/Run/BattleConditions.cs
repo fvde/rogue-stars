@@ -29,6 +29,9 @@ namespace RogueStars.Rules.Systems
         {
             Has, Lacks, Max, Unblocked, HpBelow, Boss, NotBoss, Statuses, SelfHpBelow, SelfShielded, Sidekicks, OneEnemy,
             FirstTurn, FirstHit, FirstHitTaken, ComboStrikes, RageCrit, Unknown, WormRage, CritKill, ExtraHits, SiphonFull,
+            // parts v2
+            AttackerSlower, AmountPct, CritIn, RageIn, NovaKill, NovaRage, WithinHeat, RageWithin, TurnEvery, NoCritTurn, Forced,
+            ComboMin, HpAbove, BasicHit, HitCrit, InExtraTurn,
         }
 
         public sealed class Term
@@ -93,6 +96,24 @@ namespace RogueStars.Rules.Systems
                 case "crit_kill": t.Kind = Kind.CritKill; break;
                 case "extra_hits": t.Kind = Kind.ExtraHits; t.N = Math.Max(1, Num(1, 1)); break;
                 case "siphon_full": t.Kind = Kind.SiphonFull; break;
+                // parts v2
+                case "attacker_slower": t.Kind = Kind.AttackerSlower; break;
+                case "amount_pct": t.Kind = Kind.AmountPct; t.N = Num(1, 0); break;
+                case "crit_in": t.Kind = Kind.CritIn; break;
+                case "rage_in": t.Kind = Kind.RageIn; break;
+                case "nova_kill": t.Kind = Kind.NovaKill; break;
+                case "nova_rage":
+                case "in_rage": t.Kind = Kind.NovaRage; break;
+                case "within_heat": t.Kind = Kind.WithinHeat; t.N = Num(1, 0); break;
+                case "rage_within": t.Kind = Kind.RageWithin; t.N = Num(1, 0); break;
+                case "turn_every": t.Kind = Kind.TurnEvery; t.N = Math.Max(1, Num(1, 1)); break;
+                case "no_crit_turn": t.Kind = Kind.NoCritTurn; break;
+                case "forced": t.Kind = Kind.Forced; break;
+                case "combo_min": t.Kind = Kind.ComboMin; t.N = Math.Max(1, Num(1, 1)); break;
+                case "hp_above": t.Kind = Kind.HpAbove; t.N = Num(1, 0); break;
+                case "basic_hit": t.Kind = Kind.BasicHit; break;
+                case "hit_crit": t.Kind = Kind.HitCrit; break;
+                case "extra_turn": t.Kind = Kind.InExtraTurn; break;
             }
             return t;
         }
@@ -139,6 +160,22 @@ namespace RogueStars.Rules.Systems
                 case Kind.CritKill: return "a critical kill";
                 case Kind.ExtraHits: return Num(t.N) + "+ extra hits this turn";
                 case Kind.SiphonFull: return "the siphon shield is full";
+                case Kind.AttackerSlower: return "the attacker is slower than you";
+                case Kind.AmountPct: return "the hit takes over " + Num(t.N) + "% of your max HP";
+                case Kind.CritIn: return "the hit was a crit";
+                case Kind.RageIn: return "the hit was a rage attack";
+                case Kind.NovaKill: return "a Supernova kill";
+                case Kind.NovaRage: return "a Supernova your rage attack set off";
+                case Kind.WithinHeat: return "it is within " + Num(t.N) + " Heat of Supernova";
+                case Kind.RageWithin: return "you are within " + Num(t.N) + " rage of full";
+                case Kind.TurnEvery: return "every " + Num(t.N) + "th turn";
+                case Kind.NoCritTurn: return "a turn without a crit";
+                case Kind.Forced: return "a forced miss";
+                case Kind.ComboMin: return Num(t.N) + "+ combo strikes this turn";
+                case Kind.HpAbove: return "it is above " + Num(t.N) + "% HP";
+                case Kind.BasicHit: return "a basic attack";
+                case Kind.HitCrit: return "the hit crit";
+                case Kind.InExtraTurn: return "an extra turn";
                 default: return t.Source;
             }
         }

@@ -281,9 +281,8 @@ namespace RogueStars.Rules.Content
             }
             // Starter kit (new player) and items granted when a feature unlocks (GDD §16 onboarding order).
             var kit = Onboarding.StarterKit;
-            kit.Add(new Reward(RewardKinds.Part, "arm_slam_hammer", 1, (int)PartRarity.Common));
-            kit.Add(new Reward(RewardKinds.Part, "head_scanner_visor", 1, (int)PartRarity.Common));
-            kit.Add(new Reward(RewardKinds.Part, "body_plated_shell", 1, (int)PartRarity.Common));
+            // parts v2: one Common per slot (the same set an old save is reset to)
+            foreach (var id in PartsConfig.StarterParts) kit.Add(new Reward(RewardKinds.Part, id, 1, (int)PartRarity.Common));
             kit.Add(new Reward(RewardKinds.Blueprint, "bp_biomass_farm", 1));
             void G(string featureId, Reward r) => FeatureDefs[featureId].UnlockGrants.Add(r);
             // The former starting wallet, each part with the unlock that gives it a use (rewards follow use, GDD §13).

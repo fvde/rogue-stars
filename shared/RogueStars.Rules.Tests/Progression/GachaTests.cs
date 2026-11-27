@@ -256,7 +256,7 @@ public class GachaTests
         content.GachaConfig.ScheduledBanners.Add(new BannerDef
         {
             Id = "live_special", Type = GachaType.Part, StartMs = TestHelpers.T0, EndMs = TestHelpers.T0 + Day,
-            Theme = new BannerTheme { Id = "special", FeaturedKind = RewardKinds.Part, FeaturedId = "arm_hive_whip", FeaturedRarity = (int)PartRarity.Mythic, FeaturedShare = 1 },
+            Theme = new BannerTheme { Id = "special", FeaturedKind = RewardKinds.Part, FeaturedId = "myth_chainlash_whip", FeaturedRarity = (int)PartRarity.Mythic, FeaturedShare = 1 },
         });
         Assert.Equal("live_special", GachaSystem.ActiveBanner(content, GachaType.Part, TestHelpers.T0 + 1)!.Id);
         Assert.NotEqual("live_special", GachaSystem.ActiveBanner(content, GachaType.Part, TestHelpers.T0 + Day)!.Id);
@@ -274,7 +274,7 @@ public class GachaTests
             s.Gacha.For(GachaType.Part).SinceMythic = def.MythicPity - 1;
             var it = Pull(e, ref s, GachaType.Part, 1, b.Id).Items[0];
             Assert.Equal(Rarity.Mythic, it.Tier);
-            if (it.Featured) { featured++; Assert.Equal(b.Theme.FeaturedId, it.Id); }
+            if (it.Featured) { featured++; Assert.True(b.Theme.IsFeatured(it.Kind, it.Id), it.Id); } // parts v2: 3 featured Mythics per banner
         }
         Assert.InRange(featured / (double)n, 0.72, 0.88); // 80% on banner, 20% another Mythic (owner, 2026-11-25)
     }

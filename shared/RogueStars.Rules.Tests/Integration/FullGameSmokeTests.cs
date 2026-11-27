@@ -109,7 +109,7 @@ public class FullGameSmokeTests
         // Rewards follow use: a brand-new account owns only what day 1 uses (stamina, Diamonds); the starter parts and the
         // Biomass Farm blueprint wait in the reward stash for their features.
         Assert.Empty(p.S.Parts.Items);
-        Assert.Equal(3, p.S.Stash.Items.Count(r => r.Kind == RewardKinds.Part));
+        Assert.Equal(6, p.S.Stash.Items.Count(r => r.Kind == RewardKinds.Part)); // parts v2: one Common per slot
 
         // Day 1: the first run without parts (level 1 is eased); completion unlocks Parts, which releases the stash.
         p.Do(new RunStart { LevelId = "ember_wastes_1" });
@@ -126,11 +126,12 @@ public class FullGameSmokeTests
         Assert.DoesNotContain(p.S.Run.LastSummary.Granted, r => r.Id == Currencies.Biomass); // the result screen never shows it
         p.Do(new LoginClaim());
 
-        // Equip the starter parts.
+        // Equip the starter parts (one Common per slot; arms fit either arm).
         foreach (var part in p.S.Parts.Items.Values.OrderBy(x => x.Uid).ToList())
         {
             var def = p.E.Content.PartsConfig.Defs[part.DefId];
-            var slot = def.Kind switch { PartKind.Head => PartSlot.Head, PartKind.Body => PartSlot.Body, _ => PartSlot.RightArm };
+            var slot = def.Kind == PartKind.Arm ? (p.S.Parts.Equipped.ContainsKey(PartSlot.RightArm) ? PartSlot.LeftArm : PartSlot.RightArm) : (PartSlot)(int)def.Kind;
+            if (p.S.Parts.Equipped.ContainsKey(slot)) continue;
             p.Do(new PartEquip { Uid = part.Uid, Slot = slot });
         }
 
@@ -223,8 +224,8 @@ public class FullGameSmokeTests
         Assert.Equal("mount_scout_saucer", loadout.MountId);
         Assert.Single(loadout.Aliens);
         Assert.Equal(aliens[0], loadout.Aliens[0].AlienTypeId);
-        // the equipped arm decides the attack style (which arm that is depends on the run drops)
-        Assert.Contains(p.E.Content.PartsConfig.Defs[p.S.Parts.Items[p.S.Parts.Equipped[PartSlot.RightArm]].DefId].Style, loadout.ArmStyles);
+        // parts v2: arms are interchangeable (no attack styles); the equipped arm's stats count
+        Assert.Equal(PartKind.Arm, p.E.Content.PartsConfig.Defs[p.S.Parts.Items[p.S.Parts.Equipped[PartSlot.RightArm]].DefId].Kind);
         Assert.True(loadout.Power > 0);
         Assert.Equal(WormSystem.ComputePower(loadout, p.E.Content), loadout.Power);
         var arena = ArenaSystem.CreateSnapshot(p.E, p.S, p.Now);

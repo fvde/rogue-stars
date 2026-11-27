@@ -174,8 +174,9 @@ namespace RogueStars.Rules.Content
             for (int t = 0; t < 5; t++)
             {
                 var pt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };
-                foreach (var id in GachaSortedKeys(PartsConfig.Defs)) pt.Pool.Add(new GachaEntry(RewardKinds.Part, id, 1, partRarityForTier[t], 2));
-                if (t < 4) foreach (var id in GachaSortedKeys(PartsConfig.Runes)) pt.Pool.Add(new GachaEntry(RewardKinds.Rune, id, 1, t, 2));
+                // parts v2: each tier draws uniformly from that rarity's item set (30 standard items per rarity, the 30 Mythics)
+                foreach (var id in GachaSortedKeys(PartsConfig.Defs))
+                    if ((int)PartsConfig.Defs[id].Rarity == partRarityForTier[t]) pt.Pool.Add(new GachaEntry(RewardKinds.Part, id, 1, partRarityForTier[t], 2));
                 part.Tiers.Add(pt);
 
                 // Every City blueprint and alien type is pullable in the tier of its rarity (City owns the granters); one result
@@ -198,17 +199,19 @@ namespace RogueStars.Rules.Content
             const long epoch = 1_799_020_800_000; // Monday 2027-01-04 00:00 UTC
             const long week = 7L * 86_400_000;
             int mythic = (int)Rarity.Mythic, mythicPart = (int)PartRarity.Mythic;
-            g.Rotations.Add(new BannerRotation
+            // Parts v2: all 30 Mythics at launch in 10 Part banners of 3 (one per synergy, its 3 Mythics in 3 different slots), one a
+            // week (10-week cycle); 80% of Mythic results split between the 3 featured, 20% over the other 27.
+            var partBanners = new BannerRotation { Type = GachaType.Part, EpochMs = epoch, DurationMs = week };
+            foreach (var (bannerId, bannerName, synergy) in PartBanners)
             {
-                Type = GachaType.Part, EpochMs = epoch, DurationMs = week,
-                Themes =
-                {
-                    GachaThemeOf("part_inferno_arsenal", "Inferno Arsenal", RewardKinds.Part, "arm_plasma_blaster", 1, mythicPart),
-                    GachaThemeOf("part_glacier_vault", "Glacier Vault", RewardKinds.Part, "arm_frost_cannon", 1, mythicPart),
-                    GachaThemeOf("part_storm_works", "Storm Works", RewardKinds.Part, "arm_tesla_whip", 1, mythicPart),
-                    GachaThemeOf("part_shadow_forge", "Shadow Forge", RewardKinds.Part, "arm_mantis_claw", 1, mythicPart),
-                },
-            });
+                var ids = new List<string>();
+                foreach (var m in PartMythicData) if (m.Synergy == synergy) ids.Add(m.Id);
+                var theme = GachaThemeOf(bannerId, bannerName, RewardKinds.Part, ids[0], 1, mythicPart);
+                for (int i = 1; i < ids.Count; i++)
+                    theme.MoreFeatured.Add(new BannerFeature { Kind = RewardKinds.Part, Id = ids[i], Amount = 1, Rarity = mythicPart, Tier = Rarity.Mythic });
+                partBanners.Themes.Add(theme);
+            }
+            g.Rotations.Add(partBanners);
             // Blueprint banners (owner, 2026-11-25; docs/design/pull-system.md "Banner schedule"): weekly from Monday 00:00 UTC, a 6-week
             // cycle where the core blueprint banner returns every other week (Laboratory featured in Mythic, the three pull buildings
             // in Legendary; nothing else rotates into it) between the themed Mythic banners.
@@ -238,6 +241,16 @@ namespace RogueStars.Rules.Content
                 },
             });
         }
+
+        /// <summary>The 10 Part banners (parts v2, owner rev 3f): id, name, synergy (its 3 Mythics are featured).</summary>
+        public static readonly (string Id, string Name, string Synergy)[] PartBanners =
+        {
+            ("part_inferno_arsenal", "Inferno Arsenal", "Fire"), ("part_glacier_vault", "Glacier Vault", "Ice"),
+            ("part_storm_works", "Storm Works", "Lightning"), ("part_fallout_foundry", "Fallout Foundry", "Radiation"),
+            ("part_shadow_forge", "Shadow Forge", "Bleed"), ("part_whirlwind_workshop", "Whirlwind Workshop", "Combo"),
+            ("part_bulwark_armory", "Bulwark Armory", "Counter"), ("part_hive_hangar", "Hive Hangar", "Alien"),
+            ("part_hourglass_depot", "Hourglass Depot", "Time"), ("part_proving_grounds", "Proving Grounds", "General"),
+        };
 
         private GachaTypeDef NewGachaType(GachaType type, string name, string token)
         {

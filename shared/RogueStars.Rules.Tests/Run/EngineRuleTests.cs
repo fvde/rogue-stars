@@ -367,13 +367,14 @@ public class EngineRuleTests
     public void Symbiote_SwarmLink_Bodyguard_Decoy_Sacrifice()
     {
         var c = new ContentDb();
-        var sym = Skill(c, "sym", Rule("symbiote"), new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.AllyAction, Param = "all", Target = TargetKind.Self });
+        // parts v2 (Symbiote rework): the old "symbiote" rule does nothing any more; the aliens keep their own turns, the rage attack
+        // also fires every alien and each one that joins loses 50 charge
+        var sym = Skill(c, "sym", Rule("symbiote"), new SkillTrigger { When = TriggerKind.OnRageAttack, Effect = EffectKind.AllyAction, Param = "all;charge:-50", Target = TargetKind.Self });
         var w = Worm(sym); w.Stats.Add(new StatMod(StatId.RageGain, 100)); // back to normal rage gain
         var r = Fight(c, new[] { Alien("a0"), Alien("a1"), w }, 4, Bag());
-        // the aliens never act alone; the rage attack (round 4: 25 rage per turn) fires both
         var acts = r.Log.Where(e => e.Action == BattleAction.SidekickAct).ToList();
-        Assert.Equal(2, acts.Count);
-        Assert.All(acts, e => Assert.Equal(4, e.Round));
+        Assert.Equal(2, acts.Count(e => e.Round == 4 && e.Stacks == 1)); // the rage attack (round 4: 25 rage per turn) fires both
+        Assert.Contains(acts, e => e.Stacks == 0);                       // and they still act on their own
 
         var link = Skill(c, "link", new SkillTrigger { When = TriggerKind.OnKill, Effect = EffectKind.AllyAction, Param = "all", Target = TargetKind.Self });
         var lr = Fight(c, new[] { Alien("a0", 1), Alien("a1", 1), Worm(link) }, 1, Bag("a", 50), Bag("b"));
