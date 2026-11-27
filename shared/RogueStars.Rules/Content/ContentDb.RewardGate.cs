@@ -95,8 +95,6 @@ namespace RogueStars.Rules.Content
             // Part levels above 10 cost Gear Cores: a part past level 10 needs Rare+ (cap 20); the Forge spends them too.
             Cur(Currencies.GearCores, "Part levels above 10, the Forge", 200, PartMin(PartRarity.Rare), F(Features.Forge));
             Cur(Currencies.Metal, "Mythic ladder steps", -1, F(Features.Parts));
-            // Parts v2 removed the cap raises: Advancement Plates have no sink left (the Plate Foundry and Burrow still pay them).
-            Cur(Currencies.AdvancementPlates, "No use (parts v2 removed cap raises)", 20, PartMin(PartRarity.Rare));
             Cur(ProgressionCurrencies.PartAwakenCores, "Part awakening (Mythic+)", -1, PartMin(PartRarity.Mythic));
             Cur(Currencies.Grain, "Breeding", 2000, F(Features.Aliens), F(Features.Breeding)); // aliens pass: breeding is Grain's only sink
             Cur(Currencies.Fuel, "Mount levels", 4000, F(Features.Mounts));

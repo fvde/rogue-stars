@@ -39,8 +39,6 @@ namespace RogueStars.Rules.Content
         Neighbours,
         /// <summary>Different categories touching it: +Pct per category up to MaxPct.</summary>
         MeltingPot,
-        /// <summary>In a straight line of 3 side-touching buildings of Target (itself included).</summary>
-        RowOfThree,
         /// <summary>Buildings that touch only its corner: +Pct each up to MaxPct.</summary>
         Diagonal,
         /// <summary>A Target building directly opposite across a 1-wide street.</summary>
@@ -339,7 +337,7 @@ namespace RogueStars.Rules.Content
 
             BuildCityMap();
 
-            // ---- production (11) ----
+            // ---- production (10) ----
             var farm = CityProduction("bp_biomass_farm", "Biomass Farm", Rarity.Common, BuildingCostType.Biomass, Currencies.Biomass, 30,
                 Skill(PlacementKind.Neighbours, 10, 20, "Fields: +10% output per touching farm (max +20%).", "tag:farm"));
             farm.Tags.Add("farm");
@@ -354,8 +352,6 @@ namespace RogueStars.Rules.Content
                 Skill(PlacementKind.Neighbours, 10, 30, "+10% output per touching Ore Mine (max +30%).", "bp_ore_mine"));
             CityProduction("bp_training_grounds", "Training Grounds", Rarity.Rare, BuildingCostType.Biomass, Currencies.HeroXp, 30,
                 Skill(PlacementKind.AcrossStreet, 20, 20, "+20% output facing a War Academy across a street.", "bp_war_academy"));
-            CityProduction("bp_plate_foundry", "Plate Foundry", Rarity.Epic, BuildingCostType.Ore, Currencies.AdvancementPlates, 0.5,
-                Skill(PlacementKind.RowOfThree, 20, 20, "+20% output in a row of 3 production buildings.", "cat:Production"));
             CityProduction("bp_diamond_mine", "Diamond Mine", Rarity.Epic, BuildingCostType.Ore, Currencies.Diamonds, 1,
                 Skill(PlacementKind.Cliffside, 30, 30, "+30% output on the land edge."));
             CityPullBuilding("bp_token_relay", "Blueprint Relay", BuildingCostType.Both, Currencies.BlueprintTokens, "Research Scroll",

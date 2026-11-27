@@ -38,7 +38,6 @@ namespace RogueStars.Client.World
             { "bp_fuel_refinery", "prop:event_wreck" },
             { "bp_gear_works", "prop:abandoned_cart" },
             { "bp_training_grounds", "set:ruined_arch_2" },
-            { "bp_plate_foundry", "prop:chest_common" },
             { "bp_diamond_mine", "set:crystal_spire_2" },
             { "bp_token_relay", "marker:event" },
             { "bp_signal_beacon", "set:portal_well" },

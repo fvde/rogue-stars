@@ -134,7 +134,7 @@ namespace RogueStars.Client.App
             Currencies.Stamina, Currencies.Diamonds, Currencies.Biomass, Currencies.Data, Currencies.Grain, Currencies.Ore,
             Currencies.Fuel, Currencies.ArenaTickets, Currencies.ArenaMedals, Currencies.GearCores, Currencies.Metal, Currencies.HeroXp,
             Currencies.PartTokens, Currencies.AlienTokens, Currencies.BlueprintTokens, Currencies.BurrowKeys, Currencies.InvasionAttempts,
-            Currencies.GuildMarks, Currencies.AdvancementPlates, ProgressionCurrencies.PartAwakenCores,
+            Currencies.GuildMarks, ProgressionCurrencies.PartAwakenCores,
             Currencies.HeroTickets, Currencies.MountTickets, Currencies.HeroSigils, Currencies.MountBolts,
         };
 

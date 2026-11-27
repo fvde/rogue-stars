@@ -56,7 +56,7 @@ namespace RogueStars.Sim
         // Income/spend tracking for hoarding/starvation analysis (gross flows per tracked currency).
         public static readonly string[] Tracked =
         {
-            Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.GearCores, Currencies.AdvancementPlates, Currencies.Fuel,
+            Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.GearCores, Currencies.Fuel,
             Currencies.HeroXp, Currencies.Diamonds, Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens,
             Currencies.Stamina, Currencies.GuildMarks, ProgressionCurrencies.PartAwakenCores, Currencies.ArenaTickets,
             Currencies.Data, Currencies.ArenaMedals,

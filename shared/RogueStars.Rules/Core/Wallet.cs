@@ -10,7 +10,6 @@ namespace RogueStars.Rules.Core
         public const string Grain = "grain";
         public const string Ore = "ore";
         public const string GearCores = "gear_cores";
-        public const string AdvancementPlates = "advancement_plates";
         /// <summary>Parts v2: spare standard parts fed for the Mythic ladder (player-facing "Metal").</summary>
         public const string Metal = "metal";
         public const string Fuel = "fuel";

@@ -182,6 +182,10 @@ rarity (rarity colours, stars or "not owned"), units, and the cost / time / outp
 
 Signal Mythics per year: Casual 72, Active 185, Hardcore 272, Dolphin 273, Whale 339 (1 per ~60 pulls, as published).
 
+**Blueprint count (2026-11-27):** the table above predates the City redesign (31 blueprints, max 310★). The Blueprints pull
+pool is every City blueprint: **24** since the Plate Foundry (Epic) was removed (max 240★). Re-run of `--pulls` on today's rules, blueprints owned · ★ sum at day 365: Casual F2P 24 · 175, Active
+F2P 24 · 207, Hardcore F2P 24 · 221, Active Dolphin 24 · 217, Active Whale 24 · 235.
+
 Reading it:
 - Heroes: every hero is owned by day ~120 except Casual (day ~365); the best hero is 8★ at day 365 for active players, 10★ for the
   whale. Mounts track heroes a little behind (no starter mount: Casual owns none on day 30).

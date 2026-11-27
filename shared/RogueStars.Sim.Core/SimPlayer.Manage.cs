@@ -23,7 +23,7 @@ namespace RogueStars.Sim
             ContentDb.LaunchPodId, "bp_biomass_farm", ContentDb.LaboratoryId, "bp_ore_mine", "bp_gear_works", "bp_token_relay",
             "bp_signal_beacon", "bp_part_fabricator", "bp_diamond_mine", "bp_stasis_beacon", "bp_command_spire", "bp_fuel_refinery",
             "bp_stamina_well", "bp_supply_depot", "bp_war_academy", "bp_training_grounds", "bp_scout_post", "bp_grain_farm", "bp_breeding_pen",
-            ContentDb.ShardReactorId, "bp_plate_foundry", "bp_regen_spire", "bp_observatory", "bp_barracks_dome", "bp_gene_lab",
+            ContentDb.ShardReactorId, "bp_regen_spire", "bp_observatory", "bp_barracks_dome", "bp_gene_lab",
         };
 
         private int Rank(string bp) { int i = Array.IndexOf(BuildOrder, bp); return i < 0 ? BuildOrder.Length : i; }

@@ -72,7 +72,6 @@ If a key is missing after merge the lead reconciles (rename here or in content).
 - `part_rarity_max` — highest part rarity index reached, 0..14 (max-style) — Progression/Parts
 - `runes_obtained` — rune instances received (incl. merge results) — Progression/Parts
 - `part_levels` — part levels gained — Progression/Parts
-- `part_cap_raises` — Advancement Plate cap raises — Progression/Parts
 - `part_merges` — successful part merges (explicit and quick-merge) — Progression/Parts
 - `parts_dismantled` — parts dismantled — Progression/Parts
 - `rune_merges` — 3→1 rune merges — Progression/Parts

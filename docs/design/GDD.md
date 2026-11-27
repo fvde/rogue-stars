@@ -205,7 +205,8 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
   level i ≈ main level 40 + 3·(i−1)) with extreme modifiers (+45…90% enemy HP/ATK, −50% healing, faster awakening and
   danger), own rewards and leaderboard. The long-term source of **Data** for the Laboratory (Data per clear grows with
   the level).
-- **Burrow** (limited daily attempts): multi-floor dive with cash-out between floors; worthy rewards.
+- **Burrow** (limited daily attempts): multi-floor dive with cash-out between floors; worthy rewards (Gear Cores every floor,
+  Fuel from floor 6, a 1.5% Crate chance per floor from floor 5, an Awaken Core chance on floors 9–10).
 - **Invasion fights** (limited attempts): see §9.
 - **Arena**: async PvP, see §10.
 - **Threat curve:** enemy strength scales per level along a long curve (designed for years of content).
@@ -488,7 +489,6 @@ converted step by step (docs/design/pull-system.md).
 | Awaken Cores | Part awakening (arena shop, high-tier invasions, deep Burrow floors; extremely rare) |
 | Arena Medals | Arena shop (arena fights and weekly rank) |
 | Gear Cores | Part levels above 10, the Forge |
-| Advancement Plates | No use since parts v2 removed cap raises (still produced by the Plate Foundry and Burrow) |
 | Fuel | Mount levels |
 | Hero XP | Hero levels |
 | Diamonds | Premium; also earnable (city Diamond mine, quests, events) |
@@ -534,7 +534,6 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Ore | part levels, Mythic ladder steps, Replicator, city buildings | Parts (D1, level 1), City or Ore Mine | 1 000 |
 | Gear Cores | part levels 11+ (Rare+ parts), Forge | a Rare+ part is owned, or Forge (D20) | 200 |
 | Metal | Mythic ladder steps (fed spare standard parts) | Parts (D1) | none |
-| Advancement Plates | none since parts v2 (cap raises removed; still produced, see backlog) | a Rare+ part is owned | 20 |
 | Awaken Cores | part awakening | a Mythic part is owned | none |
 | Grain | breeding | Aliens (D7) or Breeding | 2 000 |
 | Fuel | mount levels | Mounts (D12) | 4 000 |

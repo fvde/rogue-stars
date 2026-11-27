@@ -82,7 +82,7 @@ namespace RogueStars.Client.World.Anim
             { "time_clock_2", Pulse(Cyan, 0.9f, 1.6f, 0.15f, 0.25f) },
         };
 
-        /// <summary>City buildings by blueprint id: what moves on their stand-in sprite (sway for farms, glow pulse for labs, crystals, the reactor, beacons and spires; smoke for the refinery and foundry).</summary>
+        /// <summary>City buildings by blueprint id: what moves on their stand-in sprite (sway for farms, glow pulse for labs, crystals, the reactor, beacons and spires; smoke for the refinery).</summary>
         public static readonly Dictionary<string, PropLook> Buildings = new Dictionary<string, PropLook>
         {
             { "bp_biomass_farm", Sway(0.03f, 1.2f, 0.25f) },
@@ -91,7 +91,6 @@ namespace RogueStars.Client.World.Anim
             { "bp_fuel_refinery", new PropLook(FxKind.None) { Smoke = true, Emit = new Vector2(0.5f, 0.6f), EmitWidth = 0.25f } },
             { "bp_gear_works", Shimmer(0.6f, 0.5f, 0.3f) },
             { "bp_training_grounds", Shimmer(0.5f, 0.5f, 0.25f) },
-            { "bp_plate_foundry", new PropLook(FxKind.Flame, ("_Distort", 0.016f), ("_BaseY", 0.2f), ("_Flicker", 0.3f)) { AutoMask = true, Smoke = true, Emit = new Vector2(0.5f, 0.7f), EmitWidth = 0.2f, SmokeTint = new Color(0.34f, 0.34f, 0.37f, 0.9f) } },
             { "bp_diamond_mine", Pulse(Cyan, 0.8f, 2.0f) },
             { "bp_token_relay", Pulse(Gold, 0.6f, 1.8f, 0.15f) },
             { "bp_signal_beacon", Pulse(Violet, 0.8f, 1.4f, 0.1f) },

@@ -25,7 +25,7 @@ Published as the "Rogue Stars Backlog" artifact; keep this file and the artifact
 |---|---|---|
 | D1 | **Part icons** (all 31 parts have no dedicated icon, and the client has no part-icon lookup: part tiles are text-only) | On hold until the general parts review; needs a code slot on every part tile as well as the art. |
 | D2 | **Parts review**: Gear Cores as a second currency, the "Legs" slot on a legless worm | Owner review pending. |
-| D3 | **Building "lights on" overlays**: at night the City lights a working building with a code-drawn warm glow | The 25 building sprites are imported (art import 4, each plate fitted to its 1x1 to 3x3 footprint); lit-window overlays per building are still an art task. |
+| D3 | **Building "lights on" overlays**: at night the City lights a working building with a code-drawn warm glow | The 24 building sprites are imported (art import 4, each plate fitted to its 1x1 to 3x3 footprint); lit-window overlays per building are still an art task. |
 | D4 | **13 of 21 alien species have no sprite** (coloured placeholders) | Art queue (3 approved, being imported). |
 | D5 | **Skill icons**: skills show letters or stars | Art queue (skills-v2, about 160 icons). |
 | D6 | **Shard Reactor screen** (empty state, selected chip colour) | Fix with the building UI work. |

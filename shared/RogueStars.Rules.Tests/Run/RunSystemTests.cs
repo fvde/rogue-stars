@@ -479,8 +479,14 @@ public class AwakenCoreSourceTests
         for (int i = 0; i < burrow.LevelIds.Count; i++)
         {
             var drops = c.RunLevel(burrow.LevelIds[i])!.RareDrops;
-            if (i < burrow.LevelIds.Count - 2) Assert.Empty(drops);
-            else Assert.All(drops, d => Assert.InRange(d.ChancePct, 0.1, 5));
+            var cores = drops.FindAll(d => d.Reward.Id == core);
+            if (i < burrow.LevelIds.Count - 2) Assert.Empty(cores);
+            else Assert.All(cores, d => Assert.InRange(d.ChancePct, 0.1, 5));
+            // the other Burrow rare drop: a Crate on floors 5+ (was 1 Advancement Plate per floor; 75 plates = 1 Crate)
+            var crates = drops.FindAll(d => d.Reward.Id == Currencies.PartTokens);
+            if (i < 4) Assert.Empty(crates);
+            else Assert.Equal(1.5, Assert.Single(crates).ChancePct);
+            Assert.Equal(drops.Count, cores.Count + crates.Count);
         }
     }
 

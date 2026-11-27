@@ -52,7 +52,10 @@ public class ProgressionGuardTests
     [InlineData("Worm", 10)]
     // parts v2: 7 → 10. Parts no longer merge: an upgrade is a better part from a pull or a boss first clear, a Mythic ladder step, a
     // Forge unlock or an awakening; Active F2P seed 1 waits up to 9 days between two in its first 60 days.
-    [InlineData("Parts", 10)]
+    // 10 → 14 (Advancement Plates and the Plate Foundry removed, 2026-11-27): the bot's city and Burrow rolls shift and seed 1 now
+    // waits 13 days. Pull luck, not a wall: Active F2P seeds 1–6 were 9 / 9 / 8 / 8 / 10 / 17 before, 13 / 14 / 8 / 7 / 8 / 19
+    // after (Active Whale 9 / 10 / 5 / 8 / 9 / 7 → 7 / 10 / 6 / 6 / 7 / 11); nothing parts-related changed.
+    [InlineData("Parts", 14)]
     [InlineData("PartLevels", 20)] // 9 before the plateau fix; see progression-report.md "Plateau fix"
     [InlineData("Heroes", 25)]
     // 21 → 24 (playtest 0.1.308): two minibosses per run (was ~3–4 Mythic choices) and 3-offer shops make runs a little
@@ -127,7 +130,9 @@ public class ProgressionGuardTests
         {
             var boss = r.RunLog.Where(x => x.BossReached && x.Mode != RunMode.Burrow).ToList();
             Assert.True(boss.Count > 100, r.Profile + ": runs logged");
-            Assert.InRange(boss.Average(x => x.Rolls), 21.5, 28); // was 27–35 at 3.6 meter points per roll (×0.8)
+            // was 27–35 at 3.6 meter points per roll (×0.8). Lower bound 21.5 → 21 (plates removed, 2026-11-27): seed 1 Active F2P
+            // 21.59 → 21.41 by RNG shift alone; seeds 1–6 average 21.7 before and after (seed 2 was 21.35 before).
+            Assert.InRange(boss.Average(x => x.Rolls), 21, 28);
             Assert.InRange(boss.Average(x => x.Drafts), 8, 12);
             Assert.True(r.RunLog.Max(x => x.LootOffers) <= 3, r.Profile + ": more than 3 account-loot opportunities in a run");
             Assert.InRange(r.RunLog.Where(x => x.Mode != RunMode.Burrow).Average(x => x.LootOffers), 0.5, 2);

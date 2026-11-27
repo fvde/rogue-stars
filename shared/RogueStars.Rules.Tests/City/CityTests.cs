@@ -46,12 +46,12 @@ public class CityTests
     // ---- content ----
 
     [Fact]
-    public void Content_TwentyFiveBuildings_FootprintAndCopiesByRarity()
+    public void Content_TwentyFourBuildings_FootprintAndCopiesByRarity()
     {
         var c = new ContentDb();
         var ids = new[]
         {
-            "bp_biomass_farm", "bp_grain_farm", "bp_ore_mine", "bp_fuel_refinery", "bp_gear_works", "bp_training_grounds", "bp_plate_foundry",
+            "bp_biomass_farm", "bp_grain_farm", "bp_ore_mine", "bp_fuel_refinery", "bp_gear_works", "bp_training_grounds",
             "bp_diamond_mine", "bp_token_relay", "bp_signal_beacon", "bp_part_fabricator", "bp_launch_pod", "bp_barracks_dome", "bp_command_spire",
             "bp_breeding_pen", "bp_gene_lab", "bp_laboratory", "bp_observatory", "bp_shard_reactor", "bp_stamina_well", "bp_regen_spire",
             "bp_supply_depot", "bp_scout_post", "bp_war_academy", "bp_stasis_beacon",
@@ -67,7 +67,7 @@ public class CityTests
             Assert.Equal(noSkill, d.Placement == null);
         }
         Assert.Equal(8, c.Blueprints.Values.Count(d => d.CostType == BuildingCostType.Biomass));
-        Assert.Equal(7, c.Blueprints.Values.Count(d => d.CostType == BuildingCostType.Ore));
+        Assert.Equal(6, c.Blueprints.Values.Count(d => d.CostType == BuildingCostType.Ore));
         Assert.Equal(10, c.Blueprints.Values.Count(d => d.CostType == BuildingCostType.Both));
         Assert.Equal(Rarity.Mythic, c.Blueprint(ContentDb.LaboratoryId).Rarity);
         Assert.Equal(Rarity.Legendary, c.Blueprint("bp_scout_post").Rarity);
@@ -472,6 +472,45 @@ public class CityTests
         Assert.Equal(20, e.BuildLoadout(s, t).WormStats.Value(StatId.AlienPower), 6);
         Ok(e, ref s, new CityStore { Uid = pod }, t);
         Assert.Empty(AlienSystem.ActiveSquad(s, e.Content));
+    }
+
+    // ---- removed content (pre-release, no migration) ----
+
+    [Fact]
+    public void RemovedContent_OldSaveWithAPlateFoundryAndPlates_LoadsAndTheTileFreesUp()
+    {
+        var e = Engine();
+        var s = Rich(e);
+        // An old save: the removed Plate Foundry owned (stars, shards, a stashed copy), one copy placed at (9, 11), staffed and
+        // upgrading, one stored; Advancement Plates in the wallet and the stash; the production priority on plates.
+        const string gone = "bp_plate_foundry", plates = "advancement_plates";
+        s.City.Blueprints[gone] = new OwnedBlueprint { Id = gone, Stars = 3 };
+        s.City.Buildings.Add(new CityBuilding { Uid = gone + "#1", BlueprintId = gone, X = 9, Y = 11, Placed = true, Level = 2, LastSettleMs = T0, TimerId = "t_gone" });
+        s.City.Buildings.Add(new CityBuilding { Uid = gone + "#2", BlueprintId = gone, Level = 1, LastSettleMs = T0 });
+        s.Timers.Active.Add(new GameTimer { Id = "t_gone", Kind = CitySystem.TimerUpgrade, RefId = gone + "#1", StartMs = T0, EndsMs = T0 + Hour, DurationMs = Hour });
+        GrantAlien(e, s, Worker);
+        AlienSystem.Owned(s, Worker).WorkBuildingId = gone + "#1";
+        s.Wallet.Add(plates, 500);
+        s.Wallet.Add(Currencies.BlueprintShards(gone), 120);
+        s.Stash.Currencies[plates] = 20;
+        s.Stash.Items.Add(new Reward(RewardKinds.Blueprint, gone, 1));
+        s.City.PriorityCurrency = plates;
+        CityLayout.Invalidate(s);
+
+        e.Settle(s, T0 + Min); // loading a save settles it
+        Assert.Null(CitySystem.Owned(s, gone));
+        Assert.Empty(CitySystem.Copies(s, gone));
+        Assert.DoesNotContain(s.Timers.Active, t => t.Id == "t_gone");
+        Assert.Null(AlienSystem.Owned(s, Worker).WorkBuildingId);
+        Assert.False(s.Wallet.Balances.ContainsKey(plates));
+        Assert.False(s.Wallet.Balances.ContainsKey(Currencies.BlueprintShards(gone)));
+        Assert.False(s.Stash.Currencies.ContainsKey(plates));
+        Assert.DoesNotContain(s.Stash.Items, r => r.Id == gone);
+        Assert.Null(s.City.PriorityCurrency);
+        Assert.Equal(10_000_000, s.Wallet.Get(Currencies.Ore)); // content currencies stay
+        // The tile is free: an Epic (2×2) building goes exactly where the foundry stood, and the timer passes.
+        BuildAt(e, ref s, "bp_regen_spire", 9, 11, T0 + Min, out _);
+        e.Settle(s, T0 + 2 * Hour);
     }
 
     // ---- the redesign reset ----

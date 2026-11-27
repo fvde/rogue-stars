@@ -512,8 +512,44 @@ namespace RogueStars.Rules.Systems
         private static void Settle(CommandContext ctx)
         {
             if (ctx.State.City.Version < LayoutVersion) Reset(ctx);
+            DropRemovedBlueprints(ctx);
             TimerSystem.CompleteDue(ctx); // completes due construction/upgrades/digs at their exact end time first
             SettleAll(ctx.State, ctx.Content, ctx.NowMs);
+        }
+
+        /// <summary>
+        /// Blueprints removed from the content (pre-release, no migration; e.g. the Plate Foundry): an old save's owned blueprint,
+        /// its shards and stashed copies, its buildings (placed or stored: the tiles free up) with their timers and workers, and a production
+        /// priority on a currency no building makes any more are dropped. Idempotent and time-independent (safe in a settle).
+        /// </summary>
+        public static void DropRemovedBlueprints(CommandContext ctx)
+        {
+            var s = ctx.State; var c = ctx.Content; var city = s.City;
+            List<string> gone = null;
+            foreach (var id in city.Blueprints.Keys) if (c.Blueprint(id) == null) (gone ??= new List<string>()).Add(id);
+            if (gone != null) foreach (var id in gone) city.Blueprints.Remove(id);
+            for (int i = city.Buildings.Count - 1; i >= 0; i--)
+            {
+                var b = city.Buildings[i];
+                if (c.Blueprint(b.BlueprintId) != null) continue;
+                city.Buildings.RemoveAt(i);
+                s.Timers.Active.RemoveAll(t => t.Id == b.TimerId || ((t.Kind == TimerBuild || t.Kind == TimerUpgrade) && t.RefId == b.Uid));
+                foreach (var a in s.Aliens.Owned.Values) if (a.WorkBuildingId == b.Uid) a.WorkBuildingId = null;
+                CityLayout.Invalidate(s);
+            }
+            s.Stash.Items.RemoveAll(r => r.Kind == RewardKinds.Blueprint && r.Id != "*" && c.Blueprint(r.Id) == null);
+            string shardPrefix = Currencies.BlueprintShards("");
+            List<string> shards = null;
+            foreach (var k in s.Wallet.Balances.Keys)
+                if (k.StartsWith(shardPrefix, StringComparison.Ordinal) && c.Blueprint(k.Substring(shardPrefix.Length)) == null)
+                    (shards ??= new List<string>()).Add(k);
+            if (shards != null) foreach (var k in shards) s.Wallet.Balances.Remove(k);
+            if (!string.IsNullOrEmpty(city.PriorityCurrency))
+            {
+                bool produced = false;
+                foreach (var d in c.Blueprints.Values) if (d.ProduceCurrency == city.PriorityCurrency) { produced = true; break; }
+                if (!produced) city.PriorityCurrency = null;
+            }
         }
 
         /// <summary>

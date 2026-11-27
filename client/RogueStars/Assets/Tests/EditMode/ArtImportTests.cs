@@ -252,7 +252,7 @@ namespace RogueStars.Client.Tests
             Assert.That(content.Enemies.ContainsKey("boss_hollow_cantor"), Is.True);
             Assert.That(content.Enemies.ContainsKey("boss_elder_magma"), Is.False);
             Assert.That(content.Enemies.ContainsKey("boss_chrono_wyrm"), Is.False);
-            Assert.That(content.Blueprints.Count, Is.EqualTo(25));
+            Assert.That(content.Blueprints.Count, Is.EqualTo(24));
             foreach (var id in content.Blueprints.Keys)
             {
                 var item = plan.Find(i => i.Dest == ArtCatalog.BuildingFolder + "/" + id + ".png");

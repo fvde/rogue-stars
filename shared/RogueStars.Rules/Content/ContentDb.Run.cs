@@ -527,7 +527,10 @@ namespace RogueStars.Rules.Content
             }
             var burrow = new LootTableDef { Id = "loot_burrow" };
             burrow.Entries.AddRange(RunLootTables["loot_p2"].Entries);
-            burrow.Entries.Add(new LootEntry(2, RewardKinds.Currency, Currencies.AdvancementPlates, 1, 2));
+            // Advancement Plates are gone (parts v2: fixed level caps); their Burrow share pays Crates at 75 plates = 1 Crate
+            // (a plate ≈ 2 Diamonds: the Plate Foundry made 0.5/h where the Diamond Mine makes 1/h; a Crate = 1 pull = 150
+            // Diamonds). The old entry (weight 2, 1–2 plates) becomes 1 Crate at weight 0.04 (same expected value).
+            burrow.Entries.Add(new LootEntry(0.04, RewardKinds.Currency, Currencies.PartTokens, 1, 1));
             RunLootTables[burrow.Id] = burrow;
             var darkLoot = new LootTableDef { Id = "loot_dark" };
             darkLoot.Entries.AddRange(RunLootTables["loot_p3"].Entries);
@@ -560,11 +563,12 @@ namespace RogueStars.Rules.Content
                 l.FixedTiles.RemoveAll(ft => ft.TileId == "shop" && ft.At > 0.8); // short floors: one shop each
                 l.BoardLength = 18; l.MaxRolls = 6; // short floors: the boss comes at the roll limit l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.AdvancementPlates, f >= 5 ? 1 : 0));
                 // Deep floors pay Fuel (mount levels; was 1 Mount Core = 300 Fuel); the two deepest floors have a small
                 // chance of an Awaken Core (rare drop, paid unscaled on cash-out).
                 l.CompletionRewards.Add(Reward.Cur(Currencies.Fuel, f >= 6 ? 300 : 0));
                 l.CompletionRewards.RemoveAll(r => r.Amount <= 0);
+                // Floors 5+ paid 1 Advancement Plate each; now a 1.5% chance of a Crate (75 plates = 1 Crate, see loot_burrow).
+                if (f >= 5) l.RareDrops.Add(new RareDrop(Reward.Cur(Currencies.PartTokens, 1), 1.5));
                 if (f >= 9) l.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), f == 9 ? 1.0 : 1.5));
                 burrow.LevelIds.Add(l.Id);
             }

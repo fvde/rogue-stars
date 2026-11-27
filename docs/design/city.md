@@ -6,7 +6,7 @@ Implements the owner-approved City design (section 6 "Every building" is authori
 
 ## Buildings
 
-25 blueprints, footprint and copies by rarity (rotation swaps width and height):
+24 blueprints, footprint and copies by rarity (rotation swaps width and height):
 
 | Rarity | Footprint | Copies | Production worker slots |
 |---|---|---|---|
@@ -86,7 +86,7 @@ patches of 7–16 tiles (210), 240 land tiles. Ten terrain features (4 Crystal O
 
 One skill per building (none: Launch Pod, Laboratory, Shard Reactor), a multiplier on its main number (output, chance speed,
 boon value), own skill + auras capped at +30%. Scout Post and War Academy give +1 flat instead. Kinds: Neighbours (per match,
-"tag:farm" / "cat:Housing" / blueprint id), Melting Pot, Row of Three, Diagonal, Across the Street (target directly opposite a
+"tag:farm" / "cat:Housing" / blueprint id), Melting Pot, Diagonal, Across the Street (target directly opposite a
 1-wide street), Hearth (≤ N tiles from the fireplace), Outskirts (≥ N), Open Ground (N+ empty land tiles touching), Cliffside
 (touches undug / void), Aura (Barracks Dome: +10% to touching buildings while it runs), Touch plaza (Command Spire).
 Distances: straight steps from the closest footprint tile. Bonuses are cached per `CityState.LayoutRev`.

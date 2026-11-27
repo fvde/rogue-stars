@@ -131,7 +131,24 @@ namespace RogueStars.Rules.Systems
             st.Dropped[key] = (st.Dropped.TryGetValue(key, out var d) ? d : 0) + amount;
 
         /// <summary>Settler: releases every stashed reward whose use has unlocked (non-feature uses; features release at unlock).</summary>
-        public static void ReleaseReady(CommandContext ctx) => Release(ctx, null);
+        public static void ReleaseReady(CommandContext ctx)
+        {
+            DropRemovedCurrencies(ctx.State, ctx.Content);
+            Release(ctx, null);
+        }
+
+        /// <summary>
+        /// Currencies removed from the content (pre-release, no migration; e.g. Advancement Plates): a wallet balance or stashed
+        /// amount whose currency has no <see cref="ContentDb.RewardUses"/> entry (every content currency has one) is dropped.
+        /// </summary>
+        public static void DropRemovedCurrencies(GameState s, ContentDb c)
+        {
+            List<string> gone = null;
+            foreach (var k in s.Wallet.Balances.Keys) if (c.CurrencyUse(k) == null) (gone ??= new List<string>()).Add(k);
+            foreach (var k in s.Stash.Currencies.Keys) if (c.CurrencyUse(k) == null) (gone ??= new List<string>()).Add(k);
+            if (gone == null) return;
+            foreach (var k in gone) { s.Wallet.Balances.Remove(k); s.Stash.Currencies.Remove(k); }
+        }
 
         /// <summary>
         /// Grants every stashed reward that has a use now through its owner's granter (currencies in ordinal order, then

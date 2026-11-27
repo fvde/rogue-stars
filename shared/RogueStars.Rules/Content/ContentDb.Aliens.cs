@@ -124,7 +124,7 @@ namespace RogueStars.Rules.Content
         {
             // ---- traits: work ----
             AlienWorkTrait("trait_green_thumb", "Green Thumb", 20, 12, Currencies.Biomass, Currencies.Grain);
-            AlienWorkTrait("trait_deep_digger", "Deep Digger", 20, 12, Currencies.Ore, Currencies.Diamonds, Currencies.AdvancementPlates);
+            AlienWorkTrait("trait_deep_digger", "Deep Digger", 20, 12, Currencies.Ore, Currencies.Diamonds);
             AlienWorkTrait("trait_tinkerer", "Tinkerer", 20, 10, Currencies.Fuel, Currencies.GearCores);
             AlienWorkTrait("trait_scholar", "Scholar", 15, 8, Currencies.HeroXp, Currencies.BlueprintTokens, Currencies.AlienTokens);
             AlienWorkTrait("trait_tireless", "Tireless", 10, 10);

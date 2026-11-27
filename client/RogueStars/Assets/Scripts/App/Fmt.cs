@@ -39,7 +39,7 @@ namespace RogueStars.Client.App
         private static readonly Dictionary<string, string> Names = new Dictionary<string, string>
         {
             { Currencies.Biomass, "Biomass" }, { Currencies.Grain, "Grain" }, { Currencies.Ore, "Ore" },
-            { Currencies.GearCores, "Gear Cores" }, { Currencies.Metal, "Metal" }, { Currencies.AdvancementPlates, "Adv. Plates" }, { Currencies.Fuel, "Fuel" },
+            { Currencies.GearCores, "Gear Cores" }, { Currencies.Metal, "Metal" }, { Currencies.Fuel, "Fuel" },
             { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Schematics" },
             { Currencies.PartTokens, "Crates" }, { Currencies.AlienTokens, "Signals" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },

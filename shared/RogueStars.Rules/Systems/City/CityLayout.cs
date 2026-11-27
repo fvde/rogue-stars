@@ -442,7 +442,6 @@ namespace RogueStars.Rules.Systems
                     met = n > 0;
                     break;
                 }
-                case PlacementKind.RowOfThree: met = InRowOfThree(g, it, p.Target); break;
                 case PlacementKind.AcrossStreet: met = AcrossStreet(g, it, p.Target); break;
                 case PlacementKind.Hearth: met = FireDistance(g.Content, it) <= p.Count; break;
                 case PlacementKind.Outskirts: met = FireDistance(g.Content, it) >= p.Count; break;
@@ -478,49 +477,6 @@ namespace RogueStars.Rules.Systems
                 if (o != null && o != it && !side.Contains(o) && !list.Contains(o)) list.Add(o);
             }
             return list;
-        }
-
-        /// <summary>Buildings matching <paramref name="target"/> touching one side of <paramref name="it"/> (dir: 0 east, 1 west, 2 south, 3 north).</summary>
-        private static List<CityGridItem> SideNeighbours(CityGrid g, CityGridItem it, int dir, string target)
-        {
-            var list = new List<CityGridItem>();
-            if (dir < 2)
-            {
-                int x = dir == 0 ? it.X + it.W : it.X - 1;
-                for (int y = it.Y; y < it.Y + it.H; y++)
-                {
-                    var o = g.ItemAt(x, y);
-                    if (o != null && o != it && Matches(o.Def, target) && !list.Contains(o)) list.Add(o);
-                }
-            }
-            else
-            {
-                int y = dir == 2 ? it.Y + it.H : it.Y - 1;
-                for (int x = it.X; x < it.X + it.W; x++)
-                {
-                    var o = g.ItemAt(x, y);
-                    if (o != null && o != it && Matches(o.Def, target) && !list.Contains(o)) list.Add(o);
-                }
-            }
-            return list;
-        }
-
-        /// <summary>
-        /// Row of Three: the building and two buildings of the target kind side by side in one line (east–west or north–south): a
-        /// neighbour on both sides, or a neighbour with a further neighbour on the same side.
-        /// </summary>
-        private static bool InRowOfThree(CityGrid g, CityGridItem it, string target)
-        {
-            for (int axis = 0; axis < 2; axis++)
-            {
-                int a = axis * 2, b = axis * 2 + 1;
-                var first = SideNeighbours(g, it, a, target);
-                var second = SideNeighbours(g, it, b, target);
-                if (first.Count > 0 && second.Count > 0) return true;
-                foreach (var o in first) foreach (var o2 in SideNeighbours(g, o, a, target)) if (o2 != it) return true;
-                foreach (var o in second) foreach (var o2 in SideNeighbours(g, o, b, target)) if (o2 != it) return true;
-            }
-            return false;
         }
 
         /// <summary>A target building directly opposite across a 1-wide street (footprint tile → street → target tile, straight).</summary>

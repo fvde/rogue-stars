@@ -208,26 +208,6 @@ public class CityLayoutTests
     }
 
     [Fact]
-    public void Skill_RowOfThree_ProductionInALine()
-    {
-        var (e, s) = Fresh();
-        UnlockAll(e, s);
-        string foundry = Put(e, s, "bp_plate_foundry", 12, 9); // (12..13, 9..10)
-        Put(e, s, Farm, 11, 9);
-        Assert.Equal(0, Pct(e, s, foundry));
-        Put(e, s, "bp_ore_mine", 14, 10);
-        Assert.Equal(20, Pct(e, s, foundry));                 // farm – foundry – mine
-        var (e2, s2) = Fresh();
-        UnlockAll(e2, s2);
-        string f2 = Put(e2, s2, "bp_plate_foundry", 11, 9);   // foundry – farm – mine to the east
-        Put(e2, s2, Farm, 13, 9);
-        Put(e2, s2, "bp_ore_mine", 14, 9);
-        Assert.Equal(20, Pct(e2, s2, f2));
-        Put(e2, s2, "bp_stamina_well", 13, 10);               // a boon building does not break or make a row
-        Assert.Equal(20, Pct(e2, s2, f2));
-    }
-
-    [Fact]
     public void Skill_Aura_OnlyWhileRunning_AndTheCap()
     {
         var (e, s) = Fresh();

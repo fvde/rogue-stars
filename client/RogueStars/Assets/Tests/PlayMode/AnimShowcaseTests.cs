@@ -199,7 +199,7 @@ namespace RogueStars.Client.PlayTests
             var rewards = new List<Reward> { Reward.Cur(Currencies.Biomass, 9_000_000), Reward.Cur(Currencies.Ore, 9_000_000), Reward.Cur(Currencies.GearCores, 200_000), Reward.Cur(Currencies.Diamonds, 90_000) };
             var bps = new[]
             {
-                "bp_biomass_farm", "bp_grain_farm", "bp_ore_mine", "bp_fuel_refinery", "bp_gear_works", "bp_plate_foundry", "bp_diamond_mine", "bp_token_relay",
+                "bp_biomass_farm", "bp_grain_farm", "bp_ore_mine", "bp_fuel_refinery", "bp_gear_works", "bp_diamond_mine", "bp_token_relay",
                 "bp_signal_beacon", ContentDb.LaunchPodId, "bp_breeding_pen", "bp_observatory", "bp_stamina_well", "bp_supply_depot",
                 "bp_regen_spire", "bp_command_spire", "bp_barracks_dome", "bp_part_fabricator", "bp_gene_lab", ContentDb.LaboratoryId, ContentDb.ShardReactorId,
             };

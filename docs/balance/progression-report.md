@@ -817,6 +817,37 @@ Mythics, replicates when copies are short and feeds every spare standard part fo
   from pulls, boss clears and ladder steps), miniboss Mythic picks per boss run ≥ 1.5 → ≥ 1.3 (the weaker mid-game bot replays
   level 1 between frontier attempts).
 
+## Advancement Plates removed (owner, 2026-11-27)
+
+Parts v2 fixes the level cap per ladder step, so Advancement Plates (the old cap-raise material) had no use. The currency and the
+Plate Foundry (for now) are gone; plate rewards became Crates at 75 plates = 1 Crate (a plate ≈ 2 Diamonds: the Foundry made
+0.5/h where the Diamond Mine, the same Epic Ore building, makes 1/h; a Crate = one Parts pull = 150 Diamonds). Burrow loot: the
+plate entry (weight 2, 1–2 plates) is 1 Crate at weight 0.04; Burrow floors 5–10 (1 plate each) roll a 1.5% Crate rare drop
+each. Same bot, 5 profiles × 3 seeds × 730 days, parts v2 data → after. Data: `data/<profile>_no_plates.csv`,
+`data/analysis_no_plates.md`, `data/redesign_no_plates.md`.
+
+| Power | d7 | d30 | d90 | d365 | d730 |
+|---|---|---|---|---|---|
+| Casual F2P | 3 877 → 3 877 (+0%) | 5 498 → 5 498 (+0%) | 10 455 → 10 455 (+0%) | 23 627 → 23 154 (-2%) | 37 081 → 36 844 (-1%) |
+| Active F2P | 5 410 → 5 410 (+0%) | 9 823 → 10 373 (+6%) | 17 719 → 18 356 (+4%) | 50 687 → 52 934 (+4%) | 78 849 → 84 415 (+7%) |
+| Active Dolphin | 4 751 → 4 846 (+2%) | 11 552 → 12 106 (+5%) | 20 345 → 21 619 (+6%) | 53 542 → 52 896 (-1%) | 95 275 → 90 049 (-5%) |
+| Hardcore F2P | 6 005 → 5 823 (-3%) | 12 180 → 12 338 (+1%) | 21 850 → 22 158 (+1%) | 63 488 → 64 599 (+2%) | 100 346 → 102 259 (+2%) |
+| Hardcore Whale | 6 038 → 6 038 (+0%) | 15 080 → 14 979 (-1%) | 27 125 → 26 345 (-3%) | 81 938 → 83 439 (+2%) | 120 226 → 118 026 (-2%) |
+
+| Main level | d7 | d30 | d90 | d365 | d730 |
+|---|---|---|---|---|---|
+| Casual F2P | 9 → 9 | 28 → 28 | 43 → 42 | 76 → 78 | 106 → 112 |
+| Active F2P | 25 → 25 | 42 → 44 | 70 → 70 | 182 → 190 | 314 → 344 |
+| Active Dolphin | 27 → 27 | 50 → 51 | 72 → 74 | 210 → 181 | 433 → 327 |
+| Hardcore F2P | 30 → 29 | 49 → 53 | 74 → 80 | 220 → 265 | 371 → 463 |
+| Hardcore Whale | 29 → 29 | 68 → 67 | 115 → 99 | 470 → 476 | 636 → 645 |
+
+Reading: power stays within ±7% everywhere (seed noise of 3 seeds; plates fed nothing since parts v2, and the Crate share is worth
+~0.1 pulls a week). The late main level swings both ways (Hardcore F2P +25%, Active Dolphin −24% at d730) with power flat: the
+endless campaign's late pace is power-gated and sensitive to which seed's pulls land when, not a trend. Guard bands moved
+(ProgressionGuardTests, seed 1, RNG shift only): longest Parts gap 10 → 14 days (Active F2P seeds 1–6: 9 / 9 / 8 / 8 / 10 / 17
+before, 13 / 14 / 8 / 7 / 8 / 19 after), run rolls to the boss ≥ 21.5 → ≥ 21 (21.59 → 21.41; seeds 1–6 average 21.7 both).
+
 ## Remaining recommendations
 
 0. ~~(Redesign) Campaign end for Hardcore profiles~~: done — the campaign is endless (see "Endless campaign"). Still
@@ -829,7 +860,7 @@ Mythics, replicates when copies are short and feeds every spare standard part fo
    collection bonuses per duplicate, so pulls keep converting into power for years.
 2. ~~Dark Side~~: done (procedural, endless since the endless campaign).
 3. **Laboratory:** a second research slot from a building boon or more lines; it is done by month 5 for Active players.
-4. **Gear Cores / plates / Part Awaken Cores:** after parts are maxed they have no sink — add a late sink (rune rerolls,
+4. **Gear Cores / Part Awaken Cores** (plates are gone, see "Advancement Plates removed"): after parts are maxed they have no sink — add a late sink (rune rerolls,
    set bonuses, part transmute) or taper their income at max.
 5. ~~Campaign band 31–60~~: done (see "Plateau fix" above). The slowest campaign stretch for Active F2P is now levels
    77–81 around days 140–170 (≈ 1 level per week); watch it if the 61–90 band is retuned.

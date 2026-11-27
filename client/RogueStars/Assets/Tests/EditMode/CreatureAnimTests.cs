@@ -457,7 +457,7 @@ namespace RogueStars.Client.Tests
             foreach (var id in new[] { "bp_laboratory", "bp_shard_reactor", "bp_signal_beacon", "bp_command_spire", "bp_diamond_mine" })
                 Assert.That(PropFx.Buildings[id].Kind, Is.EqualTo(FxKind.Pulse), id + " pulses");
             Assert.That(PropFx.Buildings["bp_fuel_refinery"].Smoke, Is.True, "the refinery smokes");
-            Assert.That(PropFx.Buildings["bp_plate_foundry"].Smoke, Is.True); Assert.That(PropFx.Buildings["bp_plate_foundry"].AutoMask, Is.True, "the foundry's fire is found by colour");
+            Assert.That(PropFx.Buildings["bp_scout_post"].AutoMask, Is.True, "the scout post's fire is found by colour");
             Assert.That(PropFx.Props["portal"].Kind, Is.EqualTo(FxKind.Swirl), "the portal is a swirl shader, not video");
             Assert.That(PropFx.Props["campfire_big"].Embers, Is.True);
         }
@@ -489,9 +489,9 @@ namespace RogueStars.Client.Tests
             var fx2 = PropFx.Apply(sr2, PropFx.LookOfSprite(s));
             Assert.That(fx2.Instance.GetFloat("_Phase"), Is.Not.EqualTo(fx.Instance.GetFloat("_Phase")));
             Assert.That(PropFx.Apply(sr, null), Is.Null);
-            var autoGo = new GameObject("Foundry"); _junk.Add(autoGo);
+            var autoGo = new GameObject("ScoutPost"); _junk.Add(autoGo);
             var asr = autoGo.AddComponent<SpriteRenderer>(); asr.sprite = Creature("chest_common");
-            var afx = PropFx.Apply(asr, PropFx.LookOfBuilding("bp_plate_foundry"));
+            var afx = PropFx.Apply(asr, PropFx.LookOfBuilding("bp_scout_post"));
             Assert.That(afx.Instance.GetFloat("_AutoMask"), Is.EqualTo(1f));
         }
 

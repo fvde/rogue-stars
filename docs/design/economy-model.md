@@ -9,6 +9,13 @@ and are checked by `EconomyLongHaulTests` (shared/RogueStars.Rules.Tests/Progres
 > **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
 > Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
 
+> **Advancement Plates removed (owner, 2026-11-27):** parts v2 has a fixed level cap per ladder step, so the cap-raise material
+> had no use; the currency and its building, the Plate Foundry, are gone (the building for now). Plate rewards became Crates at
+> **75 plates = 1 Crate**: a plate was worth ~2 Diamonds (the Plate Foundry made 0.5/h where the Diamond Mine, the same Epic Ore
+> building, makes 1/h) and a Crate is one Parts pull = 150 Diamonds. Burrow loot: the plate entry (weight 2, 1–2 plates) is a
+> Crate at weight 0.04; Burrow floors 5–10 (1 plate each on completion) roll a 1.5% Crate rare drop each. The alien trait Deep
+> Digger keeps Ore and Diamonds. Old saves drop plate balances and the building on load (its tiles free up).
+
 ## Income assumptions — active F2P (plays daily, does dailies/weeklies, watches capped ads)
 | Source | Per day | Notes |
 |---|---|---|
@@ -49,7 +56,7 @@ after the main hero is maxed.
 - Parts (`docs/design/parts.md`): 14-step ladder to Mythic SS+2. Below Mythic three parts of a rarity merge into one
   (any def/kind); Mythic+ steps take Legendary+ fodder (fodder points, Legendary = 81 = 1 LE): 2 / 8 / 14 / 24 / 40 /
   70 / 120 / 200 / 340 LE from Mythic to SS+2, own-def copies (Legendary+) 1 / 2 / 3 / 1 for Mythic / S / SS / SS+2 and
-  Ore 1.5k ×1.5 per step. Level cap 10 (Common) → 115 (SS+2) + up to 6 plate raises (60…1 600 plates); Gear Cores from
+  Ore 1.5k ×1.5 per step. Level cap 10 (Common) → 115 (SS+2); Gear Cores from
   part level 10. Five part skills (Epic / Legendary / Mythic / Mythic S / Mythic SS). Awakening: Mythic+, once,
   50 Awaken Cores.
 - Awaken Cores (extremely rare): arena shop (200 Arena Medals, 2 per week), repelled high-tier invasions (top 10
@@ -159,7 +166,7 @@ Rewards without a use wait in the reward stash and are released when the use unl
 cap per currency (`RewardUseDef.StashCap`), paid/explicit sources everything. The caps are sized from the first sinks
 after each unlock and checked with the simulator (`--unlocks`, `--inventory`; `--variant stash_<id>_<cap>` /
 `open_<id>` / `no_reward_gate` to experiment): Biomass 5 000 (a few worm levels), Ore 1 000, Grain 2 000, Fuel 4 000, Hero XP
-3 000, Data 100, Gear Cores 200, Advancement Plates 20, tokens 30 per pull type (three 10-pulls on the Signal's first day),
+3 000, Data 100, Gear Cores 200, tokens 30 per pull type (three 10-pulls on the Signal's first day),
 Runes 5. With caps of 10 tokens the binge bot lost 3–7 main levels in weeks 2–4 (fewer early pulls); at 30 it is within
 noise of uncapped. The surge no longer multiplies stashed Biomass: before Biomass has a use there is no surge (the
 binge player's day-1 surge Biomass used to be mostly dropped by the cap anyway); it starts paying the day the City or

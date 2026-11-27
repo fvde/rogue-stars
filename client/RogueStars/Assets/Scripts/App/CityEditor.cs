@@ -120,7 +120,6 @@ namespace RogueStars.Client.App
             {
                 case PlacementKind.Neighbours: return "Neighbours";
                 case PlacementKind.MeltingPot: return "Melting Pot";
-                case PlacementKind.RowOfThree: return "Row of Three";
                 case PlacementKind.Diagonal: return "Diagonal";
                 case PlacementKind.AcrossStreet: return "Across the Street";
                 case PlacementKind.Hearth: return "Hearth";

@@ -176,7 +176,7 @@ public static class Metrics
         A("city_placement_avg", built.Count == 0 ? 0 : built.Average(b => CityLayout.PlacementPct(s, c, b.Uid)));
         A("city_chances_popped", s.Counter("city_chances_popped"));
         foreach (var cur in new[] { Currencies.Biomass, Currencies.Ore, Currencies.Grain, Currencies.Fuel, Currencies.GearCores, Currencies.HeroXp,
-                     Currencies.AdvancementPlates, Currencies.Diamonds, Currencies.BlueprintTokens, Currencies.AlienTokens })
+                     Currencies.Diamonds, Currencies.BlueprintTokens, Currencies.AlienTokens })
         {
             double ph = 0;
             foreach (var b in active)

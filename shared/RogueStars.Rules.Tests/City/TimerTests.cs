@@ -123,10 +123,10 @@ public class TimerTests
         Assert.Equal(T0 + 30 * Min, TimerSystem.Get(s, t.Id).EndsMs);
         Assert.Equal("no free speed-up left today", Fail(e, ref s, new TimerSpeedUp { TimerId = t.Id, Method = SpeedUpMethod.Free }, T0 + Min));
         // Next UTC day: the daily free speed-up is available again (on a new timer).
-        GrantBlueprint(e, s, "bp_plate_foundry");
+        GrantBlueprint(e, s, "bp_regen_spire");
         long nextDay = (T0 / TimerSystem.DayMs + 1) * TimerSystem.DayMs;
-        Ok(e, ref s, new CityPlace { BlueprintId = "bp_plate_foundry", X = 9, Y = 11 }, nextDay);
-        string id2 = Kit.B(s, "bp_plate_foundry").TimerId;
+        Ok(e, ref s, new CityPlace { BlueprintId = "bp_regen_spire", X = 9, Y = 11 }, nextDay);
+        string id2 = Kit.B(s, "bp_regen_spire").TimerId;
         Ok(e, ref s, new TimerSpeedUp { TimerId = id2, Method = SpeedUpMethod.Free }, nextDay);
     }
 }
