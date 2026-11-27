@@ -320,7 +320,7 @@ namespace RogueStars.Client.PlayTests
                 ("battle_two_enemies", new[] { "cinder_hound", "cinder_hound" }, "skiff", false),
                 ("battle_three_enemies", new[] { "ember_imp", "magma_slug", "ash_wraith" }, "skiff", false),
                 ("battle_elite_no_mount", new[] { "elite_lava_brute" }, null, false),
-                ("battle_miniboss_champion", new[] { "mb_cinder_alpha" }, "skiff", false),
+                ("battle_miniboss_elite", new[] { "elite_cinder_alpha" }, "skiff", false),
                 ("battle_boss_defeat", new[] { "boss_magma_tyrant" }, "skiff", true),
             })
             {

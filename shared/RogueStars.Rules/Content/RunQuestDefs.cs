@@ -58,7 +58,7 @@ namespace RogueStars.Rules.Content
     }
 
     /// <summary>
-    /// A difficult battle (above the level's elites): the level's miniboss as champion at the run's usual board strength
+    /// A difficult battle (above the level's elites): led by the level's miniboss at the run's usual board strength
     /// + QuestTuning.BattleBasePct + <see cref="BonusPct"/> HP/ATK, plus <see cref="Escorts"/> elites of the level at elite strength.
     /// </summary>
     [Serializable]
@@ -173,7 +173,7 @@ namespace RogueStars.Rules.Content
         /// <summary>The encounter tile stands on a trunk tile of this board segment (0-based), at this fraction of it.</summary>
         public int Segment = 1;
         public double SegmentAt = 0.5;
-        /// <summary>Quest battle champion: HP/ATK % above the run's usual board strength, on top of the node's BonusPct.</summary>
+        /// <summary>Quest battle leader (the level's miniboss): HP/ATK % above the run's usual board strength, on top of the node's BonusPct.</summary>
         public double BattleBasePct = 40;
     }
 }

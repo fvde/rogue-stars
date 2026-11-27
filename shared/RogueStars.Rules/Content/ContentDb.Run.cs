@@ -204,18 +204,19 @@ namespace RogueStars.Rules.Content
             RunMakeElite(RunEnemy("elite_rift_echo", "Rift Echo", 1000, 78, 24, 100, AttackStyle.Cannon, "enemy_stun_slam"));
             RunMakeElite(RunEnemy("elite_burrow_horror", "Burrow Horror", 1100, 70, 26, 75, AttackStyle.Slam, "enemy_toxic", "enemy_enrage"));
 
-            // Biome champions (playtest 0.1.359: every lair held the same miniboss): miniboss-pool members next to the biome's
-            // elite, on its stat budget (HP x ATK within a few %) with their own kit; drawn with a regular enemy's sprite of the
-            // biome (ArtId, elite scale) until they get their own art.
-            RunMakeChampion(RunEnemy("mb_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend"), "cinder_hound", StatId.ComboChance, 15);
-            RunMakeChampion(RunEnemy("mb_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden"), "ash_wraith", StatId.Dodge, 10);
-            RunMakeChampion(RunEnemy("mb_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam"), "glacier_golem", StatId.CounterChance, 12);
-            RunMakeChampion(RunEnemy("mb_lurker_alpha", "Lurker Alpha", 840, 70, 24, 100, AttackStyle.Claw, "enemy_chill", "enemy_enrage"), "snow_lurker", StatId.CritChance, 10);
-            RunMakeChampion(RunEnemy("mb_volt_monarch", "Volt Monarch", 880, 70, 22, 95, AttackStyle.Drill, "enemy_static", "enemy_harden"), "volt_beetle", StatId.CounterChance, 10);
-            RunMakeChampion(RunEnemy("mb_eel_tyrant", "Eel Tyrant", 780, 78, 16, 110, AttackStyle.Whip, "enemy_static", "enemy_rend"), "static_eel", StatId.Dodge, 10);
-            RunMakeChampion(RunEnemy("mb_null_wraith", "Null Wraith", 940, 84, 18, 110, AttackStyle.Claw, "enemy_rend", "enemy_toxic"), "null_shade", StatId.Dodge, 12);
-            RunMakeChampion(RunEnemy("mb_grub_mother", "Grub Mother", 1160, 66, 28, 70, AttackStyle.Slam, "enemy_toxic", "enemy_harden"), "burrow_grub", StatId.CounterChance, 10);
-            RunMakeChampion(RunEnemy("mb_stalker_prime", "Stalker Prime", 1000, 76, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage"), "tunnel_stalker", StatId.CritChance, 10);
+            // More elites per biome (playtest 0.1.359: every lair held the same miniboss), so the biome's elite fights and its lairs
+            // (minibosses are drawn from the elite pool) vary: on the biome's first elite's stat budget (HP x ATK within a few %),
+            // each with its own kit and trait; drawn with a regular enemy's sprite of the biome (ArtId, elite scale) until they
+            // get their own art.
+            RunMakeElite(RunEnemy("elite_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend"), "cinder_hound").Stats.Add(new StatMod(StatId.ComboChance, 15));
+            RunMakeElite(RunEnemy("elite_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden"), "ash_wraith").Stats.Add(new StatMod(StatId.Dodge, 10));
+            RunMakeElite(RunEnemy("elite_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam"), "glacier_golem").Stats.Add(new StatMod(StatId.CounterChance, 12));
+            RunMakeElite(RunEnemy("elite_lurker_alpha", "Lurker Alpha", 840, 70, 24, 100, AttackStyle.Claw, "enemy_chill", "enemy_enrage"), "snow_lurker").Stats.Add(new StatMod(StatId.CritChance, 10));
+            RunMakeElite(RunEnemy("elite_volt_monarch", "Volt Monarch", 880, 70, 22, 95, AttackStyle.Drill, "enemy_static", "enemy_harden"), "volt_beetle").Stats.Add(new StatMod(StatId.CounterChance, 10));
+            RunMakeElite(RunEnemy("elite_eel_tyrant", "Eel Tyrant", 780, 78, 16, 110, AttackStyle.Whip, "enemy_static", "enemy_rend"), "static_eel").Stats.Add(new StatMod(StatId.Dodge, 10));
+            RunMakeElite(RunEnemy("elite_null_wraith", "Null Wraith", 940, 84, 18, 110, AttackStyle.Claw, "enemy_rend", "enemy_toxic"), "null_shade").Stats.Add(new StatMod(StatId.Dodge, 12));
+            RunMakeElite(RunEnemy("elite_grub_mother", "Grub Mother", 1160, 66, 28, 70, AttackStyle.Slam, "enemy_toxic", "enemy_harden"), "burrow_grub").Stats.Add(new StatMod(StatId.CounterChance, 10));
+            RunMakeElite(RunEnemy("elite_stalker_prime", "Stalker Prime", 1000, 76, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage"), "tunnel_stalker").Stats.Add(new StatMod(StatId.CritChance, 10));
 
             // RunBosses
             RunMakeBoss(RunEnemy("boss_magma_tyrant", "Magma Tyrant", 1900, 70, 22, 95, AttackStyle.Slam, "boss_magma_eruption"));
@@ -231,18 +232,13 @@ namespace RogueStars.Rules.Content
             RunMakeBoss(RunEnemy("boss_prism_tyrant", "Prism Tyrant", 2600, 70, 32, 90, AttackStyle.Cannon, "enemy_stun_slam"));
         }
 
-        private static void RunMakeElite(EnemyDef e)
+        /// <summary>Makes an enemy an elite; <paramref name="artId"/> = the sprite it is drawn with until it has its own (EnemyDef.ArtId).</summary>
+        private static EnemyDef RunMakeElite(EnemyDef e, string artId = null)
         {
-            e.Elite = true; e.Xp = 14; e.Coins = 25;
+            e.Elite = true; e.Xp = 14; e.Coins = 25; e.ArtId = artId;
             e.Stats.Add(new StatMod(StatId.CritChance, 10));
             e.Stats.Add(new StatMod(StatId.RageGain, 20)); // points: +20% rage gain (a % of the 0 base was nothing)
-        }
-
-        private static void RunMakeChampion(EnemyDef e, string artId, StatId trait, double value)
-        {
-            RunMakeElite(e);
-            e.ArtId = artId;
-            e.Stats.Add(new StatMod(trait, value));
+            return e;
         }
 
         private static void RunMakeBoss(EnemyDef e)
@@ -478,7 +474,7 @@ namespace RogueStars.Rules.Content
                 RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("training_dummy", "Training Grounds", "Old training machines still work.", 0, 2.5,
                 RunOpt("Train", "Gain 25 XP.", RunOut(1, "You feel sharper.", RunFx(RunEffectKind.Xp, 25))),
-                RunOpt("Spar the champion", "Battle an elite for +6% ATK.", RunOut(1, "Champion beaten!", RunFx(RunEffectKind.Battle, 0, "elite"), RunStatFx(StatId.Atk, 6))));
+                RunOpt("Spar with an elite", "Battle an elite for +6% ATK.", RunOut(1, "Elite beaten!", RunFx(RunEffectKind.Battle, 0, "elite"), RunStatFx(StatId.Atk, 6))));
             RunEvent("boss_scout", "Boss Scout", "One of the boss's scouts is watching you.", 0, 2,
                 RunOpt("Chase it down", "Battle; awakening -20 on win.", RunOut(1, "The scout is silenced.", RunFx(RunEffectKind.Battle, 0, "enemy"), RunFx(RunEffectKind.Meter, -20))),
                 RunOpt("Let it go", "Awakening +10.", RunOut(1, "The scout reports back.", RunFx(RunEffectKind.Meter, 10))));
@@ -559,7 +555,7 @@ namespace RogueStars.Rules.Content
             for (int f = 1; f <= 10; f++)
             {
                 var l = RunStoreLevel("the_burrow_" + f, "Burrow Floor " + f, burrow.Id, f, 4 + (f - 1) * 2, "pool_burrow", "boss_void_maw", "loot_burrow",
-                    new[] { "burrow_grub", "tunnel_stalker", "void_spawn" }, new[] { "elite_burrow_horror" });
+                    new[] { "burrow_grub", "tunnel_stalker", "void_spawn" }, new[] { "elite_burrow_horror", "elite_grub_mother", "elite_stalker_prime" });
                 l.FixedTiles.RemoveAll(ft => ft.TileId == "shop" && ft.At > 0.8); // short floors: one shop each
                 l.BoardLength = 18; l.MaxRolls = 6; // short floors: the boss comes at the roll limit l.StaminaCost = 0; l.CompletionLootRolls = 1;
                 l.CompletionRewards.Add(Reward.Cur(Currencies.GearCores, 3 + f));
@@ -585,23 +581,6 @@ namespace RogueStars.Rules.Content
             Portals[dark.Id] = dark;
         }
 
-        /// <summary>
-        /// The miniboss pool of a biome by its elites (playtest 0.1.359): the biome's elite(s) and its champions. A run draws its
-        /// lairs' minibosses from it in a shuffled order (RunSystem.MinibossOrder).
-        /// </summary>
-        public static string[] MinibossPoolFor(string[] elites)
-        {
-            switch (elites.Length > 0 ? elites[0] : null)
-            {
-                case "elite_lava_brute": return new[] { "elite_lava_brute", "mb_cinder_alpha", "mb_ash_matriarch" };
-                case "elite_frost_knight": return new[] { "elite_frost_knight", "mb_glacier_warden", "mb_lurker_alpha" };
-                case "elite_storm_caller": return new[] { "elite_storm_caller", "mb_volt_monarch", "mb_eel_tyrant" };
-                case "elite_void_reaver": return new[] { "elite_void_reaver", "elite_rift_echo", "mb_null_wraith" };
-                case "elite_burrow_horror": return new[] { "elite_burrow_horror", "mb_grub_mother", "mb_stalker_prime" };
-                default: return elites;
-            }
-        }
-
         private LevelDef RunStoreLevel(string id, string name, string portalId, int index, int threat, string pool, string bossId, string loot, string[] enemies, string[] elites)
         {
             var l = RunNewLevel(id, name, portalId, index, threat, pool, bossId, loot, enemies, elites);
@@ -618,7 +597,6 @@ namespace RogueStars.Rules.Content
             };
             l.EnemyPool.AddRange(enemies);
             l.ElitePool.AddRange(elites);
-            l.MinibossPool.AddRange(MinibossPoolFor(elites));
             // One lap of the circuit: a campfire, two shops (forced stops every lap) and the miniboss lair (minibosses also come
             // with the awakening clock, RunTuning.MinibossAtMeter).
             l.FixedTiles.Add(new FixedTile(0.22, "campfire"));

@@ -7,7 +7,7 @@ Owner feedback: "many small visual glitches in the UI, take a look at run UI and
 `ROGUESTARS_SHOTS_DIR` = output folder, `ROGUESTARS_SHOT_SIZES` = `1080x2340,720x1600`) renders every run state at both
 sizes: board (HUD, footer, roll, fork), event card, vendor event, treasure pod (chest), campfire + Train, chance outcome
 sheet, chest after a fight, level-up draft, Mythic chest + choice, revive, shop (full HP / hurt + sold + poor), quest card
-(3 nodes), signature pick, five battles (2 enemies, 3 enemies, elite without mount, miniboss champion, boss defeat;
+(3 nodes), signature pick, five battles (2 enemies, 3 enemies, elite without mount, miniboss (an elite), boss defeat;
 start / mid / end), run result (victory, defeat, doubled). It also writes `audit_log.txt` with an automatic layout pass
 per shot (truncated / overflowing text, text off screen, overlapping labels, each fighter's sprite centre vs its HP bar).
 

@@ -287,7 +287,7 @@ namespace RogueStars.Rules.Systems
         public int PendingAmbushes;
         public int MinibossesDefeated;
         /// <summary>
-        /// The run's miniboss order (RunSystem.MinibossOrder: the level's MinibossPool shuffled by the run's seed, drawn with the
+        /// The run's miniboss order (RunSystem.MinibossOrder: the level's ElitePool shuffled by the run's seed, drawn with the
         /// board): the k-th miniboss fight meets entry k (wrapping). Empty for runs saved before: the level's MinibossId.
         /// </summary>
         public List<string> MinibossOrder = new List<string>();

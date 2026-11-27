@@ -200,7 +200,7 @@ public class RunQuestContentTests(ITestOutputHelper output)
         // the draft pool has Legendary and Mythic tier skills without any Laboratory research
         Assert.Contains(C.Skills.Values, s => s.Draftable && !s.Signature && RunTuning.RunTier(s.Rarity) == Rarity.Legendary);
         Assert.Contains(C.Skills.Values, s => s.Draftable && !s.Signature && RunTuning.RunTier(s.Rarity) == Rarity.Mythic);
-        // every level a quest can appear on has a champion for the battles (main levels from 2, Dark Side): the miniboss, or
+        // every level a quest can appear on has a leader for the battles (main levels from 2, Dark Side): the miniboss, or
         // before minibosses are introduced an elite / enemy of the level
         for (int n = 2; n <= 600; n += n < 20 ? 1 : 7)
         {

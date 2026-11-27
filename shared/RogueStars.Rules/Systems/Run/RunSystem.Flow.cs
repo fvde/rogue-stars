@@ -427,12 +427,12 @@ namespace RogueStars.Rules.Systems
             run.Danger * c.RunTuning.DangerPctPerLoot * (1 + Level(c, run).Modifiers.DangerPct / 100.0);
 
         /// <summary>
-        /// The run's miniboss order for a level (pure): its <see cref="LevelDef.MinibossPool"/> (else its MinibossId) shuffled by a
+        /// The run's miniboss order for a level (pure): its <see cref="LevelDef.ElitePool"/> (else its MinibossId) shuffled by a
         /// fork of the run's stream, so every run has its own order and the run's lairs meet different minibosses.
         /// </summary>
         public static List<string> MinibossOrder(LevelDef level, Rng runRng)
         {
-            var pool = new List<string>(level.MinibossPool);
+            var pool = new List<string>(level.ElitePool);
             if (pool.Count == 0 && level.MinibossId != null) pool.Add(level.MinibossId);
             var rng = runRng.Fork("minibosses:" + level.Id);
             for (int i = pool.Count - 1; i > 0; i--)

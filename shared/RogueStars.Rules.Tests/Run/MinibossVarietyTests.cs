@@ -5,8 +5,8 @@ using RogueStars.Rules.Systems;
 namespace RogueStars.Rules.Tests.Run;
 
 /// <summary>
-/// Playtest 0.1.359: "a level seems to only ever have the same miniboss". Every level with lairs has a miniboss pool of its
-/// biome; each run shuffles it with its own seed, so the run's two lairs meet two different minibosses and runs differ.
+/// Playtest 0.1.359: "a level seems to only ever have the same miniboss". Every level with lairs draws its minibosses from its
+/// biome's three elites; each run shuffles them with its own seed, so the run's two lairs meet two different minibosses and runs differ.
 /// </summary>
 public class MinibossVarietyTests
 {
@@ -20,13 +20,14 @@ public class MinibossVarietyTests
     }
 
     [Fact]
-    public void EveryLevelWithLairs_HasABiomePoolOfAtLeastThreeElites()
+    public void EveryLevelWithLairs_HasItsBiomesThreeElites()
     {
         foreach (var l in LairLevels())
         {
-            Assert.True(l.MinibossPool.Distinct().Count() >= Math.Max(3, C.RunTuning.MinibossesPerRun), l.Id);
-            Assert.Equal(l.MinibossId, l.MinibossPool[0]);
-            foreach (var id in l.MinibossPool)
+            Assert.Equal(3, l.ElitePool.Distinct().Count());
+            Assert.True(l.ElitePool.Count >= C.RunTuning.MinibossesPerRun, l.Id);
+            Assert.Equal(l.MinibossId, l.ElitePool[0]);
+            foreach (var id in l.ElitePool)
             {
                 Assert.True(C.Enemies.TryGetValue(id, out var e), l.Id + ": " + id);
                 Assert.True(e!.Elite && !e.Boss, id);
@@ -36,13 +37,13 @@ public class MinibossVarietyTests
     }
 
     [Fact]
-    public void Champions_StayOnTheirBiomeElitesStatBudget()
+    public void BiomeElites_StayOnTheFirstElitesStatBudget()
     {
         foreach (var l in LairLevels().GroupBy(l => l.MinibossId).Select(g => g.First()))
         {
             double Budget(string id) => C.Enemies[id].Stats.Where(m => m.Stat == StatId.Hp).Sum(m => m.Flat) * C.Enemies[id].Stats.Where(m => m.Stat == StatId.Atk).Sum(m => m.Flat);
             double anchor = Budget(l.MinibossId);
-            foreach (var id in l.MinibossPool) Assert.InRange(Budget(id) / anchor, 0.9, 1.25);
+            foreach (var id in l.ElitePool) Assert.InRange(Budget(id) / anchor, 0.9, 1.25);
         }
     }
 
@@ -55,13 +56,13 @@ public class MinibossVarietyTests
         for (ulong seed = 1; seed <= 40; seed++)
         {
             var order = RunSystem.MinibossOrder(level, new Rng(seed));
-            Assert.Equal(level.MinibossPool.OrderBy(x => x), order.OrderBy(x => x)); // a permutation of the pool
+            Assert.Equal(level.ElitePool.OrderBy(x => x), order.OrderBy(x => x)); // a permutation of the pool
             Assert.NotEqual(order[0], order[1]); // the run's two lairs differ
             Assert.Equal(order, RunSystem.MinibossOrder(level, new Rng(seed))); // same run seed, same order
             firsts.Add(order[0]);
             pairs.Add(order[0] + "+" + order[1]);
         }
-        Assert.Equal(level.MinibossPool.Count, firsts.Count); // every pool member leads some runs
+        Assert.Equal(level.ElitePool.Count, firsts.Count); // every pool member leads some runs
         Assert.True(pairs.Count >= 4, "pairs: " + string.Join(", ", pairs));
     }
 

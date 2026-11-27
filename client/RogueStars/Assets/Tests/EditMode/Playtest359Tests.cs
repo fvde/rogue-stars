@@ -14,7 +14,7 @@ namespace RogueStars.Client.Tests
 {
     /// <summary>
     /// Playtest 0.1.359 (client side): the battle bars stand centred under their fighter's art (the worm sat left of its HP
-    /// bar), the miniboss pools' champions are drawn with their biome sprite, and the result screen shows the doubled totals
+    /// bar), elites without art of their own are drawn with a biome sprite, and the result screen shows the doubled totals
     /// of every listed reward after "double rewards".
     /// </summary>
     public sealed class Playtest359Tests
@@ -69,14 +69,14 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void MinibossChampions_AreDrawnWithTheirBiomeSprite()
+        public void ElitesWithoutArt_AreDrawnWithTheirBiomeSprite()
         {
             ArtCatalog.Loader = p => p == "Art/Enemies/cinder_hound" ? Fake : null;
-            var s = ArtCatalog.EnemyOrFamily("mb_cinder_alpha", C, out bool family);
+            var s = ArtCatalog.EnemyOrFamily("elite_cinder_alpha", C, out bool family);
             Assert.That(s, Is.SameAs(Fake));
             Assert.That(family, Is.True, "drawn at the elite scale");
             foreach (var l in new[] { C.MainLevel(8), C.MainLevel(18), C.MainLevel(28), C.MainLevel(38) })
-                foreach (var id in l.MinibossPool)
+                foreach (var id in l.ElitePool)
                 {
                     var def = C.Enemies[id];
                     Assert.That(def.ArtId == null || C.Enemies.ContainsKey(def.ArtId), Is.True, id);

@@ -72,7 +72,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Tile | Effect |
 |---|---|
 | Enemy (lv 1–3) | Auto-battle; XP and run coins by level |
-| Elite | Harder battle, more XP and coins |
+| Elite | Harder battle, more XP and coins. Enemy tiers are exactly three: enemy, elite (a miniboss is an elite met in a lair, same tier) and boss; each biome has three elites |
 | Stat buff / debuff | ± % of a stat for the rest of the run (can cost or grant stat %) |
 | Supply cache | Run coins and run XP (in-run resources only) |
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
@@ -82,7 +82,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
-| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). The lairs draw from the biome's **miniboss pool** (playtest 0.1.359: its elite and two champions, `LevelDef.MinibossPool`), shuffled per run (`RunSystem.MinibossOrder`): the two lairs of a run always differ. Each beaten miniboss grants a **MYTHIC choice** |
+| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). The lairs draw from the biome's **three elites** (playtest 0.1.359; `LevelDef.ElitePool`, the same elites its elite fights meet), shuffled per run (`RunSystem.MinibossOrder`): the two lairs of a run always differ. Each beaten miniboss grants a **MYTHIC choice** |
 | GAME (Alien Arcade) | A short skill mini-game (§3.6) for run coins or a skill roll; stops the worm when passed |
 
 **Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply

@@ -32,7 +32,7 @@ A 30-chapter quest is exactly **15 story, 6 battles, 6 sacrifices, 3 boons**.
 ### Battles (`QuestBattleDef`)
 "Difficult" = above the level's elites, scaled to wherever the player meets the character:
 
-> champion = the level's miniboss at the run's board strength (threat, danger, `BoardEnemyPct`, +`EnemyPctPerRoll` per roll)
+> leader = the level's miniboss at the run's board strength (threat, danger, `BoardEnemyPct`, +`EnemyPctPerRoll` per roll)
 > **+ `BattleBasePct` (40%) + the node's `BonusPct`** HP/ATK, plus `Escorts` elites of the level at elite strength (+`EliteBonusPct`).
 
 An elite fight is one elite at +20% and one ordinary enemy; a quest battle is roughly 2× that at the start and 3.5× at
@@ -69,7 +69,7 @@ coins, mini-game coins, skill coin triggers; costs never). Three boons per quest
 * **No unlock:** part of the game from the start (no level gate, no feature entry, no intro). Only the tutorial run (main
   level 1, its own small tile pool) and the Burrow (short floors) never have it; normal, Overcharged and Dark Side runs
   count. Prices the run cannot pay yet (no Mythic before the first miniboss) simply make the story wait; before minibosses
-  exist on a level the battle's champion is the level's elite.
+  exist on a level the battle's leader is the level's first elite.
 * **About one run in five, plain chance** (`QuestTuning.ChancePct` = 20%): an independent roll per eligible run. **No
   pity**: no guaranteed meeting after X runs, no "not two in a row" rule; back-to-back meetings and long droughts both
   happen (mean 5 runs between meetings).
@@ -139,7 +139,7 @@ Epilogues never add account power.
 - [ ] All five sacrifice kinds appear at least once; coin prices 100–300 in 50s; HP 50–80% in 10s; battle bonus in 5s.
 - [ ] Every advancing option has a journal line; texts within the length limits.
 - [ ] 3–6 epilogue scenes, positive and small (section 4).
-- [ ] Requirements resolvable from the start: every main level from 2 and every Dark Side level has a champion for the
+- [ ] Requirements resolvable from the start: every main level from 2 and every Dark Side level has a leader for the
       battles (miniboss, or an elite before minibosses); unpayable prices only make the story wait.
 - [ ] No player-facing text shows the chapter total ("Chapter N" only).
 - [ ] Portrait art package added; review doc generated; simulator run noted.

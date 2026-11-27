@@ -70,7 +70,10 @@ namespace RogueStars.Rules.Content
         };
         private static readonly string[][] FamilyElites =
         {
-            new[] { "elite_lava_brute" }, new[] { "elite_frost_knight" }, new[] { "elite_storm_caller" }, new[] { "elite_void_reaver", "elite_rift_echo" },
+            new[] { "elite_lava_brute", "elite_cinder_alpha", "elite_ash_matriarch" },
+            new[] { "elite_frost_knight", "elite_glacier_warden", "elite_lurker_alpha" },
+            new[] { "elite_storm_caller", "elite_volt_monarch", "elite_eel_tyrant" },
+            new[] { "elite_void_reaver", "elite_rift_echo", "elite_null_wraith" },
         };
         private static readonly string[][] FamilyBossTiles =
         {
@@ -317,7 +320,7 @@ namespace RogueStars.Rules.Content
             // Legacy levels used the rounded main level; same here (DarkSideMainLevel rounds).
             int whole = (int)Math.Floor(threat + 1e-9);
             var l = RunNewLevel(DarkSideLevelPrefix + i, "Dark Side " + i, DarkSidePortalId, i, whole, "pool_dark", "boss_void_maw", "loot_dark",
-                new[] { "void_spawn", "null_shade", "tunnel_stalker" }, new[] { "elite_void_reaver", "elite_rift_echo" });
+                new[] { "void_spawn", "null_shade", "tunnel_stalker" }, new[] { "elite_void_reaver", "elite_rift_echo", "elite_null_wraith" });
             l.Number = i;
             l.StaminaCost = 12; l.ShopTableId = "shop_dark"; l.Dice = 2; l.MaxRolls = Campaign.MaxRolls; l.BoardLength = 51;
             l.RewardMultiplier = 2.5;

@@ -402,7 +402,7 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>
-        /// A quest battle (difficult, above the level's elites): the level's miniboss as champion at the board's usual strength
+        /// A quest battle (difficult, above the level's elites): led by the level's miniboss at the board's usual strength
         /// (threat, danger, BoardEnemyPct, +EnemyPctPerRoll per roll) + QuestTuning.BattleBasePct + the node's BonusPct, plus the
         /// node's escorts from the level's elite pool at elite strength (+EliteBonusPct).
         /// </summary>
@@ -413,9 +413,9 @@ namespace RogueStars.Rules.Systems
             var mods = level.Modifiers;
             double scale = c.ThreatMultiplier(run.Threat);
             double common = DangerPct(c, run) + t.BoardEnemyPct + t.EnemyPctPerRoll * run.Rolls;
-            double champ = common + c.QuestTuning.BattleBasePct + battle.BonusPct;
-            string champion = level.MinibossId ?? (level.ElitePool.Count > 0 ? level.ElitePool[0] : level.EnemyPool[0]);
-            var list = new List<CombatantSpec> { BattleSimulator.BuildEnemy(c, champion, scale, champ + mods.EnemyAtkPct, champ + mods.EnemyHpPct, mods.EnemyDefPct) };
+            double lead = common + c.QuestTuning.BattleBasePct + battle.BonusPct;
+            string leader = level.MinibossId ?? (level.ElitePool.Count > 0 ? level.ElitePool[0] : level.EnemyPool[0]);
+            var list = new List<CombatantSpec> { BattleSimulator.BuildEnemy(c, leader, scale, lead + mods.EnemyAtkPct, lead + mods.EnemyHpPct, mods.EnemyDefPct) };
             var pool = level.ElitePool.Count > 0 ? level.ElitePool : level.EnemyPool;
             double elite = common + t.EliteBonusPct;
             for (int i = 0; i < battle.Escorts; i++)
