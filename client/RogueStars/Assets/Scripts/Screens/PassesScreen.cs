@@ -100,24 +100,50 @@ namespace RogueStars.Client.Screens
         public static bool Owned(GameState s, ContentDb c, ProductDef p, long now) =>
             p.DailyRewards.Count > 0 ? ShopSystem.DailyGrantActive(s, c, p.Id, now) : p.EntitlementFlag != null && s.Flags.Contains(p.EntitlementFlag);
 
+        /// <summary>In place: every card is a keyed part (what it shows: owned, claimable, payment state).</summary>
+        protected override bool InPlace => true;
+
         protected override void Build(RectTransform body)
         {
             BuildFooter();
-            DailyGiftCard(body);
-            foreach (var p in PassProducts(State, Content, Now)) PassCard(body, p);
-            SeasonPass(body);
-            FundsSection(body);
+            var gift = ShopSystem.DailyGift(Content);
+            if (gift != null) Part(body, "gift", K(gift.Id, ShopSystem.CanClaimDailyGift(State, Content, Now)), DailyGiftCard);
+            foreach (var p in PassProducts(State, Content, Now))
+            {
+                var product = p;
+                Part(body, "pass:" + p.Id, PassKey(p), b => PassCard(b, product));
+            }
+            bool premium = Session.IsUnlocked(Features.SeasonPass) && ShopSystem.HasPremiumSeason(State, Content, Now);
+            var spp = Content.Product(Content.SeasonPass.PremiumProductId);
+            Part(body, "season", VersionKey(Session.IsUnlocked(Features.SeasonPass), premium, spp == null ? "" : PaymentKey(spp.Id)), SeasonPass);
+            var fundsKey = new System.Text.StringBuilder();
+            foreach (var f in Content.Funds.Values) fundsKey.Append(PaymentKey(f.ProductId));
+            Part(body, "funds", VersionKey(fundsKey.ToString()), FundsSection);
+        }
+
+        /// <summary>Store state of a product the page sells (offered, payment pending).</summary>
+        private string PaymentKey(string productId) => K(productId, Session.IsOffered(productId), Session.PendingPayments.Contains(productId));
+
+        /// <summary>Everything a pass card shows from the state (its part key).</summary>
+        private string PassKey(ProductDef p)
+        {
+            bool owned = Owned(State, Content, p, Now);
+            return K(p.Id, owned, ShopSystem.PurchaseBlockReason(State, Content, p, Now), owned && p.DailyRewards.Count > 0 && ShopSystem.CanClaimDaily(State, Content, p.Id, Now),
+                PaymentKey(p.Id), Content.Shop.AdsDisabled, owned ? ShopSystem.DailyGrantEndMs(State, Content, p.Id) : 0);
         }
 
         private void BuildFooter()
         {
             if (Footer == null) return;
             int n = ShopSystem.PassClaimables(State, Content, Now).Count;
-            var row = Ui.Row(Footer, 96, 0, null, 0, "ClaimAllRow");
-            Ui.Spacer(row);
-            var b = Kit.Button(row, n > 0 ? "Claim all (" + n + ")" : "Claim all", () => Run(new PassesClaimAll()), n > 0 ? KitButtonColor.Positive : KitButtonColor.Secondary, 560, 96, n > 0, Theme.FontLarge);
-            b.name = "ClaimAll";
-            Ui.Spacer(row);
+            Part(Footer, "claimAll", K(n), f =>
+            {
+                var row = Ui.Row(f, 96, 0, null, 0, "ClaimAllRow");
+                Ui.Spacer(row);
+                var b = Kit.Button(row, n > 0 ? "Claim all (" + n + ")" : "Claim all", () => Run(new PassesClaimAll()), n > 0 ? KitButtonColor.Positive : KitButtonColor.Secondary, 560, 96, n > 0, Theme.FontLarge);
+                b.name = "ClaimAll";
+                Ui.Spacer(row);
+            });
         }
 
         // ---- cards ------------------------------------------------------------------------------------------

@@ -50,7 +50,7 @@ namespace RogueStars.Client.Screens
         public void SetFilter(GearSlotFilter slot, int rarity, GearSort sort)
         {
             _slotFilter = slot; _rarityFilter = rarity; _sort = sort;
-            Rebuild();
+            Refresh(); // in place: the tiles that stay are kept
         }
 
         /// <summary>From a body slot to its parts: the inventory filtered to the slot (any rarity), scrolled into view.</summary>
@@ -60,11 +60,14 @@ namespace RogueStars.Client.Screens
             _rarityFilter = -1;
             _scrollToInventory = true;
             ShowInventoryView();
-            Rebuild();
+            Refresh();
         }
 
         /// <summary>Scroll to the inventory after the next build (Ore's "Go").</summary>
-        public void FocusInventory() { _scrollToInventory = true; ShowInventoryView(); Rebuild(); }
+        public void FocusInventory() { _scrollToInventory = true; ShowInventoryView(); Refresh(); }
+
+        /// <summary>The gear screens update in place: tiles, slots and sections are keyed parts.</summary>
+        protected override bool InPlace => true;
 
         /// <summary>The screen switches to the view that holds the inventory (the Worm's Parts sub-tab).</summary>
         protected virtual void ShowInventoryView() { }
@@ -74,10 +77,14 @@ namespace RogueStars.Client.Screens
         /// <summary>The inventory: header (count, Ore), slot tabs with counts, sort + rarity filter, the tile grid, quick merge.</summary>
         protected void BuildInventory(Transform body, string title)
         {
-            var head = Ui.Row(body, 72, 12, null, 0, "InventoryHead");
+            int count = State.Parts.Items.Count;
+            var head = Part(body, "inv:head", K(title, count), b =>
+            {
+                var row = Ui.Row(b, 72, 12, null, 0, "InventoryHead");
+                Section(row, title + " · " + count);
+                LiveCurrencyChip(row, Currencies.Ore, () => App.Bar.ShowCurrency(Currencies.Ore), "OreChip");
+            });
             _inventoryAnchor = head;
-            Section(head, title + " · " + State.Parts.Items.Count);
-            Kit.CurrencyChip(head, Currencies.Ore, Fmt.Num(State.Wallet.Get(Currencies.Ore)), () => App.Bar.ShowCurrency(Currencies.Ore), "OreChip");
 
             var labels = new List<string>();
             foreach (var f in GearGuide.SlotFilters)
@@ -86,40 +93,68 @@ namespace RogueStars.Client.Screens
                 foreach (var p in State.Parts.Items.Values) if (GearGuide.Matches(PartsSystem.Def(Content, p), f)) n++;
                 labels.Add(GearGuide.SlotFilterLabel(f) + "\n<size=20>" + n + "</size>");
             }
-            var tabs = Kit.TabChips(body, labels, Array.IndexOf(GearGuide.SlotFilters, _slotFilter), i => SetFilter(GearGuide.SlotFilters[i], _rarityFilter, _sort), 92);
-            for (int i = 0; i < tabs.Buttons.Count; i++) tabs.Buttons[i].name = "Filter:" + GearGuide.SlotFilters[i];
+            int slotIndex = Array.IndexOf(GearGuide.SlotFilters, _slotFilter);
+            Part(body, "inv:filters", K(string.Join(",", labels), slotIndex), b =>
+            {
+                var tabs = Kit.TabChips(b, labels, slotIndex, i => SetFilter(GearGuide.SlotFilters[i], _rarityFilter, _sort), 92);
+                for (int i = 0; i < tabs.Buttons.Count; i++) tabs.Buttons[i].name = "Filter:" + GearGuide.SlotFilters[i];
+            });
 
-            var tools = Ui.Row(body, 72, 10, null, 0, "InventoryTools");
-            var sortLabels = new List<string>();
-            foreach (var s in GearGuide.Sorts) sortLabels.Add(GearGuide.SortLabel(s));
-            var sorts = Kit.TabChips(tools, sortLabels, Array.IndexOf(GearGuide.Sorts, _sort), i => SetFilter(_slotFilter, _rarityFilter, GearGuide.Sorts[i]), 72);
-            for (int i = 0; i < sorts.Buttons.Count; i++) sorts.Buttons[i].name = "Sort:" + GearGuide.Sorts[i];
-            Ui.Size(sorts.Buttons[0].transform.parent, -1, 72, 1);
-            string rarityText = _rarityFilter < 0 ? "Any rarity" : RarityName(Content, _rarityFilter);
-            var rb = Ui.Button(tools, rarityText, RarityPicker, _rarityFilter < 0 ? Theme.Button : Color.Lerp(RarityColor(_rarityFilter), Theme.Panel, 0.4f), 260, 72, true, 24);
-            KitFit.On(rb.GetComponentInChildren<Text>(), 14);
-            rb.name = "RarityFilter";
+            Part(body, "inv:tools", K(_sort, _rarityFilter), b =>
+            {
+                var tools = Ui.Row(b, 72, 10, null, 0, "InventoryTools");
+                var sortLabels = new List<string>();
+                foreach (var s in GearGuide.Sorts) sortLabels.Add(GearGuide.SortLabel(s));
+                var sorts = Kit.TabChips(tools, sortLabels, Array.IndexOf(GearGuide.Sorts, _sort), i => SetFilter(_slotFilter, _rarityFilter, GearGuide.Sorts[i]), 72);
+                for (int i = 0; i < sorts.Buttons.Count; i++) sorts.Buttons[i].name = "Sort:" + GearGuide.Sorts[i];
+                Ui.Size(sorts.Buttons[0].transform.parent, -1, 72, 1);
+                string rarityText = _rarityFilter < 0 ? "Any rarity" : RarityName(Content, _rarityFilter);
+                var rb = Ui.Button(tools, rarityText, RarityPicker, _rarityFilter < 0 ? Theme.Button : Color.Lerp(RarityColor(_rarityFilter), Theme.Panel, 0.4f), 260, 72, true, 24);
+                KitFit.On(rb.GetComponentInChildren<Text>(), 14);
+                rb.name = "RarityFilter";
+            });
 
             var list = GearGuide.Inventory(State, Content, _slotFilter, _rarityFilter, _sort);
             ShownParts.Clear();
-            var grid = Ui.Grid(body, new Vector2(TileWidth, TileHeight), 3, TileGap);
-            grid.GetComponent<GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft; // a short last row starts at the left
+            var grid = Part(body, "inv:grid", "", b =>
+            {
+                var g = Ui.Grid(b, new Vector2(TileWidth, TileHeight), 3, TileGap);
+                g.GetComponent<GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft; // a short last row starts at the left
+            });
             foreach (var p in list)
             {
                 ShownParts.Add(p.Uid);
-                PartTile(grid, p);
+                var part = p;
+                Part(grid, "tile:" + p.Uid, TileKey(p), g => PartTile(g, part));
             }
             if (list.Count == 0)
-                Note(body, State.Parts.Items.Count == 0 ? "No parts yet. Parts drop from runs and Parts pulls in the Shop."
-                    : "No " + (_rarityFilter >= 0 ? RarityName(Content, _rarityFilter) + " " : "") + (_slotFilter == GearSlotFilter.All ? "" : GearGuide.SlotFilterLabel(_slotFilter) + " ") + "parts yet.");
+            {
+                string empty = count == 0 ? "No parts yet. Parts drop from runs and Parts pulls in the Shop."
+                    : "No " + (_rarityFilter >= 0 ? RarityName(Content, _rarityFilter) + " " : "") + (_slotFilter == GearSlotFilter.All ? "" : GearGuide.SlotFilterLabel(_slotFilter) + " ") + "parts yet.";
+                Part(body, "inv:empty", empty, b => Note(b, empty));
+            }
 
-            var foot = Ui.Row(body, 80, 10, null, 0, "InventoryFoot");
-            Ui.Button(foot, "Quick merge\n<size=20>3→1 up to " + RarityName(Content, (int)Content.PartsConfig.QuickMergeMaxTarget) + "</size>", QuickMerge, Theme.Button, -1, 80, State.Parts.Items.Count >= 3, 26).name = "QuickMerge";
-            InventoryFooterExtras(foot);
+            Part(body, "inv:foot", K(count >= 3, FooterExtrasKey()), b =>
+            {
+                var foot = Ui.Row(b, 80, 10, null, 0, "InventoryFoot");
+                Ui.Button(foot, "Quick merge\n<size=20>3→1 up to " + RarityName(Content, (int)Content.PartsConfig.QuickMergeMaxTarget) + "</size>", QuickMerge, Theme.Button, -1, 80, count >= 3, 26).name = "QuickMerge";
+                InventoryFooterExtras(foot);
+            });
 
             if (_scrollToInventory) ScrollToAfterBuild(head);
             _scrollToInventory = false;
         }
+
+        /// <summary>Everything a part tile shows (its part key).</summary>
+        private string TileKey(PartItem p)
+        {
+            var slot = GearGuide.EquippedSlot(State, p.Uid);
+            return K(p.DefId, PartName(Content, p), p.Rarity, p.Level, PartsSystem.LevelCap(Content, p), slot, Locks.Contains(p.Uid), p.Awaken,
+                slot.HasValue && GearGuide.CanLevelUp(State, Content, p));
+        }
+
+        /// <summary>What <see cref="InventoryFooterExtras"/> shows depends on (part key).</summary>
+        protected virtual string FooterExtrasKey() => "";
 
         /// <summary>More buttons next to Quick merge (the Worm adds Runes).</summary>
         protected virtual void InventoryFooterExtras(RectTransform row) { }
@@ -245,7 +280,7 @@ namespace RogueStars.Client.Screens
                     var s = slot.Value;
                     Ui.Button(eqRow, "Unequip", () => Run(new PartUnequip { Slot = s }, _ => Reopen(uid)), Theme.Button, 200, 80, true, 26).name = "Unequip";
                 }
-                Ui.Button(eqRow, locked ? "Unlock" : "Lock", () => { PartLocks.Set(State.PlayerId, uid, !locked); Reopen(uid); Rebuild(); }, locked ? Theme.Warn : Theme.Button, 190, 80, true, 26).name = "PartLock";
+                Ui.Button(eqRow, locked ? "Unlock" : "Lock", () => { PartLocks.Set(State.PlayerId, uid, !locked); Reopen(uid); Refresh(); }, locked ? Theme.Warn : Theme.Button, 190, 80, true, 26).name = "PartLock";
 
                 SkillList(b, PartPlanner.SkillLines(Content, p, p.Awaken > 0), "Skills (" + PartsSystem.SkillCount(Content, p.Rarity) + "/5 unlocked)");
 

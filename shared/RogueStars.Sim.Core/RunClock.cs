@@ -30,7 +30,7 @@ namespace RogueStars.Sim
 
     /// <summary>
     /// Wall-clock model of a run (docs/balance/progression-report.md "Run time model"). Animation times are the client's at
-    /// board speed ×1 (RunFx: dice 1.6 s by hand / 0.7 s in auto mode, 0.38 s / 0.23 s per hop; RunScreen: auto steps 0.6 s
+    /// board speed ×1 (RunFx: dice 0.9 s by hand / 0.7 s in auto mode, 0.38 s / 0.23 s per hop; RunScreen: auto steps 0.6 s
     /// apart, chance roll 1.3 s, auto closes a result after 1.4 s;
     /// BattlePlaybackScreen: 0.55 s per log entry ÷ speed, auto closes 0.8 s after the end); reading / deciding times are
     /// estimates for a player who knows the game. The battle speed is a player choice: ×1 is the default, ×2 free, ×3 pass.
@@ -38,7 +38,7 @@ namespace RogueStars.Sim
     public static class RunClock
     {
         // client animation (seconds)
-        public const double DiceSec = 1.6, AutoDiceSec = 0.7, HopSec = 0.38, AutoHopSec = 0.23;
+        public const double DiceSec = 0.9, AutoDiceSec = 0.7, HopSec = 0.38, AutoHopSec = 0.23;
         public const double AutoStepGapSec = 0.6, BattleEntrySec = 0.55, BattleOpenSec = 0.4;
         public const double BattleAutoCloseSec = 0.8, ChanceSpinSec = 1.3, AutoOutcomeSec = 1.4;
         // player (seconds)

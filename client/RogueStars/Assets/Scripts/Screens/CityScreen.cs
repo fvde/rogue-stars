@@ -80,13 +80,7 @@ namespace RogueStars.Client.Screens
             float frameH = BodyFrame != null && BodyFrame.rect.height > 100 ? BodyFrame.rect.height : 1750;
             float frameW = BodyFrame != null && BodyFrame.rect.width > 100 ? BodyFrame.rect.width : 1080;
             _size = new Vector2(frameW, frameH);
-            _pins.Clear();
-
-            _holder = Ui.Rect(body, "CityHolder");
-            Ui.Size(_holder, -1, frameH);
-            var input = _holder.gameObject.AddComponent<CityInput>();
-            input.Screen = this;
-            input.Space = _holder;
+            _pins.RemoveAll(p => p.Rt == null); // pins of kept parts stay, rebuilt parts add theirs again
 
             if (_world == null || _world.Disposed)
             {
@@ -100,11 +94,26 @@ namespace RogueStars.Client.Screens
             float scale = canvas != null && canvas.rootCanvas != null ? canvas.rootCanvas.scaleFactor : 1;
             if (scale <= 0) scale = 1;
             var rt = _world.EnsureTarget(Mathf.RoundToInt(frameW * scale), Mathf.RoundToInt(frameH * scale));
-            var view = Ui.Rect(_holder, "CityView");
-            Ui.Stretch(view);
-            var raw = view.gameObject.AddComponent<RawImage>();
-            raw.texture = rt;
-            raw.color = Color.white;
+            // the holder (input, the diorama's view, the overlay and its pin layer) is a part: kept across state changes
+            _holder = Part(body, "holder", K(frameW, frameH), b =>
+            {
+                var h = Ui.Rect(b, "CityHolder");
+                Ui.Size(h, -1, frameH);
+                var input = h.gameObject.AddComponent<CityInput>();
+                input.Screen = this;
+                input.Space = h;
+                var view = Ui.Rect(h, "CityView");
+                Ui.Stretch(view);
+                var img = view.gameObject.AddComponent<RawImage>();
+                img.color = Color.white;
+                var overlay = Ui.Rect(h, "CityOverlay");
+                Ui.Stretch(overlay);
+                Ui.Stretch(Ui.Rect(overlay, "Pins"));
+            });
+            var raw = _holder.Find("CityView").GetComponent<RawImage>();
+            if (raw.texture != rt) raw.texture = rt;
+            _overlay = (RectTransform)_holder.Find("CityOverlay");
+            _pinLayer = (RectTransform)_overlay.Find("Pins");
 
             _world.Sync(State, Content, Now, _edit);
             if (float.IsNaN(_cam.x))
@@ -114,30 +123,54 @@ namespace RogueStars.Client.Screens
             }
             ApplyCamera();
 
-            _overlay = Ui.Rect(_holder, "CityOverlay");
-            Ui.Stretch(_overlay);
-            _pinLayer = Ui.Rect(_overlay, "Pins");
-            Ui.Stretch(_pinLayer);
-
             BuildingPins();
-            Hud();
-            if (_edit) BuildEdit();
+            Part(_overlay, "hud", HudKey(), o => Hud());
+            if (_edit) Part(_overlay, "edit", VersionKey(Now), o => BuildEdit()); // edit mode rebuilds in full (InPlace)
             else
             {
                 if (CampMode)
                 {
-                    if (_selected != null) Card();
+                    if (_selected != null) Part(_overlay, "card", CardKey(), o => Card());
                 }
                 else
                 {
-                    Dock();
-                    if (IsTablet) Rail(false);
-                    if (_workersOpen) WorkersStrip();
-                    if (_selected != null) Card();
-                    if (_digPatch != null) DigPopup();
+                    Part(_overlay, "dock", DockKey(), o => Dock());
+                    if (IsTablet) Part(_overlay, "rail", VersionKey(_selected, _workersOpen, _digPatch), o => Rail(false));
+                    if (_workersOpen) Part(_overlay, "workers", VersionKey(), o => WorkersStrip());
+                    if (_selected != null) Part(_overlay, "card", CardKey(), o => Card());
+                    if (_digPatch != null) Part(_overlay, "dig", VersionKey(_digPatch), o => DigPopup());
                 }
             }
             UpdatePins();
+        }
+
+        /// <summary>In place (not in edit mode): the diorama's holder, every building's pins and the overlay blocks are keyed parts.</summary>
+        protected override bool InPlace => !_edit;
+
+        private string HudKey()
+        {
+            var k = new System.Text.StringBuilder(K(_edit, CampMode, CityDayNight.Phase(Now)));
+            if (!CampMode) foreach (var kv in Rates(State, Content, Now)) k.Append(kv.Key).Append(Fmt.Num(kv.Value)).Append(',');
+            return k.ToString();
+        }
+
+        private string DockKey()
+        {
+            int idle = 0;
+            foreach (var a in State.Aliens.Owned.Values) if (string.IsNullOrEmpty(a.WorkBuildingId)) idle++;
+            bool any = false;
+            foreach (var b in State.City.Buildings) if (CitySystem.IsBuilt(b) && b.Stored >= 1 && Content.Blueprint(b.BlueprintId)?.ProduceCurrency != null) any = true;
+            return K(idle, any, _workersOpen);
+        }
+
+        /// <summary>The building card: any command, the selection, and what the selected building shows that time changes.</summary>
+        private string CardKey()
+        {
+            var b = CitySystem.Building(State, _selected);
+            if (b == null) return K(_selected, "gone");
+            var anchor = b.Placed ? _world.PinAnchor(b.Uid) : null;
+            return VersionKey(_selected, CampMode, anchor, Math.Floor(b.Stored), CitySystem.ChancesReady(b), b.TimerId,
+                CitySystem.IsBuilt(b) && Content.Blueprint(b.BlueprintId)?.ProduceCurrency != null ? Fmt.Num(CitySystem.ProductionPerHour(State, Content, b, Now)) : "");
         }
 
         public override void OnShow()
@@ -257,11 +290,35 @@ namespace RogueStars.Client.Screens
         /// </summary>
         private void BuildingPins()
         {
-            foreach (var b in State.City.Buildings)
+            foreach (var bld in State.City.Buildings)
             {
-                if (!b.Placed) continue;
-                var anchor = _world.PinAnchor(b.Uid);
-                if (!anchor.HasValue) continue;
+                if (!bld.Placed) continue;
+                var at = _world.PinAnchor(bld.Uid);
+                if (!at.HasValue) continue;
+                var building = bld;
+                Part(_pinLayer, "pins:" + bld.Uid, PinKey(bld, at.Value), p => Pins(building, at));
+            }
+        }
+
+        /// <summary>Everything a building's pins show (their part key).</summary>
+        private string PinKey(CityBuilding b, Vector2 anchor)
+        {
+            var def = Content.Blueprint(b.BlueprintId);
+            bool built = CitySystem.IsBuilt(b);
+            string status = "";
+            if (b.TimerId == null && !_edit && built)
+            {
+                if (def?.Pull != null) status = K(CitySystem.ChancesReady(b), CitySystem.ChanceStorage(Content, def, b.Level));
+                else if (def?.ProduceCurrency != null && b.Stored >= 1 && RewardGate.CurrencyHasUse(State, Content, def.ProduceCurrency, Now))
+                    status = K(Math.Floor(b.Stored), b.Stored >= CitySystem.StorageCap(State, Content, b) - 1e-6);
+            }
+            return K(anchor.x, anchor.y, b.TimerId, b.Level, _edit, built, status, built && !CitySystem.IsActive(State, Content, b));
+        }
+
+        /// <summary>A building's pins: its tap target, the timer / chances / goods bubble, Zz (edit mode: its level).</summary>
+        private void Pins(CityBuilding b, Vector2? anchor)
+        {
+            {
                 var def = Content.Blueprint(b.BlueprintId);
                 string uid = b.Uid;
                 var pin = PinRect("Building:" + uid, anchor.Value, Vector2.zero, new Vector2(10, 10));
@@ -284,9 +341,9 @@ namespace RogueStars.Client.Screens
                         var cur = TimerSystem.Get(State, b.TimerId);
                         return cur == null ? "" : (b.Level == 0 ? "⚒ " : "▲ ") + Fmt.Duration(TimerSystem.Remaining(cur, Now));
                     });
-                    continue;
+                    return;
                 }
-                if (_edit) { LevelPin(b, anchor.Value); continue; }
+                if (_edit) { LevelPin(b, anchor.Value); return; }
                 if (def?.Pull != null && CitySystem.IsBuilt(b))
                 {
                     int ready = CitySystem.ChancesReady(b), cap = CitySystem.ChanceStorage(Content, def, b.Level);
@@ -403,7 +460,7 @@ namespace RogueStars.Client.Screens
             DockButton(row, "Build", "build", EnterEdit, "Dock:Build", 0);
             int idle = 0;
             foreach (var a in State.Aliens.Owned.Values) if (string.IsNullOrEmpty(a.WorkBuildingId)) idle++;
-            DockButton(row, "Workers", "workers", () => { _workersOpen = !_workersOpen; _selected = null; _digPatch = null; Rebuild(); }, "Dock:Workers", idle, _workersOpen);
+            DockButton(row, "Workers", "workers", () => { _workersOpen = !_workersOpen; _selected = null; _digPatch = null; Refresh(); }, "Dock:Workers", idle, _workersOpen);
             DockButton(row, "Output", "output", OutputSheet, "Dock:Output", 0);
             bool any = false;
             foreach (var b in State.City.Buildings) if (CitySystem.IsBuilt(b) && b.Stored >= 1 && Content.Blueprint(b.BlueprintId)?.ProduceCurrency != null) any = true;
@@ -444,7 +501,7 @@ namespace RogueStars.Client.Screens
             // the card opens above the building: bring the building into the lower part of the view
             var foot = _selected != null && _world != null ? _world.FootOf(uid) : null;
             if (foot.HasValue) { _cam = foot.Value + new Vector2(0, _world.ViewHeight * 0.16f); ApplyCamera(); }
-            Rebuild();
+            Refresh();
         }
 
         /// <summary>The map cell under a holder point.</summary>
@@ -485,7 +542,7 @@ namespace RogueStars.Client.Screens
             if (uid != null) { Select(uid); return; }
             var patch = CampMode ? null : PatchAt(c.x, c.y);
             if (patch != null) { OpenDig(patch.Id); return; }
-            if (_selected != null || _digPatch != null || _workersOpen) { _selected = null; _digPatch = null; _workersOpen = false; Rebuild(); }
+            if (_selected != null || _digPatch != null || _workersOpen) { _selected = null; _digPatch = null; _workersOpen = false; Refresh(); }
         }
 
         internal void LongPress(Vector2 px)
@@ -569,7 +626,7 @@ namespace RogueStars.Client.Screens
             name.horizontalOverflow = HorizontalWrapMode.Wrap; name.resizeTextForBestFit = true; name.resizeTextMinSize = 24; name.resizeTextMaxSize = 38;
             var tag = Ui.Chip(head, CampMode ? "Camp" : def.Rarity + " · " + CitySystem.CopiesBuilt(State, def.Id) + "/" + def.Copies, Theme.RarityColor(def.Rarity), Color.white, 22, 44);
             tag.name = "RarityTag";
-            Ui.Button(head, "✕", () => { _selected = null; Rebuild(); }, new Color(0.25f, 0.2f, 0.4f, 1), 56, 56, true, 28).name = "CloseCard";
+            Ui.Button(head, "✕", () => { _selected = null; Refresh(); }, new Color(0.25f, 0.2f, 0.4f, 1), 56, 56, true, 28).name = "CloseCard";
 
             if (!CampMode) Ui.Label(card, "Lv " + b.Level + "/" + CitySystem.MaxLevel(Content) + "   " + Fmt.Stars(stars) + "   " + def.Category, Theme.FontSmall, Theme.Gold, TextAnchor.MiddleLeft, "LevelLine");
 
@@ -620,7 +677,7 @@ namespace RogueStars.Client.Screens
                 }
                 else
                 {
-                    var eb = Ui.Button(wrow, "+", () => { _workersOpen = true; Rebuild(); }, new Color(0.3f, 0.26f, 0.5f, 1), 80, 80, true, 40);
+                    var eb = Ui.Button(wrow, "+", () => { _workersOpen = true; Refresh(); }, new Color(0.3f, 0.26f, 0.5f, 1), 80, 80, true, 40);
                     eb.name = "EmptySlot";
                     if (Application.isPlaying) UiPulse.On(eb.GetComponentInChildren<Image>(), 0.06f, 1.2f, 0.6f);
                 }
@@ -723,7 +780,7 @@ namespace RogueStars.Client.Screens
             _digPatch = patchId;
             _selected = null;
             _workersOpen = false;
-            Rebuild();
+            Refresh();
         }
 
         private void DigPopup()

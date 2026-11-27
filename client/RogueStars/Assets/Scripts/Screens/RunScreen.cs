@@ -186,6 +186,8 @@ namespace RogueStars.Client.Screens
         public override bool CoversResourceBar => true;
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
+        /// <summary>Back from a fight / a sheet: the board catches up (decision, outcome) in a rebuild.</summary>
+        public override bool RebuildOnReturn => true;
         public bool Auto => _auto;
         /// <summary>Auto mode is on but waits for the player (anything but a roll is next, or a screen is open).</summary>
         public bool AutoPaused => _auto && State.Run.Active != null && WaitsForPlayer(State.Run.Active);
@@ -389,6 +391,7 @@ namespace RogueStars.Client.Screens
             bool moving = path.Count > 1 && _world?.Token != null;
             if (moving) LastPopups.Clear();
             if (moving || rolled) ReturnCamera(); // a roll / a new move: the view eases back to the worm
+            if (!(rolled && run.LastDice.Count > 0)) DropDiceStage(); // a stage of an earlier roll / a pre-roll without a roll
             if (rolled && run.LastDice.Count > 0) RollDice(run.LastDice);
             if (moving)
             {
@@ -424,9 +427,10 @@ namespace RogueStars.Client.Screens
                 if (!battle) _anim.Call(() => AnimateHud(hudNow));
                 // a moment to read the popups before a fight or a decision covers the board
                 bool next = battle || RunSystem.RequiresPlayer(Content, run, false) || newOutcome != null && RunPresentation.IsSheetSource(newOutcome.Source);
-                if (next && !RunFx.Skip) _anim.Wait(_auto ? 0.45f : 0.85f);
+                if (next && !RunFx.Skip) _anim.Wait(_auto ? 0.3f : PreDecisionSeconds);
             }
             else if (!battle) _anim.Call(() => AnimateHud(hudNow));
+            _anim.Mark(SkipMark); // a tap on the dice finishes everything before this at once
             if (battle)
             {
                 var result = run.LastBattle;
@@ -443,32 +447,107 @@ namespace RogueStars.Client.Screens
         {
             var vals = new List<int>(values);
             float secs = RunFx.DiceSeconds(_auto);
-            if (secs <= 0 || _holder == null) { _footerDice?.Pose(1, PrintedDice(vals)); return; }
-            var stage = Ui.Rect(_holder, "DiceStage");
+            if (secs <= 0 || _holder == null) { DropDiceStage(); _footerDice?.Pose(1, PrintedDice(vals)); return; }
+            // the dice already tumble since the tap (pre-roll): they land from where they are, the whole roll staying ~secs
+            float t0 = 0;
+            if (_preRolling && _diceView != null && _diceView.Dice.Count == vals.Count)
+            {
+                t0 = _preRollT;
+                secs = Mathf.Max(PreRollLandSeconds, secs - _preRollWaited);
+            }
+            else { DropDiceStage(); MakeDiceStage(vals.Count); }
+            _preRolling = false;
+            var view = _diceView;
+            var stage = _diceStage;
+            var group = _diceGroup;
+            _anim.Then(secs, t =>
+            {
+                float k = Mathf.Lerp(t0, 1, t);
+                view.Pose(k, vals);
+                _footerDice?.Pose(Mathf.Min(1, k * 1.05f), PrintedDice(vals));
+            });
+            // the dice rest for a beat, then fade while the worm starts hopping
+            _anim.Then(_auto ? 0.18f : DiceRestSeconds, null, () =>
+            {
+                if (stage == null) return;
+                UiTweens.Play(stage.gameObject, "fade", 0.3f / AnimSpeed, k => { if (group != null) group.alpha = 1 - k; }, () =>
+                {
+                    if (stage != null) UnityEngine.Object.Destroy(stage.gameObject);
+                    if (_diceStage == stage) { _diceStage = null; _diceView = null; _diceGroup = null; }
+                });
+            });
+        }
+
+        // ---- the dice stage (over the board; under BodyFrame, so a rebuild on the server's answer keeps it) ----
+
+        /// <summary>Manual pause after the landing before a fight / decision covers the board (×1 speed).</summary>
+        public const float PreDecisionSeconds = 0.4f;
+        /// <summary>The dice rest on their values before they fade (manual).</summary>
+        public const float DiceRestSeconds = 0.2f;
+        /// <summary>Shortest landing of dice that already tumbled while the roll was on its way.</summary>
+        public const float PreRollLandSeconds = 0.45f;
+        /// <summary>Waiting dice loop through the first bounce of the roll (pose time 0..this).</summary>
+        public const float PreRollLoop = 0.26f;
+        /// <summary>The animation mark a tap on the dice skips to (everything before it finishes at once).</summary>
+        public const string SkipMark = "decide";
+
+        private RectTransform _diceStage;
+        private DiceView _diceView;
+        private CanvasGroup _diceGroup;
+        private bool _preRolling;
+        private float _preRollT, _preRollWaited;
+
+        /// <summary>The dice tumble from the tap on, before the roll's answer (tests).</summary>
+        public bool PreRolling => _preRolling;
+
+        private void MakeDiceStage(int count)
+        {
+            var parent = BodyFrame != null ? BodyFrame : _holder;
+            var stage = Ui.Rect(parent, "DiceStage");
             Ui.Stretch(stage);
             var shade = Ui.Panel(stage, new Color(0, 0, 0, 0.25f), "Shade");
             shade.raycastTarget = false;
             Ui.Stretch(shade.rectTransform);
-            float dieSize = vals.Count <= 2 ? 150 : Mathf.Max(70, 520f / vals.Count);
-            var view = new DiceView(stage, vals.Count, dieSize);
-            view.Root.sizeDelta = new Vector2(vals.Count * dieSize * 1.35f, dieSize * 1.4f);
+            float dieSize = count <= 2 ? 150 : Mathf.Max(70, 520f / count);
+            var view = new DiceView(stage, count, dieSize);
+            view.Root.sizeDelta = new Vector2(count * dieSize * 1.35f, dieSize * 1.4f);
             // B4: the dice pop above the worm's head (offset by its sprite height), never on top of it
             view.Root.anchorMin = view.Root.anchorMax = new Vector2(0, 1);
             view.Root.anchoredPosition = DiceAboveWorm(view.Root.sizeDelta);
             var group = stage.gameObject.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false;
-            _anim.Then(secs, t =>
-            {
-                view.Pose(t, vals);
-                _footerDice?.Pose(Mathf.Min(1, t * 1.05f), PrintedDice(vals));
-            });
-            // the dice rest for a beat, then fade while the worm starts hopping
-            _anim.Then(_auto ? 0.18f : 0.4f, null, () =>
-            {
-                if (stage == null) return;
-                UiTweens.Play(stage.gameObject, "fade", 0.38f / AnimSpeed, k => { if (group != null) group.alpha = 1 - k; }, () => { if (stage != null) UnityEngine.Object.Destroy(stage.gameObject); });
-            });
+            _diceStage = stage; _diceView = view; _diceGroup = group;
         }
+
+        private void DropDiceStage()
+        {
+            if (_diceStage != null) Ui.DestroyGo(_diceStage.gameObject);
+            _diceStage = null; _diceView = null; _diceGroup = null;
+            _preRolling = false;
+        }
+
+        /// <summary>Tap on ROLL: the dice start tumbling now, then the roll goes out; its answer lands them (RollDice).</summary>
+        private void RollNow(ActiveRun r)
+        {
+            if (!RunFx.Skip && _holder != null)
+            {
+                DropDiceStage();
+                MakeDiceStage(Math.Max(1, r.LastDice.Count > 0 ? r.LastDice.Count : _footerDice != null ? _footerDice.Dice.Count : 1));
+                _preRolling = true;
+                _preRollT = 0; _preRollWaited = 0;
+            }
+            Run(new RunRoll(), res => { if (!res.Ok) DropDiceStage(); });
+        }
+
+        private void StepPreRoll(float dt)
+        {
+            if (!_preRolling || _diceView == null) return;
+            _preRollWaited += dt;
+            _preRollT = (_preRollT + dt / RunFx.DiceRollSeconds) % PreRollLoop;
+            _diceView.Pose(_preRollT, _preRollFaces);
+        }
+
+        private static readonly List<int> _preRollFaces = new List<int> { 6, 6, 6, 6, 6, 6 };
 
         /// <summary>Centre of the rolling dice (top-left-anchored holder coordinates): above the worm's head, kept on screen.</summary>
         private Vector2 DiceAboveWorm(Vector2 size)
@@ -1054,11 +1133,12 @@ namespace RogueStars.Client.Screens
             hold.OnTap = () =>
             {
                 if (_auto && !AutoPaused) StopAuto();
-                else if (Animating) _anim.Speed = 4; // tap while the dice roll / the worm hops: fast-forward
+                else if (Animating) { if (!_anim.FlushUntil(SkipMark)) _anim.Speed = 4; } // tap while the dice roll / the worm hops: there at once
+                else if (_preRolling || Session.InFlight > 0) { } // the roll is on its way: a second tap does nothing
                 else
                 {
                     var r = State.Run.Active;
-                    if (r != null && r.Phase == RunPhase.AwaitRoll) Run(new RunRoll());
+                    if (r != null && r.Phase == RunPhase.AwaitRoll) RollNow(r);
                     else if (r != null && r.Phase == RunPhase.Encounter) Run(new RunEncounter());
                     else if (r != null && r.Phase == RunPhase.ChooseBranch) { ReturnCamera(); Rebuild(); } // the camera eases back to the fork
                     else if (r != null) { _decisionKey = null; ShowOutcomeOrDecision(r); }
@@ -1180,6 +1260,7 @@ namespace RogueStars.Client.Screens
                 && BodyFrame.rect.width > 100 && BodyFrame.rect.height > 100)
                 Rebuild();
             StepCamera(dt);
+            StepPreRoll(dt);
             SyncBoardBook();
             if (_toResult && !Animating && App.Router.Current == this)
             {

@@ -203,6 +203,7 @@ namespace RogueStars.Client.Services
             // Dev cheat: the rewards land at once, even those without a use yet (no reward stash).
             var ctx = new CommandContext { State = _state, Content = Content, Engine = Engine, NowMs = NowMs, IgnoreRewardGate = true };
             ctx.GrantAll(rewards);
+            _state.Version++; // a change like a command's: screens updating in place key parts on the version
             Save();
             RaiseChanged();
         }
@@ -211,6 +212,7 @@ namespace RogueStars.Client.Services
         {
             if (_state == null) return;
             if (on) _state.Flags.Add(flag); else _state.Flags.Remove(flag);
+            _state.Version++;
             Engine.Settle(_state, NowMs);
             Save();
             RaiseChanged();

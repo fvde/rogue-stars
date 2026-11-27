@@ -183,8 +183,13 @@ namespace RogueStars.Client.PlayTests
                 yield return null;
             }
 
-            // main tab bar: reset to a new hub + open the tab's screen
+            // main tab bar: reset to a new hub + open the tab's screen (the old path), then the tab switch itself
             yield return Measure("main tab bar → shop (Reset hub + open)", () => { _app.Router.Reset(new HubScreen()); _app.Open("shop"); }, 3);
+            _app.Router.Reset(new HubScreen());
+            _app.Open("worm");
+            yield return null;
+            yield return Measure("main tab bar worm → shop (OpenTab)", () => _app.OpenTab("shop"), 3, () => _app.OpenTab("worm"));
+            yield return Measure("main tab bar shop → planet (OpenTab hub)", () => _app.OpenTab(null), 3, () => _app.OpenTab("shop"));
             // shop section chips
             _app.Router.Reset(new HubScreen());
             _app.Open("shop");

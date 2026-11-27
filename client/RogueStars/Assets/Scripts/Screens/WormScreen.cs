@@ -84,15 +84,24 @@ namespace RogueStars.Client.Screens
                 labels.Add(t == WormTab.Parts ? "Parts" : t == WormTab.Levels ? "Levels" : "Stats");
                 dots.Add(t == WormTab.Parts ? GearGuide.HasAffordableUpgrade(State, Content) : t == WormTab.Levels && TalentActionable());
             }
-            Kit.TabChips(body, labels, tabs.IndexOf(_tab), i => { _tab = tabs[i]; Rebuild(); }, 84, dots);
+            Part(body, "tabs", K(string.Join(",", labels), string.Join(",", dots), _tab),
+                b => Kit.TabChips(b, labels, tabs.IndexOf(_tab), i => { _tab = tabs[i]; Refresh(); }, 84, dots));
 
             switch (_tab)
             {
                 case WormTab.Parts: PartsView(body, loadout); break;
-                case WormTab.Levels: LevelsView(body, loadout); break;
-                default: StatsView(body, loadout); break;
+                case WormTab.Levels:
+                    Part(body, "levels", VersionKey(loadout.Power, State.Wallet.Get(Currencies.Biomass)), b => LevelsView(b, loadout));
+                    break;
+                default:
+                    var statsKey = new System.Text.StringBuilder();
+                    foreach (var st in ShownStats) statsKey.Append(loadout.WormStats.Value(st)).Append(',');
+                    Part(body, "stats", statsKey.ToString(), b => StatsView(b, loadout));
+                    break;
             }
         }
+
+        protected override string FooterExtrasKey() => K(Session.IsUnlocked(Features.Runes));
 
         // ---- Parts: paperdoll, stat bar, inventory ---------------------------------------------------------------------
 
@@ -103,21 +112,38 @@ namespace RogueStars.Client.Screens
         private void PartsView(RectTransform body, CombatLoadout loadout)
         {
             float stageH = 3 * SlotH + 2 * SlotGap;
-            var paper = Ui.Row(body, stageH, 14, null, 0, "Paperdoll");
-            SlotColumn(paper, LeftSlots);
-            Stage(paper, loadout, stageH);
-            SlotColumn(paper, RightSlots);
+            var paper = Part(body, "paperdoll", "", b => Ui.Row(b, stageH, 14, null, 0, "Paperdoll"));
+            SlotColumn(paper, "left", LeftSlots);
+            Part(paper, "stage", K(State.DisplayName, loadout.Power, State.Worm.Level, State.Heroes?.Equipped), b => Stage(b, loadout, stageH));
+            SlotColumn(paper, "right", RightSlots);
             var stats = new List<(string key, string abbr, Color color, string value)>();
             foreach (var st in new[] { StatId.Hp, StatId.Atk, StatId.Def }) stats.Add(StatEntry(st, loadout.WormStats.Value(st)));
-            Kit.StatPills(body, stats, "StatBar");
+            Part(body, "statbar", K(stats[0].value, stats[1].value, stats[2].value), b => Kit.StatPills(b, stats, "StatBar"));
             BuildInventory(body, "Inventory");
         }
 
-        private void SlotColumn(Transform parent, PartSlot[] slots)
+        private void SlotColumn(Transform parent, string id, PartSlot[] slots)
         {
-            var col = Ui.Column(parent, SlotGap, 0, null, "SlotColumn");
-            Ui.Size(col, SlotW, -1, 0);
-            foreach (var slot in slots) SlotCard(col, slot);
+            var col = Part(parent, id, "", b =>
+            {
+                var c = Ui.Column(b, SlotGap, 0, null, "SlotColumn");
+                Ui.Size(c, SlotW, -1, 0);
+            });
+            foreach (var slot in slots)
+            {
+                var sl = slot;
+                Part(col, "slot:" + slot, SlotKey(slot), c => SlotCard(c, sl));
+            }
+        }
+
+        /// <summary>Everything a body slot card shows (its part key).</summary>
+        private string SlotKey(PartSlot slot)
+        {
+            State.Parts.Equipped.TryGetValue(slot, out var uid);
+            var part = PartsSystem.Get(State, uid);
+            bool selected = SlotFilter == GearGuide.FilterFor(slot) && SlotFilter != GearSlotFilter.All;
+            return part == null ? K(selected, GearGuide.SpareFor(State, Content, slot))
+                : K(selected, GearGuide.SpareFor(State, Content, slot), part.Uid, PartName(Content, part), part.Rarity, part.Level, GearGuide.CanLevelUp(State, Content, part));
         }
 
         private static void Float(RectTransform rt, float anchorY, float y)

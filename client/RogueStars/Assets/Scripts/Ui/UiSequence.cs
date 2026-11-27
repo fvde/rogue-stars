@@ -15,6 +15,7 @@ namespace RogueStars.Client.UiKit
             public float Duration;
             public Action<float> Update;
             public Action Done;
+            public string Label;
         }
 
         private readonly Queue<Step> _steps = new Queue<Step>();
@@ -47,6 +48,28 @@ namespace RogueStars.Client.UiKit
         public UiSequence Wait(float seconds, Action done = null) => Then(seconds, null, done);
 
         public UiSequence Call(Action action) => Then(0.0001f, null, action);
+
+        /// <summary>A no-op step named <paramref name="label"/> (<see cref="FlushUntil"/> stops there).</summary>
+        public UiSequence Mark(string label)
+        {
+            if (!Application.isPlaying) return this;
+            _steps.Enqueue(new Step { Duration = 0.0001f, Label = label });
+            return this;
+        }
+
+        /// <summary>
+        /// Finish the running and queued steps at once up to the <see cref="Mark"/> <paramref name="label"/> (which stays
+        /// queued and plays on as usual); nothing happens when no such mark is queued. True when it skipped anything.
+        /// </summary>
+        public bool FlushUntil(string label)
+        {
+            bool found = false;
+            foreach (var s in _steps) if (s.Label == label) { found = true; break; }
+            if (!found) return false;
+            if (_current != null) { var c = _current; _current = null; RunToEnd(c); }
+            while (_steps.Count > 0 && _steps.Peek().Label != label) RunToEnd(_steps.Dequeue());
+            return true;
+        }
 
         /// <summary>Finish every queued step immediately.</summary>
         public void Flush()

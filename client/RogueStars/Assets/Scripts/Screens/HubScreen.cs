@@ -89,28 +89,88 @@ namespace RogueStars.Client.Screens
             float frameW = laidOut ? BodyFrame.rect.width : 1080;
             // the layout is absolute in frame units: Frame rebuilds it when the frame size changes (canvas resize, safe area)
             _builtFrame = laidOut ? new Vector2(frameW, frameH) : Vector2.zero;
-            var holder = Ui.Rect(body, "HomeHolder");
-            Ui.Size(holder, -1, frameH);
             _s = frameW / 1080f;
             _h = frameH / _s;
-            // the space backdrop by state (day / night / event / invasion), covering the frame at its own aspect (clipped)
-            holder.gameObject.AddComponent<RectMask2D>();
-            var sky = Ui.Panel(holder, Color.white, "Sky");
             Sky = CurrentSky();
-            sky.sprite = ScreenArt.Sky(Sky, PlanetStage(State)); sky.raycastTarget = false;
-            Ui.Stretch(sky.rectTransform);
-            if (sky.sprite != null && sky.sprite.rect.height > 0)
+            int stage = PlanetStage(State);
+            // the holder (sky + the frame everything is placed in) and each block in it are keyed parts: a state change
+            // rebuilds only the blocks whose content changed (in place)
+            var holder = Part(body, "holder", K(frameW, frameH, Sky, stage), b =>
             {
-                var fit = sky.gameObject.AddComponent<AspectRatioFitter>();
-                fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-                fit.aspectRatio = sky.sprite.rect.width / sky.sprite.rect.height;
-            }
-            _frame = Ui.Rect(holder, "Home");
-            Ui.Stretch(_frame);
-            BuildTop();
-            BuildColumns();
-            BuildCentre();
-            BuildBottom();
+                var h = Ui.Rect(b, "HomeHolder");
+                Ui.Size(h, -1, frameH);
+                // the space backdrop by state (day / night / event / invasion), covering the frame at its own aspect (clipped)
+                h.gameObject.AddComponent<RectMask2D>();
+                var sky = Ui.Panel(h, Color.white, "Sky");
+                sky.sprite = ScreenArt.Sky(Sky, stage); sky.raycastTarget = false;
+                Ui.Stretch(sky.rectTransform);
+                if (sky.sprite != null && sky.sprite.rect.height > 0)
+                {
+                    var fit = sky.gameObject.AddComponent<AspectRatioFitter>();
+                    fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                    fit.aspectRatio = sky.sprite.rect.width / sky.sprite.rect.height;
+                }
+                Ui.Stretch(Ui.Rect(h, "Home"));
+            });
+            _frame = (RectTransform)holder.Find("Home");
+            Part(_frame, "top", TopKey(), f => BuildTop());
+            Part(_frame, "columns", ColumnsKey(), f => BuildColumns());
+            Part(_frame, "centre", CentreKey(), f => BuildCentre());
+            // bottom: tabs, START row above them, the feature row, the guide on top
+            Part(_frame, "tabs", TabsKey(), f => BuildTabs());
+            var run = State.Run.Active;
+            var nextLevel = RunSystem.NextMainLevel(State, Content);
+            Part(_frame, "start", K(run?.LevelId, nextLevel?.Id, nextLevel != null ? RunSystem.EntryCost(Content, nextLevel.Id, RunMode.Normal).Amount : 0,
+                Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide)), f => BuildStart());
+            var features = FeatureRow();
+            var featureIds = new System.Text.StringBuilder();
+            foreach (var ft in features) featureIds.Append(ft.Id).Append(',');
+            if (features.Count > 0) Part(_frame, "features", featureIds.ToString(), f => BuildFeatureRow(features));
+            Part(_frame, "guide", GuideKey(), f => BuildGuide(210 + 250 + (features.Count > 0 ? 200 : 0)));
+        }
+
+        /// <summary>In place: sky, season bar, side columns, planet, tabs, START, feature row and guide are keyed parts.</summary>
+        protected override bool InPlace => true;
+
+        private string TopKey() => !Session.IsUnlocked(Features.SeasonPass) ? "locked"
+            : K(ShopSystem.SeasonLevel(State, Content), ShopSystem.SeasonXp(State, Content), ShopSystem.SeasonIndex(Content, Now), _s, _h);
+
+        /// <summary>Everything the side columns show except their live timers.</summary>
+        private string ColumnsKey()
+        {
+            var k = new System.Text.StringBuilder().Append(_s).Append('|').Append(_h).Append('|').Append(Session.IsUnlocked(Features.SeasonPass)).Append('|');
+            foreach (var e in HubLayout.LeftColumn(State, Content)) k.Append(e.Id).Append(e.Label).Append(',');
+            k.Append(QuestCount()).Append('|').Append(Session.IsUnlocked(Features.Heroes) ? SummonView.HubBadge(State, Content, Now) : 0).Append('|');
+            foreach (var ev in HubLayout.LiveEvents(State, Content, Now)) k.Append(ev.OccurrenceId).Append(ev.Kind).Append(ev.Name).Append(ev.EndMs).Append(',');
+            k.Append(Session.IsUnlocked(Features.Invasions)).Append('|');
+            foreach (var e in HubLayout.RightColumn(State, Content, Now)) k.Append(e.Id).Append(e.Label).Append(',');
+            k.Append(ShopSystem.SeasonLevel(State, Content)).Append('|').Append(ShopSystem.PassClaimables(State, Content, Now).Count).Append('|').Append(MailSystem.UnreadCount(State));
+            return k.ToString();
+        }
+
+        /// <summary>Everything the planet block shows (title, planet, worm, crash site, squad).</summary>
+        private string CentreKey()
+        {
+            var next = RunSystem.NextMainLevel(State, Content);
+            var squad = new System.Text.StringBuilder();
+            foreach (var id in AlienSystem.ActiveSquad(State, Content)) squad.Append(id).Append(',');
+            var pod = CrashSiteVisible(State) ? CitySystem.LaunchPod(State) : null;
+            return K(_s, _h, Session.IsUnlocked(Features.Parts), Session.IsUnlocked(Features.SeasonPass), next?.Id, next != null ? RunSystem.LongestRolls(State, next.Id) : 0,
+                PortalsScreen.FrontierPortalIndex(State, Content), PlanetStage(State), BottomBlock(), squad.ToString(), pod?.BlueprintId);
+        }
+
+        private string TabsKey()
+        {
+            var k = new System.Text.StringBuilder().Append(_s).Append('|').Append(_h).Append('|');
+            foreach (var e in HubLayout.Tabs(State, Content)) k.Append(e.Id).Append(e.Label).Append(e.Icon).Append(TabBadge(e.Id)).Append(',');
+            return k.ToString();
+        }
+
+        private string GuideKey()
+        {
+            var goal = Tutorial.Next(State, Content, Now);
+            var next = Features.Next(State, Content, Now);
+            return K(_s, _h, GuideExpanded, goal?.StepId, goal?.Text, goal?.ScreenId, next != null ? TeaserText(next) : null);
         }
 
         /// <summary>Places by centre and size in reference px; <paramref name="fromBottom"/>: y is the distance from the bottom edge.</summary>
@@ -383,14 +443,9 @@ namespace RogueStars.Client.Screens
         /// <summary>The guide shows all its cards (the "+N" chip was tapped; tap "–" to collapse).</summary>
         public bool GuideExpanded;
 
-        private void BuildBottom()
+        private void BuildFeatureRow(List<Feature> features)
         {
-            // tabs (bottom), START row above them, the feature row, the guide on top
-            BuildTabs();
-            BuildStart();
-            var features = FeatureRow();
             float y = 210 + 250;
-            if (features.Count > 0)
             {
                 var panel = Ui.RoundPanel(_frame, Panel, 40 * _s, "FeatureRow");
                 panel.raycastTarget = false;
@@ -409,9 +464,7 @@ namespace RogueStars.Client.Screens
                     Ui.Stretch(l.rectTransform, -10 * _s, 0, -10 * _s, 8 * _s);
                     l.lineSpacing = 0.85f;
                 }
-                y += 200;
             }
-            BuildGuide(y);
         }
 
         /// <summary>Width of the guide: the space between the side columns (H3: cards ran under the right column).</summary>
@@ -452,7 +505,7 @@ namespace RogueStars.Client.Screens
             for (int i = 1; i < cards.Count; i++) cards[i].SetActive(GuideExpanded);
             if (total > 1 && cards.Count > 0)
             {
-                var chipBtn = Ui.Button(cards[0].transform, GuideExpanded ? "–" : "+" + (total - 1), () => { GuideExpanded = !GuideExpanded; Rebuild(); },
+                var chipBtn = Ui.Button(cards[0].transform, GuideExpanded ? "–" : "+" + (total - 1), () => { GuideExpanded = !GuideExpanded; Refresh(); },
                     HubKit.Orange, 76, 52, true, 26);
                 chipBtn.name = "GuideMore";
                 var crt = (RectTransform)chipBtn.transform;

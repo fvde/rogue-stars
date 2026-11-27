@@ -154,8 +154,21 @@ AppBootstrap (only object in Main.unity)
   background, `HeaderHeight` 0 and its own top strip (`Screens/RunHud.cs`: `RunHudStrip`, also the boss clock row and the
   skill tile used by the run tray and the battle strip). `UiShapes.CircleRing` is a round ring sprite for radial progress
   (`Image.Type.Filled`, the run level's XP ring).
-- **Screens**: subclass `UiScreen`, implement `Title` and `Build(body)`; the body is rebuilt on every state change
-  (`AutoRebuild`, off for screens with text inputs) and countdowns use `Live(text, () => …)` (ticked twice a second).
+- **Screens**: subclass `UiScreen`, implement `Title` and `Build(body)`; on every state change the screen is updated
+  (`AutoRebuild`, off for screens with text inputs) and countdowns use `Live(text, () => …)` (ticked twice a second; a
+  text is only written when it changed).
+- **In-place updates** (`UiScreen.InPlace`, the UI speed work): an in-place screen builds every direct child of its body
+  and footer through `Part(parent, id, key, build)`. On a state change (`UiScreen.StateChanged` → `Refresh`) Build runs
+  again, but a part whose key is unchanged keeps its GameObjects and Live texts; a part with a new key is rebuilt alone,
+  parts no longer built are removed, the order follows the calls. A part can return a container for child parts (tile
+  grids: one part per tile). Keys hold everything the part shows (`K(...)`); fast-changing numbers are Live texts
+  (`LiveCurrencyChip`), rarely-changing sub-views use `VersionKey(...)` (rebuilt by any command, kept on a refresh).
+  Content built outside `Part()` in an in-place screen logs an error and falls back to a full rebuild. In place today:
+  Worm, Parts (gear inventory), Laboratory, Passes, Portals, Heroes, Mounts, Aliens, City (not in edit mode), Shop, the hub
+  and the resource bar (`ResourceBar.Rebuild` rebuilds only when its chips / profile change); the main tab bar is kept
+  while its tabs are the same. Not yet: the run screen and the smaller screens (full rebuild). Back (`ScreenRouter.Pop`) refreshes an
+  in-place screen, rebuilds others only when the state version changed while hidden (`IsStale`); the main tab bar keeps
+  the hub alive (`ClientApp.OpenTab`). `Canvas.ForceUpdateCanvases` runs only for a scroll target (and in edit mode).
   `TimerControls(parent, timerId)` renders any rules timer with Diamonds / ad −15% / free speed-ups.
 
 ## Screens
@@ -326,10 +339,15 @@ design A (the board, tray and footer described in *Screens* above are superseded
   stays within `MinZoom`..`MaxZoom` (0.8–1.9 × default), the centre within the drawn path (`WorldBoard.PathBounds`) plus
   1.5 units. The view stays where the player left it until a **roll or a move**, which eases position and zoom back to
   the follow framing (smoothstep, `ReturnSeconds` 0.4 s; `RunScreen.MoveView` / `ReturnCamera`).
-- **Board speed** (×1, the speed chip divides): dice 1.6 s by hand / 0.7 s in auto (`RunFx.DiceRollSeconds`), a rest
-  beat 0.4 / 0.18 s, 0.38 s per hop / 0.23 s in auto (`HopStepSeconds`), the landing pop 0.7 s (`LandPopSeconds`), a
-  beat of 0.85 / 0.45 s before a fight or a decision covers the board; ~1.6× the earlier ×1 by hand, ~1.4× in auto.
-  RogueStars.Sim's `RunClock` mirrors the dice and hop times.
+- **Board speed** (×1, the speed chip divides): dice 0.9 s by hand / 0.7 s in auto (`RunFx.DiceRollSeconds`), a rest
+  beat 0.2 / 0.18 s, 0.38 s per hop / 0.23 s in auto (`HopStepSeconds`), the landing pop 0.7 s (`LandPopSeconds`), a
+  beat of 0.4 / 0.3 s before a fight or a decision covers the board (`RunScreen.PreDecisionSeconds`).
+  RogueStars.Sim's `RunClock` mirrors the dice and hop times. The dice start tumbling on the tap (pre-roll, before
+  the server answers) and land on the answer's values, the whole roll staying ~0.9 s. A tap on the dice while the
+  board animates finishes everything up to the fight / decision at once (`UiSequence.FlushUntil(SkipMark)`); a tap
+  while the roll is on its way does nothing.
+- **Tap feedback** (`UiKit.UiPress` on the canvas root): every button presses (scale 0.94) on pointer down; a tap that
+  sends a command keeps it pressed and dimmed (taps ignored) while `GameSession.InFlight` > 0.
 - **HUD** (`Screens/SliceHud`): EXP hexagon + level pill with the XP fill, HP pill (heart), ATK (sword) and DEF (shield)
   pills (thick dark outline, inner lip and gloss), cog = pause (pending loot is in the pause sheet), coin chip; the boss
   rail down the left edge (a thick capsule, boss skull, a framed skull pip per clock miniboss, a gradient fill blue → the

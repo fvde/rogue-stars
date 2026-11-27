@@ -21,11 +21,15 @@ namespace RogueStars.Client.Screens
         public override string Title => "Heroes";
         public override string[] IntroFeatures => new[] { Features.Heroes };
 
+        /// <summary>In place: one keyed part per hero card; the Hero XP line is live.</summary>
+        protected override bool InPlace => true;
+
         protected override void Build(RectTransform body)
         {
             var cfg = Content.HeroConfig;
-            Ui.Button(body, "Summon events: get heroes and stars", () => OpenSummon(), Theme.Purple).name = "OpenSummon";
-            Note(body, "Hero XP " + Fmt.Num(State.Wallet.Get(Currencies.HeroXp)) + " · equipped: " + (string.IsNullOrEmpty(State.Heroes.Equipped) ? "none" : cfg.Defs.TryGetValue(State.Heroes.Equipped, out var eq) ? eq.Name : State.Heroes.Equipped));
+            Part(body, "summon", "", b => Ui.Button(b, "Summon events: get heroes and stars", () => OpenSummon(), Theme.Purple).name = "OpenSummon");
+            string equippedName = string.IsNullOrEmpty(State.Heroes.Equipped) ? "none" : cfg.Defs.TryGetValue(State.Heroes.Equipped, out var eq) ? eq.Name : State.Heroes.Equipped;
+            Part(body, "xp", equippedName, b => Live(Note(b, ""), () => "Hero XP " + Fmt.Num(State.Wallet.Get(Currencies.HeroXp)) + " · equipped: " + equippedName));
             var ids = new List<string>(cfg.Defs.Keys);
             ids.Sort((a, b) =>
             {
@@ -35,6 +39,28 @@ namespace RogueStars.Client.Screens
             foreach (var id in ids)
             {
                 string hid = id;
+                Part(body, "hero:" + hid, HeroKey(hid), b => HeroCard(b, hid));
+            }
+        }
+
+        /// <summary>Everything a hero card shows (its part key).</summary>
+        private string HeroKey(string hid)
+        {
+            var cfg = Content.HeroConfig;
+            var h = HeroSystem.Get(State, hid);
+            long shards = State.Wallet.Get(Currencies.HeroShards(hid));
+            if (h == null) return K("locked", shards >= Content.ShardStars.UnlockShards ? -1 : shards);
+            bool canLevel = h.Level < cfg.MaxLevel(h.Stars) && h.Level < cfg.LevelXpCosts.Count;
+            long xp = canLevel ? cfg.LevelXpCosts[h.Level] : 0;
+            bool afford = canLevel && State.Wallet.CanAfford(Currencies.HeroXp, xp);
+            return K(h.Stars, h.Level, shards, HeroSystem.NextStarCost(State, Content, hid), State.Heroes.Equipped == hid, canLevel, xp, afford,
+                canLevel && !afford ? xp - State.Wallet.Get(Currencies.HeroXp) : 0);
+        }
+
+        private void HeroCard(RectTransform body, string hid)
+        {
+            var cfg = Content.HeroConfig;
+            {
                 var def = cfg.Defs[hid];
                 var h = HeroSystem.Get(State, hid);
                 long shards = State.Wallet.Get(Currencies.HeroShards(hid));
@@ -49,7 +75,7 @@ namespace RogueStars.Client.Screens
                     long need = Content.ShardStars.UnlockShards;
                     if (shards >= need) Ui.Button(row, "Unlock", () => Run(new HeroUnlock { HeroId = hid }), Theme.Accent, -1, 80, true, 26).name = "Unlock:" + hid;
                     else KitView.GetInSummon(row, shards, need, () => OpenSummon()).name = "GetInSummon:" + hid;
-                    continue;
+                    return;
                 }
                 long star = HeroSystem.NextStarCost(State, Content, hid);
                 bool canStar = star >= 0 && shards >= star;
@@ -76,11 +102,14 @@ namespace RogueStars.Client.Screens
         public override string Title => "Mounts";
         public override string[] IntroFeatures => new[] { Features.Mounts };
 
+        /// <summary>In place: one keyed part per mount card; the Fuel line is live.</summary>
+        protected override bool InPlace => true;
+
         protected override void Build(RectTransform body)
         {
             var cfg = Content.MountConfig;
-            Ui.Button(body, "Summon events: get mounts and stars", () => OpenSummon(), Theme.Purple).name = "OpenSummon";
-            Note(body, "Fuel " + Fmt.Num(State.Wallet.Get(Currencies.Fuel)));
+            Part(body, "summon", "", b => Ui.Button(b, "Summon events: get mounts and stars", () => OpenSummon(), Theme.Purple).name = "OpenSummon");
+            Part(body, "fuel", "", b => Live(Note(b, ""), () => "Fuel " + Fmt.Num(State.Wallet.Get(Currencies.Fuel))));
             var ids = new List<string>(cfg.Defs.Keys);
             ids.Sort((a, b) =>
             {
@@ -90,6 +119,29 @@ namespace RogueStars.Client.Screens
             foreach (var id in ids)
             {
                 string mid = id;
+                Part(body, "mount:" + mid, MountKey(mid), b => MountCard(b, mid));
+            }
+        }
+
+        /// <summary>Everything a mount card shows (its part key).</summary>
+        private string MountKey(string mid)
+        {
+            var cfg = Content.MountConfig;
+            var m = MountSystem.Get(State, mid);
+            long shards = State.Wallet.Get(Currencies.MountShards(mid));
+            if (m == null) return K("locked", shards >= Content.ShardStars.UnlockShards ? -1 : shards);
+            int max = cfg.MaxLevel(m.Stars);
+            bool canLevel = m.Level < max && m.Level < cfg.LevelFuelCosts.Count;
+            long fuel = canLevel ? cfg.LevelFuelCosts[m.Level] : 0;
+            bool afford = canLevel && State.Wallet.CanAfford(Currencies.Fuel, fuel);
+            return K(m.Stars, m.Level, shards, MountSystem.NextStarCost(State, Content, mid), State.Mounts.Active == mid, canLevel, fuel, afford,
+                canLevel && !afford ? fuel - State.Wallet.Get(Currencies.Fuel) : 0);
+        }
+
+        private void MountCard(RectTransform body, string mid)
+        {
+            var cfg = Content.MountConfig;
+            {
                 var def = cfg.Defs[mid];
                 var m = MountSystem.Get(State, mid);
                 long shards = State.Wallet.Get(Currencies.MountShards(mid));
@@ -108,7 +160,7 @@ namespace RogueStars.Client.Screens
                     long unlock = Content.ShardStars.UnlockShards;
                     if (shards >= unlock) Ui.Button(row, "Unlock", () => Run(new MountUnlock { MountId = mid }), Theme.Accent, -1, 80, true, 26).name = "Unlock:" + mid;
                     else KitView.GetInSummon(row, shards, unlock, () => OpenSummon()).name = "GetInSummon:" + mid;
-                    continue;
+                    return;
                 }
                 long star = MountSystem.NextStarCost(State, Content, mid);
                 string need = star < 0 ? "max" : shards + "/" + star;
