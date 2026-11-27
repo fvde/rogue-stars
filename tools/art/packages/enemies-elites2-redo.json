@@ -8,9 +8,11 @@
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no fire, no flames, no ground, no shadow, no scenery",
-  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers, torch, candle, burning, held object, flame crest, missing legs, cut off limbs, realistic, painterly",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers, torch, candle, burning, held object, flame crest, missing legs, cut off limbs, realistic, painterly, dirt, mound, rocks, candle, torch, flame",
   "subjects": {
     "elite_lurker_alpha": "Lurker Alpha, a big white furry snow beast standing on four thick legs, all four legs and clawed feet clearly visible, two glowing yellow eyes, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
-    "elite_null_wraith": "Null Wraith, a tall void wraith creature with a dark purple hooded ghost body, long clawed arms and two glowing white eyes, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+    "elite_null_wraith": "Null Wraith, a tall void wraith creature with a dark purple hooded ghost body, long clawed arms and two glowing white eyes, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_eel_tyrant": "Eel Tyrant, a huge electric eel raised up in an S curve, one connected body with the head on the left, glowing blue stripes, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_grub_mother": "Grub Mother, a giant plump beige grub monster with many stubby legs and a wide mouth, standing alone, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
   }
 }
