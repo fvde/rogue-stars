@@ -17,7 +17,7 @@ public sealed class CommandResponse
     public long Version { get; set; }
     /// <summary>True when this response is a stored result for an already-processed request id.</summary>
     public bool Replayed { get; set; }
-    /// <summary>Full state: always for old clients; for local-first clients only when their prediction disagreed.</summary>
+    /// <summary>Full state: always for server-first calls; for local-first clients only when their prediction disagreed.</summary>
     public JsonElement? State { get; set; }
     /// <summary>Local-first: the server state's <see cref="StateHash"/> (hex) after the command.</summary>
     public string? StateHash { get; set; }
@@ -117,10 +117,11 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
     private const int MaxAttempts = 8;
 
     /// <summary>
-    /// Executes a command. <paramref name="localFirst"/> (new clients): the client already applied it locally; the command runs
-    /// at the client's time (clamped), takes the client's battle claims (sampled re-simulation, BattleAuditService) and the
-    /// response is a small ack when the resulting state hash matches the client's, else the full state to adopt. A version
-    /// conflict is then answered with the current state (200, ok:false) instead of 409.
+    /// Executes a command. <paramref name="localFirst"/>: the client already applied it locally; the command runs at the
+    /// client's time (clamped), takes the client's battle claims (sampled re-simulation, BattleAuditService) and the response
+    /// is a small ack when the resulting state hash matches the client's, else the full state to adopt. Server-first calls and
+    /// hooks run at server time and always get the full state. A stale <paramref name="expectedVersion"/> is answered with
+    /// the current state (200, ok:false, "version_conflict").
     /// </summary>
     public async Task<CommandResponse> ExecuteAsync(string playerId, GameCommand command, string? requestId,
         long? expectedVersion = null, CancellationToken ct = default, LocalFirstRequest? localFirst = null)
@@ -134,11 +135,7 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
                 return Reply(Replay(done, record.State), record.State, localFirst);
 
             if (expectedVersion.HasValue && expectedVersion.Value != record.State.Version)
-            {
-                if (localFirst != null)
-                    return Reply(new CommandResponse { Ok = false, Error = "version_conflict", Version = record.State.Version }, record.State, localFirst);
-                throw ApiException.Conflict("version_conflict", new { version = record.State.Version });
-            }
+                return Reply(new CommandResponse { Ok = false, Error = "version_conflict", Version = record.State.Version }, record.State, localFirst);
 
             long before = record.State.Version;
             var state = record.State;
@@ -177,7 +174,6 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
                     try { await battles.RecordAsync(playerId, checks, now, ct); }
                     catch (Exception ex) when (ex is not OperationCanceledException) { log.LogError(ex, "Battle audit for {PlayerId} not recorded", playerId); }
                 }
-                if (localFirst == null) return Legacy(response, state, result);
                 var reply = Reply(response, state, localFirst);
                 // Dev servers, and the owner's allowlisted players anywhere (DevTools:AllowedPlayerIds): the developer sees checks.
                 if (checks.Count > 0 && (battles.Options.ReportToClient || options.Value.DevTools.IsAllowed(playerId)))
@@ -189,7 +185,7 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
                 return reply;
             }
 
-            if (expectedVersion.HasValue) throw ApiException.Conflict("version_conflict");
+            // a pinned version lost the race: the next attempt answers version_conflict with the current state
             log.LogInformation("Version conflict for {PlayerId} on {Command}, retrying", playerId, command.Type);
             // Jittered backoff so parallel writers on one player do not keep colliding.
             await Task.Delay(Random.Shared.Next(1, 4 << Math.Min(attempt, 4)), ct);
@@ -232,25 +228,6 @@ public sealed class CommandService(GameEngine engine, IPlayerStore store, Clock 
             r.Payload = null;
         }
         else r.State = StateJson.ToWire(state);
-        return r;
-    }
-
-    /// <summary>
-    /// Old clients (no local-first fields): full state as before. The run state no longer keeps battle logs; the deployed
-    /// client plays the battle from <c>run.active.lastBattle</c> / <c>run.lastSummary.lastBattle</c>, so the command's last
-    /// battle (with its log) is put back there in the response only (one-release compatibility).
-    /// </summary>
-    private static CommandResponse Legacy(CommandResponse r, GameState state, CommandResult result)
-    {
-        r.State = StateJson.ToWire(state);
-        if (result.Battles.Count == 0 || state.Run == null) return r;
-        var full = result.Battles[^1].Result;
-        var node = System.Text.Json.Nodes.JsonNode.Parse(r.State.Value.GetRawText())!;
-        var run = node["run"];
-        var battleNode = System.Text.Json.Nodes.JsonNode.Parse(StateJson.ToWire(full).GetRawText());
-        if (state.Run.Active != null && run?["active"] is System.Text.Json.Nodes.JsonObject active) active["lastBattle"] = battleNode;
-        else if (run?["lastSummary"] is System.Text.Json.Nodes.JsonObject summary) summary["lastBattle"] = battleNode;
-        r.State = JsonSerializer.SerializeToElement(node);
         return r;
     }
 

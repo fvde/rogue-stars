@@ -8,6 +8,37 @@ using RogueStars.Server.Storage;
 
 namespace RogueStars.Server.Tests;
 
+/// <summary>Counts the writes of the player store it wraps (creates and saves).</summary>
+public sealed class CountingPlayerStore(IPlayerStore inner) : IPlayerStore
+{
+    private int _writes;
+    public int Writes => Volatile.Read(ref _writes);
+
+    public Task<PlayerRecord?> GetAsync(string playerId, CancellationToken ct = default) => inner.GetAsync(playerId, ct);
+
+    public Task<bool> TryCreateAsync(PlayerRecord record, CancellationToken ct = default)
+    {
+        Interlocked.Increment(ref _writes);
+        return inner.TryCreateAsync(record, ct);
+    }
+
+    public Task<bool> TrySaveAsync(PlayerRecord record, long expectedVersion, CancellationToken ct = default)
+    {
+        Interlocked.Increment(ref _writes);
+        return inner.TrySaveAsync(record, expectedVersion, ct);
+    }
+
+    /// <summary>Wraps the registered <see cref="IPlayerStore"/>; the counter is resolvable as <see cref="CountingPlayerStore"/>.</summary>
+    public static void Decorate(IServiceCollection services)
+    {
+        var d = services.Last(x => x.ServiceType == typeof(IPlayerStore));
+        services.Remove(d);
+        services.AddSingleton(sp => new CountingPlayerStore(d.ImplementationInstance as IPlayerStore
+            ?? (d.ImplementationFactory != null ? (IPlayerStore)d.ImplementationFactory(sp) : (IPlayerStore)ActivatorUtilities.CreateInstance(sp, d.ImplementationType!))));
+        services.AddSingleton<IPlayerStore>(sp => sp.GetRequiredService<CountingPlayerStore>());
+    }
+}
+
 /// <summary>Sampler for tests: a fixed answer per tier (default: never).</summary>
 public sealed class FixedSampler : IBattleSampler
 {
@@ -27,6 +58,7 @@ public sealed class FixedSampler : IBattleSampler
 /// </summary>
 public sealed class LocalFirstClient(PlayerClient p, GameEngine engine, GameState state, long serverTimeMs)
 {
+    public PlayerClient Player => p;
     public GameState State = state;
     public long NowMs = serverTimeMs;
     public JsonElement LastReply;
@@ -110,7 +142,11 @@ public class LocalFirstTests : IDisposable
 
     public LocalFirstTests()
     {
-        _app.ConfigureServices = s => s.AddSingleton<IBattleSampler>(_sampler);
+        _app.ConfigureServices = s =>
+        {
+            s.AddSingleton<IBattleSampler>(_sampler);
+            CountingPlayerStore.Decorate(s);
+        };
     }
 
     public void Dispose() => _app.Dispose();
@@ -141,7 +177,7 @@ public class LocalFirstTests : IDisposable
         _app.Time.Advance(TimeSpan.FromMinutes(3)); // network delay / queue: the server receives it later than it ran
         c.NowMs += 60_000;
         await c.RunAsync(new TestIncrement { Amount = 1 });
-        Assert.True(c.Matched);
+        Assert.True(c.Matched, string.Join("\n", c.LastDiff));
         Assert.Equal(c.NowMs, (await _app.Service<IPlayerStore>().GetAsync(c.State.PlayerId))!.State.LastCommandMs);
     }
 
@@ -297,34 +333,82 @@ public class LocalFirstTests : IDisposable
         Assert.Equal(1, (await _app.Service<IPlayerStore>().GetAsync(c.State.PlayerId))!.State.Counter("test_counter"));
     }
 
+    /// <summary>Session, state and the version check only read: nothing is written however often a client calls them.</summary>
     [Fact]
-    public async Task OldClients_StillGetTheFullState_WithTheBattleLog()
+    public async Task Session_State_AndVersionCheck_NeverWrite()
     {
-        var p = await _app.PlayerAsync("lf-legacy");
-        var start = await p.CommandAsync("RunStart", new { levelId = Content.MainLevel(1).Id, mode = (int)RunMode.Normal }, "run");
-        Assert.True(start.Body.GetProperty("ok").GetBoolean());
-        Assert.Equal(JsonValueKind.Object, start.Body.GetProperty("state").ValueKind);
-        for (int i = 0; i < 300; i++)
+        var c = await LocalFirstClient.ConnectAsync(_app, "lf-reads");
+        await c.RunAsync(new RunStart { LevelId = Content.MainLevel(1).Id, Mode = RunMode.Normal }); // stamina below the cap: regen runs
+        var store = _app.Service<CountingPlayerStore>();
+        string stored = StateJson.Serialize((await store.GetAsync(c.State.PlayerId))!);
+        int writes = store.Writes;
+        for (int i = 0; i < 6; i++)
         {
-            var step = await p.CommandAsync("RunAutoStep", new { farming = true, farmShops = true }, "s" + i);
-            var state = step.Body.GetProperty("state");
-            var run = state.GetProperty("run");
-            JsonElement battle = default;
-            if (run.GetProperty("active").ValueKind == JsonValueKind.Object) battle = run.GetProperty("active").GetProperty("lastBattle");
-            if (battle.ValueKind != JsonValueKind.Object && run.GetProperty("lastSummary").ValueKind == JsonValueKind.Object)
-                battle = run.GetProperty("lastSummary").GetProperty("lastBattle");
-            if (step.Body.GetProperty("payload").ValueKind == JsonValueKind.Object && battle.ValueKind == JsonValueKind.Object)
-            {
-                // the step fought: the deployed client finds the log where it always read it
-                Assert.NotEmpty(battle.GetProperty("log").EnumerateArray());
-                Assert.False(step.Body.TryGetProperty("match", out var m) && m.ValueKind != JsonValueKind.Null);
-                // while the stored state keeps no log
-                var stored = (await _app.Service<IPlayerStore>().GetAsync(p.PlayerId))!.State;
-                Assert.Empty((stored.Run.Active?.LastBattle ?? stored.Run.LastSummary!.LastBattle)!.Log);
-                return;
-            }
+            _app.Time.Advance(TimeSpan.FromMinutes(7));
+            Assert.Equal(200, (await c.Player.PostAsync("/v1/session", new { })).Status);
+            var (st, state) = await c.Player.GetAsync("/v1/state");
+            Assert.Equal(200, st);
+            Assert.Equal(c.State.Version, state.GetProperty("version").GetInt64());
+            var (sv, version) = await c.Player.GetAsync("/v1/version");
+            Assert.Equal(200, sv);
+            Assert.Equal(c.State.Version, version.GetProperty("version").GetInt64());
         }
-        Assert.Fail("no battle within 300 steps");
+        Assert.Equal(writes, store.Writes);
+        Assert.Equal(stored, StateJson.Serialize((await store.GetAsync(c.State.PlayerId))!));
+    }
+
+    /// <summary>
+    /// The client adopts a settled (unsaved) state, settles it locally as time passes (its refresh), and its next commands still
+    /// match the server, which settles the stored state at each command's time.
+    /// </summary>
+    [Fact]
+    public async Task AfterUnsavedSettles_AndLocalRefreshes_CommandHashesStillMatch()
+    {
+        var c = await LocalFirstClient.ConnectAsync(_app, "lf-refresh");
+        await c.RunAsync(new RunStart { LevelId = Content.MainLevel(1).Id, Mode = RunMode.Normal });
+        await c.RunAsync(new RunAbandon());
+        Assert.True(c.Matched, string.Join("\n", c.LastDiff));
+        var engine = _app.Service<GameEngine>();
+        for (int i = 0; i < 3; i++)
+        {
+            // hours later the app opens: /v1/state settles at server time (not saved), the client adopts it ...
+            _app.Time.Advance(TimeSpan.FromMinutes(97));
+            var (_, body) = await c.Player.GetAsync("/v1/state");
+            c.State = body.GetProperty("state").Deserialize<GameState>(StateJson.Wire)!;
+            Assert.Equal(body.GetProperty("stateHash").GetString(), StateHash.Hex(c.State));
+            c.NowMs = body.GetProperty("serverTimeMs").GetInt64();
+            // ... and refreshes locally every 30 s for a while
+            for (int k = 0; k < 5; k++)
+            {
+                _app.Time.Advance(TimeSpan.FromSeconds(30));
+                c.NowMs += 30_000;
+                engine.Settle(c.State, c.NowMs);
+            }
+            await c.RunAsync(new RunStart { LevelId = Content.MainLevel(1).Id, Mode = RunMode.Normal });
+            Assert.True(c.Matched, string.Join("\n", c.LastDiff));
+            await c.RunAsync(new RunAbandon());
+            Assert.True(c.Matched, string.Join("\n", c.LastDiff));
+        }
+        Assert.Equal(0, c.Adopted);
+    }
+
+    /// <summary>A change made on the server (another device, a hook: mail, arena, live ops) bumps the version the check reads.</summary>
+    [Fact]
+    public async Task ExternalChange_IsSeenByTheVersionCheck_AndPickedUpWithTheState()
+    {
+        var c = await LocalFirstClient.ConnectAsync(_app, "lf-external");
+        await c.RunAsync(new TestIncrement { Amount = 1 });
+        var (_, v0) = await c.Player.GetAsync("/v1/version");
+        Assert.Equal(c.State.Version, v0.GetProperty("version").GetInt64()); // nothing new
+        var hooks = _app.Service<ServerHooks>();
+        Assert.True(await hooks.SendMailAsync(c.State.PlayerId, new MailArgs { Title = "Hello", Body = "From the server" }, "ext-mail"));
+        var (_, v1) = await c.Player.GetAsync("/v1/version");
+        Assert.Equal(c.State.Version + 1, v1.GetProperty("version").GetInt64());
+        var (_, body) = await c.Player.GetAsync("/v1/state");
+        c.State = body.GetProperty("state").Deserialize<GameState>(StateJson.Wire)!;
+        Assert.Contains(c.State.Mail.Inbox, m => m.Title == "Hello");
+        await c.RunAsync(new TestIncrement { Amount = 1 });
+        Assert.True(c.Matched, string.Join("\n", c.LastDiff));
     }
 }
 

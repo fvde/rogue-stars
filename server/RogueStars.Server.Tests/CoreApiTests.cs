@@ -103,14 +103,16 @@ public class CoreApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Concurrency_StaleExpectedVersion_Is409()
+    public async Task Concurrency_StaleExpectedVersion_AnswersTheCurrentState()
     {
         var p = await _app.PlayerAsync("cc");
         await p.CommandAsync("TestIncrement", new { amount = 1 });
         var (status, body) = await p.CommandAsync("TestIncrement", new { amount = 1 }, expectedVersion: 0);
-        Assert.Equal(409, status);
+        Assert.Equal(200, status);
+        Assert.False(body.GetProperty("ok").GetBoolean());
         Assert.Equal("version_conflict", body.GetProperty("error").GetString());
-        Assert.Equal(1, body.GetProperty("details").GetProperty("version").GetInt64());
+        Assert.Equal(1, body.GetProperty("version").GetInt64());
+        Assert.Equal(1, body.GetProperty("state").GetProperty("version").GetInt64());
         Assert.Equal(200, (await p.CommandAsync("TestIncrement", new { amount = 1 }, expectedVersion: 1)).Status);
     }
 

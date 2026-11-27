@@ -108,7 +108,7 @@ public class DevToolsTests : IDisposable
         Assert.Equal(5, await owner.CounterAsync("test_counter"));
         // A second client still on the old version must resync.
         var stale = await owner.CommandAsync("TestIncrement", new { amount = 1 }, "r9", expectedVersion: before);
-        Assert.Equal(409, stale.Status);
+        Assert.Equal("version_conflict", stale.Body.GetProperty("error").GetString());
     }
 
     [Fact]

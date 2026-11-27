@@ -17,8 +17,8 @@ The server knows no game command by name. `POST /v1/command` resolves `type` thr
 - **Idempotency:** a `requestId` is stored with its result in the player document (last 64). Repeating it returns
   the stored result with `replayed: true` without executing again. Rule rejections are not stored.
 - **Concurrency:** saves are compare-and-set on the version. On conflict the server reloads and re-executes after a short jittered backoff (up to
-  8 times). If the client pins `expectedVersion` and it differs, the response is `409 version_conflict` with the
-  current version in `details`.
+  8 times). If the client pins `expectedVersion` and it differs, the response is `200 { ok: false, error:
+  "version_conflict", version, state }` (local-first: plus `stateHash`, `match: false`).
 - **Serialization:** storage uses C# member names (`StateJson.Options`), the wire uses camelCase
   (`StateJson.Wire`). Dictionary keys (currency ids, counters) are never re-cased. The engine's `Cloner` is a JSON
   round trip, so a failed command never changes state.
@@ -33,20 +33,43 @@ The client runs every player command on its own rules engine first, shows the re
   that time, clamped to `[max(lastCommandMs, now − Commands:ClientTimeMaxLagMs), now + Commands:ClientTimeMaxLeadMs]`
   (10 min / 5 s). `battles` are the client's battle results without logs (`BattleResult.Summary()`), in fight order.
 - **Response:** agreement → `{ ok: true, version, stateHash, match: true }` (no state, events or payload). Disagreement
-  (hash mismatch, rule rejection, `expectedVersion` conflict, which is then `200 ok:false version_conflict` instead of 409)
-  → `{ ok, error?, version, stateHash, match: false, state }`. The client adopts `state` and re-runs its unsent commands
+  (hash mismatch, rule rejection, `expectedVersion` conflict) → `{ ok, error?, version, stateHash, match: false, state }`. The client adopts `state` and re-runs its unsent commands
   on it. A retried `requestId` is replayed and answered the same way (ack when the client's hash is current).
 - **Queue:** in order, one request in flight, network failures retried with backoff (1–30 s) while play continues.
 - **Server-first** (busy until the server answers, after the queue drained): commands carrying an ad token (server-verified
   ad credits), `PurchaseStart`, and the non-command calls that change the player on the server: `/v1/iap/verify`,
   `/v1/ads/instant`, arena fights, invasion attacks, guild create/join/leave (membership hook), dev tools. Mail, live ops and
   arena results written by server hooks bump the version; the client's next command meets a version conflict and adopts.
-- **Refresh:** online, the client's periodic refresh is the `SettleTime` command (local-first, an ack) instead of
-  downloading the state. `/v1/session` and `/v1/state` persist the settle they return (settling twice at different times is
-  not the same as once, so the client starts from exactly the stored state) and return `stateHash`.
-- **Old clients** (no `stateHash`): unchanged protocol (full state, 409 on conflicts, every battle simulated). The run state
-  no longer stores battle logs; for them the command's last battle (log included) is put back into the response's
-  `state.run.active.lastBattle` / `state.run.lastSummary.lastBattle` (one release of compatibility).
+- **Only commands write.** `/v1/session` and `/v1/state` return the stored state settled at server time (with `stateHash`)
+  and do not save it; the player document is written by commands, server hooks (mail, arena, invasions, purchases, ads,
+  guild membership) and the dev tools only, so an idle or watching player costs no writes. The client settles its copy
+  locally, and the server settles the stored state at each command's `atMs` before running it; both reach the same state
+  because settling is path-independent (below).
+- **Refresh** (every 30 s online): the client settles locally and reads `GET /v1/version` (the stored version, a read). Only
+  when it is ahead of the client's (a change made on the server: mail, ad reward, arena, live ops, another device) does the
+  client download `/v1/state`; with commands still queued it skips that (their replies bring the state on a version conflict).
+- **Server-first calls** (no `stateHash`: ad-paid commands, `PurchaseStart`, hooks) run at server time and answer the full
+  state.
+
+### Path-independent settling
+`GameEngine.Settle(state, t2)` after `Settle(state, t1)` gives exactly `Settle(state, t2)` (same `StateHash`), and a command
+after any number of settles gives the same state as on the unsettled copy. Property tests:
+`tools/RogueStars.Sim.Tests/SettlePathIndependenceTests.cs` (random split points from minutes to 75 days on a new player, a
+dev-unlocked one, simulator accounts of 1–20 days and a 60-day production state in `Fixtures/state60.json`; and command
+sequences where only the client settles in between). How:
+- **Breakpoints.** Systems register the times at which time-driven state changes discretely
+  (`GameEngine.RegisterBreakpoints`): modifier starts/ends, planetary event occurrence boundaries, auto-completing timers,
+  summon event ends, daily resets. A settle runs the settlers at every breakpoint after `GameState.SettledMs` in order, then
+  at the target time, so a discrete change always happens at its own time, never at whenever somebody settled.
+- **Exact accumulators.** Regen counts whole ticks with the remainder kept in `LastTickMs`; regen speed and cap bonuses are
+  taken just before the settle time (each stretch between breakpoints has one speed). City production and pull chances add
+  integer millionths with the sub-unit remainder in `CityBuilding.Carry` (a double sum splits differently at every settle).
+- **Commands settle twice.** `Execute` settles at the command time before the handler and again after it, so whatever the
+  command made due (unlocks, stash releases, event joins) happens in the command; a new player is settled at creation too.
+- **Presence-only effects need a command** (`CommandContext.Acting`): the returning-player gift comes with the first command
+  after the break (not the session), a summon event's unclaimed rewards are mailed at its end only if the player ran a
+  command while it was on (`SummonEventProgress.Active`), and a regen tick time in the future (clock moved back) restarts only
+  on a command. Planetary events are materialised from the last settle on, without the former 60-day lookback.
 
 ### Offline battles and sampled validation
 Run battles are simulated on the client inside the command (`CommandContext.ResolveBattle`) and played back from that
@@ -113,8 +136,9 @@ All `/v1/*` endpoints except `/v1/auth/dev` and `/v1/ads/ssv` need the bearer to
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/v1/auth/dev` | `{ deviceId }` | `{ token, playerId }` (dev mode only) |
-| POST | `/v1/session` | `{ displayName? }` | `{ ok, playerId, created, serverTimeMs, version, state, commands[], adsDisabled, purchasesDisabled, devTools }` — creates the player with `engine.NewPlayer` and a server-chosen seed, else loads; `state` is settled; `commands` lists client-allowed command names; `devTools` = this player may use the dev tools (below) |
-| GET | `/v1/state` | – | `{ ok, serverTimeMs, version, stateHash, state }` (settled; the settle is persisted) |
+| POST | `/v1/session` | `{ displayName? }` | `{ ok, playerId, created, serverTimeMs, version, stateHash, state, commands[], adsDisabled, purchasesDisabled, devTools }` — creates the player with `engine.NewPlayer` and a server-chosen seed, else loads; `state` is settled (not saved); `commands` lists client-allowed command names; `devTools` = this player may use the dev tools (below) |
+| GET | `/v1/state` | – | `{ ok, serverTimeMs, version, stateHash, state }` (settled at server time, not saved) |
+| GET | `/v1/version` | – | `{ ok, serverTimeMs, version }` — the stored version (a read): the client's refresh downloads the state only when it moved |
 | POST | `/v1/command` | `{ type, requestId?, args?, expectedVersion?, atMs?, stateHash?, battles? }` | `{ ok, error, events[], payload, version, replayed, state }`; local-first (`stateHash` sent): `{ ok, version, stateHash, match, state? , battleChecks? }` (see Local-first commands) |
 
 Example:
@@ -299,7 +323,7 @@ Code: `DevTools/DevTools.cs`; the bot is `shared/RogueStars.Sim.Core` (the simul
   check is on the server.
 - **What is replaced:** the caller's `players/{uid}` record only, compare-and-set like a command (retried on concurrent
   writes). Kept: player id, display name; `version` = old version + 1 (other clients of the player see a newer version and
-  resync; a pinned `expectedVersion` gets `409`); the request log is cleared (old request ids execute again). Cross-player
+  resync; a pinned `expectedVersion` gets `version_conflict` with the new state); the request log is cleared (old request ids execute again). Cross-player
   records stay as they are (guild membership, arena group/snapshot, invasion groups, mail outbox, IAP/ad claims); the rules'
   guild membership is re-applied from `guild_members` (`GuildSetMembership`; refused while Guilds is still locked for the new
   state, then the rules state has no guild).

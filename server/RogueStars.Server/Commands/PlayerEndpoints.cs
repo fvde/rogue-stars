@@ -34,29 +34,23 @@ public sealed class PlayerService(GameEngine engine, IPlayerStore store, Clock c
         return (await store.GetAsync(playerId, ct) ?? throw ApiException.Conflict("contention"), false);
     }
 
-    public async Task<GameState> SettledAsync(string playerId, CancellationToken ct)
-    {
-        var record = await store.GetAsync(playerId, ct) ?? throw ApiException.NotFound("no_session");
-        var state = record.State;
-        engine.Settle(state, clock.NowMs);
-        return state;
-    }
-
     /// <summary>
-    /// Settles the stored state and persists the settle (best effort: a concurrent write wins and is not retried). A
-    /// local-first client starts from exactly what is stored, so its next command's state hash can match (settling twice
-    /// at different times is not the same as settling once).
+    /// The stored state settled at server time, NOT saved: settling is path-independent (GameEngine.Settle), so the client
+    /// can start from this copy, settle it again locally and still reach the server's state for its next command, which the
+    /// server settles from the stored state at the command's time. Only commands (and server hooks) write the player.
     /// </summary>
-    public async Task<GameState> SettleAndSaveAsync(PlayerRecord record, CancellationToken ct)
+    public async Task<GameState> SettledAsync(string playerId, CancellationToken ct) =>
+        Settled(await store.GetAsync(playerId, ct) ?? throw ApiException.NotFound("no_session"));
+
+    public GameState Settled(PlayerRecord record)
     {
-        long before = record.State.Version;
         engine.Settle(record.State, clock.NowMs);
-        await store.TrySaveAsync(record, before, ct);
         return record.State;
     }
 
-    public async Task<GameState> SettledSavedAsync(string playerId, CancellationToken ct) =>
-        await SettleAndSaveAsync(await store.GetAsync(playerId, ct) ?? throw ApiException.NotFound("no_session"), ct);
+    /// <summary>The stored version (a read, no settle): bumped by every command and by every server-side change.</summary>
+    public async Task<long> VersionAsync(string playerId, CancellationToken ct) =>
+        (await store.GetAsync(playerId, ct) ?? throw ApiException.NotFound("no_session")).State.Version;
 
     public async Task<CombatLoadout> LoadoutAsync(string playerId, CancellationToken ct)
     {
@@ -85,7 +79,7 @@ public static class PlayerEndpoints
             GameEngine engine, DevTools.DevToolsService devTools, CancellationToken ct) =>
         {
             var (record, created) = await players.LoadOrCreateAsync(http.PlayerId(), req?.DisplayName, ct);
-            var state = await players.SettleAndSaveAsync(record, ct);
+            var state = players.Settled(record);
             return Results.Ok(new
             {
                 ok = true,
@@ -108,9 +102,14 @@ public static class PlayerEndpoints
 
         v1.MapGet("/state", async (HttpContext http, PlayerService players, Clock clock, CancellationToken ct) =>
         {
-            var state = await players.SettledSavedAsync(http.PlayerId(), ct);
+            var state = await players.SettledAsync(http.PlayerId(), ct);
             return Results.Ok(new { ok = true, serverTimeMs = clock.NowMs, version = state.Version, stateHash = StateHash.Hex(state), state = StateJson.ToWire(state) });
         });
+
+        // The client's periodic check for changes made on the server (mail, live ops, arena, purchases, dev tools): a read of
+        // the stored version; the client downloads the state only when it moved past its own.
+        v1.MapGet("/version", async (HttpContext http, PlayerService players, Clock clock, CancellationToken ct) =>
+            Results.Ok(new { ok = true, serverTimeMs = clock.NowMs, version = await players.VersionAsync(http.PlayerId(), ct) }));
 
         v1.MapPost("/command", async (HttpContext http, CommandRequest req, CommandCatalog catalog, CommandService commands,
             Payments.AdCreditService adCredits, CancellationToken ct) =>
