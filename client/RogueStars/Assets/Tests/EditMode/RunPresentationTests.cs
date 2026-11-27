@@ -217,7 +217,7 @@ namespace RogueStars.Client.Tests
                 Assert.That(popups.TrueForAll(p => !string.IsNullOrEmpty(p.Text)), Is.True, def.Id);
             }
             Assert.That(RunPresentation.Landing(C, run, new RunTile { TileId = "buff_atk" }, false, null)[0].Text, Is.EqualTo("+6% ATK"));
-            Assert.That(RunPresentation.Landing(C, run, new RunTile { TileId = "loot" }, false, null).ConvertAll(p => p.Text), Is.EqualTo(new[] { "+25 coins", "+3 XP" }));
+            Assert.That(RunPresentation.Landing(C, run, new RunTile { TileId = "loot" }, false, null).ConvertAll(p => p.Text), Is.EqualTo(new[] { "+30 coins", "+3 XP" })); // supply cache 30 (was 25: shorter runs, 2026-11-27)
             Assert.That(RunPresentation.Landing(C, run, new RunTile { TileId = "enemy_1" }, true, null)[0].Kind, Is.EqualTo(PopupKind.Fight));
 
             foreach (OutcomeKind k in Enum.GetValues(typeof(OutcomeKind)))
