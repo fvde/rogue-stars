@@ -60,6 +60,12 @@
       "long_side": 572,
       "pad": 3,
       "note": "City buildings: a small foundation plate under the building is allowed (no pedestal check)"
+    },
+    "ui": {
+      "canvas": null,
+      "long_side": 458,
+      "pad": 3,
+      "note": "UI kit sprites (Ui/Kit): trimmed, tintable neutral grey; 9-slice borders set at import (docs/design/ui-kit.md)"
     }
   },
   "packages": {
@@ -346,6 +352,14 @@
     "buildings-redo": [
       "building",
       "Buildings (City)"
+    ],
+    "ui-kit": [
+      "ui",
+      "UI kit"
+    ],
+    "ui-backdrops": [
+      "fullframe",
+      "UI backdrops"
     ]
   }
 }

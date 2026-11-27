@@ -1,0 +1,18 @@
+{
+  "name": "pkg-ui-backdrops",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    3201,
+    3202
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", mobile game menu background, full frame, soft and calm so cards on top stay readable, cute cartoon space-worm game style, no text, no characters, no UI elements",
+  "negative": "text, letters, characters, creatures, UI, buttons, frames, busy details, photo",
+  "subjects": {
+    "backdrop_menu": "a dark warm plum space background with a very subtle star and dot pattern",
+    "backdrop_worm": "a soft spotlight on a dark plum stage floor, empty stage",
+    "backdrop_aliens": "an empty cozy alien meadow stage with three small round pedestal spots, soft light",
+    "backdrop_lab": "a deep purple sci-fi laboratory wall with a faint hexagon pattern"
+  }
+}

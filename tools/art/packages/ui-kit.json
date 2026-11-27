@@ -1,0 +1,35 @@
+{
+  "name": "pkg-ui-kit",
+  "width": 512,
+  "height": 512,
+  "seeds": [
+    3101,
+    3102
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", mobile game UI element, flat cartoon style matching a cute space-worm game, bold dark outline, simple soft cel shading, plain light grey neutral color so it can be tinted, perfectly symmetric, straight even edges, front view, centered, isolated on a plain pure white background, no text, no letters, no icons, no symbols",
+  "negative": "text, letters, numbers, icon, symbol, emoji, character, scenery, background, shadow, perspective, 3d, photo, clutter",
+  "subjects": {
+    "button": "a wide chunky rounded-rectangle game button with a glossy top highlight and a darker bottom lip",
+    "panel": "a large rounded-rectangle menu panel with a soft inner shade and a thin light rim",
+    "panel_raised": "a large rounded-rectangle menu panel with a bright raised rim and soft highlight",
+    "panel_well": "a large rounded-rectangle inset well, darker inside, like a recessed tray",
+    "card_frame": "a square rounded card frame with a thick border and an empty lighter centre",
+    "ribbon": "a wide horizontal banner ribbon header, flat front piece",
+    "ribbon_tail": "a short swallow-tail ribbon end piece, folded",
+    "chip": "a small horizontal pill-shaped chip with a thin rim",
+    "badge_level": "a small horizontal pill badge, dark with a thin light rim",
+    "badge_dot": "a small round notification dot with a thick outline",
+    "pill_track": "a long horizontal progress bar track, rounded ends, inset",
+    "pill_fill": "a long horizontal progress bar fill, rounded ends, glossy stripe on top",
+    "stat_pill": "a long horizontal dark value pill with rounded ends",
+    "slot_reward": "a square rounded reward slot with a thick frame and empty centre",
+    "node_hex": "a pointy-top hexagon badge node with a thick border",
+    "node_hex_ring": "a thin pointy-top hexagon ring outline only, empty inside",
+    "plate": "a horizontal dark plate with a thin light rim, rounded corners",
+    "bottom_tab": "a square rounded tab button for a bottom navigation bar",
+    "bottom_tab_active": "a taller rounded tab button with a raised rounded top for the selected tab",
+    "icon_back": "a round back button with a bold left-pointing arrow",
+    "gem": "a small cut gem, simple facets"
+  }
+}
