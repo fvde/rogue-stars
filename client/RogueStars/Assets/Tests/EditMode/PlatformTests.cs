@@ -375,5 +375,13 @@ namespace RogueStars.Client.Tests
             Assert.That(cb.Headers.ContainsKey("Authorization"), Is.False);
             Assert.That(token.Ok, Is.True);
         }
+
+        [Test]
+        public void DragThreshold_ScalesWithDpi_SoTapsInScrollViewsStayTaps()
+        {
+            Assert.That(ClientApp.DragThreshold(420), Is.EqualTo(42), "a 420 dpi phone: ~2.5 mm, not Unity's 10 px (0.6 mm)");
+            Assert.That(ClientApp.DragThreshold(0), Is.EqualTo(10), "unknown dpi keeps Unity's default");
+            Assert.That(ClientApp.DragThreshold(96), Is.EqualTo(10), "desktop keeps Unity's default");
+        }
     }
 }

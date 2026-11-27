@@ -57,10 +57,18 @@ namespace RogueStars.Client.App
             scaler.referenceResolution = new Vector2(1080, 1920);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
-            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() == null)
-                new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var events = UnityEngine.Object.FindAnyObjectByType<EventSystem>();
+            if (events == null) events = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule)).GetComponent<EventSystem>();
+            events.pixelDragThreshold = DragThreshold(Screen.dpi);
             return (RectTransform)go.transform;
         }
+
+        /// <summary>
+        /// Finger travel (px) before a press becomes a drag. Unity's default of 10 px is ~0.6 mm on a 420 dpi phone: a tap that
+        /// wobbles that much on a button inside a scroll view (every screen body) starts a scroll and the click is dropped.
+        /// 0.1 inch (~2.5 mm, about Android's touch slop) keeps taps taps; desktop / unknown dpi keeps the default.
+        /// </summary>
+        public static int DragThreshold(float dpi) => Mathf.Max(10, Mathf.RoundToInt(dpi * 0.1f));
 
         public static ClientApp Build(RectTransform canvasRoot, ClientSettings settings, string saveDirectory = null)
         {
