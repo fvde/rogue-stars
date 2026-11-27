@@ -22,4 +22,14 @@ Caveat: "owner_rejected" also counts candidates archived because another candida
   to "a round purple badge with a white wifi symbol".
 - Expect: superseded count in new generation drops to 0; more of each hour goes to unapproved subjects; signal passes the
   auto-check.
+- Result (16:31, hour 15:31-16:31): superseded in new generation 0 (was 3 of 11), retry share 0.15 (was 0.82),
+  140 s/image (was 188), 26 generated (was 11), yield 0.30 (was 0.0). Signal badge passed the auto-check (2 of 3).
+  Kept.
+
+### E2 (2026-11-27 16:40): no clutter words in skill prompts
+- Loss: this hour's QC fails were mostly clutter taken literally ("raining dozens of bolts", "many flying shards",
+  "a few sparks", "star burst", "aura"): 4 of 6 skill-icon QC fails.
+- Change: rewrote the 17 unapproved skills-v3 prompts that named sparks/shards/dozens/bursts/auras/rays into one object
+  with at most three parts; negatives add "scattered pieces, debris, particles, many small objects". Restarted night.sh.
+- Expect: skills-v3 QC pass rate up (this hour 3 pass of 8 QC'd; target >= 5 of 8); clutter fail bucket down.
 - Result: (next check)
