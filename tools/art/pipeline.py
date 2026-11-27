@@ -54,18 +54,20 @@ T = {
     "shadow_chroma": 28,      # shadow-like: max-min channel spread below this ...
     "shadow_lum": (95, 243),  # ... and luminance in this range (grey, not dark body, not white)
     "shadow_rembg_max": 0.5,  # ... and rembg calls it background (it cuts shadows away but keeps grey body parts)
+    "shadow_seed_rows": 0.10,  # shadow must touch the lowest 10% of the object (claws can reach below it)
     "shadow_min_area": 0.006, # regions below 0.6% of the object are anti-aliased edge pixels, not a shadow
     "shadow_max_height": 0.16,  # verified shadow: spans at most 16% of the object height ...
     "shadow_min_aspect": 1.8,   # ... is at least 1.8x wider than tall ...
     "shadow_max_area": 0.30,    # ... and at most 30% of the opaque area
     "shadow_max_grad": 22.0,    # ... and is smooth (mean gradient magnitude), not shaded/outlined body
     "white_min": 236, "white_chroma": 14,  # near-white pixels
-    "white_min_area": 0.02,   # enclosed white component must be > 2% of the opaque area to be considered
+    "white_min_area": 0.002,  # enclosed white component must be > 0.2% of the opaque area to be considered (small leg gaps too)
     "white_rembg_max": 0.35,  # ... and rembg must see it as background (mean alpha below this) ...
     "white_flat_std": 6.0,    # ... and it must be flat like the background (luminance std)
     "white_max_total": 0.35,
     "white_inner_max": 0.02,  # background gaps have no features inside (a die face has pips, a clock face hands)
     "white_dbg_max": 2.5,     # ... and are the background's exact colour (max channel difference)
+    "white_dbg_max_sure": 4.0,  # ... or up to this when rembg's alpha there is below 0.05
     "white_big_frac": 0.15,   # featureless exact-background white >= 15% of the object that rembg keeps: fail, not edit  # never remove more than 35% of the opaque area as white
     "speck_px_1024": 300,     # tiny components (scaled to the raw size) that are pale / faint are specks
     "outside_band_loss": 0.03,  # verification: at most 3% of the opaque area may disappear outside the bottom band
@@ -272,7 +274,7 @@ def shadow_region(rgb, alpha, rem):
             like |= tint
     # anti-aliased outline pixels are grey too: thin lines are not shadow
     like = ndi.binary_opening(like, structure=np.ones((3, 3)), iterations=2)
-    seeds = like.copy(); seeds[: y1 - max(3, int(0.04 * H))] = False
+    seeds = like.copy(); seeds[: y1 - max(3, int(T["shadow_seed_rows"] * H))] = False
     if seeds.sum() < 10:
         return None, band_top
     lab, _ = ndi.label(like, structure=np.ones((3, 3)))
@@ -392,7 +394,9 @@ def remove_enclosed_white(rgb, alpha, rem, bg, log):
         d_bg = np.abs(rgb[m].mean(0) - bgcol).max()
         # a surface carries features (pips, eyes, clock hands, sand): holes inside the white region
         inner = (ndi.binary_fill_holes(m) & ~m).sum() / m.sum()
-        bg_like = inner < T["white_inner_max"] and d_bg <= T["white_dbg_max"] and sd < T["white_flat_std"]
+        # rembg certain it is background (alpha ~0) tolerates a slightly off-white tone (JPEG-ish drift near outlines)
+        dbg_max = T["white_dbg_max"] if r >= 0.05 else T["white_dbg_max_sure"]
+        bg_like = inner < T["white_inner_max"] and d_bg <= dbg_max and sd < T["white_flat_std"]
         if bg_like and r < T["white_rembg_max"]:
             fringe = ndi.binary_dilation(m, iterations=3) & (lum > 200) & (chroma_of(rgb) < 30) & ~m
             a[m | fringe] = 0
