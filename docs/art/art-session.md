@@ -59,7 +59,7 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
 - No backups or intermediate files inside `~/AI/assets` (use `~/AI/assets-backup`). No ad-hoc image scripts outside the pipeline.
 - Never edit unapproved art with Kontext. Edits run at 23:00 (Europe/Berlin) on approved art only, mflux one at a time with ComfyUI down; generate until 23:00, clean up, then generate overnight.
 - Prompts are literal: no invented details; negatives for past mistakes.
-- Stopped subjects: miniboss markers (use the elite art), planet eye candy (ships done, meteors stopped), planet buildings (planet stays at the 4 stages), sidekicks (duplicate of aliens — removed), champions (enemies-champions package removed 2026-11-27).
+- Stopped subjects: miniboss markers (use the elite art), planet eye candy (ships done, meteors stopped), planet buildings (planet stays at the 4 stages), sidekicks (duplicate of aliens — removed). There is no "champion" tier: the 9 former champions are elites now (package enemies-elites2, elite_* subjects, code ids mb_*).
 - Enemy tiers are exactly three: **enemies, elites (also called minibosses) and bosses**. No champions or any other tier; never generate art for one.
 - Never open browser windows. Never launch the Unity editor GUI; Unity only with `-batchmode` (one instance machine-wide).
 - No releases from this session. Don't touch game code except art files the import step needs.
@@ -86,4 +86,4 @@ When a batch of approved art is ready (e.g. bosses, status icons, summon icons, 
 - **Chest halo**: the game's chest PNGs were defringed in the client (Run UI fix #18), but the sources in `~/AI/assets` (Run props: chest_common, chest_mythic, chest_signature, marker chest) still have the white halo. Re-cut them with the current pipeline (§6 sweep pattern) so a future re-import doesn't bring the halo back.
 - **Not in the game yet** (next import batch, features session): skill icons v3 once picked, golden shards, elder_magma (no enemy def), hollow_cantor (art cut off at the edge: needs a redo), chrono_wyrm (no enemy def).
 - **Likely next art asks from the features session**: distinct currency icons for Signals / Schematics / Crates (today all three share one round icon), ambient life + foreground pilot (`docs/art/ambient-life-and-foreground-plan.md`, waiting for the owner's answers).
-- **Stopped subjects** (never generate): miniboss markers (elite art is used), planet eye candy, planet buildings, sidekicks (duplicate of aliens), champions (only enemies, elites/minibosses and bosses exist).
+- **Stopped subjects** (never generate): miniboss markers (elite art is used), planet eye candy, planet buildings, sidekicks (duplicate of aliens). No "champion" tier: only enemies, elites (= minibosses) and bosses.
