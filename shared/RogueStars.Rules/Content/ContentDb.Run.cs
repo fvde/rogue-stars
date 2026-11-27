@@ -207,16 +207,16 @@ namespace RogueStars.Rules.Content
             // More elites per biome (playtest 0.1.359: every lair held the same miniboss), so the biome's elite fights and its lairs
             // (minibosses are drawn from the elite pool) vary: on the biome's first elite's stat budget (HP x ATK within a few %),
             // each with its own kit and trait; drawn with a regular enemy's sprite of the biome (ArtId, elite scale) until they
-            // get their own art.
-            RunMakeElite(RunEnemy("elite_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend"), "cinder_hound").Stats.Add(new StatMod(StatId.ComboChance, 15));
-            RunMakeElite(RunEnemy("elite_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden"), "ash_wraith").Stats.Add(new StatMod(StatId.Dodge, 10));
-            RunMakeElite(RunEnemy("elite_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam"), "glacier_golem").Stats.Add(new StatMod(StatId.CounterChance, 12));
+            // get their own art (art import 5: cinder_alpha, ash_matriarch, glacier_warden and stalker_prime have theirs).
+            RunMakeElite(RunEnemy("elite_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend")).Stats.Add(new StatMod(StatId.ComboChance, 15));
+            RunMakeElite(RunEnemy("elite_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden")).Stats.Add(new StatMod(StatId.Dodge, 10));
+            RunMakeElite(RunEnemy("elite_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam")).Stats.Add(new StatMod(StatId.CounterChance, 12));
             RunMakeElite(RunEnemy("elite_lurker_alpha", "Lurker Alpha", 840, 70, 24, 100, AttackStyle.Claw, "enemy_chill", "enemy_enrage"), "snow_lurker").Stats.Add(new StatMod(StatId.CritChance, 10));
             RunMakeElite(RunEnemy("elite_volt_monarch", "Volt Monarch", 880, 70, 22, 95, AttackStyle.Drill, "enemy_static", "enemy_harden"), "volt_beetle").Stats.Add(new StatMod(StatId.CounterChance, 10));
             RunMakeElite(RunEnemy("elite_eel_tyrant", "Eel Tyrant", 780, 78, 16, 110, AttackStyle.Whip, "enemy_static", "enemy_rend"), "static_eel").Stats.Add(new StatMod(StatId.Dodge, 10));
             RunMakeElite(RunEnemy("elite_null_wraith", "Null Wraith", 940, 84, 18, 110, AttackStyle.Claw, "enemy_rend", "enemy_toxic"), "null_shade").Stats.Add(new StatMod(StatId.Dodge, 12));
             RunMakeElite(RunEnemy("elite_grub_mother", "Grub Mother", 1160, 66, 28, 70, AttackStyle.Slam, "enemy_toxic", "enemy_harden"), "burrow_grub").Stats.Add(new StatMod(StatId.CounterChance, 10));
-            RunMakeElite(RunEnemy("elite_stalker_prime", "Stalker Prime", 1000, 76, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage"), "tunnel_stalker").Stats.Add(new StatMod(StatId.CritChance, 10));
+            RunMakeElite(RunEnemy("elite_stalker_prime", "Stalker Prime", 1000, 76, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage")).Stats.Add(new StatMod(StatId.CritChance, 10));
 
             // RunBosses
             RunMakeBoss(RunEnemy("boss_magma_tyrant", "Magma Tyrant", 1900, 70, 22, 95, AttackStyle.Slam, "boss_magma_eruption"));

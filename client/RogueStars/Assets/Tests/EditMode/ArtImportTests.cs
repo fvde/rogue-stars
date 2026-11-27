@@ -395,6 +395,73 @@ namespace RogueStars.Client.Tests
             Assert.That(Image(card, "BuildingArt").sprite, Is.SameAs(ArtCatalog.Building("bp_gene_lab")), "the card shows the building");
         }
 
+        // ---- batch 5 (2026-11-27): four biome elites with their own sprite, the revive's tombstone ----
+
+        /// <summary>The biome elites that drew a regular enemy's sprite (EnemyDef.ArtId) until now, with their source package file.</summary>
+        private static readonly (string id, string file)[] Batch5Elites =
+        {
+            ("elite_stalker_prime", "C_s1621.png"), ("elite_glacier_warden", "C_s10611.png"), ("elite_cinder_alpha", "S_s1622.png"), ("elite_ash_matriarch", "S_s1621.png"),
+        };
+
+        [Test]
+        public void Batch5_PicksRouteToTheArtCatalogKeys()
+        {
+            var plan = ArtImportRules.PlanSlice("/assets", ArtImportRules.ReadPicks(File.ReadAllText(PicksPath)));
+            Assert.That(plan.Select(i => i.Dest), Is.Unique);
+            foreach (var (id, file) in Batch5Elites)
+            {
+                var item = plan.Find(i => i.Dest == ArtCatalog.EnemyFolder + "/" + id + ".png");
+                Assert.That(item, Is.Not.Null, id);
+                Assert.That(Path.GetFullPath(item.Source).Replace('\\', '/'), Does.EndWith("/enemies-elites2/" + id + "/" + file), id);
+                Assert.That(item.Trim, Is.False, "creatures stay square like their peers");
+            }
+            var tomb = plan.Find(i => i.Dest == ArtCatalog.RunIcons + "/tombstone.png");
+            Assert.That(tomb, Is.Not.Null);
+            Assert.That(Path.GetFullPath(tomb.Source).Replace('\\', '/'), Does.EndWith("/run-icons-tombstone/tombstone/N_s6721.png"));
+            Assert.That(tomb.Trim, Is.True, "trimmed like the other run icons");
+        }
+
+        [Test]
+        public void Batch5_TheFourElites_FightWithTheirOwnSprite_TheRestKeepTheirStandIn()
+        {
+            var content = _f.Service.Content;
+            foreach (var (id, _) in Batch5Elites)
+            {
+                var def = content.Enemies[id];
+                Assert.That(def.Elite, Is.True, id);
+                Assert.That(def.ArtId, Is.Null, id + ": no stand-in any more");
+                var own = ArtCatalog.Enemy(id);
+                Assert.That(own, Is.Not.Null, id);
+                Assert.That(own.rect.width, Is.EqualTo(512).And.EqualTo(own.rect.height), id + ": square like the other elites");
+                Assert.That(own.pivot / own.rect.size, Is.EqualTo(ArtCatalog.Enemy("elite_frost_knight").pivot / ArtCatalog.Enemy("elite_frost_knight").rect.size), id + ": the elites' pivot");
+                Assert.That(ArtCatalog.EnemyOrFamily(id, content, out bool family), Is.SameAs(own), id);
+                Assert.That(family, Is.False, id + ": drawn as itself, not at the stand-in scale");
+                var fighter = new BattleFighterInfo { Id = id, Role = CombatRole.Enemy, Side = BattleSide.Enemy };
+                Assert.That(BattlePlaybackScreen.FighterSprite(fighter, content, out bool f2, out _), Is.SameAs(own), id + " fights with its own sprite");
+                Assert.That(f2, Is.False, id);
+                Assert.That(AnimBoundsTable(id), Is.True, id + " is in anim_bounds.json");
+            }
+            // the other biome elites still borrow a regular enemy's sprite until their art lands
+            var standIns = content.Enemies.Values.Where(e => e.Elite && e.ArtId != null).Select(e => e.Id).OrderBy(i => i).ToList();
+            Assert.That(standIns, Is.EquivalentTo(new[] { "elite_lurker_alpha", "elite_volt_monarch", "elite_eel_tyrant", "elite_null_wraith", "elite_grub_mother" }));
+        }
+
+        [Test]
+        public void Batch5_TheTombstoneLoads_AndTheReviveShowsIt()
+        {
+            var tomb = ArtCatalog.RunIcon("tombstone");
+            Assert.That(tomb, Is.Not.Null);
+            Assert.That(RunScreen.TombstoneSprite(), Is.SameAs(tomb), "the art, not a drawn fallback");
+            Assert.That(tomb.rect.width, Is.InRange(400, 512));
+            Assert.That(tomb.rect.height, Is.InRange(400, 512));
+        }
+
+        private static bool AnimBoundsTable(string id)
+        {
+            var json = File.ReadAllText(Path.Combine(Application.dataPath, "Art/Resources/Art/anim_bounds.json"));
+            return json.Contains("\"" + id + "\":");
+        }
+
         [Test]
         public void MaxHp_ShowsTheHeart()
         {

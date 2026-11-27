@@ -71,8 +71,9 @@ namespace RogueStars.Client.Tests
         [Test]
         public void ElitesWithoutArt_AreDrawnWithTheirBiomeSprite()
         {
-            ArtCatalog.Loader = p => p == "Art/Enemies/cinder_hound" ? Fake : null;
-            var s = ArtCatalog.EnemyOrFamily("elite_cinder_alpha", C, out bool family);
+            // (elite_cinder_alpha has its own art since art import 5; elite_lurker_alpha still borrows snow_lurker's)
+            ArtCatalog.Loader = p => p == "Art/Enemies/snow_lurker" ? Fake : null;
+            var s = ArtCatalog.EnemyOrFamily("elite_lurker_alpha", C, out bool family);
             Assert.That(s, Is.SameAs(Fake));
             Assert.That(family, Is.True, "drawn at the elite scale");
             foreach (var l in new[] { C.MainLevel(8), C.MainLevel(18), C.MainLevel(28), C.MainLevel(38) })
