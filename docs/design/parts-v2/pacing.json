@@ -1,0 +1,283 @@
+{
+ "profiles": [
+  [
+   "Casual F2P",
+   2450,
+   7
+  ],
+  [
+   "Active F2P",
+   5900,
+   17
+  ],
+  [
+   "Active Dolphin",
+   7900,
+   22
+  ],
+  [
+   "Hardcore F2P",
+   8800,
+   25
+  ],
+  [
+   "Active Whale",
+   8900,
+   25
+  ]
+ ],
+ "runs": {
+  "steady": {
+   "Casual F2P": {
+    "S": 128.0,
+    "SS": 1106.5,
+    "all6": 1819.0,
+    "pulls_all6": 12635.0,
+    "metal_left": 21213.5,
+    "unreached": 0
+   },
+   "Active F2P": {
+    "S": 53.5,
+    "SS": 502.5,
+    "all6": 754.0,
+    "pulls_all6": 12530.0,
+    "metal_left": 21107.0,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 33.0,
+    "SS": 371.5,
+    "all6": 570.5,
+    "pulls_all6": 12443.0,
+    "metal_left": 20609.0,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 31.0,
+    "SS": 348.5,
+    "all6": 498.5,
+    "pulls_all6": 12162.5,
+    "metal_left": 19886.5,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 32.5,
+    "SS": 346.0,
+    "all6": 512.5,
+    "pulls_all6": 12612.5,
+    "metal_left": 21098.5,
+    "unreached": 0
+   }
+  },
+  "no_metal": {
+   "Casual F2P": {
+    "S": 135.5,
+    "SS": 1106.5,
+    "all6": 1809.5,
+    "pulls_all6": 12568.5,
+    "metal_left": 31858.5,
+    "unreached": 0
+   },
+   "Active F2P": {
+    "S": 59.5,
+    "SS": 478.5,
+    "all6": 776.5,
+    "pulls_all6": 12912.5,
+    "metal_left": 32703.5,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 32.5,
+    "SS": 368.0,
+    "all6": 566.0,
+    "pulls_all6": 12344.0,
+    "metal_left": 31542.5,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 30.5,
+    "SS": 336.0,
+    "all6": 495.5,
+    "pulls_all6": 12087.5,
+    "metal_left": 30593.5,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 36.5,
+    "SS": 340.0,
+    "all6": 516.0,
+    "pulls_all6": 12700.0,
+    "metal_left": 32162.5,
+    "unreached": 0
+   }
+  },
+  "repl2": {
+   "Casual F2P": {
+    "S": 109.0,
+    "SS": 1015.0,
+    "all6": 1528.0,
+    "pulls_all6": 10598.0,
+    "metal_left": 16233.5,
+    "unreached": 0
+   },
+   "Active F2P": {
+    "S": 47.0,
+    "SS": 419.5,
+    "all6": 702.0,
+    "pulls_all6": 11646.0,
+    "metal_left": 19031.0,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 32.0,
+    "SS": 341.5,
+    "all6": 494.5,
+    "pulls_all6": 10771.0,
+    "metal_left": 16598.5,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 27.0,
+    "SS": 291.0,
+    "all6": 434.5,
+    "pulls_all6": 10562.5,
+    "metal_left": 16053.5,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 30.5,
+    "SS": 284.5,
+    "all6": 451.0,
+    "pulls_all6": 11075.0,
+    "metal_left": 17421.5,
+    "unreached": 0
+   }
+  },
+  "norepl": {
+   "Casual F2P": {
+    "S": 382.0,
+    "SS": 2152.0,
+    "all6": 1000000.0,
+    "pulls_all6": 1000000.0,
+    "metal_left": 67291.5,
+    "unreached": 10
+   },
+   "Active F2P": {
+    "S": 183.0,
+    "SS": 831.5,
+    "all6": 1802.0,
+    "pulls_all6": 30346.0,
+    "metal_left": 66383.5,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 82.0,
+    "SS": 679.0,
+    "all6": 1326.5,
+    "pulls_all6": 29075.0,
+    "metal_left": 63142.5,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 88.5,
+    "SS": 535.5,
+    "all6": 1173.5,
+    "pulls_all6": 29037.5,
+    "metal_left": 62587.0,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 99.5,
+    "SS": 568.5,
+    "all6": 1122.0,
+    "pulls_all6": 27850.0,
+    "metal_left": 59273.0,
+    "unreached": 0
+   }
+  },
+  "slotpick": {
+   "Casual F2P": {
+    "S": 135.5,
+    "SS": 1204.0,
+    "all6": 1678.5,
+    "pulls_all6": 11651.5,
+    "metal_left": 18469.0,
+    "unreached": 0
+   },
+   "Active F2P": {
+    "S": 61.5,
+    "SS": 485.0,
+    "all6": 702.5,
+    "pulls_all6": 11654.5,
+    "metal_left": 18433.5,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 32.0,
+    "SS": 371.5,
+    "all6": 536.0,
+    "pulls_all6": 11684.0,
+    "metal_left": 18691.5,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 30.5,
+    "SS": 325.0,
+    "all6": 483.5,
+    "pulls_all6": 11787.5,
+    "metal_left": 18872.5,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 34.0,
+    "SS": 313.5,
+    "all6": 474.5,
+    "pulls_all6": 11662.5,
+    "metal_left": 18778.5,
+    "unreached": 0
+   }
+  },
+  "spark300": {
+   "Casual F2P": {
+    "S": 116.5,
+    "SS": 953.5,
+    "all6": 1320.0,
+    "pulls_all6": 9142.0,
+    "metal_left": 12446.0,
+    "unreached": 0
+   },
+   "Active F2P": {
+    "S": 47.0,
+    "SS": 410.5,
+    "all6": 571.0,
+    "pulls_all6": 9419.0,
+    "metal_left": 13162.0,
+    "unreached": 0
+   },
+   "Active Dolphin": {
+    "S": 32.5,
+    "SS": 302.5,
+    "all6": 422.0,
+    "pulls_all6": 9176.0,
+    "metal_left": 12578.0,
+    "unreached": 0
+   },
+   "Hardcore F2P": {
+    "S": 30.5,
+    "SS": 274.0,
+    "all6": 382.0,
+    "pulls_all6": 9250.0,
+    "metal_left": 12748.0,
+    "unreached": 0
+   },
+   "Active Whale": {
+    "S": 36.5,
+    "SS": 276.0,
+    "all6": 373.5,
+    "pulls_all6": 9137.5,
+    "metal_left": 12511.0,
+    "unreached": 0
+   }
+  }
+ }
+}
