@@ -342,6 +342,10 @@
     "summon-icons-redo": [
       "icon",
       "Summon & menu icons"
+    ],
+    "buildings-redo": [
+      "building",
+      "Buildings (City)"
     ]
   }
 }
