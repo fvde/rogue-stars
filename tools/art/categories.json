@@ -405,6 +405,10 @@
     "run-icons-tombstone-redo2": [
       "icon",
       "Reward icons"
+    ],
+    "currency-icons-redo": [
+      "icon",
+      "Summon & menu icons"
     ]
   }
 }
