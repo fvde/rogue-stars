@@ -397,6 +397,14 @@
     "ui-kit-redo2": [
       "ui",
       "UI kit"
+    ],
+    "ui-backdrops-redo2": [
+      "fullframe",
+      "UI backdrops"
+    ],
+    "run-icons-tombstone-redo2": [
+      "icon",
+      "Reward icons"
     ]
   }
 }

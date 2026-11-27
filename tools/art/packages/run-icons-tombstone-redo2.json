@@ -1,0 +1,15 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game icon, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, RIP, inscription, cross, skull, frame, border, ground, grass, dirt mound, shadow, pedestal, background scenery, watermark, blurry, photo, rocks, stones, pebbles, plants, base slab, plinth, step, platform",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-run-icons-tombstone-redo2",
+  "seeds": [
+    6741,
+    6742
+  ],
+  "subjects": {
+    "tombstone": "a tall rounded grey stone gravestone, an arch shape with a straight cut bottom edge, no step and no plinth, plain blank front, drawn in bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

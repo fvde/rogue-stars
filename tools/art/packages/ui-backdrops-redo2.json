@@ -1,0 +1,15 @@
+{
+  "name": "pkg-ui-backdrops-redo2",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    3231,
+    3232
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", mobile game menu background, full frame edge to edge, soft and calm, empty, no text, no characters, no creatures, no objects, no UI elements",
+  "negative": "text, letters, characters, creatures, UI, buttons, frames, busy details, photo, fruit, plum, phone, device, screen, white background, worm, creature, button, ground, white area",
+  "subjects": {
+    "backdrop_menu": "a plain dark purple gradient with a few tiny faint white star dots, nothing else"
+  }
+}
