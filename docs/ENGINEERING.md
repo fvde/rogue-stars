@@ -49,7 +49,7 @@ Grant rewards through `ctx.Grant(...)` so every reward kind goes through its own
   the hub teaser. Every feature has an intro (`FeatureDef.Intro`, tests enforce 2–4 panels); a new feature id needs
   `Since` = the current `OnboardingConfig.Version` (old saves get it silently, `OnboardingSystem.Migrate`) and a "?" home
   (`UiScreen.IntroFeatures` on its client screen). Run content introduced by level reads its level from `CampaignDef`
-  (`ShopsFromLevel` …); the run-mechanic tests play `RunTestKit.Classic` boards (every element from level 1).
+  (`SignatureChoiceFromLevel` …); the run-mechanic tests play `RunTestKit.Classic` boards (every element from level 1).
 - **Rewards:** `RewardKinds` + granters (`Part`/`Rune` → Progression, `Blueprint`/`Alien` → City,
   `HeroShards`/`Mount` → Progression). Every grant passes `RewardGate` (GDD §13.1 "rewards follow use"): a reward whose
   currency / item kind has no use yet (`ContentDb.RewardUses`) goes to the reward stash and `ctx.Grant` returns false (list

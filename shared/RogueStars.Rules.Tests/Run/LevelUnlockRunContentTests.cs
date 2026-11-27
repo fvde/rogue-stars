@@ -5,9 +5,9 @@ using RogueStars.Rules.Systems;
 namespace RogueStars.Rules.Tests.Run;
 
 /// <summary>
-/// GDD §16 level unlocks, run side: level 1 is the tutorial run (roll, fight, level up and pick skills, beat the boss), and
-/// shops, minibosses (Mythics), two dice and forks, campfires, the signature choice and the Alien Arcade join the board level
-/// by level, each right after its feature unlocks (the level before its first board).
+/// GDD §16 level unlocks, run side: level 1 is the tutorial run (roll, fight, level up and pick skills, beat the boss); shops
+/// are on the board from the first run; the signature choice (the second unlock), minibosses (Mythics), two dice and forks,
+/// campfires and the Alien Arcade join level by level, each right after its feature unlocks (the level before its first board).
 /// </summary>
 public class LevelUnlockRunContentTests
 {
@@ -18,11 +18,11 @@ public class LevelUnlockRunContentTests
     [Fact]
     public void FirstBoards_GetEachElement_TheLevelAfterItsFeatureUnlocks()
     {
-        Assert.Equal(3, First(Features.RunShop));
+        Assert.Null(C.Feature("run_shop")); // shops: always there, no unlock
+        Assert.Equal(3, First(Features.RunSignatures));
         Assert.Equal(5, First(Features.RunMiniboss));
         Assert.Equal(6, First(Features.RunTwoDice));
         Assert.Equal(10, First(Features.RunCampfire));
-        Assert.Equal(12, First(Features.RunSignatures));
         Assert.Equal(15, First(Features.RunMinigames));
         Assert.Equal(C.Campaign.SignatureChoiceFromLevel, First(Features.RunSignatures));
         Assert.Equal(C.MinigameTuning.MinMainLevel, First(Features.RunMinigames));
@@ -32,7 +32,8 @@ public class LevelUnlockRunContentTests
         {
             var l = C.MainLevel(n)!;
             bool Has(string tile) => l.FixedTiles.Any(f => f.TileId == tile);
-            Assert.Equal(n >= First(Features.RunShop), Has("shop"));
+            Assert.True(Has("shop"), "shops from the first run (level " + n + ")");
+            Assert.Equal(n >= First(Features.RunSignatures), l.SignatureChoice);
             Assert.Equal(n >= First(Features.RunMiniboss), Has("miniboss"));
             Assert.Equal(n >= First(Features.RunMiniboss), l.ClockMinibosses);
             Assert.Equal(n >= First(Features.RunCampfire), Has("campfire"));
@@ -44,6 +45,7 @@ public class LevelUnlockRunContentTests
         foreach (var l in new[] { C.DarkSideLevel(1), C.RunLevel("the_burrow_1")!, C.MainLevel(41)! })
         {
             Assert.True(l.ClockMinibosses);
+            Assert.True(l.SignatureChoice);
             Assert.Contains(l.FixedTiles, f => f.TileId == "shop");
         }
     }
@@ -54,7 +56,7 @@ public class LevelUnlockRunContentTests
         var pool = C.TilePools[C.Campaign.TutorialPool].Select(w => C.BoardTiles[w.Id].Category).ToHashSet();
         Assert.Subset(new HashSet<TileCategory> { TileCategory.Empty, TileCategory.Enemy, TileCategory.StatBuff, TileCategory.Pickup, TileCategory.Loot, TileCategory.Shard, TileCategory.Minigame }, pool); // GAME tiles: in every pool, gated by level
         var l1 = C.MainLevel(1)!;
-        Assert.Empty(l1.FixedTiles);
+        Assert.All(l1.FixedTiles, f => Assert.Equal("shop", f.TileId)); // shops only (always unlocked)
         Assert.Equal(0, l1.BranchChance);
         for (ulong seed = 1; seed <= 20; seed++)
         {
@@ -62,7 +64,7 @@ public class LevelUnlockRunContentTests
             foreach (var t in b.Tiles.Where(t => t.TileId != null))
             {
                 var cat = C.BoardTiles[t.TileId].Category;
-                Assert.DoesNotContain(cat, new[] { TileCategory.Event, TileCategory.Elite, TileCategory.Hazard, TileCategory.Shop, TileCategory.Campfire,
+                Assert.DoesNotContain(cat, new[] { TileCategory.Event, TileCategory.Elite, TileCategory.Hazard, TileCategory.Campfire,
                     TileCategory.Miniboss, TileCategory.Treasure, TileCategory.StatDebuff, TileCategory.Minigame });
             }
             Assert.DoesNotContain(b.Tiles, t => t.Next.Count > 1); // no forks
@@ -82,7 +84,7 @@ public class LevelUnlockRunContentTests
             Assert.Empty(s.Parts.Equipped);
             var r = e.Execute(ref s, new RunStart { PortalId = l1.PortalId, LevelId = l1.Id, Mode = RunMode.Normal }, TestHelpers.T0);
             Assert.True(r.Ok, r.Error);
-            Assert.Single(RunSystem.Signatures(s.Run.Active)); // the first of the three offered (no SignatureId: the auto pick)
+            Assert.Empty(RunSystem.Signatures(s.Run.Active)); // no signature before its unlock (the second unlock, level 3)
             for (int i = 0; i < 500 && s.Run.Active != null; i++)
             {
                 var step = e.Execute(ref s, new RunAutoStep { Farming = true, FarmShops = true }, TestHelpers.T0);
@@ -99,22 +101,58 @@ public class LevelUnlockRunContentTests
     }
 
     [Fact]
-    public void SignatureChoice_IsThreeDistinctSignatures_FromTheFirstRun()
+    public void SignatureChoice_IsAnUnlock_NoneOnTheFirstLevels_ThenEveryRunStartsWithThePick()
     {
-        // playtest 0.1.325: every run starts with the pick, the tutorial run too (never a random signature)
+        // owner, 2026-11-27: the second unlock (the level-2 slot); before it runs have no signature, no pick, no Resonance
+        int from = C.Campaign.SignatureChoiceFromLevel;
+        Assert.Equal(3, from);
+        Assert.Equal(from - 1, (int)Features.UnlockLevel(C.Feature(Features.RunSignatures)!));
+        for (int n = 1; n < from; n++)
+        {
+            var e = new GameEngine(C);
+            var s = e.NewPlayer("p", TestHelpers.T0, n);
+            s.Counters[Requirements.MainLevelCounter] = n - 1;
+            if (n > 1) s.Run.Levels[C.MainLevelId(n - 1)] = new LevelProgress { Cleared = true, Clears = 1 };
+            var l = C.MainLevel(n)!;
+            Assert.True(e.Execute(ref s, new RunStart { PortalId = l.PortalId, LevelId = l.Id, PickOnBoard = true }, TestHelpers.T0).Ok);
+            Assert.NotEqual(RunPhase.Signature, s.Run.Active!.Phase);
+            Assert.Empty(RunSystem.Signatures(s.Run.Active));
+            Assert.Empty(s.Run.Active.StartSignatures);
+        }
+        // from the unlock on: the pick on the board before the first roll
+        {
+            var e = new GameEngine(C);
+            var s = e.NewPlayer("p", TestHelpers.T0, 9);
+            s.Counters[Requirements.MainLevelCounter] = from - 1;
+            for (int n = 1; n < from; n++) s.Run.Levels[C.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+            s.Wallet.Add(Currencies.Stamina, 100);
+            var l = C.MainLevel(from)!;
+            var r = e.Execute(ref s, new RunStart { PortalId = l.PortalId, LevelId = l.Id, PickOnBoard = true }, TestHelpers.T0);
+            Assert.True(r.Ok, r.Error);
+            Assert.Equal(RunPhase.Signature, s.Run.Active!.Phase);
+            Assert.Equal(C.RunTuning.SignatureChoices, s.Run.Active.StartSignatures.Count);
+        }
+    }
+
+    [Fact]
+    public void SignatureChoice_IsThreeDistinctSignatures()
+    {
         for (int seed = 1; seed <= 20; seed++)
         {
             var e = new GameEngine(C);
             var s = e.NewPlayer("p", TestHelpers.T0, seed);
-            Assert.False(Features.IsUnlocked(s, C, Features.RunSignatures));
             var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
             Assert.Equal(C.RunTuning.SignatureChoices, offer.Count);
             Assert.Equal(offer.Count, offer.Distinct().Count());
             Assert.All(offer, id => Assert.True(C.Skill(id)!.Signature));
             Assert.Equal(offer, RunSystem.SignatureOffer(e, s, TestHelpers.T0)); // deterministic: what the client shows is what the server validates
-            var l1 = C.MainLevel(1)!;
+            var l3 = C.MainLevel(C.Campaign.SignatureChoiceFromLevel)!;
+            s.Counters[Requirements.MainLevelCounter] = C.Campaign.SignatureChoiceFromLevel - 1;
+            for (int n = 1; n < C.Campaign.SignatureChoiceFromLevel; n++) s.Run.Levels[C.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+            s.Wallet.Add(Currencies.Stamina, 100);
             var pick = offer[seed % offer.Count];
-            Assert.True(e.Execute(ref s, new RunStart { PortalId = l1.PortalId, LevelId = l1.Id, SignatureId = pick }, TestHelpers.T0).Ok);
+            var r = e.Execute(ref s, new RunStart { PortalId = l3.PortalId, LevelId = l3.Id, SignatureId = pick }, TestHelpers.T0);
+            Assert.True(r.Ok, r.Error);
             Assert.Equal(new[] { pick }, RunSystem.Signatures(s.Run.Active));
         }
     }

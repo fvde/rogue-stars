@@ -584,10 +584,11 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 
 | Level | Unlock (feature id) | Guided action |
 |---|---|---|
-| – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
+| – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no events, elites, hazards, campfires, minibosses or signature; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
 | 1 | Parts / Worm tab (`parts`): equip the three starter parts. Daily Quests and the 7-day calendar are there from here on, with no unlock moment of their own (owner, 2026-11-26) | Equip your parts |
 | – | **No unlock: the Shop's offers** (owner, 2026-11-27): the Shop tab and its offer sections Offers / Diamonds / Passes / Items / Ads (the daily free gift on the Passes page) are there from the first session, no unlock moment, intro or teaser; the Shop opens on Offers until a pull section exists. Its pull sections still come with Parts, Aliens and the City | – |
-| 2 | Shops on the board from level 3 (`run_shop`) | Play |
+| – | **No unlock: run shops** (owner, 2026-11-27): shops stand on the board from the first run, no unlock moment or intro | – |
+| 2 | Signatures from level 3 (`run_signatures`): every run now starts with the signature pick (1 of 3) on its board, the three intro panels play with the unlock; the runs of levels 1–2 have no signature (and no Resonance event) (owner, 2026-11-27; before: in every run since playtest 0.1.325, explained at level 11) | Play |
 | 3 | Worm level & talents (`worm_level`) | Level up the worm |
 | 4 | Minibosses & Mythics from level 5: two miniboss lairs on the path (`run_miniboss`) | Play |
 | 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
@@ -595,7 +596,6 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
 | 9 | Campfires from level 10 (`run_campfire`) | Play |
 | 10 | Parts pulls in the Shop (`part_pulls`); the first pulls are on the house | Tune in |
-| 11 | Signature awakening explained (`run_signatures`, intro only: every run, the first one included, starts by picking 1 of 3 signatures; playtest 0.1.325) | Play |
 | 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
 | 14 | Alien Arcade mini-games from level 15 (`run_minigames`) | Play |
 | 15 | Aliens: the first alien (`aliens`) | Meet your alien |
@@ -624,8 +624,8 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 60 | Laboratory: Time Package (`package_time`) | Open the lab |
 
 Each package node needs its feature (`LabResearchDef.RequiresFeature`) besides the chain of prerequisites. The first boards
-(main levels 1–14, numbers in `CampaignDef`: `ShopsFromLevel`, `MinibossesFromLevel`, `ForksFromLevel`, `CampfiresFromLevel`,
-`SignatureChoiceFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later portals, the Burrow
+(main levels 1–14, numbers in `CampaignDef`: `SignatureChoiceFromLevel` (`LevelDef.SignatureChoice`), `MinibossesFromLevel`,
+`ForksFromLevel`, `CampfiresFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later portals, the Burrow
 and the Dark Side have everything. The run-content features read their levels from those numbers, so they never drift.
 
 **Old saves** keep every unlock they have (unlocks never re-lock). A save from before the level unlocks

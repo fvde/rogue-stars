@@ -44,9 +44,9 @@ public class LevelUnlockServerTests : IDisposable
         Assert.Equal(1, await p.CounterAsync(Requirements.MainLevelCounter));
         var unlocked = (await p.StateAsync()).GetProperty("onboarding").GetProperty("unlocked");
         Assert.True(unlocked.TryGetProperty(Features.Parts, out _), "Parts unlock with the first clear, the same day");
-        Assert.False(unlocked.TryGetProperty(Features.RunShop, out _), "Shops wait for level 2");
+        Assert.False(unlocked.TryGetProperty(Features.RunSignatures, out _), "the signature pick waits for level 2");
         var celebrate = await p.CommandAsync("FeatureCelebrate", new { featureId = Features.Parts }, "celebrate");
         Assert.True(celebrate.Body.GetProperty("ok").GetBoolean(), celebrate.Body.GetProperty("error").ToString());
-        Assert.False((await p.CommandAsync("FeatureCelebrate", new { featureId = Features.RunShop }, "early")).Body.GetProperty("ok").GetBoolean());
+        Assert.False((await p.CommandAsync("FeatureCelebrate", new { featureId = Features.RunSignatures }, "early")).Body.GetProperty("ok").GetBoolean());
     }
 }

@@ -8,7 +8,8 @@ namespace RogueStars.Rules.Systems
     /// <summary>
     /// Signature skills (owner design, signatures pass). Every run starts with one signature, picked from
     /// RunTuning.SignatureChoices distinct random signatures of the synergies the player has unlocked (starters + Laboratory
-    /// packages; with exactly three unlocked all three are offered), from the first run on (playtest 0.1.325). The offer is a pure function of the player id, the run counter and
+    /// packages; with exactly three unlocked all three are offered), from the signature unlock on (the second unlock, main level 3:
+    /// LevelDef.SignatureChoice; the first levels' runs have none). The offer is a pure function of the player id, the run counter and
     /// the unlocked synergies, so the client shows exactly what the server validates; RunStart.SignatureId picks one, an empty
     /// id (auto mode, bots, old clients) takes the first. The signature awakens as the build commits: level 2 at 3 owned skills of
     /// its synergy, level 3 at 6 (RunTuning.SignatureAwakenAt; the signature itself not counted). Its one effect only grows

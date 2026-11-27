@@ -270,8 +270,8 @@ namespace RogueStars.Rules.Content
         }
 
         /// <summary>
-        /// GDD §16 level unlocks: main level <paramref name="n"/> leaves out the run content that is introduced later (shops,
-        /// minibosses, forks, campfires); level 1 is the tutorial run (its own small tile pool, a faster boss). Each element's
+        /// GDD §16 level unlocks: main level <paramref name="n"/> leaves out the run content that is introduced later (the
+        /// signature pick, minibosses, forks, campfires; shops are there from the first run); level 1 is the tutorial run (its own small tile pool, a faster boss). Each element's
         /// feature unlocks when the level before its first board is cleared (ContentDb.Onboarding).
         /// </summary>
         private void CampaignIntroduceRunContent(LevelDef l, int n)
@@ -282,7 +282,7 @@ namespace RogueStars.Rules.Content
                 l.TilePoolId = c.TutorialPool;
                 l.Modifiers.AwakeningPct = c.TutorialAwakeningPct;
             }
-            if (n < c.ShopsFromLevel) l.FixedTiles.RemoveAll(ft => ft.TileId == "shop");
+            if (n < c.SignatureChoiceFromLevel) l.SignatureChoice = false;
             if (n < c.MinibossesFromLevel) { l.FixedTiles.RemoveAll(ft => ft.TileId == "miniboss"); l.ClockMinibosses = false; }
             if (n < c.ForksFromLevel) l.BranchChance = 0;
             if (n < c.CampfiresFromLevel) l.FixedTiles.RemoveAll(ft => ft.TileId == "campfire");

@@ -169,7 +169,8 @@ namespace RogueStars.Rules.Systems
                 Rng = ctx.Rng.Fork("run:" + s.Run.RunsStarted + ":" + level.Id),
                 Loadout = ctx.Engine.BuildLoadout(s, ctx.NowMs),
             };
-            var signatures = SignatureOffer(s, c, run.Loadout); // before RunsStarted moves on: the offer the client showed
+            // before RunsStarted moves on: the offer the client showed; none before the signature unlock (LevelDef.SignatureChoice)
+            var signatures = level.SignatureChoice ? SignatureOffer(s, c, run.Loadout) : new List<string>();
             s.Run.RunsStarted++;
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;

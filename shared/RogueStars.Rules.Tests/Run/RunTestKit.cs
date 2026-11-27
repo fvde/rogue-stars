@@ -46,6 +46,7 @@ public static class RunTestKit
             l.Modifiers.AwakeningPct = 0;
             l.BranchChance = new LevelDef().BranchChance;
             l.ClockMinibosses = true;
+            l.SignatureChoice = true;
             foreach (var (at, id) in new[] { (0.22, "campfire"), (0.42, "shop"), (0.68, "miniboss"), (0.88, "shop") })
                 if (!l.FixedTiles.Any(f => f.TileId == id && Math.Abs(f.At - at) < 1e-9)) l.FixedTiles.Add(new FixedTile(at, id));
             l.FixedTiles.Sort((a, b) => a.At.CompareTo(b.At));

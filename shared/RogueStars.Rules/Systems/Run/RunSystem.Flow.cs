@@ -1043,7 +1043,7 @@ namespace RogueStars.Rules.Systems
         {
             bool lootLeft = AccountLootOfferLeft(c, run);
             var w = new double[c.RandomRunEvents.Count];
-            bool sigLeft = FindableSignatures(c, run).Count > 0;
+            bool sigLeft = Level(c, run).SignatureChoice && FindableSignatures(c, run).Count > 0; // no Resonance before the signature unlock
             for (int i = 0; i < w.Length; i++)
                 w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0
                     : !sigLeft && c.RandomRunEvents[i].Id == ResonanceEvent ? 0 : c.RandomRunEvents[i].Weight;
