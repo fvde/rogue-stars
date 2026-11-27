@@ -26,7 +26,7 @@ namespace RogueStars.Rules.Systems
         {
             Providers.GetValue(e, _ => new List<RegenBonusProvider>());
             e.RegisterNewPlayer(InitNewPlayer);
-            e.RegisterSettler(ctx => Settle(ctx.Engine, ctx.State, ctx.Content, ctx.NowMs));
+            e.RegisterSettler(ctx => Settle(ctx.Engine, ctx.State, ctx.Content, ctx.NowMs, ctx.Acting));
             e.Register<BuyStamina>(HandleBuyStamina);
         }
 
@@ -54,22 +54,26 @@ namespace RogueStars.Rules.Systems
         /// Recompute bonuses and settle every regen rule. Safe to call at any time. Expired modifiers are not
         /// removed here: City integrates production piecewise over modifier windows in a later settler, and
         /// LiveOps (registered after City) removes expired modifiers.
+        /// Bonuses and modifiers are taken as they were just before <paramref name="nowMs"/>: they apply to the time since the
+        /// last settle, and settling walks every modifier boundary (engine breakpoints), so each stretch has its own speed.
+        /// <paramref name="acting"/>: a command runs now (a tick timer in the future is restarted, see Wallet.SettleRegen).
         /// </summary>
-        public static void Settle(GameEngine e, GameState s, ContentDb c, long nowMs)
+        public static void Settle(GameEngine e, GameState s, ContentDb c, long nowMs, bool acting = true)
         {
             var providers = e != null && Providers.TryGetValue(e, out var list) ? list : null;
+            long during = nowMs - 1;
             foreach (var rule in c.RegenRules)
             {
                 long cap = 0; double speed = 0;
                 if (providers != null)
                     foreach (var p in providers)
                     {
-                        var b = p(s, c, nowMs, rule.Currency);
+                        var b = p(s, c, during, rule.Currency);
                         cap += b.capBonus; speed += b.tickSpeedPercent;
                     }
                 // Timed modifiers: a multiplier m on regen speed shortens the tick to 1/m.
-                double mult = ModifierMath.Multiplier(s.Modifiers, "regen:" + rule.Currency, nowMs);
-                if (rule.Currency == Currencies.Stamina) mult *= ModifierMath.Multiplier(s.Modifiers, "stamina_regen", nowMs);
+                double mult = ModifierMath.Multiplier(s.Modifiers, "regen:" + rule.Currency, during);
+                if (rule.Currency == Currencies.Stamina) mult *= ModifierMath.Multiplier(s.Modifiers, "stamina_regen", during);
                 if (mult > 0 && mult != 1) speed += (1 - 1 / mult) * 100;
 
                 if (!s.Wallet.Regen.TryGetValue(rule.Currency, out var rs))
@@ -82,7 +86,7 @@ namespace RogueStars.Rules.Systems
                 // No regeneration while the currency has no use (arena tickets before the Arena...): no backlog either; the
                 // unlock releases the stashed starting amount (RewardGate).
                 if (!RewardGate.CurrencyHasUse(s, c, rule.Currency, nowMs)) { rs.LastTickMs = nowMs; continue; }
-                s.Wallet.SettleRegen(rule, nowMs);
+                s.Wallet.SettleRegen(rule, nowMs, acting);
             }
             RollDay(s, c, nowMs);
         }

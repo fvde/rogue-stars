@@ -16,6 +16,8 @@ namespace RogueStars.Rules.Core
         public long Version;
         public long CreatedMs;
         public long LastCommandMs;
+        /// <summary>When the settlers last ran (a command or a settle); settling walks the breakpoints after it.</summary>
+        public long SettledMs;
         public Wallet Wallet = new Wallet();
         public List<Modifier> Modifiers = new List<Modifier>();
         /// <summary>Persistent RNG stream for authoritative rolls (pulls, breeding, loot).</summary>

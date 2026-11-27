@@ -103,8 +103,9 @@ namespace RogueStars.Rules.Systems
                 q.ChestsClaimed.RemoveWhere(k => k.StartsWith(PointTrack.Weekly + ":", StringComparison.Ordinal));
             }
 
+            // The returning-player gift greets a player who acts again (a command) after a long break, never a mere settle.
             var ret = content.Retention;
-            if (s.Version > 0 && ctx.NowMs - s.LastCommandMs >= ret.ReturningAfterMs
+            if (ctx.Acting && s.Version > 0 && ctx.NowMs - s.LastCommandMs >= ret.ReturningAfterMs
                 && (q.LastReturningGiftMs == 0 || ctx.NowMs - q.LastReturningGiftMs >= ret.ReturningCooldownMs)
                 && content.MailTemplate(ret.ReturningMailTemplate) != null)
             {

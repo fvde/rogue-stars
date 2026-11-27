@@ -147,7 +147,10 @@ public class StaminaAtZeroTests
         e.Settle(s, t);
         s.Wallet.Balances[Currencies.Stamina] = 0;
         s.Wallet.Regen[Currencies.Stamina].LastTickMs = t + 5 * 3_600_000;
-        e.Settle(s, t); // the clock is behind: the tick restarts from now
+        e.Settle(s, t + 1); // a plain settle leaves it (restarting at whatever moment one settles is not path-independent)
+        Assert.Equal(t + 5 * 3_600_000, s.Wallet.Regen[Currencies.Stamina].LastTickMs);
+        // the clock is behind when the player acts: the tick restarts from the command's time
+        Assert.True(e.Execute(ref s, new LobbyPopupShown { PopupId = "x" }, t).Ok);
         Assert.Equal(t, s.Wallet.Regen[Currencies.Stamina].LastTickMs);
         e.Settle(s, t + 2 * Tick + 1000);
         Assert.Equal(2, s.Wallet.Get(Currencies.Stamina));

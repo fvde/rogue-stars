@@ -83,8 +83,8 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
   5 / 6 / 6 / 8 + featured shards ×5 on day 6 (**$9.99**, `summon_pass_hero`); mounts free 1 / 1 / 2, premium 4 / 5 / 7 +
   featured shards ×5 on day 3 (**$4.99**, `summon_pass_mount`). The premium track is bought for the current event only and
   is retroactive for its unlocked days.
-- **Event end:** unclaimed rewards do not lapse. When the next event of the type starts (on the player's first command in
-  it), every reached but unclaimed task target and every unclaimed pass day of the ended event (free, and premium when bought)
+- **Event end:** unclaimed rewards do not lapse. When an event the player took part in (ran a command while it was on) ends,
+  i.e. when the next one starts, every reached but unclaimed task target and every unclaimed pass day of the ended event (free, and premium when bought)
   is mailed ("Hero Summon: unclaimed rewards", merged per reward, 30-day mail). Pull milestones are not mailed.
 - **Packs** (`ProductKind.SummonPack`, sold only while an event of the type runs, `ProductDef.DailyLimit`): heroes $2.99 (5
   tickets + 300 Diamonds, 3/day), $7.99 (14 + 800, 3/day), $19.99 (38 + 2 000, 2/day); mounts $1.99 (4 + 200), $5.99

@@ -44,8 +44,8 @@ namespace RogueStars.Rules.Systems
         public string FeaturedId;
         public long StartMs;
         public long EndMs;
-        /// <summary>When this player joined (the event start, or the first command after it); task progress counts from here.</summary>
-        public long JoinedMs;
+        /// <summary>The player did something (a command) while this event ran: only then are its unclaimed rewards mailed at its end.</summary>
+        public bool Active;
         /// <summary>Pulls made in this event (milestones).</summary>
         public int Pulls;
         /// <summary>Task counters at the join (progress = counter − baseline).</summary>

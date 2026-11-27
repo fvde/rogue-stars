@@ -131,4 +131,16 @@ public class QuestTests
         Ok(e, ref s, new LoginClaim(), TestHelpers.T0 + 16 * D);
         Assert.Equal(1, s.Mail.Inbox.Count(m => m.TemplateId == "returning_gift"));
     }
+
+    [Fact]
+    public void ReturningGift_ComesWithTheFirstCommand_NotWithASettle()
+    {
+        var e = Engine(); var s = Player(e);
+        Ok(e, ref s, new LoginClaim(), TestHelpers.T0);
+        e.Settle(s, TestHelpers.T0 + 8 * D); // the app opened (session / state): settling alone greets nobody
+        Assert.DoesNotContain(s.Mail.Inbox, m => m.TemplateId == "returning_gift");
+        var r = Ok(e, ref s, new LoginClaim(), TestHelpers.T0 + 8 * D + 60_000);
+        Assert.Contains(r.Events, ev => ev.Type == "returning_player");
+        Assert.Single(s.Mail.Inbox, m => m.TemplateId == "returning_gift");
+    }
 }

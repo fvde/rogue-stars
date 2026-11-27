@@ -30,6 +30,18 @@ namespace RogueStars.Rules.Systems
         {
             e.Register<TimerSpeedUp>(HandleSpeedUp);
             e.RegisterSettler(CompleteDue);
+            // Auto-completing timers change the state at their end (a building starts producing, a boon applies).
+            e.RegisterBreakpoints((s, c, from, to) =>
+            {
+                long next = long.MaxValue;
+                if (!Completions.TryGetValue(e, out var map)) return next;
+                foreach (var t in s.Timers.Active)
+                {
+                    if (t.EndsMs <= from || t.EndsMs >= next) continue;
+                    lock (map) { if (map.ContainsKey(t.Kind)) next = t.EndsMs; }
+                }
+                return next;
+            });
         }
 
         /// <summary>

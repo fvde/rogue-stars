@@ -415,7 +415,8 @@ namespace RogueStars.Rules.Systems
             {
                 int cap = ChanceStorage(content, def, b.Level);
                 if (b.Chances >= cap) return;
-                b.Chances = Math.Min(cap, b.Chances + ChancesPerDay(state, content, b) * ((toMs - from) / DayMs));
+                long chances = Accrue(ToMicro(b.Chances), ToMicro(ChancesPerDay(state, content, b)), toMs - from, (long)DayMs, ref b.Carry);
+                SetCapped(ref b.Chances, ref b.Carry, chances, cap);
                 return;
             }
             if (def.ProduceCurrency == null) return;
@@ -434,14 +435,38 @@ namespace RogueStars.Rules.Systems
                 if (m.EndMs > from && m.EndMs < toMs) cuts.Add(m.EndMs);
             }
             cuts.Sort();
-            double gain = 0;
+            long stored = ToMicro(b.Stored);
             for (int i = 0; i + 1 < cuts.Count; i++)
             {
                 long a = cuts[i], z = cuts[i + 1];
                 if (z <= a) continue;
-                gain += baseRate * ModifierMath.Multiplier(state.Modifiers, target, a) * ((z - a) / HourMs);
+                stored = Accrue(stored, ToMicro(baseRate * ModifierMath.Multiplier(state.Modifiers, target, a)), z - a, (long)HourMs, ref b.Carry);
             }
-            b.Stored = Math.Min(storage, b.Stored + gain);
+            SetCapped(ref b.Stored, ref b.Carry, stored, storage);
+        }
+
+        /// <summary>Accrual unit: one millionth (rates are rounded to it once; sums are exact integers).</summary>
+        private const double Micro = 1_000_000.0;
+
+        private static long ToMicro(double v) => (long)Math.Round(v * Micro);
+
+        /// <summary>
+        /// value + rate × elapsed / period in micro-units, exactly: the remainder below one micro-unit stays in
+        /// <paramref name="carry"/> (numerator over <paramref name="period"/>), so splitting the time changes nothing.
+        /// </summary>
+        private static long Accrue(long value, long ratePerPeriod, long elapsed, long period, ref long carry)
+        {
+            if (ratePerPeriod <= 0 || elapsed <= 0) return value;
+            long whole = elapsed / period, rest = elapsed % period; // rate × rest < 2^63 for any sane rate (whole periods first)
+            long num = ratePerPeriod * rest + carry;
+            carry = num % period;
+            return value + ratePerPeriod * whole + num / period;
+        }
+
+        private static void SetCapped(ref double field, ref long carry, long micro, double cap)
+        {
+            if (micro / Micro >= cap) { field = cap; carry = 0; }
+            else field = micro / Micro;
         }
 
         public static void SettleAll(GameState state, ContentDb content, long toMs)

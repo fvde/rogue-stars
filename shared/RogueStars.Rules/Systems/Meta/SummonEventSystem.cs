@@ -14,7 +14,7 @@ namespace RogueStars.Rules.Systems
     /// the type (pull system, docs/design/pull-system.md). Batches unlock the hero / mount or pay its shards (granters in
     /// HeroSystem / MountSystem). Per event: task lines counted from the event start, pull-count milestones, an exchange
     /// shop with event limits, a free + premium day pass, packs (products) and a daily ad ticket.
-    /// When an event ends, its unclaimed task and pass rewards are mailed (on joining the next event of the type).
+    /// When an event the player took part in ends, its unclaimed task and pass rewards are mailed (on joining the next event of the type).
     /// Events: "summon_pull"(type, count, eventId), "summon_event_joined"(type, eventId), "summon_event_mailed"(type, eventId).
     /// </summary>
     public static class SummonEventSystem
@@ -28,6 +28,17 @@ namespace RogueStars.Rules.Systems
         {
             e.RegisterNewPlayer(ctx => ctx.State.Summons.Migrated = MigrationVersion); // a new save has nothing to migrate
             e.RegisterSettler(Settle);
+            // Events roll over at their end: the next one is joined (and the ended one mailed) at that moment.
+            e.RegisterBreakpoints((s, c, from, to) =>
+            {
+                long next = long.MaxValue;
+                foreach (var t in Types)
+                {
+                    var ev = CurrentEvent(s, c, t, from);
+                    if (ev != null && ev.EndMs > from && ev.EndMs < next) next = ev.EndMs;
+                }
+                return next;
+            });
             e.Register<SummonPull>(HandlePull);
             e.Register<SummonTaskClaim>(HandleTaskClaim);
             e.Register<SummonTaskClaimAll>(HandleTaskClaimAll);
@@ -231,11 +242,19 @@ namespace RogueStars.Rules.Systems
 
         // ---- settler -------------------------------------------------------------------------------
 
-        /// <summary>Save migration (once) and joining the current event of each unlocked type (task baselines).</summary>
+        /// <summary>
+        /// Save migration (once) and joining the current event of each unlocked type (task baselines). A command marks the
+        /// running events as taken part in (<see cref="SummonEventProgress.Active"/>).
+        /// </summary>
         public static void Settle(CommandContext ctx)
         {
             Migrate(ctx);
-            foreach (var t in Types) Join(ctx, t);
+            foreach (var t in Types)
+            {
+                Join(ctx, t);
+                if (ctx.Acting && ctx.State.Summons.Events.TryGetValue(t, out var p) && p.EventId == CurrentEvent(ctx.State, ctx.Content, t, ctx.NowMs)?.Id)
+                    p.Active = true;
+            }
         }
 
         /// <summary>
@@ -254,7 +273,7 @@ namespace RogueStars.Rules.Systems
                 if (cur.EventId == ev.Id) return;
                 MailUnclaimed(ctx, def, cur); // the previous event ended: its unclaimed task and pass rewards go to the mailbox
             }
-            var p = new SummonEventProgress { EventId = ev.Id, FeaturedId = ev.FeaturedId, StartMs = ev.StartMs, EndMs = ev.EndMs, JoinedMs = ctx.NowMs };
+            var p = new SummonEventProgress { EventId = ev.Id, FeaturedId = ev.FeaturedId, StartMs = ev.StartMs, EndMs = ev.EndMs, Active = ctx.Acting };
             foreach (var line in def.Tasks) p.Baseline[line.CounterKey] = s.Counter(line.CounterKey);
             s.Summons.Events[type] = p;
             ctx.Emit("summon_event_joined", Key(type), ev.Id);
@@ -291,9 +310,13 @@ namespace RogueStars.Rules.Systems
             list.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
         }
 
-        /// <summary>An event ended (the player joins the next one): mail its unclaimed task and pass rewards instead of letting them lapse.</summary>
+        /// <summary>
+        /// An event ended (the player joins the next one): mail its unclaimed task and pass rewards instead of letting them lapse,
+        /// if the player took part in it (events that ran entirely while the player was away mail nothing).
+        /// </summary>
         private static void MailUnclaimed(CommandContext ctx, SummonEventTypeDef def, SummonEventProgress p)
         {
+            if (!p.Active) return;
             var rewards = Unclaimed(ctx.State, ctx.Content, def, p);
             if (rewards.Count == 0) return;
             string id = MailSystem.Push(ctx.State, ctx.Content, ctx.NowMs, def.Name + ": unclaimed rewards",

@@ -136,6 +136,7 @@ public class SummonEventTests
         var s = Player(e);
         // Clear the gate of Heroes (main level and account day) and let the onboarding settler record it.
         long day10 = MetaTime.DayStartMs(e.Content, MetaTime.DayIndex(e.Content, s.CreatedMs) + 9) + H;
+        e.Settle(s, day10 - 1); // time passes first: the level below is reached just before day10 (as a command would)
         s.Counters[Requirements.MainLevelCounter] = 24;
         foreach (var f in e.Content.FeatureOrder) if (f.Order < e.Content.Feature(Features.Heroes)!.Order) s.Onboarding.Unlocked[f.Id] = s.CreatedMs;
         e.Settle(s, day10);
@@ -444,6 +445,33 @@ public class SummonEventTests
         Assert.Equal(fourth.Id, s.Summons.Events[Mount].EventId);
         Assert.DoesNotContain(r4.Events, x => x.Type == "summon_event_mailed");
         Assert.Equal(count, s.Mail.Inbox.Count);
+    }
+
+    /// <summary>
+    /// Settling joins events at their boundaries, but only an event the player took part in (a command while it ran) mails its
+    /// unclaimed rewards: events that ran entirely while the player was away mail nothing, however often the state was settled.
+    /// </summary>
+    [Fact]
+    public void EventsMissedWhileAway_MailNothing_HoweverOftenTheStateWasSettled()
+    {
+        var (e, s) = Unlocked();
+        var a = SummonEventSystem.NextEvent(s, e.Content, Mount, TestHelpers.T0)!;
+        Ok(e, ref s, new LobbyPopupShown { PopupId = "x" }, a.StartMs + H); // takes part in A
+        var b = SummonEventSystem.NextEvent(s, e.Content, Mount, a.StartMs + H)!;
+        var c = SummonEventSystem.NextEvent(s, e.Content, Mount, b.StartMs + H)!;
+        int inbox = s.Mail.Inbox.Count;
+
+        var once = TestHelpers.Clone(s);
+        e.Settle(once, c.StartMs + H);
+        var stepped = TestHelpers.Clone(s);
+        foreach (var t in new[] { a.EndMs - 1, b.StartMs + H, b.EndMs - H, c.StartMs + H }) e.Settle(stepped, t);
+
+        Assert.Equal(StateHash.Of(once), StateHash.Of(stepped));
+        Assert.Equal(c.Id, once.Summons.Events[Mount].EventId);
+        Assert.False(once.Summons.Events[Mount].Active);
+        var mailed = once.Mail.Inbox.Skip(inbox).ToList();
+        var m = Assert.Single(mailed, x => x.Title.Contains("Mount Summon")); // A's free pass days; nothing for B
+        Assert.Equal(a.EndMs, m.SentMs);
     }
 
     [Fact]

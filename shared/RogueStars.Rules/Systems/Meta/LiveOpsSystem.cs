@@ -19,6 +19,7 @@ namespace RogueStars.Rules.Systems
         {
             e.RegisterSettler(Settle);
             e.RegisterNewPlayer(ctx => Settle(ctx));
+            e.RegisterBreakpoints(NextScheduleBoundary);
             e.Register<InvasionStartAttempt>(HandleStartAttempt);
             e.Register<InvasionRecordDamage>(HandleRecordDamage);
             e.Register<LiveOpsApplyOutcome>(HandleApplyOutcome);
@@ -223,9 +224,6 @@ namespace RogueStars.Rules.Systems
             lo.ServerInvasions.RemoveAll(x => x.EndMs < horizon);
         }
 
-        /// <summary>How far back planetary event occurrences are materialised for a player who was away.</summary>
-        public const long ScheduleLookbackMs = 60 * MetaTime.Day;
-
         /// <summary>
         /// Writes the modifiers of every planetary event occurrence that overlaps the time since the last settle
         /// (including ones that started and ended between two commands) with their real start/end times.
@@ -239,7 +237,9 @@ namespace RogueStars.Rules.Systems
             var lo = s.LiveOps;
             long now = ctx.NowMs;
             if (lo.ScheduleSettledMs >= now && lo.ScheduleSettledMs != 0) return;
-            long since = lo.ScheduleSettledMs > 0 ? Math.Max(lo.ScheduleSettledMs, now - ScheduleLookbackMs) : now;
+            // No lookback limit: settling walks the occurrence boundaries in order (breakpoints), so each step only looks back
+            // to the previous one (a limit would make the result depend on when the player settled).
+            long since = lo.ScheduleSettledMs > 0 ? lo.ScheduleSettledMs : now;
             lo.ScheduleSettledMs = now;
             foreach (var ev in ctx.Content.LiveOpsSchedule)
             {
@@ -257,6 +257,21 @@ namespace RogueStars.Rules.Systems
                     if (end <= since) break;
                 }
             }
+        }
+
+        /// <summary>Breakpoints: the next start or end of a planetary event occurrence in (fromMs, toMs).</summary>
+        public static long NextScheduleBoundary(GameState s, ContentDb c, long fromMs, long toMs)
+        {
+            long next = long.MaxValue;
+            foreach (var ev in c.LiveOpsSchedule)
+            {
+                if (ev.Kind != LiveOpsKind.PlanetaryEvent || c.PlanetaryEvent(ev.RefId) == null) continue;
+                var sc = ev.Schedule;
+                // the occurrence running or last started at fromMs ends after it, or the next one starts after it
+                if (sc.TryLatest(fromMs, out long start, out long end) && end > fromMs && end < next) next = end;
+                if (sc.TryNext(fromMs, out start, out _) && start < next) next = start;
+            }
+            return next;
         }
 
         private static void AddEventModifiers(CommandContext ctx, LiveOpsEventDef ev, PlanetaryEventDef def, long start, long end)

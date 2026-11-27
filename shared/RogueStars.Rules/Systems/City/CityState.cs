@@ -77,6 +77,11 @@ namespace RogueStars.Rules.Systems
         /// <summary>Pull buildings: chances piled up (fraction = progress to the next).</summary>
         public double Chances;
         public long LastSettleMs;
+        /// <summary>
+        /// Exact accrual remainder of <see cref="Stored"/> / <see cref="Chances"/> below one millionth of a unit, as the
+        /// numerator over an hour (production) or a day (chances) in ms: settling in steps adds up to exactly settling once.
+        /// </summary>
+        public long Carry;
         /// <summary>Running construction/upgrade timer id, or null.</summary>
         public string TimerId;
     }

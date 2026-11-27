@@ -16,14 +16,6 @@ namespace RogueStars.Rules.Core
         public string RequestId;
     }
 
-    /// <summary>
-    /// Settles time-based state (regen, production, timers) as a command: a local-first online client "refreshes" by
-    /// running it locally and sending it like any other command, so its copy and the server's stay identical (settling
-    /// outside a command on one side only would make the state hashes disagree). No effect besides the settlers.
-    /// </summary>
-    [Serializable]
-    public sealed class SettleTime : GameCommand { }
-
     [Serializable]
     public sealed class GameEvent
     {
@@ -41,6 +33,12 @@ namespace RogueStars.Rules.Core
         public long NowMs;
         /// <summary>The command being executed (null for settles and new-player initialisation).</summary>
         public GameCommand Command;
+        /// <summary>
+        /// True while settling at the command's own time and running its handler: the player acts now. False for plain
+        /// settles and for the catch-up settles at earlier breakpoints (things that need the player to be present, such as
+        /// the returning-player gift or taking part in an event, check this instead of the time).
+        /// </summary>
+        public bool Acting;
         /// <summary>Dev tools only (offline grant cheats): rewards land at once, even without a use (no reward stash).</summary>
         public bool IgnoreRewardGate;
         public List<GameEvent> Events = new List<GameEvent>();

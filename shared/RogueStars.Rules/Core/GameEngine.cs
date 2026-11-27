@@ -21,6 +21,7 @@ namespace RogueStars.Rules.Core
         private readonly Dictionary<string, Type> _commandTypes = new Dictionary<string, Type>();
         private readonly List<Action<CommandContext>> _settlers = new List<Action<CommandContext>>();
         private readonly List<Action<CommandContext>> _newPlayer = new List<Action<CommandContext>>();
+        private readonly List<Func<GameState, ContentDb, long, long, long>> _breakpoints = new List<Func<GameState, ContentDb, long, long, long>>();
         private readonly List<Action<GameState, ContentDb, long, CombatLoadout>> _loadout =
             new List<Action<GameState, ContentDb, long, CombatLoadout>>();
 
@@ -30,7 +31,19 @@ namespace RogueStars.Rules.Core
         public GameEngine(ContentDb content = null)
         {
             Content = content ?? ContentDb.Default;
-            Register<SettleTime>((c, ctx) => CommandResult.Success()); // the settlers ran already (Execute)
+            // Modifier windows: production, regen and every other multiplier change at their start and end.
+            RegisterBreakpoints((s, c, from, to) =>
+            {
+                long next = long.MaxValue;
+                foreach (var m in s.Modifiers)
+                {
+                    if (m.StartMs > from && m.StartMs < next) next = m.StartMs;
+                    if (m.EndMs > from && m.EndMs < next) next = m.EndMs;
+                }
+                return next;
+            });
+            // Daily resets (quests, refills, ad caps, account age): whatever changes with the day changes at the reset.
+            RegisterBreakpoints((s, c, from, to) => GameClock.DayStartMs(c, GameClock.DayIndex(c, from) + 1));
             SystemsRegistry.RegisterAll(this);
         }
 
@@ -46,6 +59,13 @@ namespace RogueStars.Rules.Core
         /// <summary>Runs before every command (settle regen, production, expire modifiers...).</summary>
         public void RegisterSettler(Action<CommandContext> settler) => _settlers.Add(settler);
 
+        /// <summary>
+        /// Registers a breakpoint source for settling: given (state, content, fromMs, toMs) it returns the earliest time in
+        /// (fromMs, toMs) at which time-driven state changes discretely (a modifier starts or ends, a timer completes, an event
+        /// rolls over), or long.MaxValue. Settling walks every breakpoint in order before the target time (see <see cref="Settle"/>).
+        /// </summary>
+        public void RegisterBreakpoints(Func<GameState, ContentDb, long, long, long> next) => _breakpoints.Add(next);
+
         /// <summary>Runs once when a new player is created.</summary>
         public void RegisterNewPlayer(Action<CommandContext> init) => _newPlayer.Add(init);
 
@@ -59,17 +79,63 @@ namespace RogueStars.Rules.Core
 
         public GameState NewPlayer(string playerId, long nowMs, long seed)
         {
-            var state = new GameState { PlayerId = playerId, CreatedMs = nowMs, LastCommandMs = nowMs, Rng = Rng.FromSeed(seed) };
+            var state = new GameState { PlayerId = playerId, CreatedMs = nowMs, LastCommandMs = nowMs, SettledMs = nowMs, Rng = Rng.FromSeed(seed) };
             var ctx = new CommandContext { State = state, Content = Content, Engine = this, NowMs = nowMs };
             foreach (var init in _newPlayer) init(ctx);
+            RunSettlers(ctx, nowMs, false); // like after a command: the new state is settled at its creation time
             return state;
         }
 
-        /// <summary>Settle time-based state (regen, production, modifiers) without a command.</summary>
+        /// <summary>
+        /// Settle time-based state (regen, production, timers, modifiers, events) up to <paramref name="nowMs"/> without a
+        /// command. Path-independent: settling at t1 and then at t2 gives exactly the state of settling once at t2 (the
+        /// local-first client and the server settle at different moments and must still agree, docs/server.md). To keep it so,
+        /// the settlers run at every breakpoint between the last settle and <paramref name="nowMs"/> first (so discrete changes
+        /// always happen at their own time, never at whichever moment somebody settled), accumulators are exact (integer
+        /// ticks and carries), and nothing a settle does depends on when it ran except through those times. Settling at a time
+        /// at or before the last settle changes nothing.
+        /// </summary>
         public void Settle(GameState state, long nowMs)
         {
             var ctx = new CommandContext { State = state, Content = Content, Engine = this, NowMs = nowMs };
+            SettleTo(ctx, nowMs, false);
+        }
+
+        /// <summary>Runs the settlers at every breakpoint before <paramref name="nowMs"/>, then at <paramref name="nowMs"/>.</summary>
+        private void SettleTo(CommandContext ctx, long nowMs, bool acting)
+        {
+            var state = ctx.State;
+            if (state.SettledMs == 0) state.SettledMs = state.LastCommandMs;
+            if (nowMs < state.SettledMs && !acting) return;
+            for (int guard = 0; guard < MaxBreakpoints; guard++)
+            {
+                long bp = NextBreakpoint(state, state.SettledMs, nowMs);
+                if (bp >= nowMs) break;
+                RunSettlers(ctx, bp, false);
+            }
+            RunSettlers(ctx, nowMs, acting);
+        }
+
+        /// <summary>Upper bound of breakpoint steps per settle (a player away for years; real gaps need a few dozen).</summary>
+        public const int MaxBreakpoints = 20000;
+
+        private long NextBreakpoint(GameState state, long fromMs, long toMs)
+        {
+            long next = long.MaxValue;
+            foreach (var b in _breakpoints)
+            {
+                long t = b(state, Content, fromMs, toMs);
+                if (t > fromMs && t < next) next = t;
+            }
+            return next;
+        }
+
+        private void RunSettlers(CommandContext ctx, long atMs, bool acting)
+        {
+            ctx.NowMs = atMs;
+            ctx.Acting = acting;
             foreach (var s in _settlers) s(ctx);
+            if (atMs > ctx.State.SettledMs) ctx.State.SettledMs = atMs;
         }
 
         /// <summary>
@@ -91,8 +157,13 @@ namespace RogueStars.Rules.Core
             CommandResult result;
             try
             {
-                foreach (var s in _settlers) s(ctx);
+                SettleTo(ctx, nowMs, true);
                 result = handler(command, ctx) ?? CommandResult.Success();
+                // Settle again at the command's time: whatever the command made due now (feature unlocks, releases, joins)
+                // happens in this command, so the stored state is fully settled at its time and later settles only see time.
+                RunSettlers(ctx, nowMs, false);
+                ctx.NowMs = nowMs;
+                ctx.Acting = true;
             }
             catch (RuleException ex)
             {
