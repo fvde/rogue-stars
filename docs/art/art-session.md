@@ -70,6 +70,17 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
 
 When a batch of approved art is ready (e.g. bosses, status icons, summon icons, edited enemies, ships, null_shade, portal), tell the owner / the features session; imports run as a Unity batchmode agent on a branch (see git history "Art import 2" for the pattern: `ArtCatalog`, `ArtImporter`, `tools/art/slice-picks.json`).
 
+<!-- added by the kit-preview tool branch; the art session owns this file, edit freely -->
+## 5b. Kit preview (UI kit v2)
+
+The owner reviews the UI kit v2 (`docs/design/ui-kit-v2.md`) assembled into the three real screens, not piece by piece. **After every kit batch** (and after approvals) run:
+
+```
+$PY tools/art/kit_preview.py --out ~/AI/out/kit-preview
+```
+
+It reads the "UI kit v2" collection in `~/AI/out/art-state.json` (subject = kit id, e.g. `start_button`; approved first, else the newest candidate; `--kit DIR` for a folder of `<id>.png`) and writes `home.png`, `worm.png`, `battle.png` (1080x2400) plus `kit-preview.png` (side by side). Missing pieces are drawn like the boards with a magenta dashed outline and their id; the coverage summary lists what is still missing. Put `kit-preview.png` on the art page in the UI kit v2 section. Alternatives: `--variant start_button=s3101,s3105` renders both side by side. Layout data: `tools/art/kit_layouts.json`; `--selftest` checks it against the kit doc.
+
 ## 6. Things learned the hard way (2026-11-27)
 
 - **Check transparency on a coloured background, not the checkerboard.** White pockets between legs and grey ground strips are invisible on the checkerboard of the QC sheet. When in doubt render the processed PNG on magenta (220,40,200) and look. The pipeline (since `9882cb9`) removes small white gaps only when a dark/grey outline rings them (highlights on colour stay), and finds ground shadows that start above the lowest claws.
