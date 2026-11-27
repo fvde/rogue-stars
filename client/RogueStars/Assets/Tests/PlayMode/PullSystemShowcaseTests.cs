@@ -67,12 +67,11 @@ namespace RogueStars.Client.PlayTests
             s.Summons.LuckFor(SummonEventType.Hero).SinceMythic = 46;
             _svc.Refresh(_ => { });
 
-            // ---- Signals: the counters, then a 10× reveal ----
-            var signals = new SignalsScreen();
+            // ---- the Shop's Aliens pulls: the counters, then a 10× reveal ----
+            var signals = new ShopScreen(GachaType.Alien);
             _app.Router.Reset(new HubScreen());
             _app.Router.Push(signals);
             yield return Wait(0.3f);
-            ClickTab(signals.Root, "Alien Signal");
             yield return Wait(0.4f);
             Assert.That(TextOf(signals.Root, "PityMythic"), Is.EqualTo("Mythic 63/100"));
             Assert.That(TextOf(signals.Root, "PityLegendary"), Is.EqualTo("Legendary 27/40"));

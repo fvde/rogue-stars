@@ -46,8 +46,8 @@ namespace RogueStars.Client.Screens
             if (Footer != null)
             {
                 var chips = new List<string> { "Collection" };
-                if (CanSummon) chips.Add("Summon");
-                Kit.TabChips(Footer, chips, 0, i => { if (i == 1) App.Router.Push(new SignalsScreen(GachaType.Alien)); }, 84);
+                if (CanSummon) chips.Add("Shop");
+                Kit.TabChips(Footer, chips, 0, i => { if (i == 1) App.Router.Push(new ShopScreen(GachaType.Alien)); }, 84); // the Shop's Aliens pulls
             }
             int slots = CitySystem.SquadSlots(State, Content);
             var aliens = Sorted();
@@ -65,7 +65,7 @@ namespace RogueStars.Client.Screens
                 ("Work", "WRK", Theme.Blue, "+" + Fmt.Whole(work) + "%"),
             }, "BonusBar");
 
-            if (aliens.Count == 0) { Note(body, "No aliens yet. Aliens arrive from Alien Signals and events."); return; }
+            if (aliens.Count == 0) { Note(body, "No aliens yet. Pull them in the Shop (Aliens) or find them in events."); return; }
             Kit.Ribbon(body, "Collection", new Color32(0x2E, 0x7A, 0x5A, 255), 76);
             var grid = Ui.Grid(body, new Vector2(CardW, CardH), 4, CardGap);
             grid.GetComponent<UnityEngine.UI.GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft;

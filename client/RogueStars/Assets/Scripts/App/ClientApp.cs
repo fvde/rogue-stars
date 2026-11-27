@@ -363,7 +363,6 @@ namespace RogueStars.Client.App
                 case "WormScreen": case "PartsScreen": case "GearScreen":
                     return new[] { Currencies.Ore, Currencies.GearCores, RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, Currencies.Diamonds };
                 case "CityScreen": return new[] { Currencies.Biomass, Currencies.Grain, Currencies.Ore, Currencies.Diamonds };
-                case "SignalsScreen": return new[] { Currencies.PartTokens, Currencies.BlueprintTokens, Currencies.AlienTokens, Currencies.Diamonds };
                 case "HeroesScreen": return new[] { Currencies.HeroXp, Currencies.HeroSigils, Currencies.Diamonds };
                 case "MountsScreen": return new[] { Currencies.Fuel, Currencies.MountBolts, Currencies.Diamonds };
                 case "SummonEventScreen": case "SummonExchangeScreen": return new[] { Currencies.HeroTickets, Currencies.MountTickets, Currencies.Diamonds };
@@ -373,7 +372,7 @@ namespace RogueStars.Client.App
                 case "ObservatoryScreen": return new[] { Currencies.InvasionAttempts, Currencies.Diamonds };
                 case "GuildScreen": return new[] { Currencies.GuildMarks, Currencies.Diamonds };
                 case "ReactorScreen": return new[] { Currencies.Fuel, Currencies.Diamonds };
-                case "ShopScreen": return new[] { Currencies.Diamonds, Currencies.Stamina };
+                case "ShopScreen": return new[] { Currencies.AlienTokens, Currencies.BlueprintTokens, Currencies.PartTokens, Currencies.Diamonds, Currencies.Stamina };
                 case "HubScreen": return new[] { Currencies.Stamina, Currencies.Diamonds, Currencies.Ore, Currencies.Biomass };
                 default: return new[] { Currencies.Stamina, Currencies.Diamonds };
             }

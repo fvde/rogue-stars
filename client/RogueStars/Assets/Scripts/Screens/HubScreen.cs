@@ -183,8 +183,7 @@ namespace RogueStars.Client.Screens
                 left.Add(y => SideIcon(85, y, "observatory", "Events", () => App.Open("observatory"), "Side:observatory", out _, out _));
             var right = new List<System.Action<float>>();
             var rightEntries = HubLayout.RightColumn(State, Content, Now);
-            // things to claim on the Passes page: a count on the Pass icon, or on the Shop while the season pass is locked
-            string passBadgeOn = rightEntries.Exists(x => x.Id == "pass") ? "pass" : "shop";
+            // things to claim on the Passes page: a count on the Pass icon, or on the Shop tab while the season pass is locked (TabBadge)
             foreach (var entry in rightEntries)
             {
                 var e = entry;
@@ -193,7 +192,7 @@ namespace RogueStars.Client.Screens
                     SideIcon(995, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
                     // the pass shows its tier as a small "Lv n" chip under the icon (was a cryptic "T0" in the label)
                     if (e.Id == "pass") timer.text = "Lv " + ShopSystem.SeasonLevel(State, Content);
-                    if (e.Id == passBadgeOn) { int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; badge.text = claimable > 0 ? claimable.ToString() : ""; }
+                    if (e.Id == "pass") { int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; badge.text = claimable > 0 ? claimable.ToString() : ""; }
                     if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); badge.text = unread > 0 ? unread.ToString() : ""; }
                     else if (e.Id == "offer") Live(timer, OfferTimer);
                 });
@@ -261,6 +260,7 @@ namespace RogueStars.Client.Screens
         private void OpenEntry(HubLayout.Entry e)
         {
             if (e.Id == "more") { ShowMore(); return; }
+            if (e.Id == "offer") { App.Router.Push(new ShopScreen(ShopScreen.OffersTab)); return; } // the Shop's Offers section
             if (e.ScreenId != null) App.Open(e.ScreenId);
         }
 
@@ -582,6 +582,11 @@ namespace RogueStars.Client.Screens
         public string TabBadge(string tabId)
         {
             if (tabId == "worm" && GearGuide.HasAffordableUpgrade(State, Content)) return UpgradeBadge;
+            if (tabId == HubLayout.ShopTab && !HubLayout.RightColumn(State, Content, Now).Exists(x => x.Id == "pass") && Features.IsUnlocked(State, Content, Features.Shop))
+            {
+                int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; // the Passes page's claims, while there is no Pass icon
+                if (claimable > 0) return claimable.ToString();
+            }
             return IsNewToday(tabId) ? "NEW" : null;
         }
 
@@ -590,8 +595,14 @@ namespace RogueStars.Client.Screens
         /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
         private bool IsNewToday(string tabId)
         {
-            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "signals" ? Features.PartPulls : tabId == "arena" ? Features.Arena : null;
-            if (feature == null || !State.Onboarding.Unlocked.TryGetValue(feature, out long at)) return false;
+            if (tabId == HubLayout.ShopTab) return UnlockedToday(Features.PartPulls) || UnlockedToday(Features.Shop); // pulls or offers
+            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "arena" ? Features.Arena : null;
+            return feature != null && UnlockedToday(feature);
+        }
+
+        private bool UnlockedToday(string feature)
+        {
+            if (!State.Onboarding.Unlocked.TryGetValue(feature, out long at)) return false;
             return GameClock.DayIndex(Content, at) == GameClock.DayIndex(Content, Now);
         }
 

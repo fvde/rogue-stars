@@ -101,9 +101,9 @@ namespace RogueStars.Rules.Content
             Cur(Currencies.Fuel, "Mount levels", 4000, F(Features.Mounts));
             Cur(Currencies.HeroXp, "Hero levels", 3000, F(Features.Heroes));
             Cur(Currencies.Data, "Laboratory research", 100, F(Features.Laboratory));
-            Cur(Currencies.PartTokens, "Part Signal pulls", 30, F(Features.PartPulls));
-            Cur(Currencies.AlienTokens, "Alien Signal pulls", 30, F(Features.AlienPulls));
-            Cur(Currencies.BlueprintTokens, "Blueprint Signal pulls", 30, F(Features.Blueprints));
+            Cur(Currencies.PartTokens, "Parts pulls in the Shop", 30, F(Features.PartPulls));
+            Cur(Currencies.AlienTokens, "Aliens pulls in the Shop", 30, F(Features.AlienPulls));
+            Cur(Currencies.BlueprintTokens, "Blueprints pulls in the Shop", 30, F(Features.Blueprints));
             Cur(Currencies.HeroTickets, "Hero summon event pulls", 30, F(Features.Heroes));
             Cur(Currencies.MountTickets, "Mount summon event pulls", 30, F(Features.Mounts));
             Cur(Currencies.HeroSigils, "Hero summon exchange shop", -1, F(Features.Heroes));
@@ -126,7 +126,7 @@ namespace RogueStars.Rules.Content
             Item(RewardKinds.Hero, "Heroes (a copy: unlock or +1 star)", -1, F(Features.Heroes));
             Item(RewardKinds.Mount, "Mounts", -1, F(Features.Mounts));
             Item(RewardKinds.Skin, "Cosmetic", -1);
-            Item(RewardKinds.FreePull, "A free 10× Signal pull", -1); // granted with the Signal's own unlock
+            Item(RewardKinds.FreePull, "A free 10× pull in the Shop", -1); // granted with the Signal's own unlock
 
             GateConfig.KeepAllCommands.AddRange(new[]
             {

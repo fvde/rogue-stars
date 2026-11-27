@@ -10,35 +10,80 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Catalogue, offers, Diamond items and rewarded ads. Real-money products go through GameSession.Purchase (IStoreGateway →
-    /// dev receipt offline / /v1/iap/verify online). The "Passes" chip opens the Passes page (<see cref="PassesScreen"/>: daily
-    /// gift, Monthly Pass, the Forever products, season pass, funds) instead of switching the tab.
+    /// The Shop (owner, 2026-11-27): the one screen for pulls and purchases, the hub's "Shop" tab. Two rows of section chips in
+    /// the footer: the pull sections Aliens / Blueprints / Parts first (ShopScreen.Pulls.cs, each once its pull feature is
+    /// unlocked), then the offer sections once <see cref="Features.Shop"/> is: Offers, Diamonds, Passes, Items, Ads (catalogue,
+    /// offers, Diamond items and rewarded ads). Real-money products go through GameSession.Purchase (IStoreGateway → dev receipt
+    /// offline / /v1/iap/verify online). The "Passes" chip opens the Passes page (<see cref="PassesScreen"/>: daily gift,
+    /// Monthly Pass, the Forever products, season pass, funds) instead of switching the section.
     /// </summary>
-    public sealed class ShopScreen : UiScreen
+    public sealed partial class ShopScreen : UiScreen
     {
         private static readonly string[] Tabs = { "Offers", "Diamonds", "Passes", "Items", "Ads" };
+        /// <summary>Index of the "Offers" chip (the hub's Offer icon opens it).</summary>
+        public const int OffersTab = 0;
         /// <summary>Index of the "Passes" chip: opens the Passes page.</summary>
         public const int PassesTab = 2;
+        /// <summary>The open section: a pull type, or (null) the offer chip <see cref="_tab"/>.</summary>
+        private GachaType? _pull;
         private int _tab;
+        /// <summary>False until a section was chosen (the first unlocked section then opens).</summary>
+        private bool _chosen;
+
+        public ShopScreen() { }
+
+        /// <summary>Opens on the pull section of <paramref name="type"/> (the Aliens screen's Shop chip).</summary>
+        public ShopScreen(GachaType type) { _pull = type; _chosen = true; }
+
+        /// <summary>Opens on an offer section (<see cref="OffersTab"/>: the hub's Offer icon).</summary>
+        public ShopScreen(int offerTab) { _tab = offerTab; _chosen = true; }
 
         public override string Title => "Shop";
-        public override string[] IntroFeatures => new[] { Features.Shop };
+        // the pulls come with Parts / Aliens / the City, the offers with the Shop unlock
+        public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm, Features.Shop };
 
-        /// <summary>The section chips sit at the bottom (kit chip tabs in the footer), the back button in the header.</summary>
-        public override float FooterHeight => 124;
+        /// <summary>The section chips sit at the bottom (kit chip tabs in the footer, pulls above offers), the back button in the header.</summary>
+        public override float FooterHeight => HasPullRow && HasOfferRow ? 124 + 84 + FooterSpacing : 124;
+
+        private GameState Loaded => App?.Session?.State;
+        private bool HasPullRow => Loaded != null && PullSections(Loaded, Content).Count > 0;
+        private bool HasOfferRow => Loaded != null && Features.IsUnlocked(Loaded, Content, Features.Shop);
+
+        /// <summary>The open section's name ("Aliens", "Offers"): tests and screenshots.</summary>
+        public string Section => _pull.HasValue ? PullSectionName(_pull.Value) : Tabs[_tab];
 
         protected override void Build(RectTransform body)
         {
+            var pulls = PullSections(State, Content);
+            bool offers = HasOfferRow;
+            // an unavailable or not yet chosen section falls back to the first one there is
+            if (_pull.HasValue && !pulls.Contains(_pull.Value)) { _pull = null; _chosen = false; }
+            if (!_pull.HasValue && !offers) _chosen = false;
+            if (!_chosen) { _pull = pulls.Count > 0 ? (GachaType?)pulls[0] : null; _tab = OffersTab; _chosen = true; }
+            if (!_pull.HasValue && !offers) { Note(body, "Nothing for sale yet."); return; }
+
             if (Footer != null)
             {
-                var dots = new bool[Tabs.Length];
-                dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
-                Kit.TabChips(Footer, Tabs, _tab, i =>
+                if (pulls.Count > 0)
                 {
-                    if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
-                    _tab = i; Rebuild();
-                }, 84, dots);
+                    var names = new List<string>();
+                    var free = new List<bool>();
+                    foreach (var t in pulls) { names.Add(PullSectionName(t)); free.Add(State.Gacha.FreePulls(t) > 0); } // a free 10× waits there
+                    Kit.TabChips(Footer, names, _pull.HasValue ? pulls.IndexOf(_pull.Value) : -1, i => { _pull = pulls[i]; Rebuild(); }, 84, free)
+                        .Buttons[0].transform.parent.name = "PullSections";
+                }
+                if (offers)
+                {
+                    var dots = new bool[Tabs.Length];
+                    dots[PassesTab] = ShopSystem.PassClaimables(State, Content, Now).Count > 0; // something to claim on the Passes page
+                    Kit.TabChips(Footer, Tabs, _pull.HasValue ? -1 : _tab, i =>
+                    {
+                        if (i == PassesTab) { App.Router.Push(new PassesScreen()); return; }
+                        _pull = null; _tab = i; Rebuild();
+                    }, 84, dots).Buttons[0].transform.parent.name = "OfferSections";
+                }
             }
+            if (_pull.HasValue) { BuildPulls(body, _pull.Value); return; }
             // G7: store / offline hints are for developers only
             if (Debug.isDebugBuild) Note(body, !Session.IsOnline ? "Offline mode: purchases complete instantly with dev receipts." : "Store: " + Session.Store.Name + ".").name = "DevHint";
             switch (_tab)
@@ -69,7 +114,7 @@ namespace RogueStars.Client.Screens
         {
             var list = OfKind(kind);
             if (list.Count == 0) return;
-            list.RemoveAll(p => !Usable(p) || !Active(p) || (_tab == 0 && p.Id == _featuredId));
+            list.RemoveAll(p => !Usable(p) || !Active(p) || (_tab == OffersTab && p.Id == _featuredId));
             if (list.Count == 0) return;
             Kit.Ribbon(body, SectionTitle(kind)).name = "Section:" + kind;
             ProductGrid(body, list);

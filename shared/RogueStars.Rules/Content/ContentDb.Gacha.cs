@@ -168,9 +168,9 @@ namespace RogueStars.Rules.Content
             // (pull system: a Mythic result is always a Mythic batch).
             long[] supplyForTier = { 300, 800, 1, 3, 0 };
 
-            var part = NewGachaType(GachaType.Part, "Part Signal", Currencies.PartTokens);
-            var bp = NewGachaType(GachaType.Blueprint, "Blueprint Signal", Currencies.BlueprintTokens);
-            var alien = NewGachaType(GachaType.Alien, "Alien Signal", Currencies.AlienTokens);
+            var part = NewGachaType(GachaType.Part, "Parts pull", Currencies.PartTokens);
+            var bp = NewGachaType(GachaType.Blueprint, "Blueprints pull", Currencies.BlueprintTokens);
+            var alien = NewGachaType(GachaType.Alien, "Aliens pull", Currencies.AlienTokens);
             for (int t = 0; t < 5; t++)
             {
                 var pt = new GachaTierDef { Tier = (Rarity)t, Weight = tierWeights[t] };

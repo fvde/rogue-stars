@@ -110,7 +110,7 @@ namespace RogueStars.Client.Screens
                 PartTile(grid, p);
             }
             if (list.Count == 0)
-                Note(body, State.Parts.Items.Count == 0 ? "No parts yet. Parts drop from runs and Part Signals."
+                Note(body, State.Parts.Items.Count == 0 ? "No parts yet. Parts drop from runs and Parts pulls in the Shop."
                     : "No " + (_rarityFilter >= 0 ? RarityName(Content, _rarityFilter) + " " : "") + (_slotFilter == GearSlotFilter.All ? "" : GearGuide.SlotFilterLabel(_slotFilter) + " ") + "parts yet.");
 
             var foot = Ui.Row(body, 80, 10, null, 0, "InventoryFoot");

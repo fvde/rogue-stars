@@ -466,7 +466,7 @@ namespace RogueStars.Client.Tests
             _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.Service.DevGrantStarterKit();
             _f.App.Open("signals");
-            var screen = (SignalsScreen)_f.App.Router.Current;
+            var screen = (ShopScreen)_f.App.Router.Current;
             var r = _f.Service.ExecuteNow(new GachaPull { PullType = GachaType.Part, Count = 10, Payment = GachaPayment.Tokens });
             Assert.That(r.Ok, Is.True, r.Error);
             var modal = screen.Reveal((GachaPullResult)r.Payload);

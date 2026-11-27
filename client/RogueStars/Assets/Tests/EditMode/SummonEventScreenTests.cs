@@ -151,7 +151,7 @@ namespace RogueStars.Client.Tests
             var tasks = _f.App.ModalLayer.Find("Modal:Tasks");
             Assert.That(Find(tasks, "Go:levels"), Is.Not.Null);
             Assert.That(SummonView.GoScreen(def.Tasks.First(t => t.Id == "levels")), Is.EqualTo("portals"));
-            Assert.That(SummonView.GoScreen(def.Tasks.First(t => t.Id == "alien_pulls")), Is.EqualTo("signals"));
+            Assert.That(SummonView.GoScreen(def.Tasks.First(t => t.Id == "alien_pulls")), Is.EqualTo("shop"));
         }
 
         [Test]

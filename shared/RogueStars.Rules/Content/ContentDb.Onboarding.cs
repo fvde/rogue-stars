@@ -226,9 +226,9 @@ namespace RogueStars.Rules.Content
             // never by calendar day, one new thing per level up to level 20 (level 1: Parts), then every 2 levels, then every 3–4. Systems come
             // before what depends on them and every reward kind waits for its use (RewardGate). Run content is introduced
             // after the level before the first board that has it. Main level numbers are global (portal 1 = levels 1..10, ...).
-            // Unlocks come with pulls (owner, 2026-11-25): Parts open the Part Signal, Aliens the Alien Signal, the City the Blueprint
-            // Signal (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
-            F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones at the Part Signal: your first 10× pull is free.");
+            // Unlocks come with pulls (owner, 2026-11-25): Parts open the Shop's Parts pulls, Aliens its Aliens pulls, the City its
+            // Blueprints pulls (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
+            F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones in the Shop: your first 10× Parts pull is free.");
             // Daily Quests are no feature (owner, 2026-11-26): no unlock moment, intro or gift. The hub shows their button once Parts
             // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button), see HubLayout.
             R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
@@ -237,16 +237,16 @@ namespace RogueStars.Rules.Content
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
             // The crash site comes first (owner, 2026-11-25): the Aliens unlock brings the Launch Pod, built on the crash site at once, so
             // the squad flies from level 6 (Launch Pod = the squad seats). Its feature unlocks with the Aliens in one moment (one group).
-            var aliens = F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien lands with a Launch Pod at your crash site: aliens in its seat join your runs. The Alien Signal opens: your first 10× pull is free.");
+            var aliens = F(Features.Aliens, "Aliens", 6, 50, "meet_alien", "Your first alien lands with a Launch Pod at your crash site: aliens in its seat join your runs. Pull more in the Shop: your first 10× Aliens pull is free.");
             var squad = F(Features.AlienSquad, "Launch Pod", 6, 30, null, "The Launch Pod stands at your crash site: the aliens in its seats are your run squad.");
             squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
             R(Features.RunSignatures, "Signature Awakening", Campaign.SignatureChoiceFromLevel - 1, "Collect skills of your signature's synergy to awaken it.");
-            F(Features.Shop, "Shop", 12, 0, null, "Offers, Diamond packs and the daily free gift.");
+            F(Features.Shop, "Shop Offers", 12, 0, null, "The Shop now sells offers and Diamond packs, and has a free gift every day.");
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
             // City design: aliens at level 6, the City at 15 (players arrive with several aliens to staff the first buildings).
-            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "Your crash site grows into a City: the land around the Launch Pod opens for building, and the Blueprint Signal with it: your first 10× pull is free.");
+            F(Features.BiomassFarm, "City", 15, 20, "build_biomass_farm", "Your crash site grows into a City: the land around the Launch Pod opens for building, and the Shop's Blueprints pulls with it: your first 10× Blueprints pull is free.");
             // Buildings come from their blueprint, not from a level (owner, 2026-11-25): these features unlock the moment the blueprint
             // is owned (pulled). No level, so the hub teaser skips them (Features.Next).
             B(Features.Laboratory, "Laboratory", LaboratoryId, 30, "research_skill", "Build the Laboratory in the City and staff it: research makes your worm stronger or adds new skills to every run.");
@@ -288,7 +288,7 @@ namespace RogueStars.Rules.Content
             // The former starting wallet, each part with the unlock that gives it a use (rewards follow use, GDD §13).
             G(Features.Parts, Reward.Cur(Currencies.Ore, 500));
             G(Features.BiomassFarm, Reward.Cur(Currencies.Biomass, 500));
-            // One free 10× pull of each Signal with its unlock (no guarantee in any of them: the Launch Pod comes with the Aliens).
+            // One free 10× pull of each pull type with its unlock (no guarantee in any of them: the Launch Pod comes with the Aliens).
             G(Features.Parts, new Reward(RewardKinds.FreePull, nameof(GachaType.Part), 1));
             G(Features.Aliens, Reward.Cur(Currencies.Grain, 300));
             G(Features.Aliens, new Reward(RewardKinds.FreePull, nameof(GachaType.Alien), 1));
@@ -328,7 +328,7 @@ namespace RogueStars.Rules.Content
                 "Six slots: head, body, tail, legs and two arms.", "parts_slots", Pulse,
                 "Put a part in a slot. Every part adds stats.", "part_equip", Slide,
                 "Rarer parts add skills to every run.", "part_rare", Bounce,
-                "Pull parts at the Part Signal. First 10× is free.", "signal", Spin);
+                "Pull parts in the Shop. First 10× is free.", "signal", Spin);
             I(Features.RunShop,
                 "Shops now stand on the board.", "shop_tile", Bounce,
                 "Land on one to spend your run coins.", "coins", Count,
@@ -362,7 +362,7 @@ namespace RogueStars.Rules.Content
                 "Collect skills of its kind to awaken it.", "signature_awake", Fill,
                 "Awake, its effect grows.", "signature", Pulse);
             I(Features.Shop,
-                "The Shop has offers and Diamond packs.", "shop", Bounce,
+                "The Shop now has offers and Diamond packs.", "shop", Bounce,
                 "A free gift waits there every day.", "gift", Tap);
             I(Features.Laboratory,
                 "Build the Laboratory and staff it to start research.", "lab", Pulse,
@@ -374,7 +374,7 @@ namespace RogueStars.Rules.Content
                 "Win a medal for coins or a skill.", "medal", Count);
             I(Features.Aliens,
                 "Your first alien has arrived.", "alien", Bounce,
-                "Call more at the Alien Signal. First 10× is free.", "alien_signal", Spin);
+                "Pull more in the Shop. First 10× is free.", "alien_signal", Spin);
             I(Features.AlienSquad,
                 "A Launch Pod landed at your crash site.", "housing", Pulse,
                 "Aliens in its seat join your runs.", "alien_fight", Slide,

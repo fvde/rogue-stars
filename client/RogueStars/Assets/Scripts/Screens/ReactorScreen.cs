@@ -34,7 +34,7 @@ namespace RogueStars.Client.Screens
         {
             Note(body, Intro).name = "Intro";
             var b = ShardReactorSystem.Building(State, Content);
-            if (CitySystem.Owned(State, ContentDb.ShardReactorId) == null) { Note(body, "Win the Shard Reactor (Mythic blueprint) in the Blueprint Signal to build it.").name = "NotOwned"; return; }
+            if (CitySystem.Owned(State, ContentDb.ShardReactorId) == null) { Note(body, "Win the Shard Reactor (Mythic blueprint) from a Blueprints pull in the Shop to build it.").name = "NotOwned"; return; }
             if (!CitySystem.IsBuilt(b)) { Note(body, "Place and finish building the Shard Reactor in the City first.").name = "NotBuilt"; return; }
 
             int slots = ShardReactorSystem.JobSlots(State, Content), workers = ShardReactorSystem.WorkerSlots(State, Content);

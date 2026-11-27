@@ -122,7 +122,7 @@ namespace RogueStars.Client.Tests
         {
             UnlockAll();
             _f.App.Open("signals");
-            var screen = (SignalsScreen)_f.App.Router.Current;
+            var screen = (ShopScreen)_f.App.Router.Current;
             var part = C.PartsConfig.Defs.Values.First();
             var result = new GachaPullResult { Type = GachaType.Alien };
             result.Items.Add(new GachaPullItem { Kind = RewardKinds.Alien, Id = "alien_blorp", Amount = 1, Tier = Rarity.Common, Shards = 50, Note = "new" });

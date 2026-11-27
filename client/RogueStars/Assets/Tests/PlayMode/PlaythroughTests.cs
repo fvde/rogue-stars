@@ -164,7 +164,7 @@ namespace RogueStars.Client.PlayTests
             yield return Shot("16_signals");
             var pull = _svc.ExecuteNow(new GachaPull { PullType = GachaType.Part, Count = 10, Payment = GachaPayment.Tokens });
             Assert.That(pull.Ok, Is.True, pull.Error);
-            ((SignalsScreen)_app.Router.Current).Reveal((GachaPullResult)pull.Payload).Root.GetComponent<PullRevealPlayer>().Skip(); // the end state of the shared reveal (SG1)
+            ((ShopScreen)_app.Router.Current).Reveal((GachaPullResult)pull.Payload).Root.GetComponent<PullRevealPlayer>().Skip(); // the end state of the shared reveal (SG1)
             yield return Wait(2f);
             yield return Shot("17_signal_reveal");
             Ui.Clear(_app.ModalLayer);

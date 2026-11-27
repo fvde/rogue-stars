@@ -60,9 +60,9 @@ namespace RogueStars.Client.App
             return n;
         }
 
-        /// <summary>Screen a task's GO button opens (runs for fights, levels and mini-games; the Signals for pulls).</summary>
+        /// <summary>Screen a task's GO button opens (runs for fights, levels and mini-games; the Shop for pulls).</summary>
         public static string GoScreen(SummonTaskLineDef line) =>
-            line != null && line.CounterKey.StartsWith("pulls_") ? "signals" : "portals";
+            line != null && line.CounterKey.StartsWith("pulls_") ? "shop" : "portals";
 
         /// <summary>Short amount caption on a reward tile ("×5", "×2K", "×1.5K"; a hero / mount batch: "×50" shards) — SM3.</summary>
         public static string Amount(Reward r) =>

@@ -434,21 +434,25 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 > **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
 > **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
 > **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
-> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+> **The Shop (owner, 2026-11-27):** the pull screen is the **Shop**, merged with the former purchase screen: its pull sections
+> **Aliens**, **Blueprints** and **Parts** (paid with Signals, Schematics, Crates) come first, then the offer sections (Offers,
+> Diamonds, Passes, Items, Ads). A pull is an "Aliens / Blueprints / Parts pull" ("Free 10× Parts pull"); the bottom tab "Shop"
+> (shop icon) shows once the Parts pulls or the Shop are unlocked, each section once its own feature is. Code ids stay
+> (`GachaType`, the `signals` screen id as an alias). The "Alien Signal Beacon" building keeps its name.
 
 | Pull | Free pull resource | Contents |
 |---|---|---|
-| Blueprint Signal | Schematics | Blueprints |
-| Part Signal | Crates | Parts, runes |
-| Alien Signal | Signals | Aliens; Grain and Crests (the old hero-shard share) |
+| Shop → Blueprints | Schematics | Blueprints |
+| Shop → Parts | Crates | Parts, runes |
+| Shop → Aliens | Signals | Aliens; Grain and Crests (the old hero-shard share) |
 - Each pull type can always be paid with Diamonds instead.
 - Flat published rates: Common 58.3%, Rare 28%, Epic 9.5%, **Legendary 3%**, **Mythic 1.2%** on every pull. **Fixed, visible
   pity** per pull type (shared across banners of that type, carries over): "Mythic x/100" (the 100th pull without a Mythic is
   one) and "Legendary x/40" (the 40th without a Legendary or better is at least Legendary; its Mythic chance stays 1.2%). No
   soft or hidden pity anywhere. The visible 10-pull rule: every 10× pull has at least one Epic. A blueprint / alien result is a
   batch of 50 shards (§12.2). docs/design/pull-system.md.
-- **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner). The Blueprint Signal's
-  old mount share is Ore and Saddles; heroes and mounts are not in the Signals any more.
+- **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner). The Blueprints pull's
+  old mount share is Ore and Saddles; heroes and mounts are not in the Shop's pulls any more.
 
 ### 12.1 Summon events (heroes and mounts)
 Heroes and mounts are obtained in **temporary rotating summon events** (docs/design/summon-events.md, all numbers in
@@ -481,7 +485,7 @@ converted step by step (docs/design/pull-system.md).
 | Fuel | Mount levels |
 | Hero XP | Hero levels |
 | Diamonds | Premium; also earnable (city Diamond mine, quests, events) |
-| Schematics / Crates / Signals | Free pulls (Blueprint / Part / Alien Signal) |
+| Schematics / Crates / Signals | Pulls in the Shop (Blueprints / Parts / Aliens) |
 | Crests / Saddles | Hero / mount summon event pulls (kept between events) |
 | Star Sigils / Hangar Bolts | Summon event exchange shops (per pull) |
 | Shards (per hero/alien/mount/blueprint) | Unlock (50) and stars (the shared table, §12.2); spare alien / blueprint shards feed the Shard Reactor |
@@ -528,7 +532,7 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Fuel | mount levels | Mounts (D12) | 4 000 |
 | Hero XP | hero levels | Heroes (D10) | 3 000 |
 | Data | laboratory research | Laboratory (D5) | 100 |
-| Crates / Signals / Schematics | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
+| Crates / Signals / Schematics | free pulls | Parts pulls (D4) / Aliens pulls (D7) / Blueprints pulls (D9) | 30 each |
 | Crests / Saddles | summon event pulls | Heroes / Mounts | 30 each |
 | Star Sigils / Hangar Bolts | summon exchange shops | Heroes / Mounts | none |
 | Arena Tickets / Arena Medals | arena fights / arena shop | Arena (D15) | 5 / none |
@@ -589,7 +593,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
 | 9 | Campfires from level 10 (`run_campfire`) | Play |
-| 10 | Part Signal (`part_pulls`); the first pulls are on the house | Tune in |
+| 10 | Parts pulls in the Shop (`part_pulls`); the first pulls are on the house | Tune in |
 | 11 | Signature awakening explained (`run_signatures`, intro only: every run, the first one included, starts by picking 1 of 3 signatures; playtest 0.1.325) | Play |
 | 12 | Shop (`shop`) | Open the shop |
 | 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
@@ -598,8 +602,8 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 16 | Housing → first squad slot (`alien_squad`) | Build housing |
 | 17 | Grain Farm (`grain_farm`) | Build the grain farm |
 | 18 | Heroes (`heroes`; the hero summon events, first event + 10 tickets; no starter hero) | Choose a hero |
-| 19 | Alien Signal (`alien_pulls`) | Call an alien |
-| 20 | Blueprint Signal (`blueprints`) | Pull a blueprint |
+| 19 | Aliens pulls in the Shop (`alien_pulls`) | Call an alien |
+| 20 | Blueprints pulls in the Shop (`blueprints`) | Pull a blueprint |
 | 22 | Ore Mine (`ore_mine`) | Build the ore mine |
 | 24 | Laboratory: Ice Package (`package_ice`) | Open the lab |
 | 26 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
@@ -635,9 +639,9 @@ Planet tab, the teaser, the stamina and Diamonds chips and the profile chip; the
 currency chips follow use (§13.1): a currency shows once the player can use it, so a brand-new account shows the stamina and
 Diamonds chips only (Diamonds buy stamina refills).
 
-**Hub:** bottom tabs for daily features appear one by one (Worm, City, Planet in the centre, Signals, Arena); left
+**Hub:** bottom tabs for daily features appear one by one (Worm, City, Planet in the centre, Shop, Arena); left
 column = daily goals, summon events (from Heroes) and live events (invasions, planetary/limited events, from the Invasions unlock); right column =
-shop, offer, pass, mail, "More" (laboratory, aliens, heroes, mounts, breeding, guild); the PLAY card (Continue during a
+offer, pass, mail, "More" (laboratory, aliens, heroes, mounts, breeding, guild); the PLAY card (Continue during a
 run) sits above the tabs.
 
 **Unlock moment and feature intro:** each unlock opens a full-screen screen on the hub (never mid-run, one at a time):

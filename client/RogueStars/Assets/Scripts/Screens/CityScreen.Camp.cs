@@ -63,7 +63,7 @@ namespace RogueStars.Client.Screens
                     SummonKit.Place(t, new Vector2(0.5f, 0), new Vector2(0, 2), new Vector2(116, 40));
                 }
             }
-            else if (squad.Count == 0) Ui.Label(card, "No aliens yet: call them at the Alien Signal.", 22, Theme.TextDim, TextAnchor.MiddleLeft, "PickHint");
+            else if (squad.Count == 0) Ui.Label(card, "No aliens yet: pull them in the Shop (Aliens).", 22, Theme.TextDim, TextAnchor.MiddleLeft, "PickHint");
         }
     }
 }

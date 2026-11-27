@@ -12,37 +12,32 @@ using UnityEngine;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Gacha: Blueprint / Part / Alien Signals, featured mythic banners with countdown, the visible fixed pity counters ("Mythic x/100",
-    /// "Legendary x/40") and the 10-pull rule, published odds, 1×/10× pulls, ad pull, reveal (blueprints / aliens: NEW or +50 shards).
+    /// The Shop's pull sections (owner, 2026-11-27): Aliens / Blueprints / Parts (paid with Signals / Schematics / Crates),
+    /// featured mythic banners with countdown, the visible fixed pity counters ("Mythic x/100", "Legendary x/40") and the
+    /// 10-pull rule, published odds, 1×/10× pulls, ad pull, reveal (blueprints / aliens: NEW or +50 shards).
     /// </summary>
-    public sealed class SignalsScreen : UiScreen
+    public sealed partial class ShopScreen
     {
-        private static readonly GachaType[] Types = { GachaType.Part, GachaType.Blueprint, GachaType.Alien };
-        private int _tab;
+        /// <summary>Pull sections in display order; each shows once its pull feature is unlocked (GachaSystem.FeatureFor).</summary>
+        private static readonly GachaType[] PullTypes = { GachaType.Alien, GachaType.Blueprint, GachaType.Part };
         private bool _standard;
 
-        public SignalsScreen() { }
+        /// <summary>The section name of a pull type: "Aliens", "Blueprints", "Parts" (chips, banner, intro texts).</summary>
+        public static string PullSectionName(GachaType type) =>
+            type == GachaType.Alien ? "Aliens" : type == GachaType.Blueprint ? "Blueprints" : type == GachaType.Part ? "Parts" : Fmt.Words(type.ToString());
 
-        /// <summary>Opens on the tab of <paramref name="type"/> (the Aliens screen's Summon chip).</summary>
-        public SignalsScreen(GachaType type) { _tab = System.Array.IndexOf(Types, type); if (_tab < 0) _tab = 0; }
-
-        public override string Title => "Signals";
-        public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm }; // the Signals unlock with Parts / Aliens / the City
-
-        protected override void Build(RectTransform body)
+        /// <summary>The pull sections the player has unlocked, in display order.</summary>
+        public static List<GachaType> PullSections(GameState state, ContentDb content)
         {
-            var names = new List<string>();
-            foreach (var t in Types) names.Add(Content.GachaConfig.Types.TryGetValue(t, out var d) ? d.Name : t.ToString());
-            Ui.TabBar(body, names, _tab, i => { _tab = i; Rebuild(); });
-            var type = Types[_tab];
+            var list = new List<GachaType>();
+            foreach (var t in PullTypes)
+                if (content.GachaConfig.Types.ContainsKey(t) && Features.IsUnlocked(state, content, GachaSystem.FeatureFor(t))) list.Add(t);
+            return list;
+        }
+
+        private void BuildPulls(RectTransform body, GachaType type)
+        {
             if (!Content.GachaConfig.Types.TryGetValue(type, out var def)) { Note(body, "Not available."); return; }
-            string feature = GachaSystem.FeatureFor(type);
-            if (!Session.IsUnlocked(feature))
-            {
-                var f = Content.Feature(feature);
-                Note(body, (f?.Name ?? feature) + " unlocks later: " + Requirements.Describe(Content, f?.Requires ?? new RequirementSet()));
-                return;
-            }
 
             var banner = GachaSystem.ActiveBanner(Content, type, Now);
             var mode = Ui.Row(body, 76, 10);
@@ -65,7 +60,7 @@ namespace RogueStars.Client.Screens
             }
             else
             {
-                Ui.Display(card, def.Name + " — standard pool", Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "BannerName");
+                Ui.Display(card, PullSectionName(type) + " — standard pool", Theme.FontLarge, Theme.Text, TextAnchor.MiddleCenter, "BannerName");
                 FeaturedArt(card, null, null);
             }
             PityRow(card, type, def);
@@ -94,7 +89,10 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>"1 Signal" / "10 Signals" (the pull type's currency).</summary>
+        /// <summary>"Parts pull" (the pull type's name, ContentDb.Gacha).</summary>
+        private string PullName(GachaType type) => Content.GachaConfig.Types.TryGetValue(type, out var d) ? d.Name : PullSectionName(type) + " pull";
+
+        /// <summary>"1 Signal" / "10 Crates" (the pull type's currency).</summary>
         public static string TokenCost(long n, string currency) => Fmt.Amount(n, currency);
 
         private static void PullButton(Transform row, string caption, string icon, string cost, bool can, System.Action onClick, Color face, string name)
@@ -188,7 +186,7 @@ namespace RogueStars.Client.Screens
 
         public UiModal Reveal(GachaPullResult result, GachaType type, string bannerId)
         {
-            var o = new RevealOptions { Title = result.Items.Count > 1 ? result.Items.Count + "× Signal" : "Signal", Skip = SummonEventScreen.SkipAnimation };
+            var o = new RevealOptions { Title = result.Items.Count > 1 ? result.Items.Count + "× " + PullName(type) : PullName(type), Skip = SummonEventScreen.SkipAnimation };
             if (Content.GachaConfig.Types.TryGetValue(type, out var def))
             {
                 foreach (int n in new[] { 1, 10 })

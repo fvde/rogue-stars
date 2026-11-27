@@ -815,7 +815,7 @@ namespace RogueStars.Client.Screens
                 modal.Closed += () =>
                 {
                     _popping = false;
-                    // the tokens fly to the bar (the Signals tab lives on the hub)
+                    // the tokens fly to the bar (the Shop tab lives on the hub)
                     foreach (var kv in _popFly)
                     {
                         var target = App.Bar.ChipOf(kv.Key) ?? App.Bar.Wallet;
@@ -968,7 +968,7 @@ namespace RogueStars.Client.Screens
                 int ia = string.IsNullOrEmpty(a.WorkBuildingId) ? 0 : 1, ib = string.IsNullOrEmpty(b.WorkBuildingId) ? 0 : 1;
                 return ia != ib ? ia.CompareTo(ib) : string.CompareOrdinal(a.TypeId, b.TypeId);
             });
-            if (list.Count == 0) Ui.Label(content, "No aliens yet: pull them in Alien Signal.", Theme.FontSmall, Theme.TextDim);
+            if (list.Count == 0) Ui.Label(content, "No aliens yet: pull them in the Shop (Aliens).", Theme.FontSmall, Theme.TextDim);
             foreach (var a in list)
             {
                 var chip = Ui.RoundPanel(content, string.IsNullOrEmpty(a.WorkBuildingId) ? new Color(0.22f, 0.36f, 0.28f, 1) : new Color(0.2f, 0.17f, 0.32f, 1), 22, "Alien:" + a.TypeId);

@@ -235,7 +235,7 @@ namespace RogueStars.Client.App
         public const float MainTabsHeight = 150;
 
         /// <summary>
-        /// The hub tab this screen belongs to ("worm", "city", "signals", "arena"): the screen then shows the kit's main tab bar
+        /// The hub tab this screen belongs to ("worm", "city", "shop", "arena"): the screen then shows the kit's main tab bar
         /// along the bottom with that tab raised; null = no tab bar.
         /// </summary>
         protected virtual string ActiveMainTab => null;

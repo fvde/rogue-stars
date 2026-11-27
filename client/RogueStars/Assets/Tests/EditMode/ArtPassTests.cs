@@ -124,7 +124,7 @@ namespace RogueStars.Client.Tests
             Assert.That(sprites.Count, Is.EqualTo(1), "only the alien with art shows a sprite");
             Assert.That(sprites[0].GetComponent<Image>().sprite, Is.SameAs(Fake));
 
-            var signals = new SignalsScreen();
+            var signals = new ShopScreen();
             _f.App.Router.Push(signals);
             var result = new GachaPullResult();
             result.Items.Add(new GachaPullItem { Kind = RewardKinds.Alien, Id = "alien_blorp", Amount = 1, Tier = Rarity.Common });

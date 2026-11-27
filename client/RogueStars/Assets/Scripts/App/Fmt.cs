@@ -123,7 +123,7 @@ namespace RogueStars.Client.App
             }
         }
 
-        /// <summary>"Free 10× Blueprint Signal" (a free_pull reward: id = the pull type, amount = free 10× pulls).</summary>
+        /// <summary>"Free 10× Blueprints pull" (a free_pull reward: id = the pull type, amount = free 10× pulls).</summary>
         public static string FreePull(Reward r, ContentDb content)
         {
             string name = r.Id;

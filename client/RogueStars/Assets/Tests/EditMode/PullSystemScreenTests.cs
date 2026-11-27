@@ -40,8 +40,8 @@ namespace RogueStars.Client.Tests
             UnlockAll();
             S.Gacha.For(GachaType.Part).SinceMythic = 37;
             S.Gacha.For(GachaType.Part).SinceLegendary = 12;
-            _f.App.Open("signals");
-            var screen = (SignalsScreen)_f.App.Router.Current;
+            var screen = new ShopScreen(GachaType.Part); // the Shop's Parts section
+            _f.App.Router.Push(screen);
             var mythic = FindText(screen.Root.transform, "PityMythic");
             var legendary = FindText(screen.Root.transform, "PityLegendary");
             Assert.That(mythic.text, Is.EqualTo("Mythic 37/100"));
@@ -66,8 +66,8 @@ namespace RogueStars.Client.Tests
         public void SignalReveal_ShowsBatchesOf50()
         {
             UnlockAll();
-            _f.App.Open("signals");
-            var screen = (SignalsScreen)_f.App.Router.Current;
+            _f.App.Open("signals"); // the former pull screen's id: an alias of the Shop
+            var screen = (ShopScreen)_f.App.Router.Current;
             var result = new GachaPullResult { Type = GachaType.Alien };
             result.Items.Add(new GachaPullItem { Kind = RewardKinds.Alien, Id = "alien_blorp", Amount = 1, Tier = Rarity.Common, Shards = 50, Note = "new" });
             result.Items.Add(new GachaPullItem { Kind = RewardKinds.Alien, Id = "alien_nebulisk", Amount = 1, Tier = Rarity.Mythic, Shards = 50, Note = "shards" });

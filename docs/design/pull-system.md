@@ -11,13 +11,17 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
 > **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
 > **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
 > **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
-> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+> **The Shop (owner, 2026-11-27):** the pull screen is the **Shop**, merged with the former purchase screen: its pull sections
+> **Aliens**, **Blueprints** and **Parts** (paid with Signals, Schematics, Crates) come first, then the offer sections (Offers,
+> Diamonds, Passes, Items, Ads). A pull is an "Aliens / Blueprints / Parts pull" ("Free 10× Parts pull"); the bottom tab "Shop"
+> (shop icon) shows once the Parts pulls or the Shop are unlocked, each section once its own feature is. Code ids stay
+> (`GachaType`, the `signals` screen id as an alias). The "Alien Signal Beacon" building keeps its name.
 
 ## Rates and pity (every pull, published, fixed)
 
 | Pull type | Common | Rare | Epic | Legendary | Mythic | Mythic pity | Legendary pity | 10× rule |
 |---|---|---|---|---|---|---|---|---|
-| Part / Blueprint / Alien Signal | 58.3% | 28% | 9.5% | **3%** | **1.2%** | **100** | **40** | at least one Epic |
+| Aliens / Blueprints / Parts pull | 58.3% | 28% | 9.5% | **3%** | **1.2%** | **100** | **40** | at least one Epic |
 | Hero / Mount summon event | 98.8% filler | – | – | – | **1.2%** (featured batch) | **100** (Luck) | none | none |
 
 - **Mythic:** a flat 1.2% on every pull. The 100th pull without a Mythic is a Mythic ("Mythic x/100"). Average 58 pulls per
@@ -30,7 +34,7 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
 - **The 10× rule stays and is shown** (pull card and odds): the last pull of a 10× without an Epic or better becomes Epic.
   It only lifts results below Epic, so the Mythic and Legendary chances of that pull are unchanged. Summon events have no Epic
   tier and no 10× rule.
-- **Visible everywhere:** Signals show "Mythic 37/100 · Legendary 12/40" (rarity colours, `Theme.RarityColor`) and the line
+- **Visible everywhere:** the Shop's pull sections show "Mythic 37/100 · Legendary 12/40" (rarity colours, `Theme.RarityColor`) and the line
   "Guaranteed Mythic by pull 100, Legendary by pull 40 (fixed, never changes). Every 10× pull has at least one Epic." Pull results
   carry the counters (`GachaPullResult.Pity`); the odds modal states the pity and the 10× rule. Summon events show "Luck x/100".
 - Pity is per pull type, shared by all its banners and carried over (unchanged).
@@ -97,9 +101,9 @@ bot does not run Reactor jobs in the redesigned city (not investigated here).
 
 | Unlock | Level | Comes with |
 |---|---|---|
-| Parts | 1 | the Part Signal and one free 10× Part pull |
-| Aliens | 6 | the first alien, the Alien Signal, one free 10× Alien pull and the Launch Pod built on the crash site (squad seat from level 6) |
-| City | 15 | the Biomass Farm blueprint, the Blueprint Signal and one free 10× Blueprint pull |
+| Parts | 1 | the Shop tab with its Parts section and one free 10× Parts pull |
+| Aliens | 6 | the first alien, the Shop's Aliens section, one free 10× Aliens pull and the Launch Pod built on the crash site (squad seat from level 6) |
+| City | 15 | the Biomass Farm blueprint, the Shop's Blueprints section and one free 10× Blueprints pull |
 
 Every free 10× is a normal 10× (the 10× rule and the pity apply, no fixed result). Before the crash site (owner, 2026-11-25) the
 City's free pull always held the Launch Pod. Details: docs/design/city.md "Unlocks" and "The crash site comes first".

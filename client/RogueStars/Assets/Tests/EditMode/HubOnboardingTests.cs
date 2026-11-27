@@ -122,7 +122,7 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.App.Router.Pop(), Is.True);
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>(), "back returns to the hub, not to the moment");
 
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:signals" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:shop" }));
             Assert.That(Named(Hub.Root, "BadgeText").text, Is.EqualTo("NEW"));
             Assert.That(Named(Hub.Root, "GoalText").text, Does.Contain("Equip your starter parts"));
             Assert.That(Hub.ShowPendingUnlock(), Is.False, "nothing pending any more");
@@ -151,19 +151,18 @@ namespace RogueStars.Client.Tests
         {
             Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet" }));
             Unlock(Features.Parts);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:signals" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:shop" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:quests"));
             Unlock(Features.BiomassFarm);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:signals" }));
-            Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
             Unlock(Features.WormLevel, Features.PartPulls, Features.Shop);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:signals" }));
-            Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:shop"));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
+            Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"), "one Shop: the bottom tab, no second entry in the right column");
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:more"), "nothing else unlocked yet");
             Unlock(Features.Laboratory);
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:more"));
             Unlock(Features.Arena, Features.SeasonPass);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:signals", "Tab:arena" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop", "Tab:arena" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:pass"));
             Assert.That(ButtonNames(Hub.Root).Any(n => n.StartsWith("Side:observatory") || n.StartsWith("Live:")), Is.False, "live events wait for Invasions");
             Unlock(Features.Invasions);
@@ -175,6 +174,44 @@ namespace RogueStars.Client.Tests
                 .And.Contain(Currencies.Ore).And.Contain(Currencies.PartTokens).And.Contain(Currencies.InvasionAttempts));
             Assert.That(visible, Does.Not.Contain(Currencies.Grain).And.Not.Contain(Currencies.Fuel).And.Not.Contain(Currencies.HeroXp)
                 .And.Not.Contain(Currencies.AlienTokens).And.Not.Contain(Currencies.GuildMarks));
+        }
+
+        [Test]
+        public void OneShop_TheTabOpensPullSectionsFirst_ThenTheOffers_EachWithItsFeature()
+        {
+            Unlock(Features.Parts);
+            var tab = HubLayout.Tabs(S, C).Single(t => t.Id == HubLayout.ShopTab);
+            Assert.That(tab.Label, Is.EqualTo("Shop"));
+            Assert.That(tab.Icon, Is.EqualTo("shop"), "the tab shows the shop stall");
+            Assert.That(HubLayout.Tabs(S, C).Any(t => t.Label == "Signals"), Is.False);
+            Hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:shop").onClick.Invoke();
+            var shop = (ShopScreen)_f.App.Router.Current;
+            Assert.That(shop.Title, Is.EqualTo("Shop"));
+            Assert.That(shop.Section, Is.EqualTo("Parts"));
+            var chips = ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList();
+            Assert.That(chips, Is.EqualTo(new[] { "Tab:Parts" }), "only the unlocked pull section, no offers before the Shop unlock");
+            var parts = shop.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:Parts");
+            Assert.That(parts.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "NotifyDot"), Is.EqualTo(S.Gacha.FreePulls(GachaType.Part) > 0), "a dot while a free 10× waits");
+
+            Unlock(Features.Aliens, Features.Shop);
+            _f.App.Router.Reset(new HubScreen());
+            _f.App.Open("signals"); // the former pull screen's id: an alias of the Shop
+            shop = (ShopScreen)_f.App.Router.Current;
+            Assert.That(shop.Section, Is.EqualTo("Aliens"), "the first pull section");
+            chips = ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList();
+            Assert.That(chips, Is.EqualTo(new[] { "Tab:Aliens", "Tab:Parts", "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }));
+            shop.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:Diamonds").onClick.Invoke();
+            Assert.That(shop.Section, Is.EqualTo("Diamonds"));
+            Assert.That(shop.Root.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "Section:DiamondPack"), Is.True);
+
+            // no second shop on the hub: the right column keeps only the timed Offer, which opens the Shop's Offers
+            Assert.That(HubLayout.RightColumn(S, C, _f.Service.NowMs).Any(e => e.Id == "shop"), Is.False);
+            Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"));
+            if (ButtonNames(Hub.Root).Contains("Side:offer"))
+            {
+                Hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Side:offer").onClick.Invoke();
+                Assert.That(((ShopScreen)_f.App.Router.Current).Section, Is.EqualTo("Offers"));
+            }
         }
 
         [Test]

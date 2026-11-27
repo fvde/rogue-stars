@@ -6,8 +6,8 @@ using RogueStars.Rules.Systems;
 namespace RogueStars.Client.App
 {
     /// <summary>
-    /// What the planet hub shows for a state (onboarding v2, GDD §16): bottom tabs, the right-hand column (shop, offers,
-    /// pass, mail, more), the left-hand live-event column, visible currency chips and the guided action of each unlock.
+    /// What the planet hub shows for a state (onboarding v2, GDD §16): bottom tabs, the right-hand column (offer, pass,
+    /// mail, more), the left-hand live-event column, visible currency chips and the guided action of each unlock.
     /// Pure queries so tests can check the day-1 hub and reachability without building UI. Locked features never appear
     /// (no greyed-out entries); only <see cref="Features.Next"/> is teased.
     /// </summary>
@@ -28,6 +28,11 @@ namespace RogueStars.Client.App
         public const string PlanetTab = "planet";
         /// <summary>The camp tab's icon id: the crashed saucer (art from <c>CityArt.Saucer</c>).</summary>
         public const string CampIcon = "camp";
+        /// <summary>The Shop tab (pulls and offers in one screen, owner 2026-11-27) and its icon (the hub's shop stall).</summary>
+        public const string ShopTab = "shop";
+
+        /// <summary>The Shop tab shows once the Parts pulls or the Shop's offers are unlocked (each section with its own feature).</summary>
+        public static bool ShopOpen(GameState s, ContentDb c) => Features.IsUnlocked(s, c, Features.PartPulls) || Features.IsUnlocked(s, c, Features.Shop);
 
         /// <summary>Bottom tabs (daily features) in display order; the Planet is always there, the rest as they unlock.</summary>
         public static List<Entry> Tabs(GameState s, ContentDb c)
@@ -38,7 +43,7 @@ namespace RogueStars.Client.App
             if (Features.IsUnlocked(s, c, Features.BiomassFarm)) list.Add(new Entry("city", "City", "#", "city"));
             else if (Features.IsUnlocked(s, c, Features.AlienSquad)) list.Add(new Entry("city", "Camp", "#", "city") { Icon = CampIcon });
             list.Add(new Entry(PlanetTab, "Planet", "O", null));
-            if (Features.IsUnlocked(s, c, Features.PartPulls)) list.Add(new Entry("signals", "Signals", "))", "signals"));
+            if (ShopOpen(s, c)) list.Add(new Entry(ShopTab, "Shop", "$", "shop") { Icon = "shop" });
             if (Features.IsUnlocked(s, c, Features.Arena)) list.Add(new Entry("arena", "Arena", "X", "arena"));
             return list;
         }
@@ -56,15 +61,14 @@ namespace RogueStars.Client.App
         /// <summary>At most this many live-event icons; more events are behind the Observatory icon.</summary>
         public const int MaxLiveIcons = 3;
 
-        /// <summary>Right column: shop, a limited offer, the pass, mail and "More" (each only when it applies).</summary>
+        /// <summary>
+        /// Right column: a limited offer (opens the Shop's Offers), the pass, mail and "More" (each only when it applies). The
+        /// Shop itself is a bottom tab (<see cref="ShopTab"/>), no second entry here.
+        /// </summary>
         public static List<Entry> RightColumn(GameState s, ContentDb c, long now)
         {
             var list = new List<Entry>();
-            if (Features.IsUnlocked(s, c, Features.Shop))
-            {
-                list.Add(new Entry("shop", "Shop", "$", "shop"));
-                if (LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
-            }
+            if (Features.IsUnlocked(s, c, Features.Shop) && LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
             if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "passes"));
             // Mail from day 1, but not before the first run (the very first hub is PLAY only, even with the welcome mail waiting).
             if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("mail", "Mail", "@", "mail"));
@@ -115,6 +119,7 @@ namespace RogueStars.Client.App
             var set = new HashSet<string> { "portals", "settings" };
             if (Features.IsUnlocked(s, c, Features.Parts)) { set.Add("worm"); set.Add("parts"); } // parts: the Worm tab holds the same inventory
             foreach (var t in Tabs(s, c)) if (t.ScreenId != null) set.Add(t.ScreenId);
+            if (set.Contains("shop")) set.Add("signals"); // the former pull screen's id: an alias of the Shop
             foreach (var r in RightColumn(s, c, now)) if (r.ScreenId != null) set.Add(r.ScreenId);
             foreach (var l in LeftColumn(s, c)) if (l.ScreenId != null) set.Add(l.ScreenId);
             if (Features.IsUnlocked(s, c, Features.Invasions)) set.Add("observatory");

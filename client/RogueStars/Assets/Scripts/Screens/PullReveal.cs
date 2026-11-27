@@ -64,7 +64,7 @@ namespace RogueStars.Client.Screens
     }
 
     /// <summary>
-    /// The one reveal ceremony for every pull (SG1): summons, Signals, the Shard Reactor and chests. Charge (a portal glowing up
+    /// The one reveal ceremony for every pull (SG1): summons, the Shop's pulls, the Shard Reactor and chests. Charge (a portal glowing up
     /// to the best rarity) → crack (Legendary: short; Mythic: long, with shake and flash) → cards deal in face down → Common to
     /// Epic flip in rarity order → Legendary / Mythic hold (pulse) and flip last → "MYTHIC!" / "LEGENDARY!" banner → the
     /// end buttons (OK, Pull ×1 / ×10 again). A tap anywhere skips to the end state; the banner still shows after a skip.
