@@ -125,6 +125,7 @@ public class MinigameTests
         Assert.Equal(1, run.Minigame.Finished);
         Assert.Equal(coins + e.Content.MinigameTuning.For(MinigameTier.Miss).Coins, run.Coins);
         Assert.Equal("minigame", run.LastOutcome.Source);
+        Assert.Equal(OutcomeShow.Popups, run.LastOutcome.Show); // the medal was the reveal: coins fly in, no sheet
         Assert.Single(run.Minigame.Played);
         Assert.Contains(farm.Events, ev => ev.Type == "run_minigame_finish" && ev.Args[1] == "Miss");
     }
@@ -195,6 +196,7 @@ public class MinigameTests
         Assert.Equal(c.RunTuning.DraftChoices, run.DraftOffer.Count);
         Assert.Equal(run.DraftOffer.Count, run.DraftOffer.Distinct().Count());
         Assert.Contains(run.LastOutcome.Lines, l => l.Kind == OutcomeKind.SkillRoll);
+        Assert.Equal(OutcomeShow.Popups, run.LastOutcome.Show); // the draft opens straight away
         string pick = run.DraftOffer[0];
         Assert.True(RunTestKit.Exec(e, ref s, new RunDraftPick { SkillId = pick }).Ok);
         Assert.Contains(pick, s.Run.Active!.Skills);

@@ -314,6 +314,8 @@ namespace RogueStars.Rules.Content
         public int FeatBossRounds = 15;
         /// <summary>The awakening clock sends minibosses (RunTuning.MinibossAtMeter); false on the first main levels (GDD §16).</summary>
         public bool ClockMinibosses = true;
+        /// <summary>Runs start with the signature pick (and may find signatures); false below CampaignDef.SignatureChoiceFromLevel (GDD §16).</summary>
+        public bool SignatureChoice = true;
     }
 
     [Serializable]
@@ -687,11 +689,12 @@ namespace RogueStars.Rules.Content
 
         /// <summary>
         /// Run content introduced level by level (GDD §16 level unlocks): main levels below these numbers do not have it, and
-        /// its feature (Features.RunShop, …) unlocks when the level before is cleared. Main portals only, every portal past
+        /// its feature (Features.RunSignatures, …) unlocks when the level before is cleared. Main portals only, every portal past
         /// the first has everything (numbers ≤ LevelsPerPortal). Two dice keep their per-portal rule (portal levels 6–10);
         /// forks come with them (BranchChance 0 below <see cref="ForksFromLevel"/>). Mini-games: MinigameTuning.MinMainLevel.
+        /// Shops are on the board from the first run (owner, 2026-11-27); the signature pick is the second unlock (LevelDef.SignatureChoice).
         /// </summary>
-        public int ShopsFromLevel = 3, MinibossesFromLevel = 5, ForksFromLevel = 6, CampfiresFromLevel = 10, SignatureChoiceFromLevel = 12;
+        public int SignatureChoiceFromLevel = 3, MinibossesFromLevel = 5, ForksFromLevel = 6, CampfiresFromLevel = 10;
         /// <summary>
         /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
         /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs). Named pool_&lt;family&gt;_&lt;variant&gt;:

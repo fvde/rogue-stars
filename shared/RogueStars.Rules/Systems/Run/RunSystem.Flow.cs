@@ -311,6 +311,13 @@ namespace RogueStars.Rules.Systems
             return boss == null ? 0 : AwakeningScaled(c, run, boss.AwakenPerRoll);
         }
 
+        /// <summary>
+        /// The awakening points an event effect of <paramref name="amount"/> adds now: gains are scaled like the boss's pace
+        /// (<see cref="AddAwakening"/>), drains are not. The option button shows this number, so button and result agree.
+        /// </summary>
+        public static double EventAwakening(ContentDb c, ActiveRun run, double amount) =>
+            amount > 0 && run != null && Boss(c, run) != null ? AwakeningScaled(c, run, amount) : amount;
+
         private static double AwakeningScaled(ContentDb c, ActiveRun run, double amount)
         {
             var mods = Level(c, run).Modifiers;
@@ -605,10 +612,10 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>Post-win continuation: consume the battle tile, finish the boss, or resume event effects.</summary>
-        private static void AfterWin(CommandContext ctx, ActiveRun run, string kind, List<RunEffect> followUp)
+        private static void AfterWin(CommandContext ctx, ActiveRun run, string kind, List<RunEffect> followUp, Snap before = null)
         {
             if (kind == "boss") { BossDefeated(ctx, run); return; }
-            if (kind == "quest") { QuestBattleWonAfterRevive(ctx, run); return; } // a revive retried a lost quest battle
+            if (kind == "quest") { QuestBattleWonAfterRevive(ctx, run, before); return; } // a revive retried a lost quest battle
             if (kind == "enemy" || kind == "elite" || kind == "miniboss")
             {
                 var tile = run.Tiles[run.Position];
@@ -1036,7 +1043,7 @@ namespace RogueStars.Rules.Systems
         {
             bool lootLeft = AccountLootOfferLeft(c, run);
             var w = new double[c.RandomRunEvents.Count];
-            bool sigLeft = FindableSignatures(c, run).Count > 0;
+            bool sigLeft = Level(c, run).SignatureChoice && FindableSignatures(c, run).Count > 0; // no Resonance before the signature unlock
             for (int i = 0; i < w.Length; i++)
                 w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0
                     : !sigLeft && c.RandomRunEvents[i].Id == ResonanceEvent ? 0 : c.RandomRunEvents[i].Weight;
@@ -1052,7 +1059,8 @@ namespace RogueStars.Rules.Systems
             {
                 // shown, not silently skipped: the result screen says the boon kept it away
                 Consume(c, run, tile, TileDefOf(c, tile));
-                var shielded = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Avoided", Text = "Your boon shields you from misfortune." };
+                var shielded = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Avoided", Text = "Your boon shields you from misfortune.",
+                    Show = OutcomeShow.Popups, Toast = "Boon: " + ev.Name + " avoided" };
                 PublishOutcome(ctx, run, shielded);
                 return;
             }
@@ -1065,7 +1073,8 @@ namespace RogueStars.Rules.Systems
                     ctx.Emit("run_cache_empty", eventId);
                     Consume(c, run, tile, TileDefOf(c, tile));
                     var empty = new RunOutcome { Source = OutcomeSource(c, ev.Id, TileDefOf(c, tile)), EventId = ev.Id, Title = ev.Name, Choice = "Empty",
-                        Text = "Already looted — this run's " + c.RunTuning.MaxAccountLootOffersPerRun + " account-loot chances are used up." };
+                        Text = "Already looted — this run's " + c.RunTuning.MaxAccountLootOffersPerRun + " account-loot chances are used up.",
+                        Show = OutcomeShow.Popups, Toast = "Already looted" };
                     PublishOutcome(ctx, run, empty);
                     return;
                 }
@@ -1087,6 +1096,22 @@ namespace RogueStars.Rules.Systems
 
         private static bool CanAffordOption(ActiveRun run, EventOption o) => run.Coins >= o.CoinCost && run.Shards >= o.ShardCost;
 
+        /// <summary>
+        /// Why an option would do nothing now, else null: "HP already full" for a pure heal (campfire Rest, the medic's tonic)
+        /// at full HP. The client shows it on the button instead of resolving to nothing (event outcome rules).
+        /// </summary>
+        public static string OptionUselessReason(ActiveRun run, EventOption o)
+        {
+            if (run == null || o == null || o.Outcomes.Count != 1) return null;
+            bool heal = false;
+            foreach (var fx in o.Outcomes[0].Effects)
+            {
+                if (fx.Kind == RunEffectKind.HealPct) heal = true;
+                else if (fx.Kind != RunEffectKind.StrengthenEnemies) return null;
+            }
+            return heal && run.WormMaxHp > 0 && run.WormHp >= run.WormMaxHp - 0.5 ? "HP already full" : null;
+        }
+
         private static void ChooseEventOption(CommandContext ctx, ActiveRun run, int index, string trainSkill = null)
         {
             var c = ctx.Content;
@@ -1104,7 +1129,7 @@ namespace RogueStars.Rules.Systems
                 Require(ImprovesSkill(opt), "this option improves no skill");
                 Require(TrainChoices(c, run).Contains(trainSkill), "skill cannot be improved");
             }
-            var before = Snap.Of(run);
+            var before = Snap.WithTiles(run);
             run.Coins -= opt.CoinCost;
             run.Shards -= opt.ShardCost;
             var weights = new double[opt.Outcomes.Count];
@@ -1129,9 +1154,10 @@ namespace RogueStars.Rules.Systems
             ctx.State.Count("run_events_resolved");
             ctx.Emit("run_event_outcome", ev.Id, index.ToString(), oi.ToString());
             if (tile != null) Consume(c, run, tile, TileDefOf(c, tile));
+            bool shielded = false;
             if (outcome != null)
             {
-                if (IsNegativeOutcome(outcome) && TrySkipNegative(ctx, run)) run.LastEventText = "Your boon shields you from misfortune.";
+                if (IsNegativeOutcome(outcome) && TrySkipNegative(ctx, run)) { run.LastEventText = "Your boon shields you from misfortune."; shielded = true; }
                 else
                 {
                     ApplyEffects(ctx, run, outcome.Effects, eventTileId, trainSkill);
@@ -1139,8 +1165,27 @@ namespace RogueStars.Rules.Systems
             }
             result.Text = run.LastEventText;
             before.Diff(ctx.Content, run, result.Lines);
+            PresentEvent(run, result, outcome, shielded);
+            if (result.Show == OutcomeShow.Revive)
+            {
+                // a lost fight: not the win text; the revive retries it and publishes the result then (with the follow-ups)
+                run.DefeatOutcome = new RunOutcome
+                {
+                    Source = result.Source, EventId = result.EventId, Title = result.Title, Choice = result.Choice, Text = result.Text,
+                    Chance = result.Chance, SuccessChancePct = result.SuccessChancePct, Success = result.Success,
+                };
+                result.Text = LostFightText(outcome);
+            }
             PublishOutcome(ctx, run, result);
             Continue(ctx, run);
+        }
+
+        /// <summary>The text of a lost event fight (the revive screen shows it; never the win text).</summary>
+        public static string LostFightText(EventOutcome oc)
+        {
+            int i = oc != null ? oc.Effects.FindIndex(fx => fx.Kind == RunEffectKind.Battle) : -1;
+            bool reward = i >= 0 && i < oc.Effects.Count - 1;
+            return reward ? "Beaten! Win the retry to claim the reward." : "Beaten! Win the retry to go on.";
         }
 
         /// <summary>"treasure" / "campfire" for tile-bound events (by the tile, else by the tile kind that hosts the event), else "event".</summary>

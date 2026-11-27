@@ -1440,11 +1440,45 @@ namespace RogueStars.Client.Screens
             if (run.LastOutcome != null && run.OutcomeSeq > _outcomeSeen)
             {
                 _outcomeSeen = run.OutcomeSeq;
-                CloseDecision();
-                _outcome = OutcomeSheet(run.LastOutcome);
-                return;
+                var o = run.LastOutcome;
+                // event outcome rules: a sheet only for news; deterministic results fly in, "nothing" is a toast, a lost
+                // fight goes straight to the revive (which shows the outcome's text)
+                if (o.Show == OutcomeShow.Sheet)
+                {
+                    CloseDecision();
+                    _outcome = OutcomeSheet(o);
+                    return;
+                }
+                if (o.Show == OutcomeShow.Popups) { CloseDecision(); FlyIn(o); }
             }
             ShowDecision(run);
+        }
+
+        /// <summary>The last toast line shown (tests, screenshots); null = none yet.</summary>
+        public string LastToast { get; private set; }
+
+        /// <summary>
+        /// A decision's deterministic result: its lines as the board's landing popups over the worm (coins fly to the chip,
+        /// the HUD counts up), its toast as one short line; no sheet, no Continue tap.
+        /// </summary>
+        private void FlyIn(RunOutcome o)
+        {
+            var popups = RunPresentation.FlyIn(o, Content);
+            LastPopups.Clear();
+            if (!string.IsNullOrEmpty(o.Toast)) Toast(o.Toast);
+            if (popups.Count > 0) SpawnPopups(popups, _tokenPos, true);
+            var run = State.Run.Active;
+            if (run != null) AnimateHud(RunPresentation.Hud(Content, run));
+        }
+
+        /// <summary>One short line over the board's top ("You move on.", a story journal line) that fades by itself.</summary>
+        private void Toast(string text)
+        {
+            LastToast = text;
+            if (_overlay == null) return;
+            float w = _holderSize.x > 10 ? _holderSize.x : 1080, h = _holderSize.y > 10 ? _holderSize.y : 1920;
+            var rt = RunFx.Toast(_overlay, new Vector2(w / 2, -h * 0.3f), text, Mathf.Min(900, w - 80));
+            rt.name = "Toast";
         }
 
         private void CloseOutcome()
@@ -1491,6 +1525,8 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.QuestBoon: return (l.Id ?? "Quest bonus") + ": +" + Fmt.Num(a) + " coins on every coin gain, forever";
                 case OutcomeKind.QuestStep:
                     return l.Id == "complete" ? "The story is complete!" : l.Id == "waits" ? "The story waits at chapter " + Fmt.Whole(a) : "The story moves on: chapter " + Fmt.Whole(a);
+                case OutcomeKind.EnemiesStronger: return "Nearby enemies +" + Fmt.Pct(a) + " stronger";
+                case OutcomeKind.Avoided: return "Shielded by your boon";
                 default: return "Nothing happened.";
             }
         }
@@ -1668,6 +1704,11 @@ namespace RogueStars.Client.Screens
         /// the paper and chunky buttons: Ad revive (green), Diamonds (cyan), Give up (red). Named "Modal:Defeated!"; buttons
         /// "Button:Ad revive (n)", "Button:n Diamonds", "Button:Give up".
         /// </summary>
+        /// <summary>The revive's line for a lost decision fight (the outcome shown as Revive), else null (pure; tested).</summary>
+        public static string ReviveStory(ActiveRun run) =>
+            run != null && run.Phase == RunPhase.Defeated && !run.ReviveUsed && run.LastOutcome != null && run.LastOutcome.Show == OutcomeShow.Revive
+                ? run.LastOutcome.Text : null;
+
         private UiModal ReviveModal(ActiveRun run)
         {
             long cost = Content.RunTuning.ReviveDiamondCost;
@@ -1683,13 +1724,16 @@ namespace RogueStars.Client.Screens
             var title = SliceKit.Chunky(rib.transform, "DEFEATED!", (int)(80 * s), Color.white, TextAnchor.MiddleCenter, "ReviveTitle");
             Ui.Stretch(title.rectTransform, 40 * s, 0, 40 * s, 14 * s);
             // the tombstone in a cold glow
+            // a lost event / story fight: its own text under the ribbon ("Beaten! Win the retry to claim the reward.")
+            string story = ReviveStory(run);
+            float tombY = story != null ? 775 : 720, tombSize = story != null ? 350 : 420;
             var glow = Ui.Panel(frame, new Color(0.55f, 0.6f, 0.95f, 0.35f), "TombGlow");
             glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
-            RunScenes.At(glow.rectTransform, s, 540, 720, 760, 760);
+            RunScenes.At(glow.rectTransform, s, 540, tombY, tombSize * 1.8f, tombSize * 1.8f);
             UiPulse.On(glow, 0.05f, 2f, 0.7f);
             var tomb = Ui.Panel(frame, Color.white, "Tombstone");
             tomb.sprite = TombstoneSprite(); tomb.preserveAspect = true; tomb.raycastTarget = false;
-            RunScenes.At(tomb.rectTransform, s, 540, 720, 420, 420);
+            RunScenes.At(tomb.rectTransform, s, 540, tombY, tombSize, tombSize);
             UiBob.On(tomb.rectTransform, 6 * s, 2.4f);
             // the rule on the paper
             var paper = Ui.RoundPanel(frame, SliceKit.Ink, 40 * s, "Paper");
@@ -1699,6 +1743,11 @@ namespace RogueStars.Client.Screens
             face.raycastTarget = false;
             Ui.Stretch(face.rectTransform, 7 * s, 7 * s, 7 * s, 7 * s);
             string rule = run.ReviveUsed ? "Your revive for this run is used." : "Revive once with " + RunScenes.Good(Fmt.Pct(Content.RunTuning.ReviveHpPct) + " HP") + " and retry the fight.";
+            if (story != null)
+            {
+                var st = RunScenes.Text(frame, story, s, 44, Color.white, TextAnchor.MiddleCenter, "ReviveStory", 30);
+                RunScenes.At(st.rectTransform, s, 540, 545, 980, 100);
+            }
             var rt = RunScenes.Text(face.transform, rule, s, 48, RunScenes.Ink, TextAnchor.MiddleCenter, "ReviveText", 32);
             Ui.Stretch(rt.rectTransform, 30 * s, 20 * s, 30 * s, 100 * s);
             var note = RunScenes.Text(face.transform, "Giving up loses " + RunScenes.Bad(run.PendingLoot.Count + " pending loot items") + ".", s, 38, RunScenes.Ink, TextAnchor.MiddleCenter, "ReviveNote", 26);

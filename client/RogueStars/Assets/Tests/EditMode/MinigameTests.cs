@@ -155,11 +155,9 @@ namespace RogueStars.Client.Tests
             Assert.That(run.Minigame.LastTier, Is.EqualTo(MinigameTier.Gold));
             Assert.That(run.Coins, Is.EqualTo(coins + RunSystem.MinigameCoins(C, run, C.MinigameTuning.For(MinigameTier.Gold))));
             screen.Rebuild();
-            Assert.That(screen.OutcomeOpen, Is.True, "the result screen shows the reward");
-            string outcome = string.Join(" | ", _f.App.ModalLayer.GetComponentsInChildren<Text>(true).Select(t => t.text));
-            StringAssert.Contains("MINI-GAME RESULT", outcome);
-            StringAssert.Contains("Medal: Gold", outcome);
-            StringAssert.Contains("coins", outcome);
+            // event outcome rules: the host's medal was the reveal; the coins fly in under it, no result sheet
+            Assert.That(screen.OutcomeOpen, Is.False, "no sheet after the medal");
+            Assert.That(screen.LastPopups.Any(p => p.EndsWith(" coins")), Is.True, string.Join(", ", screen.LastPopups));
         }
 
         [Test]
@@ -196,7 +194,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void SkillRoll_Silver_OpensTheDraft_AfterTheResult()
+        public void SkillRoll_Silver_OpensTheDraft_Directly()
         {
             var screen = OnGameTile(MinigameReward.SkillRoll);
             MinigameHost.AutoTier = MinigameTier.Silver;

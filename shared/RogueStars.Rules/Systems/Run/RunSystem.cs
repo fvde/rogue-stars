@@ -169,7 +169,8 @@ namespace RogueStars.Rules.Systems
                 Rng = ctx.Rng.Fork("run:" + s.Run.RunsStarted + ":" + level.Id),
                 Loadout = ctx.Engine.BuildLoadout(s, ctx.NowMs),
             };
-            var signatures = SignatureOffer(s, c, run.Loadout); // before RunsStarted moves on: the offer the client showed
+            // before RunsStarted moves on: the offer the client showed; none before the signature unlock (LevelDef.SignatureChoice)
+            var signatures = level.SignatureChoice ? SignatureOffer(s, c, run.Loadout) : new List<string>();
             s.Run.RunsStarted++;
             if (run.Loadout.WormStats.Value(StatId.Hp) <= 0) run.Loadout.WormStats.AddAll(c.RunTuning.FallbackWormStats);
             run.DraftRerolls = c.RunTuning.DraftRerollsPerRun + run.Loadout.DraftRerolls;
@@ -445,12 +446,27 @@ namespace RogueStars.Rules.Systems
             string kind = run.DefeatKind;
             int xp = run.DefeatXp; long coins = run.DefeatCoins;
             run.DefeatEnemies.Clear(); run.DefeatFollowUp.Clear();
-            var before = Snap.Of(run);
+            var pending = run.DefeatOutcome;
+            run.DefeatOutcome = null;
+            var before = pending != null ? Snap.WithTiles(run) : Snap.Of(run);
             bool won = enemies.Count == 0 ? true : Fight(ctx, run, enemies, kind, xp, coins, followUp);
             if (enemies.Count == 0) OnBattleWin(ctx, run, kind, xp, coins);
-            if (kind != "boss") TileOutcome(ctx, run, run.Tiles[run.Position], null, before, "battle", false); // the retried fight
-            if (!won) return;
-            AfterWin(ctx, run, kind, followUp);
+            if (!won)
+            {
+                if (kind != "boss") TileOutcome(ctx, run, run.Tiles[run.Position], null, before, "battle", false); // the retried fight
+                return;
+            }
+            AfterWin(ctx, run, kind, followUp, before);
+            if (kind == "event" && pending != null)
+            {
+                // a lost event fight won on the retry: its result with the follow-ups (+6% ATK, the part, …), as on a first-try win
+                before.Diff(ctx.Content, run, pending.Lines);
+                var oc = new EventOutcome();
+                oc.Effects.AddRange(followUp);
+                PresentEvent(run, pending, oc, false);
+                PublishOutcome(ctx, run, pending);
+            }
+            else if (kind != "boss" && kind != "quest") TileOutcome(ctx, run, run.Tiles[run.Position], null, before, "battle", false); // the retried fight
             Continue(ctx, run);
         }
 

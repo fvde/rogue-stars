@@ -7,54 +7,57 @@ account-day gate and no daily limit any more, so every profile gets each feature
 the minutes / runs / days below only reflect how fast it plays. "(run)" = run content introduced before the first board
 that has it. Lab research rows: when the package's research finished (it needs the package's level unlock, Data and time).
 
-Regenerated 2026-11-26. Daily Quests are no feature (no unlock moment, no row): the hub button appears with Parts, level 1. The schedule
-below is the current one (Parts 1, Shops 2, Worm 3, ..., Aliens 6, City 15, ...; building features unlock with their blueprint).
+Regenerated 2026-11-27. Daily Quests are no feature (no unlock moment, no row): the hub button appears with Parts, level 1.
+Run shops are no feature either (owner, 2026-11-27): on the board from the first run. The schedule below is the current one
+(Parts 1, Signatures 2 (the pick from level 3; levels 1–2 have no signature), Worm 3, ..., Aliens 6, City 15, ...; building
+features unlock with their blueprint).
 
-Novelty: the first played hour brings 5–9 new things (meta and run) per profile, the longest stretch without one in
-the first hour is 15–21 minutes; past level 20 the gaps widen on purpose (one feature every 2, later 3–4 levels).
+Novelty: the first played hour brings 7–9 new things (meta and run) per profile, the longest stretch without one in
+the first hour is 15–17 minutes. Level 11's slot (the signature explanation before) is empty now, so the first two hours
+have a stretch of 34–52 minutes between Campfires (level 9) and the Alien Arcade (level 14); past level 20 the gaps widen
+on purpose (one feature every 2, later 3–4 levels).
 
 ## Feature unlocks: minutes played · runs · main level · account day (median of seeds; – = not unlocked)
 
 | Feature | Gate | Casual F2P | Active F2P | Hardcore F2P | Active Whale |
 |---|---|---|---|---|---|
 | Parts | L1 | 4 min · 0 runs · L1 · D1 | 6 min · 0 runs · L1 · D1 | 6 min · 0 runs · L1 · D1 | 2 min · 0 runs · L1 · D1 |
-| Shops (run) | L2 | 11 min · 1 runs · L2 · D1 | 8 min · 1 runs · L2 · D1 | 8 min · 1 runs · L2 · D1 | 5 min · 1 runs · L2 · D1 |
-| Worm Level & Talents | L3 | 25 min · 2 runs · L3 · D2 | 17 min · 2 runs · L3 · D1 | 30 min · 5 runs · L3 · D1 | 8 min · 2 runs · L3 · D1 |
-| Minibosses & Mythics (run) | L4 | 40 min · 3 runs · L4 · D3 | 21 min · 3 runs · L4 · D1 | 34 min · 6 runs · L4 · D1 | 17 min · 3 runs · L4 · D1 |
-| Two Dice & Forks (run) | L5 | 56 min · 4 runs · L5 · D4 | 26 min · 4 runs · L5 · D1 | 38 min · 7 runs · L5 · D1 | 20 min · 4 runs · L5 · D1 |
-| Aliens | L6 | 71 min · 5 runs · L6 · D5 | 35 min · 5 runs · L6 · D1 | 42 min · 8 runs · L6 · D1 | 25 min · 5 runs · L6 · D1 |
-| Launch Pod | L6 | 71 min · 5 runs · L6 · D5 | 35 min · 5 runs · L6 · D1 | 42 min · 8 runs · L6 · D1 | 25 min · 5 runs · L6 · D1 |
-| Auto Roll | L7 | 90 min · 6 runs · L7 · D6 | 40 min · 6 runs · L7 · D1 | 50 min · 9 runs · L7 · D1 | 35 min · 6 runs · L7 · D1 |
-| Campfires (run) | L9 | 123 min · 8 runs · L9 · D8 | 57 min · 8 runs · L9 · D1 | 67 min · 11 runs · L9 · D1 | 49 min · 8 runs · L9 · D1 |
-| Signature Choice (run) | L11 | 157 min · 10 runs · L11 · D10 | 86 min · 10 runs · L11 · D2 | 79 min · 13 runs · L11 · D1 | 68 min · 10 runs · L11 · D2 |
-| Alien Arcade (run) | L14 | 207 min · 13 runs · L14 · D13 | 111 min · 14 runs · L14 · D2 | 120 min · 18 runs · L14 · D1 | 90 min · 13 runs · L14 · D2 |
-| City | L15 | 225 min · 14 runs · L15 · D14 | 120 min · 15 runs · L15 · D2 | 174 min · 26 runs · L15 · D1 | 98 min · 14 runs · L15 · D2 |
-| Laboratory | L0 | – | 879 min · 83 runs · L26 · D12 | 202 min · 29 runs · L17 · D1 | 279 min · 32 runs · L21 · D5 |
-| Heroes | L18 | 284 min · 17 runs · L18 · D17 | 199 min · 21 runs · L18 · D3 | 222 min · 31 runs · L18 · D2 | 127 min · 17 runs · L18 · D2 |
-| Grain Farm | L0 | 235 min · 15 runs · L15 · D14 | 141 min · 17 runs · L15 · D2 | 200 min · 29 runs · L16 · D1 | 115 min · 16 runs · L16 · D2 |
-| Ore Mine | L0 | 232 min · 15 runs · L15 · D14 | 152 min · 17 runs · L15 · D3 | 201 min · 29 runs · L16 · D1 | 114 min · 16 runs · L16 · D2 |
-| Ice Package | L24 | 413 min · 23 runs · L24 · D23 | 488 min · 47 runs · L24 · D7 | 854 min · 101 runs · L24 · D5 | 304 min · 34 runs · L24 · D5 |
-| Mounts | L26 | 458 min · 25 runs · L26 · D25 | 765 min · 74 runs · L26 · D11 | 1221 min · 135 runs · L26 · D7 | 379 min · 41 runs · L26 · D6 |
-| Runes | L28 | 548 min · 29 runs · L28 · D29 | 994 min · 99 runs · L28 · D14 | 1737 min · 194 runs · L28 · D9 | 645 min · 67 runs · L28 · D10 |
-| Funds | L30 | – | 1017 min · 101 runs · L30 · D14 | 2469 min · 264 runs · L30 · D11 | 665 min · 69 runs · L30 · D10 |
-| Arena | L32 | – | 1218 min · 117 runs · L32 · D16 | 2469 min · 264 runs · L32 · D13 | 852 min · 88 runs · L32 · D11 |
-| Breeding Pen | L0 | 235 min · 15 runs · L15 · D14 | 717 min · 71 runs · L27 · D10 | 800 min · 96 runs · L22 · D5 | 278 min · 32 runs · L21 · D5 |
-| Season Pass | L36 | – | 1642 min · 151 runs · L36 · D21 | 3404 min · 367 runs · L36 · D15 | 990 min · 99 runs · L38 · D13 |
-| Lightning Package | L38 | – | 1657 min · 151 runs · L38 · D22 | 3404 min · 413 runs · L38 · D17 | 990 min · 99 runs · L38 · D14 |
-| Overcharged Levels | L40 | – | 1804 min · 166 runs · L40 · D23 | 3784 min · 467 runs · L40 · D18 | 1032 min · 103 runs · L42 · D14 |
-| Guilds | L42 | – | 1944 min · 179 runs · L42 · D26 | 3784 min · 467 runs · L42 · D19 | 1032 min · 103 runs · L42 · D14 |
-| Invasions | L44 | – | 2271 min · 212 runs · L45 · D30 | 4620 min · 545 runs · L44 · D22 | 1090 min · 107 runs · L46 · D15 |
-| Burrow | L46 | – | – | 4838 min · 645 runs · L46 · D24 | 1090 min · 107 runs · L46 · D15 |
-| Counter Package | L48 | – | – | 5655 min · 756 runs · L48 · D27 | 1389 min · 118 runs · L50 · D17 |
-| Forge | L50 | – | – | 5020 min · 644 runs · L52 · D24 | 1389 min · 118 runs · L50 · D19 |
-| Dark Side of the Planet | L53 | – | – | – | 1725 min · 134 runs · L54 · D21 |
-| Alien Package | L56 | – | – | – | 1801 min · 137 runs · L56 · D24 |
-| Time Package | L60 | – | – | – | – |
-| Lab research done: Combo Package | – | – | 1269 min · 121 runs · L30 · D17 | 2172 min · 233 runs · L29 · D11 | 724 min · 76 runs · L31 · D10 |
-| Lab research done: Ice Package | – | – | – | – | 1725 min · 134 runs · L56 · D24 |
-| Lab research done: Lightning Package | – | – | – | – | 1840 min · 138 runs · L56 · D25 |
-| Lab research done: Counter Package | – | – | – | – | 2081 min · 141 runs · L58 · D29 |
-| Lab research done: Alien Package | – | – | – | – | 2099 min · 141 runs · L58 · D29 |
+| Signatures (run) | L2 | 11 min · 1 runs · L2 · D1 | 9 min · 1 runs · L2 · D1 | 9 min · 1 runs · L2 · D1 | 5 min · 1 runs · L2 · D1 |
+| Worm Level & Talents | L3 | 26 min · 2 runs · L3 · D2 | 19 min · 2 runs · L3 · D1 | 15 min · 2 runs · L3 · D1 | 10 min · 2 runs · L3 · D1 |
+| Minibosses & Mythics (run) | L4 | 41 min · 3 runs · L4 · D3 | 24 min · 3 runs · L4 · D1 | 20 min · 3 runs · L4 · D1 | 18 min · 3 runs · L4 · D1 |
+| Two Dice & Forks (run) | L5 | 44 min · 4 runs · L5 · D3 | 27 min · 4 runs · L5 · D1 | 29 min · 4 runs · L5 · D1 | 21 min · 4 runs · L5 · D1 |
+| Aliens | L6 | 60 min · 5 runs · L6 · D4 | 35 min · 5 runs · L6 · D1 | 34 min · 5 runs · L6 · D1 | 26 min · 5 runs · L6 · D1 |
+| Launch Pod | L6 | 60 min · 5 runs · L6 · D4 | 35 min · 5 runs · L6 · D1 | 34 min · 5 runs · L6 · D1 | 26 min · 5 runs · L6 · D1 |
+| Auto Roll | L7 | 77 min · 6 runs · L7 · D5 | 41 min · 6 runs · L7 · D1 | 39 min · 6 runs · L7 · D1 | 35 min · 6 runs · L7 · D1 |
+| Campfires (run) | L9 | 112 min · 8 runs · L9 · D7 | 58 min · 8 runs · L9 · D1 | 56 min · 8 runs · L9 · D1 | 50 min · 8 runs · L9 · D1 |
+| Alien Arcade (run) | L14 | 197 min · 13 runs · L14 · D12 | 109 min · 13 runs · L14 · D2 | 98 min · 15 runs · L14 · D1 | 89 min · 13 runs · L14 · D2 |
+| City | L15 | 214 min · 14 runs · L15 · D13 | 127 min · 16 runs · L15 · D2 | 114 min · 17 runs · L15 · D1 | 97 min · 14 runs · L15 · D2 |
+| Laboratory | L0 | – | 1461 min · 150 runs · L32 · D20 | 2310 min · 258 runs · L34 · D12 | 424 min · 49 runs · L26 · D7 |
+| Heroes | L18 | 269 min · 17 runs · L18 · D16 | 165 min · 19 runs · L18 · D3 | 241 min · 33 runs · L18 · D2 | 127 min · 17 runs · L18 · D2 |
+| Grain Farm | L0 | 222 min · 15 runs · L15 · D13 | 135 min · 17 runs · L15 · D2 | 142 min · 21 runs · L16 · D1 | 103 min · 16 runs · L15 · D2 |
+| Ore Mine | L0 | 222 min · 15 runs · L15 · D13 | 134 min · 17 runs · L15 · D2 | 138 min · 20 runs · L16 · D1 | 103 min · 16 runs · L15 · D2 |
+| Ice Package | L24 | 427 min · 25 runs · L24 · D24 | 520 min · 54 runs · L24 · D8 | 900 min · 109 runs · L24 · D5 | 318 min · 38 runs · L24 · D5 |
+| Mounts | L26 | 485 min · 28 runs · L26 · D27 | 710 min · 74 runs · L26 · D10 | 1222 min · 136 runs · L26 · D7 | 402 min · 47 runs · L26 · D6 |
+| Runes | L28 | – | 865 min · 88 runs · L28 · D12 | 1868 min · 208 runs · L28 · D10 | 638 min · 72 runs · L28 · D9 |
+| Funds | L30 | – | 1119 min · 110 runs · L30 · D16 | 1911 min · 240 runs · L30 · D10 | 673 min · 74 runs · L30 · D10 |
+| Arena | L32 | – | 1146 min · 112 runs · L32 · D16 | 2365 min · 313 runs · L32 · D12 | 749 min · 83 runs · L32 · D11 |
+| Breeding Pen | L0 | 226 min · 15 runs · L15 · D14 | 705 min · 74 runs · L24 · D10 | 521 min · 69 runs · L20 · D3 | 291 min · 34 runs · L22 · D5 |
+| Season Pass | L36 | – | 1712 min · 158 runs · L38 · D21 | 3173 min · 460 runs · L36 · D15 | 1064 min · 113 runs · L36 · D15 |
+| Lightning Package | L38 | – | 1712 min · 158 runs · L38 · D23 | 3173 min · 460 runs · L38 · D17 | 1125 min · 118 runs · L40 · D16 |
+| Overcharged Levels | L40 | – | 1988 min · 181 runs · L42 · D27 | 3249 min · 465 runs · L40 · D17 | 1125 min · 118 runs · L40 · D16 |
+| Guilds | L42 | – | 2166 min · 197 runs · L42 · D29 | 3487 min · 465 runs · L42 · D17 | 1165 min · 122 runs · L44 · D16 |
+| Invasions | L44 | – | – | 4317 min · 646 runs · L44 · D20 | 1165 min · 122 runs · L44 · D16 |
+| Burrow | L46 | – | – | 4388 min · 646 runs · L46 · D23 | 1286 min · 128 runs · L48 · D17 |
+| Counter Package | L48 | – | – | 5065 min · 858 runs · L50 · D26 | 1305 min · 128 runs · L48 · D18 |
+| Forge | L50 | – | – | 5346 min · 858 runs · L50 · D28 | 1547 min · 141 runs · L53 · D19 |
+| Dark Side of the Planet | L53 | – | – | – | 1587 min · 141 runs · L53 · D22 |
+| Alien Package | L56 | – | – | – | 1836 min · 150 runs · L59 · D23 |
+| Time Package | L60 | – | – | – | 1790 min · 141 runs · L60 · D24 |
+| Lab research done: Combo Package | – | – | 1503 min · 155 runs · L32 · D21 | 2834 min · 322 runs · L36 · D14 | 782 min · 86 runs · L31 · D11 |
+| Lab research done: Ice Package | – | – | – | – | 1915 min · 158 runs · L59 · D26 |
+| Lab research done: Lightning Package | – | – | – | – | 2018 min · 161 runs · L61 · D27 |
+| Lab research done: Counter Package | – | – | – | – | 2244 min · 169 runs · L62 · D30 |
+| Lab research done: Alien Package | – | – | – | – | 2160 min · 162 runs · L60 · D28 |
 | Lab research done: Time Package | – | – | – | – | – |
 
 ## Novelty gaps (played minutes; median of seeds)
@@ -63,17 +66,17 @@ New things = feature unlocks (meta and run content). Longest gap = the longest s
 
 | Profile | new in first 30 min | new in first 60 min | new in first 120 min | new in first 180 min | longest gap, first 60 min | longest gap, first 120 min | longest gap, first 180 min | median gap, first 180 min |
 |---|---|---|---|---|---|---|---|---|
-| Casual F2P | 3 | 5 | 8 | 11 | 15 | 30 | 35 | 15 |
-| Active F2P | 5 | 9 | 12 | 15 | 16 | 28 | 46 | 7 |
-| Hardcore F2P | 3 | 8 | 11 | 13 | 21 | 29 | 54 | 7 |
-| Active Whale | 7 | 9 | 15 | 16 | 14 | 20 | 53 | 7 |
+| Casual F2P | 3 | 7 | 9 | 9 | 16 | 34 | 68 | 15 |
+| Active F2P | 5 | 9 | 10 | 14 | 16 | 52 | 52 | 7 |
+| Hardcore F2P | 5 | 9 | 11 | 13 | 17 | 34 | 42 | 6 |
+| Active Whale | 7 | 9 | 14 | 15 | 15 | 40 | 53 | 5 |
 
 Main level at the end of each day (median):
 
 | Profile | day 1 | day 2 | day 3 | day 4 | day 5 | day 7 | day 10 | day 14 | day 21 | day 28 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Casual F2P | 2 | 3 | 4 | 5 | 6 | 8 | 11 | 15 | 22 | 27 |
-| Active F2P | 9 | 15 | 18 | 20 | 21 | 24 | 25 | 30 | 37 | 43 |
-| Hardcore F2P | 16 | 18 | 20 | 22 | 24 | 26 | 29 | 35 | 43 | 48 |
-| Active Whale | 10 | 18 | 22 | 23 | 25 | 27 | 31 | 43 | 53 | 58 |
+| Casual F2P | 2 | 3 | 5 | 6 | 7 | 9 | 12 | 16 | 21 | 26 |
+| Active F2P | 9 | 15 | 19 | 20 | 22 | 23 | 26 | 28 | 37 | 41 |
+| Hardcore F2P | 16 | 19 | 21 | 23 | 24 | 27 | 30 | 35 | 44 | 50 |
+| Active Whale | 10 | 19 | 21 | 23 | 25 | 26 | 31 | 33 | 52 | 61 |
 

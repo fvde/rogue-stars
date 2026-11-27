@@ -173,7 +173,7 @@ namespace RogueStars.Client.Screens
         /// <summary>"?": the run content and the modes introduced level by level (GDD §16).</summary>
         public override string[] IntroFeatures => new[]
         {
-            Features.RunShop, Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire, Features.RunSignatures,
+            Features.RunSignatures, Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire,
             Features.RunMinigames, Features.Overcharged, Features.Burrow, Features.DarkSide,
         };
 

@@ -186,14 +186,14 @@ namespace RogueStars.Client.Tests
         [Test]
         public void AutoMode_WaitsForContinue_OnTheResultScreen_ThenRollsOn()
         {
-            var screen = EventOnScreen("campfire");
+            var screen = EventOnScreen("abandoned_cache");
             screen.StartAuto();
-            Assert.That(screen.AutoPaused, Is.True, "a campfire is a player decision");
+            Assert.That(screen.AutoPaused, Is.True, "an event is a player decision");
             S.Run.Active.WormHp = S.Run.Active.WormMaxHp / 2;
-            Assert.That(_f.Service.ExecuteNow(new RunChooseEventOption { Index = 0 }).Ok, Is.True);
+            Assert.That(_f.Service.ExecuteNow(new RunChooseEventOption { Index = 0 }).Ok, Is.True); // a gamble: its sheet
             screen.Rebuild();
             Assert.That(screen.OutcomeOpen, Is.True);
-            Assert.That(Texts(FindNamed(_f.App.ModalLayer, "Modal:Outcome")), Does.Contain("CAMPFIRE RESULT"));
+            Assert.That(Texts(FindNamed(_f.App.ModalLayer, "Modal:Outcome")), Does.Contain("EVENT RESULT"));
             long rolls = S.Counter("run_rolls");
             for (int i = 0; i < 30; i++) screen.Frame(1f);
             Assert.That(screen.OutcomeOpen, Is.True, "the result waits for the player's tap (auto only rolls)");

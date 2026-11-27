@@ -18,6 +18,47 @@ namespace RogueStars.Rules.Systems
             ctx.Emit("run_outcome", outcome.Source, outcome.EventId ?? "", outcome.Lines.Count.ToString());
         }
 
+        // ---- how a decision's result is shown (event outcome rules, owner 2026-11) ---------------------------------------
+
+        /// <summary>
+        /// True if the outcome holds a random pick the button could not name: a random skill gained (GainSkill), random reward
+        /// chests (Loot) or a random skill lost.
+        /// </summary>
+        public static bool HasRandomPick(EventOutcome oc)
+        {
+            if (oc == null) return false;
+            foreach (var fx in oc.Effects)
+                if (fx.Kind == RunEffectKind.GainSkill || fx.Kind == RunEffectKind.Loot || fx.Kind == RunEffectKind.LoseRandomSkill) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Sets <see cref="RunOutcome.Show"/> of an event / chest / campfire result: a lost fight → the revive; a gamble or a
+        /// random pick → the sheet (news first); anything else → popups, with a toast when nothing changed.
+        /// </summary>
+        private static void PresentEvent(ActiveRun run, RunOutcome r, EventOutcome oc, bool shielded)
+        {
+            if (run.Phase == RunPhase.Defeated) { r.Show = OutcomeShow.Revive; return; }
+            if (r.Chance || !shielded && HasRandomPick(oc)) { r.Show = OutcomeShow.Sheet; NewsFirst(r); return; }
+            r.Show = OutcomeShow.Popups;
+            if (shielded) r.Toast = "Boon: misfortune avoided";
+            else if (r.Lines.Count == 0) r.Toast = oc == null || oc.Effects.Count == 0 ? oc?.Text ?? "You move on." : "Nothing changed.";
+        }
+
+        /// <summary>A sheet leads with the news (the random skill, the chest contents, a boon's shield); costs and fights follow.</summary>
+        private static void NewsFirst(RunOutcome o)
+        {
+            int Rank(OutcomeLine l) => l.Kind == OutcomeKind.SkillGained || l.Kind == OutcomeKind.SkillLost || l.Kind == OutcomeKind.AccountLoot
+                || l.Kind == OutcomeKind.SkillRoll || l.Kind == OutcomeKind.Avoided ? 0 : l.Kind == OutcomeKind.Battle ? 2 : 1;
+            var sorted = new List<OutcomeLine>(o.Lines);
+            // stable: the diff's order within a rank
+            var keyed = new List<KeyValuePair<int, OutcomeLine>>();
+            for (int i = 0; i < sorted.Count; i++) keyed.Add(new KeyValuePair<int, OutcomeLine>(Rank(sorted[i]) * 1000 + i, sorted[i]));
+            keyed.Sort((a, b) => a.Key.CompareTo(b.Key));
+            o.Lines.Clear();
+            foreach (var kv in keyed) o.Lines.Add(kv.Value);
+        }
+
         /// <summary>Most tile outcomes kept per move (older ones are dropped; the client reads them after every command).</summary>
         private const int MaxTileOutcomes = 64;
 
@@ -58,6 +99,16 @@ namespace RogueStars.Rules.Systems
             private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles, _penalty, _skip;
             private List<string> _skills;
             private Dictionary<string, int> _levels;
+            private double[] _tileBonus;
+
+            /// <summary>Also tracks the board's enemy bonuses ("nearby enemies grow stronger": campfire, treasure pod).</summary>
+            public static Snap WithTiles(ActiveRun r)
+            {
+                var s = Of(r);
+                s._tileBonus = new double[r.Tiles.Count];
+                for (int i = 0; i < r.Tiles.Count; i++) s._tileBonus[i] = r.Tiles[i].BonusPct;
+                return s;
+            }
 
             public static Snap Of(ActiveRun r) => new Snap
             {
@@ -113,6 +164,16 @@ namespace RogueStars.Rules.Systems
                 if (r.Danger != _danger) Add(OutcomeKind.Danger, null, r.Danger - _danger, r.Danger < _danger);
                 if (r.StepPenaltyNext > _penalty) Add(OutcomeKind.StepPenalty, null, r.StepPenaltyNext - _penalty, false);
                 if (r.SkipNegativeEvents < _skip) Add(OutcomeKind.Avoided, null, _skip - r.SkipNegativeEvents, true);
+                if (_tileBonus != null)
+                {
+                    int n = 0; double most = 0;
+                    for (int i = 0; i < _tileBonus.Length && i < r.Tiles.Count; i++)
+                    {
+                        double d = r.Tiles[i].BonusPct - _tileBonus[i];
+                        if (d > 0.05 && !r.Tiles[i].Cleared) { n++; most = Math.Max(most, d); }
+                    }
+                    if (n > 0) Add(OutcomeKind.EnemiesStronger, n.ToString(), Math.Round(most, 1), false);
+                }
             }
         }
     }

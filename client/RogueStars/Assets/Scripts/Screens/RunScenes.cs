@@ -125,7 +125,7 @@ namespace RogueStars.Client.Screens
         // ---- option text: gains and losses ----------------------------------------------------------------------
 
         /// <summary>One line per effect of an option (costs first), each marked good or bad (pure; tested).</summary>
-        public static List<KeyValuePair<bool, string>> EffectLines(EventOption o, ContentDb c)
+        public static List<KeyValuePair<bool, string>> EffectLines(EventOption o, ContentDb c, ActiveRun run = null)
         {
             var lines = new List<KeyValuePair<bool, string>>();
             void Add(bool good, string t) { if (!lines.Exists(l => l.Value == t)) lines.Add(new KeyValuePair<bool, string>(good, t)); }
@@ -154,7 +154,13 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.LoseRandomSkill: Add(false, "Lose a random skill"); break;
                     case RunEffectKind.Loot: { int nl = Math.Max(1, (int)v); Add(true, "+" + nl + " reward chest" + (nl == 1 ? "" : "s")); break; }
                     case RunEffectKind.PendingReward: Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot")); break;
-                    case RunEffectKind.Meter: Add(v < 0, "Boss wakes " + Fmt.Whole(a) + "% " + (v < 0 ? "later" : "sooner")); break;
+                    case RunEffectKind.Meter:
+                    {
+                        // the number the result will show: gains scale with the boss's pace (RunSystem.EventAwakening)
+                        double m = c != null && run != null ? Math.Abs(RunSystem.EventAwakening(c, run, v)) : a;
+                        Add(v < 0, "Boss wakes " + Fmt.Whole(m) + "% " + (v < 0 ? "later" : "sooner"));
+                        break;
+                    }
                     case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
                     case RunEffectKind.BossStatPct: Add(false, "Boss +" + Fmt.Pct(a) + " ATK"); break;
                     case RunEffectKind.Battle: Add(false, "Fight " + (fx.Param != null && fx.Param.StartsWith("elite") ? "an elite" : "a foe")); break;
@@ -191,7 +197,7 @@ namespace RogueStars.Client.Screens
         /// An option's outcome text: its effect lines (gains green, losses red), or for a gamble (several outcomes) its own
         /// description with the chances in gold and the rest of its numbers by clause (pure; tested).
         /// </summary>
-        public static string OutcomeText(EventOption o, ContentDb c)
+        public static string OutcomeText(EventOption o, ContentDb c, ActiveRun run = null)
         {
             if (o == null) return "";
             if (o.Outcomes.Count > 1)
@@ -205,7 +211,7 @@ namespace RogueStars.Client.Screens
                 {
                     var one = new EventOption { Text = o.Text };
                     one.Outcomes.Add(oc);
-                    var oneLines = EffectLines(one, c);
+                    var oneLines = EffectLines(one, c, run);
                     if (sb.Length > 0) sb.Append('\n');
                     sb.Append("<color=#").Append(gold).Append('>').Append(total > 0 ? Fmt.Pct(Math.Round(100 * oc.Weight / total)) : "?").Append(":</color> ");
                     var parts = new List<string>();
@@ -214,7 +220,7 @@ namespace RogueStars.Client.Screens
                 }
                 return sb.ToString();
             }
-            var lines = EffectLines(o, c);
+            var lines = EffectLines(o, c, run);
             if (lines.Count == 0) return "Nothing happens";
             return Colored(lines);
         }
@@ -650,9 +656,9 @@ namespace RogueStars.Client.Screens
         }
 
         /// <summary>The vendor card's two halves from an option: gains (blessing) and costs (curse); a decline reads as a quiet card.</summary>
-        public static void Halves(EventOption o, ContentDb c, out string blessing, out string curse)
+        public static void Halves(EventOption o, ContentDb c, out string blessing, out string curse, ActiveRun run = null)
         {
-            var lines = EffectLines(o, c);
+            var lines = EffectLines(o, c, run);
             var good = lines.FindAll(l => l.Key);
             var bad = lines.FindAll(l => !l.Key);
             blessing = good.Count > 0 ? Colored(good) : "Nothing changes";

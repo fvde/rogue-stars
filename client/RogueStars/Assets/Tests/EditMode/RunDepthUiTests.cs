@@ -102,8 +102,9 @@ namespace RogueStars.Client.Tests
             var screen = Open();
             var chip = FindNamed(screen.Root, "SkillCount");
             Assert.That(chip, Is.Not.Null);
-            Assert.That(chip.GetComponent<Text>().text, Is.EqualTo("3"), "the skills book's badge: the signature + 2");
-            Assert.That(screen.HudText, Does.Contain("SKILLS 3"));
+            int n = RunSystem.Signatures(run).Count + 2; // level 1 has no signature (the pick is the second unlock)
+            Assert.That(chip.GetComponent<Text>().text, Is.EqualTo(n.ToString()), "the skills book's badge: the signatures + 2");
+            Assert.That(screen.HudText, Does.Contain("SKILLS " + n));
         }
 
         [Test]

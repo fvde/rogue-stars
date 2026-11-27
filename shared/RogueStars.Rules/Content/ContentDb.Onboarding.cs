@@ -231,7 +231,8 @@ namespace RogueStars.Rules.Content
             F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones in the Shop: your first 10× Parts pull is free.");
             // Daily Quests are no feature (owner, 2026-11-26): no unlock moment, intro or gift. The hub shows their button once Parts
             // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button and the Shop), see HubLayout.
-            R(Features.RunShop, "Shops", Campaign.ShopsFromLevel - 1, "Shops on the board: spend run coins on skills and boosts.");
+            // Shops stand on the board from the first run (owner, 2026-11-27): no unlock. Signatures are the second unlock, in their slot.
+            R(Features.RunSignatures, "Signatures", Campaign.SignatureChoiceFromLevel - 1, "Every run now starts with a signature: pick one of three and collect its synergy to awaken it.");
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "Two minibosses guard the path. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
@@ -242,7 +243,6 @@ namespace RogueStars.Rules.Content
             squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
             R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
-            R(Features.RunSignatures, "Signature Awakening", Campaign.SignatureChoiceFromLevel - 1, "Collect skills of your signature's synergy to awaken it.");
             // The Shop's offers (Offers, Diamonds, Passes, Items, Ads, the daily gift) are no feature (owner, 2026-11-27): there from the
             // start, no unlock moment, intro or teaser entry. Only its pull sections wait for Parts / Aliens / the City.
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
@@ -330,10 +330,6 @@ namespace RogueStars.Rules.Content
                 "Put a part in a slot. Every part adds stats.", "part_equip", Slide,
                 "Rarer parts add skills to every run.", "part_rare", Bounce,
                 "Pull parts in the Shop. First 10× is free.", "signal", Spin);
-            I(Features.RunShop,
-                "Shops now stand on the board.", "shop_tile", Bounce,
-                "Land on one to spend your run coins.", "coins", Count,
-                "Buy skills and boosts for this run.", "shop_buy", Tap);
             I(Features.WormLevel,
                 "Feed Biomass to your worm to level it up.", "biomass", Count,
                 "Every level adds HP and attack.", "worm_up", Bounce,
@@ -359,7 +355,7 @@ namespace RogueStars.Rules.Content
                 "Campfires now burn on the board.", "campfire", Pulse,
                 "Rest to heal, or train a skill.", "campfire_choice", Tap);
             I(Features.RunSignatures,
-                "Every run starts with a signature: one of three.", "signature_pick", Tap,
+                "Every run now starts with a signature pick.", "signature_pick", Tap,
                 "Collect skills of its kind to awaken it.", "signature_awake", Fill,
                 "Awake, its effect grows.", "signature", Pulse);
             I(Features.Laboratory,

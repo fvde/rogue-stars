@@ -207,6 +207,50 @@ namespace RogueStars.Client.UiKit
             return rt;
         }
 
+        /// <summary>How long a toast stays readable (then it fades in ToastFadeSeconds).</summary>
+        public const float ToastSeconds = 1.9f, ToastFadeSeconds = 0.35f;
+
+        /// <summary>
+        /// A one-line toast (top-left anchored <paramref name="pos"/> = its centre): a dark pill with the text that pops in,
+        /// holds for <see cref="ToastSeconds"/> and fades. In skip mode it stays (tests and screenshots read it).
+        /// </summary>
+        public static RectTransform Toast(RectTransform parent, Vector2 pos, string text, float maxWidth = 900)
+        {
+            var rt = Ui.Rect(parent, "Toast");
+            rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            var bg = UiShapes.Round(rt.gameObject.AddComponent<Image>(), 44);
+            bg.color = new Color(0.07f, 0.05f, 0.12f, 0.9f);
+            bg.raycastTarget = false;
+            UiShapes.Outline(rt, new Color(1, 1, 1, 0.55f), 44, 4);
+            var fit = rt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            fit.padding = new RectOffset(40, 40, 18, 18);
+            fit.childAlignment = TextAnchor.MiddleCenter;
+            fit.childControlWidth = true; fit.childControlHeight = true;
+            fit.childForceExpandWidth = false;
+            var csf = rt.gameObject.AddComponent<ContentSizeFitter>();
+            csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var t = Ui.Display(rt, text, 40, Color.white, TextAnchor.MiddleCenter, "Text");
+            t.raycastTarget = false;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var le = t.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth = Mathf.Min(maxWidth - 80, Mathf.Max(200, t.preferredWidth));
+            t.gameObject.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.6f);
+            var group = rt.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            if (Skip) return rt;
+            float total = ToastSeconds + ToastFadeSeconds;
+            UiTweens.Play(rt.gameObject, "toast", total, k =>
+            {
+                float at = k * total;
+                rt.localScale = Vector3.one * (at < 0.15f ? Mathf.Lerp(0.85f, 1f, at / 0.15f) : 1f);
+                group.alpha = at < 0.15f ? at / 0.15f : at < ToastSeconds ? 1 : 1 - (at - ToastSeconds) / ToastFadeSeconds;
+            }, () => { if (rt != null) UnityEngine.Object.Destroy(rt.gameObject); });
+            return rt;
+        }
+
         /// <summary>
         /// Particles from <paramref name="from"/>: coins flying out and arcing towards <paramref name="to"/> (supply), or
         /// sparks rising (heal, buff). Cosmetic only; nothing is created in skip mode.

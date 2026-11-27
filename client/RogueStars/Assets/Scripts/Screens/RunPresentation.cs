@@ -293,8 +293,26 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + Fmt.Whole(a), Theme.Warn, PopupKind.Text);
                 case OutcomeKind.CoinBonus: return new LandingPopup("+" + Fmt.Whole(a) + " " + (l.Id ?? "bonus"), Theme.Gold, PopupKind.Coins); // the quest coin bonus
                 case OutcomeKind.QuestStep: return new LandingPopup(l.Good ? "Story moves on!" : "The story waits", l.Good ? Theme.Gold : Theme.TextDim, PopupKind.Text);
+                case OutcomeKind.EnemiesStronger: return new LandingPopup("Enemies +" + Fmt.Pct(a) + " stronger", Theme.Bad, PopupKind.Text);
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
+        }
+
+        /// <summary>
+        /// The popups of a decision result that flies in (RunOutcome.Show = Popups): one per line the board would show, minus
+        /// the story step (the toast carries it) and the fight (its playback was the reveal) (pure; tested).
+        /// </summary>
+        public static List<LandingPopup> FlyIn(RunOutcome o, ContentDb c)
+        {
+            var list = new List<LandingPopup>();
+            if (o == null) return list;
+            foreach (var l in o.Lines)
+            {
+                if (l.Kind == OutcomeKind.QuestStep && o.Toast != null) continue;
+                var p = FromLine(l, c);
+                if (p.HasValue) list.Add(p.Value);
+            }
+            return list;
         }
 
         /// <summary>

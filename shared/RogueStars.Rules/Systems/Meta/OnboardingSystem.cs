@@ -220,15 +220,13 @@ namespace RogueStars.Rules.Systems
         public const string Runes = "runes";
 
         // Level unlocks (content version 2): run content, the auto roll and the Laboratory's signature packages.
-        /// <summary>Run content: shop tiles on the board (from the level after the gate).</summary>
-        public const string RunShop = "run_shop";
         /// <summary>Run content: the miniboss lair and the awakening clock's minibosses (Mythic choices).</summary>
         public const string RunMiniboss = "run_miniboss";
         /// <summary>Run content: two dice (portal levels 6–10) and forks in the path.</summary>
         public const string RunTwoDice = "run_two_dice";
         /// <summary>Run content: campfires (fixed tile and pool tile).</summary>
         public const string RunCampfire = "run_campfire";
-        /// <summary>Run content: the run-start signature choice (before it the first offered signature is given).</summary>
+        /// <summary>Run content: the run-start signature choice (CampaignDef.SignatureChoiceFromLevel; before it runs have no signature).</summary>
         public const string RunSignatures = "run_signatures";
         /// <summary>Run content: Alien Arcade GAME tiles (MinigameTuning.MinMainLevel).</summary>
         public const string RunMinigames = "run_minigames";

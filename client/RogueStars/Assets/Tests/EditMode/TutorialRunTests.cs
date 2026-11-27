@@ -104,29 +104,23 @@ namespace RogueStars.Client.Tests
         }
 
         /// <summary>
-        /// Level 1 from the client: the run starts and the signature pick shows on its board before the first roll (playtest
-        /// 0.1.325: every run, the first one too; run UI glitches #24: on the run map), its first card picks.
+        /// Level 1 from the client: the run starts straight on its board, no signature pick (owner, 2026-11-27: the pick is the
+        /// second unlock, the first levels' runs have no signature).
         /// </summary>
         private void StartFirstRun()
         {
             var level = C.MainLevel(1);
             SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, _ => { });
             Assert.That(S.Run.Active, Is.Not.Null);
-            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Signature), "the first roll waits for the signature pick");
-            var screen = Open();
-            Assert.That(screen.CoachMark, Is.Null, "no roll coach mark over the pick");
-            var card = _f.App.ModalLayer.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.StartsWith("Button:Signature:"));
-            Assert.That(card, Is.Not.Null, "three signature cards");
-            card.onClick.Invoke();
-            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.AwaitRoll));
-            _f.App.Router.Pop();
+            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.AwaitRoll), "no signature pick before its unlock");
+            Assert.That(_f.App.ModalLayer.GetComponentsInChildren<Button>(true).Any(b => b.name.StartsWith("Button:Signature:")), Is.False);
         }
 
         [Test]
-        public void FirstRun_PicksItsSignature_NoAutoRoll_UntilItsUnlock()
+        public void FirstRun_HasNoSignature_NoAutoRoll_UntilItsUnlock()
         {
             StartFirstRun();
-            Assert.That(RunSystem.Signatures(S.Run.Active).Count, Is.EqualTo(1));
+            Assert.That(RunSystem.Signatures(S.Run.Active), Is.Empty);
             var screen = Open();
             var roll = FindNamed(screen.Root, "RollButton");
             Assert.That(roll.GetComponentInChildren<Text>().text, Is.EqualTo("Tap to roll"));

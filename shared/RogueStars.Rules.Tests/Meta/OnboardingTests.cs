@@ -21,9 +21,9 @@ public class OnboardingTests
     /// </summary>
     public static readonly (string id, int level)[] Schedule =
     {
-        (Features.Parts, 1), (Features.RunShop, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
+        (Features.Parts, 1), (Features.RunSignatures, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
         (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9),
-        (Features.RunSignatures, 11), (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
+        (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
         (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
         (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
         (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.PackageCounter, 48), (Features.Forge, 50),
@@ -90,7 +90,7 @@ public class OnboardingTests
         s.Counters[Requirements.MainLevelCounter] = 1;
         Assert.Equal(new[] { Features.Parts }, Tick(e, ref s, TestHelpers.T0 + D)); // level 1: Parts only, one moment
         Assert.Equal(new[] { Features.Parts }, OnboardingSystem.PendingCelebrations(s, e.Content));
-        Assert.Equal(new[] { Features.RunShop }, Features.Next(s, e.Content, TestHelpers.T0 + D)!.Ids);
+        Assert.Equal(new[] { Features.RunSignatures }, Features.Next(s, e.Content, TestHelpers.T0 + D)!.Ids);
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public class OnboardingTests
         Assert.NotNull(AlienSystem.Owned(s, "alien_blorp")); // unlock grant
         Assert.True(CitySystem.IsBuilt(CitySystem.LaunchPod(s))); // the crash site's Launch Pod
         Assert.Contains(Features.Aliens, OnboardingSystem.PendingCelebrations(s, e.Content));
-        Assert.Contains(Features.RunShop, OnboardingSystem.PendingCelebrations(s, e.Content)); // a new player sees every intro
+        Assert.Contains(Features.RunSignatures, OnboardingSystem.PendingCelebrations(s, e.Content)); // a new player sees every intro
 
         long t = TestHelpers.T0;
         long dia = Bal(s, Currencies.Diamonds);
@@ -310,7 +310,7 @@ public class OnboardingTests
         foreach (var id in new[] { Features.Parts, Features.BiomassFarm, Features.WormLevel, Features.Arena })
             Assert.Equal(old, s.Onboarding.Unlocked[id]);
         // features the save's content already had (run content, auto roll): recorded and celebrated at once, no unlock moment
-        foreach (var id in new[] { Features.RunShop, Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire,
+        foreach (var id in new[] { Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire,
                      Features.RunSignatures, Features.RunMinigames })
         {
             Assert.True(Features.IsUnlocked(s, e.Content, id), id);

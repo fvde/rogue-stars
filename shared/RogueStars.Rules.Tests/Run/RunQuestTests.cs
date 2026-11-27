@@ -549,4 +549,109 @@ public class RunQuestTests(ITestOutputHelper output)
         Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
         Assert.Equal("m05a", RunSystem.QuestProgressOf(s, Q)!.Node); // the story node's first option
     }
+
+    // ---- how results show (event outcome rules) -------------------------------------------------------------------------
+
+    [Fact]
+    public void Show_StoryChoice_IsAToast_WithTheJournalLineAndChapter()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m04");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Popups, o.Show);
+        Assert.Equal("Chapter 5: We set off after the brightest star in the sky.", o.Toast);
+    }
+
+    [Fact]
+    public void Show_NotNow_IsAToast_MothwickWillAskAgain()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m05a");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Wait) }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Popups, o.Show);
+        Assert.Equal("Mothwick will ask again next time.", o.Toast);
+    }
+
+    [Fact]
+    public void Show_FixedPrice_FliesIn_WithTheJournalToast()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m05a");
+        Meet(e, ref s, run => run.Coins = 150);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Popups, o.Show);
+        Assert.StartsWith("Chapter 6: ", o.Toast);
+        Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Coins && l.Amount == -100);
+    }
+
+    [Fact]
+    public void Show_RandomSkillPrice_IsASheet_LedByTheLostSkill()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m14");
+        Meet(e, ref s, run => run.Skills.Add(SkillOfTier(e.Content, Rarity.Legendary)));
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Sheet, o.Show);
+        Assert.Equal(OutcomeKind.SkillLost, o.Lines[0].Kind);
+    }
+
+    [Fact]
+    public void Show_WonFight_FliesIn_LostFight_GoesToTheRevive()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m03");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = Option(Node(e, s), QuestOptionAction.Fight) }).Ok);
+        var won = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Popups, won.Show);
+        Assert.StartsWith("Chapter 4: ", won.Toast);
+        Assert.Contains(won.Lines, l => l.Kind == OutcomeKind.Battle && l.Id == "won");
+
+        var we = Weak();
+        var ws = TestHelpers.NewPlayer(we, 2);
+        At(ws, "m03");
+        Meet(we, ref ws);
+        Assert.True(RunTestKit.Exec(we, ref ws, new RunQuestChoose { Index = Option(Node(we, ws), QuestOptionAction.Fight) }).Ok);
+        var lost = ws.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Revive, lost.Show);
+        Assert.StartsWith("Beaten! Mothwick will wait", lost.Text);
+    }
+
+    [Fact]
+    public void Show_FinalChapter_IsASheet_TheStoryIsComplete()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m30a");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.True(RunSystem.QuestProgressOf(s, Q)!.Completed);
+        Assert.Equal(OutcomeShow.Sheet, o.Show);
+        Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.QuestStep && l.Id == "complete");
+    }
+
+    [Fact]
+    public void Show_MidChainBoon_FliesIn()
+    {
+        var e = Engine();
+        var s = TestHelpers.NewPlayer(e, 1);
+        At(s, "m08");
+        Meet(e, ref s);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunQuestChoose { Index = 0 }).Ok);
+        var o = s.Run.Active!.LastOutcome!;
+        Assert.Equal(OutcomeShow.Popups, o.Show);
+        Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.QuestBoon);
+    }
 }

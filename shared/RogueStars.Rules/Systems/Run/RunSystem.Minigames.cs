@@ -92,6 +92,9 @@ namespace RogueStars.Rules.Systems
 
             before.Diff(c, run, outcome.Lines);
             if (draft) outcome.Lines.Insert(0, new OutcomeLine(OutcomeKind.SkillRoll, BestOdds(reward).ToString(), run.DraftOffer.Count, true));
+            // the host showed the medal: coins fly in under it, a skill roll opens the draft straight away
+            outcome.Show = OutcomeShow.Popups;
+            if (outcome.Lines.Count == 0) outcome.Toast = outcome.Text;
             PublishOutcome(ctx, run, outcome);
             if (draft)
             {

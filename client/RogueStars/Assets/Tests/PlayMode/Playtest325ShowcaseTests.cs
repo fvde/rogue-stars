@@ -55,9 +55,11 @@ namespace RogueStars.Client.PlayTests
             var c = _svc.Content;
             RunScreen.BoardSpeed = 1;
 
-            // 1. a brand-new player's first run starts with the signature pick (3 cards)
-            var l1 = c.MainLevel(1);
-            Assert.That(Features.IsUnlocked(_svc.State, c, Features.RunSignatures), Is.False);
+            // 1. once the signature pick is unlocked (the second unlock: level 3's runs on), every run starts with it (3 cards)
+            int from = c.Campaign.SignatureChoiceFromLevel;
+            _svc.State.Counters[Requirements.MainLevelCounter] = from - 1;
+            for (int n = 1; n < from; n++) _svc.State.Run.Levels[c.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+            var l1 = c.MainLevel(from);
             _app.Open("portals");
             yield return Wait(0.6f);
             bool started = false;

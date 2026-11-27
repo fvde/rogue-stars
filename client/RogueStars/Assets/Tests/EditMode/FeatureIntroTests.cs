@@ -140,10 +140,10 @@ namespace RogueStars.Client.Tests
             var portals = _f.App.Router.Current;
             Assert.That(portals.HelpButton, Is.Not.Null);
             Assert.That(portals.HelpButton.gameObject.activeSelf, Is.False, "level 0: no run feature to explain yet");
-            Unlock(Features.RunShop);
+            Unlock(Features.RunSignatures);
             portals.Rebuild();
             Assert.That(portals.HelpButton.gameObject.activeSelf, Is.True);
-            Assert.That(portals.UnlockedIntroFeatures(), Is.EqualTo(new[] { Features.RunShop }));
+            Assert.That(portals.UnlockedIntroFeatures(), Is.EqualTo(new[] { Features.RunSignatures }));
         }
     }
 }

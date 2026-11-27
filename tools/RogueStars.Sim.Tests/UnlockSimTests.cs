@@ -55,9 +55,9 @@ public class UnlockSimTests
             .ToList();
         double gap60 = gaps.Select(g => g.g60).OrderBy(g => g).ElementAt(2), gap120 = gaps.Select(g => g.g120).OrderBy(g => g).ElementAt(2);
         Assert.True(gap60 <= 25, $"{profile}: {gap60:0} min without anything new in the first hour (median of 5 seeds)");
-        // 46 (was 40): the 20% shorter runs (owner 2026-11-27) moved Hardcore's seeds 1–5 median from 39 to 45 min; over
-        // seeds 1–10 it is 45 before and 46 after (the level-11–14 wall's seed noise, City still comes at ~2.5 h), so the
-        // bound now sits at the 10-seed median instead of below it.
-        Assert.True(gap120 <= 46, $"{profile}: {gap120:0} min without anything new in the first two hours (median of 5 seeds)");
+        // 40 → 55 (owner, 2026-11-27): shops are always there and the signature pick took their level-2 slot, so level 11's slot
+        // (signatures before) is empty: the stretch from Campfires (level 9) to the Alien Arcade (level 14) has no unlock now
+        // (Active 52, Hardcore 45 min, before the 20% shorter runs: those moved Hardcore by ~+1 min over 10 seeds). Owner to decide whether to fill it; the schedule is kept as asked.
+        Assert.True(gap120 <= 55, $"{profile}: {gap120:0} min without anything new in the first two hours (median of 5 seeds)");
     }
 }
