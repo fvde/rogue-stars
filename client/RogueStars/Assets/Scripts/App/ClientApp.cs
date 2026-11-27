@@ -34,6 +34,8 @@ namespace RogueStars.Client.App
         /// <summary>Tutorial coach marks (CoachMarks): above the modals and the feedback layer, never blocking input.</summary>
         public RectTransform CoachLayer { get; private set; }
         public ResourceBar Bar { get; private set; }
+        /// <summary>Pressed / busy look of buttons (UiPress, on the canvas root).</summary>
+        public UiPress Press { get; private set; }
         public ClientSettings Settings { get; private set; }
         /// <summary>Store / ads / product-set configuration of this build (Resources/PlatformConfig).</summary>
         public PlatformConfig Platform { get; private set; }
@@ -92,6 +94,9 @@ namespace RogueStars.Client.App
             var feedbackLayer = Ui.Stretch(Ui.Rect(safe, "FeedbackLayer"));
             app.Feedback = new GameFeedback(app, feedbackLayer);
             app.CoachLayer = Ui.Stretch(Ui.Rect(safe, "CoachLayer"));
+            // every button presses on pointer down and shows busy while its command is in flight
+            app.Press = canvasRoot.gameObject.AddComponent<UiPress>();
+            app.Press.InFlight = () => app.Session.InFlight;
 
             var platform = PlatformConfig.LoadDefault();
             app.Platform = platform;

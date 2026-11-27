@@ -26,11 +26,11 @@ namespace RogueStars.Client.UiKit
         /// Board timings at speed ×1 (the speed chip divides them: ×2, ×3). Mirrored by the run-time model
         /// (RogueStars.Sim RunClock: DiceSec / AutoDiceSec, HopSec / AutoHopSec) — keep them in step.
         /// </summary>
-        public const float DiceRollSeconds = 1.6f, AutoDiceRollSeconds = 0.7f, HopStepSeconds = 0.38f, AutoHopStepSeconds = 0.23f;
+        public const float DiceRollSeconds = 0.9f, AutoDiceRollSeconds = 0.7f, HopStepSeconds = 0.38f, AutoHopStepSeconds = 0.23f;
         /// <summary>The landing pop of a tile (seconds at ×1).</summary>
         public const float LandPopSeconds = 0.7f;
 
-        /// <summary>Length of the dice roll: ~1.6 s by hand, shorter in auto mode, 0 in skip mode.</summary>
+        /// <summary>Length of the dice roll: ~0.9 s by hand, shorter in auto mode, 0 in skip mode.</summary>
         public static float DiceSeconds(bool auto) => Skip ? 0 : auto ? AutoDiceRollSeconds : DiceRollSeconds;
 
         /// <summary>Share of the roll the dice tumble before they settle on their value.</summary>

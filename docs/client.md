@@ -326,10 +326,15 @@ design A (the board, tray and footer described in *Screens* above are superseded
   stays within `MinZoom`..`MaxZoom` (0.8–1.9 × default), the centre within the drawn path (`WorldBoard.PathBounds`) plus
   1.5 units. The view stays where the player left it until a **roll or a move**, which eases position and zoom back to
   the follow framing (smoothstep, `ReturnSeconds` 0.4 s; `RunScreen.MoveView` / `ReturnCamera`).
-- **Board speed** (×1, the speed chip divides): dice 1.6 s by hand / 0.7 s in auto (`RunFx.DiceRollSeconds`), a rest
-  beat 0.4 / 0.18 s, 0.38 s per hop / 0.23 s in auto (`HopStepSeconds`), the landing pop 0.7 s (`LandPopSeconds`), a
-  beat of 0.85 / 0.45 s before a fight or a decision covers the board; ~1.6× the earlier ×1 by hand, ~1.4× in auto.
-  RogueStars.Sim's `RunClock` mirrors the dice and hop times.
+- **Board speed** (×1, the speed chip divides): dice 0.9 s by hand / 0.7 s in auto (`RunFx.DiceRollSeconds`), a rest
+  beat 0.2 / 0.18 s, 0.38 s per hop / 0.23 s in auto (`HopStepSeconds`), the landing pop 0.7 s (`LandPopSeconds`), a
+  beat of 0.4 / 0.3 s before a fight or a decision covers the board (`RunScreen.PreDecisionSeconds`).
+  RogueStars.Sim's `RunClock` mirrors the dice and hop times. The dice start tumbling on the tap (pre-roll, before
+  the server answers) and land on the answer's values, the whole roll staying ~0.9 s. A tap on the dice while the
+  board animates finishes everything up to the fight / decision at once (`UiSequence.FlushUntil(SkipMark)`); a tap
+  while the roll is on its way does nothing.
+- **Tap feedback** (`UiKit.UiPress` on the canvas root): every button presses (scale 0.94) on pointer down; a tap that
+  sends a command keeps it pressed and dimmed (taps ignored) while `GameSession.InFlight` > 0.
 - **HUD** (`Screens/SliceHud`): EXP hexagon + level pill with the XP fill, HP pill (heart), ATK (sword) and DEF (shield)
   pills (thick dark outline, inner lip and gloss), cog = pause (pending loot is in the pause sheet), coin chip; the boss
   rail down the left edge (a thick capsule, boss skull, a framed skull pip per clock miniboss, a gradient fill blue → the
