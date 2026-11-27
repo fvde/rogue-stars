@@ -4,6 +4,13 @@ You are the dedicated art session for Rogue Stars (repo `~/Projects/rogue-stars`
 
 Python for every art tool: `PY="arch -arm64 $HOME/AI/ComfyUI/.venv/bin/python"` (run from the repo root).
 
+## 0. Taking over (do this first, in order)
+
+1. **Check your tools before anything else.** You need `Artifact` (publish/read) and `ArtifactComments` (read/reply/resolve/watch); load them via ToolSearch if they are deferred (`select:Artifact,ArtifactComments`). Run `Artifact` `action: "read"` on the page URL below. If either tool is missing or the read fails, STOP and tell the owner in one line ("art handover failed: no Artifact tool"). Do not claim the job. The last handover failed exactly here.
+2. Watch the page: `ArtifactComments` `action: "watch"` with the URL (auto-replies arm only when the owner pastes the link in his own message; ask him to paste it once). Then `action: "read"` and act on every open thread (§3).
+3. Start your own loop: an hourly check (§2) and a 3-hourly page update with a short summary message to the owner (counts per section, failures, retries, landed edits). The owner expects that message every 3 hours, also overnight.
+4. Tell the owner in one line that you have taken over; the features session stops its art cron then.
+
 ## 1. The pipeline (owner-defined; it is also described at the top of the review page)
 
 1. Queue order: `tools/art/night.sh` ORDER, package by package, subject by subject. Never reorder without the owner.
@@ -60,9 +67,22 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
 
 When a batch of approved art is ready (e.g. bosses, status icons, summon icons, edited enemies, ships, null_shade, portal), tell the owner / the features session; imports run as a Unity batchmode agent on a branch (see git history "Art import 2" for the pattern: `ArtCatalog`, `ArtImporter`, `tools/art/slice-picks.json`).
 
-## 6. Current open items (2026-11-26 evening)
+## 6. Things learned the hard way (2026-11-27)
 
-- Pending owner choices on the page: alien second versions (pick per alien), City buildings, shards icon, portal approved (N s5161).
-- Retries queued: City farms (biomass with produce, grain as a real farm), launch pod, shards, nebulisk/chronoslug alt, hero/mount tickets etc.
-- 23:00 edit queued: luck_gem comic cel-shade look (thread stays open until it lands).
-- Next import batch (not yet in the game): bosses (10), status icons (11), summon icons, null_shade, portal, edited flame enemies, ships, drone, Run Quests character (package `quest-*.json` once the features session adds it).
+- **Check transparency on a coloured background, not the checkerboard.** White pockets between legs and grey ground strips are invisible on the checkerboard of the QC sheet. When in doubt render the processed PNG on magenta (220,40,200) and look. The pipeline (since `9882cb9`) removes small white gaps only when a dark/grey outline rings them (highlights on colour stay), and finds ground shadows that start above the lowest claws.
+- **The `ui` category skips the text/white/shadow audit detectors** (`audit_skip` in `categories.json`): blank plates read as "text", light panel centres are white on purpose, bevels read as shadows. You still look at every UI piece in QC. Do not add `audit_skip` to other categories to get a page published; fix the art instead.
+- **Prompt words are taken literally**: "plum" drew a fruit, "frozen ground" drew a snow mound, "crown" drew halos. Write colours as colours ("dark purple"), never name objects you don't want.
+- **Owner's standing rejections**: halos, crowns, sparkles, clutter, pedestals/stands/bases/ground patches/glow patches, shadow ellipses, faces on non-creatures, text. Icons are ONE simple flat object. Fail these in QC without asking.
+- **Approved-art sweep**: after a pipeline fix, reprocess approved art and compare (`scratchpad` script pattern: process raw (or `~/AI/out/cleaned` version if it exists), compare alpha, before/after sheet on magenta). Land only real fixes; back up to `~/AI/assets-backup`. Game copies of buildings/status icons are trimmed/resized by the importer, so re-run the importer (Unity `-batchmode -executeMethod RogueStars.Client.Editor.ArtImporter.ImportCli`, namespace per `client/RogueStars/Assets/Editor/ArtImporter.cs`) and revert every unrelated file it rewrites.
+
+## 7. Current state and open items (2026-11-27 ~10:00 Berlin)
+
+- **Queue** (`night.sh` ORDER, head): run-icons-tombstone, ui-kit, ui-backdrops, enemies-champions, buildings-redo, summon-icons-redo, status-icons2-redo, slice-markers6, … Generation is running; ComfyUI on 127.0.0.1:8188.
+- **Pipeline state**: pending-qc 7, retry-queued 4 (ui-kit node_hex/icon_back/gem/chip/bottom_tab/ribbon_tail/badge_dot retries, ui-backdrops menu/worm retries, skills ice_permafrost, tombstone s15722).
+- **Waiting on the owner (page)**: UI kit (23 candidates), UI backdrops (4), skill icons v3 (8), tombstone (1, Reward icons). After UI kit approval: an import agent (features session) brings the kit in with sprite names and 9-slice borders from `docs/design/ui-kit.md`.
+- **Tombstone**: once approved, it goes to `client/RogueStars/Assets/Art/Resources/Art/Run/Icons/tombstone.png` (512×512, transparent; loaded by `ArtCatalog.RunIcon("tombstone")`). Tell the features session; the Revive screen uses a drawn fallback until then. Thread c9d6e76d on the Run UI Glitches page closes when it lands.
+- **23:00 cleanup** (`~/AI/out/art-day.sh`, 67 lines in `approved-cleanup.txt`): luck_gem comic cel-shade redraw is queued. When it lands (`pipeline.py land-cleaned`), resolve the art-page thread 10bab78a-2a84-4dc1-806b-f017e9e2a6f5.
+- **Chest halo**: the game's chest PNGs were defringed in the client (Run UI fix #18), but the sources in `~/AI/assets` (Run props: chest_common, chest_mythic, chest_signature, marker chest) still have the white halo. Re-cut them with the current pipeline (§6 sweep pattern) so a future re-import doesn't bring the halo back.
+- **Not in the game yet** (next import batch, features session): skill icons v3 once picked, golden shards, elder_magma (no enemy def), hollow_cantor (art cut off at the edge: needs a redo), chrono_wyrm (no enemy def).
+- **Likely next art asks from the features session**: distinct currency icons for Signals / Schematics / Crates (today all three share one round icon), ambient life + foreground pilot (`docs/art/ambient-life-and-foreground-plan.md`, waiting for the owner's answers).
+- **Stopped subjects** (never generate): miniboss markers (elite art is used), planet eye candy, planet buildings, sidekicks (duplicate of aliens).
