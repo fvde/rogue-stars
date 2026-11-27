@@ -409,6 +409,10 @@
     "currency-icons-redo": [
       "icon",
       "Summon & menu icons"
+    ],
+    "enemies-elites2-redo": [
+      "creature",
+      "Enemies (13 without a sprite)"
     ]
   }
 }
