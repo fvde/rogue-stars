@@ -85,13 +85,14 @@ T = {
 }
 
 STRONG_NEG = "pedestal, base, plinth, platform, stand, ground, floor, shadow, drop shadow, text, letters, multiple objects, frame"
-RETRY_SUFFIX = ", single object, centered, isolated on a plain pure white background, no pedestal, no base, no ground, no shadow, no text"
+# no negated nouns here: Flux draws the nouns it reads ("no crown" drew crowns, "no pedestal" pedestals); they live in STRONG_NEG
+RETRY_SUFFIX = ", single object, centered, floating alone on a plain pure white background"
 REASON_HINTS = [
     (r"pedestal|base|plinth|slab|ground|platform|tile", "floating in the air with nothing underneath"),
-    (r"shadow", "no drop shadow, no cast shadow"),
+    (r"shadow", "floating in the air, flat even lighting"),
     (r"cut off|edge|cropped", "fully visible with a wide empty margin around it, small in the frame"),
     (r"multiple|several|objects", "only one single object, nothing else around it"),
-    (r"text|letter|word", "no letters, no words, no writing"),
+    (r"text|letter|word", "plain blank surfaces"),
     (r"outline", "thick dark outline around the whole object"),
     (r"white area|portal hole|tile", "the inside filled with colour, no white areas, no tile behind it"),
     (r"background", "plain pure white background, nothing else"),

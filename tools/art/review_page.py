@@ -246,7 +246,7 @@ PIPELINE_TEXT = [
     ("Resize", "The clean image is scaled to its category's game size (icons 512 px with a 458 px object, creatures 512 px bottom-aligned at 470 px, markers/props/tiles trimmed at their in-game size)."),
     ("Final check", "Transparent background, no defect left, size correct, not a near-copy of another image of the same subject, not blank, not touching the edge."),
     ("Look check", "Images that pass are looked at by the hourly coordinator (does it match the prompt, does it look right) and passed or failed."),
-    ("One retry", "A failed image is generated once more with a shorter, simpler prompt and stronger 'no pedestal, no base, no ground, no shadow, plain white background, single object' wording and a new seed."),
+    ("One retry", "A failed image is generated once more with a shorter, simpler prompt ('single object, floating alone on a plain white background'), stronger negatives and a new seed."),
     ("Result", "Only images that passed every step appear below as candidates. If the retry fails as well, both attempts are shown in the Failures section with their prompts and reasons; there is no third automatic attempt."),
 ]
 

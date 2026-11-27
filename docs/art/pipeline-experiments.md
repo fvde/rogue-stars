@@ -42,4 +42,15 @@ Caveat: "owner_rejected" also counts candidates archived because another candida
   shapes": Flux takes the nouns literally (same as "plum" and "crown" before). Negatives stay in the negative field.
 - Change: removed that phrase from the skills-v3 and skills-v3-redo suffix. Restarted night.sh.
 - Expect: crown fails in new skills-v3 images 0 (was 8/37); halo/sparkle fails do not rise.
+- Result (18:31, hour 17:31-18:31, measured after QC): crown fails 0 (was 8). 38 generated, 23 reviewable, yield 0.61
+  (17:31 measured before QC showed 0.0; see E4). Halo/sparkle fails 0. Kept.
+
+### E4 (2026-11-27 18:45): no negated nouns in the retry template; measure after QC
+- Loss: 4 of 9 final retry fails this hour were pedestals or ground patches (gamma_burst on a stand, bleed_frenzy and
+  bleed_tearing on pedestals, counter_brace in a ground patch), plus 2 with shadow ellipses. Every retry prompt ends in
+  "no pedestal, no base, no ground, no shadow": the same literal-noun effect as the crowns (E3).
+- Change: `pipeline.py` RETRY_SUFFIX is now ", single object, centered, floating alone on a plain pure white background";
+  the shadow/text hints describe the wanted state instead of negating. Negatives stay in STRONG_NEG. Brief §6 rule added.
+  Measurement: the hourly loop now runs metrics.py AFTER the QC step (17:31 read 0.0 only because nothing was QC'd yet).
+- Expect: base/shadow fails among retries this hour < 2 (was 6 of 9 final fails); retry pass rate up.
 - Result: (next check)

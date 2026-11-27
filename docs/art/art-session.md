@@ -42,7 +42,7 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
    `pkill -f tools/art/night.sh; pkill -f "tools/art/gen.py"; (nohup bash tools/art/night.sh >> ~/AI/out/night-slice.log 2>&1 &)` — only if no `cleanup-now2|mflux-generate` is running.
 2. `qc.py sheet`, look at every pending item, pass/fail.
 3. Rebuild the page (the audit must pass; never use --force), look at the full-page audit sheet `~/AI/out/pipeline/page-audit-1.png` section by section, then publish.
-4. Improvement loop: `python3 tools/art/metrics.py --hours 1 --log`; write the result of the last experiment in `docs/art/pipeline-experiments.md`; then make ONE change aimed at the biggest loss (prompts/negatives, a pipeline check, queue/retry logic, QC rules), log it there with the metric it should move, commit and fast-forward main.
+4. Improvement loop (after the QC step): `python3 tools/art/metrics.py --hours 1 --log`; write the result of the last experiment in `docs/art/pipeline-experiments.md`; then make ONE change aimed at the biggest loss (prompts/negatives, a pipeline check, queue/retry logic, QC rules), log it there with the metric it should move, commit and fast-forward main.
 5. Post a short message in this session: what is AVAILABLE for the owner to review on the page (new candidates per section, what they are) or "nothing new to review". Do not report comment-thread status; pipeline internals in one line at most.
 
 ## 3. Review page and comments
@@ -74,6 +74,7 @@ When a batch of approved art is ready (e.g. bosses, status icons, summon icons, 
 
 - **Check transparency on a coloured background, not the checkerboard.** White pockets between legs and grey ground strips are invisible on the checkerboard of the QC sheet. When in doubt render the processed PNG on magenta (220,40,200) and look. The pipeline (since `9882cb9`) removes small white gaps only when a dark/grey outline rings them (highlights on colour stay), and finds ground shadows that start above the lowest claws.
 - **The `ui` category skips the text/white/shadow audit detectors** (`audit_skip` in `categories.json`): blank plates read as "text", light panel centres are white on purpose, bevels read as shadows. You still look at every UI piece in QC. Do not add `audit_skip` to other categories to get a page published; fix the art instead.
+- **Never write negated nouns in the positive prompt or in a --hint** ("no crown", "no pedestal", "no shadow"): Flux draws the noun. Describe what IS there ("bare head", "floating alone", "plain surfaces"); the unwanted nouns go in the negative field only.
 - **Prompt words are taken literally**: "plum" drew a fruit, "frozen ground" drew a snow mound, "crown" drew halos. Write colours as colours ("dark purple"), never name objects you don't want.
 - **Creature QC on dark and magenta, not only the checkerboard**: the pipeline can leave a small light-grey shadow ellipse beside a foot (elite_stalker_prime, elite_cinder_alpha slipped through and were caught only at import). Look at the dark-background cell of every creature for ground-shadow remnants before passing.
 - **Owner's standing rejections**: halos, crowns, sparkles, clutter, pedestals/stands/bases/ground patches/glow patches, shadow ellipses, faces on non-creatures, text. Icons are ONE simple flat object. Fail these in QC without asking.
