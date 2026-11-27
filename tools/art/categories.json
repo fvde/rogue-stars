@@ -358,6 +358,10 @@
       "icon",
       "Summon & menu icons"
     ],
+    "currency-icons": [
+      "icon",
+      "Summon & menu icons"
+    ],
     "buildings-redo": [
       "building",
       "Buildings (City)"
@@ -373,6 +377,22 @@
     "enemies-champions": [
       "creature",
       "Enemies (13 without a sprite)"
+    ],
+    "ui-kit-redo": [
+      "ui",
+      "UI kit"
+    ],
+    "ui-backdrops-redo": [
+      "fullframe",
+      "UI backdrops"
+    ],
+    "run-icons-tombstone-redo": [
+      "icon",
+      "Reward icons"
+    ],
+    "skills-v3-redo": [
+      "icon",
+      "Skill icons"
     ]
   }
 }

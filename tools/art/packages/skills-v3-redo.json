@@ -1,0 +1,15 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", simple flat game skill icon, one single clear object, very few details, two or three flat colors, thick black outline, no glow, no halo, no sparkles, no crown, no background shapes, centered, isolated on a plain pure white background, no text, no letters, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, words, caption, label, typography, writing, multiple icons, halo, aura, glow, sparkles, crown, ornate, clutter, many details, background, frame, text, hand, fingers",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-skills-v3-redo",
+  "seeds": [
+    6921,
+    6922
+  ],
+  "subjects": {
+    "ice_cold_snap": "a pale blue thermometer with jagged ice spikes growing from its bulb"
+  }
+}

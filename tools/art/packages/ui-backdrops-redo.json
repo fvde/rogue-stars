@@ -1,0 +1,15 @@
+{
+  "name": "pkg-ui-backdrops-redo",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    3221,
+    3222
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", mobile game menu background, full frame, soft and calm so cards on top stay readable, cute cartoon space-worm game style, no text, no characters, no UI elements",
+  "negative": "text, letters, characters, creatures, UI, buttons, frames, busy details, photo, fruit, plum, phone, device, screen, white background",
+  "subjects": {
+    "backdrop_menu": "a dark warm purple space background with a very subtle pattern of tiny faint dots, nothing else"
+  }
+}

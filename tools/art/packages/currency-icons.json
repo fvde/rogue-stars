@@ -1,0 +1,17 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-currency-icons",
+  "seeds": [
+    7101,
+    7102
+  ],
+  "subjects": {
+    "signal": "a small purple satellite dish antenna with three curved purple wave lines coming out of it, bold comic cartoon style with a thick black outline, flat bright colors, hard-edged two-tone cel shading",
+    "schematic": "a rolled-up bright blue blueprint paper sheet with white technical lines on it, bold comic cartoon style with a thick black outline, flat bright colors, hard-edged two-tone cel shading",
+    "crate": "a small sturdy orange metal supply crate with dark grey corner plates, bold comic cartoon style with a thick black outline, flat bright colors, hard-edged two-tone cel shading"
+  }
+}
