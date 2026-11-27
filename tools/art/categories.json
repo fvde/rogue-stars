@@ -417,6 +417,10 @@
     "skills-v3-redo2": [
       "icon",
       "Skill icons"
+    ],
+    "ui-backdrops-redo3": [
+      "fullframe",
+      "UI backdrops"
     ]
   }
 }
