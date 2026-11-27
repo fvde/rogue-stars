@@ -34,6 +34,9 @@ namespace RogueStars.Client.Screens
         /// The reward strip's tiles: identical rewards (same kind, id and rarity) summed into one, in first-seen order
         /// (owner playtest 0.1.200: "30 Diamonds", not 10, 10, 10). Pure; tested.
         /// </summary>
+        /// <summary>Reward tiles in the strip's one row (smaller tiles from 6 on); more show as "+N more".</summary>
+        public const int MaxRewardTiles = 7;
+
         public static List<Reward> Aggregate(IEnumerable<Reward> rewards)
         {
             var list = new List<Reward>();
@@ -140,8 +143,11 @@ namespace RogueStars.Client.Screens
                 var none = SliceKit.Chunky(frame, won ? "No rewards this time." : "Pending loot lost.", (int)(46 * s), new Color(1, 1, 1, 0.75f), TextAnchor.MiddleCenter, "NoRewards");
                 RunScenes.At(none.rectTransform, s, 540, 1507, 900, 80);
             }
-            int n = Mathf.Min(5, shown.Count);
-            float tile = n <= 3 ? 180 : 165, gap = 28, x0 = 540 - (n * tile + (n - 1) * gap) / 2 + tile / 2;
+            // up to MaxRewardTiles tiles, shrunk to fit one row (playtest 0.1.359: a sixth reward hid behind "+1 more", so the
+            // doubled totals looked incomplete)
+            int n = Mathf.Min(MaxRewardTiles, shown.Count);
+            float gap = n > 5 ? 20 : 28;
+            float tile = n <= 3 ? 180 : Mathf.Min(165, (1000 - (n - 1) * gap) / n), x0 = 540 - (n * tile + (n - 1) * gap) / 2 + tile / 2;
             for (int i = 0; i < n; i++) RewardTile(frame, s, x0 + i * (tile + gap), 1490, tile, shown[i]);
             if (!_revealed)
             {
@@ -228,7 +234,7 @@ namespace RogueStars.Client.Screens
             orb.preserveAspect = true;
             Ui.Stretch(orb.rectTransform, size * 0.16f * s, size * 0.08f * s, size * 0.16f * s, size * 0.26f * s);
             string amount = r.Kind == RewardKinds.Currency ? "x" + Fmt.Num(r.Amount) : "x" + r.Amount;
-            var a = SliceKit.Chunky(edge.transform, amount, (int)(44 * s), Color.white, TextAnchor.LowerCenter, "Amount");
+            var a = SliceKit.Chunky(edge.transform, amount, (int)(44 * s * Mathf.Min(1, size / 165f)), Color.white, TextAnchor.LowerCenter, "Amount");
             Ui.Stretch(a.rectTransform, 0, 0, 0, -6 * s);
             // the caption is only the name (R1: the amount was shown twice)
             string caption = r.Kind == RewardKinds.Currency ? Fmt.CurrencyName(r.Id, Content) : Fmt.Reward(new Reward(r.Kind, r.Id, 1, r.Rarity), Content);

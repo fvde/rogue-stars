@@ -551,17 +551,20 @@ namespace RogueStars.Client.Screens
             Pin(name.rectTransform, 0, 34);
             name.gameObject.SetActive(false); // the arena shows the fighters, not their names
             var hpBg = Ui.Rect(root, "HpHolder");
-            PinBottom(hpBg, 54, 34);
+            // the bars stand centred under the fighter's art (playtest 0.1.359: they were centred on the card while the art stands
+            // at SpriteAnchorX, so the worm sat ~70 px left of its HP bar and the enemies ~70 px right of theirs)
+            float barX = SpriteAnchorX(player);
+            PinBottom(hpBg, 54, 34, barX);
             v.Hp = Ui.Bar(hpBg, Frac(f.StartHp, f.MaxHp), player ? (Color)new Color32(0xF0, 0x4A, 0x52, 255) : (Color)new Color32(0xF0, 0x4A, 0x52, 255), Fmt.Num(f.StartHp), 34);
             if (v.Hp.Label != null) { v.Hp.Label.font = Ui.DisplayFont; v.Hp.Label.fontSize = 26; var o = v.Hp.Label.gameObject.AddComponent<Outline>(); o.effectColor = SliceKit.Ink; o.effectDistance = new Vector2(2, -2); }
             UiShapes.Outline(hpBg, SliceKit.Ink, 10, 3);
             Ui.Stretch((RectTransform)v.Hp.Fill.parent);
             var shieldBg = Ui.Rect(root, "ShieldHolder");
-            PinBottom(shieldBg, 42, 10);
+            PinBottom(shieldBg, 42, 10, barX);
             v.Shield = Ui.Bar(shieldBg, Frac(f.StartShield, f.MaxHp), Theme.Premium, null, 8);
             Ui.Stretch((RectTransform)v.Shield.Fill.parent);
             var rageBg = Ui.Rect(root, "RageHolder");
-            PinBottom(rageBg, 30, 10);
+            PinBottom(rageBg, 30, 10, barX);
             v.Rage = Ui.Bar(rageBg, Frac(f.StartRage, Content.Combat.RageMax), Theme.Accent, null, 8);
             Ui.Stretch((RectTransform)v.Rage.Fill.parent);
             if (!f.Targetable) { hpBg.gameObject.SetActive(false); shieldBg.gameObject.SetActive(false); rageBg.gameObject.SetActive(false); }
@@ -593,7 +596,7 @@ namespace RogueStars.Client.Screens
             else body = Ui.RoundPanel(root, f.Role == CombatRole.Worm ? Theme.Worm : Theme.Shade(color, 0.5f), radius, "Sprite");
             body.raycastTarget = false;
             var srt = body.rectTransform;
-            srt.anchorMin = srt.anchorMax = new Vector2(player ? 0.3f : 0.7f, 0);
+            srt.anchorMin = srt.anchorMax = new Vector2(SpriteAnchorX(player), 0);
             srt.pivot = new Vector2(0.5f, 0);
             srt.sizeDelta = size;
             srt.anchoredPosition = new Vector2(0, SpriteBase);
@@ -676,10 +679,19 @@ namespace RogueStars.Client.Screens
             return s;
         }
 
-        /// <summary>Stretch across the fighter card, a fixed height, <paramref name="y"/> over its bottom (the bars under a fighter).</summary>
-        private static void PinBottom(RectTransform rt, float y, float height)
+        /// <summary>
+        /// Horizontal anchor (fraction of the fighter card) of the fighter's art: the player side a little left of the card's
+        /// centre, the enemies a little right (facing each other across the arena). Its bars are centred on the same line.
+        /// </summary>
+        public static float SpriteAnchorX(bool player) => player ? 0.3f : 0.7f;
+
+        /// <summary>Width of a fighter's bars as a fraction of the fighter card.</summary>
+        public const float BarWidth = 0.84f;
+
+        /// <summary>A bar under a fighter: <see cref="BarWidth"/> of the card wide, centred on <paramref name="centerX"/> (the art's line), <paramref name="y"/> over the card's bottom.</summary>
+        private static void PinBottom(RectTransform rt, float y, float height, float centerX)
         {
-            rt.anchorMin = new Vector2(0.08f, 0); rt.anchorMax = new Vector2(0.92f, 0); rt.pivot = new Vector2(0.5f, 0);
+            rt.anchorMin = new Vector2(centerX - BarWidth / 2, 0); rt.anchorMax = new Vector2(centerX + BarWidth / 2, 0); rt.pivot = new Vector2(0.5f, 0);
             rt.sizeDelta = new Vector2(0, height); rt.anchoredPosition = new Vector2(0, y);
         }
 
