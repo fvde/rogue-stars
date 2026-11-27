@@ -52,7 +52,7 @@ namespace RogueStars.Client.Tests
             Assert.That(b.IsCreated, Is.False, "popped screen is destroyed");
             Assert.That(a.Root.gameObject.activeSelf, Is.True);
             Assert.That(a.Shows, Is.EqualTo(2));
-            Assert.That(a.Builds, Is.GreaterThanOrEqualTo(2), "returning screen rebuilds from current state");
+            Assert.That(a.Builds, Is.EqualTo(1), "no state change while hidden: the returning screen is not rebuilt");
 
             Assert.That(_f.App.HandleBack(), Is.True);
             Assert.That(router.Current, Is.SameAs(hub));

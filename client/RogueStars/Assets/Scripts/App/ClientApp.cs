@@ -207,6 +207,16 @@ namespace RogueStars.Client.App
             catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
         }
 
+        /// <summary>
+        /// Main tab bar: back to the hub (kept alive, not rebuilt for nothing) and open the tab's screen on it (null = the hub).
+        /// </summary>
+        public void OpenTab(string screenId)
+        {
+            if (Router.Depth == 0 || !(Router.Stack[0] is HubScreen)) Router.Reset(new HubScreen());
+            var entry = screenId != null ? ScreenCatalog.Find(screenId) : null;
+            Router.ToRoot(entry?.Create());
+        }
+
         /// <summary>Navigate to a catalog screen by id.</summary>
         public void Open(string screenId)
         {

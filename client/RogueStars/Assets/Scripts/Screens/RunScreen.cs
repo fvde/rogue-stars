@@ -186,6 +186,8 @@ namespace RogueStars.Client.Screens
         public override bool CoversResourceBar => true;
         /// <summary>Do not rebuild under a running animation (periodic refreshes would cut it short).</summary>
         public override bool AutoRebuild => !Animating;
+        /// <summary>Back from a fight / a sheet: the board catches up (decision, outcome) in a rebuild.</summary>
+        public override bool RebuildOnReturn => true;
         public bool Auto => _auto;
         /// <summary>Auto mode is on but waits for the player (anything but a roll is next, or a screen is open).</summary>
         public bool AutoPaused => _auto && State.Run.Active != null && WaitsForPlayer(State.Run.Active);

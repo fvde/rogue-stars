@@ -89,6 +89,59 @@ namespace RogueStars.Client.Tests
             finally { Object.DestroyImmediate(press.gameObject); }
         }
 
+        // ---- step 2: no pointless rebuilds ---------------------------------------------------------------------
+
+        private sealed class CountingScreen : UiScreen
+        {
+            public int Builds;
+            public override string Title => "Counting";
+            protected override void Build(RectTransform body) { Builds++; Ui.Label(body, "x"); }
+        }
+
+        [Test]
+        public void Pop_WithoutAStateChange_DoesNotRebuildTheScreenBelow()
+        {
+            var below = new CountingScreen();
+            _f.App.Router.Push(below);
+            _f.App.Router.Push(new CountingScreen());
+            Assert.That(below.Builds, Is.EqualTo(1));
+            _f.App.Router.Pop();
+            Assert.That(below.Builds, Is.EqualTo(1), "nothing changed while it was hidden");
+            Assert.That(below.Root.gameObject.activeSelf, Is.True);
+        }
+
+        [Test]
+        public void Pop_AfterAStateChange_RebuildsTheScreenBelow()
+        {
+            var below = new CountingScreen();
+            _f.App.Router.Push(below);
+            _f.App.Router.Push(new CountingScreen());
+            _f.Service.ExecuteNow(new RogueStars.Rules.Systems.LoginClaim()); // a command: a new state version
+            Assert.That(below.IsStale, Is.True);
+            _f.App.Router.Pop();
+            Assert.That(below.Builds, Is.EqualTo(2), "the state changed while it was hidden");
+            Assert.That(below.IsStale, Is.False);
+        }
+
+        [Test]
+        public void TabSwitch_KeepsTheHub_AndBuildsNoThrowawayHub()
+        {
+            var hub = _f.App.Router.Stack[0];
+            Assert.That(hub, Is.InstanceOf<RogueStars.Client.Screens.HubScreen>());
+            int hubBuilds = hub.BuildCount;
+            _f.App.OpenTab("shop");
+            Assert.That(_f.App.Router.Depth, Is.EqualTo(2));
+            Assert.That(_f.App.Router.Stack[0], Is.SameAs(hub), "the hub is kept, not rebuilt from scratch");
+            _f.App.OpenTab("quests");
+            Assert.That(_f.App.Router.Depth, Is.EqualTo(2), "the previous tab screen is gone");
+            Assert.That(_f.App.Router.Stack[0], Is.SameAs(hub));
+            Assert.That(hub.Root.gameObject.activeSelf, Is.False, "hidden under the tab screen");
+            _f.App.OpenTab(null); // the Planet tab: the hub itself
+            Assert.That(_f.App.Router.Current, Is.SameAs(hub));
+            Assert.That(hub.Root.gameObject.activeSelf, Is.True);
+            Assert.That(hub.BuildCount, Is.EqualTo(hubBuilds), "no state change: the hub was never rebuilt");
+        }
+
         [Test]
         public void SequenceFlushUntil_FinishesStepsUpToTheMark_AndKeepsTheRest()
         {

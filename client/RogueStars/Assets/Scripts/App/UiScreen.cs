@@ -24,6 +24,8 @@ namespace RogueStars.Client.App
         private Text _subtitle;
         private RectTransform _scrollTarget;
         private bool _builtOnce;
+        private long _builtVersion = long.MinValue;
+        private string _builtPlayer;
 
         public ClientApp App { get; private set; }
         public RectTransform Root { get; private set; }
@@ -40,6 +42,22 @@ namespace RogueStars.Client.App
         public virtual bool ShowBack => true;
         /// <summary>Rebuild automatically on every state change (false for screens with text input).</summary>
         public virtual bool AutoRebuild => true;
+        /// <summary>
+        /// Rebuild whenever the screen comes back on top (back from a screen above). Default false: it rebuilds only when the
+        /// state changed while it was hidden (<see cref="IsStale"/>).
+        /// </summary>
+        public virtual bool RebuildOnReturn => false;
+        /// <summary>The state changed (another version or player) since this screen was last built.</summary>
+        public bool IsStale
+        {
+            get
+            {
+                var st = App?.Session.State;
+                return st == null ? _builtVersion != long.MinValue : st.Version != _builtVersion || st.PlayerId != _builtPlayer;
+            }
+        }
+        /// <summary>Full rebuilds of this screen so far (tests: back without a state change does not rebuild).</summary>
+        public int BuildCount { get; private set; }
         /// <summary>Height of a fixed bottom action bar outside the scroll (<see cref="Footer"/>); 0 = none.</summary>
         public virtual float FooterHeight => 0;
         /// <summary>
@@ -185,7 +203,10 @@ namespace RogueStars.Client.App
         public void Rebuild()
         {
             if (Root == null) return;
-            float pos = _scroll != null && _builtOnce ? _scroll.verticalNormalizedPosition : 1; // new screens start at the top
+            BuildCount++;
+            var st = App.Session.State;
+            _builtVersion = st != null ? st.Version : long.MinValue;
+            _builtPlayer = st?.PlayerId;
             _builtOnce = true;
             _scrollTarget = null;
             Ui.Clear(_body);
@@ -206,14 +227,22 @@ namespace RogueStars.Client.App
                 _help.gameObject.SetActive(UnlockedIntroFeatures().Count > 0);
                 _help.transform.SetAsLastSibling();
             }
-            if (_scroll != null)
+            // The body's content keeps its scroll offset across a rebuild (same RectTransform); only a scroll target needs
+            // the new layout now (a forced canvas update costs ~10-20 ms on a big screen).
+            if (_scroll != null && _scrollTarget != null)
             {
                 Canvas.ForceUpdateCanvases();
-                if (_scrollTarget != null) pos = CenteredPosition(_scrollTarget);
-                _scroll.verticalNormalizedPosition = pos;
+                _scroll.verticalNormalizedPosition = CenteredPosition(_scrollTarget);
             }
             _scrollTarget = null;
             Tick();
+        }
+
+        /// <summary>The screen is on top again (back from a screen above): rebuild only when needed.</summary>
+        internal void Returned()
+        {
+            if (RebuildOnReturn || IsStale) Rebuild();
+            else Tick();
         }
 
         /// <summary>Normalized scroll position that centres <paramref name="target"/> in the viewport.</summary>
@@ -259,8 +288,7 @@ namespace RogueStars.Client.App
                     OnClick = () =>
                     {
                         if (entry.Id == ActiveMainTab) return;
-                        App.Router.Reset(new HubScreen());
-                        if (entry.ScreenId != null) App.Open(entry.ScreenId);
+                        App.OpenTab(entry.ScreenId);
                     },
                 });
             }
@@ -371,7 +399,7 @@ namespace RogueStars.Client.App
         public void Push(UiScreen screen)
         {
             var prev = Current;
-            if (prev != null) { prev.OnHide(); prev.Root.gameObject.SetActive(false); }
+            if (prev != null && prev.Root.gameObject.activeSelf) { prev.OnHide(); prev.Root.gameObject.SetActive(false); }
             _stack.Add(screen);
             screen.Create(_app, _container);
             screen.OnShow();
@@ -389,10 +417,35 @@ namespace RogueStars.Client.App
             _stack.RemoveAt(_stack.Count - 1);
             var cur = Current;
             cur.Root.gameObject.SetActive(true);
-            cur.Rebuild();
+            cur.Returned();
             cur.OnShow();
             Changed?.Invoke(cur);
             return true;
+        }
+
+        /// <summary>
+        /// Back to the root screen, kept alive (no new hub is built; it rebuilds only when the state changed meanwhile), then
+        /// push <paramref name="screen"/> on it, if any. The main tab bar's switch.
+        /// </summary>
+        public void ToRoot(UiScreen screen = null)
+        {
+            if (_stack.Count == 0) { if (screen != null) Push(screen); return; }
+            for (int i = _stack.Count - 1; i >= 1; i--)
+            {
+                var s = _stack[i];
+                if (s.Root != null && s.Root.gameObject.activeSelf) s.OnHide();
+                s.Destroy();
+                _stack.RemoveAt(i);
+            }
+            if (screen != null) { Push(screen); return; }
+            var root = Current;
+            if (!root.Root.gameObject.activeSelf)
+            {
+                root.Root.gameObject.SetActive(true);
+                root.Returned();
+                root.OnShow();
+            }
+            Changed?.Invoke(root);
         }
 
         /// <summary>Clear the stack and show <paramref name="root"/>.</summary>
