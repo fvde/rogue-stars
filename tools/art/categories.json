@@ -360,6 +360,10 @@
     "ui-backdrops": [
       "fullframe",
       "UI backdrops"
+    ],
+    "enemies-champions": [
+      "creature",
+      "Enemies (13 without a sprite)"
     ]
   }
 }
