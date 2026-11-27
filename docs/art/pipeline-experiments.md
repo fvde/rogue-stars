@@ -32,4 +32,14 @@ Caveat: "owner_rejected" also counts candidates archived because another candida
 - Change: rewrote the 17 unapproved skills-v3 prompts that named sparks/shards/dozens/bursts/auras/rays into one object
   with at most three parts; negatives add "scattered pieces, debris, particles, many small objects". Restarted night.sh.
 - Expect: skills-v3 QC pass rate up (this hour 3 pass of 8 QC'd; target >= 5 of 8); clutter fail bucket down.
+- Result (17:31, hour 16:31-17:31; 41 generated, 88 s/image): of the rewritten prompts that generated, 6 of 10 passed
+  QC (target was 5 of 8), and none failed for clutter. The 5 retries queued before the rewrite still used old prompts and
+  all failed on clutter. Kept. Those 5 subjects got a redo package (skills-v3-redo2) with the new prompts.
+
+### E3 (2026-11-27 17:45): no negated words in the positive prompt suffix
+- Loss: 8 of 37 QC'd icons wore a crown (poison_spit, gamma_burst, bleed_frenzy, alien_bodyguard, alien_rally_cry,
+  alien_decoy, sacrifice, symbiote). The skills-v3 suffix said "no glow, no halo, no sparkles, no crown, no background
+  shapes": Flux takes the nouns literally (same as "plum" and "crown" before). Negatives stay in the negative field.
+- Change: removed that phrase from the skills-v3 and skills-v3-redo suffix. Restarted night.sh.
+- Expect: crown fails in new skills-v3 images 0 (was 8/37); halo/sparkle fails do not rise.
 - Result: (next check)

@@ -1,0 +1,18 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", simple flat game skill icon, one single clear object, very few details, two or three flat colors, thick black outline, centered, isolated on a plain pure white background, no text, no letters, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, words, caption, label, typography, writing, multiple icons, halo, aura, glow, sparkles, crown, ornate, clutter, many details, background, frame, text, scattered pieces, debris, particles, many small objects",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-skills-v3-redo2",
+  "seeds": [
+    6931
+  ],
+  "subjects": {
+    "mythic_shatter": "an ice dragon head cracking apart into three large pieces, drawn big and bold",
+    "light_conductor": "a copper wire spring coil seen from the side with one small yellow lightning bolt touching it",
+    "light_ground_loop": "a lightning bolt striking a tall metal spire, drawn big and bold",
+    "mythic_capacitor": "a blue capacitor overloading with yellow lightning, drawn big and bold",
+    "mythic_thunderhead": "a dark storm cloud with three big yellow lightning bolts under it, drawn big and bold"
+  }
+}

@@ -413,6 +413,10 @@
     "enemies-elites2-redo": [
       "creature",
       "Enemies (13 without a sprite)"
+    ],
+    "skills-v3-redo2": [
+      "icon",
+      "Skill icons"
     ]
   }
 }
