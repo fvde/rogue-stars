@@ -8,7 +8,7 @@
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no fire, no flames, no ground, no shadow, no scenery",
-  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers, torch, candle, burning, held object, flame crest",
   "subjects": {
     "elite_cinder_alpha": "Cinder Alpha, a big alpha hound beast with cracked black stone hide and thin glowing orange lines, big elite monster",
     "elite_ash_matriarch": "Ash Matriarch, a tall ghostly woman figure made of pale grey dust with glowing orange eyes, empty hands, big elite monster",
