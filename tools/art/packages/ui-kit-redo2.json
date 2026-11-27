@@ -1,0 +1,15 @@
+{
+  "name": "pkg-ui-kit-redo2",
+  "width": 512,
+  "height": 512,
+  "seeds": [
+    3131,
+    3132
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", mobile game UI element, flat cartoon style matching a cute space-worm game, bold dark outline, simple soft cel shading, plain light grey neutral color so it can be tinted, perfectly symmetric, straight even edges, front view, centered, isolated on a plain pure white background, no text, no letters, no icons, no symbols",
+  "negative": "text, letters, numbers, icon, symbol, emoji, character, scenery, background, shadow, perspective, 3d, photo, clutter, bow, knot, loop, coin, gold, money, egg, yolk, octagon, eight sides, right-pointing arrow, orange, yellow, octagon, stop sign",
+  "subjects": {
+    "node_hex": "a single flat light grey honeycomb cell shape with six sides, a point at the top and a point at the bottom, thick dark border, no color"
+  }
+}

@@ -393,6 +393,10 @@
     "enemies-elites2": [
       "creature",
       "Enemies (13 without a sprite)"
+    ],
+    "ui-kit-redo2": [
+      "ui",
+      "UI kit"
     ]
   }
 }
