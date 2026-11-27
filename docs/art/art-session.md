@@ -78,12 +78,13 @@ When a batch of approved art is ready (e.g. bosses, status icons, summon icons, 
 
 ## 7. Current state and open items (2026-11-27 ~10:00 Berlin)
 
-- **Queue** (`night.sh` ORDER, head): run-icons-tombstone, ui-kit, ui-backdrops, enemies-champions, buildings-redo, summon-icons-redo, status-icons2-redo, slice-markers6, … Generation is running; ComfyUI on 127.0.0.1:8188.
+- **Queue** (`night.sh` ORDER, head): currency-icons, ui-kit-redo, ui-backdrops-redo, run-icons-tombstone-redo, skills-v3-redo, …, ui-kit-redo2, enemies-elites2, buildings-redo, … Generation is running; ComfyUI on 127.0.0.1:8188.
 - **Pipeline state**: pending-qc 7, retry-queued 4 (ui-kit node_hex/icon_back/gem/chip/bottom_tab/ribbon_tail/badge_dot retries, ui-backdrops menu/worm retries, skills ice_permafrost, tombstone s15722).
 - **Waiting on the owner (page)**: UI kit (23 candidates), UI backdrops (4), skill icons v3 (8), tombstone (1, Reward icons). After UI kit approval: an import agent (features session) brings the kit in with sprite names and 9-slice borders from `docs/design/ui-kit.md`.
 - **Tombstone**: once approved, it goes to `client/RogueStars/Assets/Art/Resources/Art/Run/Icons/tombstone.png` (512×512, transparent; loaded by `ArtCatalog.RunIcon("tombstone")`). Tell the features session; the Revive screen uses a drawn fallback until then. Thread c9d6e76d on the Run UI Glitches page closes when it lands.
 - **23:00 cleanup** (`~/AI/out/art-day.sh`, 67 lines in `approved-cleanup.txt`): luck_gem comic cel-shade redraw is queued. When it lands (`pipeline.py land-cleaned`), resolve the art-page thread 10bab78a-2a84-4dc1-806b-f017e9e2a6f5.
 - **Chest halo**: the game's chest PNGs were defringed in the client (Run UI fix #18), but the sources in `~/AI/assets` (Run props: chest_common, chest_mythic, chest_signature, marker chest) still have the white halo. Re-cut them with the current pipeline (§6 sweep pattern) so a future re-import doesn't bring the halo back.
+- **Elites (enemies-elites2)**: subject names equal the game enemy ids (elite_cinder_alpha … elite_stalker_prime); an approved pick goes to `Art/Enemies/<id>.png` (features session imports).
 - **Not in the game yet** (next import batch, features session): skill icons v3 once picked, golden shards, elder_magma (no enemy def), hollow_cantor (art cut off at the edge: needs a redo), chrono_wyrm (no enemy def).
 - **Likely next art asks from the features session**: distinct currency icons for Signals / Schematics / Crates (today all three share one round icon), ambient life + foreground pilot (`docs/art/ambient-life-and-foreground-plan.md`, waiting for the owner's answers).
 - **Stopped subjects** (never generate): miniboss markers (elite art is used), planet eye candy, planet buildings, sidekicks (duplicate of aliens). No "champion" tier: only enemies, elites (= minibosses) and bosses.
