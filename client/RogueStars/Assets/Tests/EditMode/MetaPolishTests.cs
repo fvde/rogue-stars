@@ -27,9 +27,14 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Summon_CostsAndCompactAmounts()
         {
-            Assert.That(SummonEventScreen.TicketCost(1), Is.EqualTo("1 ticket"));
-            Assert.That(SummonEventScreen.TicketCost(10), Is.EqualTo("10 tickets"));
-            Assert.That(SignalsScreen.TokenCost(1), Is.EqualTo("1 token"));
+            Assert.That(SummonEventScreen.TicketCost(1, Currencies.HeroTickets), Is.EqualTo("1 Crest"));
+            Assert.That(SummonEventScreen.TicketCost(10, Currencies.HeroTickets), Is.EqualTo("10 Crests"));
+            Assert.That(SummonEventScreen.TicketCost(1, Currencies.MountTickets), Is.EqualTo("1 Saddle"));
+            Assert.That(SummonEventScreen.TicketCost(10, Currencies.MountTickets), Is.EqualTo("10 Saddles"));
+            Assert.That(SignalsScreen.TokenCost(1, Currencies.AlienTokens), Is.EqualTo("1 Signal"));
+            Assert.That(SignalsScreen.TokenCost(3, Currencies.AlienTokens), Is.EqualTo("3 Signals"));
+            Assert.That(SignalsScreen.TokenCost(1, Currencies.PartTokens), Is.EqualTo("1 Crate"));
+            Assert.That(SignalsScreen.TokenCost(10, Currencies.BlueprintTokens), Is.EqualTo("10 Schematics"));
             Assert.That(SummonView.Compact(950), Is.EqualTo("950"));
             Assert.That(SummonView.Compact(2000), Is.EqualTo("2K"));
             Assert.That(SummonView.Compact(1500), Is.EqualTo("1.5K"));
@@ -118,7 +123,7 @@ namespace RogueStars.Client.Tests
             // the weekly tab too, then the achievements: reward and the next milestone
             var screen = (RogueStars.Client.Screens.QuestsScreen)_f.App.Router.Current;
             var chest = _f.Service.Content.PointChests.First(c => c.RandomTokens > 0);
-            Assert.That(screen.ChestText(chest), Does.Contain("3 pull tickets").And.Contain("random Signal"));
+            Assert.That(screen.ChestText(chest), Does.Contain("3 pull currencies").And.Contain("random Crate, Signal or Schematic"));
             var tabs = _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true).ToList();
             var ach = tabs.First(b => b.GetComponentInChildren<Text>()?.text == "Achieve");
             ach.onClick.Invoke();

@@ -107,6 +107,9 @@ namespace RogueStars.Client.Screens
         /// <summary>MS1: offers outside their schedule are hidden instead of listed as "offer not active".</summary>
         private bool Active(ProductDef p) => p.Schedule == null || p.Schedule.TryActive(Now, out _, out _);
 
+        /// <summary>Title of a shop item section: the "tokens" section holds the pull currencies (Crates, Signals, Schematics), never "Tokens".</summary>
+        public static string ItemSectionTitle(string section) => section == "tokens" ? "Pull Currencies" : Fmt.Humanize(section);
+
         /// <summary>Player-facing section titles ("Starter Packs", "Flash Offers"), never the code ids.</summary>
         public static string SectionTitle(ProductKind kind)
         {
@@ -243,7 +246,7 @@ namespace RogueStars.Client.Screens
             }
             foreach (var kv in bySection)
             {
-                Kit.Ribbon(body, Fmt.Humanize(kv.Key));
+                Kit.Ribbon(body, ItemSectionTitle(kv.Key));
                 foreach (var item in kv.Value)
                 {
                     var it = item;

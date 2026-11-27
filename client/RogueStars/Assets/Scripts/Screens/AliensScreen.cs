@@ -273,7 +273,7 @@ namespace RogueStars.Client.Screens
             return "Traits: " + string.Join(" · ", parts);
         }
 
-        /// <summary>A trait's description with display names (work traits name the resources: "+15% Hero XP, Blueprint Tokens and Alien Tokens production when working").</summary>
+        /// <summary>A trait's description with display names (work traits name the resources: "+15% Hero XP, Schematics and Signals production when working").</summary>
         public static string TraitText(AlienTraitDef tr)
         {
             if (tr.Kind != AlienTraitKind.Work) return tr.Description ?? "";

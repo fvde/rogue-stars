@@ -8,6 +8,11 @@ economy": no welcome-gift, per-star, batch-size or income tuning). Numbers live 
 `City/ShardReactorTests` (rules), `PullSystemServerTests` (server), `PullSystemScreenTests` (EditMode),
 `PullSystemShowcaseTests` (explicit PlayMode screenshots), the simulator's `--pulls` report.
 
+> **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
+> **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
+> **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
+> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+
 ## Rates and pity (every pull, published, fixed)
 
 | Pull type | Common | Rare | Epic | Legendary | Mythic | Mythic pity | Legendary pity | 10× rule |
@@ -108,15 +113,15 @@ percent of all pulls).
 |---|---|---|---|
 | Hero XP ×300 | 88.75 | Fuel ×300 | 81.75 |
 | Hero XP ×1 000 | 5 | Fuel ×1 500 | 12 |
-| Alien Tokens ×1 | 2 | Blueprint Tokens ×1 | 2 |
-| Part Tokens ×1 | 2 | Part Tokens ×1 | 2 |
-| Blueprint Tokens ×1 | 1 | Alien Tokens ×1 | 1 |
+| Signal ×1 | 2 | Schematic ×1 | 2 |
+| Crate ×1 | 2 | Crate ×1 | 2 |
+| Schematic ×1 | 1 | Signal ×1 | 1 |
 | Awaken Core ×1 (extremely rare) | 0.05 | Awaken Core ×1 | 0.05 |
 | **Featured hero: 50 shards** | **1.2** | **Featured mount: 50 shards** | **1.2** |
 
-Signal tokens stay at 5% of the filler (an Active F2P player's ~2 600 hero and ~3 100 mount pulls a year add ~130 / ~155
+Signals / Crates / Schematics stay at 5% of the filler (an Active F2P player's ~2 600 hero and ~3 100 mount pulls a year add ~130 / ~155
 Signal pulls), the Awaken Core at 0.05% (~1.3 + 1.6 a year next to ~60 from the arena shop, invasions and the Burrow).
-Hero XP / Fuel stay close to the old Common / Rare value per pull. No summon tickets in the filler (it would change ticket income).
+Hero XP / Fuel stay close to the old Common / Rare value per pull. No Crests / Saddles in the filler (it would change their income).
 
 ## No starter mount
 

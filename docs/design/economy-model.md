@@ -4,6 +4,11 @@ This page documents the "typical active F2P" income assumptions behind the gacha
 The numbers live in content (`ContentDb.EconomyConfig.F2p`, `ContentDb.GachaConfig`, `ContentDb.HeroConfig`)
 and are checked by `EconomyLongHaulTests` (shared/RogueStars.Rules.Tests/Progression). Change both together.
 
+> **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
+> **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
+> **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
+> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+
 ## Income assumptions — active F2P (plays daily, does dailies/weeklies, watches capped ads)
 | Source | Per day | Notes |
 |---|---|---|
@@ -22,8 +27,8 @@ Diamonds for pulls are spent as 10-pulls (1 350 Diamonds) rotating over the thre
   Pity is per pull type, shared by all its banners and carried over between banners/weeks. A blueprint / alien result is a
   batch of 50 shards on the shared 10★ table (1 000 shards).
 - Weekly themed banners for every type; the featured Mythic takes 50% of Mythic outcomes.
-- Alien Signal: ~40% of outcomes are Grain (Common / Rare) and hero summon tickets (Epic+); Blueprint Signal ~25% Ore and
-  mount summon tickets. Heroes and mounts come from summon events (docs/design/summon-events.md).
+- Alien Signal: ~40% of outcomes are Grain (Common / Rare) and Crests (Epic+); Blueprint Signal ~25% Ore and
+  Saddles. Heroes and mounts come from summon events (docs/design/summon-events.md).
 
 ## Results (52-week simulation through the real command handlers)
 | Metric | Value | Target |
@@ -167,8 +172,8 @@ reward gate):
 | Profile | before: currencies in the wallet (day 1) | after (day 1) | after: stash waiting on day 7 |
 |---|---|---|---|
 | Casual | 14 (Biomass 7.6k, Grain 368, Fuel 300, Data 20, 3 token types, tickets, keys, attempts...) | stamina 100, Diamonds 810, Ore 143 | Fuel 2.2k, Grain 222, Hero XP 108, Data 80, tokens 8–27, tickets 5, keys 2 |
-| Active | 15 | stamina, Diamonds 1.1k, Ore 123, Gear Cores 105 | Fuel 3k, Hero XP 1.2k, Blueprint tokens 15, tickets 5, keys 2 |
-| Hardcore | 15 | stamina, Diamonds 1.2k, Ore 166, Gear Cores 116 | Fuel 4k (cap), Hero XP 3k (cap), Blueprint tokens 18, tickets, keys |
+| Active | 15 | stamina, Diamonds 1.1k, Ore 123, Gear Cores 105 | Fuel 3k, Hero XP 1.2k, Schematics 15, tickets 5, keys 2 |
+| Hardcore | 15 | stamina, Diamonds 1.2k, Ore 166, Gear Cores 116 | Fuel 4k (cap), Hero XP 3k (cap), Schematics 18, tickets, keys |
 
 Main level (median): Casual 3 / 8 / 11 (before 3 / 10 / 14), Active 8 / 13 / 23 (8 / 14 / 23), Hardcore 10 / 18 / 25
 (10 / 18 / 26) on day 1 / 3 / 7. The casual gap is mostly the bot no longer building the Biomass Farm on day 1: the rules

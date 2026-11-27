@@ -167,12 +167,12 @@ namespace RogueStars.Client.Screens
             });
         }
 
-        /// <summary>What a chest holds, as text (the random pull tickets are named by their rule).</summary>
+        /// <summary>What a chest holds, as text (the random pull currencies are named by their rule).</summary>
         public string ChestText(PointChestDef c)
         {
             string text = Fmt.Rewards(c.Rewards, Content, State, Now);
-            if (c.RandomTokens > 0) text += "\n+" + c.RandomTokens + " pull tickets, each a random Signal you have unlocked";
-            if (c.TokensEachType > 0) text += "\n+" + c.TokensEachType + " pull tickets of every Signal you have unlocked";
+            if (c.RandomTokens > 0) text += "\n+" + c.RandomTokens + " pull currencies, each a random Crate, Signal or Schematic you have unlocked";
+            if (c.TokensEachType > 0) text += "\n+" + c.TokensEachType + " of every pull currency you have unlocked (Crates, Signals, Schematics)";
             return text;
         }
 

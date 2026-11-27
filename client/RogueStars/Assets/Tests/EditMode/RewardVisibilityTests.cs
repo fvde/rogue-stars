@@ -126,12 +126,12 @@ namespace RogueStars.Client.Tests
         public void RewardPreviews_LeaveOutLockedRewards()
         {
             var calendar = C.Retention.LoginCycle.SelectMany(d => d).ToList();
-            Assert.That(Fmt.Rewards(calendar, C, S), Does.Not.Contain("Part Tokens").And.Not.Contain("Gear Cores").And.Contain("Diamonds"));
+            Assert.That(Fmt.Rewards(calendar, C, S), Does.Not.Match(@"\d Crates?\b").And.Not.Contain("Gear Cores").And.Contain("Diamonds"));
             var chest = C.MainLevel(10).FirstClearRewards;
-            Assert.That(Fmt.Rewards(chest, C, S), Does.Contain("Diamonds").And.Not.Contain("Tokens"));
+            Assert.That(Fmt.Rewards(chest, C, S), Does.Contain("Diamonds").And.Not.Match(@"\d (Crate|Signal|Schematic)s?\b"));
             Assert.That(Fmt.Rewards(new[] { Reward.Cur(Currencies.Fuel, 10) }, C, S), Is.EqualTo("—"));
             Unlock(Features.PartPulls);
-            Assert.That(Fmt.Rewards(chest, C, S), Does.Contain("Part Tokens").And.Not.Contain("Alien Tokens"));
+            Assert.That(Fmt.Rewards(chest, C, S), Does.Match(@"\d Crates?\b").And.Not.Match(@"\d Signals?\b"));
 
             // Level details: completion rewards of level 1 (Biomass, Ore) for a day-1 account show neither.
             _f.App.Open("portals");
@@ -139,7 +139,7 @@ namespace RogueStars.Client.Tests
             root.GetComponentsInChildren<Button>(true).First(b => b.name == "Level:" + C.MainLevelId(10)).onClick.Invoke();
             _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "LevelDetails").onClick.Invoke();
             var texts = Texts(_f.App.ModalLayer);
-            Assert.That(texts.Any(t => t.Contains("Biomass") || t.Contains("Alien Tokens")), Is.False, string.Join(" | ", texts));
+            Assert.That(texts.Any(t => t.Contains("Biomass") || System.Text.RegularExpressions.Regex.IsMatch(t, @"\d Signals?\b")), Is.False, string.Join(" | ", texts));
         }
 
         [Test]
@@ -148,7 +148,7 @@ namespace RogueStars.Client.Tests
             Unlock(Features.Parts);
             _f.App.Open("quests");
             var all = AllTabTexts("Login", "Newbie");
-            Assert.That(all.Any(t => t.Contains("Blueprint Tokens") || t.Contains("Alien Tokens") || t.Contains("Data")), Is.False, string.Join(" | ", all.Where(t => t.Contains("Day"))));
+            Assert.That(all.Any(t => System.Text.RegularExpressions.Regex.IsMatch(t, @"\d (Schematic|Signal)s?\b") || t.Contains("Data")), Is.False, string.Join(" | ", all.Where(t => t.Contains("Day"))));
         }
 
         [Test]

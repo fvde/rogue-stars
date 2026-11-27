@@ -79,8 +79,8 @@ namespace RogueStars.Client.Screens
                 PullButton(body, "Free 10×" + (free > 1 ? " (" + free + ")" : ""), SummonArt.IconOfCurrency(def.TokenCurrency), "free", true,
                     () => Pull(type, 10, GachaPayment.Free, bannerId), Theme.Good, "Pull:10:free");
             var row = Ui.Row(body, 130, 14, null, 0, "TokenPulls");
-            PullButton(row, "1×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost1), tokens >= def.TokenCost1, () => Pull(type, 1, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:1:tokens");
-            PullButton(row, "10×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost10), tokens >= def.TokenCost10, () => Pull(type, 10, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:10:tokens");
+            PullButton(row, "1×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost1, def.TokenCurrency), tokens >= def.TokenCost1, () => Pull(type, 1, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:1:tokens");
+            PullButton(row, "10×", SummonArt.IconOfCurrency(def.TokenCurrency), TokenCost(def.TokenCost10, def.TokenCurrency), tokens >= def.TokenCost10, () => Pull(type, 10, GachaPayment.Tokens, bannerId), Theme.Accent, "Pull:10:tokens");
             var row2 = Ui.Row(body, 130, 14, null, 0, "DiamondPulls");
             PullButton(row2, "1×", "diamond", Fmt.Num(def.DiamondCost1), dia >= def.DiamondCost1, () => Pull(type, 1, GachaPayment.Diamonds, bannerId), Theme.Premium, "Pull:1:diamonds");
             PullButton(row2, "10×", "diamond", Fmt.Num(def.DiamondCost10), dia >= def.DiamondCost10, () => Pull(type, 10, GachaPayment.Diamonds, bannerId), Theme.Premium, "Pull:10:diamonds");
@@ -94,8 +94,8 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>"1 token" / "10 tokens".</summary>
-        public static string TokenCost(long n) => Fmt.Num(n) + (n == 1 ? " token" : " tokens");
+        /// <summary>"1 Signal" / "10 Signals" (the pull type's currency).</summary>
+        public static string TokenCost(long n, string currency) => Fmt.Amount(n, currency);
 
         private static void PullButton(Transform row, string caption, string icon, string cost, bool can, System.Action onClick, Color face, string name)
         {
@@ -201,7 +201,7 @@ namespace RogueStars.Client.Screens
                     {
                         Caption = "Pull ×" + n, Name = "Again:" + n,
                         Icon = tokens ? SummonArt.IconOfCurrency(def.TokenCurrency) : "diamond",
-                        Cost = tokens ? TokenCost(tokenCost) : Fmt.Num(diaCost),
+                        Cost = tokens ? TokenCost(tokenCost, def.TokenCurrency) : Fmt.Num(diaCost),
                         Can = tokens || State.Wallet.Get(Currencies.Diamonds) >= diaCost,
                         Face = tokens ? Theme.Accent : Theme.Premium,
                         OnClick = () => Pull(type, count, tokens ? GachaPayment.Tokens : GachaPayment.Diamonds, bannerId),

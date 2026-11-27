@@ -85,7 +85,7 @@ namespace RogueStars.Client.App
                 case RewardKinds.Hero: return FeaturedName(c, SummonEventType.Hero, r.Id) + " shards";
                 case RewardKinds.Mount: return FeaturedName(c, SummonEventType.Mount, r.Id) + " shards";
                 case RewardKinds.HeroShards: return FeaturedName(c, SummonEventType.Hero, r.Id) + " shards";
-                case RewardKinds.Currency: return Fmt.CurrencyName(r.Id, c);
+                case RewardKinds.Currency: return Fmt.CurrencyName(r.Id, c, r.Amount);
                 default: return Fmt.Reward(r, c);
             }
         }
@@ -100,7 +100,7 @@ namespace RogueStars.Client.App
                 case "shards": return "+" + Fmt.Num(it.Shards) + " SHARDS";
                 case "overflow":
                     var r = it.Kind == RewardKinds.Hero ? c.HeroConfig.CopyOverflow : c.MountConfig.CopyOverflow;
-                    return r == null ? "MAX" : "+" + Fmt.Num(r.Amount) + " " + Fmt.CurrencyName(r.Id, c);
+                    return r == null ? "MAX" : "+" + Fmt.Amount(r.Amount, r.Id, c);
                 default: return "";
             }
         }

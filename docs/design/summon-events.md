@@ -6,6 +6,11 @@
 > 6★–10★); there is no starter mount. Schedules, tasks, milestones, exchange, pass, packs and mailing are unchanged. The tuning
 > tables at the end are from before the pull system (new numbers: pull-system.md "Simulator").
 
+> **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
+> **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
+> **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
+> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+
 Owner design (decided): heroes and mounts come from **temporary rotating summon events**. All numbers live in
 `ContentDb.SummonEvents` (`shared/RogueStars.Rules/Content/ContentDb.SummonEvents.cs`); the system is
 `Systems/Meta/SummonEventSystem.cs`; the client screens are `SummonEventScreen` (hub, draw result, packs, tasks),
@@ -42,7 +47,7 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 |---|---|---|---|
 | Hero XP ×300 | 88.75 | Fuel ×300 | 81.75 |
 | Hero XP ×1 000 | 5 | Fuel ×1 500 | 12 |
-| Alien / Part / Blueprint Tokens ×1 | 2 / 2 / 1 | Blueprint / Part / Alien Tokens ×1 | 2 / 2 / 1 |
+| Signal / Crate / Schematic ×1 | 2 / 2 / 1 | Schematic / Crate / Signal ×1 | 2 / 2 / 1 |
 | Awaken Core ×1 | 0.05 | Awaken Core ×1 | 0.05 |
 | **featured hero: 50 shards** | **1.2** | **featured mount: 50 shards** | **1.2** |
 
@@ -70,9 +75,9 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 - **Pull milestones** (pulls in this event): heroes 10 Hero XP ×2 000 · 25 featured shards ×5 · 50 tickets ×3 · 100
   featured shards ×10 · 150 **featured batch (50 shards)**; mounts 10 Fuel ×2 000 · 25 featured shards ×5 · 50 tickets ×3 · 80 Fuel
   ×9 000 · 120 **featured batch (50 shards)**.
-- **Exchange shop** (tokens, limits per event): heroes — featured shards ×5 for 60 (3), Hero Summon Ticket 150 (3), Hero XP
-  ×2 000 for 40 (10), Alien Tokens ×2 for 80 (3), Diamonds ×50 for 100 (5); mounts — featured shards ×5 for 80 (2), Mount
-  Summon Ticket 150 (3), Fuel ×1 500 for 40 (15), Blueprint Tokens ×2 for 80 (3). No featured
+- **Exchange shop** (tokens, limits per event): heroes — featured shards ×5 for 60 (3), Crest 150 (3), Hero XP
+  ×2 000 for 40 (10), Signals ×2 for 80 (3), Diamonds ×50 for 100 (5); mounts — featured shards ×5 for 80 (2), Saddle
+  150 (3), Fuel ×1 500 for 40 (15), Schematics ×2 for 80 (3). No featured
   copy in the exchange (saving tokens across eight events made 10★ far too fast; see "Tuning").
 - **Pass** (a day unlocks at every reset of the event; Claim All): heroes free 1 / 1 / 1 / 2 / 2 / 3 tickets, premium 5 / 5 /
   5 / 6 / 6 / 8 + featured shards ×5 on day 6 (**$9.99**, `summon_pass_hero`); mounts free 1 / 1 / 2, premium 4 / 5 / 7 +
@@ -91,8 +96,8 @@ Owner design (decided): heroes and mounts come from **temporary rotating summon 
 
 ## Signals, banners and old saves
 - Heroes and mounts **left the Signals**. Their old share of the outcomes now feeds the events and keeps blueprint / alien
-  pacing as it was: Alien Signal (~40% hero shards before) → Grain 300 / 800 (Common / Rare), Hero Summon Tickets 1 / 3 /
-  10 (Epic / Legendary / Mythic); Blueprint Signal (~25% mount copies before) → Ore 300 / 800, Mount Summon Tickets 1 / 3 /
+  pacing as it was: Alien Signal (~40% hero shards before) → Grain 300 / 800 (Common / Rare), Crests 1 / 3 /
+  10 (Epic / Legendary / Mythic); Blueprint Signal (~25% mount copies before) → Ore 300 / 800, Saddles 1 / 3 /
   10. The hero-themed Alien banners and the Lancer Shipyard banner are gone (the Alien rotation is Nebula Court + Swarm
   Season, both Mythic aliens).
 - **Migration** (`SummonState.Migrated`, once per save): heroes, mounts, stars and shards stay as they are; a save that already

@@ -431,11 +431,16 @@ Create/join, roles (leader, officer, member), guild level from activity, guild c
 invasion contribution, small guild shop. Purchase-triggered guild gifts later.
 
 ## 12. Gacha (three pull types)
+> **Pull currency names (owner, 2026-11-27):** the player sees **Signals** (pull Aliens, `Currencies.AlienTokens`),
+> **Schematics** (Blueprints, `BlueprintTokens`), **Crates** (Parts, `PartTokens`), **Crests** (hero events, `HeroTickets`) and
+> **Saddles** (mount events, `MountTickets`); singular for 1 ("1 Crate"). Ids, save keys and API fields keep the old names.
+> Still open: the pull screen name ("Signals"), the pull type names ("Alien / Part / Blueprint Signal") and the "Alien Signal Beacon".
+
 | Pull | Free pull resource | Contents |
 |---|---|---|
-| Blueprint Signal | Blueprint Tokens | Blueprints |
-| Part Signal | Part Tokens | Parts, runes |
-| Alien Signal | Alien Tokens | Aliens; Grain and hero summon tickets (the old hero-shard share) |
+| Blueprint Signal | Schematics | Blueprints |
+| Part Signal | Crates | Parts, runes |
+| Alien Signal | Signals | Aliens; Grain and Crests (the old hero-shard share) |
 - Each pull type can always be paid with Diamonds instead.
 - Flat published rates: Common 58.3%, Rare 28%, Epic 9.5%, **Legendary 3%**, **Mythic 1.2%** on every pull. **Fixed, visible
   pity** per pull type (shared across banners of that type, carries over): "Mythic x/100" (the 100th pull without a Mythic is
@@ -443,14 +448,14 @@ invasion contribution, small guild shop. Purchase-triggered guild gifts later.
   soft or hidden pity anywhere. The visible 10-pull rule: every 10× pull has at least one Epic. A blueprint / alien result is a
   batch of 50 shards (§12.2). docs/design/pull-system.md.
 - **Themed rotating mythic banners** for all three pull types (one featured Mythic item per banner). The Blueprint Signal's
-  old mount share is Ore and mount summon tickets; heroes and mounts are not in the Signals any more.
+  old mount share is Ore and Saddles; heroes and mounts are not in the Signals any more.
 
 ### 12.1 Summon events (heroes and mounts)
 Heroes and mounts are obtained in **temporary rotating summon events** (docs/design/summon-events.md, all numbers in
 `ContentDb.SummonEvents`): one **hero event (6 days)** and one **mount event (3 days)** at a time, each featuring one hero /
 mount from a global rotation; the player's first event of a type starts at its feature unlock. Pulls cost **persistent
-tickets** (or Diamonds) and pay exchange tokens. The featured hero / mount (a batch of 50 shards) drops at a flat 1.2%; the
-other 98.8% are filler (Hero XP / Fuel, Signal tokens, a 0.05% Awaken Core). The visible **Luck** meter (100)
+Crests / Saddles** (or Diamonds) and pay exchange tokens. The featured hero / mount (a batch of 50 shards) drops at a flat 1.2%; the
+other 98.8% are filler (Hero XP / Fuel, Signals / Crates / Schematics, a 0.05% Awaken Core). The visible **Luck** meter (100)
 guarantees the featured batch when full and is **kept until the next event of that type**. No Legendary / Rare hero or mount drops.
 Per event: six task lines counted from the event start (enemies, won levels, won mini-games, Alien / Part / Blueprint pulls;
 one ticket per target), pull-count milestones, an exchange shop with event limits, a free + premium day pass, packs with
@@ -476,8 +481,8 @@ converted step by step (docs/design/pull-system.md).
 | Fuel | Mount levels |
 | Hero XP | Hero levels |
 | Diamonds | Premium; also earnable (city Diamond mine, quests, events) |
-| Blueprint/Part/Alien Tokens | Free pulls |
-| Hero / Mount Summon Tickets | Summon event pulls (kept between events) |
+| Schematics / Crates / Signals | Free pulls (Blueprint / Part / Alien Signal) |
+| Crests / Saddles | Hero / mount summon event pulls (kept between events) |
 | Star Sigils / Hangar Bolts | Summon event exchange shops (per pull) |
 | Shards (per hero/alien/mount/blueprint) | Unlock (50) and stars (the shared table, §12.2); spare alien / blueprint shards feed the Shard Reactor |
 | Stamina | Runs (regenerating) |
@@ -504,7 +509,7 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 - Regenerating entry currencies (arena tickets, burrow keys) do not regenerate before their feature; invasion attempts
   start with the Invasions unlock. City production of a currency without a use stays in the building's storage.
 - The starting wallet holds only what day 1 uses (60 stamina, 300 Diamonds); the rest of the old starting wallet comes with
-  the unlock that uses it (500 Ore with Parts, 500 Biomass with the City, 10 Part / 5 Alien / 5 Blueprint tokens with
+  the unlock that uses it (500 Ore with Parts, 500 Biomass with the City, 10 Crates / 5 Signals / 5 Schematics with
   their Signals, 300 Grain with the Aliens).
 - The client shows only currencies with a use (resource bar, details) and leaves rewards without a use out of every
   reward display (run result, level details, chests, calendars, quests, mail, shop; offers and shop items whose contents
@@ -523,8 +528,8 @@ moment the use unlocks. The unlock moment shows what it released ("3 Parts", "+5
 | Fuel | mount levels | Mounts (D12) | 4 000 |
 | Hero XP | hero levels | Heroes (D10) | 3 000 |
 | Data | laboratory research | Laboratory (D5) | 100 |
-| Part / Alien / Blueprint Tokens | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
-| Hero / Mount Summon Tickets | summon event pulls | Heroes / Mounts | 30 each |
+| Crates / Signals / Schematics | free pulls | Part Signal (D4) / Alien Signal (D7) / Blueprint Signal (D9) | 30 each |
+| Crests / Saddles | summon event pulls | Heroes / Mounts | 30 each |
 | Star Sigils / Hangar Bolts | summon exchange shops | Heroes / Mounts | none |
 | Arena Tickets / Arena Medals | arena fights / arena shop | Arena (D15) | 5 / none |
 | Burrow Keys | Burrow runs | Burrow (D19) | 2 |
@@ -559,9 +564,9 @@ every quest makes sense the moment it is offered (`docs/balance/daily-quests.md`
 possible (its `Feature` field: the Shop for "Buy 1 shop item" and the ad quest, the City for building quests, the Arena, Breeding,
 Invasions), the **early quests alone fill both point tracks** (daily 100, weekly 500: no ad, shop, arena or City needed; later quests are
 extra points). Daily and weekly quests pay **points only**: the bar's five chests are the reward (Stamina, Diamonds 100 a day / 500 a
-week, Biomass, Ore, Gear Cores; the daily top chest 3 pull tickets of random unlocked Signals; the weekly 400 chest 5 tickets of each
-unlocked Signal; one Part awakening core in the weekly top chest). Achievements are linear repeating milestones (Diamonds per 100 enemies,
-10 bosses, 10 mini-games; 10 pull tickets per 100 pulls of a type). The ad quest hides while ads are disabled (`ShopConfig.AdsDisabled`).
+week, Biomass, Ore, Gear Cores; the daily top chest 3 pull currencies of random unlocked Signal types (Crates / Signals / Schematics); the weekly 400 chest 5 of each
+unlocked type; one Part awakening core in the weekly top chest). Achievements are linear repeating milestones (Diamonds per 100 enemies,
+10 bosses, 10 mini-games; 10 Crates / Signals / Schematics per 100 pulls of that type). The ad quest hides while ads are disabled (`ShopConfig.AdsDisabled`).
 
 ## 16. Onboarding / unlock order
 Level unlocks (owner decision 2026-11-24): **nothing limits progression by calendar day.** Every feature unlocks at a

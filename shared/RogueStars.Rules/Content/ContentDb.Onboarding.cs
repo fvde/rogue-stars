@@ -384,7 +384,7 @@ namespace RogueStars.Rules.Content
                 "Collect it in the City.", "grain", Count);
             I(Features.Heroes,
                 "Hero summon events are open.", "hero_event", Bounce,
-                "Pull with Hero Tickets for heroes and shards.", "hero_pull", Spin,
+                "Pull with Crests for heroes and shards.", "hero_pull", Spin,
                 "Your hero adds its skills to every run.", "hero", Pulse);
             I(Features.OreMine,
                 "The Ore Mine digs Ore while you are away.", "ore_mine", Pulse,

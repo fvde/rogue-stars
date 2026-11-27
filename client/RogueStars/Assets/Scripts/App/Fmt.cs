@@ -40,13 +40,23 @@ namespace RogueStars.Client.App
         {
             { Currencies.Biomass, "Biomass" }, { Currencies.Grain, "Grain" }, { Currencies.Ore, "Ore" },
             { Currencies.GearCores, "Gear Cores" }, { Currencies.AdvancementPlates, "Adv. Plates" }, { Currencies.Fuel, "Fuel" },
-            { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Blueprint Tokens" },
-            { Currencies.PartTokens, "Part Tokens" }, { Currencies.AlienTokens, "Alien Tokens" }, { Currencies.Stamina, "Stamina" },
+            { Currencies.HeroXp, "Hero XP" }, { Currencies.Diamonds, "Diamonds" }, { Currencies.BlueprintTokens, "Schematics" },
+            { Currencies.PartTokens, "Crates" }, { Currencies.AlienTokens, "Signals" }, { Currencies.Stamina, "Stamina" },
             { Currencies.ArenaTickets, "Arena Tickets" }, { Currencies.BurrowKeys, "Burrow Keys" }, { Currencies.InvasionAttempts, "Invasion Attempts" },
             { Currencies.GuildMarks, "Guild Marks" }, { RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores, "Awaken Cores" },
             { Currencies.Data, "Data" }, { Currencies.ArenaMedals, "Arena Medals" },
-            { Currencies.HeroTickets, "Hero Summon Tickets" }, { Currencies.MountTickets, "Mount Summon Tickets" },
+            { Currencies.HeroTickets, "Crests" }, { Currencies.MountTickets, "Saddles" },
             { Currencies.HeroSigils, "Star Sigils" }, { Currencies.MountBolts, "Hangar Bolts" },
+        };
+
+        /// <summary>
+        /// Singular display names (used for an amount of exactly 1: "1 Crate", "3 Crates"). The pull currencies (owner, 2026-11-27):
+        /// Signals pull Aliens, Schematics pull Blueprints, Crates pull Parts, Crests pull hero events, Saddles pull mount events.
+        /// </summary>
+        private static readonly Dictionary<string, string> Singular = new Dictionary<string, string>
+        {
+            { Currencies.AlienTokens, "Signal" }, { Currencies.BlueprintTokens, "Schematic" }, { Currencies.PartTokens, "Crate" },
+            { Currencies.HeroTickets, "Crest" }, { Currencies.MountTickets, "Saddle" },
         };
 
         /// <summary>Short labels for the resource bar.</summary>
@@ -71,6 +81,16 @@ namespace RogueStars.Client.App
             return id.Replace('_', ' ');
         }
 
+        /// <summary>The display name for an amount: singular for exactly 1 where the currency has one ("1 Crate"), else plural.</summary>
+        public static string CurrencyName(string id, ContentDb content, long amount)
+        {
+            if (amount == 1 && id != null && Singular.TryGetValue(id, out var one)) return one;
+            return CurrencyName(id, content);
+        }
+
+        /// <summary>"1 Crate" / "10 Crates": an amount with its currency name.</summary>
+        public static string Amount(long amount, string currency, ContentDb content = null) => Num(amount) + " " + CurrencyName(currency, content, amount);
+
         public static string CurrencyShort(string id) => Short.TryGetValue(id, out var s) ? s : CurrencyName(id);
 
         public static string Reward(Reward r, ContentDb content)
@@ -78,7 +98,7 @@ namespace RogueStars.Client.App
             if (r == null) return "";
             switch (r.Kind)
             {
-                case RewardKinds.Currency: return Num(r.Amount) + " " + CurrencyName(r.Id, content);
+                case RewardKinds.Currency: return Amount(r.Amount, r.Id, content);
                 case RewardKinds.Blueprint: return (r.Amount > 1 ? r.Amount + "× " : "") + "Blueprint " + (content?.Blueprint(r.Id)?.Name ?? r.Id);
                 case RewardKinds.Alien: return (r.Amount > 1 ? r.Amount + "× " : "") + "Alien " + (content?.AlienType(r.Id)?.Name ?? r.Id);
                 case RewardKinds.Part:
@@ -151,7 +171,7 @@ namespace RogueStars.Client.App
             var chips = new List<string>();
             foreach (var key in order)
             {
-                if (sums.TryGetValue(key, out var amount)) { chips.Add("+" + Num(amount) + " " + CurrencyName(key.Substring(2), content)); continue; }
+                if (sums.TryGetValue(key, out var amount)) { chips.Add("+" + Amount(amount, key.Substring(2), content)); continue; }
                 var l = items[key];
                 long count = 0; foreach (var r in l) count += r.Kind == RewardKinds.HeroShards ? 1 : r.Amount;
                 chips.Add(l.Count == 1 ? Reward(l[0], content) : count + " " + KindPlural(l[0].Kind));
@@ -178,7 +198,7 @@ namespace RogueStars.Client.App
         {
             if (costs == null) return "free";
             var sb = new StringBuilder();
-            foreach (var c in costs) { if (sb.Length > 0) sb.Append(" + "); sb.Append(Num(c.Amount)).Append(' ').Append(CurrencyName(c.Currency, content)); }
+            foreach (var c in costs) { if (sb.Length > 0) sb.Append(" + "); sb.Append(Amount(c.Amount, c.Currency, content)); }
             return sb.Length == 0 ? "free" : sb.ToString();
         }
 

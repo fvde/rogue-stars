@@ -144,7 +144,7 @@ public class PassesPageTests
     public void ClaimAll_KeepsPaidRewardsInFull_EvenForLockedUses()
     {
         var e = Engine(devReceipts: true); var s = Player(e); long t = TestHelpers.T0;
-        Buy(e, ref s, "gift_token_week", t); // Blueprint Tokens have no use yet on a fresh account
+        Buy(e, ref s, "gift_token_week", t); // Schematics (Blueprint pull currency) have no use yet on a fresh account
         s.Stash.Currencies.TryGetValue(Currencies.BlueprintTokens, out long before);
         Ok(e, ref s, new PassesClaimAll(), t);
         // no use yet: waits in the reward stash, kept in full (no stash cap for paid claims)

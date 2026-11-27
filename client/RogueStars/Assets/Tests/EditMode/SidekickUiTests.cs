@@ -124,7 +124,7 @@ namespace RogueStars.Client.Tests
             Assert.That(texts.Any(t => t.StartsWith("Genes")), Is.False, "genes stay hidden until they exist (AL1)");
             Assert.That(texts.Any(t => t.Contains("hero_xp") || t.Contains("blueprint_tokens")), Is.False, "display names, never ids (AL1)");
             Assert.That(AliensScreen.SquadTitle(2, 0), Is.EqualTo("Squad 2 · build the Launch Pod for seats"));
-            Assert.That(AliensScreen.TraitText(c.AlienTrait("trait_scholar")), Is.EqualTo("+15% Hero XP, Blueprint Tokens and Alien Tokens production when working."));
+            Assert.That(AliensScreen.TraitText(c.AlienTrait("trait_scholar")), Is.EqualTo("+15% Hero XP, Schematics and Signals production when working."));
             Assert.That(texts.Any(t => t.Contains("deals 25% less")), Is.True, "3★ Stone Guard");
             Assert.That(texts.Any(t => t.StartsWith("Breed")), Is.True, "a Breed shortcut (Grain's sink)");
         }

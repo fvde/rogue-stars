@@ -69,7 +69,7 @@ public static class PlayCatalog
         ProductKind.Fund => "Diamond rewards for reaching milestones",
         ProductKind.GiftPack => "Instant rewards plus daily gifts for " + p.DailyDays + " days",
         ProductKind.SummonPass => "Premium track of the current summon event",
-        ProductKind.SummonPack => "Summon tickets and Diamonds (" + p.DailyLimit + " per day during summon events)",
+        ProductKind.SummonPack => (p.SummonEvent == SummonEventType.Mount ? "Saddles" : "Crests") + " and Diamonds (" + p.DailyLimit + " per day during summon events)",
         _ => p.Name,
     };
 

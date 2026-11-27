@@ -469,7 +469,7 @@ namespace RogueStars.Rules.Content
                     RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
                 RunOpt("Back off", "Nothing happens.", RunNothing));
-            var bm = RunOpt("Buy a signal beacon (100 coins)", "A blueprint token (reward chest, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
+            var bm = RunOpt("Buy a signal beacon (100 coins)", "A Schematic (reward chest, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
                 RunOut(1, "Sold. You feel a little weaker.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1)), RunStatFx(StatId.Hp, -8)));
             bm.CoinCost = 100;
             RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));

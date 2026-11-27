@@ -219,15 +219,15 @@ namespace RogueStars.Client.Screens
             bool can = tickets || State.Wallet.Get(Currencies.Diamonds) >= dia;
             string caption = count + "× Draw";
             var face = tickets ? SummonKit.Lime : Theme.Premium;
-            // SM2: the cost ("1 ticket", "10 tickets"); red when the balance is short (the balance is in the top bar)
+            // SM2: the cost ("1 Crest", "10 Crests"); red when the balance is short (the balance is in the top bar)
             var b = SummonKit.ActionButton(row, caption, tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
-                tickets ? TicketCost(need) : Fmt.Num(dia),
+                tickets ? TicketCost(need, def.TicketCurrency) : Fmt.Num(dia),
                 () => Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, ev.Id), face, -1, 150, can, "Draw:" + count);
             if (!can) MarkShort(b);
         }
 
-        /// <summary>"1 ticket" / "10 tickets".</summary>
-        public static string TicketCost(long n) => Fmt.Num(n) + (n == 1 ? " ticket" : " tickets");
+        /// <summary>"1 Crest" / "10 Crests" (the event type's pull currency).</summary>
+        public static string TicketCost(long n, string currency) => Fmt.Amount(n, currency);
 
         private static void MarkShort(Button b)
         {
@@ -273,7 +273,7 @@ namespace RogueStars.Client.Screens
                     {
                         Caption = "Draw ×" + n, Name = "Again:" + n,
                         Icon = tickets ? SummonArt.IconOfCurrency(def.TicketCurrency) : "diamond",
-                        Cost = tickets ? TicketCost(count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1) : Fmt.Num(SummonView.DiamondCost(def, count)),
+                        Cost = tickets ? TicketCost(count == 10 ? def.Gacha.TokenCost10 : def.Gacha.TokenCost1, def.TicketCurrency) : Fmt.Num(SummonView.DiamondCost(def, count)),
                         Can = tickets || State.Wallet.Get(Currencies.Diamonds) >= SummonView.DiamondCost(def, count),
                         Face = tickets ? SummonKit.Lime : Theme.Premium,
                         OnClick = () => Pull(count, tickets ? SummonPayment.Tickets : SummonPayment.Diamonds, result.EventId),

@@ -187,16 +187,16 @@ namespace RogueStars.Rules.Content
             hero.Milestones.Add(M(100, new Reward(RewardKinds.HeroShards, F, 10)));
             hero.Milestones.Add(M(150, new Reward(RewardKinds.Hero, F, 1)));
             hero.Exchange.Add(X("hero_shards", "Featured shards", 60, new Reward(RewardKinds.HeroShards, F, 5), 3));
-            hero.Exchange.Add(X("hero_ticket", "Hero Summon Ticket", 150, Cur(hero.TicketCurrency, 1), 3));
+            hero.Exchange.Add(X("hero_ticket", "Crest", 150, Cur(hero.TicketCurrency, 1), 3));
             hero.Exchange.Add(X("hero_xp", "Hero XP", 40, Cur(Currencies.HeroXp, 2000), 10));
-            hero.Exchange.Add(X("hero_alien_tokens", "Alien Tokens", 80, Cur(Currencies.AlienTokens, 2), 3));
+            hero.Exchange.Add(X("hero_alien_tokens", "Signals", 80, Cur(Currencies.AlienTokens, 2), 3));
             hero.Exchange.Add(X("hero_diamonds", "Diamonds", 100, Cur(Currencies.Diamonds, 50), 5));
             Pass(hero, new long[] { 1, 1, 1, 2, 2, 3 }, new long[] { 5, 5, 5, 6, 6, 8 }, new List<Reward> { new Reward(RewardKinds.HeroShards, F, 5) });
             Product(hero.PassProductId, "Hero Summon Pass", ProductKind.SummonPass, SummonEventType.Hero, 999, 0);
             hero.PackProductIds.Add(Product("summon_pack_hero_s", "Hero Summon Pack", ProductKind.SummonPack, SummonEventType.Hero, 299, 3, Cur(hero.TicketCurrency, 5), Cur(Currencies.Diamonds, 300)).Id);
             hero.PackProductIds.Add(Product("summon_pack_hero_m", "Hero Summon Crate", ProductKind.SummonPack, SummonEventType.Hero, 799, 3, Cur(hero.TicketCurrency, 14), Cur(Currencies.Diamonds, 800)).Id);
             hero.PackProductIds.Add(Product("summon_pack_hero_l", "Hero Summon Vault", ProductKind.SummonPack, SummonEventType.Hero, 1999, 2, Cur(hero.TicketCurrency, 38), Cur(Currencies.Diamonds, 2000)).Id);
-            Ad(hero.AdPlacementId, "Free Hero Summon Ticket", Cur(hero.TicketCurrency, 1));
+            Ad(hero.AdPlacementId, "Free Crest", Cur(hero.TicketCurrency, 1));
             hero.MigrationGift.Add(Cur(hero.TicketCurrency, 10));
             SummonEvents.Types[hero.Type] = hero;
 
@@ -236,16 +236,16 @@ namespace RogueStars.Rules.Content
             mount.Milestones.Add(M(80, Cur(Currencies.Fuel, 9000))); // was Mount Cores ×30 (1 core = 300 Fuel)
             mount.Milestones.Add(M(120, new Reward(RewardKinds.Mount, F, 1)));
             mount.Exchange.Add(X("mount_shards", "Featured shards", 80, Cur(MountShardsOf(F), 5), 2));
-            mount.Exchange.Add(X("mount_ticket", "Mount Summon Ticket", 150, Cur(mount.TicketCurrency, 1), 3));
+            mount.Exchange.Add(X("mount_ticket", "Saddle", 150, Cur(mount.TicketCurrency, 1), 3));
             // The former Mount Cores ×10 for 100 (2) is gone; its 200 tokens a week went to 5 more Fuel purchases (limit 10 → 15).
             mount.Exchange.Add(X("mount_fuel", "Fuel", 40, Cur(Currencies.Fuel, 1500), 15));
-            mount.Exchange.Add(X("mount_bp_tokens", "Blueprint Tokens", 80, Cur(Currencies.BlueprintTokens, 2), 3));
+            mount.Exchange.Add(X("mount_bp_tokens", "Schematics", 80, Cur(Currencies.BlueprintTokens, 2), 3));
             Pass(mount, new long[] { 1, 1, 2 }, new long[] { 4, 5, 7 }, new List<Reward> { Cur(MountShardsOf(F), 5) });
             Product(mount.PassProductId, "Mount Summon Pass", ProductKind.SummonPass, SummonEventType.Mount, 499, 0);
             mount.PackProductIds.Add(Product("summon_pack_mount_s", "Mount Summon Pack", ProductKind.SummonPack, SummonEventType.Mount, 199, 3, Cur(mount.TicketCurrency, 4), Cur(Currencies.Diamonds, 200)).Id);
             mount.PackProductIds.Add(Product("summon_pack_mount_m", "Mount Summon Crate", ProductKind.SummonPack, SummonEventType.Mount, 599, 3, Cur(mount.TicketCurrency, 12), Cur(Currencies.Diamonds, 600)).Id);
             mount.PackProductIds.Add(Product("summon_pack_mount_l", "Mount Summon Vault", ProductKind.SummonPack, SummonEventType.Mount, 1499, 2, Cur(mount.TicketCurrency, 32), Cur(Currencies.Diamonds, 1500)).Id);
-            Ad(mount.AdPlacementId, "Free Mount Summon Ticket", Cur(mount.TicketCurrency, 1));
+            Ad(mount.AdPlacementId, "Free Saddle", Cur(mount.TicketCurrency, 1));
             mount.MigrationGift.Add(Cur(mount.TicketCurrency, 10));
             SummonEvents.Types[mount.Type] = mount;
         }

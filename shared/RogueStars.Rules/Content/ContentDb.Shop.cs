@@ -221,7 +221,7 @@ namespace RogueStars.Rules.Content
             // Periodic gift packs: instant part + daily part for N days.
             var g1 = P("gift_diamond_week", "Diamond Gift Week", ProductKind.GiftPack, 499, Dia(100));
             g1.DailyRewards.Add(Dia(120)); g1.DailyDays = 7;
-            var g2 = P("gift_token_week", "Token Gift Week", ProductKind.GiftPack, 999, Reward.Cur(Currencies.PartTokens, 5));
+            var g2 = P("gift_token_week", "Crate Gift Week", ProductKind.GiftPack, 999, Reward.Cur(Currencies.PartTokens, 5));
             g2.DailyRewards.Add(Reward.Cur(Currencies.PartTokens, 3)); g2.DailyRewards.Add(Reward.Cur(Currencies.BlueprintTokens, 3)); g2.DailyDays = 7;
 
             // Permanent one-time purchases.
@@ -273,13 +273,13 @@ namespace RogueStars.Rules.Content
                 ShopItems[id] = it;
             }
             Item("daily_free_gift", "Daily Free Gift", "daily", null, Dia(10), 1, LimitPeriod.Daily);
-            Item("daily_part_tokens", "Part Tokens ×3", "daily", new Cost(Currencies.Diamonds, 120), Reward.Cur(Currencies.PartTokens, 3), 3, LimitPeriod.Daily);
-            Item("daily_blueprint_tokens", "Blueprint Tokens ×3", "daily", new Cost(Currencies.Diamonds, 150), Reward.Cur(Currencies.BlueprintTokens, 3), 3, LimitPeriod.Daily);
-            Item("daily_alien_tokens", "Alien Tokens ×3", "daily", new Cost(Currencies.Diamonds, 150), Reward.Cur(Currencies.AlienTokens, 3), 3, LimitPeriod.Daily);
+            Item("daily_part_tokens", "Crates ×3", "daily", new Cost(Currencies.Diamonds, 120), Reward.Cur(Currencies.PartTokens, 3), 3, LimitPeriod.Daily);
+            Item("daily_blueprint_tokens", "Schematics ×3", "daily", new Cost(Currencies.Diamonds, 150), Reward.Cur(Currencies.BlueprintTokens, 3), 3, LimitPeriod.Daily);
+            Item("daily_alien_tokens", "Signals ×3", "daily", new Cost(Currencies.Diamonds, 150), Reward.Cur(Currencies.AlienTokens, 3), 3, LimitPeriod.Daily);
             Item("daily_fuel", "Fuel ×500", "daily", new Cost(Currencies.Diamonds, 50), Reward.Cur(Currencies.Fuel, 500), 5, LimitPeriod.Daily);
-            Item("tokens_part_10", "Part Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1350), Reward.Cur(Currencies.PartTokens, 10), 5, LimitPeriod.Weekly);
-            Item("tokens_blueprint_10", "Blueprint Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.BlueprintTokens, 10), 5, LimitPeriod.Weekly);
-            Item("tokens_alien_10", "Alien Tokens ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.AlienTokens, 10), 5, LimitPeriod.Weekly);
+            Item("tokens_part_10", "Crates ×10", "tokens", new Cost(Currencies.Diamonds, 1350), Reward.Cur(Currencies.PartTokens, 10), 5, LimitPeriod.Weekly);
+            Item("tokens_blueprint_10", "Schematics ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.BlueprintTokens, 10), 5, LimitPeriod.Weekly);
+            Item("tokens_alien_10", "Signals ×10", "tokens", new Cost(Currencies.Diamonds, 1500), Reward.Cur(Currencies.AlienTokens, 10), 5, LimitPeriod.Weekly);
             // Arena shop (Arena Medals, ShopBuyItem; needs the Arena). Awaken Cores are the endgame purchase (weekly limit);
             // the rest keeps medals useful once the limit is reached.
             void ArenaItem(string id, string name, long medals, Reward contents, int limit)
@@ -288,13 +288,13 @@ namespace RogueStars.Rules.Content
                 ShopItems[id].Requires = RequirementSet.All(ReqFeature(Features.Arena));
             }
             ArenaItem("arena_awaken_core", "Awaken Core", 200, Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 2);
-            ArenaItem("arena_part_tokens", "Part Tokens ×2", 60, Reward.Cur(Currencies.PartTokens, 2), 3);
+            ArenaItem("arena_part_tokens", "Crates ×2", 60, Reward.Cur(Currencies.PartTokens, 2), 3);
             ArenaItem("arena_data", "Data ×300", 50, Reward.Cur(Currencies.Data, 300), 3);
             ArenaItem("arena_gear_cores", "Gear Cores ×150", 40, Reward.Cur(Currencies.GearCores, 150), 5);
             // Guild shop (guild_marks; bought through GuildShopBuy).
             Item("guild_ore", "Ore ×5000", "guild", new Cost(Currencies.GuildMarks, 100), Reward.Cur(Currencies.Ore, 5000), 5, LimitPeriod.Weekly);
             Item("guild_gear_cores", "Gear Cores ×100", "guild", new Cost(Currencies.GuildMarks, 150), Reward.Cur(Currencies.GearCores, 100), 5, LimitPeriod.Weekly);
-            Item("guild_part_tokens", "Part Tokens ×2", "guild", new Cost(Currencies.GuildMarks, 300), Reward.Cur(Currencies.PartTokens, 2), 3, LimitPeriod.Weekly);
+            Item("guild_part_tokens", "Crates ×2", "guild", new Cost(Currencies.GuildMarks, 300), Reward.Cur(Currencies.PartTokens, 2), 3, LimitPeriod.Weekly);
             Item("guild_fuel", "Fuel ×1500", "guild", new Cost(Currencies.GuildMarks, 400), Reward.Cur(Currencies.Fuel, 1500), 2, LimitPeriod.Weekly); // was Mount Cores ×5
 
             // Rewarded ad placements (daily caps). Effects without direct rewards are applied by the owning
