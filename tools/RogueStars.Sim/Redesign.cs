@@ -100,14 +100,15 @@ public static class Redesign
         sb.AppendLine("## Part surplus (median): spare = owned and not equipped");
         sb.AppendLine();
         var sd = new[] { 90, 365, 730 }.Where(d => d <= days).ToList();
-        sb.AppendLine("| Profile | " + string.Join(" | ", sd.Select(d => "spare Legendary+ d" + d)) + " | spare below Legendary d" + sd.Last() + " | obtained / merged / dismantled d" + sd.Last() + " |");
+        sb.AppendLine("| Profile | " + string.Join(" | ", sd.Select(d => "spare Legendary+ d" + d)) + " | spare below Legendary d" + sd.Last() + " | obtained / ladder steps / fed / replicated d" + sd.Last() + " |");
         sb.AppendLine("|---|" + string.Concat(sd.Select(_ => "---|")) + "---|---|");
         foreach (var g in groups)
         {
             int last = sd.Last();
             sb.AppendLine("| " + g.Key + " | " + string.Join(" | ", sd.Select(d => Output.F(Cum(g.Key, d, "parts_spare_legendary_plus")))) + " | "
                           + Output.F(Cum(g.Key, last, "parts_spare_below_legendary")) + " | "
-                          + Output.F(Cum(g.Key, last, "parts_obtained")) + " / " + Output.F(Cum(g.Key, last, "part_merges")) + " / " + Output.F(Cum(g.Key, last, "parts_dismantled")) + " |");
+                          + Output.F(Cum(g.Key, last, "parts_obtained")) + " / " + Output.F(Cum(g.Key, last, "part_climbs")) + " / " + Output.F(Cum(g.Key, last, "parts_fed"))
+                          + " / " + Output.F(Cum(g.Key, last, "part_replications")) + " |");
         }
         return sb.ToString();
     }

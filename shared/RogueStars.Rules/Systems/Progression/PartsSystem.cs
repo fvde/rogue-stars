@@ -276,6 +276,7 @@ namespace RogueStars.Rules.Systems
             foreach (var slot in AllSlots)
                 if (slot != cmd.Slot && s.Parts.Equipped.TryGetValue(slot, out var u) && u == p.Uid) s.Parts.Equipped.Remove(slot);
             s.Parts.Equipped[cmd.Slot] = p.Uid;
+            s.Count("part_equips");
             ctx.Emit("part_equipped", cmd.Slot.ToString(), p.Uid);
             return CommandResult.Success();
         }

@@ -11,7 +11,8 @@ public static class SystemEvents
     {
         ("Campaign", new[] { "levels_cleared" }),
         ("Worm", new[] { "worm_levels", "worm_talent_tiers" }),
-        ("Parts", new[] { "part_merges", "part_cap_raises", "part_forges", "part_awakens" }),
+        // parts v2: a better part equipped (pulls, boss first clears), a Mythic ladder step, a Forge unlock, an awakening
+        ("Parts", new[] { "part_equips", "part_climbs", "part_forges", "part_awakens" }),
         ("PartLevels", new[] { "part_levels" }),
         ("Runes", new[] { "rune_merges" }),
         ("Heroes", new[] { "hero_stars", "heroes_unlocked" }),
@@ -143,9 +144,11 @@ public static class Metrics
         A("parts_spare_legendary_plus", s.Parts.Items.Values.Count(x => x.Rarity >= legendary && !PartsSystem.IsEquipped(s, x.Uid)));
         A("parts_spare_below_legendary", s.Parts.Items.Values.Count(x => x.Rarity < legendary && !PartsSystem.IsEquipped(s, x.Uid)));
         A("parts_obtained", s.Counter("parts_obtained"));
-        A("parts_dismantled", s.Counter("parts_dismantled"));
-        A("part_merges", s.Counter("part_merges"));
+        A("parts_fed", s.Counter("parts_fed"));
+        A("part_climbs", s.Counter("part_climbs"));
+        A("part_equips", s.Counter("part_equips"));
         A("part_replications", s.Counter("part_replications"));
+        A("bal_metal", s.Wallet.Get(Currencies.Metal));
 
         // Heroes, mounts
         var heroes = s.Heroes.Owned.Values.ToList();

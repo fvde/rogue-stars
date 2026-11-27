@@ -175,7 +175,7 @@ namespace RogueStars.Rules.Content
             PartPrefix[(int)r] + "_" + k.ToString().ToLowerInvariant() + "_" + role.ToString().ToLowerInvariant();
 
         /// <summary>The page's rounding: below 20 whole numbers, from 20 multiples of 5 (build.py rnd, banker's rounding like Python).</summary>
-        internal static double PartRound(double x) => x < 20 ? Math.Floor(x + 0.5) : Math.Round(x / 5.0) * 5;
+        public static double PartRound(double x) => x < 20 ? Math.Floor(x + 0.5) : Math.Round(x / 5.0) * 5;
 
         partial void BuildParts()
         {

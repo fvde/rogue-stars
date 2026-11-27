@@ -28,7 +28,10 @@ public class ProgressionGuardTests
     }
 
     [Theory]
-    [InlineData(7, 18, 32)]
+    // parts v2: 32 → 36. Every boss first clear now gives a Rare or Epic part and the starter set has a Common in every slot, so the
+    // first week is faster (Active F2P seed 1: day 7 main level 34, was ~28; the median of 2 seeds 29.5, was 21.5); days 30 / 60 are
+    // slower (see progression-report.md "Parts v2").
+    [InlineData(7, 18, 36)]
     [InlineData(30, 32, 55)]
     [InlineData(60, 40, 75)]
     public void ActiveF2p_MainLevel_WithinBand(int day, int min, int max) =>
@@ -47,7 +50,9 @@ public class ProgressionGuardTests
     [Theory]
     [InlineData("Campaign", 10)]
     [InlineData("Worm", 10)]
-    [InlineData("Parts", 7)]
+    // parts v2: 7 → 10. Parts no longer merge: an upgrade is a better part from a pull or a boss first clear, a Mythic ladder step, a
+    // Forge unlock or an awakening; Active F2P seed 1 waits up to 9 days between two in its first 60 days.
+    [InlineData("Parts", 10)]
     [InlineData("PartLevels", 20)] // 9 before the plateau fix; see progression-report.md "Plateau fix"
     [InlineData("Heroes", 25)]
     // 21 → 24 (playtest 0.1.308): two minibosses per run (was ~3–4 Mythic choices) and 3-offer shops make runs a little
@@ -142,7 +147,9 @@ public class ProgressionGuardTests
             var boss = runs.Where(x => x.BossReached).ToList();
             Assert.InRange(boss.Average(x => x.BuildGains), 20, 40);
             Assert.InRange(boss.Average(x => x.ShopSkills + x.ShopPerks + x.ShopHeals), 10, 20);
-            Assert.InRange(boss.Average(x => x.MythicPicks), 1.5, 2); // two minibosses per run (playtest 0.1.308; early levels have none)
+            // two minibosses per run (playtest 0.1.308; early levels have none). 1.5 → 1.3 with parts v2: the weaker mid-game bot replays the
+            // first level (no minibosses) more often between frontier attempts (Active F2P seed 1: 88 of 347 boss runs, was ~51 of 365)
+            Assert.InRange(boss.Average(x => x.MythicPicks), 1.3, 2);
             // the board itself (mini-games excluded: GAME tiles add their own ~0.5 min, GDD §3.6)
             // (8.5: mini-game prizes add shop visits / skill-roll drafts on the board too)
             Assert.InRange(runs.Average(x => x.Minutes - x.Minigames * SimPlayer.MinigameSec / 60.0), 3, 8.5); // 3 (was 4): owner 2026-11-27, runs 20% shorter + dice 0.9 s // the player's battle speed: ×2 free, ×3 with the pass
