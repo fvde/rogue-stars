@@ -138,6 +138,12 @@ namespace RogueStars.Client.Screens
         /// <summary>The top strip as text (tests).</summary>
         public string HudText => _hud?.Summary;
         public bool Finished => _battle == null || _next >= _battle.Log.Count;
+
+        /// <summary>
+        /// The round pill: "Round n" only. The battle is simulated before it is played back, but its length is never shown
+        /// (owner: knowing "Round 1/12" up front gave the ending away); battles have no per-level round limit to show.
+        /// </summary>
+        public static string RoundLabel(int round) => "Round " + round;
         public float Speed => _speed;
         /// <summary>The speed the battle plays at, as the board's speed button shows it (tests).</summary>
         public string SpeedLabel => PlaySpeed.Label(_speed);
@@ -214,11 +220,11 @@ namespace RogueStars.Client.Screens
             panelShade.raycastTarget = false;
             Ui.Stretch(panelShade.rectTransform, 0, 0, 0, 10 * s);
 
-            // the HUD over the arena: the run's top HUD with the worm's live HP, "Round n/N", a skip chip
+            // the HUD over the arena: the run's top HUD with the worm's live HP, "Round n" (never the battle's length), a skip chip
             _hud = SliceHud.Build(holder, frameW, PulseSkip, null, _ctx.Coins >= 0); // T49: a HUD tap pulses the >> button (no toast)
             if (_hud.Coins != null) _hud.Coins.text = Fmt.Num(_ctx.Coins);
             var roundPill = SliceKit.Pill(holder, s, 540, 296, 300, 62, new Color32(0x14, 0x12, 0x20, 200), "RoundPill");
-            _round = SliceKit.Chunky(roundPill.transform, "Round 1/" + _battle.Rounds, (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
+            _round = SliceKit.Chunky(roundPill.transform, RoundLabel(1), (int)(40 * s), Color.white, TextAnchor.MiddleCenter, "Round");
             Ui.Stretch(_round.rectTransform);
             // the kit HUD (hero and mount kits): the hero's Ability counter / timer and the mount's next shot, left of the round
             if (_battle.Log.Exists(x => x.Action == BattleAction.KitCounter && x.Round == 0))
@@ -828,7 +834,7 @@ namespace RogueStars.Client.Screens
         private void Step(bool animate)
         {
             var e = _battle.Log[_next++];
-            if (_round != null) _round.text = "Round " + e.Round + "/" + _battle.Rounds;
+            if (_round != null) _round.text = RoundLabel(Math.Max(1, e.Round));
             if (e.Round != _roundNow) SetMountHud(e.Round);
             _roundNow = e.Round;
             var actor = View(e.Actor);

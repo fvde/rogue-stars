@@ -82,15 +82,49 @@ namespace RogueStars.Client.App
         public void Use(IGameService service)
         {
             if (Service != null) Service.StateChanged -= OnServiceChanged;
+            if (Service is RemoteGameService oldRemote)
+            {
+                oldRemote.Rejected -= OnSyncRejected;
+                oldRemote.BattleMismatch -= OnBattleMismatch;
+                oldRemote.SyncStateChanged -= OnSyncStateChanged;
+            }
             Service = service;
             if (Service != null) Service.StateChanged += OnServiceChanged;
+            if (Service is RemoteGameService remote)
+            {
+                remote.Rejected += OnSyncRejected;
+                remote.BattleMismatch += OnBattleMismatch;
+                remote.SyncStateChanged += OnSyncStateChanged;
+            }
         }
 
         private void OnServiceChanged() => Changed?.Invoke();
 
+        /// <summary>
+        /// Developer notices (dev servers and the owner's allowlisted players only): e.g. a re-simulated battle that disagreed
+        /// with this device's result, with both results. Players never see these.
+        /// </summary>
+        public event Action<string> DevNotice;
+
+        /// <summary>Local-first commands not confirmed by the server yet (0 offline).</summary>
+        public int PendingSync => (Service as RemoteGameService)?.PendingCount ?? 0;
+
+        // The server refused a command this device had already applied: its state was adopted; tell the player why.
+        private void OnSyncRejected(string error) => Error(Fmt.Humanize(error));
+
+        private void OnBattleMismatch(string text)
+        {
+            UnityEngine.Debug.LogWarning("[local-first] " + text);
+            DevNotice?.Invoke(text);
+        }
+
+        // Sends fail on the network: the "Reconnecting…" strip (GameFeedback shows it for "Not connected"); play goes on.
+        private void OnSyncStateChanged(bool stalled) { if (stalled) Error("Not connected"); }
+
         /// <summary>Advances session timers (ad verification polling, pending rewards). Called every frame by ClientApp.</summary>
         public void Tick(float dt)
         {
+            (Service as RemoteGameService)?.Tick(dt); // local-first sync retries
             _clock += dt;
             for (int i = 0; i < _timers.Count; i++)
             {
@@ -284,6 +318,7 @@ namespace RogueStars.Client.App
         public void Refresh(Action<ServiceResult> then = null)
         {
             if (!IsReady) { then?.Invoke(ServiceResult.Fail(ServiceErrors.NotConnected)); return; }
+            (Service as RemoteGameService)?.RetryNow(); // back from the background: send what waited
             Service.Refresh(r => { if (!r.Ok) Error(Fmt.Humanize(r.Error)); then?.Invoke(r); });
         }
 

@@ -403,7 +403,7 @@ namespace RogueStars.Client.Tests
             for (int i = 0; i < 3000 && battle == null && _f.Service.State.Run.Active != null; i++)
             {
                 _f.Service.ExecuteNow(new RunAutoStep { Farming = true, FarmShops = true });
-                battle = _f.Service.State.Run.Active?.LastBattle ?? _f.Service.State.Run.LastSummary?.LastBattle;
+                battle = _f.Service.State.Run.Active?.LastBattleForPlayback() ?? _f.Service.State.Run.LastSummary?.LastBattleForPlayback();
             }
             Assert.That(battle, Is.Not.Null, "a battle happened");
             _f.App.Router.Reset(new HubScreen());

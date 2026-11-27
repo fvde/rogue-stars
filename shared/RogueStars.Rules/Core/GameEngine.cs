@@ -86,6 +86,7 @@ namespace RogueStars.Rules.Core
             if (!_handlers.TryGetValue(command.Type, out var handler)) return CommandResult.Fail("unknown command " + command.Type);
 
             GameState working = Cloner != null ? Cloner(state) : state;
+            if (Cloner != null) RunState.CarryBattleLogs(state, working);
             var ctx = new CommandContext { State = working, Content = Content, Engine = this, NowMs = nowMs, Command = command, BattleResolver = battles };
             CommandResult result;
             try

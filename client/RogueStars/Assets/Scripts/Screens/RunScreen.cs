@@ -429,7 +429,7 @@ namespace RogueStars.Client.Screens
             else if (!battle) _anim.Call(() => AnimateHud(hudNow));
             if (battle)
             {
-                var result = run.LastBattle;
+                var result = run.LastBattleForPlayback(); // this device's log (local-first); the summary after a server correction
                 var ctx = BattleContext();
                 _anim.Call(() => App.Router.Push(new BattlePlaybackScreen(result, ctx)));
             }
@@ -1155,7 +1155,7 @@ namespace RogueStars.Client.Screens
             if (summary != null && summary.RunId == _runId && summary.LastBattle != null && !_summaryBattleShown)
             {
                 _summaryBattleShown = true;
-                var battle = summary.LastBattle;
+                var battle = summary.LastBattleForPlayback();
                 _anim = UiSequence.On(Root.gameObject);
                 _anim.Clear();
                 var ctx = BattleContext();

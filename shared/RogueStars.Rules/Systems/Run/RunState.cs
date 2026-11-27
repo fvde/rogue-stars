@@ -36,6 +36,22 @@ namespace RogueStars.Rules.Systems
     [Serializable]
     public sealed class RunState
     {
+        /// <summary>
+        /// Keeps the last battle's log (not part of the state) across the engine's JSON clone, so the device that fought a
+        /// battle can still play it after later commands; only while the battle is still the run's last one.
+        /// </summary>
+        internal static void CarryBattleLogs(GameState from, GameState to)
+        {
+            var a = from?.Run?.Active;
+            var b = to?.Run?.Active;
+            if (a != null && b != null && a.LastBattleLog != null && b.LastBattleLog == null && a.RunId == b.RunId && a.BattleCount == b.BattleCount)
+                b.LastBattleLog = a.LastBattleLog;
+            var sa = from?.Run?.LastSummary;
+            var sb = to?.Run?.LastSummary;
+            if (sa != null && sb != null && sa.LastBattleLog != null && sb.LastBattleLog == null && sa.RunId == sb.RunId)
+                sb.LastBattleLog = sa.LastBattleLog;
+        }
+
         /// <summary>The run in progress, or null.</summary>
         public ActiveRun Active;
         /// <summary>Summary of the last finished run (for the result screen).</summary>

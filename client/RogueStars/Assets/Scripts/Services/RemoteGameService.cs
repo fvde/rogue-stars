@@ -17,15 +17,21 @@ namespace RogueStars.Client.Services
         public string DisplayName = "Worm";
         /// <summary>"dev" or "firebase" (see <see cref="AuthModes"/>); picks the auth provider in the composition root.</summary>
         public string AuthMode = AuthModes.Dev;
+        /// <summary>
+        /// Local-first commands (default): run locally, show at once, sync in the background (RemoteGameService.LocalFirst).
+        /// False = every command waits for the server's state (the pre-local-first protocol; tests of the wire mapping).
+        /// </summary>
+        public bool LocalFirst = true;
     }
 
     /// <summary>
-    /// Online mode: the server is authoritative (docs/server.md). Every command is POSTed to /v1/command with a
-    /// requestId and the returned state replaces the local copy. The local engine is only used for queries.
+    /// Online mode: the server is the store of record (docs/server.md). Commands are local-first (see
+    /// RemoteGameService.LocalFirst.cs): applied on the local engine at once, then synced to /v1/command in order; the
+    /// server answers with an ack or, when it disagrees, its state, which replaces the local copy.
     /// Auth: an <see cref="IAuthProvider"/> (production: Firebase ID token, refreshed a minute before it expires and forced
     /// after a 401) or, without one, dev auth (POST /v1/auth/dev; local server, editor, tests).
     /// </summary>
-    public sealed class RemoteGameService : IGameService, IAdRewardService
+    public sealed partial class RemoteGameService : IGameService, IAdRewardService
     {
         /// <summary>Tokens are renewed this long before their expiry.</summary>
         public const long TokenRefreshMarginMs = 60_000;
@@ -97,6 +103,7 @@ namespace RogueStars.Client.Services
                     PurchasesDisabled = json.Value<bool?>("purchasesDisabled") ?? false;
                     // Owner dev tools (server allowlist, docs/server.md): Settings shows the Developer card only then.
                     DevToolsAvailable = json.Value<bool?>("devTools") ?? false;
+                    ResetQueue(); // a new session: the server's state is the starting point
                     ApplyState(json);
                     done?.Invoke(_state != null ? ServiceResult.Success() : ServiceResult.Fail("session_without_state"));
                 });
@@ -131,6 +138,20 @@ namespace RogueStars.Client.Services
 
         public void Refresh(Action<ServiceResult> done)
         {
+            if (_config.LocalFirst && _state != null)
+            {
+                // Settle time-based state as a local-first command: both copies settle at the same moment (an ack, not the
+                // whole state); server-side changes (mail, ad rewards, guild) arrive as a version conflict with the state.
+                var settle = new SettleTime();
+                ExecuteLocalFirst(settle, r =>
+                {
+                    if (!r.Ok) { done?.Invoke(ServiceResult.Fail(r.Error)); return; }
+                    var p = _queue.Find(x => x.Command == settle);
+                    if (p == null) done?.Invoke(ServiceResult.Success());
+                    else p.Synced = done ?? (_ => { });
+                });
+                return;
+            }
             Call("GET", "/v1/state", null, (json, err) =>
             {
                 if (err != null) { done?.Invoke(ServiceResult.Fail(err)); return; }
@@ -157,21 +178,32 @@ namespace RogueStars.Client.Services
         {
             if (command == null) { done?.Invoke(CommandResult.Fail("null command")); return; }
             if (ServerOnly.Is(command)) { done?.Invoke(CommandResult.Fail(ServiceErrors.ServerOnlyCommand)); return; }
-            Call("POST", "/v1/command", CommandBody(command), (json, err) => done?.Invoke(MapCommand(json, err)));
+            if (_config.LocalFirst && !IsServerFirst(command)) { ExecuteLocalFirst(command, done); return; }
+            // Server-first: in queue order, busy until the server's state is back.
+            Queued(next => Call("POST", "/v1/command", CommandBody(command), (json, err) => { var r = MapCommand(json, err); next(); done?.Invoke(r); }));
+        }
+
+        /// <summary>Server-first call: after the local-first queue drained (local-first mode), else at once.</summary>
+        private void Queued(Action<Action> call)
+        {
+            if (_config.LocalFirst) ServerFirst(call);
+            else call(() => { });
         }
 
         public void VerifyPurchase(string productId, string purchaseToken, Action<CommandResult> done)
         {
             var body = new JObject { ["productId"] = productId, ["purchaseToken"] = purchaseToken };
-            Call("POST", "/v1/iap/verify", body, (json, err) =>
+            Queued(next => Call("POST", "/v1/iap/verify", body, (json, err) =>
             {
                 if (err == null && json != null && json.Value<bool?>("alreadyCompleted") == true)
                 {
-                    Refresh(_ => done?.Invoke(CommandResult.Success()));
+                    Call("GET", "/v1/state", null, (s, _) => { ApplyState(s); next(); done?.Invoke(CommandResult.Success()); });
                     return;
                 }
-                done?.Invoke(MapCommand(json, err));
-            });
+                var r = MapCommand(json, err);
+                next();
+                done?.Invoke(r);
+            }));
         }
 
         /// <summary>Maps a command-shaped response ({ ok, error, events, payload, version, state }).</summary>
@@ -189,6 +221,10 @@ namespace RogueStars.Client.Services
             return r;
         }
 
+        /// <summary>
+        /// Adopts the server's state from a response (session, state, server-first calls, local-first disagreements) and
+        /// re-runs the local-first commands not sent yet on top of it.
+        /// </summary>
         private void ApplyState(JObject json)
         {
             if (json == null) return;
@@ -199,9 +235,14 @@ namespace RogueStars.Client.Services
             if (json["state"] is JObject stateJson)
             {
                 _state = stateJson.ToObject<GameState>(ClientJson.WireSerializer);
+                if (_queue.Count > 0) Rebase();
                 StateChanged?.Invoke();
             }
         }
+
+        /// <summary>GET /v1/state and adopt it (inside a server-first call: the queue is drained, nothing to re-run).</summary>
+        private void Resync(Action then) =>
+            Call("GET", "/v1/state", null, (json, err) => { if (err == null) ApplyState(json); then(); });
 
         // ---- rewarded ads -----------------------------------------------------------------------
 
@@ -211,7 +252,7 @@ namespace RogueStars.Client.Services
         public void InstantAd(string placementId, Action<CommandResult> done)
         {
             var body = new JObject { ["placementId"] = placementId, ["requestId"] = Guid.NewGuid().ToString("N") };
-            Call("POST", "/v1/ads/instant", body, (json, err) => done?.Invoke(MapCommand(json, err)));
+            Queued(next => Call("POST", "/v1/ads/instant", body, (json, err) => { var r = MapCommand(json, err); next(); done?.Invoke(r); }));
         }
 
         public void SimulateAdCallback(string placementId, string eventId, Action<ServiceResult> done)
@@ -229,13 +270,14 @@ namespace RogueStars.Client.Services
         public void ArenaFight(string opponentId, Action<ServiceResult<ArenaFightOutcome>> done)
         {
             var body = new JObject { ["opponentId"] = opponentId, ["requestId"] = Guid.NewGuid().ToString("N") };
-            Call("POST", "/v1/arena/fight", body, (json, err) =>
+            Queued(next => Call("POST", "/v1/arena/fight", body, (json, err) =>
             {
-                if (err != null) { done(ServiceResult<ArenaFightOutcome>.Fail(err)); return; }
+                if (err != null) { next(); done(ServiceResult<ArenaFightOutcome>.Fail(err)); return; }
                 var outcome = json.ToObject<ArenaFightOutcome>(ClientJson.WireSerializer);
                 ApplyState(json);
+                next();
                 done(ServiceResult<ArenaFightOutcome>.Success(outcome));
-            });
+            }));
         }
 
         public void ArenaLeaderboard(Action<ServiceResult<ArenaLeaderboard>> done) =>
@@ -249,13 +291,14 @@ namespace RogueStars.Client.Services
         public void InvasionAttack(string invasionId, Action<ServiceResult<InvasionAttackOutcome>> done)
         {
             var body = new JObject { ["requestId"] = Guid.NewGuid().ToString("N") };
-            Call("POST", "/v1/invasions/" + Uri.EscapeDataString(invasionId) + "/attack", body, (json, err) =>
+            Queued(next => Call("POST", "/v1/invasions/" + Uri.EscapeDataString(invasionId) + "/attack", body, (json, err) =>
             {
-                if (err != null) { done(ServiceResult<InvasionAttackOutcome>.Fail(err)); return; }
+                if (err != null) { next(); done(ServiceResult<InvasionAttackOutcome>.Fail(err)); return; }
                 var outcome = json.ToObject<InvasionAttackOutcome>(ClientJson.WireSerializer);
                 ApplyState(json);
+                next();
                 done(ServiceResult<InvasionAttackOutcome>.Success(outcome));
-            });
+            }));
         }
 
         // ---- HTTP plumbing ----------------------------------------------------------------------
@@ -332,15 +375,16 @@ namespace RogueStars.Client.Services
                 Post("/v1/dev/jump", new JObject { ["day"] = day, ["profile"] = profile }, done);
 
             private void Post(string path, JObject body, Action<ServiceResult<DevToolsOutcome>> done) =>
-                _s.Call("POST", path, body, (json, err) =>
+                _s.Queued(next => _s.Call("POST", path, body, (json, err) =>
                 {
-                    if (err != null) { done(ServiceResult<DevToolsOutcome>.Fail(err)); return; }
+                    if (err != null) { next(); done(ServiceResult<DevToolsOutcome>.Fail(err)); return; }
                     DevToolsOutcome outcome;
                     try { outcome = json.ToObject<DevToolsOutcome>(ClientJson.WireSerializer); }
-                    catch (Exception ex) { done(ServiceResult<DevToolsOutcome>.Fail("bad_response: " + ex.Message)); return; }
+                    catch (Exception ex) { next(); done(ServiceResult<DevToolsOutcome>.Fail("bad_response: " + ex.Message)); return; }
+                    _s.ResetQueue(); // the whole player was replaced: nothing queued applies any more
                     _s.ApplyState(json);
                     done(ServiceResult<DevToolsOutcome>.Success(outcome));
-                }, timeoutSeconds: DevToolsTimeoutSeconds);
+                }, timeoutSeconds: DevToolsTimeoutSeconds));
         }
 
         // ---- guilds -----------------------------------------------------------------------------
@@ -372,11 +416,11 @@ namespace RogueStars.Client.Services
                 PostGuild("/v1/guilds/" + Uri.EscapeDataString(guildId) + "/join", new JObject(), done);
 
             public void Leave(Action<ServiceResult> done) =>
-                _s.Call("POST", "/v1/guilds/leave", new JObject(), (json, err) =>
+                _s.Queued(next => _s.Call("POST", "/v1/guilds/leave", new JObject(), (json, err) =>
                 {
-                    if (err != null) { done(ServiceResult.Fail(err)); return; }
-                    _s.Refresh(_ => done(ServiceResult.Success()));
-                });
+                    if (err != null) { next(); done(ServiceResult.Fail(err)); return; }
+                    _s.Resync(() => { next(); done(ServiceResult.Success()); });
+                }));
 
             public void Chat(long sinceMs, Action<ServiceResult<List<ChatMessage>>> done) =>
                 _s.Get("/v1/guilds/chat?since=" + sinceMs,
@@ -390,13 +434,13 @@ namespace RogueStars.Client.Services
                 });
 
             private void PostGuild(string path, JObject body, Action<ServiceResult<GuildInfo>> done) =>
-                _s.Call("POST", path, body, (json, err) =>
+                _s.Queued(next => _s.Call("POST", path, body, (json, err) =>
                 {
-                    if (err != null) { done(ServiceResult<GuildInfo>.Fail(err)); return; }
+                    if (err != null) { next(); done(ServiceResult<GuildInfo>.Fail(err)); return; }
                     var g = json["guild"]?.ToObject<GuildInfo>(ClientJson.WireSerializer);
                     // Membership is applied to the player state by a server hook: re-sync.
-                    _s.Refresh(_ => done(ServiceResult<GuildInfo>.Success(g)));
-                });
+                    _s.Resync(() => { next(); done(ServiceResult<GuildInfo>.Success(g)); });
+                }));
         }
     }
 }
