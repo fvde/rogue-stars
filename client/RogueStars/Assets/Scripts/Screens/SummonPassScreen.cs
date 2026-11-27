@@ -21,7 +21,7 @@ namespace RogueStars.Client.Screens
         public SummonPassScreen() { }
         public SummonPassScreen(SummonEventType type) { Type = type; }
 
-        public override string Title => "Summon Pass";
+        public override string Title => Type == SummonEventType.Mount ? "Saddle Pass" : "Crest Pass";
         public override float HeaderHeight => 0;
         public override bool CoversResourceBar => true;
         public override float FooterHeight => 300;

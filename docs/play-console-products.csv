@@ -22,11 +22,11 @@ rs.fund_hero,non_consumable,9.99,Hero Fund,Diamond rewards for reaching mileston
 rs.fund_mount,non_consumable,9.99,Mount Fund,Diamond rewards for reaching milestones,fund_mount,Fund
 rs.fund_worm,non_consumable,9.99,Worm Fund,Diamond rewards for reaching milestones,fund_worm,Fund
 rs.fund_city,non_consumable,19.99,City Fund,Diamond rewards for reaching milestones,fund_city,Fund
-rs.summon_pack_mount_s,consumable,1.99,Mount Summon Pack,Saddles and Diamonds (3 per day during summon events),summon_pack_mount_s,SummonPack
-rs.summon_pack_hero_s,consumable,2.99,Hero Summon Pack,Crests and Diamonds (3 per day during summon events),summon_pack_hero_s,SummonPack
-rs.summon_pack_mount_m,consumable,5.99,Mount Summon Crate,Saddles and Diamonds (3 per day during summon events),summon_pack_mount_m,SummonPack
-rs.summon_pack_hero_m,consumable,7.99,Hero Summon Crate,Crests and Diamonds (3 per day during summon events),summon_pack_hero_m,SummonPack
-rs.summon_pack_mount_l,consumable,14.99,Mount Summon Vault,Saddles and Diamonds (2 per day during summon events),summon_pack_mount_l,SummonPack
-rs.summon_pack_hero_l,consumable,19.99,Hero Summon Vault,Crests and Diamonds (2 per day during summon events),summon_pack_hero_l,SummonPack
-rs.summon_pass_mount,consumable,4.99,Mount Summon Pass,Premium track of the current summon event,summon_pass_mount,SummonPass
-rs.summon_pass_hero,consumable,9.99,Hero Summon Pass,Premium track of the current summon event,summon_pass_hero,SummonPass
+rs.summon_pack_mount_s,consumable,1.99,Saddle Pack,Saddles and Diamonds (3 per day during summon events),summon_pack_mount_s,SummonPack
+rs.summon_pack_hero_s,consumable,2.99,Crest Pack,Crests and Diamonds (3 per day during summon events),summon_pack_hero_s,SummonPack
+rs.summon_pack_mount_m,consumable,5.99,Saddle Chest,Saddles and Diamonds (3 per day during summon events),summon_pack_mount_m,SummonPack
+rs.summon_pack_hero_m,consumable,7.99,Crest Chest,Crests and Diamonds (3 per day during summon events),summon_pack_hero_m,SummonPack
+rs.summon_pack_mount_l,consumable,14.99,Saddle Vault,Saddles and Diamonds (2 per day during summon events),summon_pack_mount_l,SummonPack
+rs.summon_pack_hero_l,consumable,19.99,Crest Vault,Crests and Diamonds (2 per day during summon events),summon_pack_hero_l,SummonPack
+rs.summon_pass_mount,consumable,4.99,Saddle Pass,Premium track of the current summon event,summon_pass_mount,SummonPass
+rs.summon_pass_hero,consumable,9.99,Crest Pass,Premium track of the current summon event,summon_pass_hero,SummonPass
