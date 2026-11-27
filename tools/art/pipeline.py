@@ -947,9 +947,25 @@ def cmd_ingest(a):
               + (f' (retry queued: {it["retry"]})' if it.get("retry") and it["stage"] == "failed" and not it.get("final") else ""), flush=True)
 
 
+def approved_subjects():
+    """(collection title, subject) pairs that already have an approved ~/AI/assets file."""
+    try:
+        art = json.load(open(ART_STATE))
+    except (OSError, ValueError):
+        return set()
+    return {(c.get("title"), os.path.basename(os.path.dirname(os.path.expanduser(x))))
+            for c in art["collections"] for x in c.get("approved", []) or []}
+
+
 def cmd_retry_sheet(a):
+    done = approved_subjects()
     with locked():
         st = load_state()
+        # a retry for a subject the owner already approved is wasted generation time
+        for o in st["items"].values():
+            if o.get("stage") == "retry-queued" and (o.get("collection"), o.get("subject")) in done:
+                o["stage"] = "superseded"; o["dismissed"] = True; o["updated"] = time.strftime("%Y-%m-%d %H:%M")
+        save_state(st)
     jobs = [o["job"] for o in st["items"].values() if o.get("stage") == "retry-queued" and not os.path.exists(o["raw"])]
     # a queued retry whose image already exists (gen.py ran but the hook did not) is ingested by night.sh's sweep
     if not jobs:

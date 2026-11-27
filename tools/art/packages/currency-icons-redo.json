@@ -6,10 +6,10 @@
   "height": 512,
   "name": "pkg-currency-icons-redo",
   "seeds": [
-    7111,
-    7112
+    7121,
+    7122
   ],
   "subjects": {
-    "signal": "a simple purple signal symbol: one small round dot with three curved purple arcs above it, like a wifi sign, flat, bold black outline"
+    "signal": "a round purple badge with a white wifi signal symbol printed on its front, one single solid object, flat, bold black outline"
   }
 }
