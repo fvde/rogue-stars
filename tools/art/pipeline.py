@@ -66,6 +66,8 @@ T = {
     "white_flat_std": 6.0,    # ... and it must be flat like the background (luminance std)
     "white_max_total": 0.35,
     "white_inner_max": 0.02,  # background gaps have no features inside (a die face has pips, a clock face hands)
+    "white_ring_dark": 0.5, "white_ring_dark_lum": 90,  # gap ring (4 px): mostly dark outline ...
+    "white_ring_chroma": 40,  # ... or grey; a highlight's ring is saturated body colour
     "white_dbg_max": 2.5,     # ... and are the background's exact colour (max channel difference)
     "white_dbg_max_sure": 4.0,  # ... or up to this when rembg's alpha there is below 0.05
     "white_big_frac": 0.15,   # featureless exact-background white >= 15% of the object that rembg keeps: fail, not edit  # never remove more than 35% of the opaque area as white
@@ -397,6 +399,14 @@ def remove_enclosed_white(rgb, alpha, rem, bg, log):
         # rembg certain it is background (alpha ~0) tolerates a slightly off-white tone (JPEG-ish drift near outlines)
         dbg_max = T["white_dbg_max"] if r >= 0.05 else T["white_dbg_max_sure"]
         bg_like = inner < T["white_inner_max"] and d_bg <= dbg_max and sd < T["white_flat_std"]
+        if bg_like:
+            # a gap between limbs is ringed by the black outline; a highlight sits on saturated colour (a red heart)
+            ring = ndi.binary_dilation(m, iterations=4) & ~m & op
+            ring &= lum < 200
+            if ring.any():
+                dark = (lum[ring] < T["white_ring_dark_lum"]).mean()
+                rch = np.median(chroma_of(rgb)[ring])
+                bg_like = dark >= T["white_ring_dark"] or rch < T["white_ring_chroma"]
         if bg_like and r < T["white_rembg_max"]:
             fringe = ndi.binary_dilation(m, iterations=3) & (lum > 200) & (chroma_of(rgb) < 30) & ~m
             a[m | fringe] = 0
