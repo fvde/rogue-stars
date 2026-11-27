@@ -374,10 +374,6 @@
       "fullframe",
       "UI backdrops"
     ],
-    "enemies-champions": [
-      "creature",
-      "Enemies (13 without a sprite)"
-    ],
     "ui-kit-redo": [
       "ui",
       "UI kit"
@@ -393,6 +389,10 @@
     "skills-v3-redo": [
       "icon",
       "Skill icons"
+    ],
+    "enemies-elites2": [
+      "creature",
+      "Enemies (13 without a sprite)"
     ]
   }
 }

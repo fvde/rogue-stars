@@ -1,0 +1,23 @@
+{
+  "name": "pkg-enemies-elites2",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1621,
+    1622
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single monster, full body, facing left, centered, isolated on a plain white background, no fire, no flames, no ground, no shadow, no scenery",
+  "negative": "background scenery, landscape, multiple monsters, human, text, watermark, blurry, photo, gore, fire, flames, ground shadow, drop shadow, crown, halo, sparkles, lava, embers",
+  "subjects": {
+    "elite_cinder_alpha": "Cinder Alpha, a big alpha hound beast with cracked black stone hide and thin glowing orange lines, big elite monster",
+    "elite_ash_matriarch": "Ash Matriarch, a tall ghostly woman figure made of pale grey dust with glowing orange eyes, empty hands, big elite monster",
+    "elite_glacier_warden": "Glacier Warden, a hulking ice golem guard with a crystal shield, big elite monster",
+    "elite_lurker_alpha": "Lurker Alpha, a big furry white snow beast with two glowing eyes, big elite monster",
+    "elite_volt_monarch": "Volt Monarch, a large electric beetle with a bright yellow shell and blue lightning stripes, big elite monster",
+    "elite_eel_tyrant": "Eel Tyrant, a huge electric eel coiled upright with glowing blue stripes, big elite monster",
+    "elite_null_wraith": "Null Wraith, a tall shadowy void wraith with a dark purple cloak and white eyes, big elite monster",
+    "elite_grub_mother": "Grub Mother, a giant plump burrow grub with stubby legs, big elite monster",
+    "elite_stalker_prime": "Stalker Prime, a big armored burrowing beast with a drill snout and golden claws, big elite monster"
+  }
+}
