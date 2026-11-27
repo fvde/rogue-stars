@@ -16,7 +16,7 @@ public static class PullReport
     {
         public double Heroes, HeroStars, HeroBest, Mounts, MountStars, MountBest;
         public double Aliens, AlienStars, MythicAliens, Blueprints, BpStars, MythicBps;
-        public double SignalMythics, SignalPulls, ReactorOwned, ReactorStars, ReactorJobs, ReactorIn, ReactorOut;
+        public double SignalMythics, SignalPulls, PartPulls, ReactorOwned, ReactorStars, ReactorJobs, ReactorIn, ReactorOut;
         public double ExcessAlien, ExcessBp, MaxedAliens, MaxedBps;
     }
 
@@ -51,7 +51,7 @@ public static class PullReport
                 double share = g.Average(r => r.At[day].ReactorOwned);
                 sb.AppendLine($"| {g.Key} | {day} | {M(s => s.Heroes)} · {M(s => s.HeroStars)} / {M(s => s.HeroBest)} | {M(s => s.Mounts)} · {M(s => s.MountStars)} / {M(s => s.MountBest)} | "
                     + $"{M(s => s.Aliens)} · {M(s => s.AlienStars)}★ · {M(s => s.MythicAliens)} M | {M(s => s.Blueprints)} · {M(s => s.BpStars)}★ · {M(s => s.MythicBps)} M | "
-                    + $"{M(s => s.SignalPulls):N0} · {M(s => s.SignalMythics)} | {M(s => s.ExcessAlien):N0} / {M(s => s.ExcessBp):N0} | "
+                    + $"{M(s => s.SignalPulls):N0} ({M(s => s.PartPulls):N0} parts) · {M(s => s.SignalMythics)} | {M(s => s.ExcessAlien):N0} / {M(s => s.ExcessBp):N0} | "
                     + $"{share * 100:0}% · {M(s => s.ReactorStars)}★ · {M(s => s.ReactorJobs)} | {M(s => s.ReactorIn):N0} → {M(s => s.ReactorOut):N0} |");
             }
         return sb.ToString();
@@ -69,7 +69,7 @@ public static class PullReport
             MythicAliens = s.Aliens.Owned.Keys.Count(id => c.AlienType(id)?.Rarity == Rarity.Mythic),
             Blueprints = s.City.Blueprints.Count, BpStars = s.City.Blueprints.Values.Sum(b => b.Stars),
             MythicBps = s.City.Blueprints.Keys.Count(id => c.Blueprint(id)?.Rarity == Rarity.Mythic),
-            SignalPulls = s.Counter("pulls_total"), SignalMythics = s.Counter("pulls_mythic"),
+            SignalPulls = s.Counter("pulls_total"), PartPulls = s.Counter("pulls_part"), SignalMythics = s.Counter("pulls_mythic"),
             ReactorOwned = reactor != null ? 1 : 0, ReactorStars = reactor != null ? CitySystem.Stars(s, reactor.BlueprintId) : 0,
             ReactorJobs = s.Counter("reactor_jobs_started"), ReactorIn = s.Counter("reactor_shards_in"), ReactorOut = s.Counter("reactor_shards_out"),
             ExcessAlien = c.AlienTypes.Keys.Sum(id => ShardReactorSystem.ExcessShards(s, c, ReactorKind.Alien, id)),
