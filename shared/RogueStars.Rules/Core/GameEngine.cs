@@ -76,13 +76,16 @@ namespace RogueStars.Rules.Core
         /// handlers must validate before mutating (convention for all handlers anyway).
         /// Returns the resulting state (a new instance when cloning).
         /// </summary>
-        public CommandResult Execute(ref GameState state, GameCommand command, long nowMs)
+        public CommandResult Execute(ref GameState state, GameCommand command, long nowMs) => Execute(ref state, command, nowMs, null);
+
+        /// <summary>Execute with a battle resolver (server: local-first battle claims and sampled re-simulation).</summary>
+        public CommandResult Execute(ref GameState state, GameCommand command, long nowMs, BattleResolver battles)
         {
             if (command == null) return CommandResult.Fail("null command");
             if (!_handlers.TryGetValue(command.Type, out var handler)) return CommandResult.Fail("unknown command " + command.Type);
 
             GameState working = Cloner != null ? Cloner(state) : state;
-            var ctx = new CommandContext { State = working, Content = Content, Engine = this, NowMs = nowMs, Command = command };
+            var ctx = new CommandContext { State = working, Content = Content, Engine = this, NowMs = nowMs, Command = command, BattleResolver = battles };
             CommandResult result;
             try
             {
@@ -102,6 +105,7 @@ namespace RogueStars.Rules.Core
             working.Version++;
             working.LastCommandMs = nowMs;
             result.Events.AddRange(ctx.Events);
+            result.Battles = ctx.Battles;
             state = working;
             return result;
         }

@@ -273,7 +273,12 @@ namespace RogueStars.Rules.Systems
 
         // battles
         public int BattleCount;
+        /// <summary>The last battle's result without its log (BattleResult.Summary); the rules read it after the battle.</summary>
         public BattleResult LastBattle;
+        /// <summary>The last battle fought in this process, log included (never persisted or hashed: internal + NonSerialized).</summary>
+        [NonSerialized] internal BattleResult LastBattleLog;
+        /// <summary>The last battle for playback: with its log when it was fought on this device, else the summary.</summary>
+        public BattleResult LastBattleForPlayback() => LastBattleLog ?? LastBattle;
         public bool ReviveUsed;
         public List<CombatantSpec> DefeatEnemies = new List<CombatantSpec>();
         public string DefeatKind;
@@ -427,7 +432,12 @@ namespace RogueStars.Rules.Systems
         public int ShopBuys;
         /// <summary>The level's longest survived run in rolls, this one included ("Longest Journey").</summary>
         public int LongestRolls;
+        /// <summary>The run's last battle without its log (BattleResult.Summary).</summary>
         public BattleResult LastBattle;
+        /// <summary>The run's last battle fought in this process, log included (never persisted or hashed).</summary>
+        [NonSerialized] internal BattleResult LastBattleLog;
+        /// <summary>The last battle for playback: with its log when it was fought on this device, else the summary.</summary>
+        public BattleResult LastBattleForPlayback() => LastBattleLog ?? LastBattle;
     }
 
     // ---- laboratory -------------------------------------------------------------------------

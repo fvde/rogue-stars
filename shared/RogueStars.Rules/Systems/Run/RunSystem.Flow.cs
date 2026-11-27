@@ -542,9 +542,12 @@ namespace RogueStars.Rules.Systems
             var opening = PlagueOpening(c, run);
             if (opening.Count > 0) setup.Player[setup.Player.Count - 1].OpeningStatuses = opening;
             setup.Enemy.AddRange(enemies);
-            var result = BattleSimulator.Simulate(setup, c, run.Rng.Fork("battle:" + run.BattleCount));
+            // Local-first: the server may take the client's claimed result instead of re-simulating (CommandContext.ResolveBattle).
+            var full = ctx.ResolveBattle(setup, run.Rng.Fork("battle:" + run.BattleCount), kind);
+            var result = full.Summary(); // the state keeps no log (it only drives the client's playback)
             run.BattleCount++;
             run.LastBattle = result;
+            run.LastBattleLog = full.Log.Count > 0 ? full : null;
             if (result.StacksInflicted != null)
                 foreach (var kv in result.StacksInflicted)
                     run.PlagueStacks[kv.Key] = (run.PlagueStacks.TryGetValue(kv.Key, out var had) ? had : 0) + kv.Value;
@@ -555,8 +558,7 @@ namespace RogueStars.Rules.Systems
             int felled = 0; // enemies knocked out (summons excluded): summon event tasks
             foreach (var f in result.Fighters) if (f.Side == BattleSide.Enemy && f.SummonedBy < 0 && !f.Alive) felled++;
             if (felled > 0) ctx.State.Count("run_enemies_defeated", felled);
-            int novas = 0;
-            foreach (var le in result.Log) if (le.Action == BattleAction.Supernova && le.Amount == 0 && le.Actor == le.Target) novas++;
+            int novas = result.Novas;
             ctx.Emit("run_battle", kind, result.Winner.ToString(), result.Rounds.ToString(), result.Log.Count.ToString(),
                 result.PlayerDamageDealt.ToString(), result.PlayerDamageTaken.ToString(), novas.ToString());
             if (result.PlayerWon())
@@ -1433,7 +1435,7 @@ namespace RogueStars.Rules.Systems
             var c = ctx.Content; var s = ctx.State;
             var level = Level(c, run);
             var portal = c.Portal(run.PortalId);
-            var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle,
+            var summary = new RunSummary { RunId = run.RunId, LevelId = run.LevelId, Mode = run.Mode, Won = won, Rolls = run.Rolls, Level = run.Level, Floors = run.Floor, LastBattle = run.LastBattle, LastBattleLog = run.LastBattleLog,
                 AccountLootOffers = run.AccountLootOffers, AccountLootDrops = run.PendingLoot.Count, XpTotal = run.XpTotal,
                 Gains = new List<RunGain>(run.Gains), Minibosses = run.MinibossesDefeated, ShopBuys = run.ShopBuys };
             if (won)

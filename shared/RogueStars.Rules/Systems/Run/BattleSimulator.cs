@@ -657,6 +657,8 @@ namespace RogueStars.Rules.Systems
             }
             var worm = FirstWorm(BattleSide.Player);
             if (worm != null) { Res.WormHpLeft = worm.Alive ? worm.Hp : 0; Res.WormMaxHp = worm.MaxHp; }
+            Res.Novas = 0;
+            foreach (var le in Res.Log) if (le.Action == BattleAction.Supernova && le.Amount == 0 && le.Actor == le.Target) Res.Novas++;
             return Res;
         }
 
@@ -1254,7 +1256,7 @@ namespace RogueStars.Rules.Systems
             var dr = def.Rules;
             bool always = counterDepth == 0 && (dr.CounterAll || def.CounterWindow) && !ShutDown(def);
             double chance = ShutDown(def) ? 0 : def.S(StatId.CounterChance) + (dr.ComboAsCounter ? def.S(StatId.ComboChance) : 0);
-            double cp = CombatMath.Clamp(chance, 0, 95) / 100.0 * Math.Pow(T.ChainDecay, counterDepth);
+            double cp = CombatMath.Clamp(chance, 0, 95) / 100.0 * CombatMath.PowInt(T.ChainDecay, counterDepth);
             if (always || (cp > 0 && R.Chance(cp)))
             {
                 var ct = att.Targetable ? att : DefaultTarget(def);

@@ -131,7 +131,8 @@ namespace RogueStars.Rules.Systems
 
         // ---- handlers -------------------------------------------------------------------------
 
-        private static CommandResult Ok(CommandContext ctx) => CommandResult.Success(ctx.State.Run.Active != null ? ctx.State.Run.Active.LastBattle : null);
+        /// <summary>Success; the payload is the last battle this command fought (log included), or null.</summary>
+        private static CommandResult Ok(CommandContext ctx) => CommandResult.Success(ctx.Battles.Count > 0 ? ctx.Battles[ctx.Battles.Count - 1].Result : null);
 
         private static void Require(bool cond, string error) => GameEngine.Require(cond, error);
 
