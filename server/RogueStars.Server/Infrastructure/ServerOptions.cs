@@ -20,6 +20,7 @@ public sealed class ServerOptions
     public GuildOptions Guilds { get; set; } = new();
     public InvasionOptions Invasions { get; set; } = new();
     public DevToolsOptions DevTools { get; set; } = new();
+    public Commands.BattleAuditOptions Battles { get; set; } = new();
 }
 
 /// <summary>
@@ -146,6 +147,13 @@ public sealed class CommandOptions
     public List<string> ClientDenyList { get; set; } = new();
     /// <summary>If non-empty, clients may only send these commands.</summary>
     public List<string> ClientAllowList { get; set; } = new();
+
+    /// <summary>
+    /// Local-first commands run at the client's execution time: at most this far in the past (a queue that waited offline)…
+    /// </summary>
+    public long ClientTimeMaxLagMs { get; set; } = 10 * 60_000;
+    /// <summary>…and at most this far ahead of the server clock (clock skew; no regen from a fast-forwarded clock).</summary>
+    public long ClientTimeMaxLeadMs { get; set; } = 5_000;
 
     public IEnumerable<string> HookNames() =>
         new[] { PurchaseComplete, AdWatched, InvasionOutcome, InvasionAttack, ArenaStart, ArenaFight, MailDeliver, GuildMembership };

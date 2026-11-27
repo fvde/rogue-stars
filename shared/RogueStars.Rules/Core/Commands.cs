@@ -16,6 +16,14 @@ namespace RogueStars.Rules.Core
         public string RequestId;
     }
 
+    /// <summary>
+    /// Settles time-based state (regen, production, timers) as a command: a local-first online client "refreshes" by
+    /// running it locally and sending it like any other command, so its copy and the server's stay identical (settling
+    /// outside a command on one side only would make the state hashes disagree). No effect besides the settlers.
+    /// </summary>
+    [Serializable]
+    public sealed class SettleTime : GameCommand { }
+
     [Serializable]
     public sealed class GameEvent
     {

@@ -89,6 +89,8 @@ builder.Services.AddSingleton<AdCreditService>();
 
 // Game services
 builder.Services.AddSingleton<CommandCatalog>();
+builder.Services.AddSingleton<IBattleSampler, RandomBattleSampler>();
+builder.Services.AddSingleton<BattleAuditService>();
 builder.Services.AddSingleton<CommandService>();
 builder.Services.AddSingleton<ServerHooks>();
 builder.Services.AddSingleton<PlayerService>();

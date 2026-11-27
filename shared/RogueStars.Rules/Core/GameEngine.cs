@@ -30,6 +30,7 @@ namespace RogueStars.Rules.Core
         public GameEngine(ContentDb content = null)
         {
             Content = content ?? ContentDb.Default;
+            Register<SettleTime>((c, ctx) => CommandResult.Success()); // the settlers ran already (Execute)
             SystemsRegistry.RegisterAll(this);
         }
 
