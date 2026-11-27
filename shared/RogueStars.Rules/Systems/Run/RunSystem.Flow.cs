@@ -1299,13 +1299,15 @@ namespace RogueStars.Rules.Systems
 
         /// <summary>
         /// Fills the shop: <see cref="ShopTableDef.SkillOffers"/> skills, then the support offers on top (the heal while hurt, the
-        /// stat perks). A reroll (<paramref name="reroll"/>) draws new skills and keeps the support offers as they are (a bought
-        /// heal or perk stays sold: rerolls refresh the skills, not the support).
+        /// stat perks). A reroll (<paramref name="reroll"/>) draws new skills and new stat perks (playtest 0.1.359: the perk stayed
+        /// the same; an unsold perk is redrawn, another stat than before when one is left). The heal stays as it is (it is one
+        /// fixed offer, a reroll could only draw it again), and a bought heal or perk stays sold.
         /// </summary>
         private static void FillShop(ContentDb c, ActiveRun run, bool reroll = false)
         {
             var table = ShopTable(c, run);
-            var kept = reroll ? run.Shop.FindAll(o => o.Kind != ShopOfferKind.Skill) : null;
+            var kept = reroll ? run.Shop.FindAll(o => o.Kind == ShopOfferKind.Heal || o.Kind == ShopOfferKind.Stat && o.Sold) : null;
+            var oldPerks = reroll ? run.Shop.FindAll(o => o.Kind == ShopOfferKind.Stat && !o.Sold) : null;
             run.Shop.Clear();
             var pool = RunDraft.Eligible(c, run);
             long cheapest = CheapestSkillPrice(table);
@@ -1328,12 +1330,35 @@ namespace RogueStars.Rules.Systems
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Skill, SkillId = s.Id, Price = table.SkillPrices.TryGetValue(s.Rarity, out var p) ? p : 50 });
             }
             ApplySale(table, run);
-            if (kept != null) { run.Shop.AddRange(kept); return; }
+            if (kept != null)
+            {
+                // a reroll: the heal and the sold perks as they were (in their order), the unsold perks drawn again
+                foreach (var o in kept) if (o.Kind == ShopOfferKind.Heal) run.Shop.Add(o);
+                foreach (var o in kept) if (o.Kind == ShopOfferKind.Stat) run.Shop.Add(o);
+                AddStatPerks(table, run, oldPerks.Count, oldPerks);
+                return;
+            }
             // support offers on top of the skills (playtest 0.1.325): the heal while the worm is hurt, and always the stat perks
             if (run.WormHp < run.WormMaxHp * table.HealOfferBelowPct / 100.0)
                 run.Shop.Add(new ShopOffer { Kind = ShopOfferKind.Heal, Value = table.HealPct, Price = table.HealPrice });
+            AddStatPerks(table, run, table.StatPerkOffers, null);
+        }
+
+        /// <summary>
+        /// Draws <paramref name="count"/> stat perks from the table, never one the shop already shows; a reroll leaves out the
+        /// perks it replaces (<paramref name="replaced"/>) while other stats are left, so the reroll visibly changes the perk.
+        /// </summary>
+        private static void AddStatPerks(ShopTableDef table, ActiveRun run, int count, List<ShopOffer> replaced)
+        {
+            bool Same(StatMod a, StatMod b) => a.Stat == b.Stat && a.Flat == b.Flat && a.Percent == b.Percent;
             var stats = new List<StatMod>(table.StatOffers);
-            for (int i = 0; i < table.StatPerkOffers && stats.Count > 0; i++)
+            stats.RemoveAll(m => run.Shop.Exists(o => o.Kind == ShopOfferKind.Stat && o.Stat != null && Same(o.Stat, m)));
+            if (replaced != null && stats.Count > count)
+            {
+                var fresh = stats.FindAll(m => !replaced.Exists(o => o.Stat != null && Same(o.Stat, m)));
+                if (fresh.Count >= count) stats = fresh;
+            }
+            for (int i = 0; i < count && stats.Count > 0; i++)
             {
                 int k = run.Rng.Range(0, stats.Count);
                 var m = stats[k];

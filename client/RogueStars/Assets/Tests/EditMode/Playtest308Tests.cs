@@ -171,7 +171,7 @@ namespace RogueStars.Client.Tests
         // ---- 5. shop offers (playtest 0.1.325: 3 skills + the support offers) ---------------------------------------
 
         [Test]
-        public void Shop_ShowsThreeSkillsAndAStatPerk_AndARerollKeepsThem()
+        public void Shop_ShowsThreeSkillsAndAStatPerk_AndARerollKeepsTheSlots()
         {
             var run = StartRun("shop");
             run.Coins = 5000;

@@ -78,7 +78,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
 | Campfire | **Rest** (restore 35% HP) or **Train** (improve 1 owned skill **of the player's choice**: one level, or a chain's lower tier into its upgrade; signatures and maxed skills cannot train; nothing to train = coins; auto picks the lowest-level skill, earliest gained on ties); either strengthens nearby enemy tiles |
-| Shop (force stop) | Two per segment. 3 skills (owned ones offered as level-ups) plus the support offers on top: a stat perk, and the heal while the worm is below 60% HP, for run coins; a reroll (rising price) draws 3 new skills and keeps the support offers |
+| Shop (force stop) | Two per segment. 3 skills (owned ones offered as level-ups) plus the support offers on top: a stat perk, and the heal while the worm is below 60% HP, for run coins; a reroll (rising price) draws 3 new skills and a new stat perk (the heal and bought offers stay) |
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
@@ -146,7 +146,7 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
 - **Shops:** two per segment (forced stops), **3 skills plus the support offers** (playtest 0.1.325; `ShopTableDef.SkillOffers`):
   3 skills (owned ones as level-ups at lower weight), and on top a stat perk (`StatPerkOffers` 1: +8% ATK, +10% HP, +10% DEF,
   +5% crit, +8% Speed, +4% life steal, +4% damage reduction) and the heal as well while the worm is below 60% HP
-  (`HealOfferBelowPct`). A reroll draws 3 new skills and keeps the support offers as they are (a bought one stays sold). Prices: skills
+  (`HealOfferBelowPct`). A reroll draws 3 new skills and a new stat perk (playtest 0.1.359: another stat than before); the heal stays as it is (one fixed offer) and a bought heal or perk stays sold. Prices: skills
   **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
   reroll. A run **starts with the cheapest skill price + 30 coins** (`RunSystem.StartCoins`) and its first shop leads with a
   Common skill, so the first shop always allows a purchase. **SALE:** with 20% (`ShopTableDef.SaleChancePct`) one skill

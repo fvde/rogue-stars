@@ -80,8 +80,8 @@ public class ShopVisitTests
         {
             var perk = s.Run.Active!.Shop[3].Stat.Stat;
             Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
-            FullHpFill(s.Run.Active!); // a reroll refreshes the skills and keeps the support offers
-            Assert.Equal(perk, s.Run.Active!.Shop[3].Stat.Stat);
+            FullHpFill(s.Run.Active!); // a reroll refreshes the skills and the stat perk (playtest 0.1.359)
+            Assert.NotEqual(perk, s.Run.Active!.Shop[3].Stat.Stat);
         }
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopLeave()).Ok);
 
@@ -100,6 +100,37 @@ public class ShopVisitTests
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopBuy { Index = 3 }).Ok); // the heal
         Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
         HurtFill(s.Run.Active!);
-        Assert.True(s.Run.Active!.Shop[3].Sold); // a bought heal stays bought: rerolls refresh the skills only
+        Assert.True(s.Run.Active!.Shop[3].Sold); // a bought heal stays bought: the heal is not rerolled
+    }
+
+    [Fact]
+    public void Reroll_DrawsANewStatPerk_ButABoughtPerkStaysSold()
+    {
+        // playtest 0.1.359: the reroll also rerolls the stat perk; one already bought is not offered again by rerolling
+        var e = RunTestKit.Engine();
+        var s = RunTestKit.StartRun(e);
+        var run = s.Run.Active!;
+        RunTestKit.LineBoard(run, new[] { "shop" }.Concat(Enumerable.Repeat("empty", 20)).ToArray());
+        run.Coins = 50000;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+        var seen = new HashSet<StatId>();
+        for (int i = 0; i < 12; i++)
+        {
+            var perk = s.Run.Active!.Shop.Single(o => o.Kind == ShopOfferKind.Stat);
+            Assert.False(perk.Sold);
+            seen.Add(perk.Stat.Stat);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
+            Assert.NotEqual(perk.Stat.Stat, s.Run.Active!.Shop.Single(o => o.Kind == ShopOfferKind.Stat).Stat.Stat);
+        }
+        Assert.True(seen.Count >= 3, "rerolls show different perks over time");
+
+        int idx = s.Run.Active!.Shop.FindIndex(o => o.Kind == ShopOfferKind.Stat);
+        var bought = s.Run.Active.Shop[idx].Stat.Stat;
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopBuy { Index = idx }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunShopReroll()).Ok);
+        var after = s.Run.Active!.Shop.Single(o => o.Kind == ShopOfferKind.Stat);
+        Assert.True(after.Sold);
+        Assert.Equal(bought, after.Stat.Stat);
+        Assert.Equal(3, s.Run.Active.Shop.Count(o => o.Kind == ShopOfferKind.Skill));
     }
 }
