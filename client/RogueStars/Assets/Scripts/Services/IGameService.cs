@@ -31,7 +31,10 @@ namespace RogueStars.Client.Services
         /// <summary>Create/load the player (offline: save file; online: dev auth + /v1/session).</summary>
         void Connect(Action<ServiceResult> done);
 
-        /// <summary>Re-sync time-based state (offline: settle; online: GET /v1/state).</summary>
+        /// <summary>
+        /// Re-sync time-based state (offline: settle; online local-first: settle locally, then a version check that downloads
+        /// the state only after a change on the server; online server-first: GET /v1/state).
+        /// </summary>
         void Refresh(Action<ServiceResult> done);
 
         /// <summary>Execute a player command (offline: locally; online: POST /v1/command with a requestId).</summary>

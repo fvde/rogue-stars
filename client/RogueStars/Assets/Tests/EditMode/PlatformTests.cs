@@ -238,6 +238,8 @@ namespace RogueStars.Client.Tests
             public readonly RemoteGameService Service;
             public readonly GameState ServerState;
             public System.Func<HttpRequest, HttpResponse> Extra = _ => null;
+            /// <summary>The stored version: a test that changes <see cref="ServerState"/> as a server hook would bumps it.</summary>
+            public long Version = 1;
             public string Wire => JsonConvert.SerializeObject(ServerState, ClientJson.Wire);
 
             public Online(bool adsDisabled = false, bool purchasesDisabled = false)
@@ -249,7 +251,9 @@ namespace RogueStars.Client.Tests
                     if (r != null) return r;
                     if (req.Url.EndsWith("/v1/auth/dev")) return FakeTransport.Json(200, "{\"token\":\"t\",\"playerId\":\"dev_buyer\"}");
                     if (req.Url.EndsWith("/v1/session") || req.Url.EndsWith("/v1/state"))
-                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"adsDisabled\":" + (adsDisabled ? "true" : "false") + ",\"purchasesDisabled\":" + (purchasesDisabled ? "true" : "false") + ",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":1,\"state\":" + Wire + "}");
+                        return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_buyer\",\"adsDisabled\":" + (adsDisabled ? "true" : "false") + ",\"purchasesDisabled\":" + (purchasesDisabled ? "true" : "false") + ",\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":" + Version + ",\"state\":" + Wire + "}");
+                    if (req.Url.EndsWith("/v1/version"))
+                        return FakeTransport.Json(200, "{\"ok\":true,\"serverTimeMs\":" + TestUtil.T0 + ",\"version\":" + Version + "}");
                     if (req.Url.EndsWith("/v1/command"))
                         return FakeTransport.Json(200, "{\"ok\":true,\"events\":[],\"version\":2,\"state\":" + Wire + "}");
                     return FakeTransport.Json(404, "{\"ok\":false,\"error\":\"not_found\"}");
@@ -343,6 +347,7 @@ namespace RogueStars.Client.Tests
             Assert.That(o.Http.Requests.Any(r => r.Url.Contains("/v1/command") && r.Body.Contains("AdWatched")), Is.False, "the client never grants ad rewards online");
             // The S2S callback lands on the server; the next refresh shows the consumed placement.
             o.ServerState.Shop.AdViews["daily_diamonds_ad"] = 1;
+            o.Version++;
             for (int i = 0; i < 5 && done == null; i++) o.Session.Tick(o.Session.AdVerifyPollSeconds);
             Assert.That(done.Ok, Is.True);
             Assert.That(o.Session.IsAdPending("daily_diamonds_ad"), Is.False);
@@ -353,6 +358,7 @@ namespace RogueStars.Client.Tests
         {
             var o = new Online();
             o.ServerState.Flags.Add(ContentDb.Default.Shop.NoAdsFlag);
+            o.Version++;
             o.Service.Refresh(_ => { });
             ServiceResult<string> token = null;
             o.Session.Ads.Show("revive", r => token = r);

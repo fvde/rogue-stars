@@ -140,16 +140,7 @@ namespace RogueStars.Client.Services
         {
             if (_config.LocalFirst && _state != null)
             {
-                // Settle time-based state as a local-first command: both copies settle at the same moment (an ack, not the
-                // whole state); server-side changes (mail, ad rewards, guild) arrive as a version conflict with the state.
-                var settle = new SettleTime();
-                ExecuteLocalFirst(settle, r =>
-                {
-                    if (!r.Ok) { done?.Invoke(ServiceResult.Fail(r.Error)); return; }
-                    var p = _queue.Find(x => x.Command == settle);
-                    if (p == null) done?.Invoke(ServiceResult.Success());
-                    else p.Synced = done ?? (_ => { });
-                });
+                RefreshLocalFirst(done);
                 return;
             }
             Call("GET", "/v1/state", null, (json, err) =>

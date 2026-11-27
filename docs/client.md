@@ -74,7 +74,9 @@ AppBootstrap (only object in Main.unity)
   → state + server time offset + allowed commands + `adsDisabled` + `devTools` (`DevToolsAvailable`: the Developer card and
   `IGameService.DevTools` = `POST /v1/dev/reset|jump`, 120 s timeout); `POST /v1/command {type, requestId, args, expectedVersion?}`
   (args = the command's fields in camelCase, enums as numbers, dictionary keys untouched); every response with
-  `state` replaces the local copy; `GET /v1/state` every 30 s. `[ServerOnly]` commands are refused locally with
+  `state` replaces the local copy. Local-first (default, docs/server.md → Local-first commands): every 30 s the client settles
+  its copy locally and reads `GET /v1/version`, downloading `/v1/state` only after a change on the server (no write);
+  server-first mode: `GET /v1/state` every 30 s. `[ServerOnly]` commands are refused locally with
   `server_only_command`. A `401` re-authenticates once and retries. Arena (`/v1/arena/*`), invasions
   (`/v1/invasions*`), guilds (`/v1/guilds*`, chat polling every 5 s) and IAP (`/v1/iap/verify`) map to DTOs in
   `ServiceTypes.cs`. HTTP goes through `IHttpTransport` (`UnityHttpTransport` = UnityWebRequest; tests use a fake).

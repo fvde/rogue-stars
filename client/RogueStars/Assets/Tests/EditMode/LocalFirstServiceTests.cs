@@ -63,7 +63,14 @@ namespace RogueStars.Client.Tests
             public int Acks, FullStates, Commands;
             public readonly List<JObject> Bodies = new List<JObject>();
 
-            public ProtocolServer() { State = Engine.NewPlayer("dev_lf", TestUtil.T0, 4242); State.Flags.Add(Features.DevUnlockAllFlag); }
+            public int Reads;
+
+            public ProtocolServer()
+            {
+                State = Engine.NewPlayer("dev_lf", TestUtil.T0, 4242);
+                State.Flags.Add(Features.DevUnlockAllFlag);
+                Engine.Settle(State, TestUtil.T0); // the dev unlock as part of the creation (as the dev server's engine does it)
+            }
 
             private string Wire(GameState s) => JsonConvert.SerializeObject(s, ClientJson.Wire);
 
@@ -72,8 +79,16 @@ namespace RogueStars.Client.Tests
                 if (NetworkDown) return new HttpResponse { Status = 0, NetworkError = "Cannot connect" };
                 if (req.Url.EndsWith("/v1/auth/dev")) return FakeTransport.Json(200, "{\"token\":\"tok\",\"playerId\":\"dev_lf\"}");
                 if (req.Url.EndsWith("/v1/session") || req.Url.EndsWith("/v1/state"))
+                {
+                    // settled at server time, not saved (the stored state changes only with commands)
+                    Reads++;
+                    var settled = ClientJson.Clone(State);
+                    Engine.Settle(settled, NowMs);
                     return FakeTransport.Json(200, "{\"ok\":true,\"playerId\":\"dev_lf\",\"serverTimeMs\":" + NowMs + ",\"version\":" + State.Version +
-                                                   ",\"state\":" + Wire(State) + ",\"commands\":[]}");
+                                                   ",\"state\":" + Wire(settled) + ",\"commands\":[]}");
+                }
+                if (req.Url.EndsWith("/v1/version"))
+                    return FakeTransport.Json(200, "{\"ok\":true,\"serverTimeMs\":" + NowMs + ",\"version\":" + State.Version + "}");
                 if (!req.Url.EndsWith("/v1/command")) return FakeTransport.Json(404, "{\"ok\":false,\"error\":\"not_found\"}");
                 Commands++;
                 var body = JObject.Parse(req.Body);
@@ -111,13 +126,15 @@ namespace RogueStars.Client.Tests
         private ProtocolServer _server;
         private DeferredTransport _http;
         private RemoteGameService _svc;
+        private ManualClock _clock;
 
         [SetUp]
         public void SetUp()
         {
             _server = new ProtocolServer();
             _http = new DeferredTransport { Handler = r => _server.Handle(r) };
-            _svc = new RemoteGameService(new RemoteConfig { BaseUrl = "http://lf", DeviceId = "lf" }, _http, new ManualClock(TestUtil.T0));
+            _clock = new ManualClock(TestUtil.T0);
+            _svc = new RemoteGameService(new RemoteConfig { BaseUrl = "http://lf", DeviceId = "lf" }, _http, _clock);
             ServiceResult res = null;
             _svc.Connect(r => res = r);
             Assert.That(res.Ok, Is.True, res.Error);
@@ -249,15 +266,56 @@ namespace RogueStars.Client.Tests
             Assert.That(_server.Acks, Is.EqualTo(2));
         }
 
-        [Test]
-        public void Refresh_IsALocalFirstSettle_NotAStateDownload()
+        private void Advance(long ms)
         {
+            _clock.Advance(ms);
+            _server.NowMs += ms;
+        }
+
+        [Test]
+        public void Refresh_SettlesLocally_AndOnlyReadsTheVersion_ThenCommandsStillAgree()
+        {
+            Run(new RunStart { LevelId = Level1, Mode = RunMode.Normal }); // stamina below the cap: regen runs
+            Run(new RunAbandon());
+            int requests = _http.Requests.Count, reads = _server.Reads, commands = _server.Commands;
+            for (int i = 0; i < 12; i++)
+            {
+                Advance(30_000 + i * 7_919);
+                ServiceResult done = null;
+                _svc.Refresh(r => done = r);
+                Assert.That(done.Ok, Is.True, done.Error);
+                Assert.That(_svc.State.SettledMs, Is.EqualTo(_svc.NowMs), "settled locally");
+            }
+            Assert.That(_http.Requests.Count - requests, Is.EqualTo(12));
+            Assert.That(_server.Commands, Is.EqualTo(commands), "no command for a refresh");
+            Assert.That(_server.Reads, Is.EqualTo(reads), "no state download without a server-side change");
+            Advance(3_600_000);
+            _svc.Refresh(_ => { });
+            Run(new RunStart { LevelId = Level1, Mode = RunMode.Normal });
+            Assert.That(_server.Acks, Is.EqualTo(3), "the server (settling its stored state at the command's time) agrees");
+            Assert.That(_server.FullStates, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Refresh_DownloadsTheState_OnlyAfterAServerSideChange()
+        {
+            Run(new RunStart { LevelId = Level1, Mode = RunMode.Normal });
+            Advance(60_000);
+            int reads = _server.Reads;
+            _svc.Refresh(_ => { });
+            Assert.That(_server.Reads, Is.EqualTo(reads));
+            // a hook on the server (mail, ad reward, arena) moved the stored version on
+            MailSystem.Push(_server.State, _server.Engine.Content, _server.NowMs, "Hello", "From the server", null);
+            _server.State.Version++;
+            Advance(30_000);
             ServiceResult done = null;
             _svc.Refresh(r => done = r);
             Assert.That(done.Ok, Is.True);
-            Assert.That(_http.Requests[_http.Requests.Count - 1].Url, Does.EndWith("/v1/command"));
-            Assert.That((string)_server.Bodies[0]["type"], Is.EqualTo("SettleTime"));
-            Assert.That(_server.Acks, Is.EqualTo(1));
+            Assert.That(_server.Reads, Is.EqualTo(reads + 1));
+            Assert.That(_svc.State.Mail.Inbox.Exists(m => m.Title == "Hello"), Is.True);
+            Assert.That(_svc.State.Version, Is.EqualTo(_server.State.Version));
+            Run(new RunAbandon());
+            Assert.That(_server.FullStates, Is.EqualTo(0), "the adopted state predicts the server again");
         }
 
         [Test]

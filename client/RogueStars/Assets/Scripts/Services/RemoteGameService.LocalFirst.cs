@@ -39,8 +39,6 @@ namespace RogueStars.Client.Services
             public long ExpectedVersion;
             public string StateHash;
             public JArray Claims;
-            /// <summary>Called once the server answered this command (Refresh waits for it).</summary>
-            public Action<ServiceResult> Synced;
         }
 
         private readonly List<Pending> _queue = new List<Pending>();
@@ -83,7 +81,7 @@ namespace RogueStars.Client.Services
         {
             if (_state == null) { done?.Invoke(CommandResult.Fail(ServiceErrors.NotConnected)); return; }
             if (string.IsNullOrEmpty(command.RequestId)) command.RequestId = Guid.NewGuid().ToString("N");
-            long at = Math.Max(NowMs, _state.LastCommandMs);
+            long at = CommandTime(NowMs);
             long expected = _state.Version;
             var working = _state;
             CommandResult result;
@@ -96,6 +94,39 @@ namespace RogueStars.Client.Services
             StateChanged?.Invoke();
             done?.Invoke(result);
             Pump();
+        }
+
+        /// <summary>
+        /// When a command runs: now, but never before the state's last command or settle (settling never goes back in time; the
+        /// server clamps to its own window, docs/server.md).
+        /// </summary>
+        private long CommandTime(long wanted) => Math.Max(wanted, Math.Max(_state.LastCommandMs, _state.SettledMs));
+
+        /// <summary>
+        /// The periodic refresh (no write on the server): time-based state (regen, production, timers, events) is settled
+        /// locally (settling is path-independent: the server settles its stored copy at each command's time and agrees), and
+        /// a read of the stored version tells whether something changed on the server (mail, ad rewards, arena, live ops,
+        /// another device). Only then is the state downloaded. With commands still queued the download is skipped: their
+        /// replies bring the server's state on a version conflict.
+        /// </summary>
+        private void RefreshLocalFirst(Action<ServiceResult> done)
+        {
+            Engine.Settle(_state, NowMs);
+            StateChanged?.Invoke();
+            Call("GET", "/v1/version", null, (json, err) =>
+            {
+                if (err != null || json == null) { done?.Invoke(ServiceResult.Fail(err ?? "empty_response")); return; }
+                var st = json["serverTimeMs"];
+                if (st != null && st.Type == JTokenType.Integer) _serverOffsetMs = (long)st - _clock.NowMs;
+                long server = json.Value<long?>("version") ?? -1;
+                if (_queue.Count > 0 || server <= _state.Version) { done?.Invoke(ServiceResult.Success()); return; }
+                Call("GET", "/v1/state", null, (s, e2) =>
+                {
+                    if (e2 != null || s == null) { done?.Invoke(ServiceResult.Fail(e2 ?? "empty_response")); return; }
+                    if (_queue.Count == 0) ApplyState(s); // else a command went out meanwhile: its reply decides
+                    done?.Invoke(ServiceResult.Success());
+                });
+            });
         }
 
         private Pending Predict(Pending p, CommandResult result)
@@ -155,10 +186,6 @@ namespace RogueStars.Client.Services
                 _failures++;
                 _retryIn = RetryBackoff[Math.Min(_failures - 1, RetryBackoff.Length - 1)];
                 if (_failures == 1) SyncStateChanged?.Invoke(true);
-                // a caller waiting for the sync (Refresh) learns it failed; the command itself stays queued
-                var waiting = head.Synced;
-                head.Synced = null;
-                waiting?.Invoke(ServiceResult.Fail(err ?? "network_error"));
                 return;
             }
             if (_failures > 0) { _failures = 0; SyncStateChanged?.Invoke(false); }
@@ -170,7 +197,6 @@ namespace RogueStars.Client.Services
             {
                 var v = json["version"];
                 if (_queue.Count == 0 && v != null && v.Type == JTokenType.Integer) Version = (long)v;
-                head.Synced?.Invoke(ServiceResult.Success());
                 Pump();
                 return;
             }
@@ -180,7 +206,6 @@ namespace RogueStars.Client.Services
                 if (err != null && err != "version_conflict") Rejected?.Invoke(err);
                 ApplyState(json); // adopt + re-run the rest of the queue
                 Diverged?.Invoke(reason);
-                head.Synced?.Invoke(ServiceResult.Success());
                 Pump();
                 return;
             }
@@ -189,7 +214,6 @@ namespace RogueStars.Client.Services
             Call("GET", "/v1/state", null, (s, e2) =>
             {
                 if (s != null && e2 == null) { ApplyState(s); Diverged?.Invoke(reason); }
-                head.Synced?.Invoke(e2 == null ? ServiceResult.Success() : ServiceResult.Fail(e2));
                 Pump();
             });
         }
@@ -236,7 +260,7 @@ namespace RogueStars.Client.Services
             {
                 var p = _queue[i];
                 if (p.ServerFirst != null || (i == 0 && _sending)) continue;
-                long at = Math.Max(p.AtMs, _state.LastCommandMs);
+                long at = CommandTime(p.AtMs);
                 long expected = _state.Version;
                 var working = _state;
                 CommandResult result;
@@ -246,7 +270,6 @@ namespace RogueStars.Client.Services
                 {
                     _queue.RemoveAt(i--);
                     Rejected?.Invoke(result.Error);
-                    p.Synced?.Invoke(ServiceResult.Success());
                     continue;
                 }
                 _state = working;
