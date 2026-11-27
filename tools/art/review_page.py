@@ -289,7 +289,7 @@ def sections(state, reg=None):
     for c in state["collections"]:
         appr = [f for f in files(c.get("approved")) if f not in rejected]
         cand = [f for f in files(c.get("candidates")) if f not in rejected and f not in appr]
-        cand.sort(key=lambda f: reg["files"].get(f, 0))
+        cand.sort(key=lambda f: (subject_of(f), reg["files"].get(f, 0), f))  # versions of the same subject side by side
         cand = dedupe(cand, appr)
         appr.sort(key=lambda f: reg["files"].get(f, 0))
         anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
