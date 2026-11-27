@@ -17,6 +17,7 @@ namespace RogueStars.Rules.Systems
         public static void Register(GameEngine e)
         {
             e.Register<RunStart>(HandleStart);
+            e.Register<RunPickSignature>((c, ctx) => { var r = Need(ctx); PickStartSignature(ctx, r, c.SignatureId); return Ok(ctx); });
             e.Register<RunRoll>((c, ctx) => { var r = Need(ctx); Roll(ctx, r); return Ok(ctx); });
             e.Register<RunChooseBranch>((c, ctx) => { var r = Need(ctx); ChooseBranch(ctx, r, c.Index); return Ok(ctx); });
             e.Register<RunChooseEventOption>((c, ctx) => { var r = Need(ctx); ChooseEventOption(ctx, r, c.Index, c.SkillId); return Ok(ctx); });
@@ -178,7 +179,9 @@ namespace RogueStars.Rules.Systems
             run.SkipNegativeEvents += run.Loadout.SkipNegativeEvents;
             run.AwakeningReductionPct += run.Loadout.AwakeningSlowPct;
             s.Run.Active = run;
-            GrantSignature(ctx, run, cmd.SignatureId, signatures);
+            bool pickOnBoard = cmd.PickOnBoard && string.IsNullOrEmpty(cmd.SignatureId) && signatures.Count > 1;
+            if (pickOnBoard) run.StartSignatures.AddRange(signatures); // picked on the board before the first roll (RunPickSignature)
+            else GrantSignature(ctx, run, cmd.SignatureId, signatures);
             RefreshMaxHp(c, run);
 
             RunTriggers(ctx, run, TriggerKind.OnRunStart, null);
@@ -187,7 +190,8 @@ namespace RogueStars.Rules.Systems
             s.Count("runs_started");
             s.Count("runs_started_" + cmd.Mode.ToString().ToLowerInvariant());
             ctx.Emit("run_started", run.RunId, level.Id, cmd.Mode.ToString());
-            Continue(ctx, run);
+            if (pickOnBoard) run.Phase = RunPhase.Signature; // the pick's Continue moves on
+            else Continue(ctx, run);
             return Ok(ctx);
         }
 
@@ -477,6 +481,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.Encounter: return RunDecision.Encounter;
                 case RunPhase.Minigame: return RunDecision.Minigame;
                 case RunPhase.Quest: return RunDecision.Quest;
+                case RunPhase.Signature: return RunDecision.Signature;
                 case RunPhase.Event:
                 {
                     var tile = run.EventTile >= 0 && run.EventTile < run.Tiles.Count ? run.Tiles[run.EventTile] : null;
@@ -546,6 +551,7 @@ namespace RogueStars.Rules.Systems
                 case RunPhase.BurrowChoice: Finish(ctx, run, true); break;
                 case RunPhase.Minigame: MinigameAuto(ctx, run); break;
                 case RunPhase.Quest: QuestChoose(ctx, run, QuestFarmPick(ctx.Content, ctx.State, run)); break;
+                case RunPhase.Signature: PickStartSignature(ctx, run, null); break;
             }
         }
     }

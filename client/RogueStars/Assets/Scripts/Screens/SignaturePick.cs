@@ -11,10 +11,11 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// The run-start signature pick (signatures pass) in the slice card family: the dimmed overlay, the hero, a violet ribbon
-    /// "CHOOSE YOUR SIGNATURE", "It gives this run its identity", one card per offered signature (tier tag "Signature", the
-    /// synergy as a chip, its one effect and when it awakens). The offer is RunSystem.SignatureOffer — the same the server
-    /// validates; the pick is sent as RunStart.SignatureId.
+    /// The run-start signature pick (signatures pass) in the slice card family: a violet ribbon "CHOOSE YOUR SIGNATURE", "It
+    /// gives this run its identity", one card per offered signature (tier tag "Signature", the synergy as a chip, its one
+    /// effect and when it awakens). Run UI glitches #24 (owner): the pick happens at the start of the run on the run board
+    /// (RunScreen.SignatureBoardPick, phase Signature, before the first ROLL): <see cref="StartRun"/> sends RunStart with
+    /// PickOnBoard and the board opens the pick; <see cref="Show"/> stays for showcases.
     /// </summary>
     public static class SignaturePick
     {
@@ -60,18 +61,14 @@ namespace RogueStars.Client.Screens
             return modal;
         }
 
-        /// <summary>The run start every screen uses: show the offer, then send RunStart with the picked signature.</summary>
+        /// <summary>
+        /// The run start every screen uses: RunStart with PickOnBoard — every run starts with the pick (playtest 0.1.325), now
+        /// on the run's own board before the first roll (#24); a single offer (one unlocked signature) needs no pick.
+        /// </summary>
         public static void StartRun(ClientApp app, RunStart cmd, Action<CommandResult> then)
         {
-            var session = app.Session;
-            var offer = RunSystem.SignatureOffer(session.Engine, session.State, session.NowMs);
-            // every run starts with the pick (playtest 0.1.325); a single offer (one unlocked signature) needs no screen
-            if (offer.Count <= 1) { cmd.SignatureId = offer.Count == 1 ? offer[0] : null; session.Run(cmd, then); return; }
-            Show(app.ModalLayer, session.Content, offer, sid =>
-            {
-                cmd.SignatureId = sid;
-                session.Run(cmd, then);
-            });
+            cmd.PickOnBoard = true;
+            app.Session.Run(cmd, then);
         }
     }
 }

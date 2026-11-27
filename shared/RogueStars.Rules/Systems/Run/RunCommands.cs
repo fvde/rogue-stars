@@ -4,8 +4,15 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Systems
 {
     /// <summary>Start a run on a portal level. Costs the level's entry cost (Stamina, or Burrow Keys for the Burrow).</summary>
-    /// <summary>SignatureId: one of RunSystem.SignatureOffer (empty = the first offered: auto mode, bots).</summary>
-    [Serializable] public sealed class RunStart : GameCommand { public string PortalId; public string LevelId; public RunMode Mode; public string SignatureId; }
+    /// <summary>
+    /// SignatureId: one of RunSystem.SignatureOffer (empty = the first offered: auto mode, bots). PickOnBoard (the client, run UI
+    /// glitches #24): with an empty SignatureId and two or more offered, the run opens in phase Signature on its board and the
+    /// player picks with <see cref="RunPickSignature"/> before the first roll.
+    /// </summary>
+    [Serializable] public sealed class RunStart : GameCommand { public string PortalId; public string LevelId; public RunMode Mode; public string SignatureId; public bool PickOnBoard; }
+
+    /// <summary>Phase Signature: pick the run's starting signature, one of ActiveRun.StartSignatures (empty = the first).</summary>
+    [Serializable] public sealed class RunPickSignature : GameCommand { public string SignatureId; }
 
     /// <summary>Roll the dice (count from level + boons) and move. Clean random.</summary>
     [Serializable] public sealed class RunRoll : GameCommand { }

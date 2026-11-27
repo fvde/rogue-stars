@@ -78,6 +78,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Damage numbers, words and ability banners: a layer over every fighter (BT5), cleared when the battle ends.</summary>
         private RectTransform _fx;
         private RectTransform _order;
+        private GameObject _orderPlate;
         private bool _built;
         private RectTransform _feed;
         private readonly Queue<GameObject> _feedLines = new Queue<GameObject>();
@@ -251,12 +252,14 @@ namespace RogueStars.Client.Screens
             // background (playtest 0.1.308: barely visible on light arenas)
             float orderX = _kitMount != null ? 620 : 540; // clear of the mount's pill on the left
             var plate = Kit.Plate(holder, 26 * s, "TurnOrderPlate");
+            _orderPlate = plate.gameObject;
             SliceKit.Place(plate.rectTransform, s, orderX, 374, 500, 78);
             _order = Ui.Row(holder, 40 * s, 8 * s, null, 0, "TurnOrder");
             SliceKit.Place(_order, s, orderX, 374, 480, 62);
             _order.GetComponent<HorizontalLayoutGroup>().childForceExpandHeight = false;
             _order.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
 
+            _fx.SetAsLastSibling(); // #31: hit numbers and ability chips draw over the HUD strip and the NEXT plate
             _banner = SliceKit.Chunky(holder, "", (int)(130 * s), Theme.Gold, TextAnchor.MiddleCenter, "Banner");
             SliceKit.Place(_banner.rectTransform, s, 540, 860, 1000, 180);
             _banner.gameObject.SetActive(false);
@@ -469,25 +472,51 @@ namespace RogueStars.Client.Screens
                 if (index == count - 1) return WormSpot;
                 return CompanionPosition(index);
             }
+            if (count >= 3)
+            {
+                // run UI glitches #30: one column down the right side, using the arena below the stage too, so 3+ enemies
+                // shrink only to EnemyScale (0.78 for three), not 0.6
+                float k = EnemyScale(count), visible = EnemyVisibleH * k;
+                float step = count > 1 ? (EnemyColumnTop - EnemyColumnBottom - visible) / (count - 1) : 0;
+                float bottom = EnemyColumnTop - visible - step * index; // the card's bottom edge
+                return new Vector2(300, bottom + ViewSize.y / 2 * k);
+            }
             float lane = (StageH - 60) / count;
             float y = count == 1 ? 30 : StageH / 2 - 60 - lane * (index + 0.5f);
             float x = count > 1 && index % 2 == 1 ? 210 : 300;
             return new Vector2(x, y);
         }
 
+        /// <summary>
+        /// The enemy column for 3+ enemies (stage px from the stage centre): card bottoms between the arena's floor and the
+        /// turn-order plate, and the drawn height of one enemy card at scale 1 (bars, sprite base, sprite).
+        /// </summary>
+        public const float EnemyColumnTop = 430, EnemyColumnBottom = -600, EnemyVisibleH = SpriteBase + EnemySpriteSize;
+
+        /// <summary>Scale of each of <paramref name="count"/> enemies (1 for one or two; 3+ fit the column, never below 0.55).</summary>
+        public static float EnemyScale(int count)
+        {
+            if (count < 3) return Mathf.Max(0.6f, Mathf.Min(1, (StageH - 60) / Math.Max(1, count) / ViewSize.y));
+            return Mathf.Clamp((EnemyColumnTop - EnemyColumnBottom - 16 * (count - 1)) / (count * EnemyVisibleH), 0.55f, 1f);
+        }
+
+        /// <summary>A shrunk fighter's bars, HP number and status chips keep at least this effective scale (readable, #30).</summary>
+        public const float MinBarScale = 0.92f;
+
         /// <summary>The hero group's spot (the worm on its mount), right of the sidekick column.</summary>
-        public static readonly Vector2 WormSpot = new Vector2(-80, 30);
+        public static readonly Vector2 WormSpot = new Vector2(-80, 100); // #33: raised clear of the sidekick row in front of it
 
         /// <summary>
-        /// The k-th companion spot (sidekicks: aliens, then drones; BT6): lined up behind the worm in two staggered columns
-        /// (front column next to the worm, back column behind it), three rows, fully on screen.
+        /// The k-th companion spot (sidekicks: aliens, then drones; BT6). Run UI glitches #33 (owner: "place the aliens better"):
+        /// the first three stand in a row on the free meadow in front of (below) the worm's saucer, the left one by the screen
+        /// edge but fully inside it; more (drones) stand behind the worm at the upper left. Every sprite keeps ≥ 16 px to the
+        /// screen edge at 720 and 1080 wide (stage px from the stage centre; the stage is 1080 wide).
         /// </summary>
         public static Vector2 CompanionPosition(int k)
         {
             k %= 6;
-            bool back = k % 2 == 1;
-            int row = k / 2;
-            return new Vector2(back ? -392 : -292, 330 - row * 190 + (back ? -60 : 0));
+            if (k < 3) return new Vector2(-318 + k * 196, -392 + (k % 2) * 26);
+            return new Vector2(-366 + (k - 3) * 40, 360 - (k - 3) * 150);
         }
 
         /// <summary>Scale of a sidekick on the stage (the worm and the enemies are 1): 1.5× the old 0.56 (BT6).</summary>
@@ -536,11 +565,7 @@ namespace RogueStars.Client.Screens
             root.anchoredPosition = v.Home;
             if (sidekick) root.localScale = Vector3.one * SidekickScale;
             else if (playerSide && f.Role != CombatRole.Worm) root.localScale = Vector3.one * 0.62f;
-            else if (f.Side != BattleSide.Player)
-            {
-                float lane = (StageH - 60) / Math.Max(1, count);
-                if (lane < ViewSize.y) root.localScale = Vector3.one * Mathf.Max(0.6f, lane / ViewSize.y);
-            }
+            else if (f.Side != BattleSide.Player) root.localScale = Vector3.one * EnemyScale(count);
             v.Root = root;
             v.Group = root.gameObject.AddComponent<CanvasGroup>();
             bool player = f.Side == BattleSide.Player;
@@ -622,11 +647,15 @@ namespace RogueStars.Client.Screens
             }
             var chips = Ui.Rect(root, "Status");
             chips.anchorMin = new Vector2(0, 0); chips.anchorMax = new Vector2(1, 0); chips.pivot = new Vector2(0.5f, 1);
-            chips.sizeDelta = new Vector2(0, 52); chips.anchoredPosition = new Vector2(0, 24);
+            chips.sizeDelta = new Vector2(0, StatusChipSize); chips.anchoredPosition = new Vector2(0, 24);
             var h = chips.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 6; h.childAlignment = player ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+            h.spacing = 12; h.childAlignment = player ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
             v.Chips = chips;
+            // #30: a shrunk fighter keeps readable bars, HP numbers and status chips (each grows about its own bottom centre)
+            float shrink = root.localScale.x;
+            if (shrink > 0 && shrink < MinBarScale)
+                foreach (var part in new[] { hpBg, shieldBg, rageBg, chips }) part.localScale = Vector3.one * (MinBarScale / shrink);
             if (f.SummonedBy >= 0) { v.Visible = false; root.gameObject.SetActive(false); }
             return v;
         }
@@ -1082,8 +1111,9 @@ namespace RogueStars.Client.Screens
             holder.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
             holder.pivot = new Vector2(0, 0.5f);
-            // BT6: in a band along the arena's top edge (lanes for banners at once), above the units, never over one
-            var start = new Vector2(Mathf.Clamp(v.Root.anchoredPosition.x - 60, -520, 120), StageH / 2 - 50 - (_abilityLane++ % 3) * 64);
+            // BT6: in a band along the arena's top edge (lanes for banners at once), above the units, never over one; #31: the
+            // band starts below the NEXT plate (it floated up under it)
+            var start = new Vector2(Mathf.Clamp(v.Root.anchoredPosition.x - 60, -520, 120), PopupCeiling - 20 - (_abilityLane++ % 3) * 64);
             holder.anchoredPosition = start;
             Text cap = null;
             if (extra)
@@ -1167,14 +1197,13 @@ namespace RogueStars.Client.Screens
             holder.anchorMin = holder.anchorMax = new Vector2(0.5f, 0.5f);
             size = (int)(size * 1.45f);
             holder.sizeDelta = new Vector2(700, size + (caption != null ? 40 : 0));
-            // BT5: above the sprite's head (never over its face) with a small random offset; numbers at once stack upwards
-            float jitter = UnityEngine.Random.Range(-40f, 40f);
+            // #31: over the target's own sprite (upper body; it spawned in a lane near the top, under the NEXT strip and on the
+            // speed button, far from the fighter hit) with a small random offset; numbers at once stack upwards, never above
+            // the NEXT plate
+            float jitter = UnityEngine.Random.Range(-30f, 30f);
             int lane = v.LivePopups++;
-            var s = v.Sprite;
-            float sx = (s.anchorMin.x - 0.5f) * ViewSize.x * v.Root.localScale.x;
-            float sy = (-ViewSize.y / 2 + s.anchoredPosition.y + s.sizeDelta.y) * v.Root.localScale.y;
-            var start = v.Root.anchoredPosition + new Vector2(sx + jitter, sy + 20 + size * 0.5f + lane * (size + 8));
-            start.y = Mathf.Min(start.y, StageH / 2 + 120);
+            var start = PopupSpot(v.Root.anchoredPosition, v.Root.localScale.x, v.Sprite.anchorMin.x, v.Sprite.anchoredPosition.y, v.Sprite.sizeDelta.y, size, lane);
+            start.x += jitter;
             _popupSeq++;
             // wide words ("SUPERNOVA!") stay on the stage
             float half = Mathf.Min(350, text.Length * size * 0.33f);
@@ -1202,6 +1231,22 @@ namespace RogueStars.Client.Screens
                 if (cap != null) cap.color = new Color(color.r, color.g, color.b, a);
                 if (outline != null) outline.effectColor = new Color(SliceKit.Ink.r, SliceKit.Ink.g, SliceKit.Ink.b, a);
             }, () => { v.LivePopups = Math.Max(0, v.LivePopups - 1); Ui.DestroyGo(holder.gameObject); });
+        }
+
+        /// <summary>Stage y (from the stage centre) of the NEXT plate's lower edge minus a margin: no combat text floats above it.</summary>
+        public const float PopupCeiling = 380;
+
+        /// <summary>
+        /// Where a hit number over a fighter starts (stage px, pure; tested): over the sprite's upper body, lane
+        /// <paramref name="lane"/> stacked upwards, kept under <see cref="PopupCeiling"/> including its 70 px rise.
+        /// </summary>
+        public static Vector2 PopupSpot(Vector2 card, float scale, float anchorX, float spriteBase, float spriteH, int size, int lane)
+        {
+            float sx = (anchorX - 0.5f) * ViewSize.x * scale;
+            float sy = (-ViewSize.y / 2 + spriteBase + spriteH * 0.62f) * scale;
+            var p = card + new Vector2(sx, sy + lane * (size + 8));
+            p.y = Mathf.Min(p.y, PopupCeiling - 70 - size * 0.5f);
+            return p;
         }
 
         /// <summary>Supernovas played so far (tests).</summary>
@@ -1264,6 +1309,16 @@ namespace RogueStars.Client.Screens
             if (_order == null) return;
             Ui.Clear(_order);
             NextActors.Clear();
+            // #34: nobody acts after the last action: no empty "NEXT" plate
+            bool any = false;
+            for (int i = _next; i < _battle.Log.Count && !any; i++)
+            {
+                var a = _battle.Log[i].Action;
+                any = IsAttack(a) || a == BattleAction.SkipTurn || a == BattleAction.SidekickAct;
+            }
+            _order.gameObject.SetActive(any);
+            if (_orderPlate != null) _orderPlate.SetActive(any);
+            if (!any) return;
             var caption = Kit.Legible(Ui.Label(_order, "NEXT", 24, Theme.Cream));
             caption.fontStyle = FontStyle.Bold;
             caption.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -1400,9 +1455,29 @@ namespace RogueStars.Client.Screens
             icon.sprite = ArtCatalog.StatusIcon("guard") ?? HudArt.Icon("shield");
             icon.preserveAspect = true;
             icon.raycastTarget = false;
-            Ui.Size(icon, pct > 0 ? 76 : 62, 62, 0);
-            var n = SliceKit.Chunky(icon.transform, pct > 0 ? "-" + pct + "%" : guards.ToString(), pct > 0 ? 26 : 34, Color.white, TextAnchor.LowerRight, "Count");
-            Ui.Stretch(n.rectTransform, 0, -10, -8, 0);
+            Ui.Size(icon, pct > 0 ? StatusChipSize + 20 : StatusChipSize, StatusChipSize, 0);
+            CountBadge(icon.rectTransform, pct > 0 ? "-" + pct + "%" : guards.ToString(), Color.white, "Count");
+        }
+
+        /// <summary>Size of a status chip under a fighter (#37: was 62, the count hung outside it).</summary>
+        public const float StatusChipSize = 74;
+
+        /// <summary>
+        /// A status chip's count (#37): white chunky digits on their own dark rounded badge inside the chip's bottom-right
+        /// corner (it hung outside the chip, over the next one).
+        /// </summary>
+        private static Text CountBadge(RectTransform chip, string text, Color color, string name)
+        {
+            float h = 32, w = Mathf.Max(h, 12 + 19 * text.Length);
+            var badge = Ui.RoundPanel(chip, new Color32(0x1A, 0x14, 0x24, 235), h / 2, name + "Badge");
+            badge.raycastTarget = false;
+            var brt = badge.rectTransform;
+            brt.anchorMin = brt.anchorMax = new Vector2(1, 0); brt.pivot = new Vector2(1, 0);
+            brt.sizeDelta = new Vector2(w, h); brt.anchoredPosition = new Vector2(-2, 2);
+            var n = SliceKit.Chunky(brt, text, 26, color, TextAnchor.MiddleCenter, name);
+            foreach (var sh in n.GetComponents<Shadow>()) if (!(sh is Outline)) UnityEngine.Object.DestroyImmediate(sh);
+            Ui.Stretch(n.rectTransform, 0, 0, 0, 1);
+            return n;
         }
 
         /// <summary>Current bar values of fighter <paramref name="index"/> (tests).</summary>
@@ -1440,7 +1515,7 @@ namespace RogueStars.Client.Screens
                 if (danger) c = Theme.Hex(0xFF2E2E);
                 var icon = Ui.RoundPanel(v.Chips, c, 12, "Status:" + kv.Key + (danger ? ":Danger" : ""));
                 icon.raycastTarget = false;
-                Ui.Size(icon, danger ? 76 : 62, danger ? 76 : 62, 0);
+                Ui.Size(icon, danger ? StatusChipSize + 14 : StatusChipSize, danger ? StatusChipSize + 14 : StatusChipSize, 0);
                 UiShapes.Outline(icon.rectTransform, danger ? Theme.Hex(0xFFE04A) : SliceKit.Ink, 12, danger ? 5 : 3);
                 if (danger && Application.isPlaying) UiPulse.On(icon, 0.12f, 0.6f, 0.75f);
                 // the status's icon (BT4: flame, snowflake, trefoil, blood drop …) instead of a letter
@@ -1449,8 +1524,7 @@ namespace RogueStars.Client.Screens
                 g.preserveAspect = true;
                 g.raycastTarget = false;
                 Ui.Stretch(g.rectTransform, 6, 6, 6, 6);
-                var n = SliceKit.Chunky(icon.transform, kv.Value.ToString(), danger ? 40 : 34, danger ? Theme.Hex(0xFFE04A) : Color.white, TextAnchor.LowerRight, "Stacks");
-                Ui.Stretch(n.rectTransform, 0, 0, -12, -10);
+                CountBadge(icon.rectTransform, kv.Value.ToString(), danger ? Theme.Hex(0xFFE04A) : Color.white, "Stacks");
             }
         }
 

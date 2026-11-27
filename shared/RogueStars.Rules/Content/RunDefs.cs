@@ -494,6 +494,8 @@ namespace RogueStars.Rules.Content
         public int XpBase = 3, XpPerLevel = 1;
         /// <summary>Synergies every player has from the start (the others come from Laboratory packages). Poison = Radiation.</summary>
         public List<SkillFamily> StarterSynergies = new List<SkillFamily> { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed };
+        /// <summary>Owned skills the campfire's Train offers (run UI glitches #16): the lowest levels first (RunSystem.TrainChoices).</summary>
+        public int TrainChoices = 3;
         /// <summary>Signatures offered at run start (1 of N).</summary>
         public int SignatureChoices = 3;
         /// <summary>Owned skills of the signature's synergy (the signature itself not counted) at which it awakens to level 2, 3.</summary>

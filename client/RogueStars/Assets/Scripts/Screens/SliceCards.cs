@@ -85,6 +85,11 @@ namespace RogueStars.Client.Screens
 
         /// <summary>Card type (reference 2 at 1080 px): the description and the name on the ribbon.</summary>
         public const int BodySize = 46, TitleSize = 58;
+        /// <summary>
+        /// The "?" button (#22): its size and where the name bar ends (px from the card's right edge; the "?" sits between, 14 px
+        /// from the bar); the description's bottom margin (#23).
+        /// </summary>
+        public const float InfoSize = 60, InfoRight = 104, BodyBottom = 34;
 
         private static Sprite _gold, _red, _blue;
 
@@ -175,17 +180,18 @@ namespace RogueStars.Client.Screens
             rib.raycastTarget = false;
             rib.rectTransform.anchorMin = new Vector2(0, 1); rib.rectTransform.anchorMax = new Vector2(1, 1);
             rib.rectTransform.pivot = new Vector2(0.5f, 1);
-            rib.rectTransform.offsetMin = new Vector2(240 * s * k, -96 * s * k); rib.rectTransform.offsetMax = new Vector2(-70 * s, -50 * s * k);
+            // #22: the name bar ends before the "?" (it ran under it), the "?" sits in the card's top-right padding
+            rib.rectTransform.offsetMin = new Vector2(240 * s * k, -96 * s * k); rib.rectTransform.offsetMax = new Vector2(-InfoRight * s, -50 * s * k);
             var name = SliceKit.Chunky(c, spec.Title, (int)(TitleSize * s * Mathf.Lerp(0.8f, 1, k)), Color.white, TextAnchor.MiddleLeft, "SkillName");
             name.rectTransform.anchorMin = new Vector2(0, 1); name.rectTransform.anchorMax = new Vector2(1, 1);
             name.rectTransform.pivot = new Vector2(0, 1);
-            name.rectTransform.offsetMin = new Vector2(266 * s * k, -96 * s * k); name.rectTransform.offsetMax = new Vector2(-80 * s, -18 * s * k);
+            name.rectTransform.offsetMin = new Vector2(266 * s * k, -96 * s * k); name.rectTransform.offsetMax = new Vector2(-(InfoRight + 10) * s, -18 * s * k);
             if (!string.IsNullOrEmpty(spec.Chip))
             {
                 var chip = Ui.Chip(c, spec.Chip, spec.ChipColor, BodyInk, (int)(22 * s), 38 * s, IsoArt.Ink, spec.ChipName ?? "Chip");
                 chip.anchorMin = chip.anchorMax = new Vector2(1, 1);
                 chip.pivot = new Vector2(1, 0.5f);
-                chip.anchoredPosition = new Vector2(-96 * s, -73 * s * k);
+                chip.anchoredPosition = new Vector2(-(InfoRight + 12) * s, -73 * s * k);
                 chip.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
                 chip.sizeDelta = new Vector2(chip.sizeDelta.x, 40 * s);
             }
@@ -197,7 +203,9 @@ namespace RogueStars.Client.Screens
             body.resizeTextForBestFit = true; body.resizeTextMinSize = (int)(22 * s); body.resizeTextMaxSize = body.fontSize;
             body.verticalOverflow = VerticalWrapMode.Truncate; // best fit shrinks long texts into the panel instead of spilling out
             body.rectTransform.anchorMin = Vector2.zero; body.rectTransform.anchorMax = Vector2.one;
-            body.rectTransform.offsetMin = new Vector2(266 * s * k, 22 * s); body.rectTransform.offsetMax = new Vector2(-40 * s, -106 * s * k);
+            // #23: a clear bottom margin (three-line texts ended 2–4 px over the card's edge at 720); the card keeps its size,
+            // best fit shrinks the text instead
+            body.rectTransform.offsetMin = new Vector2(266 * s * k, BodyBottom * s); body.rectTransform.offsetMax = new Vector2(-40 * s, -106 * s * k);
             // the framed icon tile with the tier tag above it
             // the shared skill tile (SkillTileView): tier frame, the art filling the face
             float fs = 210 * k;
@@ -226,13 +234,14 @@ namespace RogueStars.Client.Screens
             Ui.Stretch(tt.rectTransform);
             if (onInfo != null)
             {
-                var q = Ui.Button(c, "", onInfo, new Color32(0xE4, 0xE2, 0xEE, 255), 64 * s, 64 * s, true, 20);
+                var q = Ui.Button(c, "", onInfo, new Color32(0xE4, 0xE2, 0xEE, 255), InfoSize * s, InfoSize * s, true, 20);
                 q.name = "InfoButton";
                 var qrt = (RectTransform)q.transform;
                 qrt.anchorMin = qrt.anchorMax = new Vector2(1, 1);
                 qrt.pivot = new Vector2(0.5f, 0.5f);
-                qrt.sizeDelta = new Vector2(64 * s, 64 * s);
-                qrt.anchoredPosition = new Vector2(-24 * s, -74 * s * k);
+                qrt.sizeDelta = new Vector2(InfoSize * s, InfoSize * s);
+                // centred on the name bar (its middle is 73 px under the card's top), inside the card's right edge
+                qrt.anchoredPosition = new Vector2(-(InfoRight - InfoSize / 2 - 14) * s, -73 * s * k);
                 var face2 = qrt.Find("Face");
                 if (face2 != null) face2.GetComponent<Image>().sprite = UiShapes.Circle;
                 qrt.GetComponent<Image>().color = new Color(0, 0, 0, 0);

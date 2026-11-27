@@ -1256,15 +1256,26 @@ namespace RogueStars.Rules.Systems
         }
 
         /// <summary>
-        /// The owned skills a campfire Train (or a shrine) can improve, in the order gained: a skill below its max level
+        /// The owned skills a campfire Train (or a shrine) offers (at most RunTuning.TrainChoices, the lowest levels first, the
+        /// earliest gained on ties): a skill below its max level
         /// levels up; a chain's lower tier turns into its upgrade (<see cref="TrainTarget"/>). Signatures (they level by
         /// awakening only) and maxed skills are not listed.
         /// </summary>
         public static List<string> TrainChoices(ContentDb c, ActiveRun run)
         {
-            var list = new List<string>();
+            var all = new List<string>();
             foreach (var id in run.Skills)
-                if (TrainTarget(c, run, id) != null) list.Add(id);
+                if (TrainTarget(c, run, id) != null) all.Add(id);
+            // at most RunTuning.TrainChoices (run UI glitches #16: 3 cards): the lowest levels first, the earliest gained on ties
+            var list = new List<string>();
+            int n = Math.Max(1, c.RunTuning.TrainChoices);
+            while (list.Count < n && all.Count > 0)
+            {
+                int best = 0;
+                for (int i = 1; i < all.Count; i++) if (RunDraft.Level(run, all[i]) < RunDraft.Level(run, all[best])) best = i;
+                list.Add(all[best]);
+                all.RemoveAt(best);
+            }
             return list;
         }
 

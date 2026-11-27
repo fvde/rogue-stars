@@ -162,6 +162,20 @@ namespace RogueStars.Rules.Systems
             UpdateSignature(ctx, run);
         }
 
+        /// <summary>
+        /// Phase Signature (run UI glitches #24): the run-start pick on the board. Grants one of ActiveRun.StartSignatures (empty =
+        /// the first, like RunStart), then the run waits for its first roll.
+        /// </summary>
+        private static void PickStartSignature(CommandContext ctx, ActiveRun run, string id)
+        {
+            Require(run.Phase == RunPhase.Signature && run.StartSignatures.Count > 0, "no signature to pick");
+            GrantSignature(ctx, run, id, run.StartSignatures);
+            run.StartSignatures.Clear();
+            RefreshMaxHp(ctx.Content, run);
+            run.Phase = RunPhase.AwaitRoll;
+            Continue(ctx, run);
+        }
+
         /// <summary>Re-reads every signature's awakening level (each counts its own synergy) after the build changed.</summary>
         private static void UpdateSignature(CommandContext ctx, ActiveRun run)
         {

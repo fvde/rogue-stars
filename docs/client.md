@@ -705,10 +705,12 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
 (`WaitForEndOfFrame` never fires in batchmode, so the capture camera is rendered by hand.)
 
 ## Signatures pass
-- **Signature pick** (`Screens/SignaturePick.cs`): every run start (portal START RUN, the result screen's next level / again)
-  opens "CHOOSE YOUR SIGNATURE" in the slice card family (violet ribbon, tier tag "Signature", the synergy as a chip, the
-  effect and "Awakens at 3 / 6 … skills"); the offer is `RunSystem.SignatureOffer` (what the server validates) and the pick is
-  sent as `RunStart.SignatureId`. The skills book lists the signature first (`Signature:<id>`: awakening level, next threshold).
+- **Signature pick** (`Screens/SignaturePick.cs`, run UI glitches #24): every run start (portal START RUN, the result
+  screen's next level / again) sends `RunStart { PickOnBoard }`; the run opens in phase `Signature` and the run screen shows
+  "CHOOSE YOUR SIGNATURE" over its own board (`RunScreen.SignatureBoardPick`, `Modal:Choose a signature`, a light dim so the
+  board shows) before the first ROLL, in the slice card family (violet ribbon, tier tag "Signature", the synergy as a chip,
+  the effect and "Awakens at 3 / 6 … skills"); the offer is `ActiveRun.StartSignatures` (= `RunSystem.SignatureOffer`) and the
+  pick is sent as `RunPickSignature` (saved with the run: a resumed run reopens the pick). The skills book lists the signature first (`Signature:<id>`: awakening level, next threshold).
 - **Battle statuses**: Heat (orange; red, outlined and pulsing at 8+ = 80% of the Supernova threshold,
   `BattlePlaybackScreen.HeatDangerAt`), Radiation (green), Bleed (red), Chill (ice blue) icons with stack counts under the HP
   bars; `StatusRemoved` updates them ("COOLED"); a **Supernova** plays a flash and an expanding fire ring with a white core
@@ -791,11 +793,11 @@ arch -arm64 $U -batchmode -projectPath $P -logFile /tmp/rs-play.log -runTests -t
   rule changes and offer gate to entries (never per-skill text); `SynergyLines` the family block. Tests
   (`SkillGlossaryTests`): every run-pool skill resolves every mechanic its own text names, every status it applies and
   (signatures) Signature; glossary texts carry no raw ids and follow the number rule; numbers follow content.
-- **Skills book everywhere** (`RunScreen.OpenSkills`, `RunScenes.SkillsBook`, named `SkillsBook`): the board, the level-up
-  draft and Mythic choice, the Mythic / signal / loot chests (over the tap catcher), the signature choice, the shop, scene
-  events and the rest (stage), the Train picker, vendors (on the clear wall right of the NPC, above the counter's wares), the outcome sheet, revive and burrow modals
-  ("Your skills"). It opens `Modal:Skills` on top; closing it returns to the same decision — nothing is sent, rerolled or
-  rebuilt. Not on the run-start signature pick (no run yet) or inside a mini-game.
+- **Skills book on skill selections** (`RunScreen.OpenSkills`, `RunScenes.SkillsBook`, named `SkillsBook`; run UI glitches
+  #9, owner: only screens that pick or improve a skill): the board's footer, the level-up draft and Mythic choice, the
+  signature choice (signal event), the shop and the Train picker. Not on chests, scene events, the rest, vendors, quests,
+  the outcome sheet, revive / burrow, the run-start signature pick (no skills yet) or inside a mini-game. It opens
+  `Modal:Skills` on top; closing it returns to the same decision — nothing is sent, rerolled or rebuilt.
 - Tests: `SkillHelpTests` (EditMode); screenshots: `SkillHelpShowcaseTests` (explicit PlayMode).
 
 ## Playtest decisions (owner, branch `playtest-decisions`)

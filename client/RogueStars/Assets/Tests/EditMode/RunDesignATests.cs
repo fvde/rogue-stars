@@ -465,16 +465,33 @@ namespace RogueStars.Client.Tests
         {
             // BT4: every status has a drawn icon (no letter boxes)
             foreach (StatusId st in Enum.GetValues(typeof(StatusId))) Assert.That(RogueStars.Client.World.StatusArt.Icon(st), Is.Not.Null, st.ToString());
-            // BT6: sidekicks 1.5× bigger, lined up behind the worm, fully inside the arena
+            // BT6: sidekicks 1.5× bigger; run UI glitches #33: every sidekick's drawn art ≥ 16 px inside the screen (the stage is
+            // 1080 wide at any phone width), left of the enemies, on its own spot
             Assert.That(BattlePlaybackScreen.SidekickScale, Is.EqualTo(0.84f).Within(1e-4f));
             var seen = new HashSet<Vector2>();
+            float k84 = BattlePlaybackScreen.SidekickScale;
             for (int k = 0; k < 6; k++)
             {
                 var p = BattlePlaybackScreen.CompanionPosition(k);
-                Assert.That(p.x - BattlePlaybackScreen.ViewSize.x * BattlePlaybackScreen.SidekickScale / 2, Is.GreaterThanOrEqualTo(-545f), "on screen");
-                Assert.That(p.x, Is.LessThan(BattlePlaybackScreen.WormSpot.x), "behind the worm");
+                float artX = p.x + (BattlePlaybackScreen.SpriteAnchorX(true) - 0.5f) * BattlePlaybackScreen.ViewSize.x * k84;
+                float half = BattlePlaybackScreen.AlienSpriteSize * k84 / 2;
+                Assert.That(artX - half, Is.GreaterThanOrEqualTo(-540f + 16), "art on screen (left)");
+                Assert.That(p.x - BattlePlaybackScreen.ViewSize.x * k84 * BattlePlaybackScreen.BarWidth / 2, Is.GreaterThanOrEqualTo(-540f + 8), "bars on screen");
+                Assert.That(artX + half, Is.LessThan(BattlePlaybackScreen.StagePosition(BattleSide.Enemy, 1, 2).x), "left of the enemies");
+                Assert.That(p.y - BattlePlaybackScreen.ViewSize.y * k84 / 2, Is.GreaterThanOrEqualTo(-630f), "above the skill panel");
                 Assert.That(seen.Add(p), Is.True, "own spot");
             }
+            // #30: three enemies stand in one column, no smaller than 0.75, their bars at a readable scale
+            Assert.That(BattlePlaybackScreen.EnemyScale(3), Is.GreaterThanOrEqualTo(0.75f));
+            float x0 = BattlePlaybackScreen.StagePosition(BattleSide.Enemy, 0, 3).x;
+            for (int i = 1; i < 3; i++) Assert.That(BattlePlaybackScreen.StagePosition(BattleSide.Enemy, i, 3).x, Is.EqualTo(x0), "one column");
+            for (int i = 1; i < 3; i++)
+                Assert.That(BattlePlaybackScreen.StagePosition(BattleSide.Enemy, i - 1, 3).y - BattlePlaybackScreen.StagePosition(BattleSide.Enemy, i, 3).y,
+                    Is.GreaterThanOrEqualTo(BattlePlaybackScreen.EnemyVisibleH * BattlePlaybackScreen.EnemyScale(3)), "no overlap");
+            // #31: a hit number over the top enemy starts under the NEXT plate
+            var top = BattlePlaybackScreen.StagePosition(BattleSide.Enemy, 0, 3);
+            var spot = BattlePlaybackScreen.PopupSpot(top, BattlePlaybackScreen.EnemyScale(3), 0.7f, BattlePlaybackScreen.SpriteBase, BattlePlaybackScreen.EnemySpriteSize, 66, 2);
+            Assert.That(spot.y + 70 + 33, Is.LessThanOrEqualTo(BattlePlaybackScreen.PopupCeiling + 0.5f));
         }
     }
 }

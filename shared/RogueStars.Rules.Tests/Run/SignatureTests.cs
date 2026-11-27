@@ -48,6 +48,53 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
     }
 
     [Fact]
+    public void PickOnBoard_OpensThePickBeforeTheFirstRoll_AndSurvivesASaveRoundTrip()
+    {
+        // run UI glitches #24: the client starts the run and the player picks on the board, before the first ROLL
+        var e = RunTestKit.Engine();
+        var s = TestHelpers.NewPlayer(e, 7);
+        var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true }).Ok);
+        var run = s.Run.Active!;
+        Assert.Equal(RunPhase.Signature, run.Phase);
+        Assert.Equal(RunDecision.Signature, RunSystem.Decision(C, run));
+        Assert.True(RunSystem.RequiresPlayer(C, run));
+        Assert.Equal(offer, run.StartSignatures);
+        Assert.Empty(RunSystem.Signatures(run));
+        Assert.False(RunTestKit.Exec(e, ref s, new RunRoll()).Ok); // no roll before the pick
+        Assert.False(RunTestKit.Exec(e, ref s, new RunPickSignature { SignatureId = "sig_ice" }).Ok); // not offered
+        // a save / resume keeps the open pick
+        s = TestHelpers.Clone(s);
+        Assert.Equal(RunPhase.Signature, s.Run.Active!.Phase);
+        Assert.Equal(offer, s.Run.Active.StartSignatures);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunPickSignature { SignatureId = offer[1] }).Ok);
+        run = s.Run.Active!;
+        Assert.Equal(RunPhase.AwaitRoll, run.Phase);
+        Assert.Equal(offer[1], run.SignatureId);
+        Assert.Contains(offer[1], run.Skills);
+        Assert.Empty(run.StartSignatures);
+        Assert.False(RunTestKit.Exec(e, ref s, new RunPickSignature { SignatureId = offer[0] }).Ok); // once
+        Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
+    }
+
+    [Fact]
+    public void PickOnBoard_WithTheIdSent_OrFarming_NeedsNoBoardPick()
+    {
+        var e = RunTestKit.Engine();
+        var s = TestHelpers.NewPlayer(e, 8);
+        var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
+        var sent = TestHelpers.Clone(s);
+        Assert.True(RunTestKit.Exec(e, ref sent, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true, SignatureId = offer[2] }).Ok);
+        Assert.Equal(RunPhase.AwaitRoll, sent.Run.Active!.Phase);
+        Assert.Equal(offer[2], sent.Run.Active.SignatureId);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true }).Ok);
+        Assert.False(RunTestKit.Exec(e, ref s, new RunAutoStep()).Ok); // a player decision
+        Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
+        Assert.Equal(offer[0], s.Run.Active!.SignatureId);
+        Assert.Equal(RunPhase.AwaitRoll, s.Run.Active.Phase);
+    }
+
+    [Fact]
     public void TheOffer_IsShuffledPerRun_AndCoversEveryStarterOverRuns()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());

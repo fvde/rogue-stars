@@ -111,6 +111,25 @@ public class CampfireTrainTests
     }
 
     [Fact]
+    public void Train_OffersAtMostThree_TheLowestLevelsFirst()
+    {
+        // run UI glitches #16: the Train picker shows 3 cards (a 4th was clipped)
+        var c = ContentDb.Default;
+        Assert.Equal(3, c.RunTuning.TrainChoices);
+        var five = Commons(c, 5);
+        var (e, s) = AtCampfire(five.ToArray());
+        var run = s.Run.Active!;
+        run.SkillLevels[five[0]] = 3;
+        run.SkillLevels[five[1]] = 2;
+        var offer = RunSystem.TrainChoices(c, run);
+        Assert.Equal(new[] { five[2], five[3], five[4] }, offer);
+        Assert.Equal(offer[0], RunSystem.TrainAutoPick(c, run));
+        // a skill left out of the offer cannot be trained
+        Assert.False(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = TrainIndex(c), SkillId = five[0] }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunChooseEventOption { Index = TrainIndex(c), SkillId = five[4] }).Ok);
+    }
+
+    [Fact]
     public void Train_WithNothingToImprove_GivesCoins()
     {
         var c = ContentDb.Default;

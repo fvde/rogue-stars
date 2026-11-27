@@ -227,7 +227,8 @@ namespace RogueStars.Client.Screens
             {
                 var chip = SliceKit.Pill(root, s, 156, 296, 180, 66, SliceKit.PillDark, "CoinsChip");
                 h.CoinsChip = chip.rectTransform;
-                h.Coins = SliceKit.Chunky(chip.transform, "-", (int)(48 * s), Color.white, TextAnchor.MiddleCenter, "Coins");
+                // #2: the count at the size of the other pills' numbers (HP 44, ATK / DEF 40)
+                h.Coins = SliceKit.Chunky(chip.transform, "-", (int)(42 * s), Color.white, TextAnchor.MiddleCenter, "Coins");
                 Ui.Stretch(h.Coins.rectTransform, 50 * s, 0, 4, 2);
                 SliceKit.Icon(root, "coin", s, 62, 296, 70, false, "CoinIcon");
             }

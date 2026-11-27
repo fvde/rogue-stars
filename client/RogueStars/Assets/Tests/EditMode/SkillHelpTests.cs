@@ -176,8 +176,8 @@ namespace RogueStars.Client.Tests
             run.Phase = RunPhase.Draft; run.MythicDraft = true;
             run.DraftOffer.Clear(); run.DraftOffer.AddRange(new[] { "mythic_last_light", "mythic_catalyst", "mythic_overkill" });
             Open();
-            AssertBookOpensOver("Modal:Chest", "Mythic chest");
-            Assert.That(FindNamed(_f.App.ModalLayer, "MythicTitle"), Is.Null, "the book's tap did not open the chest");
+            // run UI glitches #9: the chest itself is no skill selection (no book); the Mythic choice behind it is
+            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Modal:Chest"), "SkillsBook"), Is.Null, "no book on the chest");
             Btn(_f.App.ModalLayer, "ChestTap").onClick.Invoke();
             AssertBookOpensOver("Modal:Mythic choice", "Mythic draft");
         }
@@ -211,7 +211,8 @@ namespace RogueStars.Client.Tests
             run.Skills.AddRange(Commons(2));
             run.Phase = RunPhase.Event; run.EventId = "campfire"; run.EventTile = -1;
             var screen = Open();
-            AssertBookOpensOver(OverlayOf(FindNamed(_f.App.ModalLayer, "Stage")).name, "rest");
+            // run UI glitches #9: only skill selection screens have the book: Train does, the rest scene and its result do not
+            Assert.That(FindNamed(OverlayOf(FindNamed(_f.App.ModalLayer, "Stage")), "SkillsBook"), Is.Null, "no book on the rest scene");
             Btn(_f.App.ModalLayer, "Option:Train").onClick.Invoke();
             AssertBookOpensOver("Modal:Train", "Train picker");
             Btn(FindNamed(_f.App.ModalLayer, "Modal:Train"), "Button:Back").onClick.Invoke();
@@ -219,7 +220,8 @@ namespace RogueStars.Client.Tests
             Btn(_f.App.ModalLayer, "Button:Rest").onClick.Invoke();
             if (!screen.OutcomeOpen) screen.Rebuild();
             Assert.That(screen.OutcomeOpen, Is.True);
-            AssertBookOpensOver("Modal:Outcome", "event result");
+            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Modal:Outcome"), "SkillsBook"), Is.Null, "no book on a result");
+            Assert.That(FindNamed(FindNamed(_f.App.ModalLayer, "Modal:Outcome"), "Hint"), Is.Null, "#20: no \"Tap Continue.\" hint");
         }
 
         [Test]
@@ -230,13 +232,8 @@ namespace RogueStars.Client.Tests
             Open();
             var vendor = FindNamed(_f.App.ModalLayer, "Npc:black_marketeer");
             Assert.That(vendor, Is.Not.Null);
-            // owner playtest: the button sat over a crate on the counter; it stands clear of the wares, the counter and the NPC
-            var book = (RectTransform)FindNamed(_f.App.ModalLayer, "SkillsBook");
-            var bookRect = WorldRect(book);
-            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<RectTransform>(true))
-                if (t.name.StartsWith("Ware:") || t.name == "Counter" || t.name.StartsWith("Npc:") || t.name == "Bubble" || t.name.StartsWith("VendorCard"))
-                    Assert.That(bookRect.Overlaps(WorldRect(t)), Is.False, "the Skills button overlaps " + t.name);
-            AssertBookOpensOver(OverlayOf(vendor).name, "vendor event");
+            // run UI glitches #9: a vendor is no skill selection: no book (it floated over the scene art)
+            Assert.That(FindNamed(OverlayOf(vendor), "SkillsBook"), Is.Null);
         }
 
         private static Rect WorldRect(RectTransform t)
@@ -252,7 +249,14 @@ namespace RogueStars.Client.Tests
             var run = StartRun();
             run.Phase = RunPhase.Defeated;
             Open();
-            AssertBookOpensOver("Modal:Defeated!", "revive");
+            // run UI glitches #19 / #9: the Slice-style revive with its tombstone, chunky buttons and no skills book
+            var revive = FindNamed(_f.App.ModalLayer, "Modal:Defeated!");
+            Assert.That(revive, Is.Not.Null);
+            Assert.That(FindNamed(revive, "SkillsBook"), Is.Null);
+            Assert.That(FindNamed(revive, "Tombstone").GetComponent<Image>().sprite, Is.SameAs(RunScreen.TombstoneSprite()));
+            Assert.That(FindNamed(revive, "ReviveTitle").GetComponent<Text>().text, Is.EqualTo("DEFEATED!"));
+            Assert.That(Btn(revive, "Button:Give up"), Is.Not.Null);
+            Assert.That(Btn(revive, "Button:" + C.RunTuning.ReviveDiamondCost + " Diamonds"), Is.Not.Null);
         }
     }
 }

@@ -47,9 +47,19 @@ namespace RogueStars.Client.Screens
         public static readonly Color Ink = new Color32(0x26, 0x20, 0x34, 255);
         public static readonly Color TileFill = new Color32(0x58, 0x48, 0x9C, 255);
         public static readonly Color TileRim = new Color32(0x8C, 0x7C, 0xE0, 255);
-        public static readonly Color Gain = new Color32(0x4E, 0xA8, 0x2E, 255);
-        public static readonly Color Loss = new Color32(0xD0, 0x2E, 0x3A, 255);
-        public static readonly Color Olive = new Color32(0x7C, 0x9A, 0x2C, 255);
+        /// <summary>
+        /// The one text palette of every choice-event sheet (run UI glitches #17: event, chest, campfire, quest, outcome): body
+        /// ink, gains, losses and chances, each dark enough to read on the cream paper (contrast ≥ 4.5 : 1 on <see cref="Paper"/>).
+        /// </summary>
+        public static readonly Color Gain = new Color32(0x2A, 0x74, 0x1A, 255);
+        public static readonly Color Loss = new Color32(0xB4, 0x1E, 0x2A, 255);
+        public static readonly Color ChanceInk = new Color32(0x8E, 0x5C, 0x00, 255);
+        /// <summary>Text on the purple option tiles / buttons of a choice sheet (quest options): full white.</summary>
+        public static readonly Color OnTile = Color.white;
+        public static string Hex(Color c) => ColorUtility.ToHtmlStringRGB(c);
+        /// <summary>A gain / loss / chance in its colour (rich text) — every choice sheet colours its words through this.</summary>
+        public static string Good(string t) => "<color=#" + Hex(Gain) + ">" + t + "</color>";
+        public static string Bad(string t) => "<color=#" + Hex(Loss) + ">" + t + "</color>";
         public static readonly Color SignYellow = new Color32(0xF2, 0xC8, 0x4A, 255);
         public static readonly Color VendorPaper = new Color32(0xFC, 0xEF, 0xCA, 255);
         public static readonly Color VendorInk = new Color32(0x4E, 0x46, 0x22, 255);
@@ -120,7 +130,7 @@ namespace RogueStars.Client.Screens
             var lines = new List<KeyValuePair<bool, string>>();
             void Add(bool good, string t) { if (!lines.Exists(l => l.Value == t)) lines.Add(new KeyValuePair<bool, string>(good, t)); }
             if (o == null) return lines;
-            if (o.CoinCost > 0) Add(false, "Pay " + o.CoinCost + " coins");
+            if (o.CoinCost > 0) Add(false, "Pay " + Fmt.Num(o.CoinCost) + " coins");
             if (o.ShardCost > 0) Add(false, "Pay " + o.ShardCost + " portal shards");
             if (o.Outcomes.Count != 1) return lines;
             foreach (var fx in o.Outcomes[0].Effects)
@@ -128,7 +138,7 @@ namespace RogueStars.Client.Screens
                 double v = fx.Value, a = Math.Abs(v);
                 switch (fx.Kind)
                 {
-                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain " + Fmt.Whole(a) + " coins" : "Lose " + Fmt.Whole(a) + " coins"); break;
+                    case RunEffectKind.Coins: if (v != 0) Add(v > 0, v > 0 ? "Gain " + Fmt.Num(a) + " coins" : "Lose " + Fmt.Num(a) + " coins"); break;
                     case RunEffectKind.HealPct: Add(true, "Restore " + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.DamagePct: Add(false, "Lose " + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.StatPercent:
@@ -148,8 +158,8 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
                     case RunEffectKind.BossStatPct: Add(false, "Boss +" + Fmt.Pct(a) + " ATK"); break;
                     case RunEffectKind.Battle: Add(false, "Fight " + (fx.Param != null && fx.Param.StartsWith("elite") ? "an elite" : "a foe")); break;
-                    case RunEffectKind.Xp: Add(true, "Gain " + Fmt.Whole(a) + " XP"); break;
-                    case RunEffectKind.Shards: Add(true, "Gain " + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s")); break;
+                    case RunEffectKind.Xp: Add(true, "Gain " + Fmt.Num(a) + " XP"); break;
+                    case RunEffectKind.Shards: Add(true, "Gain " + Fmt.Num(a) + " portal shard" + (a == 1 ? "" : "s")); break;
                     case RunEffectKind.Danger: Add(false, "Danger +" + Fmt.Whole(a)); break;
                     case RunEffectKind.StrengthenEnemies: Add(false, "Nearby enemies +" + Fmt.Pct(a) + " stronger"); break;
                 }
@@ -190,7 +200,7 @@ namespace RogueStars.Client.Screens
                 double total = 0;
                 foreach (var oc in o.Outcomes) total += oc.Weight;
                 var sb = new StringBuilder();
-                string gold = ColorUtility.ToHtmlStringRGB(new Color32(0xC8, 0x8A, 0x10, 255));
+                string gold = Hex(ChanceInk);
                 foreach (var oc in o.Outcomes)
                 {
                     var one = new EventOption { Text = o.Text };
@@ -217,7 +227,7 @@ namespace RogueStars.Client.Screens
         {
             var parts = Chance.Split(risk);
             var sb = new StringBuilder();
-            string gold = ColorUtility.ToHtmlStringRGB(new Color32(0xC8, 0x8A, 0x10, 255));
+            string gold = Hex(ChanceInk);
             for (int i = 0; i < parts.Length; i++)
             {
                 string p = parts[i];
@@ -309,22 +319,36 @@ namespace RogueStars.Client.Screens
             }
             if (prop != null)
             {
-                var glow = Ui.Panel(frame, new Color(1, 0.95f, 0.75f, 0.35f), "PropGlow");
-                glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
-                At(glow.rectTransform, s, 810, 800, propSize * 1.1f, propSize * 0.4f);
+                // the prop's ground shadow: the board's dark soft shadow (a light glow read as a white blob, #12)
+                var shadow = Ui.Panel(frame, new Color(0, 0, 0, 0.38f), "PropShadow");
+                shadow.sprite = IsoArt.SoftShadow(); shadow.raycastTarget = false;
+                At(shadow.rectTransform, s, 810, 640 + propSize * 0.4f, propSize * 0.95f, propSize * 0.26f);
                 var p = Ui.Panel(frame, Color.white, "Prop");
                 p.sprite = prop; p.preserveAspect = true; p.raycastTarget = false;
                 PropFx.Apply(p, PropFx.LookOfSprite(prop)); // the campfire flickers, the shrine glows (shader, UI material)
                 At(p.rectTransform, s, 810, 640, propSize, propSize);
             }
-            var hud = SliceHud.Build(frame, RefW * s, onCog, null, true);
+            var hud = Hud(root, c, run, onCog);
+            if (onSkills != null) SkillsBook(frame, s, 978, 1150, onSkills);
+            return hud;
+        }
+
+        /// <summary>
+        /// The run HUD of a decision sheet (run UI glitches #2): the same SliceHud call, anchors and width as the board's strip
+        /// (full overlay width, from its top edge), so the HUD does not jump when a sheet opens or closes; keeps the XP fill.
+        /// Built last over <paramref name="root"/>; callers that add layers later call <c>hud.Root.SetAsLastSibling()</c>.
+        /// </summary>
+        public static SliceHud Hud(RectTransform root, ContentDb c, ActiveRun run, Action onCog)
+        {
+            Canvas.ForceUpdateCanvases();
+            float w = root.rect.width > 100 ? root.rect.width : RefW;
+            var hud = SliceHud.Build(root, w, onCog, null, true);
             if (run != null && c != null)
             {
                 var st = RunPresentation.Hud(c, run);
                 hud.Show(st, st.Level, st.XpNeed > 0 ? (float)st.Xp / st.XpNeed : 0, RunSystem.BuildSize(run));
                 if (hud.Coins != null) hud.Coins.text = Fmt.Num(run.Coins);
             }
-            if (onSkills != null) SkillsBook(frame, s, 978, 1150, onSkills);
             return hud;
         }
 

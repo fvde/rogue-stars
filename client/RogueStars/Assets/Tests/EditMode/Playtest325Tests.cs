@@ -43,12 +43,23 @@ namespace RogueStars.Client.Tests
             Assert.That(offer.Count, Is.EqualTo(3));
             bool started = false;
             SignaturePick.StartRun(_f.App, new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal }, r => started = r.Ok);
-            Assert.That(started, Is.False, "the run waits for the pick");
-            var cards = _f.App.ModalLayer.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Button:Signature:")).ToList();
-            Assert.That(cards.Select(b => b.name.Substring("Button:Signature:".Length)), Is.EquivalentTo(offer));
-            cards[2].onClick.Invoke();
+            // run UI glitches #24: the run starts at once and the pick opens on its board, before the first roll
             Assert.That(started, Is.True);
+            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.Signature));
+            Assert.That(_f.App.ModalLayer.GetComponentsInChildren<Button>(true).Any(b => b.name.StartsWith("Button:Signature:")), Is.False, "no pick sheet over the hub");
+            _f.App.Router.Push(new RunScreen());
+            var screen = (RunScreen)_f.App.Router.Current;
+            Assert.That(screen.World, Is.Not.Null, "the board is behind the pick");
+            var sheet = Find(_f.App.ModalLayer, "Modal:Choose a signature");
+            Assert.That(sheet, Is.Not.Null);
+            Assert.That(sheet.GetComponent<Image>().color.a, Is.LessThan(0.7f), "the board shows through");
+            var cards = sheet.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Button:Signature:")).ToList();
+            Assert.That(cards.Select(b => b.name.Substring("Button:Signature:".Length)), Is.EquivalentTo(offer));
+            Assert.That(Find(sheet, "SkillsBook"), Is.Null, "no skills yet: no book");
+            cards[2].onClick.Invoke();
+            Assert.That(S.Run.Active.Phase, Is.EqualTo(RunPhase.AwaitRoll));
             Assert.That(RunSystem.Signatures(S.Run.Active), Is.EqualTo(new[] { offer[2] }));
+            Assert.That(Find(_f.App.ModalLayer, "Modal:Choose a signature"), Is.Null);
         }
 
         [Test]

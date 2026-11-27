@@ -20,13 +20,14 @@ namespace RogueStars.Rules.Systems
     public enum RunMode { Normal, Overcharged, Burrow, DarkSide }
 
     /// <summary>What the run is waiting for. The client shows the matching UI (RunSystem.Decision names the decision).</summary>
-    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter, Minigame, Quest }
+    /// <summary>Signature: the run-start signature pick on the run board, before the first roll (RunPickSignature).</summary>
+    public enum RunPhase { AwaitRoll, ChooseBranch, Event, Draft, Shop, Defeated, BurrowChoice, Completed, Failed, Encounter, Minigame, Quest, Signature }
 
     /// <summary>
     /// The decision the run waits for (RunSystem.Decision). Roll and GiveUp (defeated with the revive used: no other
     /// option) are clear steps that auto mode performs; every other kind needs the player unless farming.
     /// </summary>
-    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter, Minigame, Quest }
+    public enum RunDecision { None, Roll, Branch, Event, Treasure, Campfire, Draft, Shop, Revive, GiveUp, BurrowChoice, Encounter, Minigame, Quest, Signature }
 
     public enum ReviveMethod { Ad, Diamonds }
 
@@ -217,6 +218,11 @@ namespace RogueStars.Rules.Systems
         public List<string> SignatureIds = new List<string>();
         /// <summary>The unowned signatures a Resonance event offers (its options "first" / "second" pick from this list).</summary>
         public List<string> SignatureChoice = new List<string>();
+        /// <summary>
+        /// The run-start signature offer while the pick is open on the board (phase Signature: RunStart with PickOnBoard); empty
+        /// once picked (RunPickSignature) or when the pick was sent with RunStart.
+        /// </summary>
+        public List<string> StartSignatures = new List<string>();
         /// <summary>Rage the next battle starts with (Ambush Instinct, set when landing on an enemy tile; cleared by the battle).</summary>
         public double PendingStartRage;
         /// <summary>Plague (lab Mythic), run-scoped: stacks of each status (name) inflicted while the run owned Plague.</summary>

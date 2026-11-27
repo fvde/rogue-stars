@@ -117,7 +117,7 @@ namespace RogueStars.Client.Tests
 
             _f.App.Router.Current.Rebuild();
             var amounts = _f.App.Router.Current.Root.GetComponentsInChildren<Text>(true).Where(t => t.name == "Amount").Select(t => t.text).ToList();
-            foreach (var r in RunResultScreen.Aggregate(sum.Granted).Take(RunResultScreen.MaxRewardTiles).Where(r => r.Kind == RewardKinds.Currency))
+            foreach (var r in RunResultScreen.Aggregate(sum.Granted).Where(r => r.Kind == RewardKinds.Currency))
                 Assert.That(amounts, Does.Contain("x" + Fmt.Num(r.Amount)), r.Id);
         }
 

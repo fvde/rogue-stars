@@ -27,7 +27,7 @@ namespace RogueStars.Client.Screens
             var node = RunSystem.QuestOpenNode(Content, State, run);
             string title = epilogue != null ? epilogue.Title : node?.Title ?? q.Character;
             var root = RunScenes.Overlay(App.ModalLayer, "Quest", out var modal, out var frame, out float s);
-            RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Character(q.Portrait), OpenSkills, PauseModal, 520);
+            var hud = RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Character(q.Portrait), null, PauseModal, 520);
 
             // name plate and progress under the character
             var plate = Ui.RoundPanel(frame, new Color(0.08f, 0.06f, 0.14f, 0.82f), 30 * s, "QuestNameplate");
@@ -66,6 +66,7 @@ namespace RogueStars.Client.Screens
                 var hint = RunScenes.Text(frame, "Auto mode waits for your choice.", s, 32, RunScenes.Ink, TextAnchor.MiddleCenter, "AutoHint");
                 RunScenes.At(hint.rectTransform, s, 540, 2350, 900, 50);
             }
+            hud.Root.SetAsLastSibling();
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }
@@ -85,7 +86,7 @@ namespace RogueStars.Client.Screens
             var label = SliceKit.Chunky(brt, v.Label, (int)(52 * s), Color.white, TextAnchor.UpperLeft, "OptionLabel");
             Ui.Stretch(label.rectTransform, 34 * s, 20 * s, 360 * s, h * 0.45f * s);
             label.resizeTextForBestFit = true; label.resizeTextMaxSize = label.fontSize; label.resizeTextMinSize = (int)(34 * s);
-            var detail = RunScenes.Text(brt, v.Detail ?? "", s, 32, new Color(1, 1, 1, 0.86f), TextAnchor.UpperLeft, "OptionDetail", 22);
+            var detail = RunScenes.Text(brt, v.Detail ?? "", s, 32, RunScenes.OnTile, TextAnchor.UpperLeft, "OptionDetail", 22); // #17: the shared choice palette
             Ui.Stretch(detail.rectTransform, 34 * s, h * 0.5f * s, 360 * s, 12 * s);
             if (!string.IsNullOrEmpty(v.Chip))
             {

@@ -36,16 +36,13 @@ namespace RogueStars.Client.Screens
             if (run != null) SkillsModal(run);
         }
 
-        /// <summary>The skills book button of a decision screen (bottom-right unless placed otherwise; named "SkillsBook").</summary>
+        /// <summary>
+        /// The skills book button of a skill selection screen (bottom-right unless placed otherwise; named "SkillsBook"). Run UI
+        /// glitches #9 (owner): only the screens that pick or improve a skill show it (level-up draft, Mythic choice, signature
+        /// choices, campfire Train, shop); events, chests, results and the revive do not.
+        /// </summary>
         private Button DecisionSkillsBook(RectTransform parent, float s, float x = 975, float y = 2272, bool fromBottom = false) =>
             RunScenes.SkillsBook(parent, s, x, y, OpenSkills, fromBottom);
-
-        /// <summary>The skills book in a plain modal's body (revive, burrow): a button named "SkillsBook".</summary>
-        private void ModalSkillsBook(RectTransform body)
-        {
-            var b = Ui.Button(body, "Your skills", OpenSkills, SliceCards.Purple);
-            b.name = "SkillsBook";
-        }
 
         // ---- events ----------------------------------------------------------------------------------------------
 
@@ -92,7 +89,7 @@ namespace RogueStars.Client.Screens
         private UiModal SceneModal(ActiveRun run, EventDef ev, EventLook look, List<int> visible)
         {
             var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
-            RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), OpenSkills, PauseModal);
+            var hud = RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), null, PauseModal);
             bool campfire = ev.Id == "campfire";
             string flavour = look.Line ?? ev.Text;
             RunScenes.Panel(root, frame, s, look.Title ?? ev.Name, flavour, campfire ? 60 : 46);
@@ -105,11 +102,12 @@ namespace RogueStars.Client.Screens
                 var o = ev.Options[index];
                 bool ok = Affordable(run, o);
                 string outcome = RunScenes.OutcomeText(o, Content);
+                // #17: the campfire's results in the shared choice palette (they were pale olive on the cream paper)
                 if (campfire && RunSystem.ImprovesSkill(o))
-                    outcome = RunSystem.TrainChoices(Content, run).Count > 0 ? "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Olive) + ">Improve 1 existing skill</color>"
-                        : "Nothing to train: <color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Gain) + ">+" + Content.RunTuning.DraftEmptyCoins + "</color> coins";
-                else if (campfire) outcome = "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Olive) + ">" + (RunScenes.EffectLines(o, Content).Find(l => l.Key).Value ?? "Rest").Replace("+", "") + "</color>";
-                if (!ok) outcome = "<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Loss) + ">Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards") + "</color>";
+                    outcome = RunSystem.TrainChoices(Content, run).Count > 0 ? RunScenes.Good("Improve 1 existing skill")
+                        : "Nothing to train: " + RunScenes.Good("+" + Content.RunTuning.DraftEmptyCoins) + " coins";
+                else if (campfire) outcome = RunScenes.Good((RunScenes.EffectLines(o, Content).Find(l => l.Key).Value ?? "Rest").Replace("+", ""));
+                if (!ok) outcome = RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
                 var tile = RunScenes.OptionTile(frame, s, xs[k], 1915, size, o.Text, RunScenes.IconSprite(RunScenes.OptionIcon(o)), outcome, ok,
                     () => ChooseOption(run, ev, index, modal), OptionName(o), n <= 2 ? (campfire ? 62 : 46) : 38, n <= 2 ? (campfire ? 56 : 46) : 36, n <= 2 ? 400 : 330);
                 if (campfire) AddAlias(tile, RunSystem.ImprovesSkill(o) ? "Option:Train" : "Option:Rest");
@@ -119,6 +117,7 @@ namespace RogueStars.Client.Screens
                 var hint = RunScenes.Text(frame, "Auto mode waits for your choice.", s, 32, RunScenes.Ink, TextAnchor.MiddleCenter, "AutoHint");
                 RunScenes.At(hint.rectTransform, s, 540, 2350, 900, 50);
             }
+            hud.Root.SetAsLastSibling();
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }
@@ -137,11 +136,8 @@ namespace RogueStars.Client.Screens
         {
             var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
             RunScenes.VendorStage(root, frame, s, look.Title ?? ev.Name, look.Art, look.Line ?? ev.Text);
-            // E1: the run HUD (HP, coins) stays visible while deciding to pay coins or max HP
-            var hud = SliceHud.Build(frame, RunScenes.RefW * s, PauseModal, null, true);
-            var stats = RunPresentation.Hud(Content, run);
-            hud.Show(stats, stats.Level, stats.XpNeed > 0 ? (float)stats.Xp / stats.XpNeed : 0, RunSystem.BuildSize(run));
-            if (hud.Coins != null) hud.Coins.text = Fmt.Num(run.Coins);
+            // E1: the run HUD (HP, coins) stays visible while deciding to pay coins or max HP (#2: the board's strip, in place)
+            RunScenes.Hud(root, Content, run, PauseModal);
             float[] xs = { 268, 812 };
             for (int k = 0; k < 2; k++)
             {
@@ -151,13 +147,11 @@ namespace RogueStars.Client.Screens
                 RunScenes.Halves(o, Content, out var blessing, out var curse);
                 bool nothing = o.Outcomes.TrueForAll(oc => oc.Effects.Count == 0) && o.CoinCost == 0 && o.ShardCost == 0;
                 string sign = nothing ? "Leave" : o.CoinCost > 0 || o.ShardCost > 0 ? "Pay" : "Sign";
-                if (!ok) curse += "\n<color=#" + ColorUtility.ToHtmlStringRGB(RunScenes.Loss) + ">Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards") + "</color>";
+                if (!ok) curse += "\n" + RunScenes.Bad("Not enough " + (run.Coins < o.CoinCost ? "coins" : "shards"));
                 RunScenes.VendorCard(frame, s, xs[k], blessing, curse, sign, ok, () => ChooseOption(run, ev, index, modal), OptionName(o));
             }
             var or = SliceKit.Chunky(frame, "OR", (int)(84 * s), Color.white, TextAnchor.MiddleCenter, "Or");
             RunScenes.At(or.rectTransform, s, 540, 2282, 160, 120);
-            // on the clear wall right of the vendor, above the counter's wares (it sat over the crate; the cards fill the bottom row)
-            DecisionSkillsBook(frame, s, 975, 760);
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }
@@ -288,10 +282,6 @@ namespace RogueStars.Client.Screens
             }
             b.onClick.AddListener(Open);
             tap = b;
-            // the skills book over the tap catcher (its own frame layer, so a tap on it never opens the chest)
-            var bookLayer = RunScenes.Frame(holder, out float bs);
-            bookLayer.name = "BookLayer";
-            DecisionSkillsBook(bookLayer, bs);
             return holder;
         }
 
@@ -385,7 +375,7 @@ namespace RogueStars.Client.Screens
             {
                 float pct = Mathf.Clamp01((float)(o.SuccessChancePct / 100.0));
                 var panel = Ui.Column(col, 14 * s, 0, null, "ChanceMeter");
-                var cl = Ui.Label(panel, Fmt.Pct(Math.Round(o.SuccessChancePct)) + " chance", 50, new Color32(0xB8, 0x7A, 0x10, 255), TextAnchor.MiddleCenter, "ChanceLabel");
+                var cl = Ui.Label(panel, Fmt.Pct(Math.Round(o.SuccessChancePct)) + " chance", 50, RunScenes.ChanceInk, TextAnchor.MiddleCenter, "ChanceLabel");
                 cl.font = Ui.DisplayFont; cl.fontSize = (int)(56 * s);
                 Ui.Size(cl, -1, 76 * s);
                 var trackEdge = Ui.RoundPanel(panel, SliceKit.Ink, 26 * s, "TrackEdge");
@@ -449,7 +439,7 @@ namespace RogueStars.Client.Screens
                         Ui.Stretch(glyph.rectTransform);
                     }
                 }
-                var t = Ui.Label(row, OutcomeLineText(l, Content), 40, l.Good ? new Color32(0x2E, 0x6E, 0x1E, 255) : new Color32(0xA8, 0x1E, 0x2A, 255));
+                var t = Ui.Label(row, OutcomeLineText(l, Content), 40, l.Good ? RunScenes.Gain : RunScenes.Loss);
                 t.font = Ui.DisplayFont; t.fontSize = (int)(44 * s);
                 t.resizeTextForBestFit = true; t.resizeTextMaxSize = t.fontSize; t.resizeTextMinSize = (int)(28 * s);
                 Ui.Size(t, -1, -1, 1);
@@ -460,9 +450,6 @@ namespace RogueStars.Client.Screens
             UiShapes.Outline((RectTransform)cont.transform, SliceKit.Ink, Theme.RadiusButton, 7);
             var ct = SliceKit.Chunky(cont.transform, "Continue", (int)(76 * s), Color.white, TextAnchor.MiddleCenter, "ContinueText");
             Ui.Stretch(ct.rectTransform, 0, 0, 0, 8 * s);
-            var hint = SliceKit.Chunky(frame, "Tap Continue.", (int)(32 * s), new Color(1, 1, 1, 0.6f), TextAnchor.MiddleCenter, "Hint");
-            RunScenes.At(hint.rectTransform, s, 540, 2230, 900, 50);
-            DecisionSkillsBook(frame, s);
 
             Action startReveal = () =>
             {
@@ -522,11 +509,17 @@ namespace RogueStars.Client.Screens
         private static void ShopPriceLabel(Button b, ShopOffer o)
         {
             var label = b.transform.Find("Price")?.GetComponent<Text>();
-            if (label != null) label.text = o.Sold ? "Sold" : o.Price.ToString();
+            if (label != null)
+            {
+                label.text = o.Sold ? "Sold" : Fmt.Num(o.Price);
+                if (o.Sold) Ui.Stretch(label.rectTransform); // #27: "Sold" in the middle of the button (the price leaves room for the coin)
+            }
             var coin = b.transform.Find("Coin");
             if (coin != null) coin.gameObject.SetActive(!o.Sold);
             var sale = b.transform.Find("Was");
             if (sale != null) sale.gameObject.SetActive(!o.Sold);
+            var tag = b.transform.parent != null ? b.transform.parent.Find("Sale") : null; // #27: no SALE! tag on a sold offer
+            if (tag != null) tag.gameObject.SetActive(!o.Sold);
         }
 
         /// <summary>A yellow price button (coin icon + price; "Was" with the struck list price on SALE), named "Button:n coins".</summary>
@@ -543,12 +536,12 @@ namespace RogueStars.Client.Screens
             coin.rectTransform.anchorMin = coin.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             coin.rectTransform.sizeDelta = new Vector2(h * 0.5f * s, h * 0.5f * s);
             coin.rectTransform.anchoredPosition = new Vector2(-w * 0.24f * s, py * s);
-            var t = SliceKit.Chunky(b.transform, o.Sold ? "Sold" : o.Price.ToString(), (int)(Mathf.Min(58, h * 0.45f) * s), Color.white, TextAnchor.MiddleCenter, "Price");
+            var t = SliceKit.Chunky(b.transform, o.Sold ? "Sold" : Fmt.Num(o.Price), (int)(Mathf.Min(58, h * 0.45f) * s), Color.white, TextAnchor.MiddleCenter, "Price");
             Ui.Stretch(t.rectTransform, w * 0.3f * s, 0, 8 * s, 6 * s);
             t.rectTransform.anchoredPosition = new Vector2(t.rectTransform.anchoredPosition.x, py * s);
             if (sale)
             {
-                var was = SliceKit.Chunky(b.transform, o.ListPrice.ToString(), (int)(34 * s), new Color32(0xE8, 0xE4, 0xF0, 255), TextAnchor.MiddleCenter, "Was");
+                var was = SliceKit.Chunky(b.transform, Fmt.Num(o.ListPrice), (int)(34 * s), new Color32(0xE8, 0xE4, 0xF0, 255), TextAnchor.MiddleCenter, "Was");
                 was.rectTransform.anchorMin = was.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                 was.rectTransform.sizeDelta = new Vector2(w * 0.6f * s, 44 * s);
                 was.rectTransform.anchoredPosition = new Vector2(10 * s, h * 0.25f * s);
@@ -594,11 +587,8 @@ namespace RogueStars.Client.Screens
             RunScenes.At(shelf.rectTransform, s, 540, 1070, 1200, 40);
             UiShapes.Outline(shelf.rectTransform, SliceKit.Ink, 4, 4);
 
-            var hud = SliceHud.Build(frame, RunScenes.RefW * s, PauseModal, null, true);
-            var stats = RunPresentation.Hud(Content, run);
-            hud.Show(stats, stats.Level, stats.XpNeed > 0 ? (float)stats.Xp / stats.XpNeed : 0, RunSystem.BuildSize(run));
+            var hud = RunScenes.Hud(root, Content, run, PauseModal); // #2: the board's strip, in place
             _shopHudCoins = hud.Coins; _shopHud = hud; _shopFrame = frame;
-            if (_shopHudCoins != null) _shopHudCoins.text = Fmt.Num(run.Coins);
 
             var sign = Ui.RoundPanel(frame, new Color32(0x8A, 0x52, 0x2E, 255), 24 * s, "ShopSign");
             sign.raycastTarget = false;
@@ -641,12 +631,13 @@ namespace RogueStars.Client.Screens
             rc.rectTransform.anchorMin = rc.rectTransform.anchorMax = new Vector2(0.5f, 0.28f);
             rc.rectTransform.sizeDelta = new Vector2(56 * s, 56 * s);
             rc.rectTransform.anchoredPosition = new Vector2(-62 * s, 0);
-            var rp = SliceKit.Chunky(rr.transform, reroll > 0 ? reroll.ToString() : "FREE", (int)(50 * s), Color.white, TextAnchor.MiddleLeft, "RerollPrice");
+            var rp = SliceKit.Chunky(rr.transform, reroll > 0 ? Fmt.Num(reroll) : "FREE", (int)(50 * s), Color.white, TextAnchor.MiddleLeft, "RerollPrice");
             rp.rectTransform.anchorMin = rp.rectTransform.anchorMax = new Vector2(0.5f, 0.28f);
             rp.rectTransform.pivot = new Vector2(0, 0.5f);
             rp.rectTransform.sizeDelta = new Vector2(170 * s, 60 * s);
             rp.rectTransform.anchoredPosition = new Vector2(-28 * s, 0);
             DecisionSkillsBook(frame, s);
+            hud.Root.SetAsLastSibling();
             UiTween.PopIn(frame, 0.12f);
             return modal;
         }

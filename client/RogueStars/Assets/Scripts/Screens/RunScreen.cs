@@ -297,7 +297,7 @@ namespace RogueStars.Client.Screens
                             break;
                         case RunEffectKind.Loot: case RunEffectKind.PendingReward: Add(true, "REWARD CHEST (paid on clear)"); break;
                         case RunEffectKind.AwakenRatePct: Add(fx.Value < 0, fx.Value < 0 ? "Boss wakes slower" : "RISK boss wakes " + Fmt.Pct(fx.Value) + " faster"); break;
-                        case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Fmt.Whole(Math.Abs(fx.Value)) + " coins"); break;
+                        case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Fmt.Num(Math.Abs(fx.Value)) + " coins"); break;
                         case RunEffectKind.Xp: Add(true, "+XP"); break;
                         case RunEffectKind.Shards: Add(true, "+shards"); break;
                         case RunEffectKind.BossStatPct: Add(false, "RISK boss +" + Fmt.Pct(fx.Value)); break;
@@ -876,7 +876,8 @@ namespace RogueStars.Client.Screens
             if (float.IsNaN(_cam.x)) _cam = CameraTarget();
             ApplyCamera();
 
-            // fork: tap targets over the tile each option lands on (A / B) and the option tile itself
+            // fork (run UI glitches #10): a floating arrow bobs over the tile each option lands on, tinted like its "Go left" /
+            // "Go right" button in the controls; the landing tile and the option tile stay tap targets (A / B)
             if (run.Phase == RunPhase.ChooseBranch)
                 for (int i = 0; i < run.BranchOptions.Count; i++)
                 {
@@ -886,22 +887,21 @@ namespace RogueStars.Client.Screens
                     int landId = BranchLanding(run, i, Content);
                     if (landId < 0) continue;
                     float s = frameW / 1080f;
-                    var pick = Ui.Button(_overlay, "", () => PickBranch(index), new Color(col.r, col.g, col.b, 0.25f), 190 * s, 150 * s, true, 20);
+                    var pick = Ui.Button(_overlay, "", () => PickBranch(index), new Color(1, 1, 1, 0.001f), 190 * s, 150 * s, true, 20);
                     pick.name = "BranchPick:" + letter;
                     var prt = (RectTransform)pick.transform;
                     prt.anchorMin = prt.anchorMax = new Vector2(0, 1);
                     prt.pivot = new Vector2(0.5f, 0.5f);
                     prt.sizeDelta = new Vector2(190 * s, 150 * s);
                     Pin(prt, WorldBoard.TopOf(run.Tiles[landId]) + new Vector2(0, 0.2f));
-                    UiShapes.Outline(prt, col, 30 * s, 6);
-                    var badge = Ui.RoundPanel(prt, col, 30 * s, "LandingBadge");
-                    badge.raycastTarget = false;
-                    var brt = badge.rectTransform;
-                    brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 1); brt.pivot = new Vector2(0.5f, 0.5f);
-                    brt.sizeDelta = new Vector2(150 * s, 56 * s); brt.anchoredPosition = new Vector2(0, 12 * s);
-                    var bl = SliceKit.Chunky(badge.transform, letter + " · LAND", (int)(28 * s), Color.white, TextAnchor.MiddleCenter);
-                    Ui.Stretch(bl.rectTransform);
-                    UiPulse.On(badge, 0.06f, 1.2f, 0.6f);
+                    var arrow = Ui.Panel(prt, Color.white, "BranchArrow");
+                    arrow.sprite = ForkArrow(col);
+                    arrow.preserveAspect = true;
+                    arrow.raycastTarget = false;
+                    var art = arrow.rectTransform;
+                    art.anchorMin = art.anchorMax = new Vector2(0.5f, 1); art.pivot = new Vector2(0.5f, 0);
+                    art.sizeDelta = new Vector2(120 * s, 150 * s); art.anchoredPosition = new Vector2(0, 10 * s);
+                    UiBob.On(art, 16 * s, 0.9f);
                     var opt = Ui.Button(_overlay, "", () => PickBranch(index), new Color(0, 0, 0, 0.01f), 160 * s, 110 * s, true, 20);
                     opt.name = "BranchOption:" + letter;
                     var ort = (RectTransform)opt.transform;
@@ -919,6 +919,36 @@ namespace RogueStars.Client.Screens
                 _fx.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = false;
             }
             _fx.SetAsLastSibling();
+        }
+
+        private static readonly Dictionary<Color, Sprite> ForkArrows = new Dictionary<Color, Sprite>();
+
+        /// <summary>The fork's floating arrow (#10): a chunky down arrow in the branch colour with the ink outline (drawn).</summary>
+        public static Sprite ForkArrow(Color col)
+        {
+            if (ForkArrows.TryGetValue(col, out var sp) && sp != null) return sp;
+            const int w = 160, h = 200;
+            var p = new IsoPaint(w, h);
+            var pts = new List<Vector2> { IsoPaint.V(52, 196), IsoPaint.V(108, 196), IsoPaint.V(108, 96), IsoPaint.V(150, 96), IsoPaint.V(80, 8), IsoPaint.V(10, 96), IsoPaint.V(52, 96) };
+            p.Shape(pts, IsoPaint.VGrad(IsoPaint.Shade(col, -0.25f), IsoPaint.Shade(col, 0.25f), 8, 196), IsoArt.Ink, 9);
+            p.Line(IsoPaint.V(66, 184), IsoPaint.V(66, 108), 7, new Color(1, 1, 1, 0.45f));
+            sp = p.ToSprite("rs_fork_arrow", IsoPaint.V(w / 2f, 0));
+            ForkArrows[col] = sp;
+            return sp;
+        }
+
+        /// <summary>
+        /// The fork's two options on screen (#10): the option whose landing tile is further left is "Go left" (index into
+        /// ActiveRun.BranchOptions), the other "Go right"; -1 when there is no fork.
+        /// </summary>
+        public static void ForkSides(ActiveRun run, ContentDb content, out int left, out int right)
+        {
+            left = right = -1;
+            if (run == null || run.Phase != RunPhase.ChooseBranch || run.BranchOptions.Count < 2) return;
+            int a = BranchLanding(run, 0, content), b = BranchLanding(run, 1, content);
+            float ax = a >= 0 ? WorldBoard.TopOf(run.Tiles[a]).x : 0, bx = b >= 0 ? WorldBoard.TopOf(run.Tiles[b]).x : 1;
+            left = ax <= bx ? 0 : 1;
+            right = 1 - left;
         }
 
         /// <summary>Seed of the board's cosmetic scatter (FNV-1a of the run id).</summary>
@@ -1030,6 +1060,21 @@ namespace RogueStars.Client.Screens
             };
             hold.OnHold = HoldDice; // Auto Roll unlocks with a level (GDD §16); before it a hold says when
             if (live && !_auto && canRoll) UiPulse.On(face, 0.025f, 1.6f, 1f);
+
+            // the fork (#10): "Go left" / "Go right" just above the dice stand, each tinted like its arrow on the board
+            ForkSides(run, Content, out int goLeft, out int goRight);
+            if (goLeft >= 0)
+                foreach (var (index, text, x) in new[] { (goLeft, "Go left", 300f), (goRight, "Go right", 780f) })
+                {
+                    int ix = index;
+                    var col = BranchColor(ix);
+                    var go = Ui.Button(root, "", () => PickBranch(ix), col, 400 * s, 140 * s, true, 20);
+                    go.name = "BranchGo:" + (ix == 0 ? "A" : "B");
+                    SliceKit.Place((RectTransform)go.transform, s, x, 2400 - ControlsTopRef - 100, 400, 140, true); // just above the dice cap
+                    UiShapes.Outline((RectTransform)go.transform, SliceKit.Ink, Theme.RadiusButton, 6);
+                    var gt = SliceKit.Chunky(go.transform, text, (int)(60 * s), Color.white, TextAnchor.MiddleCenter, "GoText");
+                    Ui.Stretch(gt.rectTransform, 0, 0, 0, 8 * s);
+                }
 
             // speed chip: THE play speed (board and battles, ×0.5 / ×1 / ×2 / ×3 with the pass), one button cycling through them
             BoardSpeed = PlaySpeed.Allowed(ShopSystem.HasBattleSpeed3(State, Content, Now));
@@ -1300,7 +1345,7 @@ namespace RogueStars.Client.Screens
                 _shopReroll.name = "Button:Reroll (" + price + ")";
                 _shopReroll.interactable = run.Coins >= price;
                 var label = _shopReroll.transform.Find("RerollPrice")?.GetComponent<Text>();
-                if (label != null) label.text = price > 0 ? price.ToString() : "FREE";
+                if (label != null) label.text = price > 0 ? Fmt.Num(price) : "FREE";
             }
             if (_shopCoins != null) _shopCoins.text = ShopBoughtLine(run);
             if (_shopHud != null) { var st = RunPresentation.Hud(Content, run); _shopHud.Show(st, st.Level, st.XpNeed > 0 ? (float)st.Xp / st.XpNeed : 0, RunSystem.BuildSize(run)); }
@@ -1339,6 +1384,7 @@ namespace RogueStars.Client.Screens
                 case RunPhase.BurrowChoice: _decision = BurrowModal(run); break;
                 case RunPhase.Minigame: _decision = Minigames.MinigameHost.Open(App.ModalLayer, Session); break;
                 case RunPhase.Quest: _decision = QuestModal(run); break;
+                case RunPhase.Signature: _decision = SignatureBoardPick(run); break;
             }
         }
 
@@ -1417,16 +1463,16 @@ namespace RogueStars.Client.Screens
             double a = Math.Abs(l.Amount);
             switch (l.Kind)
             {
-                case OutcomeKind.Coins: return sign + Fmt.Whole(a) + " coins";
+                case OutcomeKind.Coins: return sign + Fmt.Num(a) + " coins";
                 case OutcomeKind.Hp: return sign + Fmt.Num(a) + " HP";
                 case OutcomeKind.Stat:
                     return sign + Fmt.Pct(a) + " " + (l.Id == "Hp" ? "max HP" : l.Id == "Atk" ? "ATK" : l.Id == "Def" ? "DEF" : l.Id) + " for the run";
                 case OutcomeKind.SkillGained: return "New skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLost: return "Lost skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLevel: return (content.Skill(l.Id)?.Name ?? l.Id) + " → level " + Fmt.Whole(a);
-                case OutcomeKind.Xp: return "+" + Fmt.Whole(a) + " XP";
+                case OutcomeKind.Xp: return "+" + Fmt.Num(a) + " XP";
                 case OutcomeKind.LevelUp: return "Level up! +" + Fmt.Whole(a) + " skill draft" + (a > 1 ? "s" : "");
-                case OutcomeKind.Shards: return sign + Fmt.Whole(a) + " portal shard" + (a == 1 ? "" : "s");
+                case OutcomeKind.Shards: return sign + Fmt.Num(a) + " portal shard" + (a == 1 ? "" : "s");
                 case OutcomeKind.AccountLoot:
                     return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — reward chest, paid when you beat the boss";
                 case OutcomeKind.Awakening: return "Boss wakes " + Fmt.Whole(a) + "% " + (l.Amount >= 0 ? "sooner" : "later");
@@ -1435,8 +1481,8 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Danger: return "Danger " + sign + Fmt.Whole(a);
                 case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
                 case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + Fmt.Whole(a) + " (" + l.Id + " odds)";
-                case OutcomeKind.CoinBonus: return "+" + Fmt.Whole(a) + " coins from " + (l.Id ?? "your quest bonus");
-                case OutcomeKind.QuestBoon: return (l.Id ?? "Quest bonus") + ": +" + Fmt.Whole(a) + " coins on every coin gain, forever";
+                case OutcomeKind.CoinBonus: return "+" + Fmt.Num(a) + " coins from " + (l.Id ?? "your quest bonus");
+                case OutcomeKind.QuestBoon: return (l.Id ?? "Quest bonus") + ": +" + Fmt.Num(a) + " coins on every coin gain, forever";
                 case OutcomeKind.QuestStep:
                     return l.Id == "complete" ? "The story is complete!" : l.Id == "waits" ? "The story waits at chapter " + Fmt.Whole(a) : "The story moves on: chapter " + Fmt.Whole(a);
                 default: return "Nothing happened.";
@@ -1580,32 +1626,148 @@ namespace RogueStars.Client.Screens
             UpgradeFrom = ownedLevel, UpgradeTo = ownedLevel > 0 ? ownedLevel + 1 : 0, TierOverride = signature ? "Signature" : null,
         };
 
+        /// <summary>
+        /// The run-start signature pick on the run board (run UI glitches #24): the board stays visible behind a light dim, the
+        /// violet ribbon and one card per offered signature (ActiveRun.StartSignatures); a pick sends RunPickSignature and the
+        /// first ROLL follows. Named "Modal:Choose a signature"; cards "Button:Signature:&lt;id&gt;".
+        /// </summary>
+        private UiModal SignatureBoardPick(ActiveRun run)
+        {
+            float s = ModalScale();
+            var root = SliceCards.Overlay(App.ModalLayer, "Choose a signature", out var modal, 0.62f);
+            Canvas.ForceUpdateCanvases();
+            int n = Math.Max(1, run.StartSignatures.Count);
+            // the hero stays on the board (no big hero at the top): the ribbon sits under the HUD, the cards under it
+            var lay = SliceCards.Layout(SliceCards.RefHeight(root, s), n, SliceCards.RerollReserve - 170);
+            float ribbonY = 470;
+            SliceCards.Header(root, s, SignaturePick.VioletRibbon, "CHOOSE YOUR SIGNATURE", "Title", "It gives this run its identity!", 0, ribbonY);
+            var title = root.Find("Ribbon/Title")?.GetComponent<Text>();
+            if (title != null) title.fontSize = (int)(62 * s);
+            float h = Mathf.Min(300, lay.CardH + 20), step = h + 18, y = ribbonY + 160 + h / 2;
+            foreach (var id in run.StartSignatures)
+            {
+                string sid = id;
+                var sk = Content.Skill(sid);
+                if (sk == null) continue;
+                SliceCards.Card(root, s, y, SignaturePick.Spec(Content, sk), () => { modal.Close(); CloseDecision(); Run(new RunPickSignature { SignatureId = sid }); }, null, "Button:Signature:" + sid, h);
+                y += step;
+            }
+            UiTween.PopIn(root, 0.15f);
+            return modal;
+        }
+
+        /// <summary>
+        /// The revive (run UI glitches #19) in the Slice style of the outcome sheet: the dimmed board, the red "DEFEATED!" ribbon,
+        /// a tombstone as the centrepiece (<see cref="ArtCatalog.RunIcon"/> "tombstone", drawn until the art exists), the rule on
+        /// the paper and chunky buttons: Ad revive (green), Diamonds (cyan), Give up (red). Named "Modal:Defeated!"; buttons
+        /// "Button:Ad revive (n)", "Button:n Diamonds", "Button:Give up".
+        /// </summary>
         private UiModal ReviveModal(ActiveRun run)
         {
             long cost = Content.RunTuning.ReviveDiamondCost;
             int adsLeft = ShopSystem.AdViewsLeft(State, Content, RunSystem.ReviveAdPlacement, Now);
-            var buttons = new List<ModalButton>();
+            var root = SliceCards.Overlay(App.ModalLayer, "Defeated!", out var modal, 0.88f);
+            Canvas.ForceUpdateCanvases();
+            var frame = RunScenes.Frame(root, out float s);
+            var cap = SliceKit.Chunky(frame, "BATTLE LOST", (int)(44 * s), new Color32(0xFF, 0x9A, 0x8E, 255), TextAnchor.MiddleCenter, "Caption");
+            RunScenes.At(cap.rectTransform, s, 540, 290, 1000, 60);
+            var rib = Ui.Panel(frame, Color.white, "Ribbon");
+            rib.sprite = SliceCards.RedRibbon; rib.preserveAspect = true; rib.raycastTarget = false;
+            RunScenes.At(rib.rectTransform, s, 540, 410, 1010, 172);
+            var title = SliceKit.Chunky(rib.transform, "DEFEATED!", (int)(80 * s), Color.white, TextAnchor.MiddleCenter, "ReviveTitle");
+            Ui.Stretch(title.rectTransform, 40 * s, 0, 40 * s, 14 * s);
+            // the tombstone in a cold glow
+            var glow = Ui.Panel(frame, new Color(0.55f, 0.6f, 0.95f, 0.35f), "TombGlow");
+            glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
+            RunScenes.At(glow.rectTransform, s, 540, 720, 760, 760);
+            UiPulse.On(glow, 0.05f, 2f, 0.7f);
+            var tomb = Ui.Panel(frame, Color.white, "Tombstone");
+            tomb.sprite = TombstoneSprite(); tomb.preserveAspect = true; tomb.raycastTarget = false;
+            RunScenes.At(tomb.rectTransform, s, 540, 720, 420, 420);
+            UiBob.On(tomb.rectTransform, 6 * s, 2.4f);
+            // the rule on the paper
+            var paper = Ui.RoundPanel(frame, SliceKit.Ink, 40 * s, "Paper");
+            paper.raycastTarget = false;
+            RunScenes.At(paper.rectTransform, s, 540, 1080, 980, 260);
+            var face = Ui.RoundPanel(paper.transform, RunScenes.Paper, 34 * s, "Face");
+            face.raycastTarget = false;
+            Ui.Stretch(face.rectTransform, 7 * s, 7 * s, 7 * s, 7 * s);
+            string rule = run.ReviveUsed ? "Your revive for this run is used." : "Revive once with " + RunScenes.Good(Fmt.Pct(Content.RunTuning.ReviveHpPct) + " HP") + " and retry the fight.";
+            var rt = RunScenes.Text(face.transform, rule, s, 48, RunScenes.Ink, TextAnchor.MiddleCenter, "ReviveText", 32);
+            Ui.Stretch(rt.rectTransform, 30 * s, 20 * s, 30 * s, 100 * s);
+            var note = RunScenes.Text(face.transform, "Giving up loses " + RunScenes.Bad(run.PendingLoot.Count + " pending loot items") + ".", s, 38, RunScenes.Ink, TextAnchor.MiddleCenter, "ReviveNote", 26);
+            Ui.Stretch(note.rectTransform, 30 * s, 168 * s, 30 * s, 18 * s);
+            // chunky buttons, stacked
+            float y = 1350;
             if (!run.ReviveUsed)
             {
-                buttons.Add(new ModalButton("Ad revive (" + adsLeft + ")", () => Session.Ads.Show(RunSystem.ReviveAdPlacement, ad =>
+                ReviveButton(frame, s, y, "Ad revive (" + adsLeft + ")", "Ad revive", null, new Color32(0x5C, 0xC0, 0x48, 255), () => Session.Ads.Show(RunSystem.ReviveAdPlacement, ad =>
                 {
                     if (ad.Ok) Run(new RunRevive { Method = ReviveMethod.Ad, AdToken = ad.Value });
-                }), Theme.Good));
-                buttons.Add(new ModalButton(cost + " Diamonds", () => Run(new RunRevive { Method = ReviveMethod.Diamonds }), Theme.Premium));
+                }));
+                y += 185;
+                ReviveButton(frame, s, y, cost + " Diamonds", Fmt.Num(cost), SummonArt.CurrencyIcon(Currencies.Diamonds), new Color32(0x4C, 0xB8, 0xE8, 255), () => Run(new RunRevive { Method = ReviveMethod.Diamonds }));
+                y += 185;
             }
-            buttons.Add(new ModalButton("Give up", () => Run(new RunAbandon()), Theme.Bad));
-            return Modal("Defeated!", b =>
+            ReviveButton(frame, s, y, "Give up", "Give up", null, new Color32(0xE0, 0x46, 0x50, 255), () => Run(new RunAbandon()), run.ReviveUsed ? 620 : 420);
+            UiTween.PopIn(frame, 0.15f);
+            return modal;
+        }
+
+        /// <summary>One chunky revive button (outline, white chunky caption, optional icon left of it), named "Button:" + <paramref name="name"/>.</summary>
+        private static void ReviveButton(RectTransform frame, float s, float y, string name, string caption, Sprite icon, Color col, Action onClick, float w = 620)
+        {
+            var b = Ui.Button(frame, "", onClick, col, w * s, 160 * s, true, 20);
+            b.name = "Button:" + name;
+            RunScenes.At((RectTransform)b.transform, s, 540, y, w, 160);
+            UiShapes.Outline((RectTransform)b.transform, SliceKit.Ink, Theme.RadiusButton, 7);
+            var t = SliceKit.Chunky(b.transform, caption, (int)(68 * s), Color.white, TextAnchor.MiddleCenter, "Caption");
+            Ui.Stretch(t.rectTransform, icon != null ? 110 * s : 0, 0, 0, 8 * s);
+            if (icon == null) return;
+            var img = Ui.Panel(b.transform, Color.white, "Icon");
+            img.sprite = icon; img.preserveAspect = true; img.raycastTarget = false;
+            var irt = img.rectTransform;
+            irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f);
+            irt.sizeDelta = new Vector2(96 * s, 96 * s);
+            irt.anchoredPosition = new Vector2(-150 * s, 4 * s);
+        }
+
+        private static Sprite _tombstone;
+
+        /// <summary>
+        /// The revive's centrepiece: <c>Art/Run/Icons/tombstone</c> (512 × 512, transparent; the art package
+        /// run-icons-tombstone) once imported, else a drawn grey tombstone with the ink outline.
+        /// </summary>
+        public static Sprite TombstoneSprite()
+        {
+            var art = ArtCatalog.RunIcon("tombstone");
+            if (art != null) return art;
+            if (_tombstone != null) return _tombstone;
+            const int w = 320, h = 360;
+            var p = new IsoPaint(w, h);
+            var stone = (Color)new Color32(0x9A, 0x9E, 0xAE, 255);
+            // the slab: straight sides, a round top
+            var pts = new List<Vector2> { IsoPaint.V(64, 56), IsoPaint.V(256, 56) };
+            for (int i = 0; i <= 24; i++)
             {
-                ModalSkillsBook(b);
-                Ui.Label(b, run.ReviveUsed ? "Your revive for this run is used." : "Revive once with " + Fmt.Pct(Content.RunTuning.ReviveHpPct) + " HP and retry the fight.", Theme.FontNormal, Theme.Text, TextAnchor.MiddleCenter);
-                Note(b, "Giving up loses " + run.PendingLoot.Count + " pending loot items.");
-            }, buttons.ToArray());
+                float a = Mathf.PI * i / 24f;
+                pts.Add(IsoPaint.V(160 + 96 * Mathf.Cos(a), 240 + 96 * Mathf.Sin(a)));
+            }
+            p.Shape(pts, IsoPaint.VGrad(IsoPaint.Shade(stone, -0.3f), IsoPaint.Shade(stone, 0.12f), 56, 336), IsoArt.Ink, 10);
+            // cel shading on the right, a highlight on the left, a crack
+            p.Poly(new List<Vector2> { IsoPaint.V(206, 62), IsoPaint.V(250, 62), IsoPaint.V(250, 236), IsoPaint.V(226, 300), IsoPaint.V(206, 300) }, new Color(0, 0, 0, 0.16f));
+            p.Line(IsoPaint.V(96, 120), IsoPaint.V(96, 250), 10, new Color(1, 1, 1, 0.35f));
+            p.Line(IsoPaint.V(150, 300), IsoPaint.V(170, 262), 5, IsoArt.Ink);
+            p.Line(IsoPaint.V(170, 262), IsoPaint.V(156, 232), 5, IsoArt.Ink);
+            // the base slab
+            p.Shape(IsoPaint.RoundRect(30, 14, 260, 52, 14), IsoPaint.VGrad(IsoPaint.Shade(stone, -0.45f), IsoPaint.Shade(stone, -0.15f), 14, 66), IsoArt.Ink, 9);
+            _tombstone = p.ToSprite("rs_tombstone", IsoPaint.V(w / 2f, h / 2f));
+            return _tombstone;
         }
 
         private UiModal BurrowModal(ActiveRun run) =>
             Modal("Floor " + run.Floor + " cleared", b =>
             {
-                ModalSkillsBook(b);
                 Ui.Label(b, "Dive deeper for better loot, or cash out now.", Theme.FontNormal);
                 Note(b, "Pending: " + Fmt.Rewards(run.PendingLoot, Content, State, Now));
             },

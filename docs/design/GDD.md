@@ -77,7 +77,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Supply cache | Run coins and run XP (in-run resources only) |
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
 | Event | Narrative choice with 2–3 options, visible risk/reward text, weighted hidden outcomes allowed |
-| Campfire | **Rest** (restore 35% HP) or **Train** (improve 1 owned skill **of the player's choice**: one level, or a chain's lower tier into its upgrade; signatures and maxed skills cannot train; nothing to train = coins; auto picks the lowest-level skill, earliest gained on ties); either strengthens nearby enemy tiles |
+| Campfire | **Rest** (restore 35% HP) or **Train** (improve 1 owned skill **of the player's choice** among 3 offered — the lowest levels, earliest gained on ties: one level, or a chain's lower tier into its upgrade; signatures and maxed skills cannot train; nothing to train = coins; auto picks the lowest-level skill, earliest gained on ties); either strengthens nearby enemy tiles |
 | Shop (force stop) | Two per segment. 3 skills (owned ones offered as level-ups) plus the support offers on top: a stat perk, and the heal while the worm is below 60% HP, for run coins; a reroll (rising price) draws 3 new skills and a new stat perk (the heal and bought offers stay) |
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |

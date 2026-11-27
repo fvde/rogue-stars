@@ -88,7 +88,19 @@ namespace RogueStars.Client.Tests
             Assert.That(Vector2.Distance(a.anchoredPosition, screen.OverlayPoint(WorldBoard.TopOf(run.Tiles[6]) + new Vector2(0, 0.2f))), Is.LessThan(0.5f), "A sits on its landing tile");
             Assert.That(Vector2.Distance(b.anchoredPosition, screen.OverlayPoint(WorldBoard.TopOf(run.Tiles[8]) + new Vector2(0, 0.2f))), Is.LessThan(0.5f), "B sits on the shop it stops at");
             Assert.That(a.sizeDelta.x, Is.GreaterThanOrEqualTo(150f), "a thumb-sized target");
-            Assert.That(Texts(a), Does.Contain("A · LAND"));
+            // run UI glitches #10: a bobbing arrow over each landing tile (no boxes), "Go left" / "Go right" in the controls
+            Assert.That(FindNamed(a, "BranchArrow"), Is.Not.Null);
+            Assert.That(FindNamed(b, "BranchArrow"), Is.Not.Null);
+            Assert.That(FindNamed(a, "LandingBadge"), Is.Null, "no A · LAND box");
+            RunScreen.ForkSides(run, C, out int left, out int right);
+            Assert.That(new[] { left, right }, Is.EquivalentTo(new[] { 0, 1 }));
+            Assert.That(WorldBoard.TopOf(run.Tiles[RunScreen.BranchLanding(run, left, C)]).x, Is.LessThanOrEqualTo(WorldBoard.TopOf(run.Tiles[RunScreen.BranchLanding(run, right, C)]).x));
+            var goLeft = FindNamed(screen.Root, "BranchGo:" + (left == 0 ? "A" : "B"));
+            var goRight = FindNamed(screen.Root, "BranchGo:" + (right == 0 ? "A" : "B"));
+            Assert.That(Texts(goLeft), Does.Contain("Go left"));
+            Assert.That(Texts(goRight), Does.Contain("Go right"));
+            Assert.That(goLeft.Find("Face").GetComponent<Image>().color, Is.EqualTo(RunScreen.BranchColor(left)), "tinted like its arrow");
+            Assert.That(FindNamed(a, "BranchArrow").GetComponent<Image>().sprite, Is.SameAs(RunScreen.ForkArrow(RunScreen.BranchColor(0))));
             Assert.That(FindNamed(screen.Root, "BranchOption:B"), Is.Not.Null, "the option tile is tappable too");
             Assert.That(FindNamed(screen.World.Root.transform, "BranchPath"), Is.Not.Null, "the walked path is highlighted");
             Assert.That(Texts(FindNamed(screen.Root, "RollButton")), Does.Contain("Pick a path"));

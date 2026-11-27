@@ -298,12 +298,15 @@ namespace RogueStars.Client.PlayTests
 
         private IEnumerator Signature(ContentDb c)
         {
-            var offer = c.Skills.Values.Where(x => x.Signature).Select(x => x.Id).OrderBy(x => x, StringComparer.Ordinal).Take(3).ToList();
-            Ui.Clear(_app.ModalLayer);
-            _app.Router.Reset(new HubScreen());
-            yield return Wait(0.4f);
-            SignaturePick.Show(_app.ModalLayer, c, offer, _ => { });
-            yield return Wait(1.0f);
+            // run UI glitches #24: the run-start pick on the run's own board, before the first roll
+            if (_svc.State.Run.Active != null) _svc.ExecuteNow(new RunAbandon());
+            var level = c.MainLevel(12);
+            _svc.State.Wallet.Add(Currencies.Stamina, 200);
+            var r = _svc.ExecuteNow(new RunStart { PortalId = level.PortalId, LevelId = level.Id, Mode = RunMode.Normal, PickOnBoard = true });
+            Assert.That(r.Ok, Is.True, r.Error);
+            Note("[signature] " + _tag + " phase " + _svc.State.Run.Active.Phase + " offer " + string.Join(",", _svc.State.Run.Active.StartSignatures));
+            ShowRun();
+            yield return Wait(1.4f);
             yield return Shot("signature_pick");
             Ui.Clear(_app.ModalLayer);
         }
@@ -356,7 +359,14 @@ namespace RogueStars.Client.PlayTests
                 Ui.Clear(_app.ModalLayer);
                 _app.Router.Reset(new HubScreen());
                 _app.Router.Push(new RunResultScreen());
-                yield return Wait(1.6f);
+                if (won)
+                {
+                    // #40: the Biomass surge counts up on its tile
+                    yield return Wait(0.55f);
+                    Ui.Clear(_app.ModalLayer);
+                    yield return Shot("result_victory_counting");
+                }
+                yield return Wait(won ? 1.2f : 1.6f);
                 Ui.Clear(_app.ModalLayer); // the pull reveal over a Legendary item
                 yield return Wait(0.2f);
                 yield return Shot(won ? "result_victory" : "result_defeat");
@@ -367,7 +377,10 @@ namespace RogueStars.Client.PlayTests
             foreach (var r in _svc.State.Run.LastSummary.Granted) if (r.Kind == RewardKinds.Currency) r.Amount *= 2;
             _app.Router.Reset(new HubScreen());
             _app.Router.Push(new RunResultScreen());
-            yield return Wait(1.4f);
+            yield return Wait(0.6f);
+            Ui.Clear(_app.ModalLayer);
+            yield return Shot("result_victory_doubling");
+            yield return Wait(1.6f);
             Ui.Clear(_app.ModalLayer);
             yield return Shot("result_victory_doubled");
             _app.Router.Reset(new HubScreen());
