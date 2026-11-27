@@ -280,6 +280,8 @@ namespace RogueStars.Rules.Systems
         public int DefeatXp;
         public long DefeatCoins;
         public List<RunEffect> DefeatFollowUp = new List<RunEffect>();
+        /// <summary>A lost event fight's result, published once a revive wins the retry (its follow-up effects then get feedback).</summary>
+        public RunOutcome DefeatOutcome;
         public int BossRounds;
         public int BattlesWon;
         /// <summary>Minibosses spawned by the awakening clock so far (RunTuning.MinibossAtMeter) and waiting to attack.</summary>
@@ -309,7 +311,16 @@ namespace RogueStars.Rules.Systems
         /// <summary>A quest boon: the account coin bonus is now Amount coins per gain (Id = the bonus name).</summary>
         QuestBoon,
         /// <summary>A quest encounter's step: Id "advanced" / "waits" / "complete", Amount = the chapter the story is at now.</summary>
-        QuestStep }
+        QuestStep,
+        /// <summary>Enemy tiles ahead grew stronger (campfire, treasure pod): Amount = the bonus in %, Id = how many tiles.</summary>
+        EnemiesStronger }
+
+    /// <summary>
+    /// How the client shows a decision's result (event outcome rules, owner 2026-11): a sheet only for news (a gamble with the
+    /// chance meter, a random pick, a milestone); deterministic results fly into the HUD as popups (an optional one-line
+    /// <see cref="RunOutcome.Toast"/>, "You move on." for a result without effect); a lost fight goes straight to the revive.
+    /// </summary>
+    public enum OutcomeShow { Sheet, Popups, Revive }
 
     /// <summary>
     /// One addition to the run's build: a new skill (Level 1), a skill level-up (Level 2+) or a stat perk (Stat set).
@@ -361,6 +372,10 @@ namespace RogueStars.Rules.Systems
         public double SuccessChancePct;
         public bool Success;
         public List<OutcomeLine> Lines = new List<OutcomeLine>();
+        /// <summary>Decision results: result sheet, HUD popups (+ <see cref="Toast"/>) or straight to the revive (a lost fight).</summary>
+        public OutcomeShow Show;
+        /// <summary>One short line shown with popups ("You move on.", a story journal line); null = none.</summary>
+        public string Toast;
         /// <summary>Tile outcomes (ActiveRun.TileOutcomes): the run tile index, its tile def id, the sequence number; −1 / null otherwise.</summary>
         public int Tile = -1;
         public string TileId;

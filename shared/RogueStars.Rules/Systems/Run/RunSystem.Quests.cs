@@ -254,7 +254,9 @@ namespace RogueStars.Rules.Systems
                 }
                 ctx.Emit("run_quest_epilogue", q.Id, ep.Id);
                 before.Diff(c, run, outcome.Lines);
-                if (ep.Kind == QuestEpilogueKind.SkillPick) outcome.Lines.Insert(0, new OutcomeLine(OutcomeKind.SkillRoll, "Common", c.RunTuning.DraftChoices, true));
+                // the reward flies in (a skill pick opens the draft straight away: Continue)
+                outcome.Show = OutcomeShow.Popups;
+                outcome.Toast = outcome.Text;
                 PublishOutcome(ctx, run, outcome);
                 Continue(ctx, run);
                 return;
@@ -290,6 +292,7 @@ namespace RogueStars.Rules.Systems
                         p.Waits++;
                         outcome.Text = "Beaten! " + q.Character + " will wait for you. The story goes on next time you meet.";
                         outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, "waits", node.Chapter, false));
+                        outcome.Show = OutcomeShow.Revive; // straight to the revive, which shows this text
                         ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), "lost");
                         before.Diff(c, run, outcome.Lines);
                         PublishOutcome(ctx, run, outcome);
@@ -308,10 +311,19 @@ namespace RogueStars.Rules.Systems
                 p.Waits++;
                 outcome.Text = q.Character + " will wait for you. The story goes on next time you meet.";
                 outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, "waits", node.Chapter, false));
+                outcome.Show = OutcomeShow.Popups;
+                outcome.Toast = q.Character + " will ask again next time.";
             }
             ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), advance ? "advanced" : "waits");
             if (tile != null) Consume(c, run, tile, TileDefOf(c, tile));
             before.Diff(c, run, outcome.Lines);
+            // a random skill price (Legendary / Mythic sacrifice) is news: the sheet, the lost skill first
+            if (advance && opt.Action == QuestOptionAction.Pay && node.Cost != null
+                && (node.Cost.Kind == QuestCostKind.LegendarySkill || node.Cost.Kind == QuestCostKind.MythicSkill))
+            {
+                outcome.Show = OutcomeShow.Sheet;
+                NewsFirst(outcome);
+            }
             run.Phase = RunPhase.AwaitRoll;
             PublishOutcome(ctx, run, outcome);
             Continue(ctx, run);
@@ -339,14 +351,18 @@ namespace RogueStars.Rules.Systems
             }
             outcome.Text = opt.Journal;
             outcome.Success = true;
-            outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, p.Completed ? "complete" : "advanced", Math.Min(node.Chapter + 1, q.Chapters), true));
+            int chapter = Math.Min(node.Chapter + 1, q.Chapters);
+            outcome.Lines.Add(new OutcomeLine(OutcomeKind.QuestStep, p.Completed ? "complete" : "advanced", chapter, true));
+            // the story's end is a milestone (the sheet); every other step is a toast with the journal line (+ popups of costs / rewards)
+            outcome.Show = p.Completed ? OutcomeShow.Sheet : OutcomeShow.Popups;
+            outcome.Toast = p.Completed ? null : "Chapter " + chapter + ": " + opt.Journal;
         }
 
         /// <summary>
         /// A revive after a lost quest battle retried it and won (RunSystem.Revive → AfterWin "quest"): the story moves on as
         /// if the first try had been won (the Fight option), the tile is used up and the STORY result is published.
         /// </summary>
-        private static void QuestBattleWonAfterRevive(CommandContext ctx, ActiveRun run)
+        private static void QuestBattleWonAfterRevive(CommandContext ctx, ActiveRun run, Snap before = null)
         {
             var s = ctx.State; var c = ctx.Content;
             var q = c.RunQuest(run.Quest.QuestId);
@@ -363,6 +379,7 @@ namespace RogueStars.Rules.Systems
             ctx.Emit("run_quest_choice", q.Id, node.Id, index.ToString(), "advanced");
             var tile = run.Quest.Tile >= 0 && run.Quest.Tile < run.Tiles.Count ? run.Tiles[run.Quest.Tile] : null;
             if (tile != null) Consume(c, run, tile, TileDefOf(c, tile));
+            before?.Diff(c, run, outcome.Lines); // the retried fight's rewards fly in with the journal line
             PublishOutcome(ctx, run, outcome);
         }
 
