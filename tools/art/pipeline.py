@@ -820,14 +820,19 @@ def inspect_final(path, cat=None, text=True):
         sz = check_size(im, cat)
         if sz and "canvas edge" not in sz:
             probs.append("size spec: " + sz)
+    # categories can skip detectors that misfire on their shapes (ui: blank plates read as text, light panel centres
+    # are white on purpose, the bottom bevel reads as a shadow); the QC gate still looks at every one
+    skip = set(CFG["categories"].get(cat, {}).get("audit_skip", [])) if cat else set()
     onwhite = Image.new("RGB", im.size, (255, 255, 255)); onwhite.paste(im, (0, 0), im)
     rem = rembg_alpha(onwhite)
     reg, _ = shadow_region(rgb, alpha, rem)
-    if reg is not None and reg.sum() > 0.01 * (alpha >= 128).sum() and verify_shadow(reg, rgb, alpha)[0]:
+    if "shadow" not in skip and reg is not None and reg.sum() > 0.01 * (alpha >= 128).sum() and verify_shadow(reg, rgb, alpha)[0]:
         probs.append("shadow ellipse")
     log = []
     _a, big = remove_enclosed_white(rgb, alpha, rem, [255, 255, 255], log)
-    if big:
+    if "white" in skip:
+        pass
+    elif big:
         probs.append("white fill: " + big)
     elif any(x.startswith("enclosed background white removed") for x in log):
         probs.append("white fill (enclosed background-white gap)")
@@ -835,7 +840,7 @@ def inspect_final(path, cat=None, text=True):
         ped = detect_pedestal(rgb, alpha, band=T["ped_band"] if cat in ("creature", "character") else T["ped_band_objects"])
         if ped:
             probs.append(ped)
-    if text:
+    if text and "text" not in skip:
         sc = clip_scores(onwhite, "an object", [])
         if sc and sc.get("clip_text", 0) >= T["audit_text"]:
             probs.append(f'possible text (CLIP {sc["clip_text"]:.2f})')

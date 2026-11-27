@@ -117,7 +117,7 @@ def audit(state, secs, sheet=True):
         if kind != "candidate" or not os.path.exists(f):
             continue
         cat = category_for(f, title, by_proc)
-        key = f"d|{f}|{os.path.getmtime(f)}|{cat}"
+        key = f"d|{f}|{os.path.getmtime(f)}|{cat}|{','.join(P.CFG["categories"].get(cat, {}).get("audit_skip", []))}"
         probs = cache.get(key)
         if probs is None:
             probs = P.inspect_final(f, cat)

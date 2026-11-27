@@ -65,7 +65,12 @@
       "canvas": null,
       "long_side": 458,
       "pad": 3,
-      "note": "UI kit sprites (Ui/Kit): trimmed, tintable neutral grey; 9-slice borders set at import (docs/design/ui-kit.md)"
+      "note": "UI kit sprites (Ui/Kit): trimmed, tintable neutral grey; 9-slice borders set at import (docs/design/ui-kit.md)",
+      "audit_skip": [
+        "text",
+        "white",
+        "shadow"
+      ]
     }
   },
   "packages": {
