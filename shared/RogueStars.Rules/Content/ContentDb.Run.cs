@@ -235,7 +235,7 @@ namespace RogueStars.Rules.Content
         /// <summary>Makes an enemy an elite; <paramref name="artId"/> = the sprite it is drawn with until it has its own (EnemyDef.ArtId).</summary>
         private static EnemyDef RunMakeElite(EnemyDef e, string artId = null)
         {
-            e.Elite = true; e.Xp = 14; e.Coins = 25; e.ArtId = artId;
+            e.Elite = true; e.Xp = 14; e.Coins = 30; e.ArtId = artId;
             e.Stats.Add(new StatMod(StatId.CritChance, 10));
             e.Stats.Add(new StatMod(StatId.RageGain, 20)); // points: +20% rage gain (a % of the 0 base was nothing)
             return e;
@@ -300,9 +300,9 @@ namespace RogueStars.Rules.Content
             var d3 = RunTile("debuff_hp", "Withering Field", TileCategory.StatDebuff, TileValence.Negative); d3.Stat = StatId.Hp; d3.Value = -4;
             // Ordinary tiles pay in-run resources only (coins, XP, HP, buffs). Account loot comes from the level's completion
             // rewards and a few risky opportunities per run (guarded Treasure Pods, events; RunTuning.MaxAccountLootOffersPerRun).
-            var sup = RunTile("loot", "Supply Cache", TileCategory.Pickup, TileValence.Positive); sup.Coins = 25; sup.Value = 3;
+            var sup = RunTile("loot", "Supply Cache", TileCategory.Pickup, TileValence.Positive); sup.Coins = 30; sup.Value = 3;
             sup.Text = "Run coins and XP.";
-            var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 50; rich.Value = 6;
+            var rich = RunTile("loot_rich", "Rich Supply Cache", TileCategory.Pickup, TileValence.Positive); rich.Coins = 60; rich.Value = 6;
             rich.Text = "Lots of run coins and XP.";
             var pod = RunTile("treasure", "Treasure Pod", TileCategory.Treasure, TileValence.Special); pod.EventId = "treasure_pod";
             pod.Text = "A guarded reward chest.";
@@ -314,7 +314,7 @@ namespace RogueStars.Rules.Content
             var h2 = RunTile("hazard_toll", "Toll Drones", TileCategory.Hazard, TileValence.Negative); h2.Coins = 30;
             var h3 = RunTile("hazard_vortex", "Gravity Vortex", TileCategory.Hazard, TileValence.Negative); h3.PushBack = 2; h3.Value = 4; h3.Text = "Lose 4% HP; your next roll moves 2 steps less.";
             var sh = RunTile("shard", "Portal Shard", TileCategory.Shard, TileValence.Positive); sh.TriggersOnPass = true;
-            var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 12;
+            var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 15;
             var gate = RunTile("boss_gate", "Boss Arena", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
 
             // Dedicated boss tiles: meter +/- and boss buffs (risk/reward: tributes pay coins but feed the boss).
@@ -367,7 +367,9 @@ namespace RogueStars.Rules.Content
                 new WeightedId("buff_crit", 1.5), new WeightedId("buff_speed", 1.5),
                 new WeightedId("debuff_atk", 1.5 * negativeWeight), new WeightedId("debuff_def", 1.5 * negativeWeight),
                 new WeightedId("debuff_hp", 1.5 * negativeWeight),
-                new WeightedId("loot", 7), new WeightedId("loot_rich", 2), new WeightedId("treasure", 2),
+                // treasure 3 (was 2), with the loot events' weights (Abandoned Cache 4, Gravity Well 2.5, Rift Echo 3): the 20% shorter
+                // runs (2026-11-27) keep ~0.8 account-loot opportunities per run (RunLengthTests)
+                new WeightedId("loot", 7), new WeightedId("loot_rich", 2), new WeightedId("treasure", 3),
                 new WeightedId("event", 8), new WeightedId("campfire", 2),
                 new WeightedId("hazard_spikes", 2.5 * negativeWeight), new WeightedId("hazard_toll", 2 * negativeWeight),
                 new WeightedId("hazard_vortex", 1.5 * negativeWeight),
@@ -421,8 +423,8 @@ namespace RogueStars.Rules.Content
                 RunOpt("Decline", "Nothing happens.", RunNothing));
             var echo = RunOpt("Fight the echo", "Battle a strong elite (+30%). Win: a part (reward chest, paid on clear).",
                 RunOut(1, "The echo fades, leaving a part behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(new Reward(RewardKinds.Part, "*", 1, 2))));
-            RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 2.5, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
-            RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 3,
+            RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 3, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
+            RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 4,
                 RunOpt("Search it", "65%: 1 reward chest (paid on clear, +Danger) and the alarm wakes the boss 8% sooner. 35%: trapped — lose 20% HP and 5% max HP for the run.",
                     RunOut(65, "Loot! An alarm wails in the distance.", RunFx(RunEffectKind.Loot, 1), RunFx(RunEffectKind.Meter, 8)),
                     RunOut(35, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 20), RunStatFx(StatId.Hp, -5))),
@@ -446,7 +448,7 @@ namespace RogueStars.Rules.Content
             RunEvent("lost_explorer", "Lost Explorer", "A lost explorer worm asks for help.", 1, 3,
                 RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 60))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
-            RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2,
+            RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2.5,
                 RunOpt("Dive in", "2 reward chests (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
                     RunOut(1, "You surface with treasure — and the boss stirs.", RunFx(RunEffectKind.Loot, 2), RunFx(RunEffectKind.AwakenRatePct, 15))),
                 RunOpt("Steer away", "Nothing happens.", RunNothing));

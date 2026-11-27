@@ -6,9 +6,11 @@ using Xunit.Abstractions;
 namespace RogueStars.Rules.Tests.Run;
 
 /// <summary>
-/// GDD §3.3: the board is a circuit and the boss's awakening meter is the run's clock — a run lasts ~30 rolls (27–33 on
-/// average for every level band, one and two dice) before skills shift it, with ~8–12 drafts; account loot comes from at
-/// most a few risky opportunities per run; every event / chest / campfire choice and shop visit has a structured outcome.
+/// GDD §3.3: the boss's awakening meter is the run's clock — a run lasts ~23 rolls (21.5–27 on average for every level
+/// band, one and two dice; owner 2026-11-27: "runs are too long, shorten required boss rage by 20%", was ~30 rolls / 27–33.5)
+/// before skills shift it, with still ~8–12 drafts (the run XP curve is 2 + 1 per level so the shorter run keeps its build);
+/// account loot comes from at most a few risky opportunities per run; every event / chest / campfire choice and shop visit
+/// has a structured outcome.
 /// </summary>
 public class RunLengthTests(ITestOutputHelper output)
 {
@@ -72,7 +74,7 @@ public class RunLengthTests(ITestOutputHelper output)
 
     [Theory]
     [MemberData(nameof(Levels))]
-    public void RunLength_AveragesAbout30Rolls_With8To12Drafts(int n, RunMode mode)
+    public void RunLength_AveragesAbout23Rolls_With8To12Drafts(int n, RunMode mode)
     {
         var e = RunTestKit.Engine(new RunTestKit.WormSetup { Hp = 1e12, Atk = 1e10, Def = 1e9, Speed = 1000 });
         string id = LevelId(e.Content, n, mode);
@@ -88,7 +90,9 @@ public class RunLengthTests(ITestOutputHelper output)
         }
         double avg = rolls.Average(), avgDrafts = drafts.Average();
         output.WriteLine($"{id} ({e.Content.RunLevel(id).Dice} dice): rolls avg {avg:0.0} min {rolls.Min()} max {rolls.Max()}, drafts avg {avgDrafts:0.0}");
-        Assert.InRange(avg, 27, 33.5); // 33.5: GAME tiles stop the worm when passed (GDD §3.6); the base is ~33 at heart_of_frost_10
+        // base pace 100 / 4.5 = 22.2 rolls (was 27–33.5 at 3.6 per roll); 27: GAME tiles stop the worm when passed (GDD §3.6)
+        // and relief tiles push the meter back, measured 22.3–23.3
+        Assert.InRange(avg, 21.5, 27);
         Assert.True(rolls.Max() <= e.Content.RunLevel(id).MaxRolls);
         Assert.InRange(avgDrafts, 8, 12);
     }
@@ -110,7 +114,7 @@ public class RunLengthTests(ITestOutputHelper output)
             a += r1; b += r2;
         }
         output.WriteLine($"rolls: normal {a / 20:0.0}, 20% slower awakening {b / 20:0.0}");
-        Assert.True(b / 20 >= a / 20 + 4, "a 20% slower meter adds ~6 rolls");
+        Assert.True(b / 20 >= a / 20 + 4, "a 20% slower meter adds ~5 rolls"); // measured 23.3 → 28.6
     }
 
     [Fact]
@@ -122,7 +126,7 @@ public class RunLengthTests(ITestOutputHelper output)
         RunTestKit.LineBoard(run, Enumerable.Repeat("empty", 20).ToArray());
         double per = RunSystem.AwakeningPerRoll(e.Content, run);
         Assert.Equal(e.Content.RunBosses[run.BossId].AwakenPerRoll, per, 6);
-        Assert.Equal((int)Math.Ceiling(100 / per), RunSystem.BossRollEstimate(e.Content, run)); // HUD "Roll 0/28"
+        Assert.Equal((int)Math.Ceiling(100 / per), RunSystem.BossRollEstimate(e.Content, run)); // HUD "Roll 0/23"
         run.Awakening = 100 - per / 2;
         run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count; // the clock's minibosses already came
         Assert.Equal(1, RunSystem.BossRollEstimate(e.Content, run));
@@ -159,7 +163,7 @@ public class RunLengthTests(ITestOutputHelper output)
         var c = e.Content;
         int max = 0, runs = 0, offers = 0, drops = 0;
         foreach (var n in new[] { 1, 8, 25, 100 })
-            for (int seed = 1; seed <= 25; seed++)
+            for (int seed = 1; seed <= 50; seed++) // 50 (was 25): the mean is ~0.8, 25 seeds per level swung ±0.1 around the bound
             {
                 var sum = Play(e, c.MainLevel(n).Id, RunMode.Normal, seed, true, out _);
                 runs++; offers += sum.AccountLootOffers; drops += sum.AccountLootDrops;

@@ -87,7 +87,7 @@ namespace RogueStars.Client.Tests
         public void TopHud_ShowsLevelHpAtkDefCogAndCoins_NoAppHeader()
         {
             var run = StartRun();
-            run.Xp = 3;
+            run.Xp = 1; // below level 1's need (XpBase 2 since the shorter runs of 2026-11-27)
             run.Coins = 418;
             var screen = Open();
             Assert.That(screen.HeaderHeight, Is.EqualTo(0), "the HUD replaces the app header");
@@ -111,7 +111,7 @@ namespace RogueStars.Client.Tests
             Assert.That(xp.type, Is.EqualTo(Image.Type.Filled));
             Assert.That(xp.fillMethod, Is.EqualTo(Image.FillMethod.Horizontal));
             Assert.That(xp.fillAmount, Is.EqualTo((float)lv.Xp / lv.XpNeeded).Within(1e-4f), "XP progress fills the level pill");
-            Assert.That(screen.HudText, Does.Contain("XP 3 / " + lv.XpNeeded));
+            Assert.That(screen.HudText, Does.Contain("XP 1 / " + lv.XpNeeded));
             var hp = FindNamed(strip, "HpFill").GetComponent<Image>();
             Assert.That(hp.fillAmount, Is.EqualTo((float)(w.Hp / w.MaxHp)).Within(1e-3f));
             screen.Tick();

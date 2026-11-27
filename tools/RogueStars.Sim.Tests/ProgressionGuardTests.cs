@@ -104,16 +104,16 @@ public class ProgressionGuardTests
     }
 
     [Fact]
-    public void Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers()
+    public void Runs_LastAbout23Rolls_WithABuildAndFewAccountLootOffers()
     {
-        // GDD §3.3: the awakening meter is the clock. Runs that reach the boss last ~30 rolls (the bot's Stasis Beacon and
-        // drafted Calm Mind may stretch late runs a little), runs give a build (~8–12 drafts) and at most 3 risky
-        // account-loot opportunities (docs/balance/progression-report.md, "Run length").
+        // GDD §3.3: the awakening meter is the clock. Runs that reach the boss last ~23 rolls (owner 2026-11-27: 20% shorter
+        // than the ~29 before; the bot's Stasis Beacon and drafted Calm Mind may stretch late runs a little), runs give a
+        // build (~8–12 drafts) and at most 3 risky account-loot opportunities (docs/balance/progression-report.md, "Run length").
         foreach (var r in new[] { F2p.Value, Whale.Value })
         {
             var boss = r.RunLog.Where(x => x.BossReached && x.Mode != RunMode.Burrow).ToList();
             Assert.True(boss.Count > 100, r.Profile + ": runs logged");
-            Assert.InRange(boss.Average(x => x.Rolls), 27, 35);
+            Assert.InRange(boss.Average(x => x.Rolls), 21.5, 28); // was 27–35 at 3.6 meter points per roll (×0.8)
             Assert.InRange(boss.Average(x => x.Drafts), 8, 12);
             Assert.True(r.RunLog.Max(x => x.LootOffers) <= 3, r.Profile + ": more than 3 account-loot opportunities in a run");
             Assert.InRange(r.RunLog.Where(x => x.Mode != RunMode.Burrow).Average(x => x.LootOffers), 0.5, 2);

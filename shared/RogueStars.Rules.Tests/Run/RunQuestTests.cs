@@ -411,10 +411,10 @@ public class RunQuestTests(ITestOutputHelper output)
         long coins = run.Coins;
         Assert.True(RunTestKit.Exec(e, ref s, new RunRoll()).Ok);
         run = s.Run.Active!;
-        Assert.Equal(coins + 25 + 3, run.Coins); // the landing tile's supply cache: 25 + 3
+        Assert.Equal(coins + 30 + 3, run.Coins); // the landing tile's supply cache: 30 + 3
         Assert.Equal(3, run.Quest.CoinBonusPaid);
         var lines = run.TileOutcomes.Last().Lines;
-        Assert.Contains(lines, l => l.Kind == OutcomeKind.Coins && l.Amount == 25);
+        Assert.Contains(lines, l => l.Kind == OutcomeKind.Coins && l.Amount == 30);
         Assert.Contains(lines, l => l.Kind == OutcomeKind.CoinBonus && l.Amount == 3 && l.Id == "Starglint");
     }
 

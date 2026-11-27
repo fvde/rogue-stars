@@ -253,8 +253,8 @@ namespace RogueStars.Rules.Content
                 if (Math.Abs(hpPct) > 0.01 || Math.Abs(atkPct) > 0.01)
                     l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(hpPct, 2), EnemyAtkPct = Math.Round(atkPct, 2) };
                 l.StaminaCost = Math.Min(c.StaminaMax, c.StaminaBase + index);
-                // A lap of the circuit board; two dice walk ~twice as far per roll, so their lap is longer. The boss's awakening
-                // meter ends the run (~30 rolls), MaxRolls is only the hard limit.
+                // A board segment; two dice walk ~twice as far per roll, so their segment is longer. The boss's awakening meter
+                // ends the run (~23 rolls), MaxRolls is only the hard limit.
                 l.Dice = i >= 6 ? 2 : 1;
                 l.BoardLength = (24 + i + Math.Min(index, c.BoardGrowthPortals) * 2) * (l.Dice == 2 ? 3 : 2) / 2;
                 l.MaxRolls = c.MaxRolls;

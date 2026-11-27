@@ -34,7 +34,7 @@ Aliens, Laboratory → stronger runs, harder portals.
   a shop), the boss's tiles and a pool fill with the
   segment's own mix (`RunTuning.SegmentThemes`: Hunting Grounds, Old Ruins, Badlands, Quiet Valley; the first segment is
   plain). Edges only point forward, so no tile and no fork is visited twice; the rules append a segment whenever the open
-  end is closer than the largest roll + 16 steps, so the worm never runs out of board (45 rolls of two dice included).
+  end is closer than the largest roll + 16 steps, so the worm never runs out of board (36 rolls of two dice included).
   When every way of a fork ends the move on the same tile (the roll walks past the join of equally long arms and no forced
   stop lies on an arm; `RunSystem.SameLanding`) there is no choice: the worm takes the default arm (playtest 0.1.325).
   Resolved tiles stay what they were and are drawn cleared. The boss does not wait at a gate: when its awakening meter
@@ -106,19 +106,22 @@ pure-chance gambling: the arcade's mini-games (§3.6) are skill games; even *Slo
 in-game pod coins, never for real money or Diamonds.
 
 ### 3.3 Boss and awakening meter
-The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 3.6 points) and from
+The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 4.5 points; 3.6 until the owner's
+2026-11-27 playtest call "runs are too long — shorten the required boss rage by 20%") and from
 boss tiles (feed +10/+12, relief −10, tribute +5 with run coins) and some event choices; at thresholds (25/50/75) the boss
 acts on the board (buff enemy tiles, transform tiles, summon) and at 100 it is fully awake (+15%). **The meter is the
 run's clock: when it is full the boss's arena opens right after the current move** and the next step walks in and
-fights (at the latest after the level's hard roll limit, `LevelDef.MaxRolls` 45). Without skills a run lasts **~30
-rolls** (27–33 on average for every level band, one or two dice; base pace 28 rolls, relief tiles and choices shift
-it); runs give ~8–10 level-up drafts (run XP curve 3 + 1 per level; **one XP grant — a battle, a pickup, an event — gives
-at most one level-up**, the overflow carries (at most two levels' worth) and pays one level per roll) and ~10–13 fights. Skills and city buildings interact with the meter: slowing it (Stasis
+fights (at the latest after the level's hard roll limit, `LevelDef.MaxRolls` 36, was 45). Without skills a run lasts **~23
+rolls** (21.5–27 on average for every level band, one or two dice; base pace 22 rolls, relief tiles and choices shift
+it; was ~30 / base 28); runs still give ~9–10 level-up drafts (run XP curve 2 + 1 per level, was 3 + 1, so the shorter
+run keeps its drafts; **one XP grant — a battle, a pickup, an event — gives
+at most one level-up**, the overflow carries (at most two levels' worth) and pays one level per roll) and ~8 fights. Skills and city buildings interact with the meter: slowing it (Stasis
 Beacon 5–18%, Calm Mind 9 / 15 / 24% slower, lab/draft skills) makes the run longer (more drafts, coins and fights, more time
 with danger), events and boss tiles can speed it up. The HUD shows **"Roll n/N"**: N = the roll after which the boss is
 expected at the current pace (`RunSystem.BossRollEstimate`), and the boss banner shows "x rolls left". Board fights are
 a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and every won fight heals 15%, since a run has
-~3× the fights of the old short runs. Burrow floors are short (6 rolls, the boss comes at the roll limit).
+~3× the fights of the old short runs. The meter thresholds stay in meter points (boss acts at 25/50/75, fully awake at
+100; boss tiles ±10, event choices such as "wakes the boss 8% sooner"), so they keep their share of the shorter run. Burrow floors are short (6 rolls, the boss comes at the roll limit).
 
 **Build depth** (playtest: a run should end with ~20–40 skills and perks; progression report "Run depth"):
 - **Minibosses:** **two per run** (playtest 0.1.308, `RunTuning.MinibossesPerRun`), both **on the path**: the level's
@@ -150,12 +153,12 @@ a little softer than the threat curve (`RunTuning.BoardEnemyPct` −15%) and eve
   **40 / 80 / 120** (Common / Legendary = 2× / Mythic = 3×; Dark Side 60 / 120 / 180), perks 40, heal 30, reroll 10 + 10 per
   reroll. A run **starts with the cheapest skill price + 30 coins** (`RunSystem.StartCoins`) and its first shop leads with a
   Common skill, so the first shop always allows a purchase. **SALE:** with 20% (`ShopTableDef.SaleChancePct`) one skill
-  offer of a fill costs 50% less (`SalePct`; the list price is shown struck through). No result screen after a shop. Income ~3× (fight coins 10
-  per tile level + 6 per enemy, elites 25, supply caches 25 / 50, coin clusters 12, minibosses +30): a run earns ~550–800
-  coins and buys 10–20 perks. Shops spend in-run coins only.
-- **Pacing against the bigger build:** board fights get +0.8% HP/ATK per roll of the run so far (the boss's forces grow
-  while the build grows) and the boss +60% (`RunTuning.EnemyPctPerRoll`, `BossBuildPct`), so win rates per level band stay
-  where they were with ~9 drafts.
+  offer of a fill costs 50% less (`SalePct`; the list price is shown struck through). No result screen after a shop. Income ~3× (fight coins 12
+  per tile level + 8 per enemy, elites 30, supply caches 30 / 60, coin clusters 15, minibosses +30; +20% since the shorter
+  runs of 2026-11-27): a run earns ~500–750 coins and buys 10–15 perks. Shops spend in-run coins only.
+- **Pacing against the bigger build:** board fights get +1% HP/ATK per roll of the run so far (was 0.8% with ~28-roll
+  runs: the boss still meets ~+22%; the boss's forces grow while the build grows) and the boss +60% (`RunTuning.EnemyPctPerRoll`,
+  `BossBuildPct`), so win rates per level band stay where they were with ~9 drafts.
 - The HUD shows the build size ("Skills n" = every skill, skill level and stat perk gained this run); the result screen
   lists them with their source (draft, MYTHIC, shop, event).
 - **Run time** (wall-clock model `RunClock` in the simulator: client animation times, battle playback 0.55 s per log
@@ -584,7 +587,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 
 | Level | Unlock (feature id) | Guided action |
 |---|---|---|
-| – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~20 rolls; eased so a worm without parts wins it) | – |
+| – | **Level 1 = the tutorial run**: roll the dice, pick a skill on level-up, beat the boss (coach marks with a hand pointer; its own small tile pool: enemies, buffs, pickups; no shops, events, elites, hazards, campfires or minibosses; the boss after ~18 rolls; eased so a worm without parts wins it) | – |
 | 1 | Parts / Worm tab (`parts`): equip the three starter parts. Daily Quests and the 7-day calendar are there from here on, with no unlock moment of their own (owner, 2026-11-26) | Equip your parts |
 | – | **No unlock: the Shop's offers** (owner, 2026-11-27): the Shop tab and its offer sections Offers / Diamonds / Passes / Items / Ads (the daily free gift on the Passes page) are there from the first session, no unlock moment, intro or teaser; the Shop opens on Offers until a pull section exists. Its pull sections still come with Parts, Aliens and the City | – |
 | 2 | Shops on the board from level 3 (`run_shop`) | Play |

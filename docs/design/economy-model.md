@@ -136,7 +136,7 @@ currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
 | 1000 | 110.3 | 19k | 275 | 94.8k | 31.0k | 980 | 73 | 321 | 13.8k | Epic | 150 / 3 | 600 / 12 |
 | 2000 | 170.3 | 2.12M | 7 468 | 2.58M | 843k | 26.7k | 2 002 | 654 | 376k | Legendary | 250 / 5 | 1 000 / 20 |
 
-(Since the ~30-roll runs (GDD §3.3) ordinary tiles pay no account loot; the scattered tile loot of the old short runs
+(Since the ~30-roll runs (GDD §3.3; ~23 rolls since 2026-11-27) ordinary tiles pay no account loot; the scattered tile loot of the old short runs
 (~0.3–0.8 items per run) moved into a third completion loot roll, and at most 3 risky opportunities per run add more for
 players who take the risk. Runs take ~2.5 minutes instead of ~1, so an active player plays fewer runs per day and the
 daily income stays near the old model — see docs/balance/progression-report.md, "Run length".)

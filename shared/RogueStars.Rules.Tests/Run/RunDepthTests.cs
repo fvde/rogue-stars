@@ -38,6 +38,8 @@ public class RunDepthTests(ITestOutputHelper output)
         double mythic = runs.Average(r => r.Gains.Count(g => g.Source == "mythic"));
         double shop = runs.Average(r => r.ShopBuys);
         output.WriteLine($"{levelId}: gains {gains:0.0} (min {runs.Min(r => r.Gains.Count)}, max {runs.Max(r => r.Gains.Count)}), drafts {drafts:0.0}, mythic {mythic:0.0}, minibosses {runs.Average(r => r.Minibosses):0.0}, shop buys {shop:0.0}");
+        // same targets with the ~23-roll runs (owner 2026-11-27, 20% shorter): the XP curve 2 + 1 per level and +20% fight /
+        // cache coins keep ~10 drafts and ~10–14 shop buys (ember_wastes_1: 23 gains, 9.6 drafts, 10.4 buys)
         Assert.InRange(gains, 20, 40);
         Assert.InRange(drafts, 7, 11);
         // 9 (was 10): playtest 0.1.325's 3 skill offers per shop let the bot buy the pricier Legendary more often with the same
@@ -152,6 +154,7 @@ public class RunDepthTests(ITestOutputHelper output)
         // the cheapest and the typical offer: a run's coins pay for 10–20 of them
         double typical = (2 * table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Legendary] + table.StatPrice) / 4.0;
         output.WriteLine($"shop buys {buys:0.0}; typical offer {typical:0} coins");
+        // ~23-roll runs (2026-11-27): fight coins 12 per tile level + 8 per enemy, caches 30 / 60 keep ~10 buys at the same prices
         Assert.InRange(buys, 9, 22); // 9 (was 10): 3 skill offers per shop (playtest 0.1.325) buy pricier skills with the same coins (10.2 → 9.9)
         Assert.Equal(1, table.StatPerkOffers);
         Assert.Equal(3, table.SkillOffers); // 3 skills + the support offers (playtest 0.1.325)

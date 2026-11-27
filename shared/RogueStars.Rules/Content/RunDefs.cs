@@ -125,8 +125,9 @@ namespace RogueStars.Rules.Content
         public AttackStyle Style = AttackStyle.Claw;
         public List<StatMod> Stats = new List<StatMod>();
         public List<string> SkillIds = new List<string>();
+        /// <summary>Run coins of a beaten enemy: 8 (was 6: the 20% shorter runs of 2026-11-27 keep their shop buys).</summary>
         public int Xp = 4;
-        public int Coins = 6;
+        public int Coins = 8;
         /// <summary>
         /// The sprite the client draws for an enemy without art of its own (an enemy id of its biome, drawn at the elite scale);
         /// null = its own id / its family's sprite. Elites without art of their own use it until they get theirs.
@@ -162,9 +163,10 @@ namespace RogueStars.Rules.Content
         public int BossTileCount = 3;
         /// <summary>
         /// Meter points per roll (meter 0..100). The meter is the run's clock: the boss comes when it is full (or at the level's
-        /// roll limit), so 100 / AwakenPerRoll is the base run length in rolls before boss tiles, events and skills shift it.
+        /// roll limit), so 100 / AwakenPerRoll is the base run length in rolls before boss tiles, events and skills shift it:
+        /// 4.5 = ~22 rolls (owner 2026-11-27: "runs are too long, shorten required boss rage by 20%"; was 3.6 = ~28 rolls).
         /// </summary>
-        public double AwakenPerRoll = 3.6;
+        public double AwakenPerRoll = 4.5;
         public List<BossAwakenAction> Actions = new List<BossAwakenAction>();
         /// <summary>Extra boss stat % when the meter is full.</summary>
         public double FullyAwakeStatPct = 15;
@@ -270,8 +272,8 @@ namespace RogueStars.Rules.Content
         public int BoardLength = 28;
         public double BranchChance = 0.18;
         public int Dice = 1;
-        /// <summary>Hard roll limit (the awakening meter normally brings the boss first, ~30 rolls).</summary>
-        public int MaxRolls = 45;
+        /// <summary>Hard roll limit (the awakening meter normally brings the boss first, ~23 rolls; was 45 with ~30-roll runs).</summary>
+        public int MaxRolls = 36;
         public string TilePoolId;
         public List<FixedTile> FixedTiles = new List<FixedTile>();
         public string BossId;
@@ -489,9 +491,10 @@ namespace RogueStars.Rules.Content
         /// <summary>
         /// Run XP needed for the next level: XpBase + XpPerLevel × (level − 1) (RunSystem.XpNeeded). One XP grant (a battle, a
         /// pickup, an event outcome) gives at most one level-up; the overflow carries (up to XpBankLevels more levels' worth)
-        /// and pays one level per roll, see RunSystem.AddXp.
+        /// and pays one level per roll, see RunSystem.AddXp. 2 + 1 per level (was 3 + 1): the 20% shorter runs of 2026-11-27
+        /// (~23 rolls, ~20% fewer fights) still give ~10 drafts.
         /// </summary>
-        public int XpBase = 3, XpPerLevel = 1;
+        public int XpBase = 2, XpPerLevel = 1;
         /// <summary>Synergies every player has from the start (the others come from Laboratory packages). Poison = Radiation.</summary>
         public List<SkillFamily> StarterSynergies = new List<SkillFamily> { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed };
         /// <summary>Owned skills the campfire's Train offers (run UI glitches #16): the lowest levels first (RunSystem.TrainChoices).</summary>
@@ -540,14 +543,15 @@ namespace RogueStars.Rules.Content
         public List<int> EnemyLevelCount = new List<int> { 1, 1, 2, 3 };
         public double EliteBonusPct = 20;
         /// <summary>
-        /// HP/ATK % of every board fight (enemy, elite, miniboss and event fights; not the boss): a ~30-roll run has ~10 fights,
+        /// HP/ATK % of every board fight (enemy, elite, miniboss and event fights; not the boss): a ~23-roll run has ~8 fights,
         /// so each one is a little softer than the threat curve alone (GDD §3.3).
         /// </summary>
         public double BoardEnemyPct = -15;
         public double MinibossBonusPct = 0;
         public double CampfireEnemyBonusPct = 12;
         public int CampfireRadius = 4;
-        public long CoinsPerEnemyLevel = 10;
+        /// <summary>Run coins per tile enemy level of a won board fight (12, was 10: shorter runs keep their coin income, GDD §3.3).</summary>
+        public long CoinsPerEnemyLevel = 12;
         public long DraftEmptyCoins = 40;
         /// <summary>Global scale on enemy base HP/ATK (threat 0 balance knob for a fresh worm).</summary>
         public double EnemyHpScale = 0.7, EnemyAtkScale = 0.6;
@@ -622,9 +626,10 @@ namespace RogueStars.Rules.Content
         public long MinibossCoins = 30;
         /// <summary>
         /// Board fights (enemies, elites, minibosses, event fights) get +this HP/ATK % per roll of the run so far: the boss's
-        /// forces grow with the run while the worm's build grows from ~0 to 20–40 skills and perks.
+        /// forces grow with the run while the worm's build grows from ~0 to 20–40 skills and perks. 1.0 (was 0.8 with ~28-roll
+        /// runs): the ~22-roll run reaches the boss with the same ~22% growth.
         /// </summary>
-        public double EnemyPctPerRoll = 0.8;
+        public double EnemyPctPerRoll = 1.0;
         /// <summary>Boss HP/ATK % for the bigger end-of-run build (20–40 skills and perks instead of ~9 drafts).</summary>
         public double BossBuildPct = 60;
         /// <summary>Extra HP/ATK % of each later miniboss of the run (per miniboss already beaten).</summary>
@@ -689,7 +694,7 @@ namespace RogueStars.Rules.Content
         public int ShopsFromLevel = 3, MinibossesFromLevel = 5, ForksFromLevel = 6, CampfiresFromLevel = 10, SignatureChoiceFromLevel = 12;
         /// <summary>
         /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
-        /// or debuffs), and a faster awakening so the first boss comes after about 20 rolls. Named pool_&lt;family&gt;_&lt;variant&gt;:
+        /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs). Named pool_&lt;family&gt;_&lt;variant&gt;:
         /// the client draws portal 1's biome for it.
         /// </summary>
         public string TutorialPool = "pool_ember_tutorial";
@@ -711,8 +716,8 @@ namespace RogueStars.Rules.Content
         public int SidePortalOrder = 1000;
         /// <summary>Main board lap length: 24 + level index + 2 per portal (the portal part capped here), ×1.5 with two dice.</summary>
         public int BoardGrowthPortals = 6;
-        /// <summary>Hard roll limit of main and Dark Side runs (the awakening meter normally brings the boss at ~30 rolls).</summary>
-        public int MaxRolls = 45;
+        /// <summary>Hard roll limit of main and Dark Side runs (the awakening meter normally brings the boss at ~23 rolls; was 45).</summary>
+        public int MaxRolls = 36;
 
         /// <summary>Reward scale of portal index i (0-based) up to the endless anchor: (i+1) × RewardGrowth^max(0, i−2).</summary>
         public double RewardGrowth = 1.0;

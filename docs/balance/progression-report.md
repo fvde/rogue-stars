@@ -452,6 +452,58 @@ first access into a bounded cache (600 levels, regenerated identically). State: 
 per-level records (the last 100 main and 100 Dark Side levels plus the Burrow) and a 400–650-byte archive for everything
 older (one character per level, nothing for a fully completed prefix), instead of one record per level played.
 
+## Shorter runs (~23 rolls, owner 2026-11-27)
+
+Playtest: "runs are too long now. Shorten required boss rage by 20%." The boss's awakening meter fills 4.5 points per roll
+(was 3.6), so the boss comes after 20% less awakening: base pace 22 rolls (was 28), ~23 measured. Everything that is
+measured in meter points keeps its share of the run (boss actions at 25/50/75, fully awake at 100, boss tiles ±10, event
+texts such as "wakes the boss 8% sooner", the tutorial's +25% pace: ~18 rolls, was ~22). Retuned so a run still ends with
+a full build (GDD §3.3):
+
+- **Roll limit** `MaxRolls` 45 → 36 (×0.8; the meter stays the real clock).
+- **Drafts:** run XP curve 2 + 1 per level (was 3 + 1) → ~10 drafts as before. (Tried instead: enemies 5 XP / elites 18
+  with the old curve — same average, but fight-heavy runs overshot to run level 18, `FullRuns_NeverLevelUpTwiceInOneCommand`
+  allows 6–16; the flatter curve keeps the spread of before, levels 9–15.)
+- **Coins vs shop prices:** fight coins 12 per tile level (was 10) + 8 per enemy (was 6), elites 30 (25), supply caches
+  30 / 60 (25 / 50), coin clusters 15 (12); prices unchanged (40 / 80 / 120).
+- **Enemy growth:** `EnemyPctPerRoll` 0.8 → 1.0, so board fights and the boss meet the same ~+22% at the boss roll;
+  `BossBuildPct` stays 60 (win rates per band within ±4 points of before).
+- **Account loot per run:** Treasure Pod weight 3 (was 2), Abandoned Cache 4 (3), Gravity Well 2.5 (2), Rift Echo 3 (2.5):
+  ~0.8 risky opportunities per run as before (rules probe, 400 runs × 4 levels: 0.80 → 0.80).
+- **Board:** segment length unchanged. A run walks ~20% fewer tiles, so it meets slightly fewer shops; tried shorter
+  segments (×0.8, as many shops per run) — more forced stops meant fewer fights and ~0.5 fewer drafts, so not kept.
+  Both miniboss lairs still stand in the first two segments (2.0 per run in `RunDepthTests`).
+
+`dotnet run --project tools/RogueStars.Sim -c Release -- --run-length --days 60 --seeds 16` (Active F2P + Hardcore Whale),
+before → after:
+
+| Band | dice | rolls (boss reached) | won | drafts | skills (boss reached) | shop buys | coins earned | battles | minutes (auto ×1) |
+|---|---|---|---|---|---|---|---|---|---|
+| main 1–3 | 1 | 21.3 → 17.4 | 100% → 100% | 7.8 → 7.5 | 7.9 → 7.6 | 0 → 0 | 479 → 463 | 9.2 → 7.6 | 3.2 → 2.8 |
+| main 4–10 | 1 | 27.8 → 22.7 | 100% → 100% | 9.6 → 9.4 | 20.7 → 20.6 | 10.1 → 10.2 | 471 → 510 | 8.4 → 7.4 | 5.1 → 4.6 |
+| main 4–10 | 2 | 28.8 → 23.3 | 100% → 99% | 10.4 → 10.1 | 26.5 → 25.7 | 14.1 → 13.6 | 646 → 649 | 9.4 → 8.1 | 6.9 → 6.1 |
+| main 11–30 | 1 | 28.3 → 22.9 | 73% → 75% | 10.2 → 9.9 | 26.6 → 25.0 | 12.9 → 12.1 | 616 → 622 | 8.9 → 7.7 | 7.9 → 7.2 |
+| main 11–30 | 2 | 28.8 → 23.3 | 81% → 80% | 10.5 → 10.2 | 29.9 → 28.1 | 16.0 → 14.9 | 770 → 746 | 9.0 → 7.7 | 9.2 → 8.2 |
+| main 31–60 | 1 | 28.1 → 22.9 | 33% → 32% | 10.2 → 9.7 | 26.0 → 23.9 | 12.2 → 11.0 | 608 → 588 | 9.0 → 7.7 | 11.0 → 9.6 |
+| main 31–60 | 2 | 28.8 → 23.1 | 48% → 44% | 10.1 → 10.1 | 29.2 → 26.7 | 14.4 → 13.2 | 748 → 718 | 9.0 → 7.9 | 12.0 → 10.9 |
+| main 61–150 | 1 | 28.4 → 22.8 | 27% → 25% | 9.9 → 9.7 | 25.8 → 22.8 | 11.2 → 10.2 | 581 → 579 | 9.2 → 8.2 | 12.9 → 11.3 |
+| main 61–150 | 2 | 28.4 → 23.1 | 30% → 32% | 10.2 → 10.0 | 27.9 → 25.9 | 13.4 → 12.5 | 703 → 703 | 9.6 → 8.4 | 13.9 → 12.5 |
+| overcharged | 1 | 28.1 → 22.7 | 43% → 42% | 9.6 → 9.4 | 25.0 → 22.9 | 11.0 → 10.3 | 570 → 565 | 8.6 → 7.6 | 10.6 → 9.6 |
+| overcharged | 2 | 28.6 → 23.0 | 46% → 46% | 10.0 → 9.6 | 28.9 → 26.6 | 14.1 → 12.9 | 715 → 689 | 8.9 → 7.7 | 11.8 → 10.4 |
+| Dark Side | 2 | 28.2 → 22.9 | 52% → 53% | 9.2 → 9.2 | 23.9 → 23.0 | 9.1 → 9.0 | 643 → 650 | 8.6 → 7.5 | 9.5 → 8.5 |
+
+Runs are ~19% shorter in rolls but only ~10% shorter in minutes: the fights left (and the build at the boss) take most
+of a run's time. The build at the boss is 1–3 gains smaller late (fewer shop visits, the bot ends with more unspent
+coins), still inside 20–40. Campaign pace (main level at day 60, median of 16 seeds): Active F2P 62.5 → 59.5, Hardcore
+Whale 95.5 → 96.5. Unlock pacing (`--unlocks`, 10 seeds): the longest gap in the first two hours is 45 → 46 min (Hardcore
+F2P) and 27 → 34 min (Active F2P; more runs at the level-11–14 wall, City still at ~2 h); `UnlockSimTests` allows 46
+(was 40, its seeds 1–5 median moved 39 → 45).
+
+**Test targets:** `RunLengthTests.RunLength_AveragesAbout23Rolls_With8To12Drafts` (21.5–27 rolls, was 27–33.5; drafts 8–12
+unchanged), `ProgressionGuardTests.Runs_LastAbout23Rolls_WithABuildAndFewAccountLootOffers` (21.5–28, was 27–35);
+`AccountLootOpportunities_AreRare_AtMostThreePerRun` plays 50 seeds per level (was 25: the mean is ~0.8 and 25 seeds swung
+±0.1 around its 0.75 bound); `RunDepthTests` targets unchanged (20–40 skills, 7–11 drafts, 9–22 shop buys).
+
 ## Run length (~30-roll runs, GDD §3.3)
 
 Playtest: runs ended after 6–10 rolls (the worm reached the boss gate of a 25–46-tile board long before the roll limit),
@@ -507,7 +559,7 @@ runs give the first runs 8+ drafts, board fights are −15% (`RunTuning.BoardEne
 8%), the fully awake boss is +15% (was +30%) since the meter now always fills.
 
 **Guard test changes:** all existing bands unchanged (day 7/30/60 levels, walls, ratios, long-haul checks still pass).
-New: `Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers` — runs that reach the boss average 27–35 rolls (wider than
+New: `Runs_LastAbout30Rolls_WithABuildAndFewAccountLootOffers` (since 2026-11-27 `Runs_LastAbout23Rolls_…`, see "Shorter runs") — runs that reach the boss average 27–35 rolls (wider than
 the rules test's 27–33 because the bot's Stasis Beacon / Calm Mind are allowed to stretch them), 8–12 drafts, at most 3
 account-loot opportunities in any run and 0.5–2 on average.
 
@@ -595,7 +647,7 @@ no surge counter or text is shown.
 
 **Guard test changes:** `Runs_BuildDeep_ShopALot_AndLast4To8Minutes` (new): runs that reach the boss average 20–40
 skills, 10–20 shop purchases and 2–5 mythic picks and spend no more coins than they earn; all non-Burrow runs average 4–8
-minutes at the players' battle speed. `Runs_LastAbout30Rolls_…` unchanged (27–35 rolls, 8–12 drafts, ≤ 3 account-loot
+minutes at the players' battle speed. `Runs_LastAbout30Rolls_…` (now `Runs_LastAbout23Rolls_…`) unchanged (27–35 rolls, 8–12 drafts, ≤ 3 account-loot
 opportunities).
 
 ## City redesign (rules, server, sim)
