@@ -100,9 +100,14 @@ namespace RogueStars.Client.Screens
         /// <summary>Bottom of the top HUD (the coin chip) from the top, in reference px (× width / 1080).</summary>
         public const float HudTopRef = 340;
         /// <summary>The dice stand's frame reaches this far below the screen's bottom edge (reference px): the column runs off-screen.</summary>
-        public const float StandDrop = 30;
+        public const float StandDrop = 46;
+        /// <summary>
+        /// The dice stand is drawn at this share of its model frame (playtest: at full size its slab and column ran into the speed
+        /// chip and the skills book and the cap reached up to the revive buttons): still the screen's big thumb target.
+        /// </summary>
+        public const float StandScale = 0.84f;
         /// <summary>Top of the dice cap from the bottom, in reference px (× <see cref="ControlsScale"/>).</summary>
-        public static float ControlsTopRef => DiceStand.CapTop - StandDrop;
+        public static float ControlsTopRef => DiceStand.CapTop * StandScale - StandDrop;
         /// <summary>The open band between the HUD and the cap is at least this many world units tall (short screens widen the view).</summary>
         public const float MinBandUnits = 6.5f;
         /// <summary>Widest default view (world units) on the shortest screens (tablets).</summary>
@@ -992,11 +997,12 @@ namespace RogueStars.Client.Screens
             root.anchoredPosition = Vector2.zero;
 
             // the dice stand: pedestal and cap drawn by one camera into one frame (DiceStand), laid over each other
-            float standY = 2400 + StandDrop - DiceStand.FrameH / 2f;
+            float k = StandScale, standW = DiceStand.FrameW * k, standH = DiceStand.FrameH * k;
+            float standY = 2400 + StandDrop - standH / 2f;
             var pedestal = Ui.Panel(root, Color.white, "Pedestal");
             pedestal.sprite = HudArt.Pedestal();
             pedestal.raycastTarget = false;
-            SliceKit.Place(pedestal.rectTransform, s, 540, standY, DiceStand.FrameW, DiceStand.FrameH, true);
+            SliceKit.Place(pedestal.rectTransform, s, 540, standY, standW, standH, true);
 
             bool encounter = run.Phase == RunPhase.Encounter;
             bool canRoll = run.Phase == RunPhase.AwaitRoll || encounter;
@@ -1004,13 +1010,13 @@ namespace RogueStars.Client.Screens
             bool live = canRoll || _auto || deciding;
             var btnRt = Ui.Rect(root, "RollButton");
             _rollButton = btnRt;
-            SliceKit.Place(btnRt, s, 540, standY, DiceStand.FrameW, DiceStand.FrameH, true);
+            SliceKit.Place(btnRt, s, 540, standY, standW, standH, true);
             // the cap pulses / presses about its base on the slab
             var face = Ui.Panel(btnRt, Color.white, "Cap");
             face.sprite = HudArt.DiceButton(live);
             var frt = face.rectTransform;
             frt.anchorMin = frt.anchorMax = frt.pivot = DiceStand.Base01;
-            frt.sizeDelta = new Vector2(DiceStand.FrameW * s, DiceStand.FrameH * s);
+            frt.sizeDelta = new Vector2(standW * s, standH * s);
             frt.anchoredPosition = Vector2.zero;
             var btn = btnRt.gameObject.AddComponent<Button>();
             btn.targetGraphic = face;
@@ -1020,7 +1026,7 @@ namespace RogueStars.Client.Screens
             // pitch, the dice turn a little in it); after a roll they show the last roll's dice, which the tumbling dice land on
             var shown = PrintedDice(run.LastDice.Count > 0 ? run.LastDice : new List<int> { 3, 5 });
             int diceN = shown.Count;
-            float dieSize = (diceN == 1 ? 150 : diceN == 2 ? 146 : Mathf.Max(70, 300f / diceN)) * s;
+            float dieSize = (diceN == 1 ? 150 : diceN == 2 ? 146 : Mathf.Max(70, 300f / diceN)) * k * s;
             DiceStand.TopPlane(out var topAt, out float squash);
             var plane = Ui.Rect(face.transform, "DicePrint");
             plane.anchorMin = plane.anchorMax = topAt;
@@ -1035,14 +1041,14 @@ namespace RogueStars.Client.Screens
             dice.Pose(1, shown);
             _footerDice = dice;
             // the caption is engraved into the cap's front wall (dark red, a light lip under it)
-            var caption = Ui.Display(face.transform, DiceCaption(run, _auto, AutoPaused, Session.IsUnlocked(Features.AutoRoll)), (int)(Mathf.Min(50, DiceStand.FrontWallHeight * 0.62f) * s), live ? (Color)new Color32(0x9A, 0x1C, 0x26, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
+            var caption = Ui.Display(face.transform, DiceCaption(run, _auto, AutoPaused, Session.IsUnlocked(Features.AutoRoll)), (int)(Mathf.Min(50, DiceStand.FrontWallHeight * 0.62f) * k * s), live ? (Color)new Color32(0x9A, 0x1C, 0x26, 255) : (Color)new Color32(0x4E, 0x48, 0x5A, 255), TextAnchor.MiddleCenter, "Label");
             caption.raycastTarget = false;
             caption.horizontalOverflow = HorizontalWrapMode.Overflow;
             var lip = caption.gameObject.AddComponent<Shadow>();
             lip.effectColor = new Color(1, 0.72f, 0.66f, 0.75f);
             lip.effectDistance = new Vector2(1.5f, -3f);
             caption.rectTransform.anchorMin = caption.rectTransform.anchorMax = DiceStand.FrontWall01;
-            caption.rectTransform.sizeDelta = new Vector2(420 * s, 70 * s);
+            caption.rectTransform.sizeDelta = new Vector2(420 * k * s, 70 * k * s);
             _diceAnchor = btnRt;
             var hold = btnRt.gameObject.AddComponent<HoldButton>();
             hold.OnTap = () =>
@@ -1784,67 +1790,116 @@ namespace RogueStars.Client.Screens
                 Note(b, "Paid out only when you beat the boss. Each item raises the danger level (+" + Fmt.Pct(run.Danger * Content.RunTuning.DangerPctPerLoot) + " enemy stats now).");
             });
 
-        private void SkillsModal(ActiveRun run) =>
+        /// <summary>
+        /// The run's skills book: two tabs, "Skills" (the signatures, then every other skill as its tile) and "Stats" (every
+        /// battle stat of the worm right now, <see cref="RunStatSheet"/>); each tab scrolls once it is taller than the screen.
+        /// </summary>
+        private void SkillsModal(ActiveRun run)
+        {
+            RectTransform pane = null;
             Modal("Skills", b =>
             {
-                var ids = RunSystem.ActiveSkillIds(run);
-                if (ids.Count == 0) Note(b, "No skills yet: level up on the board to draft some.");
-                // the signatures first (the run's identity; several can be found): each with its awakening and how far the next one is
-                foreach (var sigId in RunSystem.Signatures(run))
-                {
-                    var sig = Content.Skill(sigId);
-                    if (sig == null || !ids.Remove(sig.Id)) continue;
-                    int slv = RunDraft.Level(run, sig.Id);
-                    var scol = Theme.FamilyColor(sig.Family);
-                    var sigRow = Ui.Row(b, -1, 16, Theme.Tint(scol, 0.3f), 14, "Signature:" + sig.Id);
-                    var sigLayout = sigRow.GetComponent<HorizontalLayoutGroup>();
-                    sigLayout.childAlignment = TextAnchor.UpperLeft;
-                    sigLayout.childForceExpandHeight = false;
-                    UiShapes.Outline(sigRow, SignaturePick.SignatureColor, 16, 4);
-                    var sigTile = SkillTileView.Build(sigRow, sig.Id, SignaturePick.SignatureColor, sig.Family, 132);
-                    Ui.Size(sigTile, 132, 132, 0);
-                    var sigTip = SkillTip.Of(sig.Id, slv); sigTip.TierOverride = "Signature";
-                    SkillTileView.Tappable(sigTile, Content, () => sigTip);
-                    var card = Ui.Column(sigRow, 6, 0, null, "SignatureText");
-                    Ui.Size(card, -1, -1, 1);
-                    Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(sig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
-                    Ui.Label(card, SkillText.Title(Content, sig, slv), Theme.FontNormal, Color.Lerp(scol, Color.white, 0.6f));
-                    Ui.Label(card, Fmt.SkillFull(SkillLeveling.At(Content, sig, slv)), Theme.FontSmall, Theme.Text);
-                    int next = RunSystem.NextAwakeningAt(Content, run, sig.Id);
-                    Ui.Label(card, next > 0 ? "Awakens at " + next + " " + SkillText.FamilyName(sig.Family) + " skills (have " + RunDraft.FamilyCount(Content, run, sig.Family) + ")." : "Fully awakened.",
-                        20, Theme.TextDim);
-                }
-                // every other skill as the shared tile (tier frame, art filling it) with its name and level; a tap = the full text
-                if (ids.Count == 0) return;
-                const float cellW = 196, cellH = 262, tileSize = 168;
-                var grid = Ui.Rect(b, "SkillGrid");
-                var gl = grid.gameObject.AddComponent<GridLayoutGroup>();
-                gl.cellSize = new Vector2(cellW, cellH);
-                gl.spacing = new Vector2(14, 14);
-                gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                gl.constraintCount = 4;
-                gl.childAlignment = TextAnchor.UpperCenter;
-                Ui.Size(grid, -1, ((ids.Count + 3) / 4) * (cellH + 14), 1);
-                foreach (var id in ids)
-                {
-                    var s = Content.Skill(id);
-                    int lv = Math.Max(1, RunDraft.Level(run, id));
-                    var cell = Ui.Rect(grid, "Skill:" + id);
-                    var tile = SkillTileView.Build(cell, Content, id, tileSize);
-                    tile.anchorMin = tile.anchorMax = tile.pivot = new Vector2(0.5f, 1);
-                    tile.anchoredPosition = Vector2.zero;
-                    var lvl = SliceKit.Chunky(tile, "Lv " + lv, 26, Color.white, TextAnchor.LowerRight, "SkillLevel");
-                    Ui.Stretch(lvl.rectTransform, 0, 0, 16, 12);
-                    var name = Ui.Label(cell, s?.Name ?? id, 22, Theme.Text, TextAnchor.UpperCenter, "SkillName");
-                    name.rectTransform.anchorMin = new Vector2(0, 0); name.rectTransform.anchorMax = new Vector2(1, 0);
-                    name.rectTransform.pivot = new Vector2(0.5f, 0);
-                    name.rectTransform.sizeDelta = new Vector2(0, cellH - tileSize - 6);
-                    name.rectTransform.anchoredPosition = Vector2.zero;
-                    name.horizontalOverflow = HorizontalWrapMode.Wrap;
-                    name.resizeTextForBestFit = true; name.resizeTextMinSize = 14; name.resizeTextMaxSize = name.fontSize;
-                    var tip = SkillTip.Of(id, lv);
-                    SkillTileView.Tappable(tile, Content, () => tip);
-                }
+                Kit.TabChips(b, new[] { "Skills", "Stats" }, 0, i => FillSkillsBook(pane, run, i), 84);
+                pane = Ui.Column(b, 0, 0, null, "BookPane");
+                FillSkillsBook(pane, run, 0);
             });
+        }
+
+        private void FillSkillsBook(RectTransform pane, ActiveRun run, int tab)
+        {
+            if (pane == null) return;
+            Ui.Clear(pane);
+            // the modal's title, tabs, Close button and padding take about 560 px; the rest scrolls
+            float layer = App.ModalLayer != null ? App.ModalLayer.rect.height : 0;
+            float max = Mathf.Max(640, layer - 560);
+            Ui.ScrollingColumn(pane, max, b => { if (tab == 1) SkillsBookStats(b, run); else SkillsBookSkills(b, run); });
+            // the frame hugs a short tab (ScrollingColumn caps only the preferred height; its min stays the cap)
+            var le = pane.GetChild(pane.childCount - 1).GetComponent<LayoutElement>();
+            if (le != null) le.minHeight = le.preferredHeight;
+        }
+
+        /// <summary>The Stats tab: one gold heading per group, a line per stat (name, dim note, value on the right).</summary>
+        private void SkillsBookStats(RectTransform b, ActiveRun run)
+        {
+            foreach (var g in RunStatSheet.Build(Content, run))
+            {
+                var head = SliceKit.Chunky(b, g.Title, 40, Theme.Gold, TextAnchor.MiddleLeft, "StatGroup:" + g.Title);
+                Ui.Size(head, -1, 64);
+                int i = 0;
+                foreach (var r in g.Rows)
+                {
+                    var row = Ui.Row(b, r.Note != null ? 92 : 68, 12, i++ % 2 == 0 ? new Color(1, 1, 1, 0.07f) : new Color(0, 0, 0, 0.18f), 18, "Stat:" + r.Stat);
+                    var names = Ui.Column(row, 0, 0, null, "Name");
+                    names.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
+                    Ui.Size(names, -1, -1, 1);
+                    Ui.Label(names, r.Label, Theme.FontNormal, Theme.Text, TextAnchor.MiddleLeft, "StatName");
+                    if (r.Note != null) Ui.Label(names, r.Note, 22, Theme.TextDim, TextAnchor.MiddleLeft, "StatNote");
+                    var v = SliceKit.Chunky(row, r.Value, 40, Color.white, TextAnchor.MiddleRight, "StatValue");
+                    Ui.Size(v, 320, -1, 0);
+                }
+            }
+        }
+
+        private void SkillsBookSkills(RectTransform b, ActiveRun run)
+        {
+            var ids = RunSystem.ActiveSkillIds(run);
+            if (ids.Count == 0) Note(b, "No skills yet: level up on the board to draft some.");
+            // the signatures first (the run's identity; several can be found): each with its awakening and how far the next one is
+            foreach (var sigId in RunSystem.Signatures(run))
+            {
+                var sig = Content.Skill(sigId);
+                if (sig == null || !ids.Remove(sig.Id)) continue;
+                int slv = RunDraft.Level(run, sig.Id);
+                var scol = Theme.FamilyColor(sig.Family);
+                var sigRow = Ui.Row(b, -1, 16, Theme.Tint(scol, 0.3f), 14, "Signature:" + sig.Id);
+                var sigLayout = sigRow.GetComponent<HorizontalLayoutGroup>();
+                sigLayout.childAlignment = TextAnchor.UpperLeft;
+                sigLayout.childForceExpandHeight = false;
+                UiShapes.Outline(sigRow, SignaturePick.SignatureColor, 16, 4);
+                var sigTile = SkillTileView.Build(sigRow, sig.Id, SignaturePick.SignatureColor, sig.Family, 132);
+                Ui.Size(sigTile, 132, 132, 0);
+                var sigTip = SkillTip.Of(sig.Id, slv); sigTip.TierOverride = "Signature";
+                SkillTileView.Tappable(sigTile, Content, () => sigTip);
+                var card = Ui.Column(sigRow, 6, 0, null, "SignatureText");
+                Ui.Size(card, -1, -1, 1);
+                Ui.Label(card, "SIGNATURE · " + SkillText.FamilyName(sig.Family).ToUpperInvariant(), 20, SignaturePick.SignatureColor);
+                Ui.Label(card, SkillText.Title(Content, sig, slv), Theme.FontNormal, Color.Lerp(scol, Color.white, 0.6f));
+                Ui.Label(card, Fmt.SkillFull(SkillLeveling.At(Content, sig, slv)), Theme.FontSmall, Theme.Text);
+                int next = RunSystem.NextAwakeningAt(Content, run, sig.Id);
+                Ui.Label(card, next > 0 ? "Awakens at " + next + " " + SkillText.FamilyName(sig.Family) + " skills (have " + RunDraft.FamilyCount(Content, run, sig.Family) + ")." : "Fully awakened.",
+                    20, Theme.TextDim);
+            }
+            // every other skill as the shared tile (tier frame, art filling it) with its name and level; a tap = the full text
+            if (ids.Count == 0) return;
+            const float cellW = 196, cellH = 262, tileSize = 168;
+            var grid = Ui.Rect(b, "SkillGrid");
+            var gl = grid.gameObject.AddComponent<GridLayoutGroup>();
+            gl.cellSize = new Vector2(cellW, cellH);
+            gl.spacing = new Vector2(14, 14);
+            gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            gl.constraintCount = 4;
+            gl.childAlignment = TextAnchor.UpperCenter;
+            Ui.Size(grid, -1, ((ids.Count + 3) / 4) * (cellH + 14), 1);
+            foreach (var id in ids)
+            {
+                var s = Content.Skill(id);
+                int lv = Math.Max(1, RunDraft.Level(run, id));
+                var cell = Ui.Rect(grid, "Skill:" + id);
+                var tile = SkillTileView.Build(cell, Content, id, tileSize);
+                tile.anchorMin = tile.anchorMax = tile.pivot = new Vector2(0.5f, 1);
+                tile.anchoredPosition = Vector2.zero;
+                var lvl = SliceKit.Chunky(tile, "Lv " + lv, 26, Color.white, TextAnchor.LowerRight, "SkillLevel");
+                Ui.Stretch(lvl.rectTransform, 0, 0, 16, 12);
+                var name = Ui.Label(cell, s?.Name ?? id, 22, Theme.Text, TextAnchor.UpperCenter, "SkillName");
+                name.rectTransform.anchorMin = new Vector2(0, 0); name.rectTransform.anchorMax = new Vector2(1, 0);
+                name.rectTransform.pivot = new Vector2(0.5f, 0);
+                name.rectTransform.sizeDelta = new Vector2(0, cellH - tileSize - 6);
+                name.rectTransform.anchoredPosition = Vector2.zero;
+                name.horizontalOverflow = HorizontalWrapMode.Wrap;
+                name.resizeTextForBestFit = true; name.resizeTextMinSize = 14; name.resizeTextMaxSize = name.fontSize;
+                var tip = SkillTip.Of(id, lv);
+                SkillTileView.Tappable(tile, Content, () => tip);
+            }
+        }
     }
 }

@@ -26,7 +26,8 @@ namespace RogueStars.Client.PlayTests
     /// pick, quest card, revive, battle playback (mid-fight, victory, defeat) and the run result (before / after doubling) —
     /// plus an automatic layout log per shot ("[audit]": truncated or overflowing text, text off screen, overlapping
     /// labels, and the battle fighters' sprite vs HP bar centres). Explicit; run WITHOUT -nographics
-    /// (ROGUESTARS_SHOTS_DIR = output folder, ROGUESTARS_SHOT_SIZES = "1080x2340,720x1600").
+    /// (ROGUESTARS_SHOTS_DIR = output folder, ROGUESTARS_SHOT_SIZES = "1080x2340,720x1600", ROGUESTARS_AUDIT_SECTIONS = a comma
+    /// list of sections to render, e.g. "board,fork,revive,skills"; default all).
     /// </summary>
     [Explicit("renders the run UI audit screenshots; run with -testFilter RunUiAuditShowcaseTests")]
     public sealed class RunUiAuditShowcaseTests
@@ -84,6 +85,8 @@ namespace RogueStars.Client.PlayTests
                 yield return Section("board", Board(c));
                 yield return Section("fork", Fork(c));
                 yield return Section("decisions", Decisions(c));
+                yield return Section("revive", Revive(c));
+                yield return Section("skills", SkillsBook(c));
                 yield return Section("shop", Shop(c));
                 yield return Section("quest", Quest(c));
                 yield return Section("signature", Signature(c));
@@ -96,6 +99,8 @@ namespace RogueStars.Client.PlayTests
         /// <summary>Runs a section; an exception is logged and the next section goes on.</summary>
         private IEnumerator Section(string name, IEnumerator body)
         {
+            var only = Environment.GetEnvironmentVariable("ROGUESTARS_AUDIT_SECTIONS");
+            if (!string.IsNullOrEmpty(only) && !only.Split(',').Select(x => x.Trim()).Contains(name)) yield break;
             while (true)
             {
                 object cur;
@@ -239,12 +244,53 @@ namespace RogueStars.Client.PlayTests
                 Reset(run);
             }
 
-            // revive
+        }
+
+        private IEnumerator Revive(ContentDb c)
+        {
+            var run = FreshRun(c, 12);
+            GiveSkills(c, run, 5);
+            ShowRun();
+            yield return Wait(1.0f);
             run.Phase = RunPhase.Defeated;
             run.WormHp = 0;
             yield return Rebuild(1.0f);
             yield return Shot("revive");
             run.WormHp = run.WormMaxHp;
+            Reset(run);
+        }
+
+        /// <summary>The skills book: the Skills tab with a big build, then the Stats tab (every battle stat of that build).</summary>
+        private IEnumerator SkillsBook(ContentDb c)
+        {
+            var run = FreshRun(c, 12);
+            GiveSkills(c, run, 16);
+            // perks / event buffs on top of the drafted skills: a build that touches most stat groups
+            foreach (var (id, v) in new[]
+            {
+                (StatId.CritChance, 38.0), (StatId.CritDamage, 40.0), (StatId.ComboChance, 22.0), (StatId.CounterChance, 15.0),
+                (StatId.BossDamage, 20.0), (StatId.RageGain, 25.0), (StatId.Dodge, 18.0), (StatId.DamageReduction, 30.0),
+                (StatId.ShieldPower, 35.0), (StatId.StatusResist, 10.0), (StatId.Regen, 2.5), (StatId.LifeSteal, 6.0),
+                (StatId.HealPower, 15.0), (StatId.StatusChance, 20.0), (StatId.FireDamage, 25.0), (StatId.PoisonDamage, 15.0),
+                (StatId.XpGain, 10.0), (StatId.DamageTaken, 10.0),
+            })
+                run.RunStats.Add(new StatMod(id, v));
+            run.WormHp = Math.Round(RunSystem.WormStats(c, run).MaxHp * 0.7);
+            var rs = ShowRun();
+            yield return Wait(1.2f);
+            foreach (var b in rs.Root.GetComponentsInChildren<Button>(false))
+                if (b.name == "SkillsButton") { b.onClick.Invoke(); break; }
+            yield return Wait(0.8f);
+            yield return Shot("skills_tab");
+            if (Click("Tab:Stats"))
+            {
+                yield return Wait(0.6f);
+                yield return Shot("skills_stats");
+                foreach (var sr in _app.ModalLayer.GetComponentsInChildren<ScrollRect>(false)) sr.verticalNormalizedPosition = 0;
+                yield return Wait(0.3f);
+                yield return Shot("skills_stats_end"); // scrolled to the last group
+            }
+            else Note("[skills] " + _tag + " no Stats tab");
             Reset(run);
         }
 
