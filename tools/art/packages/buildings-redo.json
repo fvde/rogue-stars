@@ -10,6 +10,7 @@
   "suffix": ", futuristic sci-fi alien space colony building, sleek metal and glass, glowing cyan and purple light panels, no wood, no stone bricks, no medieval or rustic elements, a single building seen from a high three-quarter angle on a small square metal foundation plate, centered, no shadow, isolated on a plain pure white background, no text",
   "negative": "landscape, city, multiple buildings, people, characters, base, plinth, ground, text, letters, watermark, blurry, photo, realistic, wood, wooden, stone bricks, medieval, castle, rustic, farm animals, chickens, hay, thatch",
   "subjects": {
-    "bp_ore_mine": "a simple futuristic ore mine: one big grey-brown rock with shiny golden ore nuggets in it and a single sleek metal drill on top, few parts, clean simple shapes"
+    "bp_ore_mine": "a simple futuristic ore mine: one big grey-brown rock with shiny golden ore nuggets in it and a single sleek metal drill on top, few parts, clean simple shapes",
+    "bp_grain_farm": "a small compact futuristic grain farm on one small square plot: a few rows of golden alien grain under a glowing grow-light arch and a little harvester robot, everything well inside the frame with empty space around it"
   }
 }
