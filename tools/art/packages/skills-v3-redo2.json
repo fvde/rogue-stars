@@ -6,11 +6,24 @@
   "height": 512,
   "name": "pkg-skills-v3-redo2",
   "seeds": [
-    6931
+    6931,
+    6932
   ],
   "subjects": {
     "light_conductor": "a copper wire spring coil seen from the side with one small yellow lightning bolt touching it",
     "light_ground_loop": "a lightning bolt striking a tall metal spire, drawn big and bold",
-    "mythic_thunderhead": "a dark storm cloud with three big yellow lightning bolts under it, drawn big and bold"
+    "mythic_thunderhead": "a dark storm cloud with three big yellow lightning bolts under it, drawn big and bold",
+    "alien_hivemind": "a green brain with teal antennae and, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "alien_rally": "a small teal drone saucer with one straight light beam pointing down, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "bleed_hemorrhage": "a red heart pierced by a dagger gushing blood, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "counter_grudge": "a steel-blue gauntlet fist gripping a stack of red tally marks, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "counter_rebound": "a steel-blue armor plate bouncing a arrow back, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "counter_riposte": "a small steel-blue sword with a small curved arrow, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "light_thunderclap": "a dark storm cloud with a yellow bolt and a white shock ring, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_fallout_aura": "a green ring of toxic cloud around a flask of green liquid, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_fallout_wounds": "a red blood drop with a green radiation symbol on it, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_superconductor": "a yellow lightning bolt coiled around a frosty cyan pillar, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "poison_critical": "a cracked green sphere, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "poison_glands": "a small green gland sac with one gold star on it, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading"
   }
 }
