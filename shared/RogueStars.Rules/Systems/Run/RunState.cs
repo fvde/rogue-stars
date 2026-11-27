@@ -232,7 +232,7 @@ namespace RogueStars.Rules.Systems
 
         // loot
         public List<Reward> PendingLoot = new List<Reward>();
-        /// <summary>Rare drops won so far (LevelDef.RareDrops): paid unscaled and not doubled on a won run, lost otherwise.</summary>
+        /// <summary>Rare drops won so far (LevelDef.RareDrops): paid unscaled on a won run (doublable by the ad), lost otherwise.</summary>
         public List<Reward> PendingRare = new List<Reward>();
         public int Danger;
         /// <summary>Account-loot opportunities offered so far (events / guarded caches that pay meta loot; RunTuning.MaxAccountLootOffersPerRun).</summary>
@@ -362,10 +362,11 @@ namespace RogueStars.Rules.Systems
     }
 
     /// <summary>
-    /// One granted run reward with its source. Doublable by the result-screen ad: run loot (pending loot found in the run,
-    /// Burrow floor rewards included), the level's completion rewards and the completion loot rolls, as granted (Biomass surge
-    /// and run-reward modifiers included). Not doublable: first-clear milestone chests / portal bonuses, feat Diamonds and rare
-    /// drops (one-time or rare by design). Rewards stashed by RewardGate (no use yet) are neither listed nor doubled.
+    /// One granted run reward with its source. The result-screen ad doubles every line the result screen lists (playtest
+    /// 0.1.359: "double rewards" left some out): run loot (pending loot found in the run, event chests and Burrow floor rewards
+    /// included), the level's completion rewards and completion loot rolls (Biomass surge and run-reward modifiers included),
+    /// first-clear milestone chests / portal bonuses, feat Diamonds and rare drops. Rewards stashed by RewardGate (no use yet)
+    /// are neither listed nor doubled; run-only resources (run coins, run XP, skills) are not account rewards.
     /// </summary>
     [Serializable]
     public sealed class RunRewardLine
@@ -378,7 +379,9 @@ namespace RogueStars.Rules.Systems
         /// <summary>True once RunDoubleRewards granted this line a second time.</summary>
         public bool Doubled;
 
-        public static bool IsDoublable(string source) => source == RunLoot || source == Completion || source == CompletionRoll;
+        /// <summary>Every source the result screen lists is doubled by the ad (playtest 0.1.359).</summary>
+        public static bool IsDoublable(string source) =>
+            source == RunLoot || source == Completion || source == CompletionRoll || source == Milestone || source == Feat || source == RareDrop;
     }
 
     [Serializable]

@@ -112,7 +112,7 @@ geometric sink curves are all constant, so the ratio stays where it is. The camp
 (Hardcore Whale level 650 at day 1 095 for α 0.4…0.7): late progress is power-gated by maxed collections, not by run
 currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
 
-**One-time milestones** (first Normal clear only, `LevelDef.FirstClearRewards`; never paid again, not doubled by the ad):
+**One-time milestones** (first Normal clear only, `LevelDef.FirstClearRewards`; never paid again; the double-rewards ad doubles them like every reward the result screen lists, playtest 0.1.359):
 
 - every 10th main level: **milestone chest** = Diamonds 5 · round(10 · (1 + n/500)) and 1 + ⌊n/500⌋ token of each pull
   type (Part, Blueprint, Alien);

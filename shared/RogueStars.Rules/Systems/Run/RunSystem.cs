@@ -383,8 +383,8 @@ namespace RogueStars.Rules.Systems
         public const string DoubleRewardsAdPlacement = "double_run_rewards";
 
         /// <summary>
-        /// Result screen ad: the last won run pays its doublable rewards (RunRewardLine.IsDoublable: run loot, completion rewards
-        /// and completion loot rolls, as granted: Biomass surge and run_reward modifiers included) once more. Once per run, daily
+        /// Result screen ad: the last won run pays its doublable rewards (RunRewardLine.IsDoublable: everything the result screen
+        /// lists, as granted: Biomass surge and run_reward modifiers included) once more. Once per run, daily
         /// cap via the ad placement. The summary reflects it: Granted totals grow (currencies doubled in place, a second copy of
         /// each item drop), Rewards lines are marked Doubled, DoubledGranted lists what this paid.
         /// </summary>

@@ -484,7 +484,7 @@ public class AwakenCoreSourceTests
     }
 
     [Fact]
-    public void RareDrop_PaidUnscaled_OnlyOnCompletion_NotDoubled()
+    public void RareDrop_PaidUnscaled_OnlyOnCompletion_AndDoubledByTheAd()
     {
         var content = new ContentDb();
         content.RunLevel("ember_wastes_1")!.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 100));
@@ -495,7 +495,10 @@ public class AwakenCoreSourceTests
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
         Assert.Equal(1, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
-        Assert.DoesNotContain(s.Run.LastSummary.Doublable, r => r.Id == ProgressionCurrencies.PartAwakenCores);
+        Assert.Contains(s.Run.LastSummary.Doublable, r => r.Id == ProgressionCurrencies.PartAwakenCores); // playtest 0.1.359
+        Assert.True(RunTestKit.Exec(e, ref s, new RunDoubleRewards { AdToken = "ad" }).Ok);
+        Assert.Equal(2, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
+        Assert.Contains(s.Run.LastSummary.Granted, r => r.Id == ProgressionCurrencies.PartAwakenCores && r.Amount == 2);
     }
 }
 
@@ -735,8 +738,9 @@ public class LaboratoryTests
         RunTestKit.AutoToEnd(e, ref s);
         var sum = s.Run.LastSummary;
         Assert.True(sum.Won);
-        Assert.NotEmpty(sum.NewFeats); // first clear: feat Diamonds are granted but never doubled
-        Assert.DoesNotContain(sum.Doublable, r => r.Id == Currencies.Diamonds && r.Amount == e.Content.RunTuning.FeatDiamonds);
+        Assert.NotEmpty(sum.NewFeats); // first clear: feat Diamonds are granted, and doubled like every listed reward (playtest 0.1.359)
+        Assert.All(sum.Rewards.Where(l => l.Source == RunRewardLine.Feat), l => Assert.True(l.Doublable));
+        Assert.Equal(sum.NewFeats.Count, sum.Rewards.Count(l => l.Source == RunRewardLine.Feat));
 
         var before = new Dictionary<string, long>(s.Wallet.Balances);
         Assert.False(RunTestKit.Exec(e, ref s, new RunDoubleRewards()).Ok); // ad token required without No Ads

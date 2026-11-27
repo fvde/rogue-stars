@@ -1483,7 +1483,8 @@ namespace RogueStars.Rules.Systems
                 {
                     if (!ctx.Grant(r)) continue; // no use yet: stashed (RewardGate), not shown as granted
                     summary.Granted.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
-                    summary.Rewards.Add(new RunRewardLine { Reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity), Source = RunRewardLine.RareDrop });
+                    summary.Rewards.Add(new RunRewardLine { Reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity), Source = RunRewardLine.RareDrop, Doublable = RunRewardLine.IsDoublable(RunRewardLine.RareDrop) });
+                    if (RunRewardLine.IsDoublable(RunRewardLine.RareDrop)) summary.Doublable.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity));
                     ctx.Emit("run_rare_drop", r.Kind, r.Id, r.Amount.ToString());
                 }
                 CompactProgress(s, c);

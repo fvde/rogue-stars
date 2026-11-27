@@ -178,10 +178,11 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 
 ### 3.4 Run rewards and failure
 - Run loot is **pending** until the boss is beaten. Fail → all pending loot is lost (no banking).
-- **Double rewards** (result-screen ad, once per won run): pays every *doublable* reward again — run loot (Burrow floor
-  rewards included), the level's completion rewards and completion loot rolls, as granted (Biomass surge and run-reward
-  modifiers included). Not doubled: first-clear milestone chests / portal bonuses, feat Diamonds, rare drops; rewards
-  stashed for lack of a use are neither shown nor doubled. `RunSummary.Rewards` lists each reward with its source and
+- **Double rewards** (result-screen ad, once per won run): pays **every reward the result screen lists** again (playtest
+  0.1.359) — run loot (event chests and Burrow floor rewards included), the level's completion rewards and completion loot
+  rolls, as granted (Biomass surge and run-reward modifiers included), first-clear milestone chests / portal bonuses, feat
+  Diamonds and rare drops. Not doubled: rewards stashed for lack of a use (neither shown nor doubled) and run-only
+  resources (run coins, run XP, skills: they end with the run). `RunSummary.Rewards` lists each reward with its source and
   `Doublable` / `Doubled`; after the ad `Granted` shows the doubled totals and `DoubledGranted` what the ad paid.
 - One revive per run: watch an ad **or** pay Diamonds.
 - Runs cost **Stamina**. Stamina regenerates over time; max and regen are raised by city blueprints and

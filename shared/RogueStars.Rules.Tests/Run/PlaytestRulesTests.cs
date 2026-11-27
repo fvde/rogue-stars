@@ -455,7 +455,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var c = e.Content;
         var s = TestHelpers.NewPlayer(e, 5);
-        // level 10: its first clear pays the milestone chest (not doublable)
+        // level 10: its first clear pays the milestone chest (doublable too since playtest 0.1.359)
         s.Run.Levels[c.MainLevelId(9)] = new LevelProgress { Cleared = true };
         s.Counters[Requirements.MainLevelCounter] = 9;
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = c.MainLevelId(10) }).Ok);
@@ -468,8 +468,9 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.RunLoot && l.Reward.Id == Currencies.Grain && l.Doublable);
         Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Completion && l.Doublable);
         Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.CompletionRoll && l.Doublable);
-        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Milestone && !l.Doublable);
-        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Feat && !l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Milestone && l.Doublable);
+        Assert.Contains(sum.Rewards, l => l.Source == RunRewardLine.Feat && l.Doublable);
+        Assert.All(sum.Rewards, l => Assert.True(l.Doublable, l.Source)); // everything the result screen lists
         Assert.Equal(sum.Rewards.Count(l => l.Doublable), sum.Doublable.Count);
         var grantedBefore = Totals(sum.Granted);
         int partsBefore = s.Parts.Items.Count;
@@ -484,7 +485,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         foreach (var g in sum.Rewards.Where(l => l.Doubled && l.Reward.Kind == RewardKinds.Currency).GroupBy(l => l.Reward.Id))
             Assert.Equal(wallet.GetValueOrDefault(g.Key) + g.Sum(l => l.Reward.Amount), s.Wallet.Get(g.Key));
         Assert.True(s.Parts.Items.Count > partsBefore);                         // the item drop came again
-        // the summary totals show the doubled amounts: doublable lines twice, milestone / feats once
+        // the summary totals show the doubled amounts: every line twice
         var grantedAfter = Totals(sum.Granted);
         foreach (var id in grantedAfter.Keys)
         {
@@ -492,6 +493,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
             long doubled = sum.Rewards.Where(l => l.Doubled && l.Reward.Kind == RewardKinds.Currency && l.Reward.Id == id).Sum(l => l.Reward.Amount);
             Assert.Equal(single + doubled, grantedAfter[id]);
             Assert.Equal(grantedBefore.GetValueOrDefault(id) + doubled, grantedAfter[id]);
+            Assert.Equal(2 * grantedBefore.GetValueOrDefault(id), grantedAfter[id]); // the result screen shows twice the amount
         }
         Assert.Equal(sum.Granted.Count(r => r.Kind != RewardKinds.Currency),
             sum.Rewards.Count(l => l.Reward.Kind != RewardKinds.Currency) + sum.Rewards.Count(l => l.Doubled && l.Reward.Kind != RewardKinds.Currency));

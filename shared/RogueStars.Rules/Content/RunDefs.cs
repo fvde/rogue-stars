@@ -294,12 +294,12 @@ namespace RogueStars.Rules.Content
         public int CompletionLootRolls = 3;
         /// <summary>
         /// Rare drops rolled once when the level (Burrow: floor) is beaten (run RNG); pending like loot, paid unscaled on a
-        /// won run (no run-reward modifiers, not doubled by the double-rewards ad). E.g. Awaken Cores on deep Burrow floors.
+        /// won run (no run-reward modifiers; the double-rewards ad doubles them like every listed reward). E.g. Awaken Cores on deep Burrow floors.
         /// </summary>
         public List<RareDrop> RareDrops = new List<RareDrop>();
         /// <summary>
         /// Main campaign: one-time rewards of the first Normal clear (milestone chest every 10 levels, portal-completion bonus
-        /// every 50; <see cref="CampaignDef"/>). Paid unscaled, never doubled, never again on later clears.
+        /// every 50; <see cref="CampaignDef"/>). Paid unscaled (the double-rewards ad doubles them too), never again on later clears.
         /// </summary>
         public List<Reward> FirstClearRewards = new List<Reward>();
         /// <summary>Main levels: global level number (portal 1 = 1..10, ...). Dark Side: its level number. 0 elsewhere.</summary>
