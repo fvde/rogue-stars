@@ -1,0 +1,1376 @@
+<title>Biome Identities</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#f7f5fb; --surface:#ffffff; --sunk:#f0edf7; --fg:#1d1a2e; --muted:#5f5a75; --line:#dedaea; --accent:#5a3fc0;
+ --d:#1f7a4d; --d-bg:#e2f4ea; --r:#8a5a00; --r-bg:#fbf0d6; --c:#a3343c; --c-bg:#f9e1e3; --n:#4b5563; --n-bg:#eceef2; --b:#2a5f9e; --b-bg:#e1ecf9;
+ --ember:#c2410c; --ember-bg:#fde8dc; --glacier:#1d6fa8; --glacier-bg:#dcecf8; --static:#8a6d00; --static-bg:#f8efc8;
+ --void:#7a3fb0; --void-bg:#efe3fa; --chrono:#8a5a2b; --chrono-bg:#f3e8da;
+ --display:"Fredoka",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --bg:#14121d; --surface:#1d1a2a; --sunk:#181624; --fg:#ebe8f5; --muted:#a6a1bd; --line:#34304a; --accent:#a893ff;
+ --d:#6fd6a0; --d-bg:#18382a; --r:#f0c060; --r-bg:#3a2f14; --c:#f08a92; --c-bg:#3d1c20; --n:#c3c8d2; --n-bg:#2a2d36; --b:#8ab8f0; --b-bg:#1b2a40;
+ --ember:#ff9b6a; --ember-bg:#3a1f12; --glacier:#7cc4f5; --glacier-bg:#14283a; --static:#f2d24a; --static-bg:#33300f;
+ --void:#c79bf2; --void-bg:#2a1a3a; --chrono:#e0b27a; --chrono-bg:#33261a; color-scheme:dark}}
+:root[data-theme="dark"]{
+ --bg:#14121d; --surface:#1d1a2a; --sunk:#181624; --fg:#ebe8f5; --muted:#a6a1bd; --line:#34304a; --accent:#a893ff;
+ --d:#6fd6a0; --d-bg:#18382a; --r:#f0c060; --r-bg:#3a2f14; --c:#f08a92; --c-bg:#3d1c20; --n:#c3c8d2; --n-bg:#2a2d36; --b:#8ab8f0; --b-bg:#1b2a40;
+ --ember:#ff9b6a; --ember-bg:#3a1f12; --glacier:#7cc4f5; --glacier-bg:#14283a; --static:#f2d24a; --static-bg:#33300f;
+ --void:#c79bf2; --void-bg:#2a1a3a; --chrono:#e0b27a; --chrono-bg:#33261a; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+ padding:24px max(16px,env(safe-area-inset-right,0px)) 64px max(16px,env(safe-area-inset-left,0px))}
+main{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
+h1,h2,h3,h4{font-family:var(--display);font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:2rem} h2{font-size:1.45rem;border-bottom:2px solid var(--line);padding-bottom:6px}
+h3{font-size:1.15rem} h4{font-size:.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:var(--body);font-weight:600}
+p{margin:0;max-width:78ch} section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lede{color:var(--muted);font-size:1.02rem}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px}
+nav.toc a{font-size:.82rem;padding:3px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--fg);text-decoration:none}
+nav.toc a:hover{border-color:var(--accent)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .n{font-family:var(--display);font-size:1.9rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .l{font-size:.82rem;color:var(--muted)}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+.wrap table{min-width:720px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;text-align:right}
+code{font-family:var(--mono);font-size:.8em;background:var(--n-bg);padding:0 4px;border-radius:4px;word-break:break-word}
+.pill{display:inline-block;font-size:.7rem;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap;vertical-align:1px}
+.pd{background:var(--d-bg);color:var(--d)} .pr{background:var(--r-bg);color:var(--r)} .pc{background:var(--c-bg);color:var(--c)}
+.pn{background:var(--n-bg);color:var(--n)} .pb{background:var(--b-bg);color:var(--b)}
+.fam{display:inline-block;font-size:.74rem;font-weight:600;padding:1px 9px;border-radius:6px;white-space:nowrap}
+.f-ember{background:var(--ember-bg);color:var(--ember)} .f-glacier{background:var(--glacier-bg);color:var(--glacier)}
+.f-static{background:var(--static-bg);color:var(--static)} .f-void{background:var(--void-bg);color:var(--void)} .f-chrono{background:var(--chrono-bg);color:var(--chrono)}
+.status{font-size:.7rem;font-weight:600;padding:1px 8px;border-radius:99px}
+.live{background:var(--d-bg);color:var(--d)} .planned{background:var(--n-bg);color:var(--n)}
+.yield{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:600;font-size:.95rem;padding:2px 12px;border-radius:8px;background:var(--sunk);border:1px solid var(--line);white-space:nowrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px;scroll-margin-top:12px;border-top:5px solid var(--line)}
+.card.c-ember{border-top-color:var(--ember)} .card.c-glacier{border-top-color:var(--glacier)} .card.c-static{border-top-color:var(--static)}
+.card.c-void{border-top-color:var(--void)} .card.c-chrono{border-top-color:var(--chrono)}
+.card-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.card-head h3{font-size:1.4rem;margin-right:auto}
+.idtag{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.ident{display:grid;grid-template-columns:110px 1fr;gap:4px 12px;font-size:.9rem}
+.ident dt{color:var(--muted);font-weight:500} .ident dd{margin:0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.box{background:var(--sunk);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+ul.ros{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+ul.ros li b{font-weight:600}
+ul.ros .why{color:var(--muted)}
+.events{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.ev{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--surface);scroll-margin-top:12px}
+.ev:target,.card:target{outline:3px solid var(--accent);outline-offset:2px}
+.ev-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ev-h b{font-family:var(--display);font-size:1.02rem;font-weight:600}
+.setup{font-style:italic;color:var(--muted);font-size:.9rem}
+.opts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.opts li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:.87rem;padding:6px 8px;border-radius:8px;background:var(--sunk)}
+.opts .btn{font-weight:600}
+.opts .res{grid-column:1/2;color:var(--fg)}
+.opts .k{grid-row:1/3;grid-column:2;align-self:center}
+.artline{font-size:.8rem;color:var(--muted)}
+.note{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+ol,ul.plain{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;max-width:84ch}
+.q{scroll-margin-top:12px}
+small.m{color:var(--muted)}
+@media (max-width:520px){ .ident{grid-template-columns:1fr} .ident dt{margin-top:4px} h1{font-size:1.6rem} .card{padding:14px} }
+</style>
+<main>
+<header style="display:flex;flex-direction:column;gap:10px">
+<h1>Biome Identities</h1>
+<p class="lede">Design draft for review: every campaign biome gets its own enemies, boss, a doubled resource and its own events, on top of a larger shared event pool. 8 live biomes and 9 planned ones (they join once their ground art exists). Nothing here is in the game yet; every item has a stable id for comments.</p>
+<nav class="toc"><a href="#summary">Summary</a><a href="#display">Event display</a><a href="#decisions">Decided</a><a href="#unlocks">Unlock path</a><a href="#weather">Synergy weather</a><a href="#rites">Rites</a><a href="#biomes">Biomes</a><a href="#shared">Shared pool</a><a href="#rules">Rules of play</a><a href="#art">Art needed</a><a href="#questions">Open questions</a></nav>
+</header>
+<div class="tiles">
+<div class="tile"><div class="n">17</div><div class="l">biomes (8 live, 9 planned)</div></div>
+<div class="tile"><div class="n">16 + 41</div><div class="l">regular enemies: reused + NEW</div></div>
+<div class="tile"><div class="n">14 + 13</div><div class="l">elites: reused + NEW</div></div>
+<div class="tile"><div class="n">10 + 9</div><div class="l">bosses: reused + NEW</div></div>
+<div class="tile"><div class="n">68</div><div class="l">biome events (4 per biome)</div></div>
+<div class="tile"><div class="n">17</div><div class="l">Rites (1 per biome)</div></div>
+<div class="tile"><div class="n">13</div><div class="l">NEW shared events</div></div>
+<div class="tile"><div class="n">63</div><div class="l">NEW event art pieces</div></div>
+</div>
+<section id="decisions"><h2>Decided in review round 1 (2026-11-28)</h2><div class="note"><ul class="plain"><li><b>No families:</b> There are only biomes. Each biome has its own roster (enemies, elites, boss); enemies shared between biomes are simply listed in each. The level order only avoids the same biome twice in a row.</li><li><b>Difficulty:</b> Comes only from the level scaling (threat curve, early ramp, chapter scale). No biome is harder or easier as a whole; the old per-family offsets go.</li><li><b>Surge:</b> The Biomass surge drops from ×4 to ×2 in general. A Biomass biome on a surge run pays ×4 (×2 biome × ×2 surge).</li><li><b>Invasion bosses:</b> Rust Queen, Gloop Matriarch, Hollow Cantor and Prism Tyrant double as biome bosses; invasions keep them.</li><li><b>Unlock path:</b> Signatures unlock by campaign level (no Laboratory packages). Each unlock brings one new signature and one new biome into the rotation: 4 biomes at the start, +1 at levels 10, 20, 35, 60, 90 and so on.</li><li><b>Effects:</b> Keep every effect simple: one thing, no new game mechanic or asset. Boss abilities, events and Rites below use only effects the game already has.</li><li><b>Laboratory:</b> The six signature packages go with no replacement; the tree is restructured around the gap.</li><li><b>Rites:</b> Biome events may know the biome&#x27;s enemies and boss. Each biome gets a Rite: an event whose choices change this level&#x27;s enemies or boss (owner example: give up an Ice skill in Lava Fields, Fire enemies are weakened for the run).</li></ul></div></section>
+<section id="summary"><h2>Summary</h2>
+<div class="wrap"><table><thead><tr><th class="num">From level</th><th>Biome</th><th>Status</th><th>Boss</th><th>Reward</th><th>Synergy weather</th><th class="num">Events</th><th class="num">NEW enemies / elites</th></tr></thead><tbody>
+<tr><td class="num">1</td><td><a href="#biome-lava">Lava Fields</a></td><td><span class="status live">live</span></td><td>Magma Tyrant / Elder Magma</td><td><b>×2 Ore</b></td><td><span class="pill pd">Heat / Supernova +25%</span> <span class="pill pc">Chill / Freeze −50%</span></td><td class="num">4</td><td class="num">1 / 0</td></tr>
+<tr><td class="num">1</td><td><a href="#biome-gas_giant">Gas Giant</a></td><td><span class="status live">live</span></td><td>Flare Medusa <span class="pill pc">NEW</span></td><td><b>×2 Fuel</b></td><td><span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+<tr><td class="num">1</td><td><a href="#biome-shipwreck">Shipwreck</a></td><td><span class="status live">live</span></td><td>Rust Queen / Void Maw</td><td><b>×2 Gear Cores</b></td><td><span class="pill pd">Bleed +25%</span> <span class="pill pc">Shock / Arc −25%</span></td><td class="num">4</td><td class="num">2 / 0</td></tr>
+<tr><td class="num">1</td><td><a href="#biome-toxic_swamp">Toxic Swamp</a></td><td><span class="status live">live</span></td><td>Gloop Matriarch</td><td><b>×2 Fuel</b></td><td><span class="pill pd">Radiation +25%</span> <span class="pill pc">Combo −25%</span></td><td class="num">4</td><td class="num">2 / 0</td></tr>
+<tr><td class="num">10</td><td><a href="#biome-cloud_islands">Cloud Isles</a></td><td><span class="status live">live</span></td><td>Hailwing Roc <span class="pill pc">NEW</span></td><td><b>×2 Grain</b></td><td><span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Radiation −25%</span></td><td class="num">4</td><td class="num">2 / 0</td></tr>
+<tr><td class="num">20</td><td><a href="#biome-space_station">Space Station</a></td><td><span class="status live">live</span></td><td>Storm Hive Queen</td><td><b>×2 Data</b></td><td><span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Alien −25%</span></td><td class="num">4</td><td class="num">2 / 0</td></tr>
+<tr><td class="num">35</td><td><a href="#biome-seabed">Seabed</a></td><td><span class="status live">live</span></td><td>Frost Leviathan</td><td><b>×2 Biomass</b></td><td><span class="pill pd">Counter +25%</span> <span class="pill pc">Heat / Supernova −50%</span></td><td class="num">4</td><td class="num">2 / 1</td></tr>
+<tr><td class="num">60</td><td><a href="#biome-alien_jungle">Alien Jungle</a></td><td><span class="status live">live</span></td><td>Volt Orchid <span class="pill pc">NEW</span></td><td><b>×2 Grain</b></td><td><span class="pill pd">Alien +25%</span> <span class="pill pc">General −25%</span></td><td class="num">4</td><td class="num">2 / 1</td></tr>
+<tr><td class="num">90</td><td><a href="#biome-clockwork_city">Clockwork City</a></td><td><span class="status planned">planned</span></td><td>Chrono Wyrm</td><td><b>×2 Gear Cores</b></td><td><span class="pill pd">Time +25%</span> <span class="pill pc">Bleed −50%</span></td><td class="num">4</td><td class="num">4 / 1</td></tr>
+<tr><td class="num">125</td><td><a href="#biome-desert_ruins">Desert Ruins</a></td><td><span class="status planned">planned</span></td><td>Scarab Sun-King <span class="pill pc">NEW</span></td><td><b>×2 Ore</b></td><td><span class="pill pd">General +25%</span> <span class="pill pc">Chill / Freeze −50%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+<tr><td class="num">160</td><td><a href="#biome-ice">Ice Shelf</a></td><td><span class="status planned">planned</span></td><td>Tusk Colossus <span class="pill pc">NEW</span> / Frost Leviathan</td><td><b>×2 Fuel</b></td><td><span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Combo −25%</span></td><td class="num">4</td><td class="num">2 / 1</td></tr>
+<tr><td class="num">200</td><td><a href="#biome-neon_city">Neon City</a></td><td><span class="status planned">planned</span></td><td>Hollow Cantor</td><td><b>×2 Data</b></td><td><span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Time −25%</span></td><td class="num">4</td><td class="num">2 / 1</td></tr>
+<tr><td class="num">245</td><td><a href="#biome-mushroom_forest">Mushroom Forest</a></td><td><span class="status planned">planned</span></td><td>Spore Monarch <span class="pill pc">NEW</span></td><td><b>×2 Biomass</b></td><td><span class="pill pd">Radiation +25%</span> <span class="pill pc">Shock / Arc −25%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+<tr><td class="num">295</td><td><a href="#biome-crystal_cave">Crystal Cave</a></td><td><span class="status planned">planned</span></td><td>Prism Tyrant</td><td><b>×2 Ore</b></td><td><span class="pill pd">Counter +25%</span> <span class="pill pc">Bleed −25%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+<tr><td class="num">350</td><td><a href="#biome-coral_reef">Coral Reef</a></td><td><span class="status planned">planned</span></td><td>Tide Hydra <span class="pill pc">NEW</span></td><td><b>×2 Biomass</b></td><td><span class="pill pd">Bleed +25%</span> <span class="pill pc">Radiation −25%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+<tr><td class="num">420</td><td><a href="#biome-candy_planet">Candy Planet</a></td><td><span class="status planned">planned</span></td><td>Bonbon Behemoth <span class="pill pc">NEW</span></td><td><b>×2 Hero XP</b></td><td><span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span></td><td class="num">4</td><td class="num">4 / 2</td></tr>
+<tr><td class="num">500</td><td><a href="#biome-frozen_future">Frozen Future</a></td><td><span class="status planned">planned</span></td><td>Stasis Warden <span class="pill pc">NEW</span></td><td><b>×2 Hero XP</b></td><td><span class="pill pd">Time +25%</span> <span class="pill pc">Heat / Supernova −25%</span></td><td class="num">4</td><td class="num">3 / 1</td></tr>
+</tbody></table></div>
+<h4>Reward spread</h4><div class="wrap"><table><thead><tr><th>Resource</th><th class="num">Biomes</th><th>Which</th></tr></thead><tbody>
+<tr><td><b>Biomass</b></td><td class="num">3</td><td>Seabed, Coral Reef, Mushroom Forest</td></tr>
+<tr><td><b>Ore</b></td><td class="num">3</td><td>Lava Fields, Desert Ruins, Crystal Cave</td></tr>
+<tr><td><b>Grain</b></td><td class="num">2</td><td>Cloud Isles, Alien Jungle</td></tr>
+<tr><td><b>Fuel</b></td><td class="num">3</td><td>Gas Giant, Ice Shelf, Toxic Swamp</td></tr>
+<tr><td><b>Gear Cores</b></td><td class="num">2</td><td>Shipwreck, Clockwork City</td></tr>
+<tr><td><b>Data</b></td><td class="num">2</td><td>Space Station, Neon City</td></tr>
+<tr><td><b>Hero XP</b></td><td class="num">2</td><td>Candy Planet, Frozen Future</td></tr>
+</tbody></table></div>
+<p><small class="m">Not used as a biome reward: Diamonds, Crates, Signals, Schematics (pull resources stay rare drops), Metal (comes only from feeding parts) and run coins (in-run only).</small></p>
+</section>
+<section id="display"><h2>How every event option shows its result</h2>
+<div class="note"><p>Per the event-outcome rework, each option below is tagged:</p><ul class="plain"><li><span class="pill pr">R · sheet</span> <b>random</b>: the outcome is news, so the result sheet opens (chance bar sweeps, SUCCESS / NO LUCK, one line per gain or loss).</li><li><span class="pill pd">D · fly-in</span> <b>deterministic</b>: the button already says what happens; no sheet, the gains fly into the HUD (coins, HP, stat chips, chest to the pending bag). A fight starts the battle directly.</li><li><span class="pill pn">toast</span> <b>nothing</b>: "You move on." as a short toast.</li></ul><p>Texts follow the house rules: trigger → effect → number, round numbers, one gain and at most one price per option. "X chest (paid on clear, +Danger)" is account loot and counts toward the 3 account-loot offers per run (<code>RunTuning.MaxAccountLootOffersPerRun</code>).</p></div>
+<p><small class="m">Every option uses an existing <code>RunEffectKind</code> (Coins, HealPct, DamagePct, StatPercent, GainSkill, Battle, PendingReward, BossStatPct, Meter, AwakenRatePct, StrengthenEnemies, Shards, Xp). A biome chest is a <code>PendingReward</code> of one resource. The only new piece is the Rite Offering (pick an owned skill of one synergy to remove), which reuses the quest sacrifice.</small></p>
+</section>
+<section id="weather"><h2>Synergy weather</h2>
+<p>Every biome boosts one synergy and weakens another (owner addition). It tells the player at a glance which build shines here, and the boosted synergy is usually the one the biome's enemies use, so the boost cuts both ways.</p>
+<h3>Rule</h3><ul class="plain"><li><b>What it scales:</b> the <b>damage</b> of that synergy only. Heat / Supernova: Fire damage and the Heat burst. Chill / Freeze: Ice damage. Shock / Arc: Lightning damage. Radiation: Radiation damage (DoT). Bleed: Bleed damage. Combo: combo hits. Counter: counter hits. Alien: alien ability damage. Time: Time skill damage. General: damage of skills with no synergy tag. Chances, stack caps, durations and Freeze / Delay / Stun turns stay as they are, so the text can stay one number.</li><li><b>Numbers:</b> boost +25% everywhere. Weakened −25%, or −50% for a direct opposite (Chill in Lava Fields and Desert Ruins, Heat on the Seabed, Bleed in Clockwork City).</li><li><b>Who:</b> the weakened synergy hits <b>the player only</b>, so a biome never feels easier because its own enemy status got cut. The boost also hits the enemies that use that synergy (named on each card), e.g. Ember enemies' Heat in Lava Fields. Bosses count as enemies.</li><li><b>Stacking (recommended):</b> a separate <b>final multiplier</b> (×1.25 or ×0.75 / ×0.5) applied after all additive bonuses from skills, parts, aliens, heroes and the Laboratory. Example: +40% Fire damage from skills and parts → ×1.4, then Lava ×1.25 → ×1.75. It can never go below zero, so no floor is needed. Alternative: add it to the same pool (+40% + 25% = +65%) with a floor of 25% of base damage; this is harder to read when the weakened synergy is the player's main build.</li><li><b>Shown:</b> two chips on the portal card and the level-select portal (“Heat +25%” green, “Chill −50%” red), a banner at level start, and a small “+25% here” / “−50% here” badge on signature cards, skill drafts and shop skills whose tags match. In battle the damage numbers include it; the battle HUD keeps the two chips in a corner.</li><li><b>Signature pick:</b> the level-start banner shows <b>before</b> the signature choice (from level 3), and the two signature cards carry the badge, so the player can lean in or hedge.</li><li><b>Modes:</b> main campaign (Normal and Overcharged) only. Dark Side (ash wastes, already +45–90% enemy stats) and Burrow floors get no weather; a rotating Dark Side weather is a possible later twist. Invasions and the Arena: none.</li></ul>
+<h3>Spread</h3><div class="wrap"><table><thead><tr><th>Synergy</th><th class="num">Boosted</th><th>Where</th><th class="num">Weakened</th><th>Where</th></tr></thead><tbody>
+<tr><td><b>Heat / Supernova</b></td><td class="num">1</td><td>Lava Fields</td><td class="num">2</td><td>Seabed (−50%), Frozen Future (−25%)</td></tr>
+<tr><td><b>Chill / Freeze</b></td><td class="num">2</td><td>Cloud Isles, Ice Shelf</td><td class="num">2</td><td>Lava Fields (−50%), Desert Ruins (−50%)</td></tr>
+<tr><td><b>Shock / Arc</b></td><td class="num">2</td><td>Space Station, Neon City</td><td class="num">2</td><td>Shipwreck (−25%), Mushroom Forest (−25%)</td></tr>
+<tr><td><b>Radiation</b></td><td class="num">2</td><td>Toxic Swamp, Mushroom Forest</td><td class="num">2</td><td>Cloud Isles (−25%), Coral Reef (−25%)</td></tr>
+<tr><td><b>Bleed</b></td><td class="num">2</td><td>Coral Reef, Shipwreck</td><td class="num">2</td><td>Crystal Cave (−25%), Clockwork City (−50%)</td></tr>
+<tr><td><b>Combo</b></td><td class="num">2</td><td>Gas Giant, Candy Planet</td><td class="num">2</td><td>Ice Shelf (−25%), Toxic Swamp (−25%)</td></tr>
+<tr><td><b>Counter</b></td><td class="num">2</td><td>Seabed, Crystal Cave</td><td class="num">2</td><td>Gas Giant (−25%), Candy Planet (−25%)</td></tr>
+<tr><td><b>Alien</b></td><td class="num">1</td><td>Alien Jungle</td><td class="num">1</td><td>Space Station (−25%)</td></tr>
+<tr><td><b>Time</b></td><td class="num">2</td><td>Clockwork City, Frozen Future</td><td class="num">1</td><td>Neon City (−25%)</td></tr>
+<tr><td><b>General</b></td><td class="num">1</td><td>Desert Ruins</td><td class="num">1</td><td>Alien Jungle (−25%)</td></tr>
+</tbody></table></div>
+<p><small class="m">Every synergy is boosted in 1–2 biomes and weakened in 1–2. No biome boosts the synergy it weakens, and no biome weakens the status its own enemies use.</small></p>
+</section>
+<section id="unlocks"><h2>Unlock path: one signature and one biome at a time</h2>
+<p>Signatures unlock by campaign level, no longer through the Laboratory. Each unlock adds one synergy to the signature pick and one biome to the rotation, and the new biome <b>boosts the new synergy</b>, so the player meets a home for it on the next levels.</p>
+<div class="wrap"><table><thead><tr><th class="num">From level</th><th>New signature</th><th>New biome</th><th class="num">Rotation</th><th>Note</th></tr></thead><tbody>
+<tr><td class="num">1</td><td>Fire (Heat / Supernova), Radiation, Bleed, Combo <small class="m">(pick from level 3)</small></td><td>Lava Fields, Toxic Swamp, Shipwreck, Gas Giant</td><td class="num">4</td><td>Each start biome boosts one start synergy: Lava Fields Heat, Toxic Swamp Radiation, Shipwreck Bleed, Gas Giant Combo.</td></tr>
+<tr><td class="num">10</td><td>Ice (Chill / Freeze)</td><td><a href="#biome-cloud_islands">Cloud Isles</a> <span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Radiation −25%</span></td><td class="num">5</td><td>Cloud Isles boosts Chill: the new signature has a home biome right away.</td></tr>
+<tr><td class="num">20</td><td>Lightning (Shock / Arc)</td><td><a href="#biome-space_station">Space Station</a> <span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Alien −25%</span></td><td class="num">6</td><td>Space Station boosts Shock.</td></tr>
+<tr><td class="num">35</td><td>Counter</td><td><a href="#biome-seabed">Seabed</a> <span class="pill pd">Counter +25%</span> <span class="pill pc">Heat / Supernova −50%</span></td><td class="num">7</td><td>Seabed boosts Counter (and halves Heat, the first hard counter for Fire builds).</td></tr>
+<tr><td class="num">60</td><td>Alien</td><td><a href="#biome-alien_jungle">Alien Jungle</a> <span class="pill pd">Alien +25%</span> <span class="pill pc">General −25%</span></td><td class="num">8</td><td>Alien Jungle boosts Alien. Lands after the Aliens feature unlock.</td></tr>
+<tr><td class="num">90</td><td>Time</td><td><a href="#biome-clockwork_city">Clockwork City</a> <span class="status planned">planned</span> <span class="pill pd">Time +25%</span> <span class="pill pc">Bleed −50%</span></td><td class="num">9</td><td>Clockwork City boosts Time. First planned biome (needs art).</td></tr>
+<tr><td class="num">125</td><td>—</td><td><a href="#biome-desert_ruins">Desert Ruins</a> <span class="status planned">planned</span> <span class="pill pd">General +25%</span> <span class="pill pc">Chill / Freeze −50%</span></td><td class="num">10</td><td>From here on biomes only (all 9 signatures are out).</td></tr>
+<tr><td class="num">160</td><td>—</td><td><a href="#biome-ice">Ice Shelf</a> <span class="status planned">planned</span> <span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Combo −25%</span></td><td class="num">11</td><td></td></tr>
+<tr><td class="num">200</td><td>—</td><td><a href="#biome-neon_city">Neon City</a> <span class="status planned">planned</span> <span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Time −25%</span></td><td class="num">12</td><td></td></tr>
+<tr><td class="num">245</td><td>—</td><td><a href="#biome-mushroom_forest">Mushroom Forest</a> <span class="status planned">planned</span> <span class="pill pd">Radiation +25%</span> <span class="pill pc">Shock / Arc −25%</span></td><td class="num">13</td><td></td></tr>
+<tr><td class="num">295</td><td>—</td><td><a href="#biome-crystal_cave">Crystal Cave</a> <span class="status planned">planned</span> <span class="pill pd">Counter +25%</span> <span class="pill pc">Bleed −25%</span></td><td class="num">14</td><td></td></tr>
+<tr><td class="num">350</td><td>—</td><td><a href="#biome-coral_reef">Coral Reef</a> <span class="status planned">planned</span> <span class="pill pd">Bleed +25%</span> <span class="pill pc">Radiation −25%</span></td><td class="num">15</td><td></td></tr>
+<tr><td class="num">420</td><td>—</td><td><a href="#biome-candy_planet">Candy Planet</a> <span class="status planned">planned</span> <span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span></td><td class="num">16</td><td></td></tr>
+<tr><td class="num">500</td><td>—</td><td><a href="#biome-frozen_future">Frozen Future</a> <span class="status planned">planned</span> <span class="pill pd">Time +25%</span> <span class="pill pc">Heat / Supernova −25%</span></td><td class="num">17</td><td>All 17 biomes in rotation.</td></tr>
+</tbody></table></div>
+<h3>Rules</h3><ul class="plain"><li><b>Thresholds:</b> 10, 20, 35, 60, 90 as given, then spread to 500: 125, 160, 200, 245, 295, 350, 420, 500 (gaps grow from 35 to 80). Today's ceiling with perfect gear is about level 300, so the last 3 biomes wait for future power; that is intended.</li><li><b>First visit:</b> the level right after an unlock is always the new biome (a “New biome” banner on its portal), then it joins the shuffle.</li><li><b>Shuffle:</b> the seeded order shuffles the unlocked biomes in blocks of the rotation size; never the same biome twice in a row.</li><li><b>Planned biomes</b> join when their art is in. If a planned biome is not ready at its level, its slot waits and the next ready one fills it; the signature unlocks on time regardless.</li><li><b>Laboratory:</b> the six signature packages (Combo … Time) go, no replacement. The tree is restructured around the gap: the synergy skill nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) hang off the neighbouring stat nodes and need the synergy's level unlock instead of the package. Combo moves into the start set: 4 start synergies for 4 start biomes.</li><li><b>Weather early on:</b> with 4 start biomes that each boost a start synergy, weather can be on from level 1; the first penalty that bites a start synergy is the Seabed at level 35 (Heat −50%).</li></ul>
+</section>
+<section id="rites"><h2>Rites: events that know the biome</h2>
+<p>Every biome has one Rite: an event that reaches into <b>this level's</b> enemies and boss. It plays against the weather: the biome's <b>weakened</b> synergy is what the land asks for.</p>
+<h3>How a Rite works</h3><ul class="plain"><li><b><span class="pill pb">Offering</span> Offering:</b> give up one owned run skill of the biome's weakened synergy (you pick which). The land answers with one thing for the rest of the level: boss −20% ATK, boss −20% HP, the boss awakens 25% slower, or nearby enemies −25%. Shown only if you own such a skill; the skill is gone (its levels too, like the existing sacrifice). A signature can't be offered.</li><li><b>Second option:</b> a biome-specific deal with one gain and one price (HP, coins, or a stronger boss).</li><li><b>Leave</b> is always there.</li><li><b>Placement (decided):</b> the Rite is the 5th biome event, with double weight, and only on event tiles in the first half of the board, so its effect still has a boss to matter for. About 1 visit in 3 meets it. Cost: the offered skill, nothing more.</li><li><b>Shown:</b> like every boss modifier today (boss ATK / HP %, awakening speed); no new art.</li></ul>
+<div class="events">
+<div class="ev" id="rite-alien_jungle"><div class="ev-h"><b>Alien Jungle: Prune the Orchid</b><span class="idtag">#rite-alien_jungle</span></div>
+<div class="setup">Vines lead back to the Volt Orchid&#x27;s root.</div><ul class="opts">
+<li><span class="btn">Offer a skill with no synergy</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% ATK.</span></li>
+<li><span class="btn">Eat a petal (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Alien +25%</span> <span class="pill pc">General −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-cloud_islands"><div class="ev-h"><b>Cloud Isles: Roc Nest</b><span class="idtag">#rite-cloud_islands</span></div>
+<div class="setup">A Hailwing Roc&#x27;s nest, eggs still warm.</div><ul class="opts">
+<li><span class="btn">Offer a Radiation skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% ATK.</span></li>
+<li><span class="btn">Steal an egg (boss +15% ATK)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Radiation −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-gas_giant"><div class="ev-h"><b>Gas Giant: Storm Valve</b><span class="idtag">#rite-gas_giant</span></div>
+<div class="setup">A master valve controls the storm feeding the rigs.</div><ul class="opts">
+<li><span class="btn">Offer a Counter skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">The boss awakens 25% slower.</span></li>
+<li><span class="btn">Open it fully (boss +10% ATK)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+2 portal shards.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span> · Art: Prop <code>gas_vent</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-lava"><div class="ev-h"><b>Lava Fields: Quench the Crust</b><span class="idtag">#rite-lava</span></div>
+<div class="setup">Steam hisses where the crust is thin. Something cold could seal it.</div><ul class="opts">
+<li><span class="btn">Offer an Ice skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% ATK.</span></li>
+<li><span class="btn">Bathe in the lava (lose 20% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+20% Fire damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Heat / Supernova +25%</span> <span class="pill pc">Chill / Freeze −50%</span> · Art: Prop <code>magma_forge</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-seabed"><div class="ev-h"><b>Seabed: Drowned Brazier</b><span class="idtag">#rite-seabed</span></div>
+<div class="setup">A brazier still burns at the bottom of the sea. The deep wants it out.</div><ul class="opts">
+<li><span class="btn">Offer a Heat skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Nearby enemies −25%.</span></li>
+<li><span class="btn">Relight it (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Fire damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Counter +25%</span> <span class="pill pc">Heat / Supernova −50%</span> · Art: Prop <code>event_shrine</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-shipwreck"><div class="ev-h"><b>Shipwreck: Dead Generator</b><span class="idtag">#rite-shipwreck</span></div>
+<div class="setup">The wreck&#x27;s generator could be scuttled for good.</div><ul class="opts">
+<li><span class="btn">Offer a Shock skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% HP.</span></li>
+<li><span class="btn">Strip it (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+100 coins.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Bleed +25%</span> <span class="pill pc">Shock / Arc −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-space_station"><div class="ev-h"><b>Space Station: Purge Protocol</b><span class="idtag">#rite-space_station</span></div>
+<div class="setup">A console offers a full quarantine purge of the hive deck.</div><ul class="opts">
+<li><span class="btn">Offer an Alien skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Nearby enemies −25%.</span></li>
+<li><span class="btn">Overload the grid (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −20.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Alien −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-toxic_swamp"><div class="ev-h"><b>Toxic Swamp: Drain the Bog</b><span class="idtag">#rite-toxic_swamp</span></div>
+<div class="setup">A sluice gate holds back the Gloop Matriarch&#x27;s pool.</div><ul class="opts">
+<li><span class="btn">Offer a Combo skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Nearby enemies −25%.</span></li>
+<li><span class="btn">Drink from it (−10% max HP for the run)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Radiation +25%</span> <span class="pill pc">Combo −25%</span> · Art: Prop <code>leaking_barrel</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-candy_planet"><div class="ev-h"><b>Candy Planet: Sugar Crash</b><span class="idtag">#rite-candy_planet</span></div>
+<div class="setup">A sticky syrup lake next to the Behemoth&#x27;s den.</div><ul class="opts">
+<li><span class="btn">Offer a Counter skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">The boss awakens 25% slower.</span></li>
+<li><span class="btn">Taste it (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span> · Art: Prop <code>chocolate_fountain</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-clockwork_city"><div class="ev-h"><b>Clockwork City: Stop the Clock</b><span class="idtag">#rite-clockwork_city</span></div>
+<div class="setup">The Chrono Wyrm rewinds itself with the great clock&#x27;s spring.</div><ul class="opts">
+<li><span class="btn">Offer a Bleed skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% HP.</span></li>
+<li><span class="btn">Wind it back (lose 15% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −20.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Time +25%</span> <span class="pill pc">Bleed −50%</span> · Art: Prop <code>great_clock</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-coral_reef"><div class="ev-h"><b>Coral Reef: Blood in the Water</b><span class="idtag">#rite-coral_reef</span></div>
+<div class="setup">The Tide Hydra hunts by scent. You could leave it a trail.</div><ul class="opts">
+<li><span class="btn">Offer a Radiation skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% HP.</span></li>
+<li><span class="btn">Cut yourself (lose 15% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% ATK for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Bleed +25%</span> <span class="pill pc">Radiation −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-crystal_cave"><div class="ev-h"><b>Crystal Cave: Shatter the Prism</b><span class="idtag">#rite-crystal_cave</span></div>
+<div class="setup">The Prism Tyrant draws light from one giant crystal.</div><ul class="opts">
+<li><span class="btn">Offer a Bleed skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% ATK.</span></li>
+<li><span class="btn">Take a shard (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Counter chance for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Counter +25%</span> <span class="pill pc">Bleed −25%</span> · Art: Prop <code>time_crystal</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-desert_ruins"><div class="ev-h"><b>Desert Ruins: Sun Altar</b><span class="idtag">#rite-desert_ruins</span></div>
+<div class="setup">The Sun-King&#x27;s altar waits for a sacrifice at noon.</div><ul class="opts">
+<li><span class="btn">Offer an Ice skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% HP.</span></li>
+<li><span class="btn">Pray (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −20.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">General +25%</span> <span class="pill pc">Chill / Freeze −50%</span> · Art: Prop <code>event_shrine</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-frozen_future"><div class="ev-h"><b>Frozen Future: Thaw the Moment</b><span class="idtag">#rite-frozen_future</span></div>
+<div class="setup">One moment, frozen. Warmth would set it moving again.</div><ul class="opts">
+<li><span class="btn">Offer a Heat skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">The boss awakens 25% slower.</span></li>
+<li><span class="btn">Freeze with it (−5% Speed for the run)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −15.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Time +25%</span> <span class="pill pc">Heat / Supernova −25%</span> · Art: Prop <code>cryo_pod</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-ice"><div class="ev-h"><b>Ice Shelf: Thin Ice</b><span class="idtag">#rite-ice</span></div>
+<div class="setup">The ice over the Colossus&#x27;s den is cracking.</div><ul class="opts">
+<li><span class="btn">Offer a Combo skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% HP.</span></li>
+<li><span class="btn">Break it (lose 15% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Ice damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Combo −25%</span> · Art: Prop <code>frozen_block</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="rite-mushroom_forest"><div class="ev-h"><b>Mushroom Forest: Burn the Spores</b><span class="idtag">#rite-mushroom_forest</span></div>
+<div class="setup">Dry spore stalks around the Monarch&#x27;s ring would burn fast.</div><ul class="opts">
+<li><span class="btn">Offer a Shock skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">Boss −20% ATK.</span></li>
+<li><span class="btn">Inhale (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+50 XP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Radiation +25%</span> <span class="pill pc">Shock / Arc −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="rite-neon_city"><div class="ev-h"><b>Neon City: Cut the Speakers</b><span class="idtag">#rite-neon_city</span></div>
+<div class="setup">The Cantor&#x27;s song plays from every speaker in the city.</div><ul class="opts">
+<li><span class="btn">Offer a Time skill</span><span class="k"><span class="pill pb">Offering</span></span><span class="res">The boss awakens 25% slower.</span></li>
+<li><span class="btn">Turn it up (boss +10% ATK)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Lightning damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Weather <span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Time −25%</span> · Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+</div>
+<h3>More directions for biome-aware events</h3><ul class="plain"><li><b>Boss scout:</b> Biomes with two bosses: a scout event lets you pick which variant waits at the end (picks a boss id, no new effect).</li><li><b>Bigger offerings:</b> Offer 2 skills of the weakened synergy: the effect doubles (Boss −40% ATK).</li></ul>
+</section>
+<section id="biomes"><h2>Biomes</h2>
+<p class="lede">In unlock order. Stats of NEW enemies sit on the standard budget of their role (regular, elite, boss: HP × ATK within a few %), like the elites added in playtest 0.1.359.</p>
+<article class="card" id="biome-lava">
+<div class="card-head"><h3>Lava Fields</h3><span class="status live">live</span><span class="yield">×2 Ore</span><span class="pill pn">from level 1</span><span class="idtag">#biome-lava</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>Rivers of lava under a cracked black-glass crust: everything here burns.</dd><dt>Mood</dt><dd>Black basalt, lava orange-red, ember yellow.</dd><dt>Gameplay</dt><dd>Heat and Supernova. Enemies stack Heat on you; events sell Fire damage.</dd><dt>Reward</dt><dd><b>×2 Ore</b>: Molten ore runs in the lava veins. Portal card chip “×2 Ore”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Heat / Supernova +25%</span> <span class="pill pc">Chill / Freeze −50%</span> <small class="m">Boost also applies to: you + Ember Imp, Lava Brute, Cinder Alpha, both Magma bosses (Heat). Weakened: you only. Lava burns; ice melts on contact.</small></dd><dt>Hazard</dt><dd>Lava Crack (Crystal Spikes reskin): lose 10% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Ember Imp</b> <span class="pill pd">reuse</span> <span class="why">Heat on hit (30%).</span></li>
+<li><b>Magma Slug</b> <span class="pill pd">reuse</span> <span class="why">Starts with a 15% shield (Harden).</span></li>
+<li><b>Cinder Hound</b> <span class="pill pd">reuse</span> <span class="why">Fast, +15% Combo.</span></li>
+<li><b>Obsidian Crab</b> <span class="pill pc">NEW</span> <span class="why">Black-glass crab: Harden + 10% Counter.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Lava Brute</b> <span class="pill pd">reuse</span> <span class="why">Heat on hit, Enrage.</span></li>
+<li><b>Cinder Alpha</b> <span class="pill pd">reuse</span> <span class="why">Heat + Bleed, +15% Combo.</span></li>
+</ul></div>
+<div class="box"><h4>Bosses (2 variants, alternate per visit)</h4><ul class="ros">
+<li><b>Magma Tyrant</b> <span class="pill pd">reuse</span><br><span class="why">Eruption: every 4 rounds 80 damage to all + 2 Heat.</span></li>
+<li><b>Elder Magma</b> <span class="pill pb">art approved · NEW def</span><br><span class="why">Molten Core: on hit 2 Heat (50%).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Salamander Smith</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Ore Geyser</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Magma Forge</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-lava-1"><div class="ev-h"><b>Salamander Smith</b><span class="idtag">#ev-lava-1</span></div>
+<div class="setup">A salamander smith hammers at a glowing anvil.</div><ul class="opts">
+<li><span class="btn">Forge armor (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% DEF for the run.</span></li>
+<li><span class="btn">Forge a blade (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Fire damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>salamander_smith</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-lava-2"><div class="ev-h"><b>Ore Geyser</b><span class="idtag">#ev-lava-2</span></div>
+<div class="setup">A geyser spits glowing ore every few seconds.</div><ul class="opts">
+<li><span class="btn">Catch the ore</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Ore chest (paid on clear, +Danger). Lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>ore_geyser</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-lava-3"><div class="ev-h"><b>Magma Forge</b><span class="idtag">#ev-lava-3</span></div>
+<div class="setup">An abandoned forge still burns hot.</div><ul class="opts">
+<li><span class="btn">Overheat it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +15% Fire damage for the run. 50%: lose 20% HP.</span></li>
+<li><span class="btn">Warm up</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 15% HP.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>magma_forge</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-lava-4"><div class="ev-h"><b>Lava Bridge</b><span class="idtag">#ev-lava-4</span></div>
+<div class="setup">A crumbling bridge crosses a lava river. The long way round is safe.</div><ul class="opts">
+<li><span class="btn">Run across</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">70%: +2 portal shards. 30%: lose 25% HP.</span></li>
+<li><span class="btn">Go round</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening +10.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-lava">Quench the Crust</a></small></p></article>
+<article class="card" id="biome-gas_giant">
+<div class="card-head"><h3>Gas Giant</h3><span class="status live">live</span><span class="yield">×2 Fuel</span><span class="pill pn">from level 1</span><span class="idtag">#biome-gas_giant</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>Floating refinery rigs above an endless orange storm.</dd><dt>Mood</dt><dd>Amber and rust bands, cream gas, steel-grey rigs.</dd><dt>Gameplay</dt><dd>Heat and Speed. Explosive gas: events add Heat at fight start; flyers dodge.</dd><dt>Reward</dt><dd><b>×2 Fuel</b>: The rigs refine storm gas into Fuel. Portal card chip “×2 Fuel”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span> <small class="m">Boost also applies to: you + Rig Raider (Combo). Weakened: you only. Storm winds carry follow-ups; no footing to brace a counter.</small></dd><dt>Hazard</dt><dd>Gas Pocket (Gravity Vortex reskin): lose 4% HP, next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Ash Wraith</b> <span class="pill pd">reuse</span> <span class="why">+15% Dodge.</span></li>
+<li><b>Ember Imp</b> <span class="pill pd">reuse</span> <span class="why">Heat on hit (30%).</span></li>
+<li><b>Gas Bloater</b> <span class="pill pc">NEW</span> <span class="why">Floating gasbag with a fuse: high HP, Heat on hit.</span></li>
+<li><b>Flare Ray</b> <span class="pill pc">NEW</span> <span class="why">Burning manta riding thermals: fast, +15% Crit.</span></li>
+<li><b>Rig Raider</b> <span class="pill pc">NEW</span> <span class="why">Goggled scavenger worm with a jetpack: +15% Combo.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Ash Matriarch</b> <span class="pill pd">reuse</span> <span class="why">Heat on hit, Harden, +10% Dodge.</span></li>
+<li><b>Bloat Captain</b> <span class="pill pc">NEW</span> <span class="why">Gasbag pirate captain: Heat on hit, Enrage.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Flare Medusa</b> <span class="pill pc">NEW</span><br><span class="why">Ignition: every 3 rounds +3 Heat on you (your Heat bursts at 10).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Rig Foreman</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Gas Vent</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Fuel Tank</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-gas_giant-1"><div class="ev-h"><b>Rig Foreman</b><span class="idtag">#ev-gas_giant-1</span></div>
+<div class="setup">A rig foreman needs a hand with a stuck valve.</div><ul class="opts">
+<li><span class="btn">Help (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+60 coins.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>rig_foreman</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-gas_giant-2"><div class="ev-h"><b>Updraft</b><span class="idtag">#ev-gas_giant-2</span></div>
+<div class="setup">A roaring updraft howls between the rigs.</div><ul class="opts">
+<li><span class="btn">Ride it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +10% Speed for the run. 40%: lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>gas_vent</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-gas_giant-3"><div class="ev-h"><b>Gas Pocket</b><span class="idtag">#ev-gas_giant-3</span></div>
+<div class="setup">A pocket of glowing gas. One spark and it blows.</div><ul class="opts">
+<li><span class="btn">Ignite it (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Nearby enemies −15%.</span></li>
+<li><span class="btn">Breathe it in</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +10% ATK. 50%: lose 10% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>gas_vent</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-gas_giant-4"><div class="ev-h"><b>Refinery Overflow</b><span class="idtag">#ev-gas_giant-4</span></div>
+<div class="setup">A refinery tank overflows with Fuel.</div><ul class="opts">
+<li><span class="btn">Fill up</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Fuel chest (paid on clear, +Danger). The boss awakens 10% faster.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>fuel_tank</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-gas_giant">Storm Valve</a></small></p></article>
+<article class="card" id="biome-shipwreck">
+<div class="card-head"><h3>Shipwreck</h3><span class="status live">live</span><span class="yield">×2 Gear Cores</span><span class="pill pn">from level 1</span><span class="idtag">#biome-shipwreck</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A starship graveyard; something hungry lives in the holds.</dd><dt>Mood</dt><dd>Rust brown, gunmetal, sickly purple glow.</dd><dt>Gameplay</dt><dd>Bleed and Radiation. Salvage and greed: loot with a price.</dd><dt>Reward</dt><dd><b>×2 Gear Cores</b>: Wrecked engines still hold their cores. Portal card chip “×2 Gear Cores”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Bleed +25%</span> <span class="pill pc">Shock / Arc −25%</span> <small class="m">Boost also applies to: you + Tunnel Stalker, Null Shade, Void Reaver, Null Wraith (Bleed). Weakened: you only. Jagged metal; the power is dead.</small></dd><dt>Hazard</dt><dd>Hull Breach (Gravity Vortex reskin): next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Tunnel Stalker</b> <span class="pill pd">reuse</span> <span class="why">Bleed on hit.</span></li>
+<li><b>Null Shade</b> <span class="pill pd">reuse</span> <span class="why">Bleed on hit, +18% Dodge.</span></li>
+<li><b>Rust Leech</b> <span class="pill pc">NEW</span> <span class="why">Rusty eel-leech: Radiation on hit.</span></li>
+<li><b>Scrap Crab</b> <span class="pill pc">NEW</span> <span class="why">Crab with a hull-plate shell: Harden, +10% Counter.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Void Reaver</b> <span class="pill pd">reuse</span> <span class="why">Bleed on hit, Enrage.</span></li>
+<li><b>Null Wraith</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Bleed + Radiation, +12% Dodge.</span></li>
+</ul></div>
+<div class="box"><h4>Bosses (2 variants, alternate per visit)</h4><ul class="ros">
+<li><b>Rust Queen</b> <span class="pill pd">reuse</span><br><span class="why">Salvage: every 3 rounds rebuilds a 15% HP shield.</span></li>
+<li><b>Void Maw</b> <span class="pill pd">reuse</span><br><span class="why">Variant B. Void Hunger: every 3 rounds 60 true damage; 20% lifesteal.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Scavenger</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Wreck (reuse)</b> <span class="pill pd">reuse</span> <span class="why">prop</span></li>
+<li><b>Cart (reuse)</b> <span class="pill pd">reuse</span> <span class="why">prop</span></li>
+<li><b>Distress Beacon</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-shipwreck-1"><div class="ev-h"><b>Engine Room</b><span class="idtag">#ev-shipwreck-1</span></div>
+<div class="setup">A wrecked engine still holds its cores.</div><ul class="opts">
+<li><span class="btn">Pull the cores</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gear Core chest (paid on clear, +Danger). Lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-shipwreck-2"><div class="ev-h"><b>Scavenger</b><span class="idtag">#ev-shipwreck-2</span></div>
+<div class="setup">A scavenger sells parts from the wrecks.</div><ul class="opts">
+<li><span class="btn">Hull plating (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% DEF for the run.</span></li>
+<li><span class="btn">Rusty blade (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Bleed damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>scavenger</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shipwreck-3"><div class="ev-h"><b>Distress Beacon</b><span class="idtag">#ev-shipwreck-3</span></div>
+<div class="setup">A beacon still calls for help.</div><ul class="opts">
+<li><span class="btn">Answer it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: a survivor teaches you: gain a Legendary+ skill. 50%: ambush: elite fight.</span></li>
+<li><span class="btn">Switch it off</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −10.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>distress_beacon</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shipwreck-4"><div class="ev-h"><b>Captain&#x27;s Locker</b><span class="idtag">#ev-shipwreck-4</span></div>
+<div class="setup">A locked captain&#x27;s locker.</div><ul class="opts">
+<li><span class="btn">Force it open</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +100 coins. 40%: toxic gas: lose 20% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>abandoned_cart</code> <span class="pill pd">reuse</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-shipwreck">Dead Generator</a></small></p></article>
+<article class="card" id="biome-toxic_swamp">
+<div class="card-head"><h3>Toxic Swamp</h3><span class="status live">live</span><span class="yield">×2 Fuel</span><span class="pill pn">from level 1</span><span class="idtag">#biome-toxic_swamp</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A bubbling green swamp where every drop is poison.</dd><dt>Mood</dt><dd>Toxic green, bog brown, purple mist.</dd><dt>Gameplay</dt><dd>Radiation (stacks forever, cuts healing). Brews and gambles.</dd><dt>Reward</dt><dd><b>×2 Fuel</b>: Swamp gas burns well. Portal card chip “×2 Fuel”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Radiation +25%</span> <span class="pill pc">Combo −25%</span> <small class="m">Boost also applies to: you + Void Spawn, Burrow Grub, Bog Toad, Burrow Horror, Grub Mother, Gloop Matriarch (Radiation). Weakened: you only. Poison in every drop; mud slows follow-ups.</small></dd><dt>Hazard</dt><dd>Toxic Bubble (Acid Pool reskin): −6% DEF. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Void Spawn</b> <span class="pill pd">reuse</span> <span class="why">Radiation on hit.</span></li>
+<li><b>Burrow Grub</b> <span class="pill pd">reuse</span> <span class="why">Radiation on hit.</span></li>
+<li><b>Bog Toad</b> <span class="pill pc">NEW</span> <span class="why">Warty green toad: Radiation on hit (2 stacks).</span></li>
+<li><b>Mire Gator</b> <span class="pill pc">NEW</span> <span class="why">Mossy alligator: Slam, +15% Crit.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Burrow Horror</b> <span class="pill pd">reuse</span> <span class="why">Radiation on hit, Enrage.</span></li>
+<li><b>Grub Mother</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Radiation on hit, Harden, +10% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Gloop Matriarch</b> <span class="pill pd">reuse</span><br><span class="why">Toxic Flood: every 3 rounds +3 Radiation on you.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Cursed Vendor (reuse, as Swamp Witch)</b> <span class="pill pd">reuse</span> <span class="why">local character</span></li>
+<li><b>Gas Bubbles</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Toxic Bloom</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Sunken Hut</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-toxic_swamp-1"><div class="ev-h"><b>Swamp Witch</b><span class="idtag">#ev-toxic_swamp-1</span></div>
+<div class="setup">A witch stirs a bubbling cauldron.</div><ul class="opts">
+<li><span class="btn">Drink the brew</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +15% ATK. 50%: −10% max HP.</span></li>
+<li><span class="btn">Antidote (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 30% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>cursed_vendor</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-toxic_swamp-2"><div class="ev-h"><b>Gas Bubbles</b><span class="idtag">#ev-toxic_swamp-2</span></div>
+<div class="setup">Huge bubbles of swamp gas rise and pop.</div><ul class="opts">
+<li><span class="btn">Bottle the gas</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Fuel chest (paid on clear, +Danger). Lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>gas_bubbles</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-toxic_swamp-3"><div class="ev-h"><b>Toxic Bloom</b><span class="idtag">#ev-toxic_swamp-3</span></div>
+<div class="setup">A flower drips glowing poison.</div><ul class="opts">
+<li><span class="btn">Coat your fangs (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Radiation damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>toxic_bloom</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-toxic_swamp-4"><div class="ev-h"><b>Sunken Hut</b><span class="idtag">#ev-toxic_swamp-4</span></div>
+<div class="setup">A hut sinks into the mud. The door is open.</div><ul class="opts">
+<li><span class="btn">Search the hut</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +2 portal shards. 40%: a gator: enemy fight.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>sunken_hut</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-toxic_swamp">Drain the Bog</a></small></p></article>
+<article class="card" id="biome-cloud_islands">
+<div class="card-head"><h3>Cloud Isles</h3><span class="status live">live</span><span class="yield">×2 Grain</span><span class="pill pn">from level 10</span><span class="idtag">#biome-cloud_islands</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>Floating islands on frozen chains above a sea of cloud.</dd><dt>Mood</dt><dd>Sky blue, white, pale gold.</dd><dt>Gameplay</dt><dd>Chill plus Speed and Dodge (wind). Climb-and-fall gambles.</dd><dt>Reward</dt><dd><b>×2 Grain</b>: Sky-wheat terraces on every island. Portal card chip “×2 Grain”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Radiation −25%</span> <small class="m">Boost also applies to: you + Hail Sprite, Lurker Alpha, Glacier Warden (Freeze). Weakened: you only. Thin cold air; the wind blows toxins away.</small></dd><dt>Hazard</dt><dd>Gust (Gravity Vortex reskin): next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Snow Lurker</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Fast, +15% Crit.</span></li>
+<li><b>Glacier Golem</b> <span class="pill pd">reuse</span> <span class="why">Floating rock golem: +12% Counter.</span></li>
+<li><b>Hail Sprite</b> <span class="pill pc">NEW</span> <span class="why">Tiny hail spirit: Freeze on hit, +20% Dodge.</span></li>
+<li><b>Sky Ray</b> <span class="pill pc">NEW</span> <span class="why">Pale gliding ray: very fast, +15% Crit.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Lurker Alpha</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Freeze on hit, Enrage, +10% Crit.</span></li>
+<li><b>Glacier Warden</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit, Stun slam, +12% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Hailwing Roc</b> <span class="pill pc">NEW</span><br><span class="why">Sky Dancer: +25% Dodge.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Sky Farmer</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Wind Shrine</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Roc Nest</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-cloud_islands-1"><div class="ev-h"><b>Sky Farmer</b><span class="idtag">#ev-cloud_islands-1</span></div>
+<div class="setup">A farmer on a floating field waves you over.</div><ul class="opts">
+<li><span class="btn">Help harvest (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Grain chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Buy bread (30 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 25% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>sky_farmer</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-cloud_islands-2"><div class="ev-h"><b>Chain Bridge</b><span class="idtag">#ev-cloud_islands-2</span></div>
+<div class="setup">A frozen chain links two islands.</div><ul class="opts">
+<li><span class="btn">Climb across</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +2 portal shards. 40%: you fall: lose 20% HP.</span></li>
+<li><span class="btn">Go around</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening +10.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-cloud_islands-3"><div class="ev-h"><b>Wind Shrine</b><span class="idtag">#ev-cloud_islands-3</span></div>
+<div class="setup">A shrine where the wind always blows.</div><ul class="opts">
+<li><span class="btn">Pray for speed</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run.</span></li>
+<li><span class="btn">Pray for calm</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −15.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>wind_shrine</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-cloud_islands-4"><div class="ev-h"><b>Roc Nest</b><span class="idtag">#ev-cloud_islands-4</span></div>
+<div class="setup">An unguarded roc nest. Something glitters in it.</div><ul class="opts">
+<li><span class="btn">Rob the nest</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight (+20%). Win: 1 reward chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>roc_nest</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-cloud_islands">Roc Nest</a></small></p></article>
+<article class="card" id="biome-space_station">
+<div class="card-head"><h3>Space Station</h3><span class="status live">live</span><span class="yield">×2 Data</span><span class="pill pn">from level 20</span><span class="idtag">#biome-space_station</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A derelict orbital station where the power never went off.</dd><dt>Mood</dt><dd>White panels, hazard yellow, electric blue.</dd><dt>Gameplay</dt><dd>Shock / Arc and summons (drones). Hacking gambles.</dd><dt>Reward</dt><dd><b>×2 Data</b>: The station&#x27;s servers still hold research data. Portal card chip “×2 Data”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Alien −25%</span> <small class="m">Boost also applies to: you + Volt Beetle, Security Bot, Storm Caller, Volt Monarch, Storm Hive Queen (Shock). Weakened: you only. Live wires everywhere; sterile halls weaken alien life.</small></dd><dt>Hazard</dt><dd>Live Wire (Crystal Spikes reskin): lose 10% HP. Toll Drones fit as is. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Spark Drone</b> <span class="pill pd">reuse</span> <span class="why">Fast, fragile blaster.</span></li>
+<li><b>Volt Beetle</b> <span class="pill pd">reuse</span> <span class="why">Shock on hit (35%).</span></li>
+<li><b>Security Bot</b> <span class="pill pc">NEW</span> <span class="why">Boxy security robot: Harden + Shock on hit.</span></li>
+<li><b>Lab Rat</b> <span class="pill pc">NEW</span> <span class="why">Escaped mutant lab rat with a glowing tail: +15% Combo.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Storm Caller</b> <span class="pill pd">reuse</span> <span class="why">Shock on hit, Stun slam.</span></li>
+<li><b>Volt Monarch</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Shock on hit, Harden, +10% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Storm Hive Queen</b> <span class="pill pd">reuse</span><br><span class="why">Swarm Call: every 5 rounds summons a Spark Drone; 2 Shock on hit (50%).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Station AI</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Server Rack</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Med Pod</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-space_station-1"><div class="ev-h"><b>Station AI</b><span class="idtag">#ev-space_station-1</span></div>
+<div class="setup">A cracked screen flickers: &#x27;Visitor. Authorize upgrade?&#x27;</div><ul class="opts">
+<li><span class="btn">Authorize (80 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Lightning damage for the run.</span></li>
+<li><span class="btn">Hack it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: gain a Legendary+ skill. 50%: elite fight.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>station_ai</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-space_station-2"><div class="ev-h"><b>Server Room</b><span class="idtag">#ev-space_station-2</span></div>
+<div class="setup">Racks of servers, still humming.</div><ul class="opts">
+<li><span class="btn">Download</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Data chest (paid on clear, +Danger). Boss awakening +15.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>server_rack</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-space_station-3"><div class="ev-h"><b>Airlock</b><span class="idtag">#ev-space_station-3</span></div>
+<div class="setup">An airlock blinks: OPEN?</div><ul class="opts">
+<li><span class="btn">Vent the deck</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Nearby enemies −10% ATK and HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>event_wreck</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-space_station-4"><div class="ev-h"><b>Med Bay</b><span class="idtag">#ev-space_station-4</span></div>
+<div class="setup">An automated med bay. One pod still works.</div><ul class="opts">
+<li><span class="btn">Use the pod (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 40% HP.</span></li>
+<li><span class="btn">Overclock it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +10% max HP. 50%: lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>med_pod</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-space_station">Purge Protocol</a></small></p></article>
+<article class="card" id="biome-seabed">
+<div class="card-head"><h3>Seabed</h3><span class="status live">live</span><span class="yield">×2 Biomass</span><span class="pill pn">from level 35</span><span class="idtag">#biome-seabed</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>The cold, dark floor of an alien ocean, lit by glowing kelp.</dd><dt>Mood</dt><dd>Deep navy, teal, bioluminescent cyan.</dd><dt>Gameplay</dt><dd>Chill / Freeze and Counter (shells). Pearls and kelp as treasure.</dd><dt>Reward</dt><dd><b>×2 Biomass</b>: Kelp forests grow faster than anything on land. Portal card chip “×2 Biomass”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Counter +25%</span> <span class="pill pc">Heat / Supernova −50%</span> <small class="m">Boost also applies to: you + Kelp Strangler, Trench Crusher (Counter). Weakened: you only. Shells everywhere; fire dies under water.</small></dd><dt>Hazard</dt><dd>Pressure Pocket (Crystal Spikes reskin): lose 10% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Frost Mite</b> <span class="pill pd">reuse</span> <span class="why">Krill-swarm role: Freeze on hit (12%).</span></li>
+<li><b>Ice Crawler</b> <span class="pill pd">reuse</span> <span class="why">Crab role: Harden.</span></li>
+<li><b>Lantern Angler</b> <span class="pill pc">NEW</span> <span class="why">Deep-sea angler with a cold lure: Freeze on hit, +15% Crit.</span></li>
+<li><b>Kelp Strangler</b> <span class="pill pc">NEW</span> <span class="why">Living kelp knot: Harden + 12% Counter.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Frost Knight</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit, Harden.</span></li>
+<li><b>Trench Crusher</b> <span class="pill pc">NEW</span> <span class="why">Giant armoured crab: Stun slam, +12% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Frost Leviathan</b> <span class="pill pd">reuse</span><br><span class="why">Frost Tide: every 5 rounds Freeze on all; starts with a 20% shield.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Diver Hermit</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Giant Clam</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Glowing Kelp</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-seabed-1"><div class="ev-h"><b>Giant Clam</b><span class="idtag">#ev-seabed-1</span></div>
+<div class="setup">A giant clam slowly opens. A pearl glows inside.</div><ul class="opts">
+<li><span class="btn">Grab the pearl</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +2 portal shards. 40%: it snaps shut: lose 20% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>giant_clam</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-seabed-2"><div class="ev-h"><b>Diver Hermit</b><span class="idtag">#ev-seabed-2</span></div>
+<div class="setup">An old diver trades for shiny things.</div><ul class="opts">
+<li><span class="btn">Trade 1 portal shard</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% max HP for the run.</span></li>
+<li><span class="btn">Buy a harpoon (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Ice damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>diver_hermit</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-seabed-3"><div class="ev-h"><b>Kelp Harvest</b><span class="idtag">#ev-seabed-3</span></div>
+<div class="setup">A forest of glowing kelp. Something big sleeps in it.</div><ul class="opts">
+<li><span class="btn">Harvest it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight. Win: Biomass chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>kelp_patch</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-seabed-4"><div class="ev-h"><b>Bubble Vent</b><span class="idtag">#ev-seabed-4</span></div>
+<div class="setup">Warm bubbles rise from a vent.</div><ul class="opts">
+<li><span class="btn">Rest in the bubbles</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 25% HP. Boss awakening +5.</span></li>
+<li><span class="btn">Seal the vent</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −10.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>kelp_patch</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-seabed">Drowned Brazier</a></small></p></article>
+<article class="card" id="biome-alien_jungle">
+<div class="card-head"><h3>Alien Jungle</h3><span class="status live">live</span><span class="yield">×2 Grain</span><span class="pill pn">from level 60</span><span class="idtag">#biome-alien_jungle</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A humid purple jungle where the plants hunt back and the air crackles.</dd><dt>Mood</dt><dd>Violet, acid green, magenta flowers.</dd><dt>Gameplay</dt><dd>Shock plus Alien (companion) skills. Plants that charm and swallow.</dd><dt>Reward</dt><dd><b>×2 Grain</b>: Wild fruit and seed pods. Portal card chip “×2 Grain”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Alien +25%</span> <span class="pill pc">General −25%</span> <small class="m">Boost also applies to: you only. Weakened: you only. Alien life thrives; brute force gets lost in the vines.</small></dd><dt>Hazard</dt><dd>Strangling Vines (Withering Field reskin): −4% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Thunder Moth</b> <span class="pill pb">reuse · art not imported</span> <span class="why">+20% Dodge.</span></li>
+<li><b>Static Eel</b> <span class="pill pd">reuse</span> <span class="why">Vine-river eel: Shock on hit.</span></li>
+<li><b>Snap Orchid</b> <span class="pill pc">NEW</span> <span class="why">Carnivorous flower with teeth: Shock on hit, +15% Counter.</span></li>
+<li><b>Spark Monkey</b> <span class="pill pc">NEW</span> <span class="why">Blue monkey with crackling fur: fast, +15% Combo.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Eel Tyrant</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Shock + Bleed, +10% Dodge (art redo pending).</span></li>
+<li><b>Canopy Stalker</b> <span class="pill pc">NEW</span> <span class="why">Striped jungle cat with glowing whiskers: Shock on hit, +15% Crit.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Volt Orchid</b> <span class="pill pc">NEW</span><br><span class="why">Lure: every 4 rounds it charms you for 1 turn.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Frog Shaman</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Fruit Tree</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Lightning Totem</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Giant Plant</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-alien_jungle-1"><div class="ev-h"><b>Frog Shaman</b><span class="idtag">#ev-alien_jungle-1</span></div>
+<div class="setup">A frog shaman offers a bitter brew.</div><ul class="opts">
+<li><span class="btn">Drink the brew (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>frog_shaman</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-alien_jungle-2"><div class="ev-h"><b>Fruit Tree</b><span class="idtag">#ev-alien_jungle-2</span></div>
+<div class="setup">A tree heavy with glowing fruit.</div><ul class="opts">
+<li><span class="btn">Pick the fruit</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Grain chest (paid on clear, +Danger). Nearby enemies grow stronger.</span></li>
+<li><span class="btn">Eat one</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: heal 30% HP. 40%: lose 10% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>fruit_tree</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-alien_jungle-3"><div class="ev-h"><b>Giant Plant</b><span class="idtag">#ev-alien_jungle-3</span></div>
+<div class="setup">A giant plant has swallowed a supply crate.</div><ul class="opts">
+<li><span class="btn">Cut it open</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight. Win: 1 reward chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>swallow_plant</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-alien_jungle-4"><div class="ev-h"><b>Lightning Totem</b><span class="idtag">#ev-alien_jungle-4</span></div>
+<div class="setup">A totem crackles with stored lightning.</div><ul class="opts">
+<li><span class="btn">Touch it (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Lightning damage for the run.</span></li>
+<li><span class="btn">Break it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+60 coins. Boss awakening +10.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>lightning_totem</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-alien_jungle">Prune the Orchid</a></small></p></article>
+<article class="card" id="biome-clockwork_city">
+<div class="card-head"><h3>Clockwork City</h3><span class="status planned">planned</span><span class="yield">×2 Gear Cores</span><span class="pill pn">from level 90</span><span class="idtag">#biome-clockwork_city</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A brass city that runs on one giant clock, and the clock is running late.</dd><dt>Mood</dt><dd>Brass, copper, steam white, teal glass.</dd><dt>Gameplay</dt><dd>Time plus Combo and Counter (meshing gears). Move the clock, move the boss.</dd><dt>Reward</dt><dd><b>×2 Gear Cores</b>: It is all gears. Portal card chip “×2 Gear Cores”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Time +25%</span> <span class="pill pc">Bleed −50%</span> <small class="m">Boost also applies to: you + Tick Mite, Clockwork Knight (Delay). Weakened: you only. The great clock bends time; machines do not bleed.</small></dd><dt>Hazard</dt><dd>Gear Trap (Crystal Spikes reskin): lose 10% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Tick Mite</b> <span class="pill pc">NEW</span> <span class="why">Delay on hit (15%).</span></li>
+<li><b>Spark Drone</b> <span class="pill pd">reuse</span> <span class="why">Brass drone role: fast blaster.</span></li>
+<li><b>Cog Soldier</b> <span class="pill pc">NEW</span> <span class="why">Wind-up tin soldier with a key in its back: Harden, +12% Counter.</span></li>
+<li><b>Steam Hound</b> <span class="pill pc">NEW</span> <span class="why">Brass dog venting steam: +15% Combo.</span></li>
+<li><b>Spring Hopper</b> <span class="pill pc">NEW</span> <span class="why">Frog-like automaton on springs: very fast.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Clockwork Knight</b> <span class="pill pc">NEW</span> <span class="why">Brass knight with a pendulum flail: Delay on hit, Harden.</span></li>
+<li><b>Rift Echo</b> <span class="pill pd">reuse</span> <span class="why">Stun slam.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Chrono Wyrm</b> <span class="pill pb">art approved · NEW def</span><br><span class="why">Rewind: once, at low HP, it heals 20% HP.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Clockmaker</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Great Clock</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Gear Pile</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Broken Automaton</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-clockwork_city-1"><div class="ev-h"><b>Clockmaker</b><span class="idtag">#ev-clockwork_city-1</span></div>
+<div class="setup">A clockmaker offers to tune your rhythm.</div><ul class="opts">
+<li><span class="btn">Tune speed (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run.</span></li>
+<li><span class="btn">Tune combos (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Combo chance for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>clockmaker</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-clockwork_city-2"><div class="ev-h"><b>Great Clock</b><span class="idtag">#ev-clockwork_city-2</span></div>
+<div class="setup">The city&#x27;s great clock. You could move its hands.</div><ul class="opts">
+<li><span class="btn">Turn it back (lose 15% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −20.</span></li>
+<li><span class="btn">Turn it forward</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill. Boss awakening +20.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>great_clock</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-clockwork_city-3"><div class="ev-h"><b>Gear Pile</b><span class="idtag">#ev-clockwork_city-3</span></div>
+<div class="setup">A heap of spare gears and springs.</div><ul class="opts">
+<li><span class="btn">Sort through it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gear Core chest (paid on clear, +Danger). Nearby enemies grow stronger.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>gear_pile</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-clockwork_city-4"><div class="ev-h"><b>Broken Automaton</b><span class="idtag">#ev-clockwork_city-4</span></div>
+<div class="setup">A broken automaton twitches in the street.</div><ul class="opts">
+<li><span class="btn">Repair it (40 coins)</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: it helps: +10% ATK for the run. 40%: it attacks: elite fight.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>automaton</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-clockwork_city">Stop the Clock</a></small></p></article>
+<article class="card" id="biome-desert_ruins">
+<div class="card-head"><h3>Desert Ruins</h3><span class="status planned">planned</span><span class="yield">×2 Ore</span><span class="pill pn">from level 125</span><span class="idtag">#biome-desert_ruins</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>Sun-bleached temples half buried in red sand; the sun itself is the enemy.</dd><dt>Mood</dt><dd>Sand gold, terracotta, turquoise glyphs.</dd><dt>Gameplay</dt><dd>Heat plus Counter (temple guardians). Trap-and-treasure events.</dd><dt>Reward</dt><dd><b>×2 Ore</b>: Ancient temple metal lies under the sand. Portal card chip “×2 Ore”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">General +25%</span> <span class="pill pc">Chill / Freeze −50%</span> <small class="m">Boost also applies to: you only. Weakened: you only. The temples reward raw strength; the sun melts ice.</small></dd><dt>Hazard</dt><dd>Quicksand (Gravity Vortex reskin): next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Cinder Hound</b> <span class="pill pd">reuse</span> <span class="why">Desert jackal role: fast, +15% Combo.</span></li>
+<li><b>Ash Wraith</b> <span class="pill pd">reuse</span> <span class="why">Sand wraith role: +15% Dodge.</span></li>
+<li><b>Sand Scarab</b> <span class="pill pc">NEW</span> <span class="why">Golden scarab: Harden + 10% Counter.</span></li>
+<li><b>Dune Serpent</b> <span class="pill pc">NEW</span> <span class="why">Striped sand snake: fast, Bleed on hit.</span></li>
+<li><b>Wrapped Husk</b> <span class="pill pc">NEW</span> <span class="why">Bandaged worm mummy: Heat on hit, Enrage.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Cinder Alpha</b> <span class="pill pd">reuse</span> <span class="why">Heat + Bleed, +15% Combo.</span></li>
+<li><b>Obelisk Guardian</b> <span class="pill pc">NEW</span> <span class="why">Walking sandstone obelisk: Stun slam + 12% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Scarab Sun-King</b> <span class="pill pc">NEW</span><br><span class="why">Sun Glare: every 4 rounds it Stuns you.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Tomb Keeper</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Sarcophagus</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Buried Vault</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Oasis</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-desert_ruins-1"><div class="ev-h"><b>Sealed Sarcophagus</b><span class="idtag">#ev-desert_ruins-1</span></div>
+<div class="setup">A sealed sarcophagus. The lid is carved with warnings.</div><ul class="opts">
+<li><span class="btn">Open it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: gain a Legendary+ skill. 50%: elite fight.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>sarcophagus</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-desert_ruins-2"><div class="ev-h"><b>Tomb Keeper</b><span class="idtag">#ev-desert_ruins-2</span></div>
+<div class="setup">An old keeper sells blessings of the sun.</div><ul class="opts">
+<li><span class="btn">Sun blessing (80 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% ATK for the run.</span></li>
+<li><span class="btn">Water (30 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 25% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>tomb_keeper</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-desert_ruins-3"><div class="ev-h"><b>Buried Vault</b><span class="idtag">#ev-desert_ruins-3</span></div>
+<div class="setup">Sand slides away from a metal door.</div><ul class="opts">
+<li><span class="btn">Dig it out</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Ore chest (paid on clear, +Danger). Boss awakening +15.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>buried_vault</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-desert_ruins-4"><div class="ev-h"><b>Mirage Oasis</b><span class="idtag">#ev-desert_ruins-4</span></div>
+<div class="setup">An oasis shimmers ahead. It might be real.</div><ul class="opts">
+<li><span class="btn">Walk to it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: heal 40% HP. 40%: lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>oasis</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-desert_ruins">Sun Altar</a></small></p></article>
+<article class="card" id="biome-ice">
+<div class="card-head"><h3>Ice Shelf</h3><span class="status planned">planned</span><span class="yield">×2 Fuel</span><span class="pill pn">from level 160</span><span class="idtag">#biome-ice</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A cracking white shelf over black water; everything is slow and heavy.</dd><dt>Mood</dt><dd>White, glacier blue, slate.</dd><dt>Gameplay</dt><dd>Freeze and shields. Rewards melting it: Heat builds break the boss armour.</dd><dt>Reward</dt><dd><b>×2 Fuel</b>: Frozen methane under the ice. Portal card chip “×2 Fuel”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Chill / Freeze +25%</span> <span class="pill pc">Combo −25%</span> <small class="m">Boost also applies to: you + Frost Mite, Shard Penguin, Frost Knight, Frost Leviathan (Freeze). Weakened: you only. Everything freezes; slippery ice breaks follow-ups.</small></dd><dt>Hazard</dt><dd>Thin Ice (Crystal Spikes reskin): lose 10% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Glacier Golem</b> <span class="pill pd">reuse</span> <span class="why">+12% Counter.</span></li>
+<li><b>Ice Crawler</b> <span class="pill pd">reuse</span> <span class="why">Harden.</span></li>
+<li><b>Frost Mite</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit (12%).</span></li>
+<li><b>Tusk Seal</b> <span class="pill pc">NEW</span> <span class="why">Walrus-like seal: Slam, Enrage.</span></li>
+<li><b>Shard Penguin</b> <span class="pill pc">NEW</span> <span class="why">Penguin with ice-shard spikes: fast, Freeze on hit.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Frost Knight</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit, Harden.</span></li>
+<li><b>Walrus Warlord</b> <span class="pill pc">NEW</span> <span class="why">Armoured walrus chief: Stun slam, Harden.</span></li>
+</ul></div>
+<div class="box"><h4>Bosses (2 variants, alternate per visit)</h4><ul class="ros">
+<li><b>Tusk Colossus</b> <span class="pill pc">NEW</span><br><span class="why">Ice Armor: starts with a 30% HP shield.</span></li>
+<li><b>Frost Leviathan</b> <span class="pill pd">reuse</span><br><span class="why">Variant B: breaks through the ice (same kit as Seabed).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Ice Fisher</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Frozen Block</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Methane Vent</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-ice-1"><div class="ev-h"><b>Ice Fisher</b><span class="idtag">#ev-ice-1</span></div>
+<div class="setup">A fisher sits by a hole in the ice.</div><ul class="opts">
+<li><span class="btn">Buy a fish (30 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 25% HP.</span></li>
+<li><span class="btn">Try fishing</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: heal 40% HP. 40%: nothing bites.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>ice_fisher</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-ice-2"><div class="ev-h"><b>Frozen Hero</b><span class="idtag">#ev-ice-2</span></div>
+<div class="setup">Someone is frozen inside a block of ice.</div><ul class="opts">
+<li><span class="btn">Thaw them (lose 15% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>frozen_block</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-ice-3"><div class="ev-h"><b>Cracking Shelf</b><span class="idtag">#ev-ice-3</span></div>
+<div class="setup">The ice cracks under you.</div><ul class="opts">
+<li><span class="btn">Jump to safety</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Lose 10% HP.</span></li>
+<li><span class="btn">Ride the floe</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +2 portal shards. 50%: lose 25% HP.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>methane_vent</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-ice-4"><div class="ev-h"><b>Methane Vent</b><span class="idtag">#ev-ice-4</span></div>
+<div class="setup">Bubbles of frozen gas glow under the ice.</div><ul class="opts">
+<li><span class="btn">Drill it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Fuel chest (paid on clear, +Danger). The boss awakens 10% faster.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>methane_vent</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-ice">Thin Ice</a></small></p></article>
+<article class="card" id="biome-neon_city">
+<div class="card-head"><h3>Neon City</h3><span class="status planned">planned</span><span class="yield">×2 Data</span><span class="pill pn">from level 200</span><span class="idtag">#biome-neon_city</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A rain-soaked megacity of neon signs, drones and back-alley deals.</dd><dt>Mood</dt><dd>Black, hot pink, cyan neon.</dd><dt>Gameplay</dt><dd>Shock plus Crit and Combo. The trading biome: buy, sell, swap skills.</dd><dt>Reward</dt><dd><b>×2 Data</b>: Data brokers on every corner. Portal card chip “×2 Data”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Shock / Arc +25%</span> <span class="pill pc">Time −25%</span> <small class="m">Boost also applies to: you + Static Eel, Storm Caller, Hollow Cantor (Shock). Weakened: you only. The grid hums; the city never stops for anyone.</small></dd><dt>Hazard</dt><dd>Toll Drones (existing) as Neon Toll; Short Circuit (Crystal Spikes reskin). <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Spark Drone</b> <span class="pill pd">reuse</span> <span class="why">Fast, fragile blaster.</span></li>
+<li><b>Static Eel</b> <span class="pill pd">reuse</span> <span class="why">Sewer-eel role: Shock on hit.</span></li>
+<li><b>Neon Ganger</b> <span class="pill pc">NEW</span> <span class="why">Punk worm with a glowing mohawk and knuckles: +15% Combo.</span></li>
+<li><b>Holo Hound</b> <span class="pill pc">NEW</span> <span class="why">Translucent hologram dog: +20% Dodge.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Storm Caller</b> <span class="pill pd">reuse</span> <span class="why">Shock on hit, Stun slam.</span></li>
+<li><b>Chrome Enforcer</b> <span class="pill pc">NEW</span> <span class="why">Chrome-plated riot robot: Harden, Stun slam.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Hollow Cantor</b> <span class="pill pb">reuse · art redo</span><br><span class="why">Feedback Song: every 3 rounds +2 Shock on you.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Black Marketeer (reuse)</b> <span class="pill pd">reuse</span> <span class="why">local character</span></li>
+<li><b>Vending Machine</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Data Kiosk</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-neon_city-1"><div class="ev-h"><b>Back-Alley Dealer</b><span class="idtag">#ev-neon_city-1</span></div>
+<div class="setup">A dealer opens a coat full of skill chips.</div><ul class="opts">
+<li><span class="btn">Buy a chip (100 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Sell a skill</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Lose a random skill. +120 coins.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>black_marketeer</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-neon_city-2"><div class="ev-h"><b>Data Broker</b><span class="idtag">#ev-neon_city-2</span></div>
+<div class="setup">A broker sells stolen data by the gigabyte.</div><ul class="opts">
+<li><span class="btn">Buy data (120 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Data chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>data_kiosk</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-neon_city-3"><div class="ev-h"><b>Vending Machine</b><span class="idtag">#ev-neon_city-3</span></div>
+<div class="setup">&#x27;Mystery can: 20 coins.&#x27;</div><ul class="opts">
+<li><span class="btn">Buy a can (20 coins)</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: heal 30% HP. 30%: +5% ATK. 20%: empty can.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>vending_machine</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-neon_city-4"><div class="ev-h"><b>Street Race</b><span class="idtag">#ev-neon_city-4</span></div>
+<div class="setup">Street racers dare you to a race.</div><ul class="opts">
+<li><span class="btn">Race</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight. Win: +10% Speed for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>data_kiosk</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-neon_city">Cut the Speakers</a></small></p></article>
+<article class="card" id="biome-mushroom_forest">
+<div class="card-head"><h3>Mushroom Forest</h3><span class="status planned">planned</span><span class="yield">×2 Biomass</span><span class="pill pn">from level 245</span><span class="idtag">#biome-mushroom_forest</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>Giant glowing mushrooms; the spores make everything grow, or rot.</dd><dt>Mood</dt><dd>Night teal, glowing orange and pink caps.</dd><dt>Gameplay</dt><dd>Radiation plus max HP and healing. Spore gambles.</dd><dt>Reward</dt><dd><b>×2 Biomass</b>: Everything here grows. Portal card chip “×2 Biomass”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Radiation +25%</span> <span class="pill pc">Shock / Arc −25%</span> <small class="m">Boost also applies to: you + Puffball, Grub Mother, Mycelium Knight, Spore Monarch (Radiation). Weakened: you only. Spores rot everything; soft damp ground grounds lightning.</small></dd><dt>Hazard</dt><dd>Spore Cloud (Withering Field reskin): −4% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Burrow Grub</b> <span class="pill pd">reuse</span> <span class="why">Radiation on hit.</span></li>
+<li><b>Void Spawn</b> <span class="pill pd">reuse</span> <span class="why">Radiation on hit.</span></li>
+<li><b>Puffball</b> <span class="pill pc">NEW</span> <span class="why">Round spore puff with tiny legs: Radiation on hit (2 stacks), low HP.</span></li>
+<li><b>Myco Beetle</b> <span class="pill pc">NEW</span> <span class="why">Beetle with a mushroom shell: Harden.</span></li>
+<li><b>Shroom Walker</b> <span class="pill pc">NEW</span> <span class="why">Tall stalking mushroom: Slam, Enrage.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Grub Mother</b> <span class="pill pb">reuse · art not imported</span> <span class="why">Radiation on hit, Harden.</span></li>
+<li><b>Mycelium Knight</b> <span class="pill pc">NEW</span> <span class="why">Knight in fungus armour: Radiation on hit, Harden.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Spore Monarch</b> <span class="pill pc">NEW</span><br><span class="why">Spore Cloud: +1 Radiation on you every round.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Myco Hermit</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Fairy Ring</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Giant Mushroom</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-mushroom_forest-1"><div class="ev-h"><b>Strange Spores</b><span class="idtag">#ev-mushroom_forest-1</span></div>
+<div class="setup">Glowing spores drift by. They smell edible. (moved from the shared pool)</div><ul class="opts">
+<li><span class="btn">Eat them</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +10% ATK. 50%: lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>fairy_ring</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-mushroom_forest-2"><div class="ev-h"><b>Fairy Ring</b><span class="idtag">#ev-mushroom_forest-2</span></div>
+<div class="setup">A perfect ring of glowing mushrooms.</div><ul class="opts">
+<li><span class="btn">Step inside</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: improve a random skill. 50%: lose a random skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>fairy_ring</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-mushroom_forest-3"><div class="ev-h"><b>Myco Hermit</b><span class="idtag">#ev-mushroom_forest-3</span></div>
+<div class="setup">A mushroom hermit grows medicine.</div><ul class="opts">
+<li><span class="btn">Healing cap (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 35% HP.</span></li>
+<li><span class="btn">Giant cap (80 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% max HP for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>myco_hermit</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-mushroom_forest-4"><div class="ev-h"><b>Giant Mushroom</b><span class="idtag">#ev-mushroom_forest-4</span></div>
+<div class="setup">A mushroom the size of a house, ripe for harvest.</div><ul class="opts">
+<li><span class="btn">Harvest it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Biomass chest (paid on clear, +Danger). Boss awakening +15.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>giant_mushroom</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-mushroom_forest">Burn the Spores</a></small></p></article>
+<article class="card" id="biome-crystal_cave">
+<div class="card-head"><h3>Crystal Cave</h3><span class="status planned">planned</span><span class="yield">×2 Ore</span><span class="pill pn">from level 295</span><span class="idtag">#biome-crystal_cave</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A cavern of singing crystals that hold frozen moments of time.</dd><dt>Mood</dt><dd>Deep purple, prism rainbow, white light.</dd><dt>Gameplay</dt><dd>Time (Delay) plus Counter. Crystals that steal your turn.</dd><dt>Reward</dt><dd><b>×2 Ore</b>: Crystal ore lines every wall. Portal card chip “×2 Ore”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Counter +25%</span> <span class="pill pc">Bleed −25%</span> <small class="m">Boost also applies to: you + Geode Crawler, Shard Golem (Counter). Weakened: you only. Crystals reflect blows; crystal creatures do not bleed.</small></dd><dt>Hazard</dt><dd>Crystal Spikes (existing, as is): lose 10% HP. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Tick Mite</b> <span class="pill pc">NEW</span> <span class="why">A mite with a clock-face back: Delay on hit (15%). Shared with Clockwork City and Frozen Future.</span></li>
+<li><b>Crystal Bat</b> <span class="pill pc">NEW</span> <span class="why">Bat with crystal wings: +20% Dodge.</span></li>
+<li><b>Geode Crawler</b> <span class="pill pc">NEW</span> <span class="why">Rock crawler with a cracked geode back: Harden, +12% Counter.</span></li>
+<li><b>Volt Beetle</b> <span class="pill pd">reuse</span> <span class="why">Crystal-backed beetle role: Shock on hit.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Rift Echo</b> <span class="pill pd">reuse</span> <span class="why">Stun slam (also the Rift Echo event&#x27;s foe).</span></li>
+<li><b>Shard Golem</b> <span class="pill pc">NEW</span> <span class="why">Golem of jagged prism shards: Harden, +15% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Prism Tyrant</b> <span class="pill pd">reuse</span><br><span class="why">Refraction: every 3 rounds it Delays you (you lose your next turn).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Crystal Singer</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Time Crystal</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Geode</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-crystal_cave-1"><div class="ev-h"><b>Time Crystal</b><span class="idtag">#ev-crystal_cave-1</span></div>
+<div class="setup">A crystal holds a moment of the past.</div><ul class="opts">
+<li><span class="btn">Look inside</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −15.</span></li>
+<li><span class="btn">Break it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: gain a Legendary+ skill. 50%: lose 20% HP.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>time_crystal</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-crystal_cave-2"><div class="ev-h"><b>Crystal Singer</b><span class="idtag">#ev-crystal_cave-2</span></div>
+<div class="setup">A singer tunes crystals to your voice.</div><ul class="opts">
+<li><span class="btn">Tune a skill (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Improve 1 skill of your choice.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>crystal_singer</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-crystal_cave-3"><div class="ev-h"><b>Sealed Geode</b><span class="idtag">#ev-crystal_cave-3</span></div>
+<div class="setup">A giant geode hums. Something guards it.</div><ul class="opts">
+<li><span class="btn">Crack it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight. Win: Ore chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>geode</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-crystal_cave-4"><div class="ev-h"><b>Echo Chamber</b><span class="idtag">#ev-crystal_cave-4</span></div>
+<div class="setup">Your echo answers before you speak.</div><ul class="opts">
+<li><span class="btn">Shout</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +2 portal shards. 40%: rocks fall: lose 20% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>time_crystal</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-crystal_cave">Shatter the Prism</a></small></p></article>
+<article class="card" id="biome-coral_reef">
+<div class="card-head"><h3>Coral Reef</h3><span class="status planned">planned</span><span class="yield">×2 Biomass</span><span class="pill pn">from level 350</span><span class="idtag">#biome-coral_reef</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A bright, shallow reef where everything stings, bites or hides.</dd><dt>Mood</dt><dd>Coral pink, turquoise, sunny yellow.</dd><dt>Gameplay</dt><dd>Counter (shells, spines) plus Chill. Boss rewards Bleed builds.</dd><dt>Reward</dt><dd><b>×2 Biomass</b>: Reef life everywhere. Portal card chip “×2 Biomass”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Bleed +25%</span> <span class="pill pc">Radiation −25%</span> <small class="m">Boost also applies to: you + Spine Urchin (Bleed). Weakened: you only. Sharp coral cuts; clean water washes poison off.</small></dd><dt>Hazard</dt><dd>Stinging Anemone (Acid Pool reskin): −6% DEF. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Ice Crawler</b> <span class="pill pd">reuse</span> <span class="why">Hermit-crab role: Harden.</span></li>
+<li><b>Puffer Mine</b> <span class="pill pc">NEW</span> <span class="why">Spiky pufferfish: +20% Counter, low ATK.</span></li>
+<li><b>Spine Urchin</b> <span class="pill pc">NEW</span> <span class="why">Purple urchin: Bleed on hit, +10% Counter.</span></li>
+<li><b>Reef Shark</b> <span class="pill pc">NEW</span> <span class="why">Small striped shark: fast, +15% Crit.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Glacier Warden</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit, Stun slam, +12% Counter.</span></li>
+<li><b>Reef Guardian</b> <span class="pill pc">NEW</span> <span class="why">Giant coral-shelled turtle: Harden, +15% Counter.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Tide Hydra</b> <span class="pill pc">NEW</span><br><span class="why">Regrow: heals 10% HP every 3 rounds.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Crab Trader</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Bright Anemone</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Reef Nursery</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-coral_reef-1"><div class="ev-h"><b>Crab Trader</b><span class="idtag">#ev-coral_reef-1</span></div>
+<div class="setup">A hermit crab trader shows off his shells.</div><ul class="opts">
+<li><span class="btn">Shell armor (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% DEF for the run.</span></li>
+<li><span class="btn">Spiked shell (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Counter chance for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>crab_trader</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-coral_reef-2"><div class="ev-h"><b>Bright Anemone</b><span class="idtag">#ev-coral_reef-2</span></div>
+<div class="setup">A glowing anemone pulses with light.</div><ul class="opts">
+<li><span class="btn">Touch it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +10% ATK. 50%: lose 15% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>anemone</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-coral_reef-3"><div class="ev-h"><b>Reef Nursery</b><span class="idtag">#ev-coral_reef-3</span></div>
+<div class="setup">A reef nursery full of young fish.</div><ul class="opts">
+<li><span class="btn">Gather</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Biomass chest (paid on clear, +Danger). The boss gains +10% ATK.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>reef_nursery</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-coral_reef-4"><div class="ev-h"><b>Fast Current</b><span class="idtag">#ev-coral_reef-4</span></div>
+<div class="setup">A fast current runs along the reef.</div><ul class="opts">
+<li><span class="btn">Ride it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run. Boss awakening +10.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>reef_nursery</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-coral_reef">Blood in the Water</a></small></p></article>
+<article class="card" id="biome-candy_planet">
+<div class="card-head"><h3>Candy Planet</h3><span class="status planned">planned</span><span class="yield">×2 Hero XP</span><span class="pill pn">from level 420</span><span class="idtag">#biome-candy_planet</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A sugar-coated planet: gumdrop hills, caramel rivers, tooth-rotting monsters.</dd><dt>Mood</dt><dd>Pastel pink, mint, caramel.</dd><dt>Gameplay</dt><dd>Radiation as sugar rot, plus Speed and Combo (sugar rush).</dd><dt>Reward</dt><dd><b>×2 Hero XP</b>: Heroes train harder on sweets. Portal card chip “×2 Hero XP”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Combo +25%</span> <span class="pill pc">Counter −25%</span> <small class="m">Boost also applies to: you + Gummy Worm (Combo). Weakened: you only. Sugar rush; everything is too sticky to parry.</small></dd><dt>Hazard</dt><dd>Sticky Syrup (Gravity Vortex reskin): next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Gummy Worm</b> <span class="pill pc">NEW</span> <span class="why">Striped gummy worm: +15% Combo.</span></li>
+<li><b>Jelly Blob</b> <span class="pill pc">NEW</span> <span class="why">Wobbly jelly cube: Harden, Radiation on hit.</span></li>
+<li><b>Candy Wasp</b> <span class="pill pc">NEW</span> <span class="why">Wasp with a lollipop stinger: very fast, Radiation on hit.</span></li>
+<li><b>Gingerbread Brute</b> <span class="pill pc">NEW</span> <span class="why">Big gingerbread man with icing scars: Slam, Enrage.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Licorice Lasher</b> <span class="pill pc">NEW</span> <span class="why">Black licorice whip creature: Bleed on hit, +10% Dodge.</span></li>
+<li><b>Gumball Golem</b> <span class="pill pc">NEW</span> <span class="why">Golem of stacked gumballs: Harden, Stun slam.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Bonbon Behemoth</b> <span class="pill pc">NEW</span><br><span class="why">Sugar Rush: +10% Speed every round (max 5 stacks).</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Candy Vendor</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Chocolate Fountain</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Gingerbread House</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-candy_planet-1"><div class="ev-h"><b>Candy Vendor</b><span class="idtag">#ev-candy_planet-1</span></div>
+<div class="setup">A gumdrop vendor rings a little bell.</div><ul class="opts">
+<li><span class="btn">Sugar rush (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Speed for the run.</span></li>
+<li><span class="btn">Mystery candy (20 coins)</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +8% ATK. 50%: lose 10% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>candy_vendor</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-candy_planet-2"><div class="ev-h"><b>Chocolate Fountain</b><span class="idtag">#ev-candy_planet-2</span></div>
+<div class="setup">A fountain of warm chocolate.</div><ul class="opts">
+<li><span class="btn">Drink deep</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 40% HP. −5% Speed for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>chocolate_fountain</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-candy_planet-3"><div class="ev-h"><b>Gingerbread House</b><span class="idtag">#ev-candy_planet-3</span></div>
+<div class="setup">A gingerbread house with an open door.</div><ul class="opts">
+<li><span class="btn">Go inside</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight. Win: Hero XP chest (paid on clear, +Danger).</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>gingerbread_house</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-candy_planet-4"><div class="ev-h"><b>Sprinkle Rain</b><span class="idtag">#ev-candy_planet-4</span></div>
+<div class="setup">It starts raining sprinkles.</div><ul class="opts">
+<li><span class="btn">Catch them</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+25 XP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>chocolate_fountain</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-candy_planet">Sugar Crash</a></small></p></article>
+<article class="card" id="biome-frozen_future">
+<div class="card-head"><h3>Frozen Future</h3><span class="status planned">planned</span><span class="yield">×2 Hero XP</span><span class="pill pn">from level 500</span><span class="idtag">#biome-frozen_future</span></div>
+<dl class="ident"><dt>Fantasy</dt><dd>A future city frozen in one instant: cars mid-air, rain hanging still.</dd><dt>Mood</dt><dd>Ice white, chrome, pale cyan, frozen pink neon.</dd><dt>Gameplay</dt><dd>Time plus Freeze (stopped time). The boss attacks twice every 4 rounds.</dd><dt>Reward</dt><dd><b>×2 Hero XP</b>: Cryo-sleeping veterans teach your heroes. Portal card chip “×2 Hero XP”.</dd><dt>Synergy weather</dt><dd><span class="pill pd">Time +25%</span> <span class="pill pc">Heat / Supernova −25%</span> <small class="m">Boost also applies to: you + Tick Mite, Cryo Captain (Delay). Weakened: you only. Time stands still; the frozen air smothers fire.</small></dd><dt>Hazard</dt><dd>Frozen Moment (Gravity Vortex reskin): next roll moves 2 less. <small class="m">(optional)</small></dd></dl>
+<div class="cols">
+<div class="box"><h4>Enemies</h4><ul class="ros">
+<li><b>Tick Mite</b> <span class="pill pc">NEW</span> <span class="why">Delay on hit (15%).</span></li>
+<li><b>Frost Mite</b> <span class="pill pd">reuse</span> <span class="why">Freeze on hit (12%).</span></li>
+<li><b>Stasis Drone</b> <span class="pill pc">NEW</span> <span class="why">Hovering drone with a frozen clock ring: Freeze on hit.</span></li>
+<li><b>Chrome Sentry</b> <span class="pill pc">NEW</span> <span class="why">Chrome sentry robot, half iced over: +15% Counter.</span></li>
+</ul><h4>Elites (2: the two lairs per run must differ)</h4><ul class="ros">
+<li><b>Rift Echo</b> <span class="pill pd">reuse</span> <span class="why">Stun slam.</span></li>
+<li><b>Cryo Captain</b> <span class="pill pc">NEW</span> <span class="why">Frost-covered future soldier with a stasis rifle: Delay on hit, +10% Crit.</span></li>
+</ul></div>
+<div class="box"><h4>Boss</h4><ul class="ros">
+<li><b>Stasis Warden</b> <span class="pill pc">NEW</span><br><span class="why">Time Stop: every 4 rounds it attacks twice.</span></li>
+</ul><h4>Event art</h4><ul class="ros">
+<li><b>Time Traveler</b> <span class="pill pc">NEW · WIP</span> <span class="why">local character</span></li>
+<li><b>Cryo Pod</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+<li><b>Frozen Car</b> <span class="pill pc">NEW · WIP</span> <span class="why">prop</span></li>
+</ul></div></div>
+<h4>Biome events</h4><div class="events">
+<div class="ev" id="ev-frozen_future-1"><div class="ev-h"><b>Cryo Pod</b><span class="idtag">#ev-frozen_future-1</span></div>
+<div class="setup">A cryo pod with a sleeping soldier inside.</div><ul class="opts">
+<li><span class="btn">Wake them</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: they train you: Hero XP chest (paid on clear, +Danger). 50%: they panic: elite fight.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>cryo_pod</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-frozen_future-2"><div class="ev-h"><b>Time Traveler</b><span class="idtag">#ev-frozen_future-2</span></div>
+<div class="setup">A traveler from yesterday asks the date.</div><ul class="opts">
+<li><span class="btn">Tell them</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+25 XP.</span></li>
+<li><span class="btn">Buy their watch (80 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −20.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: NPC <code>time_traveler</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-frozen_future-3"><div class="ev-h"><b>Frozen Rain</b><span class="idtag">#ev-frozen_future-3</span></div>
+<div class="setup">Raindrops hang in the air like glass beads.</div><ul class="opts">
+<li><span class="btn">Collect them (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+2 portal shards.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>frozen_car</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-frozen_future-4"><div class="ev-h"><b>Frozen Car</b><span class="idtag">#ev-frozen_future-4</span></div>
+<div class="setup">A car hangs mid-air above the road.</div><ul class="opts">
+<li><span class="btn">Search it</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: +100 coins. 40%: it falls: lose 25% HP.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Art: Prop <code>frozen_car</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div><p><small class="m">Rite: <a href="#rite-frozen_future">Thaw the Moment</a></small></p></article>
+</section>
+<section id="shared"><h2>Shared event pool</h2>
+<h3>Mix rule</h3>
+<div class="note"><ul class="plain"><li>Every <b>Strange Signal</b> event tile: <b>40%</b> a biome event of this level's biome, <b>60%</b> a shared event (by weight).</li><li>A run has ~2 event tiles (event weight 8 of ~87 pool weight, ~23 rolls), so <b>≈ 1 biome event per run</b>; a player meets all 4 of a biome in ~4 visits.</li><li>No event repeats within a run. The 4 biome events have equal weight. Once all 4 are used up the tile draws from the shared pool.</li><li>Treasure Pod and Campfire stay tile-bound and are not part of the mix.</li></ul></div>
+<h3>Current shared events (live today)</h3>
+<div class="wrap"><table><thead><tr><th>Id</th><th>Name</th><th class="num">Weight</th><th>Art</th><th>Proposal</th></tr></thead><tbody>
+<tr><td><code>abandoned_cache</code></td><td>Abandoned Cache</td><td class="num">4</td><td><code>abandoned_cart</code></td><td>Stays shared. Option text has 4 effects: split to one price.</td></tr>
+<tr><td><code>unstable_reactor</code></td><td>Unstable Reactor</td><td class="num">3</td><td><code>cursed_vendor</code></td><td>Stays shared.</td></tr>
+<tr><td><code>smuggler</code></td><td>Smuggler</td><td class="num">3</td><td><code>black_marketeer</code></td><td>Stays shared.</td></tr>
+<tr><td><code>rift_echo</code></td><td>Rift Echo</td><td class="num">3</td><td><code>event_wreck</code></td><td>Stays shared (its elite also guards Crystal Cave, Clockwork City and Frozen Future).</td></tr>
+<tr><td><code>strange_spores</code></td><td>Strange Spores</td><td class="num">3</td><td><code>event_wreck</code></td><td>Moves to Mushroom Forest (biome event 1).</td></tr>
+<tr><td><code>alien_medic</code></td><td>Alien Medic</td><td class="num">3</td><td><code>camp_cook</code></td><td>Stays shared.</td></tr>
+<tr><td><code>shard_altar</code></td><td>Shard Altar</td><td class="num">3</td><td><code>event_shrine</code></td><td>Stays shared.</td></tr>
+<tr><td><code>lost_explorer</code></td><td>Lost Explorer</td><td class="num">3</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>gravity_well</code></td><td>Gravity Well</td><td class="num">2.5</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>echoing_shrine</code></td><td>Echoing Shrine</td><td class="num">2.5</td><td><code>event_shrine</code></td><td>Stays shared.</td></tr>
+<tr><td><code>wild_beast</code></td><td>Wild Beast</td><td class="num">2.5</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>training_dummy</code></td><td>Training Grounds</td><td class="num">2.5</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>meteor_shower</code></td><td>Meteor Shower</td><td class="num">2</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>fuel_leak</code></td><td>Fuel Leak</td><td class="num">2</td><td><code>event_wreck</code></td><td>Stays shared (negative event).</td></tr>
+<tr><td><code>black_market</code></td><td>Black Market</td><td class="num">2</td><td><code>black_marketeer</code></td><td>Stays shared.</td></tr>
+<tr><td><code>cursed_relic</code></td><td>Cursed Relic</td><td class="num">2</td><td><code>cursed_vendor</code></td><td>Stays shared.</td></tr>
+<tr><td><code>boss_scout</code></td><td>Boss Scout</td><td class="num">2</td><td><code>event_wreck</code></td><td>Stays shared.</td></tr>
+<tr><td><code>resonance</code></td><td>Resonance</td><td class="num">0.6</td><td><code>event_shrine</code></td><td>Stays shared (rare signature event).</td></tr>
+<tr><td><code>treasure_pod</code></td><td>Treasure Pod</td><td class="num">tile</td><td><code>chest_common</code></td><td>Tile-bound, not drawn by event tiles.</td></tr>
+<tr><td><code>campfire</code></td><td>Campfire</td><td class="num">tile</td><td><code>campfire_big</code></td><td>Tile-bound (from level 10).</td></tr>
+</tbody></table></div>
+<h3>13 NEW shared events</h3><p>Each pushes one synergy (or none) so every build finds something on any biome. Suggested weights in brackets (current events weigh 2–4).</p>
+<div class="events">
+<div class="ev" id="ev-shared-1"><div class="ev-h"><b>Wandering Trader</b><span class="idtag">#ev-shared-1</span></div>
+<div class="setup">A trader with a huge backpack waves you over.</div><ul class="opts">
+<li><span class="btn">Buy a skill (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Common+ skill.</span></li>
+<li><span class="btn">Buy a map (40 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −10.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: — · weight 2.5 · Art: NPC <code>shopkeeper</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-shared-2"><div class="ev-h"><b>Sparring Master</b><span class="idtag">#ev-shared-2</span></div>
+<div class="setup">An old master offers a quick lesson.</div><ul class="opts">
+<li><span class="btn">Learn to counter (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Counter chance for the run.</span></li>
+<li><span class="btn">Learn to combo (60 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+10% Combo chance for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: Combo, Counter · weight 2.5 · Art: NPC <code>sparring_master</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-3"><div class="ev-h"><b>Lost Alien Pup</b><span class="idtag">#ev-shared-3</span></div>
+<div class="setup">A lost alien pup follows you around.</div><ul class="opts">
+<li><span class="btn">Adopt it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Gain a Legendary+ skill. −5% max HP for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: Alien · weight 2 · Art: NPC <code>alien_pup</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-4"><div class="ev-h"><b>Comet Fragment</b><span class="idtag">#ev-shared-4</span></div>
+<div class="setup">A burning comet fragment lands nearby.</div><ul class="opts">
+<li><span class="btn">Absorb it (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Fire damage for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: Heat / Supernova · weight 2 · Art: Prop <code>comet_fragment</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-5"><div class="ev-h"><b>Storm Front</b><span class="idtag">#ev-shared-5</span></div>
+<div class="setup">A lightning storm rolls over the board.</div><ul class="opts">
+<li><span class="btn">Ride the storm</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">50%: +15% Lightning damage. 50%: lose 20% HP.</span></li>
+<li><span class="btn">Wait it out</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening +10.</span></li>
+</ul>
+<div class="artline">Synergy: Shock / Arc · weight 2 · Art: Prop <code>storm_rod</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-6"><div class="ev-h"><b>Cold Snap</b><span class="idtag">#ev-shared-6</span></div>
+<div class="setup">The air turns ice cold.</div><ul class="opts">
+<li><span class="btn">Embrace the cold</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Ice damage. −5% Speed for the run.</span></li>
+<li><span class="btn">Light a fire (30 coins)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 15% HP.</span></li>
+</ul>
+<div class="artline">Synergy: Chill / Freeze · weight 2 · Art: Prop <code>frost_crystal</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-7"><div class="ev-h"><b>Reactor Leak</b><span class="idtag">#ev-shared-7</span></div>
+<div class="setup">A cracked reactor leaks glowing waste.</div><ul class="opts">
+<li><span class="btn">Soak it up</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+15% Radiation damage. −10% max HP for the run.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: Radiation · weight 2 · Art: Prop <code>leaking_barrel</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-8"><div class="ev-h"><b>Blood Moon</b><span class="idtag">#ev-shared-8</span></div>
+<div class="setup">A red moon rises. Wounds bleed faster tonight.</div><ul class="opts">
+<li><span class="btn">Hunt (lose 10% HP)</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Nearby enemies −15%.</span></li>
+<li><span class="btn">Hide</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening +10.</span></li>
+</ul>
+<div class="artline">Synergy: Bleed · weight 2 · Art: Prop <code>event_shrine</code> <span class="pill pd">reuse</span></div></div>
+<div class="ev" id="ev-shared-9"><div class="ev-h"><b>Time Rift</b><span class="idtag">#ev-shared-9</span></div>
+<div class="setup">A small rift replays the last few minutes.</div><ul class="opts">
+<li><span class="btn">Step back</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Heal 30% HP. Boss awakening +10.</span></li>
+<li><span class="btn">Seal it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Boss awakening −10.</span></li>
+</ul>
+<div class="artline">Synergy: Time · weight 2 · Art: Prop <code>time_rift</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-10"><div class="ev-h"><b>Bounty Board</b><span class="idtag">#ev-shared-10</span></div>
+<div class="setup">A bounty board names a nearby elite.</div><ul class="opts">
+<li><span class="btn">Take the bounty</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Elite fight (+20%). Win: +150 coins.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: — · weight 2.5 · Art: Prop <code>bounty_board</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-11"><div class="ev-h"><b>Wishing Well</b><span class="idtag">#ev-shared-11</span></div>
+<div class="setup">A well hums when coins drop in.</div><ul class="opts">
+<li><span class="btn">Throw in 50 coins</span><span class="k"><span class="pill pr">R · sheet</span></span><span class="res">60%: improve a random skill. 40%: nothing.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: — · weight 2 · Art: Prop <code>wishing_well</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-12"><div class="ev-h"><b>Strange Mirror</b><span class="idtag">#ev-shared-12</span></div>
+<div class="setup">A mirror shows a different you.</div><ul class="opts">
+<li><span class="btn">Swap</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">Lose a random skill. Gain a Legendary+ skill.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: — · weight 2 · Art: Prop <code>strange_mirror</code> <span class="pill pc">NEW · WIP</span></div></div>
+<div class="ev" id="ev-shared-13"><div class="ev-h"><b>Supply Drop</b><span class="idtag">#ev-shared-13</span></div>
+<div class="setup">A supply drop crashes nearby.</div><ul class="opts">
+<li><span class="btn">Open it</span><span class="k"><span class="pill pd">D · fly-in</span></span><span class="res">+80 coins.</span></li>
+<li><span class="btn">Leave</span><span class="k"><span class="pill pn">toast</span></span><span class="res">You move on.</span></li>
+</ul>
+<div class="artline">Synergy: — · weight 3 · Art: Prop <code>supply_drop</code> <span class="pill pc">NEW · WIP</span></div></div>
+</div></section>
+<section id="rules"><h2>Rules of play</h2>
+<h3 id="rule-yield">Biome reward (×2)</h3><ul class="plain"><li><b>What doubles:</b> every amount of the biome's resource that level pays: its completion line, its share of the 3 completion loot rolls and of every reward chest. Nothing else changes.</li><li><b>Never a zero ×2:</b> Grain, Fuel, Hero XP and Gear Cores are only loot rolls today, and main levels pay no Data at all. A biome with such a resource adds <b>one guaranteed roll</b> of it to the completion, then doubles it. Data gets a new roll entry for its biomes (Data 10–20 × chapter scale).</li><li><b>Biome chest</b> (events): one doubled roll of the resource, e.g. at chapter 1 Fuel 20–40, Ore 40–80; scales with the chapter like all loot, rounded (<code>RunSystem.NiceAmount</code>).</li><li><b>Shown:</b> portal card chip “×2 Ore” next to the biome name; level select portal shows the same chip; result screen line “Ore 100 (×2 biome)”.</li><li><b>Never doubled by the biome:</b> Diamonds, Crates, Signals, Schematics, milestone and bonus chests, the first-clear part, feat Diamonds.</li></ul>
+<div class="wrap"><table><thead><tr><th>Chapter 1, step 1 (scale 1)</th><th>Normal level</th><th>Biome level</th></tr></thead><tbody><tr><td>Biomass (completion)</td><td class="num">150</td><td class="num">300</td></tr><tr><td>Ore (completion)</td><td class="num">50</td><td class="num">100</td></tr><tr><td>Grain (guaranteed roll)</td><td class="num">— (loot roll 20–40, 14% weight)</td><td class="num">40–80</td></tr><tr><td>Fuel (guaranteed roll)</td><td class="num">— (loot roll 10–20, 8%)</td><td class="num">20–40</td></tr><tr><td>Hero XP (guaranteed roll)</td><td class="num">— (loot roll 15–30, 8%)</td><td class="num">30–60</td></tr><tr><td>Gear Cores (guaranteed roll)</td><td class="num">— (loot roll 1–2, 6%)</td><td class="num">2–4</td></tr><tr><td>Data (NEW roll)</td><td class="num">—</td><td class="num">20–40</td></tr></tbody></table></div>
+<h3>With chapter rewards and the Biomass surge</h3><ul class="plain"><li>Chapters keep the rhythm: reward scale, Crate every 5th step, milestone chest every 10th level, stamina, dice. The biome only picks <b>which</b> resource is doubled.</li><li><b>Biomass surge</b> (first 3 won runs a day): <b>×2 instead of ×4</b> (decided). It multiplies after the biome, so a Biomass biome on a surge run pays ×4. This halves today's surge Biomass on non-Biomass biomes: the simulator run below has to re-check Biomass pacing, and the lost surge income may need to move into base Biomass.</li><li>Overcharged ×1.8, run-reward modifiers (planetary events) and the double-reward ad apply on top, as today.</li><li><b>Economy impact:</b> a resource in k biomes gains ~k/17 of its per-level income (Biomass, Ore, Fuel +18%; the rest +12%), plus the guaranteed rolls. Before shipping: one simulator run (<code>tools/RogueStars.Sim</code>, runs-per-upgrade table in economy-model.md).</li></ul>
+<h3>Bosses</h3><ul class="plain"><li>One boss per biome. Biomes with 2 variants (Lava Fields, Ice Shelf, Shipwreck) <b>alternate per visit</b>: the biome's 1st, 3rd, 5th… appearance in the seeded order uses A, the 2nd, 4th… B. Deterministic, same for every player.</li><li>From level 501 the existing endless titles (Elder, Hollow, Radiant, Ashen, Ascended, Feral) and boss-tile combos keep rotating every 5 chapters on top of the biome boss.</li><li>NEW bosses sit on the standard boss budget (HP × ATK within ~5%), get the standard awakening actions (25/50/75/100) and 3 boss tiles named for them (feed / relief / tribute, the same numbers for every boss). From level 501 the endless boss variants borrow another boss's tiles instead of another family's.</li><li>Rust Queen, Gloop Matriarch, Hollow Cantor and Prism Tyrant are invasion bosses today; as biome bosses they get a board kit (awakening, tiles, escort). Invasions keep using them (decided).</li></ul>
+<h3>Difficulty</h3><ul class="plain"><li>Stays keyed by the level number: threat curve, early-level ramp, chapter scale, level-unlocked run content (signature pick, minibosses, forks, campfires).</li><li><b>No biome offsets:</b> difficulty comes only from the level scaling. The current family offsets (Void −25%, Glacier −20% from level 401) go; those enemies are retuned to the standard role budget instead.</li><li>Level 1 stays Lava Fields (tutorial pool). Adding biomes reshuffles the order for everyone; pre-release, no migration.</li><li>Biome hazards are reskins of the 3 existing hazards (same numbers): only their name and tile art change.</li></ul>
+</section>
+<section id="art"><h2>Art needed</h2>
+<p>All NEW subjects with a one-line look for the art session (enemies face LEFT, bold outline, flat colours; no text). Event art is WIP: busts for characters, props as standalone objects like <code>event_wreck</code>.</p>
+<div class="wrap"><table><thead><tr><th>Biome</th><th>Kind</th><th>Subject</th><th>Look</th></tr></thead><tbody>
+<tr><td>Lava Fields</td><td>Enemy</td><td><b>Obsidian Crab</b></td><td>Black-glass crab: Harden + 10% Counter.</td></tr>
+<tr><td>Lava Fields</td><td>Event NPC</td><td><b>Salamander Smith</b></td><td>A stocky red salamander in a leather apron, hammer over the shoulder, glowing anvil.</td></tr>
+<tr><td>Lava Fields</td><td>Event prop</td><td><b>Ore Geyser</b></td><td>A small lava geyser spitting glowing orange ore nuggets.</td></tr>
+<tr><td>Lava Fields</td><td>Event prop</td><td><b>Magma Forge</b></td><td>An abandoned stone forge with a lava-filled basin and bellows.</td></tr>
+<tr><td>Gas Giant</td><td>Enemy</td><td><b>Gas Bloater</b></td><td>Floating gasbag with a fuse: high HP, Heat on hit.</td></tr>
+<tr><td>Gas Giant</td><td>Enemy</td><td><b>Flare Ray</b></td><td>Burning manta riding thermals: fast, +15% Crit.</td></tr>
+<tr><td>Gas Giant</td><td>Enemy</td><td><b>Rig Raider</b></td><td>Goggled scavenger worm with a jetpack: +15% Combo.</td></tr>
+<tr><td>Gas Giant</td><td>Elite</td><td><b>Bloat Captain</b></td><td>Gasbag pirate captain: Heat on hit, Enrage.</td></tr>
+<tr><td>Gas Giant</td><td>Boss</td><td><b>Flare Medusa</b></td><td>Ignition: every 3 rounds +3 Heat on you (your Heat bursts at 10).</td></tr>
+<tr><td>Gas Giant</td><td>Event NPC</td><td><b>Rig Foreman</b></td><td>A burly worm in a hard hat and welding goggles, wrench in hand, on a metal catwalk.</td></tr>
+<tr><td>Gas Giant</td><td>Event prop</td><td><b>Gas Vent</b></td><td>A glowing orange gas pocket bubbling from a metal grate.</td></tr>
+<tr><td>Gas Giant</td><td>Event prop</td><td><b>Fuel Tank</b></td><td>An overflowing striped refinery tank leaking amber fuel.</td></tr>
+<tr><td>Desert Ruins</td><td>Enemy</td><td><b>Sand Scarab</b></td><td>Golden scarab: Harden + 10% Counter.</td></tr>
+<tr><td>Desert Ruins</td><td>Enemy</td><td><b>Dune Serpent</b></td><td>Striped sand snake: fast, Bleed on hit.</td></tr>
+<tr><td>Desert Ruins</td><td>Enemy</td><td><b>Wrapped Husk</b></td><td>Bandaged worm mummy: Heat on hit, Enrage.</td></tr>
+<tr><td>Desert Ruins</td><td>Elite</td><td><b>Obelisk Guardian</b></td><td>Walking sandstone obelisk: Stun slam + 12% Counter.</td></tr>
+<tr><td>Desert Ruins</td><td>Boss</td><td><b>Scarab Sun-King</b></td><td>Sun Glare: every 4 rounds it Stuns you.</td></tr>
+<tr><td>Desert Ruins</td><td>Event NPC</td><td><b>Tomb Keeper</b></td><td>An old hooded jackal-eared alien with a lantern and a ring of keys.</td></tr>
+<tr><td>Desert Ruins</td><td>Event prop</td><td><b>Sarcophagus</b></td><td>A sealed stone sarcophagus with a sun disc on the lid.</td></tr>
+<tr><td>Desert Ruins</td><td>Event prop</td><td><b>Buried Vault</b></td><td>A bronze vault door half buried in a dune.</td></tr>
+<tr><td>Desert Ruins</td><td>Event prop</td><td><b>Oasis</b></td><td>A small palm oasis with a shimmering pool.</td></tr>
+<tr><td>Seabed</td><td>Enemy</td><td><b>Lantern Angler</b></td><td>Deep-sea angler with a cold lure: Freeze on hit, +15% Crit.</td></tr>
+<tr><td>Seabed</td><td>Enemy</td><td><b>Kelp Strangler</b></td><td>Living kelp knot: Harden + 12% Counter.</td></tr>
+<tr><td>Seabed</td><td>Elite</td><td><b>Trench Crusher</b></td><td>Giant armoured crab: Stun slam, +12% Counter.</td></tr>
+<tr><td>Seabed</td><td>Event NPC</td><td><b>Diver Hermit</b></td><td>An old worm in a brass diving helmet with a bag of shiny junk.</td></tr>
+<tr><td>Seabed</td><td>Event prop</td><td><b>Giant Clam</b></td><td>A huge half-open clam with a glowing pearl.</td></tr>
+<tr><td>Seabed</td><td>Event prop</td><td><b>Glowing Kelp</b></td><td>A clump of tall glowing kelp with bubbles.</td></tr>
+<tr><td>Cloud Isles</td><td>Enemy</td><td><b>Hail Sprite</b></td><td>Tiny hail spirit: Freeze on hit, +20% Dodge.</td></tr>
+<tr><td>Cloud Isles</td><td>Enemy</td><td><b>Sky Ray</b></td><td>Pale gliding ray: very fast, +15% Crit.</td></tr>
+<tr><td>Cloud Isles</td><td>Boss</td><td><b>Hailwing Roc</b></td><td>Sky Dancer: +25% Dodge.</td></tr>
+<tr><td>Cloud Isles</td><td>Event NPC</td><td><b>Sky Farmer</b></td><td>A cheerful farmer worm in a straw hat with a sack of golden sky-wheat.</td></tr>
+<tr><td>Cloud Isles</td><td>Event prop</td><td><b>Wind Shrine</b></td><td>A small shrine with spinning wind chimes on a cliff edge.</td></tr>
+<tr><td>Cloud Isles</td><td>Event prop</td><td><b>Roc Nest</b></td><td>A giant twig nest with a glittering trinket inside.</td></tr>
+<tr><td>Ice Shelf</td><td>Enemy</td><td><b>Tusk Seal</b></td><td>Walrus-like seal: Slam, Enrage.</td></tr>
+<tr><td>Ice Shelf</td><td>Enemy</td><td><b>Shard Penguin</b></td><td>Penguin with ice-shard spikes: fast, Freeze on hit.</td></tr>
+<tr><td>Ice Shelf</td><td>Elite</td><td><b>Walrus Warlord</b></td><td>Armoured walrus chief: Stun slam, Harden.</td></tr>
+<tr><td>Ice Shelf</td><td>Boss</td><td><b>Tusk Colossus</b></td><td>Ice Armor: starts with a 30% HP shield.</td></tr>
+<tr><td>Ice Shelf</td><td>Event NPC</td><td><b>Ice Fisher</b></td><td>A bundled-up worm in a fur hat, sitting on a crate by an ice hole with a rod.</td></tr>
+<tr><td>Ice Shelf</td><td>Event prop</td><td><b>Frozen Block</b></td><td>A clear block of ice with a frozen figure inside.</td></tr>
+<tr><td>Ice Shelf</td><td>Event prop</td><td><b>Methane Vent</b></td><td>Ice with trapped glowing bubbles and a crack.</td></tr>
+<tr><td>Coral Reef</td><td>Enemy</td><td><b>Puffer Mine</b></td><td>Spiky pufferfish: +20% Counter, low ATK.</td></tr>
+<tr><td>Coral Reef</td><td>Enemy</td><td><b>Spine Urchin</b></td><td>Purple urchin: Bleed on hit, +10% Counter.</td></tr>
+<tr><td>Coral Reef</td><td>Enemy</td><td><b>Reef Shark</b></td><td>Small striped shark: fast, +15% Crit.</td></tr>
+<tr><td>Coral Reef</td><td>Elite</td><td><b>Reef Guardian</b></td><td>Giant coral-shelled turtle: Harden, +15% Counter.</td></tr>
+<tr><td>Coral Reef</td><td>Boss</td><td><b>Tide Hydra</b></td><td>Regrow: heals 10% HP every 3 rounds.</td></tr>
+<tr><td>Coral Reef</td><td>Event NPC</td><td><b>Crab Trader</b></td><td>A hermit crab with a shell stacked like a market stall, shells for sale.</td></tr>
+<tr><td>Coral Reef</td><td>Event prop</td><td><b>Bright Anemone</b></td><td>A big glowing pink anemone on a rock.</td></tr>
+<tr><td>Coral Reef</td><td>Event prop</td><td><b>Reef Nursery</b></td><td>A coral arch full of tiny bright fish.</td></tr>
+<tr><td>Space Station</td><td>Enemy</td><td><b>Security Bot</b></td><td>Boxy security robot: Harden + Shock on hit.</td></tr>
+<tr><td>Space Station</td><td>Enemy</td><td><b>Lab Rat</b></td><td>Escaped mutant lab rat with a glowing tail: +15% Combo.</td></tr>
+<tr><td>Space Station</td><td>Event NPC</td><td><b>Station AI</b></td><td>A cracked wall screen with a friendly pixel face and cables.</td></tr>
+<tr><td>Space Station</td><td>Event prop</td><td><b>Server Rack</b></td><td>A tall blinking server rack with loose cables.</td></tr>
+<tr><td>Space Station</td><td>Event prop</td><td><b>Med Pod</b></td><td>A glass medical pod with green light.</td></tr>
+<tr><td>Alien Jungle</td><td>Enemy</td><td><b>Snap Orchid</b></td><td>Carnivorous flower with teeth: Shock on hit, +15% Counter.</td></tr>
+<tr><td>Alien Jungle</td><td>Enemy</td><td><b>Spark Monkey</b></td><td>Blue monkey with crackling fur: fast, +15% Combo.</td></tr>
+<tr><td>Alien Jungle</td><td>Elite</td><td><b>Canopy Stalker</b></td><td>Striped jungle cat with glowing whiskers: Shock on hit, +15% Crit.</td></tr>
+<tr><td>Alien Jungle</td><td>Boss</td><td><b>Volt Orchid</b></td><td>Lure: every 4 rounds it charms you for 1 turn.</td></tr>
+<tr><td>Alien Jungle</td><td>Event NPC</td><td><b>Frog Shaman</b></td><td>A small frog-like alien shaman with a bone staff and a steaming gourd.</td></tr>
+<tr><td>Alien Jungle</td><td>Event prop</td><td><b>Fruit Tree</b></td><td>A twisted purple tree heavy with glowing fruit.</td></tr>
+<tr><td>Alien Jungle</td><td>Event prop</td><td><b>Lightning Totem</b></td><td>A carved wooden totem crackling with blue sparks.</td></tr>
+<tr><td>Alien Jungle</td><td>Event prop</td><td><b>Giant Plant</b></td><td>A huge pitcher plant with a crate visible inside.</td></tr>
+<tr><td>Neon City</td><td>Enemy</td><td><b>Neon Ganger</b></td><td>Punk worm with a glowing mohawk and knuckles: +15% Combo.</td></tr>
+<tr><td>Neon City</td><td>Enemy</td><td><b>Holo Hound</b></td><td>Translucent hologram dog: +20% Dodge.</td></tr>
+<tr><td>Neon City</td><td>Elite</td><td><b>Chrome Enforcer</b></td><td>Chrome-plated riot robot: Harden, Stun slam.</td></tr>
+<tr><td>Neon City</td><td>Event prop</td><td><b>Vending Machine</b></td><td>A battered neon vending machine with a cracked glass front.</td></tr>
+<tr><td>Neon City</td><td>Event prop</td><td><b>Data Kiosk</b></td><td>A street kiosk with floating holo screens.</td></tr>
+<tr><td>Shipwreck</td><td>Enemy</td><td><b>Rust Leech</b></td><td>Rusty eel-leech: Radiation on hit.</td></tr>
+<tr><td>Shipwreck</td><td>Enemy</td><td><b>Scrap Crab</b></td><td>Crab with a hull-plate shell: Harden, +10% Counter.</td></tr>
+<tr><td>Shipwreck</td><td>Event NPC</td><td><b>Scavenger</b></td><td>A goggled worm with a patched coat pulling a cart of scrap.</td></tr>
+<tr><td>Shipwreck</td><td>Event prop</td><td><b>Distress Beacon</b></td><td>A blinking red beacon on a bent antenna.</td></tr>
+<tr><td>Toxic Swamp</td><td>Enemy</td><td><b>Bog Toad</b></td><td>Warty green toad: Radiation on hit (2 stacks).</td></tr>
+<tr><td>Toxic Swamp</td><td>Enemy</td><td><b>Mire Gator</b></td><td>Mossy alligator: Slam, +15% Crit.</td></tr>
+<tr><td>Toxic Swamp</td><td>Event prop</td><td><b>Gas Bubbles</b></td><td>Big green bubbles rising from swamp water.</td></tr>
+<tr><td>Toxic Swamp</td><td>Event prop</td><td><b>Toxic Bloom</b></td><td>A drooping flower dripping glowing green poison.</td></tr>
+<tr><td>Toxic Swamp</td><td>Event prop</td><td><b>Sunken Hut</b></td><td>A wooden hut sinking into green mud.</td></tr>
+<tr><td>Mushroom Forest</td><td>Enemy</td><td><b>Puffball</b></td><td>Round spore puff with tiny legs: Radiation on hit (2 stacks), low HP.</td></tr>
+<tr><td>Mushroom Forest</td><td>Enemy</td><td><b>Myco Beetle</b></td><td>Beetle with a mushroom shell: Harden.</td></tr>
+<tr><td>Mushroom Forest</td><td>Enemy</td><td><b>Shroom Walker</b></td><td>Tall stalking mushroom: Slam, Enrage.</td></tr>
+<tr><td>Mushroom Forest</td><td>Elite</td><td><b>Mycelium Knight</b></td><td>Knight in fungus armour: Radiation on hit, Harden.</td></tr>
+<tr><td>Mushroom Forest</td><td>Boss</td><td><b>Spore Monarch</b></td><td>Spore Cloud: +1 Radiation on you every round.</td></tr>
+<tr><td>Mushroom Forest</td><td>Event NPC</td><td><b>Myco Hermit</b></td><td>A tiny alien with a big glowing mushroom cap for a hat and a basket.</td></tr>
+<tr><td>Mushroom Forest</td><td>Event prop</td><td><b>Fairy Ring</b></td><td>A ring of small glowing mushrooms on dark moss.</td></tr>
+<tr><td>Mushroom Forest</td><td>Event prop</td><td><b>Giant Mushroom</b></td><td>A house-sized orange mushroom with spots.</td></tr>
+<tr><td>Candy Planet</td><td>Enemy</td><td><b>Gummy Worm</b></td><td>Striped gummy worm: +15% Combo.</td></tr>
+<tr><td>Candy Planet</td><td>Enemy</td><td><b>Jelly Blob</b></td><td>Wobbly jelly cube: Harden, Radiation on hit.</td></tr>
+<tr><td>Candy Planet</td><td>Enemy</td><td><b>Candy Wasp</b></td><td>Wasp with a lollipop stinger: very fast, Radiation on hit.</td></tr>
+<tr><td>Candy Planet</td><td>Enemy</td><td><b>Gingerbread Brute</b></td><td>Big gingerbread man with icing scars: Slam, Enrage.</td></tr>
+<tr><td>Candy Planet</td><td>Elite</td><td><b>Licorice Lasher</b></td><td>Black licorice whip creature: Bleed on hit, +10% Dodge.</td></tr>
+<tr><td>Candy Planet</td><td>Elite</td><td><b>Gumball Golem</b></td><td>Golem of stacked gumballs: Harden, Stun slam.</td></tr>
+<tr><td>Candy Planet</td><td>Boss</td><td><b>Bonbon Behemoth</b></td><td>Sugar Rush: +10% Speed every round (max 5 stacks).</td></tr>
+<tr><td>Candy Planet</td><td>Event NPC</td><td><b>Candy Vendor</b></td><td>A gumdrop alien with a striped awning cart and a little bell.</td></tr>
+<tr><td>Candy Planet</td><td>Event prop</td><td><b>Chocolate Fountain</b></td><td>A three-tier fountain of flowing chocolate.</td></tr>
+<tr><td>Candy Planet</td><td>Event prop</td><td><b>Gingerbread House</b></td><td>A small gingerbread house with an open door.</td></tr>
+<tr><td>Crystal Cave</td><td>Enemy</td><td><b>Tick Mite</b></td><td>A mite with a clock-face back: Delay on hit (15%). Shared with Clockwork City and Frozen Future.</td></tr>
+<tr><td>Crystal Cave</td><td>Enemy</td><td><b>Crystal Bat</b></td><td>Bat with crystal wings: +20% Dodge.</td></tr>
+<tr><td>Crystal Cave</td><td>Enemy</td><td><b>Geode Crawler</b></td><td>Rock crawler with a cracked geode back: Harden, +12% Counter.</td></tr>
+<tr><td>Crystal Cave</td><td>Elite</td><td><b>Shard Golem</b></td><td>Golem of jagged prism shards: Harden, +15% Counter.</td></tr>
+<tr><td>Crystal Cave</td><td>Event NPC</td><td><b>Crystal Singer</b></td><td>A slender glassy alien tapping crystals with tiny hammers.</td></tr>
+<tr><td>Crystal Cave</td><td>Event prop</td><td><b>Time Crystal</b></td><td>A tall violet crystal with a frozen swirl inside.</td></tr>
+<tr><td>Crystal Cave</td><td>Event prop</td><td><b>Geode</b></td><td>A giant split geode glowing inside.</td></tr>
+<tr><td>Clockwork City</td><td>Enemy</td><td><b>Cog Soldier</b></td><td>Wind-up tin soldier with a key in its back: Harden, +12% Counter.</td></tr>
+<tr><td>Clockwork City</td><td>Enemy</td><td><b>Steam Hound</b></td><td>Brass dog venting steam: +15% Combo.</td></tr>
+<tr><td>Clockwork City</td><td>Enemy</td><td><b>Spring Hopper</b></td><td>Frog-like automaton on springs: very fast.</td></tr>
+<tr><td>Clockwork City</td><td>Elite</td><td><b>Clockwork Knight</b></td><td>Brass knight with a pendulum flail: Delay on hit, Harden.</td></tr>
+<tr><td>Clockwork City</td><td>Event NPC</td><td><b>Clockmaker</b></td><td>An old worm with a jeweller&#x27;s loupe and a leather tool belt.</td></tr>
+<tr><td>Clockwork City</td><td>Event prop</td><td><b>Great Clock</b></td><td>A tall brass clock tower face with big hands.</td></tr>
+<tr><td>Clockwork City</td><td>Event prop</td><td><b>Gear Pile</b></td><td>A heap of brass gears and springs.</td></tr>
+<tr><td>Clockwork City</td><td>Event prop</td><td><b>Broken Automaton</b></td><td>A slumped brass robot with a sparking chest.</td></tr>
+<tr><td>Frozen Future</td><td>Enemy</td><td><b>Stasis Drone</b></td><td>Hovering drone with a frozen clock ring: Freeze on hit.</td></tr>
+<tr><td>Frozen Future</td><td>Enemy</td><td><b>Chrome Sentry</b></td><td>Chrome sentry robot, half iced over: +15% Counter.</td></tr>
+<tr><td>Frozen Future</td><td>Elite</td><td><b>Cryo Captain</b></td><td>Frost-covered future soldier with a stasis rifle: Delay on hit, +10% Crit.</td></tr>
+<tr><td>Frozen Future</td><td>Boss</td><td><b>Stasis Warden</b></td><td>Time Stop: every 4 rounds it attacks twice.</td></tr>
+<tr><td>Frozen Future</td><td>Event NPC</td><td><b>Time Traveler</b></td><td>A worm in a retro-future suit holding a cracked pocket watch.</td></tr>
+<tr><td>Frozen Future</td><td>Event prop</td><td><b>Cryo Pod</b></td><td>An upright frosted pod with a sleeping soldier silhouette.</td></tr>
+<tr><td>Frozen Future</td><td>Event prop</td><td><b>Frozen Car</b></td><td>A sleek hover car hanging mid-air, frosted over.</td></tr>
+<tr><td>Shared</td><td>Event NPC</td><td><b>Sparring Master</b></td><td>An old bearded worm in a martial-arts gi with a wooden staff.</td></tr>
+<tr><td>Shared</td><td>Event NPC</td><td><b>Alien Pup</b></td><td>A small round alien pup with big eyes and a wagging antenna (not one of the collection aliens).</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Comet Fragment</b></td><td>A burning rock in a small smoking crater.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Storm Rod</b></td><td>A metal lightning rod with sparks under a dark cloud.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Frost Crystal</b></td><td>A frost-covered rock with icicles.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Leaking Barrel</b></td><td>A cracked yellow barrel leaking glowing green waste.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Time Rift</b></td><td>A small swirling blue rift ring with clock hands inside.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Bounty Board</b></td><td>A wooden board with a pinned wanted poster (no text, a skull icon).</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Wishing Well</b></td><td>A stone well with a glowing blue surface.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Strange Mirror</b></td><td>A tall ornate standing mirror with a purple shimmer.</td></tr>
+<tr><td>Shared</td><td>Event prop</td><td><b>Supply Drop</b></td><td>A crashed supply capsule with a parachute.</td></tr>
+</tbody></table></div>
+<h3>Reused (no new art)</h3><ul class="plain"><li><b>Enemies in game:</b> Ember Imp, Magma Slug, Cinder Hound, Ash Wraith, Frost Mite, Ice Crawler, Glacier Golem, Spark Drone, Volt Beetle, Static Eel, Void Spawn, Null Shade, Tunnel Stalker, Burrow Grub.</li><li><b>Elites in game:</b> Lava Brute, Cinder Alpha, Ash Matriarch, Frost Knight, Glacier Warden, Storm Caller, Void Reaver, Rift Echo, Burrow Horror.</li><li><b>Defs without imported art</b> (candidates in <code>~/AI/assets</code>, need import): Snow Lurker, Thunder Moth, Lurker Alpha, Volt Monarch, Eel Tyrant (redo), Null Wraith, Grub Mother. Stalker Prime has art but no biome here (stays Burrow).</li><li><b>Bosses in game:</b> Magma Tyrant, Frost Leviathan, Storm Hive Queen, Void Maw, Rust Queen, Gloop Matriarch, Prism Tyrant. <b>Approved, no def:</b> Elder Magma, Chrono Wyrm. <b>Needs redo:</b> Hollow Cantor (cut off at the edge).</li><li><b>Event art in game:</b> props <code>event_wreck</code>, <code>abandoned_cart</code>, <code>event_shrine</code>; characters <code>black_marketeer</code> (Neon City dealer), <code>cursed_vendor</code> (Swamp Witch), <code>shopkeeper</code> (Wandering Trader).</li></ul>
+</section>
+<section id="questions"><h2>Open questions</h2><ol>
+<li class="q" id="q-weather-stack">Weather as a separate final multiplier (recommended) or added to the skill / part pool with a 25% floor? <span class="idtag">#q-weather-stack</span></li>
+<li class="q" id="q-yield">Biome reward for Grain / Fuel / Hero XP / Gear Cores: “guaranteed roll ×2” (recommended) or a flat bonus line shown as “+80 Grain”? <span class="idtag">#q-yield</span></li>
+<li class="q" id="q-data">Should main levels pay Data at all (Space Station, Neon City)? Today Data is the Dark Side&#x27;s job; the alternative is Hero XP or Gear Cores there. <span class="idtag">#q-data</span></li>
+<li class="q" id="q-scope">Art scope: ~54 NEW enemies/elites, 9 NEW bosses, 63 NEW event NPCs/props. Phasing follows the unlock path: the 8 live biomes cover levels 1–89, Clockwork City is needed by level 90. <span class="idtag">#q-scope</span></li>
+<li class="q" id="q-mix">Biome-event share 40% per event tile (≈1 biome event per run): more, less? <span class="idtag">#q-mix</span></li>
+<li class="q" id="q-spores">Move Strange Spores from the shared pool to Mushroom Forest (it is a biome event in spirit)? <span class="idtag">#q-spores</span></li>
+<li class="q" id="q-elites">Elites: 2 per biome minimum (two lairs per run must differ). Do you want a 3rd biome-only elite for the live biomes? <span class="idtag">#q-elites</span></li>
+<li class="q" id="q-texts">Several live shared events break the one-thing rule (Abandoned Cache lists 4 effects). Rewrite them in the same pass? <span class="idtag">#q-texts</span></li>
+</ol></section>
+<p><small class="m">Sources: ContentDb.Run.cs, ContentDb.Campaign.cs, RunDefs.cs (CampaignDef), docs/design/GDD.md §3, economy-model.md, client Art/Enemies and Run/Props + Characters, RunScenes.Look, docs/art/art-session.md. Draft 2026-11-28.</small></p>
+</main>
