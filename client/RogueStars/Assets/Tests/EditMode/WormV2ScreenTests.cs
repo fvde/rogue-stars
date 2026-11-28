@@ -85,7 +85,11 @@ namespace RogueStars.Client.Tests
                 bool onLeft = slot == PartSlot.Head || slot == PartSlot.LeftArm || slot == PartSlot.Legs;
                 Assert.That(pos.x < 540, Is.EqualTo(onLeft), "head, left arm, legs left; body, right arm, tail right");
                 if (expected.TryGetValue(slot, out var rank))
-                    Assert.That(Child(tile.transform, "Rank").GetComponent<Text>().text, Is.EqualTo(rank), slot.ToString());
+                {
+                    // the rank letter shows only from Mythic up (M, M+1 … S, SS); below that the tile colour says it
+                    if (rank.StartsWith("M") || rank.StartsWith("S")) Assert.That(Child(tile.transform, "Rank").GetComponent<Text>().text, Is.EqualTo(rank), slot.ToString());
+                    else Assert.That(Child(tile.transform, "Rank"), Is.Null, slot + ": no rank letter below Mythic");
+                }
                 else if (!S.Parts.Equipped.ContainsKey(slot))
                     Assert.That(Child(tile.transform, "Caption"), Is.Not.Null, slot + ": empty socket");
             }
@@ -124,8 +128,9 @@ namespace RogueStars.Client.Tests
             Assert.That(S.Parts.Equipped[PartSlot.RightArm], Is.EqualTo(b));
             Ui.Clear(Modal);
             worm.Refresh();
-            Assert.That(Child(Named(worm.Root, "Slot:LeftArm").transform, "Rank").GetComponent<Text>().text, Is.EqualTo("L"));
-            Assert.That(Child(Named(worm.Root, "Slot:RightArm").transform, "Rank").GetComponent<Text>().text, Is.EqualTo("R"));
+            Assert.That(S.Parts.Items[S.Parts.Equipped[PartSlot.LeftArm]].Rarity, Is.EqualTo((int)PartRarity.Legendary));
+            Assert.That(S.Parts.Items[S.Parts.Equipped[PartSlot.RightArm]].Rarity, Is.EqualTo((int)PartRarity.Rare));
+            Assert.That(Child(Named(worm.Root, "Slot:LeftArm").transform, "Rank"), Is.Null, "no rank letter below Mythic");
             Assert.That(worm.ShownParts, Does.Not.Contain(a).And.Not.Contain(b));
         }
 
@@ -353,7 +358,7 @@ namespace RogueStars.Client.Tests
             var uid = Grant("e_head_guard", PartRarity.Epic, 2)[0];
             var worm = OpenWorm();
             var tile = Named(worm.Root, "Part:" + uid).transform;
-            Assert.That(Child(tile, "Copies").GetComponent<Text>().text, Is.EqualTo("1"), "the copy-count diamond");
+            Assert.That(Child(tile, "Copies").GetComponent<Text>().text, Is.EqualTo("x1"), "copies as xN");
             Assert.That(Child(tile, "Glyph"), Is.Not.Null, "no icon art yet: the slot glyph");
             Assert.That(Child(tile, "Pips"), Is.Not.Null);
         }

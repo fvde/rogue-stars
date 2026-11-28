@@ -13,8 +13,8 @@ namespace RogueStars.Client.Screens
 {
     /// <summary>
     /// The rarity tile of a part (board "New · worm"): rarity tile (<c>tile_&lt;rarity&gt;</c>), item icon (or the slot glyph
-    /// in the role colour), slot badge top-left, "Lv.N" top-right, the big rank letter (C R E L M M+1 … S SS) bottom-left,
-    /// the gold copy-count diamond bottom-right, the red "!" top-right and the rune pip strip under it. Board px: a tile is
+    /// in the role colour), slot badge top-left, "Lv.N" top-right, the big rank letter bottom-left only from Mythic up (M M+1 … S SS),
+    /// "xN" copies bottom-right, the red "!" top middle and the rune pip strip under it. Board px: a tile is
     /// <c>size</c> square plus the strip (46 px), placed by the caller.
     /// </summary>
     public static class PartTileView
@@ -79,7 +79,7 @@ namespace RogueStars.Client.Screens
                 var hole = KitV2.Box(root, "tile_empty", 0, 0, size, size, new Color(0.11f, 0.1f, 0.2f, 0.28f), 24 * k, 5.3f, new Color(0.11f, 0.1f, 0.2f, 0.55f), null, "Tile");
                 var g = KitV2.Icon(root, PartArt.SlotGlyph(d.Kind), size * 0.27f, size * 0.24f, size * 0.46f, size * 0.46f, "Glyph", new Color(0.24f, 0.2f, 0.36f, 0.55f));
                 if (d.Caption != null) KitV2.Text(root, d.Caption, 4, size * 0.72f, size - 8, size * 0.22f, 28 * k + 4, Theme.Hex(0x6A5A8C), TextAnchor.MiddleCenter, "Caption", false);
-                if (d.Alert) KitV2.BadgeRed(root, size - 49 * k - 8, -17, "!", 64, "Alert");
+                if (d.Alert) KitV2.BadgeRed(root, (size - 64) / 2, -17, "!", 64, "Alert"); // top middle (owner 2026-11-28)
                 if (onClick != null) KitV2.Tap(root, onClick);
                 return root;
             }
@@ -104,12 +104,16 @@ namespace RogueStars.Client.Screens
             KitV2.Icon(badge, PartArt.SlotGlyph(d.Kind), 13, 13, 30, 30, "Glyph");
 
             KitV2.Text(root, "Lv." + d.Level, size - 13 - 110, 11, 110, 37, 32, Color.white, TextAnchor.MiddleRight, "Level");
-            var rank = KitV2.Text(root, PartArt.RankRich(d.Rarity, 59), 8, size - 61, 120, 67, 58.7f, KitV2.RankColor(d.Rarity), TextAnchor.MiddleLeft, "Rank");
-            rank.supportRichText = true;
+            // rank letter only from Mythic up (owner 2026-11-28): below that the tile colour already says the rarity
+            if (d.Rarity >= (int)PartRarity.Mythic)
+            {
+                var rank = KitV2.Text(root, PartArt.RankRich(d.Rarity, 59), 8, size - 61, 120, 67, 58.7f, KitV2.RankColor(d.Rarity), TextAnchor.MiddleLeft, "Rank");
+                rank.supportRichText = true;
+            }
             if (d.Copies > 0)
             {
-                var dia = KitV2.Diamond(root, "copy_diamond", size - 62, size - 61, 79, KitV2.DiamondGold, 5.3f);
-                KitV2.Text(root, d.Copies > 99 ? "99+" : d.Copies.ToString(), size - 62, size - 61, 79, 79, d.Copies > 9 ? 22 : 26.7f, KitV2.Ink, TextAnchor.MiddleCenter, "Copies", false);
+                // copies as "x2" bottom-right (owner 2026-11-28: clearer than the diamond)
+                KitV2.Text(root, "x" + (d.Copies > 99 ? "99+" : d.Copies.ToString()), size - 13 - 110, size - 50, 110, 44, 36, Color.white, TextAnchor.MiddleRight, "Copies");
             }
             if (d.Locked)
             {
@@ -127,7 +131,7 @@ namespace RogueStars.Client.Screens
                 up.name = "LevelUpBadge";
                 KitV2.Text(up.rectTransform, "▲", 0, 0, 46, 44, 26, Color.white, TextAnchor.MiddleCenter, "Arrow", false);
             }
-            if (d.Alert) KitV2.BadgeRed(root, size - 49, -17, "!", 64, "Alert");
+            if (d.Alert) KitV2.BadgeRed(root, (size - 64) / 2, -17, "!", 64, "Alert"); // top middle (owner 2026-11-28)
             if (d.Pips) KitV2.PipStrip(root, (size - 149) / 2, size + 14, d.Gems, d.OpenSockets);
             if (onClick != null) KitV2.Tap(root, onClick);
             return root;

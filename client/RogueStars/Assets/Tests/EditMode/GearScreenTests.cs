@@ -124,7 +124,9 @@ namespace RogueStars.Client.Tests
                 Assert.That(slot, Is.Not.Null, kv.Key.ToString());
                 var p = S.Parts.Items[kv.Value];
                 Assert.That(Child(slot.transform, "Level").GetComponent<Text>().text, Is.EqualTo("Lv." + p.Level));
-                Assert.That(Child(slot.transform, "Rank").GetComponent<Text>().text, Does.StartWith(RogueStars.Client.World.PartArt.Rank(p.Rarity).Substring(0, 1)));
+                if (p.Rarity >= (int)PartRarity.Mythic)
+                    Assert.That(Child(slot.transform, "Rank").GetComponent<Text>().text, Does.StartWith(RogueStars.Client.World.PartArt.Rank(p.Rarity).Substring(0, 1)));
+                else Assert.That(Child(slot.transform, "Rank"), Is.Null, "no rank letter below Mythic");
             }
             // By Rarity (Best): rarity descending
             var r = worm.ShownParts.Select(u => S.Parts.Items[u].Rarity).ToList();
