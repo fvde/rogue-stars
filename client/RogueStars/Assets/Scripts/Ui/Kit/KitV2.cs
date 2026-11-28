@@ -357,6 +357,151 @@ namespace RogueStars.Client.UiKit
             return Tap(img.rectTransform, onClick);
         }
 
+        // ---- battle pieces (board "New · battle") -----------------------------------------------------------------
+
+        public static readonly (Color top, Color bottom) HpRed = (Theme.Hex(0xFF7070), Theme.Hex(0xD62F2F));
+        public static readonly (Color top, Color bottom) ShieldBlue = (Theme.Hex(0x9FE2FF), Theme.Hex(0x3FA9F5));
+        public static readonly (Color top, Color bottom) RageYellow = (Theme.Hex(0xFFE86B), Theme.Hex(0xF7B52A));
+        public static readonly (Color top, Color bottom) SkillSilver = (Theme.Hex(0xDFE3EC), Theme.Hex(0xAAB2C4));
+        public static readonly (Color top, Color bottom) SkillActive = (Theme.Hex(0xE7F9C8), Theme.Hex(0xA7D66A));
+        public static readonly Color SkillGlow = Theme.Hex(0xB8F05A);
+        public static readonly Color ShieldText = Theme.Hex(0x7FD3FF);
+        public static readonly Color HitBlue = Theme.Hex(0x7FE0FF);
+        public static readonly Color TileInner = new Color(1, 1, 1, 0x99 / 255f);
+
+        /// <summary>The navy HUD pill (level, ATK, DEF, run coins) at board coordinates; <paramref name="alpha"/> 0.8 on the coins row.</summary>
+        public static Image HudPill(Transform parent, float x, float y, float w, float h, string name, float alpha = 1)
+        {
+            var img = Box(parent, "hud_pill", x, y, w, h, Ink, 34.7f, 5.3f, Ink, null, name);
+            var c = img.color; img.color = new Color(c.r, c.g, c.b, c.a * alpha);
+            return img;
+        }
+
+        /// <summary>
+        /// A bar in the <c>hp_frame</c> (navy rounded frame) with its fill (<c>hp_red</c>, <c>hp_shield_blue</c>,
+        /// <c>hp_rage_yellow</c>; code-drawn: a two-colour gradient with a soft gloss) inset by <paramref name="insetX"/> /
+        /// <paramref name="insetY"/>. The frame is drawn on <paramref name="holder"/> (any size / anchors); returns the fill
+        /// (anchored left: its anchorMax.x is the value, see <see cref="UiBar"/>).
+        /// </summary>
+        public static RectTransform Bar(RectTransform holder, string fillId, (Color top, Color bottom) colors, float radius, float insetX, float insetY, float fillRadius = 0)
+        {
+            var frame = holder.GetComponent<Image>() ?? holder.gameObject.AddComponent<Image>();
+            frame.raycastTarget = false;
+            if (!Skin(frame, "hp_frame")) Fallback(frame, Ink, radius);
+            var track = Ui.Rect(holder, "Track");
+            Ui.Stretch(track, insetX, insetY, insetX, insetY);
+            var fill = Ui.Rect(track, "Fill");
+            fill.anchorMin = Vector2.zero; fill.anchorMax = Vector2.one; fill.pivot = new Vector2(0, 0.5f);
+            fill.offsetMin = fill.offsetMax = Vector2.zero;
+            var img = fill.gameObject.AddComponent<Image>();
+            img.raycastTarget = false;
+            if (!Skin(img, fillId))
+            {
+                UiShapes.Round(img, Mathf.Max(1, fillRadius));
+                img.color = Color.white;
+                img.gameObject.AddComponent<KitGradient>().Set(colors.top, colors.bottom);
+                // a soft gloss over the upper half
+                var gloss = Ui.Rect(fill, "Gloss");
+                gloss.anchorMin = new Vector2(0, 0.55f); gloss.anchorMax = new Vector2(1, 0.88f);
+                float gx = Mathf.Min(8, fillRadius + 2);
+                gloss.offsetMin = new Vector2(gx, 0); gloss.offsetMax = new Vector2(-gx, 0);
+                var gi = gloss.gameObject.AddComponent<Image>();
+                gi.raycastTarget = false; UiShapes.Round(gi, Mathf.Max(1, fillRadius * 0.6f)); gi.color = new Color(1, 1, 1, 0.22f);
+            }
+            return fill;
+        }
+
+        /// <summary>
+        /// A battle skill tile of <paramref name="size"/> board px (181 on the board), centred on its rect: the face
+        /// ("Face", <c>skill_tile</c>: light silver, navy rim, white inner line), the skill's icon ("IconArt", inset 29/181) or a
+        /// family glyph ("Glyph"), and the hidden firing look ("Active", <c>skill_tile_active</c>: green face, lime glow ring
+        /// 8/181 outside the tile). <see cref="SetSkillActive"/> switches it.
+        /// </summary>
+        public static RectTransform SkillTile(Transform parent, float size, Sprite icon, string glyph, Color glyphColor, string name)
+        {
+            var rt = Ui.Rect(parent, name);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            float k = size / 181f;
+            var active = Ui.Rect(rt, "Active");
+            Ui.Stretch(active, -8 * k, -8 * k, -8 * k, -8 * k);
+            var ai = active.gameObject.AddComponent<Image>();
+            ai.raycastTarget = false;
+            if (!Skin(ai, "skill_tile_active"))
+            {
+                Fallback(ai, SkillGlow, 34 * k);
+                var inner = Ui.Rect(active, "ActiveFace");
+                Ui.Stretch(inner, 8 * k, 8 * k, 8 * k, 8 * k);
+                TileFace(inner, SkillActive, k);
+            }
+            active.gameObject.SetActive(false);
+            var face = Ui.Rect(rt, "Face");
+            Ui.Stretch(face);
+            var fi = face.gameObject.AddComponent<Image>();
+            fi.raycastTarget = false;
+            if (!Skin(fi, "skill_tile")) TileFace(face, SkillSilver, k);
+            float pad = 29 * k;
+            if (icon != null) Icon(rt, icon, pad, pad, size - 2 * pad, size - 2 * pad, "IconArt");
+            else Text(rt, glyph, 0, 0, size, size, size * 0.46f, glyphColor, TextAnchor.MiddleCenter, "Glyph");
+            return rt;
+        }
+
+        /// <summary>
+        /// The code-drawn tile: a navy rounded plate, the gradient face inset by the rim (6.7/181; drawn on top, so no face
+        /// colour bleeds round the rim's edge) and the white inner line along the face's edge.
+        /// </summary>
+        private static void TileFace(RectTransform tile, (Color top, Color bottom) colors, float k)
+        {
+            var rim = tile.GetComponent<Image>() ?? tile.gameObject.AddComponent<Image>();
+            rim.raycastTarget = false;
+            Fallback(rim, Ink, 26.7f * k);
+            var fill = Ui.Rect(tile, "Fill");
+            float r = 6.7f * k;
+            Ui.Stretch(fill, r, r, r, r);
+            var img = fill.gameObject.AddComponent<Image>();
+            img.raycastTarget = false;
+            Fallback(img, colors.top, 20 * k, 0, null, colors.bottom);
+            UiShapes.Outline(fill, TileInner, 20 * k, 5.3f * k, "Inner");
+        }
+
+        /// <summary>The firing look of a <see cref="SkillTile"/> on / off (the green face with the lime glow).</summary>
+        public static void SetSkillActive(RectTransform tile, bool on)
+        {
+            if (tile == null) return;
+            var a = tile.Find("Active");
+            var f = tile.Find("Face");
+            if (a != null) a.gameObject.SetActive(on);
+            if (f != null) f.gameObject.SetActive(!on);
+        }
+
+        /// <summary>The navy speed button (<c>speed_button</c>, 207 × 112): the "»" glyph and the speed ("x2", named "SpeedText").</summary>
+        public static Button SpeedButton(Transform parent, float x, float y, Sprite glyph, string label, Action onClick, string name = "SpeedButton")
+        {
+            var img = Box(parent, "speed_button", x, y, 207, 112, Navy, 26.7f, 6.7f, Ink, null, name);
+            if (KitArt.Get("speed_button") == null) Icon(img.rectTransform, glyph, 37, 35, 59, 43, "SpeedGlyph");
+            var t = Text(img.rectTransform, label, 104, 22, 92, 68, 53.3f, Color.white, TextAnchor.MiddleCenter, "SpeedText");
+            KitFit.On(t, 28);
+            return Tap(img.rectTransform, onClick);
+        }
+
+        /// <summary>The round settings button (<c>settings_button</c>): a navy disc with the cog glyph.</summary>
+        public static Button SettingsButton(Transform parent, float x, float y, float size, Sprite cog, Action onClick, string name = "SettingsButton")
+        {
+            var img = Circle(parent, "settings_button", x, y, size, BarFill, (Ink, 5.3f));
+            img.name = name;
+            if (KitArt.Get("settings_button") == null)
+            {
+                var g = Icon(img.rectTransform, cog, size * 0.2f, size * 0.2f, size * 0.6f, size * 0.6f, "Cog", Theme.Hex(0xE8ECF6));
+                // the imported cog has an opaque white hole: a navy hub over it
+                var hub = Ui.Rect(g.rectTransform, "CogHub");
+                hub.anchorMin = hub.anchorMax = new Vector2(0.5f, 0.495f);
+                hub.sizeDelta = new Vector2(size * 0.26f, size * 0.26f);
+                var hi = hub.gameObject.AddComponent<Image>();
+                hi.sprite = UiShapes.Circle; hi.color = BarFill; hi.raycastTarget = false;
+            }
+            return Tap(img.rectTransform, onClick);
+        }
+
         // ---- procedural textures ----------------------------------------------------------------------------------
 
         private static Sprite _parchment;
@@ -428,6 +573,33 @@ namespace RogueStars.Client.UiKit
             Target.sizeDelta = new Vector2(KitV2.DesignWidth, DesignHeight);
             if (Layout != null && !Mathf.Approximately(Layout.preferredHeight, DesignHeight * k)) Layout.preferredHeight = DesignHeight * k;
             Scaled?.Invoke(k);
+        }
+    }
+    /// <summary>
+    /// A code-drawn quad with a slanted top edge (the battle board's dimmed lower area, its "angled cut"): the top edge drops
+    /// <see cref="LeftDrop"/> / <see cref="RightDrop"/> (fractions of the height) at the left / right; a vertical gradient from
+    /// <see cref="Top"/> at the edge to <see cref="Bottom"/> at <see cref="SolidAt"/> of the height and below.
+    /// </summary>
+    public sealed class KitSlant : MaskableGraphic
+    {
+        public float LeftDrop = 0.1f, RightDrop, SolidAt = 0.3f;
+        public Color Top = new Color(0x1D / 255f, 0x1B / 255f, 0x33 / 255f, 0.9f), Bottom = new Color(0x1D / 255f, 0x1B / 255f, 0x33 / 255f, 1f);
+
+        protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            vh.Clear();
+            var r = GetPixelAdjustedRect();
+            float h = r.height;
+            float yl = r.yMax - LeftDrop * h, yr = r.yMax - RightDrop * h, ys = r.yMax - SolidAt * h;
+            Color32 top = Top * color, bottom = Bottom * color;
+            vh.AddVert(new Vector3(r.xMin, yl), top, Vector2.zero);
+            vh.AddVert(new Vector3(r.xMax, yr), top, Vector2.zero);
+            vh.AddVert(new Vector3(r.xMax, Mathf.Min(ys, yr)), bottom, Vector2.zero);
+            vh.AddVert(new Vector3(r.xMin, Mathf.Min(ys, yl)), bottom, Vector2.zero);
+            vh.AddVert(new Vector3(r.xMax, r.yMin), bottom, Vector2.zero);
+            vh.AddVert(new Vector3(r.xMin, r.yMin), bottom, Vector2.zero);
+            vh.AddTriangle(0, 1, 2); vh.AddTriangle(0, 2, 3);
+            vh.AddTriangle(3, 2, 4); vh.AddTriangle(3, 4, 5);
         }
     }
 }

@@ -363,6 +363,7 @@ namespace RogueStars.Client.PlayTests
             var skills = FiringSkills(c, 7);
             foreach (var (name, enemies, mount, weak) in new[]
             {
+                ("battle_one_enemy", new[] { "cinder_hound" }, null, false),
                 ("battle_two_enemies", new[] { "cinder_hound", "cinder_hound" }, "skiff", false),
                 ("battle_three_enemies", new[] { "ember_imp", "magma_slug", "ash_wraith" }, "skiff", false),
                 ("battle_elite_no_mount", new[] { "elite_lava_brute" }, null, false),
@@ -386,6 +387,11 @@ namespace RogueStars.Client.PlayTests
                 yield return Shot(name + "_mid");
                 yield return ShotCrop(name + "_mid_hud", 0, 0, 1, 0.2f);
                 yield return ShotCrop(name + "_mid_footer", 0, 0.72f, 1, 0.28f);
+                // further in: statuses stacked on the fighters (the third status applied so far)
+                int applied = 0, at = -1;
+                for (int i = 0; i < battle.Log.Count && at < 0; i++)
+                    if (battle.Log[i].Action == BattleAction.StatusApplied && ++applied == 3) at = i;
+                if (at > playback.NextIndex) { playback.PlaySteps(at + 1 - playback.NextIndex); yield return Wait(0.6f); yield return Shot(name + "_statuses"); }
                 playback.PlayAll();
                 yield return Wait(0.7f);
                 yield return Shot(name + "_end");
@@ -522,12 +528,21 @@ namespace RogueStars.Client.PlayTests
         {
             var list = new List<string>();
             var families = new List<SkillFamily>();
+            // skills with their icon art first (the battle board shows real icons), then any that fire
+            foreach (var s in c.Skills.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
+            {
+                if (list.Count >= n) break;
+                if (s.Source != SkillSource.Run || !s.Draftable || s.RequiresFamilyCount > 0 || s.Requires.Count > 0) continue;
+                if (s.Triggers == null || s.Triggers.Count == 0 || ArtCatalog.SkillIcon(s.Id) == null) continue;
+                families.Add(s.Family);
+                list.Add(s.Id);
+            }
             foreach (var s in c.Skills.Values.OrderBy(x => x.Id, StringComparer.Ordinal))
             {
                 if (list.Count >= n) break;
                 if (s.Source != SkillSource.Run || !s.Draftable || s.RequiresFamilyCount > 0 || s.Requires.Count > 0) continue;
                 if (s.Triggers == null || s.Triggers.Count == 0) continue;
-                if (families.Contains(s.Family) && list.Count < 4) continue;
+                if (list.Contains(s.Id) || families.Contains(s.Family) && list.Count < 4) continue;
                 families.Add(s.Family);
                 list.Add(s.Id);
             }

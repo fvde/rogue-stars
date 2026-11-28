@@ -66,10 +66,11 @@ namespace RogueStars.Client.Tests
         [Test]
         public void Battle_FollowsTheOneSpeedSetting_AndCyclesThroughIt()
         {
-            // playtest 0.1.308: the battle has no speed button of its own; it plays at the board's speed (PlaySpeed.Current)
+            // playtest 0.1.308: one speed setting (PlaySpeed.Current); the battle board's speed button cycles that same setting
             var screen = new BattlePlaybackScreen(Battle((0, 2, BattleAction.Basic)));
             _f.App.Router.Push(screen);
-            Assert.That(Find(screen.Root, "SpeedChip"), Is.Null);
+            Assert.That(Find(screen.Root, "SpeedChip"), Is.Null, "not the board's chip");
+            Assert.That(Find(screen.Root, "SpeedButton"), Is.Not.Null);
             bool passUser = ShopSystem.HasBattleSpeed3(S, C, _f.Clock.NowMs);
             var seen = new List<string>();
             for (int i = 0; i < 4; i++)

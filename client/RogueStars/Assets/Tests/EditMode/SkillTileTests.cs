@@ -122,8 +122,10 @@ namespace RogueStars.Client.Tests
             _f.App.Router.Push(screen);
             var tile = FindNamed(screen.Root, "Slot:" + sk[0].Id);
             Assert.That(tile, Is.Not.Null);
-            Assert.That(FindNamed(tile, "RarityBorder"), Is.Not.Null);
+            // the battle board's light silver tile (UI kit v2 skill_tile): its face, the icon (or the family glyph), the hidden firing look
             Assert.That(FindNamed(tile, "Face"), Is.Not.Null);
+            Assert.That(FindNamed(tile, "IconArt") ?? FindNamed(tile, "Glyph"), Is.Not.Null);
+            Assert.That(FindNamed(tile, "Active").gameObject.activeSelf, Is.False, "green only while it fires");
             tile.GetComponent<Button>().onClick.Invoke();
             Assert.That(SkillTooltip.IsOpen, Is.True);
             var tip = SkillTooltip.Current;
