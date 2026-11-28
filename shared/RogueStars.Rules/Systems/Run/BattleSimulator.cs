@@ -1515,12 +1515,55 @@ namespace RogueStars.Rules.Systems
             return n;
         }
 
+        /// <summary>
+        /// Synergy weather (main campaign levels, BattleSetup.Weather): a separate final multiplier on the damage of one synergy,
+        /// after every additive bonus. The boost (+25%) hits the player side and the enemies that deal that synergy's damage (never
+        /// General for enemies: their untagged hits are no build); the weakened synergy (−25% / −50%) hits the player side only.
+        /// Damage to one's own side (Heat recoil) is left alone.
+        /// </summary>
+        private double WeatherMultiplier(Fighter src, Fighter target, BattleAction action, StatusId status, string skillId)
+        {
+            var w = _setup.Weather;
+            if (w == null || src == null || src.Side == target.Side || !WeatherSynergy(src, action, status, skillId, out var fam)) return 1;
+            bool player = src.Side == BattleSide.Player;
+            double m = 1;
+            if (fam == w.Boost && (player || fam != SkillFamily.None)) m *= 1 + w.BoostPct / 100.0;
+            if (player && fam == w.Weak) m *= Math.Max(0, 1 - w.WeakPct / 100.0);
+            return m;
+        }
+
+        /// <summary>
+        /// The synergy a damage instance belongs to (docs/design/biomes, "Synergy weather"): Heat burst → Fire (Heat / Supernova),
+        /// Radiation / Bleed ticks → their synergy, an alien's ability → Alien, combo / counter hits → Combo / Counter, a skill's
+        /// damage → its synergy (untagged skills → General). Plain basic and rage hits belong to none.
+        /// </summary>
+        private bool WeatherSynergy(Fighter src, BattleAction action, StatusId status, string skillId, out SkillFamily fam)
+        {
+            fam = SkillFamily.None;
+            if (action == BattleAction.StatusTick || action == BattleAction.Supernova)
+            {
+                switch (status)
+                {
+                    case StatusId.Heat: case StatusId.Burn: fam = SkillFamily.Fire; return true;
+                    case StatusId.Poison: fam = SkillFamily.Poison; return true;
+                    case StatusId.Bleed: fam = SkillFamily.Bleed; return true;
+                }
+            }
+            if (src.Sidekick) { fam = SkillFamily.AlienSynergy; return true; }
+            if (action == BattleAction.Combo) { fam = SkillFamily.Combo; return true; }
+            if (action == BattleAction.Counter) { fam = SkillFamily.Counter; return true; }
+            var sk = skillId != null ? C.Skill(skillId) : null;
+            if (sk == null) return false;
+            fam = sk.Family == SkillFamily.Crit ? SkillFamily.None : sk.Family;
+            return true;
+        }
+
         private double DealDamage(Fighter src, Fighter target, double amount, bool ignoreShield, BattleAction action, bool crit, StatusId status, string skillId)
         {
             _lastAbsorbed = 0;
             _lastBroke = false;
             if (!target.Alive) return 0;
-            amount = Math.Max(0, amount);
+            amount = Math.Max(0, amount) * WeatherMultiplier(src, target, action, status, skillId);
             // Quantum Guard Shell: no single hit takes more than N % of max HP (applied last, after every damage-taken modifier)
             if (target.Rules.HitCapPct > 0 && action != BattleAction.StatusTick) amount = Math.Min(amount, target.MaxHp * target.Rules.HitCapPct / 100.0);
             double absorbed = 0;

@@ -232,12 +232,17 @@ namespace RogueStars.Rules.Systems
         public const string RunMinigames = "run_minigames";
         /// <summary>Hold the dice to auto-roll (client convenience; auto never answers a decision).</summary>
         public const string AutoRoll = "auto_roll";
-        /// <summary>Laboratory signature packages (each package node's RequiresFeature). The first (Combo) comes with the Laboratory.</summary>
-        public const string PackageIce = "package_ice";
-        public const string PackageLightning = "package_lightning";
-        public const string PackageCounter = "package_counter";
-        public const string PackageAlien = "package_alien";
-        public const string PackageTime = "package_time";
+        /// <summary>
+        /// Signature unlocks by campaign level (CampaignDef.SignatureUnlocks; no Laboratory packages): each brings one new signature
+        /// and, from the level after the unlock, its new biome. Also gates that synergy's lab skill nodes (LabResearchDef.RequiresFeature).
+        /// </summary>
+        public const string SignatureIce = "signature_ice";
+        public const string SignatureLightning = "signature_lightning";
+        public const string SignatureCounter = "signature_counter";
+        public const string SignatureAlien = "signature_alien";
+        public const string SignatureTime = "signature_time";
+        /// <summary>Prefix of a biome-only unlock (a slot past the signatures: "biome_&lt;id&gt;").</summary>
+        public const string BiomePrefix = "biome_";
 
         /// <summary>State flag that unlocks every feature (dev cheats, other workstreams' tests).</summary>
         public const string DevUnlockAllFlag = "dev_unlock_all";

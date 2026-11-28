@@ -35,7 +35,7 @@ namespace RogueStars.Rules.Systems
                     if (!loadout.DraftPoolSkillIds.Contains(sid)) loadout.DraftPoolSkillIds.Add(sid);
                 foreach (var m in StatBonuses(state, content)) loadout.WormStats.Add(m);
                 loadout.UnlockedFamilies.Clear();
-                loadout.UnlockedFamilies.AddRange(UnlockedFamilies(state, content));
+                loadout.UnlockedFamilies.AddRange(RunSystem.UnlockedSynergies(state, content));
             });
         }
 
@@ -73,21 +73,6 @@ namespace RogueStars.Rules.Systems
                 var def = content.LabResearch[id];
                 if (def.Kind != LabNodeKind.Skill || !state.Lab.Entries.TryGetValue(id, out var e) || e.Level <= 0 || !e.Enabled) continue;
                 list.Add(def.Levels[Math.Min(e.Level, def.Levels.Count) - 1].SkillId);
-            }
-            return list;
-        }
-
-        /// <summary>
-        /// Synergies open for runs: RunTuning.StarterSynergies (Fire, Radiation, Bleed) plus every researched package node's family,
-        /// in a stable order (starters, then packages by id).
-        /// </summary>
-        public static List<SkillFamily> UnlockedFamilies(GameState state, ContentDb content)
-        {
-            var list = new List<SkillFamily>(content.RunTuning.StarterSynergies);
-            foreach (var id in SortedIds(content))
-            {
-                var def = content.LabResearch[id];
-                if (def.Kind == LabNodeKind.Package && Entry(state, id).Level > 0 && !list.Contains(def.Family)) list.Add(def.Family);
             }
             return list;
         }

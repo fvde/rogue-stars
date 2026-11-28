@@ -402,8 +402,7 @@ namespace RogueStars.Sim
         /// <summary>Next node: lowest level first (spread), stat nodes before skill nodes (power), shallow rows first.</summary>
         private LabResearchDef NextResearch() => C.LabResearch.Values
             .Where(d => LaboratorySystem.BlockReason(S, C, d) == null)
-            .OrderBy(d => d.Kind == LabNodeKind.Package ? 0 : 1) // a new synergy package first (signatures pass)
-            .ThenBy(d => LaboratorySystem.Entry(S, d.Id).Level).ThenBy(d => d.Kind == LabNodeKind.Stat ? 0 : 1).ThenBy(d => d.Tier)
+            .OrderBy(d => LaboratorySystem.Entry(S, d.Id).Level).ThenBy(d => d.Kind == LabNodeKind.Stat ? 0 : 1).ThenBy(d => d.Tier)
             .ThenBy(d => d.Id, StringComparer.Ordinal).FirstOrDefault();
 
         private bool LabDataShort => Unlocked(Features.Laboratory) && LaboratorySystem.Running(S) < LaboratorySystem.Slots(S, C)

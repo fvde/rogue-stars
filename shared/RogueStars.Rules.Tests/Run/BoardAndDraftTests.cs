@@ -341,12 +341,13 @@ public class ContentTests
         var c = ContentDb.Default;
         Assert.Equal(c.Campaign.MaterializedLevels, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
         Assert.All(c.Portals.Values.Where(p => p.Kind == PortalKind.Main), p => Assert.Single(p.LevelIds)); // one portal per level
-        Assert.Equal(c.Campaign.Biomes.Count, c.Portals.Values.Where(p => p.Kind == PortalKind.Main).Select(p => p.Name).Distinct().Count());
+        Assert.Equal(c.Campaign.Biomes.Count(b => b.Ready), c.Portals.Values.Where(p => p.Kind == PortalKind.Main).Select(p => p.Name).Distinct().Count());
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.Burrow);
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.DarkSide);
         Assert.True(c.Enemies.Values.Count(e => !e.Boss) >= 18);
         Assert.True(c.Enemies.Values.Count(e => e.Elite) >= 5);
-        Assert.Equal(4 + 4 * c.Campaign.BossVariants, c.RunBosses.Count); // 4 family bosses + variants of the endless portals
+        int bosses = c.Campaign.Biomes.SelectMany(b => b.Bosses.Append(b.StandInBoss)).Where(x => x != null).Distinct().Count();
+        Assert.Equal(bosses * (1 + c.Campaign.BossVariants), c.RunBosses.Count); // every campaign boss + its variants of the endless levels
         Assert.True(c.RandomRunEvents.Count >= 12);
         Assert.NotNull(c.Regen(Currencies.Stamina));
         Assert.NotNull(c.Regen(Currencies.BurrowKeys));
@@ -398,7 +399,7 @@ public class ContentTests
         {
             var l = mains[n - 1];
             Assert.Equal(n, RunSystem.MainLevelNumber(c, l.Id));
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / EndlessCampaignTests.FamilyFactor(c, n);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.InRange(l.StaminaCost, 5, c.Campaign.StaminaMax);

@@ -41,7 +41,7 @@ public static class RunTestKit
         for (int n = 1; n <= 12; n++)
         {
             var l = c.MainLevel(n)!;
-            if (n <= c.Campaign.ChapterLevels) l.TilePoolId = "pool_" + c.CampaignBiome(n)!.Family; // the full pool of its biome (level 1: not the tutorial pool)
+            if (n <= c.Campaign.ChapterLevels) l.TilePoolId = c.Campaign.MainPool; // the full main pool (level 1: not the tutorial pool)
             l.Modifiers.AwakeningPct = 0;
             l.BranchChance = new LevelDef().BranchChance;
             l.ClockMinibosses = true;

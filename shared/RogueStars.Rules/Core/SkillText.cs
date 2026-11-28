@@ -274,6 +274,21 @@ namespace RogueStars.Rules.Core
             _ => f.ToString(),
         };
 
+        /// <summary>
+        /// Synergy weather name of a synergy (biome chips "Heat +25%", "Chill −50%"): the damage it scales. None = General (skills
+        /// without a synergy tag).
+        /// </summary>
+        public static string WeatherName(SkillFamily f) => f switch
+        {
+            SkillFamily.Fire => "Heat",
+            SkillFamily.Ice => "Chill",
+            SkillFamily.Lightning => "Shock",
+            SkillFamily.Poison => "Radiation",
+            SkillFamily.AlienSynergy => "Alien",
+            SkillFamily.None => "General",
+            _ => f.ToString(),
+        };
+
         /// <summary>Player-facing status name ("Radiation" for the internal Poison id; the legacy Burn reads as Heat).</summary>
         public static string StatusName(StatusId s) => s switch
         {

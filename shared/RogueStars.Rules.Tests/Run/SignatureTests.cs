@@ -13,17 +13,18 @@ namespace RogueStars.Rules.Tests.Run;
 public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static readonly ContentDb C = ContentDb.Default;
-    private static readonly string[] Starters = { "sig_bleed", "sig_fire", "sig_radiation" };
+    private static readonly string[] Starters = { "sig_bleed", "sig_combo", "sig_fire", "sig_radiation" };
 
     // ---- run start: the pick ------------------------------------------------------------------------------------------
 
     [Fact]
-    public void NewPlayer_IsOfferedTheThreeStarterSignatures_StableUntilTheRunStarts()
+    public void NewPlayer_IsOfferedThreeOfTheFourStarterSignatures_StableUntilTheRunStarts()
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 3);
         var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
-        Assert.Equal(Starters, offer.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Equal(3, offer.Distinct().Count());
+        Assert.All(offer, id => Assert.Contains(id, Starters));
         Assert.Equal(offer, RunSystem.SignatureOffer(e, s, TestHelpers.T0 + 3_600_000)); // the same offer until a run starts
         string pick = offer[2];
         var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = pick });
@@ -42,7 +43,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var s = TestHelpers.NewPlayer(e, 5);
         var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
         var bad = TestHelpers.Clone(s);
-        Assert.False(RunTestKit.Exec(e, ref bad, new RunStart { LevelId = "main_1", SignatureId = "sig_ice" }).Ok); // Ice is a package
+        Assert.False(RunTestKit.Exec(e, ref bad, new RunStart { LevelId = "main_1", SignatureId = "sig_ice" }).Ok); // Ice unlocks at level 10
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         Assert.Equal(offer[0], s.Run.Active!.SignatureId);
     }
@@ -100,7 +101,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var e = RunTestKit.Engine(RunTestKit.Strong());
         var firsts = new HashSet<string>();
         var s = TestHelpers.NewPlayer(e, 9);
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 24; i++)
         {
             Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             firsts.Add(s.Run.Active!.SignatureId!);
@@ -110,18 +111,20 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.Equal(Starters, firsts.OrderBy(x => x, StringComparer.Ordinal));
     }
 
-    // ---- packages ---------------------------------------------------------------------------------------------------
+    // ---- level unlocks ----------------------------------------------------------------------------------------------
 
     [Fact]
-    public void APackage_UnlocksItsSynergy_ForTheOfferAndThePool()
+    public void ALevelUnlock_OpensItsSynergy_ForTheOfferAndThePool()
     {
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 3);
+        s.Flags.Remove(Features.DevUnlockAllFlag);
         Assert.Equal(C.RunTuning.StarterSynergies, e.BuildLoadout(s, TestHelpers.T0).UnlockedFamilies);
-        s.Lab.Entries["pkg_combo"] = new LabEntry { Level = 1 };
+        Assert.Equal(new[] { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed, SkillFamily.Combo }, C.RunTuning.StarterSynergies);
+        s.Counters[Requirements.MainLevelCounter] = 9; // level 9 cleared: Ice from level 10
         var lo = e.BuildLoadout(s, TestHelpers.T0);
-        Assert.Contains(SkillFamily.Combo, lo.UnlockedFamilies);
-        Assert.DoesNotContain("sig_combo", lo.DraftPoolSkillIds); // a package is no draft skill
+        Assert.Contains(SkillFamily.Ice, lo.UnlockedFamilies);
+        Assert.DoesNotContain("sig_ice", lo.DraftPoolSkillIds); // a signature is no draft skill
         // 4 synergies: 3 of them are offered, over a few runs every one of them
         var seen = new HashSet<string>();
         for (int i = 0; i < 10; i++)
@@ -131,32 +134,24 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
             Assert.Equal(3, offer.Count);
             seen.UnionWith(offer);
         }
-        Assert.Contains("sig_combo", seen);
-        Assert.Equal(4, seen.Count);
-        Assert.Equal("Combo package: Flurry + 8 skills.", C.LabNode("pkg_combo")!.Description);
+        Assert.Contains("sig_ice", seen);
+        Assert.Equal(5, seen.Count);
     }
 
     [Fact]
-    public void Packages_AreAChain_AndEachNeedsItsLevelUnlock()
+    public void SignaturesUnlockByLevel_AndTheirLabSkillNodesWaitForIt()
     {
+        var u = C.Campaign.SignatureUnlocks;
+        Assert.Equal(new[] { (SkillFamily.Ice, 10), (SkillFamily.Lightning, 20), (SkillFamily.Counter, 35), (SkillFamily.AlienSynergy, 60), (SkillFamily.Time, 90) },
+            u.Select(x => (x.Family, x.Level)));
+        foreach (var x in u) Assert.Equal(x.Level - 1, Features.UnlockLevel(C.Feature(x.FeatureId)!)); // the level before is cleared
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 3);
         TestHelpers.WithLaboratory(e, s);
-        Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_combo")!));
-        Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!));
-        Assert.Equal("prerequisites missing", LaboratorySystem.BlockReason(s, C, C.LabNode("res_frost_nova")!)); // Ice lab skill needs the package
-        s.Lab.Entries["pkg_combo"] = new LabEntry { Level = 1 };
-        s.Lab.Entries["lab_atk_1"] = new LabEntry { Level = 2 };
         s.Flags.Remove(Features.DevUnlockAllFlag);
-        Assert.Equal("Ice Package locked", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!)); // prerequisites met, level not yet
-        s.Onboarding.Unlocked[Features.PackageIce] = TestHelpers.T0;
-        Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_ice")!));
-        foreach (var id in new[] { "pkg_ice", "pkg_lightning", "pkg_counter" }) s.Lab.Entries[id] = new LabEntry { Level = 1 };
-        s.Lab.Entries["lab_alien_power_1"] = new LabEntry { Level = 2 };
-        Assert.Contains("locked", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_alien")!));
-        s.Onboarding.Unlocked[Features.PackageAlien] = TestHelpers.T0; // after Aliens in the level order
-        Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_alien")!));
-        Assert.Equal("research maxed", LaboratorySystem.BlockReason(s, C, C.LabNode("pkg_combo")!));
+        Assert.Contains("locked", LaboratorySystem.BlockReason(s, C, C.LabNode("res_frost_nova")!));
+        s.Onboarding.Unlocked[Features.SignatureIce] = TestHelpers.T0;
+        Assert.Null(LaboratorySystem.BlockReason(s, C, C.LabNode("res_frost_nova")!));
     }
 
     // ---- awakening and pool rules -------------------------------------------------------------------------------------
@@ -164,6 +159,8 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
     private static GameState RunWith(GameEngine e, string signature)
     {
         var s = TestHelpers.NewPlayer(e, 3);
+        // 3 of the 4 start signatures are offered per run: the next run whose offer has it
+        while (!RunSystem.SignatureOffer(e, s, TestHelpers.T0).Contains(signature)) s.Run.RunsStarted++;
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = signature }).Ok);
         return s;
     }
@@ -264,7 +261,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var run = s.Run.Active!;
         Assert.DoesNotContain(RunDraft.Eligible(C, run), x => x.Rarity == Rarity.Mythic);
         var pool = C.Skills.Values.Where(x => RunDraft.IsMythicEligible(C, run, x)).ToList();
-        Assert.All(pool, x => Assert.True(x.Family is SkillFamily.None or SkillFamily.Fire or SkillFamily.Poison or SkillFamily.Bleed, x.Id));
+        Assert.All(pool, x => Assert.True(x.Family is SkillFamily.None or SkillFamily.Fire or SkillFamily.Poison or SkillFamily.Bleed or SkillFamily.Combo, x.Id));
         Assert.True(pool.Count >= 11, pool.Count.ToString()); // Mythics needing a source the run lacks (consumed Bleed …) wait for it
     }
 

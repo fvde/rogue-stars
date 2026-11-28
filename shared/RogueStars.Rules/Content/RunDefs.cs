@@ -133,6 +133,11 @@ namespace RogueStars.Rules.Content
         /// null = its own id / its family's sprite. Elites without art of their own use it until they get theirs.
         /// </summary>
         public string ArtId;
+        /// <summary>
+        /// Def exists but its client art is not imported yet: biome rosters skip it (ContentDb.BiomeRoster) until the flag is cleared
+        /// in ContentDb.Run (BiomeArtPending), so nothing without art reaches a live pool. Flip it when the sprite lands.
+        /// </summary>
+        public bool ArtPending;
     }
 
     /// <summary>Boss board action at an awakening threshold.</summary>
@@ -310,6 +315,15 @@ namespace RogueStars.Rules.Content
         public int Number;
         /// <summary>Main levels: the campaign biome id (CampaignBiomeDef.Id; the client's board art). Null elsewhere.</summary>
         public string Biome;
+        /// <summary>Main levels: the biome reward currency (paid ×CampaignDef.BiomeRewardMult on a won run). Null elsewhere.</summary>
+        public string BiomeResource;
+        /// <summary>
+        /// Main levels whose biome resource has no completion line (Grain, Fuel, Hero XP, Gear Cores, Data): one guaranteed roll of
+        /// it (Min–Max, before the ×2) is added to the completion. 0 = none.
+        /// </summary>
+        public long BiomeRollMin, BiomeRollMax;
+        /// <summary>Main levels: the biome's first visit (the level of its unlock slot; the client's "New biome" banner).</summary>
+        public bool BiomeDebut;
         public long StaminaCost = 5;
         public double RewardMultiplier = 1;
         public LevelModifiers Modifiers = new LevelModifiers();
@@ -501,8 +515,8 @@ namespace RogueStars.Rules.Content
         /// (~23 rolls, ~20% fewer fights) still give ~10 drafts.
         /// </summary>
         public int XpBase = 2, XpPerLevel = 1;
-        /// <summary>Synergies every player has from the start (the others come from Laboratory packages). Poison = Radiation.</summary>
-        public List<SkillFamily> StarterSynergies = new List<SkillFamily> { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed };
+        /// <summary>Synergies every player has from the start (the others unlock by campaign level: CampaignDef.SignatureUnlocks). Poison = Radiation.</summary>
+        public List<SkillFamily> StarterSynergies = new List<SkillFamily> { SkillFamily.Fire, SkillFamily.Poison, SkillFamily.Bleed, SkillFamily.Combo };
         /// <summary>Owned skills the campfire's Train offers (run UI glitches #16): the lowest levels first (RunSystem.TrainChoices).</summary>
         public int TrainChoices = 3;
         /// <summary>Signatures offered at run start (1 of N).</summary>
@@ -572,7 +586,7 @@ namespace RogueStars.Rules.Content
         /// so Biomass comes mainly from runs even for short sessions (docs/design/economy-model.md).
         /// </summary>
         public int DailyBiomassBonusRuns = 3;
-        public double DailyBiomassBonusMult = 4;
+        public double DailyBiomassBonusMult = 2;
 
         // ---- build depth (GDD §3.3 "Build"): skill levels, minibosses and mythic choices --------------------------------
         // ---- board (a long path generated ahead in segments, RunBoard) ---------------------------------------------------
@@ -646,23 +660,68 @@ namespace RogueStars.Rules.Content
         public long MythicEmptyCoins = 60;
     }
 
-    /// <summary>A campaign biome: its display name (the level's name) and the enemy family (tile pool, boss, packs, elites) it fields.</summary>
+    /// <summary>
+    /// A campaign biome (docs/design/biomes): its own roster (enemies, elites, 1–2 bosses alternating per visit), its biome reward
+    /// (×2 of one resource) and its synergy weather. No enemy families: a shared enemy is simply listed in several rosters.
+    /// </summary>
     [Serializable]
     public sealed class CampaignBiomeDef
     {
         /// <summary>Id (LevelDef.Biome; the client draws the board / backdrop art of the same id).</summary>
         public string Id;
         public string Name;
-        /// <summary>Enemy family: ember, glacier, static or void.</summary>
-        public string Family;
+        /// <summary>Unlock slot: the main level from which it is in the rotation (1 = a start biome). The level is its first visit.</summary>
+        public int From = 1;
+        /// <summary>
+        /// Its ground / backdrop art is in (client Art/Boards/&lt;id&gt;/background). A planned biome stays out of the rotation until then:
+        /// its unlock slot waits and the next ready biome fills it (ContentDb.Rotation). Flip it when the art lands.
+        /// </summary>
+        public bool Ready = true;
+        /// <summary>Its own roster (def ids; defs with EnemyDef.ArtPending are skipped until their art is in).</summary>
+        public List<string> Enemies = new List<string>(), Elites = new List<string>(), Bosses = new List<string>();
+        /// <summary>
+        /// Stand-ins while its own roster's art is pending: added (in order, art-ready only) until it has CampaignDef.MinBiomeEnemies
+        /// enemies / MinBiomeElites elites; StandInBoss when none of its bosses has art yet.
+        /// </summary>
+        public List<string> StandInEnemies = new List<string>(), StandInElites = new List<string>();
+        public string StandInBoss;
+        /// <summary>Biome reward: this currency pays ×CampaignDef.BiomeRewardMult on its levels.</summary>
+        public string Resource;
+        /// <summary>Synergy weather: Boost (None = General) +CampaignDef.WeatherBoostPct %, Weak −WeakPct % (player only).</summary>
+        public SkillFamily Boost, Weak;
+        public double WeakPct = 25;
         public CampaignBiomeDef() { }
-        public CampaignBiomeDef(string id, string name, string family) { Id = id; Name = name; Family = family; }
+        public CampaignBiomeDef(string id, string name) { Id = id; Name = name; }
+    }
+
+    /// <summary>A signature that unlocks by campaign level (no Laboratory packages): its synergy from main level <see cref="Level"/> on.</summary>
+    [Serializable]
+    public sealed class SignatureUnlockDef
+    {
+        public SkillFamily Family;
+        public int Level;
+        /// <summary>The onboarding feature that announces it (unlocks when level − 1 is cleared).</summary>
+        public string FeatureId;
+        public SignatureUnlockDef() { }
+        public SignatureUnlockDef(SkillFamily family, int level, string featureId) { Family = family; Level = level; FeatureId = featureId; }
+    }
+
+    /// <summary>Synergy weather of one battle (main campaign levels only): final damage multipliers by synergy (BattleSimulator).</summary>
+    [Serializable]
+    public sealed class BattleWeather
+    {
+        /// <summary>Boosted synergy (None = General: damage of untagged skills); both sides, enemies only for tagged damage.</summary>
+        public SkillFamily Boost;
+        public double BoostPct;
+        /// <summary>Weakened synergy: the player side only.</summary>
+        public SkillFamily Weak;
+        public double WeakPct;
     }
 
     /// <summary>
     /// Main campaign layout (content): one endless, linear sequence of levels, every level its own portal ("portal after
     /// portal") with its own biome (ContentDb.Campaign.cs). The biomes come from a deterministic seeded shuffle, the same for
-    /// every player, that never repeats a biome (nor its enemy family) twice in a row (ContentDb.CampaignBiomeIndex). There
+    /// every player, that never repeats a biome twice in a row and brings each newly unlocked biome first (ContentDb.CampaignBiomeIndex). There
     /// are no boss levels: every level ends with its biome's boss. The first <see cref="MaterializedLevels"/> levels are
     /// materialized at start-up (ContentDb.Portals / RunLevels), every later one is generated on demand from its number.
     /// Main level n (1-based, global) sits at threat position <see cref="ThreatAt"/>(n) on the threat curve; the integer part
@@ -681,24 +740,27 @@ namespace RogueStars.Rules.Content
         /// </summary>
         public int ChapterLevels = 10;
         /// <summary>
-        /// The campaign biomes (two per enemy family), named after their board art: every board biome with a full-frame ground
-        /// image (client Art/Boards/&lt;id&gt;/background) except ash_wastes (the Dark Side's look) and prehistoric (the Burrow's).
-        /// The tile-only board sets (candy_planet, clockwork_city, coral_reef, crystal_cave, desert_ruins, frozen_future, ice,
-        /// mushroom_forest, neon_city) join once they have a ground image. Level n's biome: ContentDb.CampaignBiomeIndex. The
-        /// order only changes when this list or <see cref="BiomeOrderSeed"/> changes. The first biome is level 1's (the tutorial
-        /// run's ember pool).
+        /// The campaign biomes in unlock order (docs/design/biomes, built in ContentDb.CampaignBuildBiomes): 4 start biomes, then one
+        /// per unlock slot (<see cref="CampaignBiomeDef.From"/>). Only <see cref="CampaignBiomeDef.Ready"/> biomes rotate; level n's
+        /// biome: ContentDb.CampaignBiomeIndex. The order only changes when this list, the Ready flags or <see cref="BiomeOrderSeed"/>
+        /// change. The first biome is level 1's (the tutorial run).
         /// </summary>
-        public List<CampaignBiomeDef> Biomes = new List<CampaignBiomeDef>
-        {
-            new CampaignBiomeDef("lava", "Lava Fields", "ember"),
-            new CampaignBiomeDef("seabed", "Seabed", "glacier"),
-            new CampaignBiomeDef("space_station", "Space Station", "static"),
-            new CampaignBiomeDef("shipwreck", "Shipwreck", "void"),
-            new CampaignBiomeDef("gas_giant", "Gas Giant", "ember"),
-            new CampaignBiomeDef("cloud_islands", "Cloud Isles", "glacier"),
-            new CampaignBiomeDef("alien_jungle", "Alien Jungle", "static"),
-            new CampaignBiomeDef("toxic_swamp", "Toxic Swamp", "void"),
-        };
+        public List<CampaignBiomeDef> Biomes = new List<CampaignBiomeDef>();
+        /// <summary>Signatures beyond the start set (RunTuning.StarterSynergies) unlock by campaign level, one with each new biome.</summary>
+        public List<SignatureUnlockDef> SignatureUnlocks = new List<SignatureUnlockDef>();
+        /// <summary>A biome roster tops up with stand-ins to at least this many enemies / elites while its own art is pending.</summary>
+        public int MinBiomeEnemies = 3, MinBiomeElites = 2;
+        /// <summary>Biome reward: its resource pays ×this on its levels (completion, completion rolls, reward chests).</summary>
+        public double BiomeRewardMult = 2;
+        /// <summary>Biome reward roll for Data biomes (main levels pay no Data otherwise): DataRollMin–Max × the chapter's reward scale.</summary>
+        public long BiomeDataRollMin = 10, BiomeDataRollMax = 20;
+        /// <summary>Synergy weather: the boosted synergy's damage ×(1 + this %); the weakened one −CampaignBiomeDef.WeakPct %.</summary>
+        public double WeatherBoostPct = 25;
+        /// <summary>
+        /// Main levels from this number on have weather: the tutorial levels before the signature pick have none (the level-start
+        /// weather banner comes with the pick, so weather never acts unseen).
+        /// </summary>
+        public int WeatherFromLevel = 3;
         /// <summary>Seed of the biome order (the same for every player).</summary>
         public ulong BiomeOrderSeed = 0x5EEDB10EUL;
         /// <summary>Levels 1..LinearUntil advance one threat step per level.</summary>
@@ -709,17 +771,6 @@ namespace RogueStars.Rules.Content
         public int SlopeBandChapters = 3;
         /// <summary>Stamina per main run: 5 + chapter index, capped.</summary>
         public long StaminaBase = 5, StaminaMax = 10;
-        /// <summary>
-        /// Enemy HP/ATK % per biome family (ember, glacier, static, void) on top of the threat curve: the void family's
-        /// roster (lifesteal boss, bleed/poison packs) is markedly stronger, so main levels even it out.
-        /// </summary>
-        public List<double> FamilyStrengthPct = new List<double> { 0, 0, 0, -25 };
-        /// <summary>
-        /// Extra enemy HP/ATK % per biome family from chapter <see cref="LateFamilyFromChapter"/> on (endless campaign): the glacier
-        /// roster (freeze-all boss, shields, counters) stalls late-game worms for weeks without it.
-        /// </summary>
-        public List<double> LateFamilyStrengthPct = new List<double> { 0, -20, 0, 0 };
-        public int LateFamilyFromChapter = 40;
         /// <summary>
         /// Gentle ramp for new players: enemy HP % and ATK % of main levels 1, 2, 3, … (on top of the threat curve; levels
         /// past the list are unchanged). Level 1 (the tutorial run) is played without parts, shops or
@@ -742,10 +793,12 @@ namespace RogueStars.Rules.Content
         public int SignatureChoiceFromLevel = 3, MinibossesFromLevel = 5, ForksFromLevel = 6, CampfiresFromLevel = 10;
         /// <summary>
         /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
-        /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs). Named pool_&lt;family&gt;_&lt;variant&gt;:
-        /// level 1's biome is always the first campaign biome (Lava Fields, the ember family).
+        /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs).
+        /// Level 1's biome is always the first campaign biome (Lava Fields).
         /// </summary>
-        public string TutorialPool = "pool_ember_tutorial";
+        public string TutorialPool = "pool_main_tutorial";
+        /// <summary>The tile pool of every main level (no biome is harder or easier: difficulty comes only from the level scaling).</summary>
+        public string MainPool = "pool_main";
         public double TutorialAwakeningPct = 25;
 
         /// <summary>First Dark Side level (the feature itself unlocks at main level 53, ContentDb.Onboarding).</summary>
@@ -869,8 +922,7 @@ namespace RogueStars.Rules.Content
         public RareDrop(Reward reward, double chancePct) { Reward = reward; ChancePct = chancePct; }
     }
 
-    /// <summary>Package: unlocks a synergy (its signature + its run skills and Mythics) for every run; one level.</summary>
-    public enum LabNodeKind { Skill, Stat, Package }
+    public enum LabNodeKind { Skill, Stat }
 
     /// <summary>One level of a laboratory node: a draft-pool skill (skill nodes) or a stat bonus (stat nodes, total at that level).</summary>
     [Serializable]
@@ -913,9 +965,7 @@ namespace RogueStars.Rules.Content
         public List<LabPrereq> Requires = new List<LabPrereq>();
         /// <summary>True: every prerequisite is needed; false: any one of them.</summary>
         public bool RequireAll;
-        /// <summary>Package nodes: the synergy they unlock (Levels[0].SkillId = its signature).</summary>
-        public SkillFamily Family;
-        /// <summary>Feature that must be unlocked before level 1 can start (the Alien package needs aliens); null = none.</summary>
+        /// <summary>Feature that must be unlocked before level 1 can start (a synergy's skill nodes need its signature unlock); null = none.</summary>
         public string RequiresFeature;
     }
 

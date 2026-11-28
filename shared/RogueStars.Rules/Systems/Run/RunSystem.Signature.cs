@@ -7,8 +7,8 @@ namespace RogueStars.Rules.Systems
 {
     /// <summary>
     /// Signature skills (owner design, signatures pass). Every run starts with one signature, picked from
-    /// RunTuning.SignatureChoices distinct random signatures of the synergies the player has unlocked (starters + Laboratory
-    /// packages; with exactly three unlocked all three are offered), from the signature unlock on (the second unlock, main level 3:
+    /// RunTuning.SignatureChoices distinct random signatures of the synergies the player has unlocked (starters + level
+    /// unlocks; with exactly three unlocked all three are offered), from the signature unlock on (the second unlock, main level 3:
     /// LevelDef.SignatureChoice; the first levels' runs have none). The offer is a pure function of the player id, the run counter and
     /// the unlocked synergies, so the client shows exactly what the server validates; RunStart.SignatureId picks one, an empty
     /// id (auto mode, bots, old clients) takes the first. The signature awakens as the build commits: level 2 at 3 owned skills of
@@ -17,12 +17,27 @@ namespace RogueStars.Rules.Systems
     /// </summary>
     public static partial class RunSystem
     {
+        /// <summary>
+        /// Synergies open for runs (signatures and their run skills): RunTuning.StarterSynergies (Fire, Radiation, Bleed, Combo) plus
+        /// every level-unlocked one (CampaignDef.SignatureUnlocks: Ice 10, Lightning 20, Counter 35, Alien 60, Time 90: open once the
+        /// level before is cleared, the moment its feature announces it), in that order. Keyed by the main level counter, never by
+        /// a dev unlock-all.
+        /// </summary>
+        public static List<SkillFamily> UnlockedSynergies(GameState state, ContentDb content)
+        {
+            long cleared = state.Counter(Requirements.MainLevelCounter);
+            var list = new List<SkillFamily>(content.RunTuning.StarterSynergies);
+            foreach (var u in content.Campaign.SignatureUnlocks)
+                if (!list.Contains(u.Family) && cleared >= u.Level - 1) list.Add(u.Family);
+            return list;
+        }
+
         /// <summary>The signatures offered at the start of the player's next run (ids, display order).</summary>
         public static List<string> SignatureOffer(GameState state, ContentDb content, CombatLoadout loadout)
         {
             var families = loadout != null && loadout.UnlockedFamilies.Count > 0
                 ? loadout.UnlockedFamilies
-                : LaboratorySystem.UnlockedFamilies(state, content);
+                : UnlockedSynergies(state, content);
             var pool = new List<string>();
             foreach (var id in RunDraft.SortedSkillIds(content))
             {

@@ -418,6 +418,8 @@ namespace RogueStars.Rules.Systems
         public Reward Reward;
         public string Source;
         public bool Doublable;
+        /// <summary>Paid ×CampaignDef.BiomeRewardMult as the level's biome resource (result screen: "Ore 100 (×2 biome)").</summary>
+        public bool Biome;
         /// <summary>True once RunDoubleRewards granted this line a second time.</summary>
         public bool Doubled;
 
