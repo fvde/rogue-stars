@@ -256,6 +256,11 @@ namespace RogueStars.Rules.Systems
 
         // loot
         public List<Reward> PendingLoot = new List<Reward>();
+        /// <summary>
+        /// Indices into PendingLoot of event biome chests: their roll is already the doubled biome amount, so the biome reward
+        /// (CampaignDef.BiomeRewardMult) leaves them alone at payout (they still read as biome lines).
+        /// </summary>
+        public List<int> BiomeChestLoot = new List<int>();
         /// <summary>Rare drops won so far (LevelDef.RareDrops): paid unscaled on a won run (doublable by the ad), lost otherwise.</summary>
         public List<Reward> PendingRare = new List<Reward>();
         public int Danger;

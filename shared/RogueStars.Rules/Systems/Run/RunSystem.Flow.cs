@@ -1385,7 +1385,7 @@ namespace RogueStars.Rules.Systems
                         {
                             // a biome chest: one level-scaled roll of its resource
                             long amount = RollBiomeChest(c, run, e.Reward.Id);
-                            if (amount > 0) { run.PendingLoot.Add(Reward.Cur(e.Reward.Id, amount)); run.Danger++; }
+                            if (amount > 0) { run.BiomeChestLoot.Add(run.PendingLoot.Count); run.PendingLoot.Add(Reward.Cur(e.Reward.Id, amount)); run.Danger++; }
                         }
                         else { run.PendingLoot.Add(new Reward(e.Reward.Kind, e.Reward.Id, e.Reward.Amount, e.Reward.Rarity)); run.Danger++; }
                         break;
@@ -1643,9 +1643,10 @@ namespace RogueStars.Rules.Systems
                 // Biome reward: the level's biome resource ×BiomeRewardMult (completion, completion rolls, run loot incl. reward
                 // chests); the Biomass surge multiplies after it. Never: Diamonds, Crates, Signals, Schematics, milestones, parts, feats.
                 bool IsBiome(Reward r) => r.Kind == RewardKinds.Currency && level.BiomeResource != null && r.Id == level.BiomeResource;
-                double Mult(Reward r) => modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1) * (IsBiome(r) ? c.Campaign.BiomeRewardMult : 1);
-                void Add(Reward r, string source) { rewards.Add(Scaled(r, Mult(r))); sources.Add(source); biomeLines.Add(IsBiome(r)); }
-                foreach (var r in run.PendingLoot) Add(r, RunRewardLine.RunLoot);
+                double Mult(Reward r, bool chest) => modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1) * (IsBiome(r) && !chest ? c.Campaign.BiomeRewardMult : 1);
+                void Add(Reward r, string source, bool chest = false) { rewards.Add(Scaled(r, Mult(r, chest))); sources.Add(source); biomeLines.Add(IsBiome(r)); }
+                // event biome chests already roll the doubled amount (RunTuning.BiomeChestRange): never doubled twice
+                for (int i = 0; i < run.PendingLoot.Count; i++) Add(run.PendingLoot[i], RunRewardLine.RunLoot, run.BiomeChestLoot.Contains(i));
                 if (run.Mode != RunMode.Burrow)
                 {
                     RollRareDrops(level, run);
