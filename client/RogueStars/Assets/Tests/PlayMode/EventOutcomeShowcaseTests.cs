@@ -82,10 +82,45 @@ namespace RogueStars.Client.PlayTests
             EventRun(c, "strange_spores");
             rs = ShowRun();
             yield return Wait(1.0f);
-            Choose(c, "strange_spores", "Ignore them");
+            Choose(c, "strange_spores", "Leave");
             yield return Wait(0.5f);
             yield return Shot("outcome_5_toast");
             Assert.That(rs.LastToast, Is.EqualTo("You move on."));
+
+            // biomes pass: biome events (an NPC on the stage, an NPC at the counter, a prop), a new shared event, a Rite with its
+            // Offering, the skill picker and the result flying in
+            foreach (var (ev, shot) in new[] { ("lava_salamander_smith", "biome_1_npc_scene"), ("gas_rig_foreman", "biome_2_npc_vendor"),
+                         ("lava_ore_geyser", "biome_3_prop"), ("wishing_well", "biome_4_shared_new") })
+            {
+                EventRun(c, ev);
+                ShowRun();
+                yield return Wait(1.0f);
+                yield return Shot(shot);
+            }
+            run = EventRun(c, "rite_lava");
+            var ice = new List<string>();
+            foreach (var id in RunDraft.SortedSkillIds(c))
+            {
+                var sk = c.Skills[id];
+                if (ice.Count < 2 && sk.Family == SkillFamily.Ice && !sk.Signature && sk.Source == SkillSource.Run && sk.Draftable) ice.Add(id);
+            }
+            run.Skills.AddRange(ice);
+            rs = ShowRun();
+            yield return Wait(1.0f);
+            yield return Shot("biome_5_rite");
+            UnityEngine.UI.Button offer = null;
+            foreach (var b in _app.ModalLayer.GetComponentsInChildren<UnityEngine.UI.Button>(true)) if (b.name.StartsWith("Button:Offer an Ice skill")) offer = b;
+            Assert.That(offer, Is.Not.Null, "the Offering shows with an Ice skill owned");
+            offer.onClick.Invoke();
+            yield return Wait(0.6f);
+            yield return Shot("biome_6_offering_picker");
+            UnityEngine.UI.Button pick = null;
+            foreach (var b in _app.ModalLayer.GetComponentsInChildren<UnityEngine.UI.Button>(true)) if (b.name == "Offer:" + ice[0]) pick = b;
+            Assert.That(pick, Is.Not.Null);
+            pick.onClick.Invoke();
+            yield return Wait(0.45f);
+            yield return Shot("biome_7_offering_flyin");
+            Assert.That(_svc.State.Run.Active.Skills, Does.Not.Contain(ice[0]));
 
             // 4. a lost event fight: the playback, then straight to the revive with the loss text
             run = EventRun(c, "training_dummy");

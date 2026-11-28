@@ -344,6 +344,11 @@ namespace RogueStars.Rules.Content
         public bool Endless;
     }
 
+    /// <remarks>
+    /// Params of existing kinds: <c>BossStatPct</c> "atk" / "hp" = that boss stat only (null: both); <c>StrengthenEnemies</c>
+    /// with a negative value weakens the enemies ahead; <c>PendingReward</c> "biome_chest" = a level-scaled roll of the
+    /// reward's currency (RunTuning.BiomeChestRange); <c>UpgradeSkill</c> "random" = a random trainable skill (no picker).
+    /// </remarks>
     public enum RunEffectKind
     {
         Coins, HealPct, DamagePct, StatPercent, GainSkill, GainSpecificSkill, UpgradeSkill, LoseRandomSkill,
@@ -385,6 +390,13 @@ namespace RogueStars.Rules.Content
         public long CoinCost;
         public int ShardCost;
         public List<EventOutcome> Outcomes = new List<EventOutcome>();
+        /// <summary>
+        /// Rite Offering: the player gives up one owned run skill of <see cref="OfferFamily"/> (SkillFamily.None = a skill with no
+        /// synergy) before the outcome applies; signatures can't be offered. Shown only while the run owns such a skill
+        /// (RunSystem.OfferChoices); the pick goes in RunChooseEventOption.SkillId.
+        /// </summary>
+        public bool Offering;
+        public SkillFamily OfferFamily;
     }
 
     [Serializable]
@@ -398,6 +410,15 @@ namespace RogueStars.Rules.Content
         public int DefaultOption;
         /// <summary>Counts as a negative event for "skip negative events" boons.</summary>
         public bool Negative;
+        /// <summary>
+        /// The event's art: "npc:&lt;id&gt;" (a character bust, Art/Run/Characters) or "prop:&lt;id&gt;" (Art/Run/Props). The client
+        /// draws its placeholder until the file is imported. Null: the client's own mapping (RunScenes.Look).
+        /// </summary>
+        public string Art;
+        /// <summary>Biome events: the campaign biome id (CampaignBiomeDef.Id) whose event tiles may draw it; null = shared / tile-bound.</summary>
+        public string Biome;
+        /// <summary>The biome's Rite (its 5th event: RunTuning.RiteWeight, only in the first half of the run, RunSystem.RiteOpen).</summary>
+        public bool Rite;
 
         /// <summary>Some option can pay account loot (pending meta rewards): an account-loot opportunity (capped per run).</summary>
         public bool GrantsAccountLoot()
@@ -533,6 +554,24 @@ namespace RogueStars.Rules.Content
         public double RewardChestCompletionPct = 10;
         /// <summary>The bulk resources a reward chest scales with the level's completion rewards (never Diamonds or tokens).</summary>
         public List<string> RewardChestCurrencies = new List<string> { Currencies.Biomass, Currencies.Ore, Currencies.Data, Currencies.Fuel };
+        /// <summary>
+        /// Biome events (docs/design/biomes): on a main campaign level every Strange Signal event tile draws one of the level
+        /// biome's events with this % chance (else a shared event by weight). No event repeats within a run; once a biome's
+        /// events are used up the tile draws from the shared pool.
+        /// </summary>
+        public double BiomeEventPct = 40;
+        /// <summary>The biome's Rite is its 5th event with this weight (the four biome events weigh 1 each).</summary>
+        public double RiteWeight = 2;
+        /// <summary>
+        /// A biome chest (event "Ore chest", "Fuel chest", …): one roll of the resource at chapter 1 (already doubled: the biome's
+        /// ×2), times the chapter's reward scale like all loot, rounded (RunSystem.NiceAmount). Min / max per currency.
+        /// </summary>
+        public Dictionary<string, long[]> BiomeChestRange = new Dictionary<string, long[]>
+        {
+            { Currencies.Biomass, new long[] { 90, 180 } }, { Currencies.Ore, new long[] { 40, 80 } }, { Currencies.Grain, new long[] { 40, 80 } },
+            { Currencies.Fuel, new long[] { 20, 40 } }, { Currencies.HeroXp, new long[] { 30, 60 } }, { Currencies.GearCores, new long[] { 2, 4 } },
+            { Currencies.Data, new long[] { 20, 40 } },
+        };
         public int DraftChoices = 3;
         public int DraftRerollsPerRun = 1;
         /// <summary>Hidden pity: after this many draft picks without a Legendary+, an offer contains one.</summary>

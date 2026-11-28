@@ -52,12 +52,15 @@ namespace RogueStars.Client.Screens
             if (ev == null)
                 return Modal(run.EventId ?? "Event", b => Ui.Label(b, run.EventId ?? "", Theme.FontNormal), new ModalButton("Continue", () => Run(new RunChooseEventOption { Index = 0 }), Theme.Accent));
             if (ev.Id == "resonance") return ShowChestIntro ? ChestIntro("chest_signature", "You found a Signal!", () => _decision = SignatureReveal(run, ev)) : SignatureReveal(run, ev);
-            var look = RunScenes.Look(ev.Id);
+            var look = RunScenes.Look(ev.Id, ev);
             var visible = VisibleOptions(run, ev);
             return look.Kind == EventLayoutKind.Vendor && visible.Count == 2 ? VendorModal(run, ev, look, visible) : SceneModal(run, ev, look, visible);
         }
 
-        /// <summary>The options shown (a Resonance option whose signature is not offered is hidden).</summary>
+        /// <summary>
+        /// The options shown: a Resonance option whose signature is not offered is hidden, and so is a Rite Offering while the
+        /// run owns no skill of its synergy (RunSystem.OptionAvailable).
+        /// </summary>
         private List<int> VisibleOptions(ActiveRun run, EventDef ev)
         {
             var list = new List<int>();
@@ -66,6 +69,7 @@ namespace RogueStars.Client.Screens
                 var o = ev.Options[i];
                 var sigFx = o.Outcomes.Count > 0 ? o.Outcomes[0].Effects.Find(fx => fx.Kind == RunEffectKind.GainSignature) : null;
                 if (sigFx != null && (!int.TryParse(sigFx.Param, out var si) || si < 0 || si >= run.SignatureChoice.Count)) continue;
+                if (!RunSystem.OptionAvailable(Content, run, o)) continue;
                 list.Add(i);
             }
             return list;
@@ -80,6 +84,7 @@ namespace RogueStars.Client.Screens
         private void ChooseOption(ActiveRun run, EventDef ev, int index, UiModal modal)
         {
             var o = ev.Options[index];
+            if (o.Offering) { OfferingPicker(run, ev, index, modal); return; }
             if (RunSystem.ImprovesSkill(o) && RunSystem.TrainChoices(Content, run).Count > 0) { TrainPicker(run, index, modal); return; }
             modal.Close();
             Run(new RunChooseEventOption { Index = index });
@@ -89,7 +94,7 @@ namespace RogueStars.Client.Screens
         private UiModal SceneModal(ActiveRun run, EventDef ev, EventLook look, List<int> visible)
         {
             var root = RunScenes.Overlay(App.ModalLayer, ev.Name, out var modal, out var frame, out float s);
-            var hud = RunScenes.Stage(root, frame, s, Content, run, ScreenArt.Prop(look.Art), null, PauseModal);
+            var hud = RunScenes.Stage(root, frame, s, Content, run, RunScenes.StageArt(look), null, PauseModal);
             bool campfire = ev.Id == "campfire";
             string flavour = look.Line ?? ev.Text;
             RunScenes.Panel(root, frame, s, look.Title ?? ev.Name, flavour, campfire ? 60 : 46);
@@ -213,6 +218,67 @@ namespace RogueStars.Client.Screens
                 y += step;
             }
             var note = SliceKit.Chunky(root, "Signatures and max-level skills can't train.", (int)(34 * s), new Color(1, 1, 1, 0.8f), TextAnchor.MiddleCenter, "TrainNote");
+            SliceKit.Place(note.rectTransform, s, 540, 2120, 1000, 50, true);
+            var back = Ui.Button(root, "", modal.Close, SliceCards.Purple, 320 * s, 150 * s, true, 20);
+            back.name = "Button:Back";
+            SliceKit.Place((RectTransform)back.transform, s, 540, 2260, 320, 150, true);
+            UiShapes.Outline((RectTransform)back.transform, IsoArt.Ink, Theme.RadiusButton, 6);
+            var bt = SliceKit.Chunky(back.transform, "Back", (int)(64 * s), Color.white, TextAnchor.MiddleCenter, "BackText");
+            Ui.Stretch(bt.rectTransform, 0, 0, 0, 8 * s);
+            DecisionSkillsBook(root, s, 975, 2262, true);
+            UiTween.PopIn(root, 0.15f);
+        }
+
+        /// <summary>
+        /// A Rite's Offering picker (the Train picker's layout): the run's owned skills of the Rite's synergy as cards, each at
+        /// its level; signatures are never listed (RunSystem.OfferChoices). Picking sends the option with the skill to give up.
+        /// </summary>
+        private void OfferingPicker(ActiveRun run, EventDef ev, int index, UiModal parent)
+        {
+            var o = ev.Options[index];
+            var choices = RunSystem.OfferChoices(Content, run, o.OfferFamily);
+            float s = ModalScale();
+            if (parent?.Root != null) parent.Root.SetActive(false);
+            var root = SliceCards.Overlay(App.ModalLayer, "Offering", out var modal, 1f);
+            modal.Closed += () => { if (parent?.Root != null) parent.Root.SetActive(true); };
+            Canvas.ForceUpdateCanvases();
+            int n = Math.Max(1, choices.Count);
+            const float footer = 2400 - 2120 + 25 + 24;
+            var lay = SliceCards.Layout(SliceCards.RefHeight(root, s), Math.Min(n, 3), footer);
+            var gain = RunScenes.EffectLines(o, Content, run).Find(l => l.Key).Value;
+            SliceCards.Header(root, s, SliceCards.GoldRibbon, "OFFERING", "OfferingTitle",
+                "Give up 1 " + RunScenes.OfferingName(o.OfferFamily) + (gain != null ? ": " + gain : ""), lay.HeroY, lay.RibbonY);
+            float top = lay.RibbonY + 150, h = lay.CardH, step = h + 10;
+            var view = Ui.Rect(root, "OfferingList");
+            view.anchorMin = Vector2.zero; view.anchorMax = Vector2.one;
+            view.offsetMin = new Vector2(0, footer * s); view.offsetMax = new Vector2(0, -top * s);
+            var viewImg = view.gameObject.AddComponent<Image>(); viewImg.color = new Color(0, 0, 0, 0);
+            view.gameObject.AddComponent<RectMask2D>();
+            var content = Ui.Rect(view, "Content");
+            content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1); content.pivot = new Vector2(0.5f, 1);
+            content.sizeDelta = new Vector2(0, (n * step + 10) * s);
+            content.anchoredPosition = Vector2.zero;
+            var scroll = view.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = view; scroll.content = content; scroll.horizontal = false; scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 30;
+            float y = h / 2 + 5;
+            foreach (var owned in choices)
+            {
+                string id = owned;
+                var sk = Content.Skill(id);
+                int lv = RunDraft.Level(run, id);
+                var spec = new SkillCardSpec
+                {
+                    Id = id, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
+                    IconArt = ArtCatalog.SkillIcon(id), Title = sk != null ? SkillText.Title(sk, lv) : id,
+                    Body = Fmt.SkillCard(Content, sk, lv),
+                    Chip = "GIVE UP", ChipName = "OfferChip", ChipColor = new Color32(0xFF, 0xC2, 0xC2, 255),
+                    Tip = OfferTip(id, lv), TipContent = Content,
+                };
+                SliceCards.Card(content, s, y, spec, () => { modal.Close(); parent.Close(); CloseDecision(); Run(new RunChooseEventOption { Index = index, SkillId = id }); }, null, "Offer:" + id, h);
+                y += step;
+            }
+            var note = SliceKit.Chunky(root, "The skill and its levels are gone. Signatures can't be offered.", (int)(34 * s), new Color(1, 1, 1, 0.8f), TextAnchor.MiddleCenter, "OfferingNote");
             SliceKit.Place(note.rectTransform, s, 540, 2120, 1000, 50, true);
             var back = Ui.Button(root, "", modal.Close, SliceCards.Purple, 320 * s, 150 * s, true, 20);
             back.name = "Button:Back";

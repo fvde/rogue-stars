@@ -36,6 +36,9 @@ namespace RogueStars.Client.Tests
 
         private static string Texts(Transform root) => string.Join(" | ", root.GetComponentsInChildren<Text>(true).Where(t => t.gameObject.activeInHierarchy).Select(t => t.text));
 
+        /// <summary>The texts without rich-text colour tags.</summary>
+        private static string Plain(Transform root) => System.Text.RegularExpressions.Regex.Replace(Texts(root), "<.*?>", "");
+
         private ActiveRun StartRun()
         {
             var level = C.MainLevel(1);
@@ -110,19 +113,75 @@ namespace RogueStars.Client.Tests
         [Test]
         public void EventLayouts_MapEveryEvent()
         {
-            foreach (var id in C.RunEvents.Keys)
+            foreach (var kv in C.RunEvents)
             {
-                var look = RunScenes.Look(id);
+                string id = kv.Key;
+                var ev = kv.Value;
+                var look = RunScenes.Look(id, ev);
                 Assert.That(look, Is.Not.Null, id);
+                // biome / new shared events: their content art id (drawn placeholder until imported); ours: the imported set
+                string contentArt = ev.Art != null ? ev.Art.Substring(ev.Art.IndexOf(':') + 1) : null;
                 if (look.Kind == EventLayoutKind.Vendor)
                 {
-                    Assert.That(System.Array.IndexOf(ScreenArt.CharacterIds, look.Art), Is.GreaterThanOrEqualTo(0), id);
-                    Assert.That(C.RunEvents[id].Options.Count, Is.EqualTo(2), id + ": a vendor offers two cards");
+                    Assert.That(look.Npc || System.Array.IndexOf(ScreenArt.CharacterIds, look.Art) >= 0, Is.True, id);
+                    Assert.That(System.Array.IndexOf(ScreenArt.CharacterIds, look.Art) >= 0 || look.Art == contentArt, Is.True, id);
+                    Assert.That(ev.Options.Count, Is.EqualTo(2), id + ": a vendor offers two cards");
                 }
-                else Assert.That(System.Array.IndexOf(ScreenArt.PropIds, look.Art), Is.GreaterThanOrEqualTo(0), id);
+                else Assert.That(System.Array.IndexOf(look.Npc ? ScreenArt.CharacterIds : ScreenArt.PropIds, look.Art) >= 0 || look.Art == contentArt, Is.True, id);
+                Assert.That(RunScenes.StageArt(look), Is.Not.Null, id + ": art or its placeholder");
             }
             Assert.That(RunScenes.Look("smuggler").Kind, Is.EqualTo(EventLayoutKind.Vendor));
             Assert.That(RunScenes.Look("abandoned_cache").Kind, Is.EqualTo(EventLayoutKind.Scene));
+            var smith = RunScenes.Look("lava_salamander_smith", C.RunEvents["lava_salamander_smith"]);
+            Assert.That(smith.Npc && smith.Art == "salamander_smith" && smith.Kind == EventLayoutKind.Scene, Is.True, "an NPC with 3 options stands on the stage");
+            var geyser = RunScenes.Look("lava_ore_geyser", C.RunEvents["lava_ore_geyser"]);
+            Assert.That(!geyser.Npc && geyser.Art == "ore_geyser", Is.True);
+        }
+
+        [Test]
+        public void RiteOffering_OpensTheSkillPicker_AndGivesUpThePickedSkill()
+        {
+            StartRun();
+            var run = S.Run.Active;
+            var ice = RunDraft.SortedSkillIds(C).Where(id => C.Skills[id].Family == SkillFamily.Ice && !C.Skills[id].Signature
+                && C.Skills[id].Source == SkillSource.Run && C.Skills[id].Draftable).Take(2).ToList();
+            var sig = RunDraft.SortedSkillIds(C).First(id => C.Skills[id].Family == SkillFamily.Ice && C.Skills[id].Signature);
+            run.Skills.Clear();
+            run.Skills.AddRange(ice);
+            run.Skills.Add(sig);
+            run.SignatureIds.Clear();
+            run.SignatureIds.Add(sig);
+            OpenEvent("rite_lava");
+            var layer = _f.App.ModalLayer;
+            Assert.That(Texts(layer), Does.Contain("Quench the Crust"));
+            Assert.That(Plain(layer), Does.Contain("Give up 1 Ice skill"));
+            Assert.That(Plain(layer), Does.Contain("Boss −20% ATK"));
+            var offer = layer.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name.StartsWith("Button:Offer an Ice skill"));
+            Assert.That(offer, Is.Not.Null, "the Offering shows while an Ice skill is owned");
+            offer.onClick.Invoke();
+            var picker = FindNamed(layer, "Modal:Offering");
+            Assert.That(picker, Is.Not.Null, "the Offering opens the skill picker");
+            Assert.That(FindNamed(picker, "Offer:" + ice[0]), Is.Not.Null);
+            Assert.That(FindNamed(picker, "Offer:" + ice[1]), Is.Not.Null);
+            Assert.That(FindNamed(picker, "Offer:" + sig), Is.Null, "a signature can't be offered");
+            Assert.That(Texts(picker), Does.Contain("OFFERING"));
+            Btn(picker, "Offer:" + ice[1]).onClick.Invoke();
+            run = S.Run.Active;
+            Assert.That(run.Skills, Does.Not.Contain(ice[1]), "the picked skill is gone");
+            Assert.That(run.Skills, Does.Contain(ice[0]));
+            Assert.That(run.Skills, Does.Contain(sig));
+            Assert.That(run.BossAtkPct, Is.EqualTo(-20));
+        }
+
+        [Test]
+        public void RiteOffering_IsHidden_WithoutASkillOfItsSynergy()
+        {
+            StartRun();
+            S.Run.Active.Skills.RemoveAll(id => C.Skill(id)?.Family == SkillFamily.Ice);
+            OpenEvent("rite_lava");
+            var layer = _f.App.ModalLayer;
+            Assert.That(layer.GetComponentsInChildren<Button>(true).Any(b => b.name.StartsWith("Button:Offer an Ice skill")), Is.False);
+            Assert.That(Btn(layer, "Button:Leave"), Is.Not.Null);
         }
 
         [Test]
@@ -152,7 +211,7 @@ namespace RogueStars.Client.Tests
             Assert.That(rich, Does.Contain("<color=#" + red + ">10%</color>"));
             Assert.That(rich, Does.Not.Contain("−"), "G8: no minus after a verb that already means loss");
             var cache = RunScenes.OutcomeText(C.RunEvents["abandoned_cache"].Options[0], C);
-            Assert.That(cache, Does.Contain("65%:"));
+            Assert.That(cache, Does.Contain("60%:"));
             Assert.That(cache, Does.Contain("reward chest"));
             Assert.That(cache, Does.Contain("<color=#" + green + ">"));
             Assert.That(RunScenes.OutcomeText(C.RunEvents["abandoned_cache"].Options[1], C), Is.EqualTo("Nothing happens"));

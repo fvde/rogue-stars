@@ -28,7 +28,8 @@ namespace RogueStars.Rules.Systems
         {
             if (oc == null) return false;
             foreach (var fx in oc.Effects)
-                if (fx.Kind == RunEffectKind.GainSkill || fx.Kind == RunEffectKind.Loot || fx.Kind == RunEffectKind.LoseRandomSkill) return true;
+                if (fx.Kind == RunEffectKind.GainSkill || fx.Kind == RunEffectKind.Loot || fx.Kind == RunEffectKind.LoseRandomSkill
+                    || fx.Kind == RunEffectKind.UpgradeSkill && fx.Param == RandomSkillParam) return true;
             return false;
         }
 
@@ -95,7 +96,7 @@ namespace RogueStars.Rules.Systems
         private sealed class Snap
         {
             private long _coins, _bonus;
-            private double _hp, _awakening, _bossPct, _awakenRed;
+            private double _hp, _awakening, _bossPct, _bossAtk, _bossHp, _awakenRed;
             private int _xp, _level, _shards, _danger, _stats, _loot, _rare, _battles, _penalty, _skip;
             private List<string> _skills;
             private Dictionary<string, int> _levels;
@@ -113,6 +114,7 @@ namespace RogueStars.Rules.Systems
             public static Snap Of(ActiveRun r) => new Snap
             {
                 _coins = r.Coins, _bonus = r.Quest != null ? r.Quest.CoinBonusPaid : 0, _hp = r.WormHp, _awakening = r.Awakening, _bossPct = r.BossStatPct,
+                _bossAtk = r.BossAtkPct, _bossHp = r.BossHpPct,
                 _awakenRed = r.AwakeningReductionPct, _xp = r.XpTotal, _level = r.Level, _shards = r.Shards, _danger = r.Danger,
                 _stats = r.RunStats.Count, _loot = r.PendingLoot.Count, _rare = r.PendingRare.Count, _battles = r.BattleCount,
                 _penalty = r.StepPenaltyNext, _skip = r.SkipNegativeEvents,
@@ -161,18 +163,23 @@ namespace RogueStars.Rules.Systems
                 if (Math.Abs(r.Awakening - _awakening) >= 0.05) Add(OutcomeKind.Awakening, null, Math.Round(r.Awakening - _awakening, 1), r.Awakening < _awakening);
                 if (Math.Abs(r.AwakeningReductionPct - _awakenRed) >= 0.05) Add(OutcomeKind.AwakenRate, null, Math.Round(_awakenRed - r.AwakeningReductionPct, 1), r.AwakeningReductionPct > _awakenRed);
                 if (Math.Abs(r.BossStatPct - _bossPct) >= 0.05) Add(OutcomeKind.BossStat, null, r.BossStatPct - _bossPct, r.BossStatPct < _bossPct);
+                if (Math.Abs(r.BossAtkPct - _bossAtk) >= 0.05) Add(OutcomeKind.BossStat, BossAtkParam, r.BossAtkPct - _bossAtk, r.BossAtkPct < _bossAtk);
+                if (Math.Abs(r.BossHpPct - _bossHp) >= 0.05) Add(OutcomeKind.BossStat, BossHpParam, r.BossHpPct - _bossHp, r.BossHpPct < _bossHp);
                 if (r.Danger != _danger) Add(OutcomeKind.Danger, null, r.Danger - _danger, r.Danger < _danger);
                 if (r.StepPenaltyNext > _penalty) Add(OutcomeKind.StepPenalty, null, r.StepPenaltyNext - _penalty, false);
                 if (r.SkipNegativeEvents < _skip) Add(OutcomeKind.Avoided, null, _skip - r.SkipNegativeEvents, true);
                 if (_tileBonus != null)
                 {
-                    int n = 0; double most = 0;
+                    int n = 0, weak = 0; double most = 0, least = 0;
                     for (int i = 0; i < _tileBonus.Length && i < r.Tiles.Count; i++)
                     {
                         double d = r.Tiles[i].BonusPct - _tileBonus[i];
-                        if (d > 0.05 && !r.Tiles[i].Cleared) { n++; most = Math.Max(most, d); }
+                        if (r.Tiles[i].Cleared) continue;
+                        if (d > 0.05) { n++; most = Math.Max(most, d); }
+                        else if (d < -0.05) { weak++; least = Math.Min(least, d); }
                     }
                     if (n > 0) Add(OutcomeKind.EnemiesStronger, n.ToString(), Math.Round(most, 1), false);
+                    if (weak > 0) Add(OutcomeKind.EnemiesStronger, weak.ToString(), Math.Round(least, 1), true); // weakened (Rites)
                 }
             }
         }
