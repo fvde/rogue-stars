@@ -453,6 +453,7 @@ namespace RogueStars.Client.PlayTests
                 s.Granted.Add(new Reward(RewardKinds.Part, "*", 1, 2));
                 s.Granted.Add(Reward.Cur(Currencies.HeroXp, 38));
                 s.Doublable.AddRange(s.Granted);
+                s.Rewards.Add(new RunRewardLine { Reward = Reward.Cur(Currencies.Ore, 340), Source = RunRewardLine.Completion, Doublable = true, Biome = true }); // "Ore 340 (×2 biome)"
                 s.BiomassBonus = true;
                 s.NewFeats.Add(1);
             }

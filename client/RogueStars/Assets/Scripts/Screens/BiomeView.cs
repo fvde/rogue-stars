@@ -25,6 +25,10 @@ namespace RogueStars.Client.Screens
         public static string BoostText(BattleWeather w) => w == null ? null : SkillText.WeatherName(w.Boost) + " +" + Fmt.Num(w.BoostPct) + "%";
         public static string WeakText(BattleWeather w) => w == null ? null : SkillText.WeatherName(w.Weak) + " −" + Fmt.Num(w.WeakPct) + "%";
 
+        /// <summary>"Shock +25% · Alien −25%" with the boost green and the weakening red (rich text).</summary>
+        public static string WeatherRich(BattleWeather w) => w == null ? null :
+            "<color=#" + ColorUtility.ToHtmlStringRGB(BoostColor) + ">" + BoostText(w) + "</color> · <color=#" + ColorUtility.ToHtmlStringRGB(WeakColor) + ">" + WeakText(w) + "</color>";
+
         /// <summary>The weather of the run's level (main campaign Normal / Overcharged only, like RunSystem's battles), else null.</summary>
         public static BattleWeather RunWeather(ContentDb c, ActiveRun run)
         {
@@ -68,9 +72,8 @@ namespace RogueStars.Client.Screens
         /// <summary>One code-drawn chip (dark fill, coloured text and rim) sized to its text.</summary>
         public static RectTransform Chip(Transform parent, string text, Color color, int fontSize = 22, float height = 42, string name = null)
         {
-            var chip = Ui.Chip(parent, text, new Color(0.08f, 0.05f, 0.12f, 0.85f), color, fontSize, height, color, name ?? "BiomeChip:" + text);
-            chip.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return chip;
+            // sized by its parent row (HorizontalLayoutGroup with childControlWidth: the chip's preferred width)
+            return Ui.Chip(parent, text, new Color(0.08f, 0.05f, 0.12f, 0.85f), color, fontSize, height, color, name ?? "BiomeChip:" + text);
         }
 
         /// <summary>A row of the level's chips (Ui.ChipRow, named "BiomeChips"); null when the level has none.</summary>
@@ -82,7 +85,7 @@ namespace RogueStars.Client.Screens
             row.name = "BiomeChips";
             var h = row.GetComponent<HorizontalLayoutGroup>();
             h.childForceExpandWidth = false;
-            h.childControlWidth = false;
+            h.childControlWidth = true;
             foreach (var kv in chips) Chip(row, kv.Key, kv.Value, fontSize, height);
             return row;
         }
@@ -124,7 +127,7 @@ namespace RogueStars.Client.Screens
             row.sizeDelta = new Vector2(0, 50 * s); row.anchoredPosition = new Vector2(0, 12 * s);
             var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.childAlignment = TextAnchor.MiddleCenter; h.spacing = 14 * s;
-            h.childControlWidth = false; h.childControlHeight = false; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
+            h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
             Chip(row, BoostText(w), BoostColor, (int)(28 * s), 50 * s, "WeatherBoost");
             Chip(row, WeakText(w), WeakColor, (int)(28 * s), 50 * s, "WeatherWeak");
             var reward = RewardText(c, level);

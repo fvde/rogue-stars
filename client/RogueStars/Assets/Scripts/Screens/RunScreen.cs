@@ -1774,12 +1774,13 @@ namespace RogueStars.Client.Screens
             float h = Mathf.Min(300, lay.CardH + 20), step = h + 18, y = ribbonY + 160 + h / 2;
             // the level-start weather banner (biome design): shown before the pick so the player can lean in or hedge
             var weather = BiomeView.RunWeather(Content, run);
-            if (BiomeView.Banner(root, s, Content, Content.RunLevel(run.LevelId), ribbonY + 150) != null && weather != null)
+            if (BiomeView.Banner(root, s, Content, Content.RunLevel(run.LevelId), ribbonY + 225) != null && weather != null)
             {
-                y += 150;
-                h = Mathf.Min(h, (SliceCards.RefHeight(root, s) - 60 - (y - h / 2)) / n - 18);
+                // under the subtitle; the cards move down by the banner and shrink if the screen is short
+                float top = ribbonY + 330;
+                h = Mathf.Min(h, (SliceCards.RefHeight(root, s) - 60 - top) / n - 18);
                 step = h + 18;
-                y = ribbonY + 310 + h / 2;
+                y = top + h / 2;
             }
             foreach (var id in run.StartSignatures)
             {

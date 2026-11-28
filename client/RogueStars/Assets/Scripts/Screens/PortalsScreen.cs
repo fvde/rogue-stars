@@ -578,21 +578,18 @@ namespace RogueStars.Client.Screens
                 }
                 string biomeName = burrow ? lv.Name : dark ? "Dark Side" : lv.Name;
                 SideText(biomeName, 30, locked ? Theme.TextFaint : Theme.Cream, "BiomeName", 38);
-                // biome identity on the portal: NEW BIOME on its first visit, the ×2 resource and the weather (main levels)
+                // biome identity on the portal: NEW BIOME on its first visit, the ×2 resource and the weather (main levels), as
+                // coloured lines beside the window (chips would crowd the map)
                 if (!burrow && !dark && _mode == RunMode.Normal && !string.IsNullOrEmpty(lv.Biome))
                 {
-                    var chipList = BiomeView.Chips(content, lv);
-                    for (int ci = 0; ci < chipList.Count; ci += 2)
+                    if (lv.BiomeDebut) SideText("NEW BIOME", 24, locked ? Theme.TextFaint : BiomeView.NewColor, "NewBiome", 30);
+                    var reward = BiomeView.RewardText(content, lv);
+                    if (reward != null) SideText(reward, 22, locked ? Theme.TextFaint : BiomeView.RewardColor, "BiomeReward", 28);
+                    var w = content.Weather(lv);
+                    if (w != null)
                     {
-                        var line = Ui.Rect(side, "BiomeChipLine");
-                        line.anchorMin = new Vector2(0, 1); line.anchorMax = new Vector2(1, 1); line.pivot = new Vector2(0.5f, 1);
-                        line.sizeDelta = new Vector2(0, 38); line.anchoredPosition = new Vector2(0, -y);
-                        var hl = line.gameObject.AddComponent<HorizontalLayoutGroup>();
-                        hl.childAlignment = align; hl.spacing = 6;
-                        hl.childControlWidth = false; hl.childControlHeight = false; hl.childForceExpandWidth = false; hl.childForceExpandHeight = false;
-                        for (int k = ci; k < chipList.Count && k < ci + 2; k++)
-                            BiomeView.Chip(line, chipList[k].Key, locked ? Theme.TextFaint : chipList[k].Value, 20, 36);
-                        y += 42;
+                        var wt = SideText(locked ? BiomeView.BoostText(w) + " · " + BiomeView.WeakText(w) : BiomeView.WeatherRich(w), 22, locked ? Theme.TextFaint : Color.white, "Weather", 28);
+                        wt.supportRichText = true;
                     }
                 }
                 if (n.State == MapNode.Next)
