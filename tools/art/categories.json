@@ -471,6 +471,14 @@
     "ui-kit-v2-parchment": [
       "fullframe",
       "UI kit v2"
+    ],
+    "boards-redo": [
+      "fullframe",
+      "Boards"
+    ],
+    "battle-biomes": [
+      "fullframe",
+      "Battle backgrounds"
     ]
   }
 }

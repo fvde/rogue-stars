@@ -1,0 +1,28 @@
+{
+  "name": "pkg-battle-biomes",
+  "width": 1024,
+  "height": 1344,
+  "seeds": [
+    5721,
+    5722
+  ],
+  "fullframe": true,
+  "variants": [
+    {
+      "key": "V",
+      "model": "flux",
+      "style": "2D side view mobile game battle background, comic style with bold outlines and bright flat colors, flat ground strip along the bottom third where fighters stand, open sky and space above, layered scenery in the distance, no characters, no text, no user interface"
+    }
+  ],
+  "subjects": {
+    "battle_lava": "a volcanic landscape with black rock, glowing lava rivers and smoking volcanoes in the distance",
+    "battle_gas_giant": "a floating rocky platform above swirling orange and purple gas giant clouds, a huge banded planet in the sky",
+    "battle_seabed": "an underwater alien seabed with sand, swaying kelp, coral and soft light rays from above",
+    "battle_cloud_islands": "floating grassy islands among fluffy clouds in a bright sky, small waterfalls falling off the edges",
+    "battle_space_station": "the inside of a space station hangar with metal floor plating, big windows showing stars and a planet",
+    "battle_alien_jungle": "a dense alien jungle with giant glowing plants, vines and strange purple trees",
+    "battle_shipwreck": "a rocky beach with a wrecked wooden pirate ship, broken masts and scattered barrels",
+    "battle_toxic_swamp": "a murky toxic swamp with glowing green water, dead twisted trees and bubbling pools"
+  },
+  "negative": "characters, people, text, letters, user interface, top down view, watermark, blurry, photo"
+}

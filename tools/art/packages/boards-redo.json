@@ -1,0 +1,24 @@
+{
+  "name": "pkg-boards-redo",
+  "width": 768,
+  "height": 1344,
+  "seeds": [
+    3021,
+    3022
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-board.json",
+  "suffix": ", high-angle three-quarter top-down view of a game level ground plane filling the whole frame, open empty area in the middle for a board path, props and scenery only along the left and right edges, vertical mobile game background, no path",
+  "negative": "horizon, sky, side view, landscape painting, characters, creatures, path, road, text, user interface, watermark, blurry, photo, 3d render",
+  "fullframe": true,
+  "subjects": {
+    "coral_reef": "warm orange sandy seabed with pink coral clusters, shells, starfish and small tide pools, flat sand slabs",
+    "ice": "pale icy floor of cracked white-blue ice slabs with snow drifts and small frozen shards",
+    "frozen_future": "frozen high-tech plaza of grey-blue metal floor panels half covered in ice and frost",
+    "crystal_cave": "pink and violet crystal cave floor of cracked crystal flagstones with glowing purple crystal clusters",
+    "mushroom_forest": "mossy green forest floor with big red-capped spotted mushrooms and soft grass patches",
+    "neon_city": "dark futuristic city plaza of purple metal floor tiles with glowing red and pink neon lines",
+    "clockwork_city": "bronze clockwork plaza of riveted brass floor plates with golden gears and cogs",
+    "desert_ruins": "golden desert sand with crumbling sandstone ruins, broken pillars and small dunes",
+    "candy_planet": "pastel candy land floor of peach caramel with blue and pink jelly puddles and candy pieces"
+  }
+}
