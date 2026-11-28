@@ -207,7 +207,8 @@ namespace RogueStars.Client.UiKit
         {
             float h = RailHeight(entries);
             var rail = Place(parent, name, x, y, RailWidth, h);
-            Box(rail, "side_rail", 0, 0, RailWidth, h, RailFill, 32, 0, null, null, "Rail");
+            var railBg = Box(rail, "nav_tile", 0, 0, RailWidth, h, RailFill, 32, 0, null, null, "Rail");
+            if (railBg.sprite == KitArt.Get("nav_tile") && railBg.sprite != null) railBg.color = new Color(1, 1, 1, 0.75f); // owner: the rail is the nav tile, stretched, 75%
             float cy = RailPad;
             foreach (var e in entries)
             {

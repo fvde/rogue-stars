@@ -14,7 +14,7 @@ Style for every piece: bold cartoon game UI, thick dark navy outline (#1d1b33), 
 | 4 | `plus_button` | green "+" on currency pills | 48x48 | green rounded square, white plus may be baked |
 | 5 | `season_bar` / `season_bar_fill` | season progress under the top bar | 640x90, 9-slice 40 | gold frame + yellow fill |
 | 6 | `level_hex` | hexagon level badge (season, run level) | 110x110 | gold/orange hexagon, empty centre |
-| 7 | `side_rail` | translucent rails left/right on home | 180x600, 9-slice 40 | dark navy at ~55% alpha, rounded |
+| 7 | ~~`side_rail`~~ | translucent rails left/right on home | — | dropped (owner): drawn from `nav_tile`, 9-slice 56 px, at 75% opacity |
 | 8 | `timer_chip` | "7h 14m" under rail icons | 140x40, 9-slice 20 | small dark pill |
 | 9 | `badge_red` | red notification dot ("!" or number) | 48x48 | red circle with white ring + navy outline |
 | 10 | `quick_band` | band behind the 4 home shortcuts | 900x170, 9-slice 40 | translucent dark |
@@ -54,7 +54,7 @@ Style for every piece: bold cartoon game UI, thick dark navy outline (#1d1b33), 
 | 34 | `skill_tile` (+ `_active` green glow) | skill tiles at the bottom of a battle | 170x170 | light grey/silver frame, empty centre |
 | 35 | `speed_button` | x2 / x3 bottom-left | 200x110, 9-slice 30 | dark navy, arrows baked |
 | 36 | `round_plate` (optional) | "Round 3" | 300x70 | can stay outlined text |
-| 37 | `settings_button` | cog, top-right | 80x80 | round dark button with cog |
+| 37 | `round_button` | cog (settings), top-right | 80x80 | generic round navy button; the settings button is `round_button` + the HUD cog icon |
 
 ## D. Illustrated icons (no frame, big and readable, 128x128 unless noted)
 
@@ -99,3 +99,5 @@ diamond). Kit icons: `icon_stamina`, `icon_diamond`, `icon_ore` (the approved cu
 Old kit (docs/design/ui-kit.md) slots drawn with the v2 sprite where it is the same element: `badge_dot` → `badge_red`
 (`Kit.NotifyDot`), `chip` → `currency_pill` (`Kit.CurrencyChip`, which also takes the kit currency icons), `stat_pill` → `stat_bar`
 (`Kit.StatPills`). The v2 sprites are coloured, so these draw untinted.
+
+Batch 2 (2026-11-28): `round_button`. `nav_tile` became a 9-slice piece (border 56) so the home side rails draw it stretched at 75% opacity.

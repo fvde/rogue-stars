@@ -484,12 +484,11 @@ namespace RogueStars.Client.UiKit
             return Tap(img.rectTransform, onClick);
         }
 
-        /// <summary>The round settings button (<c>settings_button</c>): a navy disc with the cog glyph.</summary>
+        /// <summary>The round settings button: the generic <c>round_button</c> (a navy disc) with the cog glyph on top.</summary>
         public static Button SettingsButton(Transform parent, float x, float y, float size, Sprite cog, Action onClick, string name = "SettingsButton")
         {
-            var img = Circle(parent, "settings_button", x, y, size, BarFill, (Ink, 5.3f));
+            var img = Circle(parent, "round_button", x, y, size, BarFill, (Ink, 5.3f));
             img.name = name;
-            if (KitArt.Get("settings_button") == null)
             {
                 var g = Icon(img.rectTransform, cog, size * 0.2f, size * 0.2f, size * 0.6f, size * 0.6f, "Cog", Theme.Hex(0xE8ECF6));
                 // the imported cog has an opaque white hole: a navy hub over it

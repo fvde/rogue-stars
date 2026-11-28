@@ -33,7 +33,7 @@ namespace RogueStars.Client.Tests
                 Assert.That(item.Trim, Is.EqualTo(KitImportRules.IsIcon(id)), id + ": pieces stay full-frame (borders), icons are trimmed");
             }
             Assert.That(plan.Any(i => i.Dest == "Art/Ui/Kit/copy_diamond.png"), Is.False, "tiles show the copies as xN");
-            Assert.That(KitImportRules.All.Count(), Is.EqualTo(41 + 4));
+            Assert.That(KitImportRules.All.Count(), Is.EqualTo(42 + 4)); // + round_button (2026-11-28)
         }
 
         [Test]

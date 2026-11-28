@@ -224,5 +224,6 @@
   "enemies3/elite_null_wraith": "../enemies-elites2/elite_null_wraith/S_s1622.png",
   "enemies3/elite_grub_mother": "../enemies-elites2/elite_grub_mother/C_s1622.png",
   "bosses/boss_elder_magma": "S_s1411.png",
-  "bosses/boss_chrono_wyrm": "C_s1411.png"
+  "bosses/boss_chrono_wyrm": "C_s1411.png",
+  "ui-kit-v2/round_button": "N_s9001.png"
 }

@@ -311,17 +311,18 @@ namespace RogueStars.Client.Editor
             { "hp_shield_blue", (600, 60, 14) },
             { "hp_rage_yellow", (600, 60, 14) },
             { "speed_button", (200, 110, 30) },
+            { "nav_tile", (170, 170, 56) }, // also the home side rail: stretched, at 75% opacity (owner: no side_rail piece)
         };
 
         /// <summary>Fixed pieces (drawn whole, no border).</summary>
         public static readonly string[] Fixed =
         {
-            "avatar_frame", "badge_red", "edge_tab_left", "edge_tab_right", "level_hex", "list_button", "nav_tile", "nav_tile_active",
+            "avatar_frame", "badge_red", "edge_tab_left", "edge_tab_right", "level_hex", "list_button", "nav_tile_active", "round_button",
             "pip_gem_blue", "pip_gem_gold", "pip_gem_purple", "pip_strip", "plus_button", "skill_tile", "skill_tile_active", "slot_badge",
             "tile_common", "tile_rare", "tile_epic", "tile_legendary", "tile_mythic",
         };
 
-        /// <summary>Approved game icons reused as kit icons (currencies; the HUD cog as the settings glyph until <c>round_button</c>).</summary>
+        /// <summary>Approved game icons reused as kit icons (currencies; the HUD cog, the settings glyph on <c>round_button</c>).</summary>
         public static readonly string[] Icons = { "icon_stamina", "icon_diamond", "icon_ore", "icon_settings" };
 
         /// <summary>Every imported kit id.</summary>
