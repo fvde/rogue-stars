@@ -136,7 +136,7 @@ public class RunIntegrationTests
     }
 
     /// <summary>
-    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays Ember Wastes (the first run without parts:
+    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays the first levels (the first run without parts:
     /// they arrive with the Parts unlock), spends what the runs pay
     /// on worm and part levels between runs, and clears level 3 within a bounded number of runs (stamina regen
     /// between sessions), while level 1 is won right away.
@@ -167,7 +167,7 @@ public class RunIntegrationTests
             SpendOnUpgrades(e, ref s, now);
             foreach (var kv in s.Wallet.Balances) Assert.True(kv.Value >= 0, kv.Key);
         }
-        Assert.True(firstWon, "a fresh worm should win Ember Wastes 1");
+        Assert.True(firstWon, "a fresh worm should win level 1");
         Assert.True(s.Counter(Requirements.MainLevelCounter) >= 3, $"stuck at {s.Counter(Requirements.MainLevelCounter)} after {runs} runs");
         // Worm Level unlocks with level 3 (GDD §16 level unlocks): the first upgrades are part levels, then worm levels.
         Assert.True(Features.IsUnlocked(s, e.Content, Features.WormLevel));

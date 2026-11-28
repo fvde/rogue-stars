@@ -183,7 +183,7 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - Run loot is **pending** until the boss is beaten. Fail → all pending loot is lost (no banking).
 - **Double rewards** (result-screen ad, once per won run): pays **every reward the result screen lists** again (playtest
   0.1.359) — run loot (event chests and Burrow floor rewards included), the level's completion rewards and completion loot
-  rolls, as granted (Biomass surge and run-reward modifiers included), first-clear milestone chests / portal bonuses, feat
+  rolls, as granted (Biomass surge and run-reward modifiers included), first-clear milestone chests / bonus chests, feat
   Diamonds and rare drops. Not doubled: rewards stashed for lack of a use (neither shown nor doubled) and run-only
   resources (run coins, run XP, skills: they end with the run). `RunSummary.Rewards` lists each reward with its source and
   `Doublable` / `Doubled`; after the ad `Granted` shows the doubled totals and `DoubledGranted` what the ad paid.
@@ -192,15 +192,28 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
   talent perks; refills can be bought (Diamonds, ads, daily free).
 
 ### 3.5 Portals, levels and modes
-- Portals open one by one on the planet; each Portal = a biome with N levels (main). Each level has 3 feats
-  (clear, HP left ≥ x%, beat boss within N rounds).
-- **The main campaign is endless:** after the 50 named portals (levels 1–500) new portals keep coming on the same long
-  threat curve, generated from the portal number (adjective + biome names, the four biome families in turn, family
-  bosses in six rotating variants with new boss-tile combinations every 5 portals). Per-run rewards keep growing more
-  slowly than threat (threat^0.7), every 10th level pays a one-time milestone chest (Diamonds + one token of each pull
-  type) and every 50th a bigger portal-completion bonus; run item drops shift up in rarity past level 500 but never
-  above Legendary. Formulas: `docs/design/economy-model.md` ("Endless campaign rewards").
-- **Overcharged** levels: harder variant of each portal, 2× stamina, better rewards.
+- **Portal after portal** (owner, 2026-11-28): the main campaign is one linear sequence of levels and **every level is
+  its own portal** with its own biome. Play opens the next level right away (`RunSystem.NextMainRunStart`); the level
+  selection shows the levels as a chain of portals, each with its biome peeking through. A level is named
+  "&lt;number&gt;. &lt;biome&gt;" ("55. Crystal Reef"). Each level has 3 feats (clear, HP left ≥ x%, beat boss within N rounds).
+- **Biomes** (`CampaignDef.Biomes`, eight, two per enemy family: Ember Wastes / Rust Canyons = ember, Crystal Reef /
+  Cloud Isles = glacier, Volt Labyrinth / Static Jungle = static, Wreck Field / Gloom Marsh = void): a level's biome sets
+  its board art, its enemy packs, elites, tile pool and boss. The order is a deterministic seeded shuffle, the same for
+  every player (`ContentDb.CampaignBiomeIndex`): blocks of 8 levels each use every biome once, and two consecutive
+  levels never share a biome **nor an enemy family**; level 1 is always Ember Wastes (the tutorial pool). The order only
+  changes when the biome list or `CampaignDef.BiomeOrderSeed` changes.
+- **No boss levels:** there is no boss cadence (no boss level every 10th level, no portal-ending boss); every run ends
+  with its biome's boss, as always.
+- **Chapters of 10** keep the rhythm of rewards and difficulty only (no biome, no portal): reward scale and loot table,
+  stamina (5 + chapter), board growth, the dice rhythm (chapter steps 6–10 roll two dice), threat slope bands, the endless
+  anchors. Level-unlocked run content and the threat curve stay keyed by the level number.
+- **The main campaign is endless:** past the materialized levels 1–500 new levels keep coming on the same long threat
+  curve, generated from the level number (family bosses in six rotating variants with new boss-tile combinations every
+  5 chapters from level 501). Per-run rewards keep growing more slowly than threat (threat^0.7), every 10th level pays a
+  one-time milestone chest (Diamonds + one token of each pull type) and every 50th a bigger bonus chest; run item drops
+  shift up in rarity past level 500 but never above Legendary. Formulas: `docs/design/economy-model.md` ("Endless
+  campaign rewards").
+- **Overcharged** levels: harder variant of each level (unlocked in the same sequence once cleared), 2× stamina, better rewards.
 - **Dark Side of the Planet:** late mode (the feature unlocks at main level 53; its first level sits on the main level 40 curve), endless procedural levels along the campaign curve (dark
   level i ≈ main level 40 + 3·(i−1)) with extreme modifiers (+45…90% enemy HP/ATK, −50% healing, faster awakening and
   danger), own rewards and leaderboard. The long-term source of **Data** for the Laboratory (Data per clear grows with
@@ -632,7 +645,7 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 
 Each package node needs its feature (`LabResearchDef.RequiresFeature`) besides the chain of prerequisites. The first boards
 (main levels 1–14, numbers in `CampaignDef`: `SignatureChoiceFromLevel` (`LevelDef.SignatureChoice`), `MinibossesFromLevel`,
-`ForksFromLevel`, `CampfiresFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later portals, the Burrow
+`ForksFromLevel`, `CampfiresFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later levels, the Burrow
 and the Dark Side have everything. The run-content features read their levels from those numbers, so they never drift.
 
 **Old saves** keep every unlock they have (unlocks never re-lock). A save from before the level unlocks

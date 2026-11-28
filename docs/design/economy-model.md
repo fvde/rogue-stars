@@ -81,21 +81,22 @@ after the main hero is maxed.
 
 ## Endless campaign rewards
 
-The main campaign and the Dark Side never end (`ContentDb.Campaign.cs`): main portal i (0-based, 10 levels) and Dark
-Side level i are generated from their index on the same threat curve (levels past 240 add 0.06 threat steps each,
+The main campaign and the Dark Side never end (`ContentDb.Campaign.cs`): main level n (each its own portal and biome)
+and Dark Side level i are generated from their number on the same threat curve; the rewards follow **chapters** of 10
+levels (chapter i = levels 10i + 1 … 10i + 10, no biome or portal attached) as the old portals of 10 did (levels past 240 add 0.06 threat steps each,
 forever). All numbers are `CampaignDef` fields.
 
 **Threat.** Main level n sits at t(n) = n − 1 (n ≤ 30), then +0.4 / 0.3 / 0.12 / 0.12 / 0.1 / 0.08 / 0.07 per level for
 30-level bands, then t(n) = 64.7 + 0.06 · (n − 240). Enemies scale with M(t) = 1.075^t · (1 + 0.05 t). Biome family
-offsets: void −25% everywhere, glacier −20% from portal 41 on (`LateFamilyStrengthPct`; its freeze-all boss otherwise
-stalls late worms for 3–6 weeks every fourth portal).
+offsets (by the level's biome family): void −25% everywhere, glacier −20% from level 401 on (`LateFamilyStrengthPct`;
+its freeze-all boss otherwise stalls late worms for 3–6 weeks).
 
 **Per-run currencies** (Biomass, Ore, Grain, Fuel, Hero XP, Gear Cores on main levels; Data on the Dark Side) are
-multiplied by the portal's reward scale S:
+multiplied by the chapter's reward scale S:
 
-- portals 1–50 (levels 1–500, unchanged): S(i) = i + 1 (≈ threat^0.43–0.55 there);
-- portal i ≥ 50 (levels 501+): **S(i) = 50 · (M(t(10 i + 1)) / M(t(491)))^α with α = 0.7** (`EndlessRewardExponent`);
-- completion pays (120 + 30 k) · S Biomass and (40 + 10 k) · S Ore on level k of the portal; loot currency ranges are
+- chapters 1–50 (levels 1–500, unchanged): S(i) = i + 1 (≈ threat^0.43–0.55 there);
+- chapter i ≥ 50 (levels 501+): **S(i) = 50 · (M(t(10 i + 1)) / M(t(491)))^α with α = 0.7** (`EndlessRewardExponent`);
+- completion pays (120 + 30 k) · S Biomass and (40 + 10 k) · S Ore on step k of the chapter; loot currency ranges are
   × round(S); every event / Treasure Pod reward chest adds 10% of the level's completion Biomass / Ore / Data / Fuel
   (playtest 0.1.325, `RunTuning.RewardChestCompletionPct`: ≈ +5–20% Biomass per won run at ~0.8 loot opportunities per
   run); the daily Biomass surge (first 3 won portal runs ×4), Overcharged ×1.8, the double-reward ad and the
@@ -119,7 +120,7 @@ reward of one won frontier run; Hardcore Whale, 3 seeds, 1 095 days; the α swee
 part levels stay at ~5–7 runs of Ore and ~70–120 runs of Gear Cores, mount levels ~250–500 runs of Fuel, research
 ~2 Dark Side clears of Data. Buildings are the exception: their cheapest remaining upgrade climbs from ~10 runs of
 Ore (levels 300–399) to 27 / 66 / 126 because the city approaches its level caps (×1.2 per level, average level 30+ of
-max 32) — a sink running out, not a reward gap. Past ~650 the threat slope, the reward growth per level (S × 1.035 per portal) and the
+max 32) — a sink running out, not a reward gap. Past ~650 the threat slope, the reward growth per level (S × 1.035 per chapter) and the
 geometric sink curves are all constant, so the ratio stays where it is. The campaign pace itself barely depends on α
 (Hardcore Whale level 650 at day 1 095 for α 0.4…0.7): late progress is power-gated by maxed collections, not by run
 currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
@@ -128,14 +129,14 @@ currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
 
 - every 10th main level: **milestone chest** = Diamonds 5 · round(10 · (1 + n/500)) and 1 + ⌊n/500⌋ token of each pull
   type (Part, Blueprint, Alien);
-- every 50th main level: **portal-completion bonus** instead = the chest × 4.
+- every 50th main level: **bonus chest** instead = the chest × 4.
 
-**Item drops** (parts, runes, blueprints, aliens from run loot) of portal i ≥ 50 gain 1 + ⌊(i − 50)/25⌋ rarity tiers
+**Item drops** (parts, runes, blueprints, aliens from run loot) of chapter i ≥ 50 gain 1 + ⌊(i − 50)/25⌋ rarity tiers
 (levels 501–750 +1, 751–1000 +2, 1001+ +3), **capped at Legendary**: Mythic stays pulls/merges only.
 
 **Feats** pay 10 Diamonds each, 3 per level, on every level forever.
 
-| Main level | threat t | enemy × M(t) | S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level | Data / Dark clear | item drops (lowest tier) | chest at n + 10: 💎 / tokens each | portal bonus at n: 💎 / tokens each |
+| Main level | threat t | enemy × M(t) | S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level | Data / Dark clear | item drops (lowest tier) | chest at n + 10: 💎 / tokens each | bonus chest at n: 💎 / tokens each |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 100 | 51.2 | 144 | 10 | 3 453 | 1 129 | 36 | 2.7 | 21 | 98 | Common | 60 / 1 | 240 / 4 |
 | 250 | 65.3 | 480 | 25 | 8 633 | 2 822 | 89 | 6.7 | 71 | 338 | Common | 75 / 1 | 300 / 4 |
@@ -147,13 +148,13 @@ currencies. Details: `docs/balance/progression-report.md` ("Endless campaign").
 (~0.3–0.8 items per run) moved into a third completion loot roll, and at most 3 risky opportunities per run add more for
 players who take the risk. Runs take ~2.5 minutes instead of ~1, so an active player plays fewer runs per day and the
 daily income stays near the old model — see docs/balance/progression-report.md, "Run length".)
-(Per run = completion + the 3 completion loot rolls, expected value, averaged over the portal's 10 levels, before the
+(Per run = completion + the 3 completion loot rolls, expected value, averaged over the chapter's 10 levels, before the
 surge/ads; Dark Side level = the one sitting at that main level. Regenerate with
 `dotnet run --project tools/RogueStars.Sim -c Release -- --reward-table`.) From level 100 to 2000 the threat grows
 ×14 700 and per-run currencies ×750. Milestones add ≈ 2% to a year's Diamonds and pull tokens for an active player
 (Active F2P: ~23 chests/bonuses in year one ≈ 2 100 Diamonds and ~34 tokens per pull type).
 
-**State and memory:** generated portals live in a bounded cache (`ContentDb.GeneratedCacheLevels`, regenerated
+**State and memory:** generated levels (and their portals) live in a bounded cache (`ContentDb.GeneratedCacheLevels`, regenerated
 identically on demand); per-level progress more than 100 levels behind the best clear is folded into one byte per level
 (`RunState.MainArchive` / `DarkArchive`, nothing for a fully completed prefix).
 

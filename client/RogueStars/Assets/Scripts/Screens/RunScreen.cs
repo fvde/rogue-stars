@@ -164,7 +164,7 @@ namespace RogueStars.Client.Screens
                 if (run == null) return "Run";
                 var level = Content.RunLevel(run.LevelId);
                 if (level == null) return run.LevelId;
-                return (level.Number > 0 ? "Level " + PortalsScreen.LevelNum(level.Number) + " · " : "") + level.Name;
+                return PortalsScreen.LevelTitle(level); // "55. Crystal Reef"
             }
         }
 

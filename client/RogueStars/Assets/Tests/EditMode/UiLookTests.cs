@@ -78,7 +78,7 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void PortalMap_FreshSave_NextGlows_LaterDimmed_BossAtThePortalEnd()
+        public void PortalMap_FreshSave_APortalPerLevel_NextGlows_LaterDimmed_NoBossLevels()
         {
             _f.App.Open("portals");
             var screen = (PortalsScreen)_f.App.Router.Current;
@@ -88,16 +88,25 @@ namespace RogueStars.Client.Tests
             Assert.That(FindNamed(n1, "Glow"), Is.Not.Null, "next level glows");
             Assert.That(FindNamed(n2, "Glow"), Is.Null);
             Assert.That(n2.GetComponent<Button>().interactable, Is.False);
-            Assert.That(Texts(n10), Does.Contain("BOSS · 10").And.Contain("CHEST"));
-            Assert.That(((RectTransform)n10).sizeDelta, Is.EqualTo(PortalsScreen.BossSize));
-            // the path climbs: level 1 below level 2, level 10 at the top of its portal
+            // every level is a portal with its biome showing through a round window; level 10 is a normal level with a chest
+            foreach (var n in new[] { n1, n2, n10 })
+            {
+                Assert.That(FindNamed(n, "Face").GetComponent<Mask>(), Is.Not.Null, n.name + " is a round window");
+                Assert.That(FindNamed(n, "Biome"), Is.Not.Null, n.name + " shows its biome");
+            }
+            Assert.That(FindNamed(n1, "Biome").GetComponent<Image>().sprite, Is.SameAs(ArtCatalog.Background(ArtCatalog.BiomeFor(C.MainLevel(1)))));
+            Assert.That(Texts(n2), Does.Contain(C.CampaignBiome(2).Name));
+            Assert.That(Texts(n10), Does.Contain("10").And.Contain("CHEST").And.Not.Contain("BOSS"));
+            Assert.That(((RectTransform)n10).sizeDelta, Is.EqualTo(new Vector2(PortalsScreen.LockedSize, PortalsScreen.LockedSize)));
+            Assert.That(((RectTransform)n1).sizeDelta, Is.EqualTo(new Vector2(PortalsScreen.NextSize, PortalsScreen.NextSize)));
+            // the chain climbs: level 1 below level 2 below level 10
             Assert.That(((RectTransform)n1).anchoredPosition.y, Is.LessThan(((RectTransform)n2).anchoredPosition.y));
             Assert.That(((RectTransform)n10).anchoredPosition.y, Is.GreaterThan(((RectTransform)n2).anchoredPosition.y));
-            Assert.That(FindNamed(screen.Root, "Connector"), Is.Not.Null, "connector dots between nodes");
+            Assert.That(FindNamed(screen.Root, "Connector"), Is.Not.Null, "connector dots between portals");
             // bottom card: the next level, its three star goals and START RUN with the stamina cost
             Assert.That(screen.SelectedLevel.Id, Is.EqualTo(C.MainLevelId(1)));
             var footer = screen.Root.Find("Footer");
-            Assert.That(Texts(footer), Does.Contain("Level 1 ·").And.Contain("Clear the level").And.Contain("stamina"));
+            Assert.That(Texts(footer), Does.Contain("1. " + C.CampaignBiome(1).Name).And.Contain("Clear the level").And.Contain("stamina"));
             Assert.That(FindNamed(footer, "StartRun").GetComponent<Button>().interactable, Is.True);
         }
 
@@ -112,12 +121,12 @@ namespace RogueStars.Client.Tests
             Assert.That(Texts(n1), Does.Contain("★★☆"));
             Assert.That(FindNamed(n1, "Glow"), Is.Null);
             Assert.That(FindNamed(FindNamed(screen.Root, "Level:" + C.MainLevelId(2)), "Glow"), Is.Not.Null, "level 2 is next");
-            Assert.That(screen.Subtitle, Does.Contain("1 of " + C.Campaign.LevelsPerPortal + " cleared").And.Contain("2 of " + 3 * C.Campaign.LevelsPerPortal + " stars"));
+            Assert.That(screen.Subtitle, Does.Contain("Next: 2. " + C.CampaignBiome(2).Name).And.Contain("1 cleared"));
             n1.GetComponent<Button>().onClick.Invoke();
             Assert.That(screen.SelectedLevel.Id, Is.EqualTo(C.MainLevelId(1)));
             n1 = FindNamed(screen.Root, "Level:" + C.MainLevelId(1));
             Assert.That(FindNamed(n1, "SelectedRing"), Is.Not.Null);
-            Assert.That(Texts(screen.Root.Find("Footer")), Does.Contain("Level 1 ·"));
+            Assert.That(Texts(screen.Root.Find("Footer")), Does.Contain("1. " + C.CampaignBiome(1).Name));
         }
 
         // ---- run board ----

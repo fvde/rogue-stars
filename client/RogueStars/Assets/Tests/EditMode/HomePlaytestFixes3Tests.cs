@@ -108,7 +108,7 @@ namespace RogueStars.Client.Tests
             var level = C.MainLevel(3);
             screen.LevelModal(C.Portal(level.PortalId), level, RunMode.Normal);
             var texts = _f.App.ModalLayer.GetComponentsInChildren<Text>(true).Select(t => t.text).ToList();
-            Assert.That(texts, Does.Contain("Level 3 · " + level.Name));
+            Assert.That(texts, Does.Contain("3. " + level.Name));
             Assert.That(texts.Any(t => t.Contains("d6")), Is.False, "\"2 dice\", not \"2d6\"");
             Assert.That(texts.Any(t => t.StartsWith("Completion")), Is.False, "hidden until played");
             Assert.That(texts, Does.Contain("Clear level 2 first"));
