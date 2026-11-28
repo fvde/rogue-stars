@@ -218,5 +218,11 @@
   "ui-kit-icons/icon_stamina": "~/AI/assets/currencies/stamina/C_s5301.png",
   "ui-kit-icons/icon_diamond": "~/AI/assets/currencies/diamonds/C_s5302.png",
   "ui-kit-icons/icon_ore": "~/AI/assets/currencies/ore/C_s5302.png",
-  "ui-kit-icons/icon_settings": "~/AI/assets/slice-hud2/cog/L_s5412.png"
+  "ui-kit-icons/icon_settings": "~/AI/assets/slice-hud2/cog/L_s5412.png",
+  "enemies3/elite_lurker_alpha": "../enemies-elites2/elite_lurker_alpha/C_s10622.png",
+  "enemies3/elite_volt_monarch": "../enemies-elites2/elite_volt_monarch/C_s1621.png",
+  "enemies3/elite_null_wraith": "../enemies-elites2/elite_null_wraith/S_s1622.png",
+  "enemies3/elite_grub_mother": "../enemies-elites2/elite_grub_mother/C_s1622.png",
+  "bosses/boss_elder_magma": "S_s1411.png",
+  "bosses/boss_chrono_wyrm": "C_s1411.png"
 }
