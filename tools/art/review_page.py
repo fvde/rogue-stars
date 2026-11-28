@@ -296,7 +296,7 @@ def sections(state, reg=None):
         appr.sort(key=lambda f: reg["files"].get(f, 0))
         anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
         anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
-        if appr or cand or anim_ok or anim_new:
+        if appr or cand or anim_ok or anim_new or c.get("reference"):
             out.append((c, appr, cand, anim_ok, anim_new))
     return out
 
@@ -334,6 +334,13 @@ def main():
         sec = [f'<section><h2>{html.escape(c["title"])}</h2>']
         if c.get("note"):
             sec.append(f'<p class="note">{html.escape(c["note"])}</p>')
+        refs = files(c.get("reference"))   # fixed base art every candidate must match (e.g. the base worm for hero skins)
+        if refs:
+            sec.append(f'<h3>Reference <small>{len(refs)}</small></h3><div class="grid">')
+            for f in refs:
+                sec.append(f'<figure id="{fig_id("ref", f)}"><img src="{thumb(f)}" alt="reference {html.escape(label(f))}">'
+                           f'<figcaption><b class="rt">REF</b> {html.escape(label(f))}</figcaption></figure>')
+            sec.append("</div>")
         for kind, items in (("Approved (in the game or going in)", appr), ("New candidates — pick", cand)):
             if not items:
                 continue

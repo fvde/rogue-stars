@@ -451,6 +451,14 @@
     "currency-icons2": [
       "icon",
       "Summon & menu icons"
+    ],
+    "skills-v3-redo4": [
+      "icon",
+      "Skill icons"
+    ],
+    "currency-redo2": [
+      "icon",
+      "Currencies"
     ]
   }
 }

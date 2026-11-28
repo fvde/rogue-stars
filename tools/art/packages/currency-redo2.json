@@ -1,0 +1,16 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-currency-redo2",
+  "seeds": [
+    7461,
+    7462
+  ],
+  "subjects": {
+    "grain": "grain: a bundle of golden wheat grain stalks tied with a red ribbon, one single solid object, bold black outline, flat colors",
+    "hero_xp": "hero XP: a glowing golden orb with a bright star shard inside, one single solid object, bold black outline, flat colors"
+  }
+}

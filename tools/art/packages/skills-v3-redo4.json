@@ -1,0 +1,24 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", simple flat game skill icon, one single clear object, very few details, two or three flat colors, thick black outline, centered, isolated on a plain pure white background, no text, no letters, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, words, caption, label, typography, writing, multiple icons, halo, aura, glow, sparkles, crown, ornate, clutter, many details, background, frame, text, scattered pieces, debris, particles, many small objects",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-skills-v3-redo4",
+  "seeds": [
+    6961,
+    6962
+  ],
+  "subjects": {
+    "combo_rhythm": "a purple metronome with a swinging golden arm, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "counter_grudge": "a steel-blue gauntlet fist clenched tight with a small red anger mark beside it, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "counter_mirror": "a round silver mirror shield bouncing a small red arrow back, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "light_conductor": "a copper lightning rod with a yellow lightning bolt striking its tip, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_fury_chain": "a purple chain whip with glowing red links swinging in a curve, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_sacrifice": "a cracked golden heart pouring its glow into a teal shield, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_superconductor": "a frosty cyan crystal coil with a yellow lightning bolt running through it, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "mythic_thunderhead": "one huge dark storm cloud with a single giant yellow lightning bolt below it, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "poison_glands": "a green venom gland pouch with one green drop dripping from it, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading",
+    "time_rewind_shell": "a golden snail shell with a clock face and a violet arrow curving backwards, drawn big and bold, bold comic cartoon style with a thick black outline, hard-edged two-tone cel shading"
+  }
+}
