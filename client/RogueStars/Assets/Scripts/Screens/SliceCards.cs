@@ -24,6 +24,8 @@ namespace RogueStars.Client.Screens
         public string Chip, ChipName;
         public Color ChipColor;
         public bool Dim;
+        /// <summary>Synergy weather badge of the level ("+25% here" / "−50% here", BiomeView.Badge); null = none.</summary>
+        public string Weather;
         /// <summary>The skill tooltip the card's "?" (and, on a card that does not pick on tap, its tile) opens; null = none / onInfo.</summary>
         public SkillTip? Tip;
         public ContentDb TipContent;
@@ -220,6 +222,7 @@ namespace RogueStars.Client.Screens
                 onInfo = () => SkillTooltip.Show(frame, content, tip); // "?" opens the full text by the tile
                 if (onClick == null) SkillTileView.Tappable(frame, content, () => tip); // where a tap does not pick: the tile too
             }
+            BiomeView.CardBadge(c, s, spec.Weather);
             // G5: the tier pill is filled with the rarity colour (white caption); the card has a matching 4 px outline
             var tag = Ui.RoundPanel(c, spec.TierColor, 12 * s, "TierTag");
             tag.raycastTarget = false;
