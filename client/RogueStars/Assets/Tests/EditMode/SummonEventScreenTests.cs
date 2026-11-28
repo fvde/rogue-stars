@@ -46,9 +46,9 @@ namespace RogueStars.Client.Tests
         [Test]
         public void HubEntry_AppearsWithHeroes_InTheLeftColumn_NotUnderMore()
         {
-            Assert.That(HubLayout.LeftColumn(S, C).Any(e => e.Id == "summon"), Is.False);
+            Assert.That(HubLayout.RightRail(S, C, _f.Service.NowMs).Any(e => e.Id == "summon"), Is.False);
             UnlockAll();
-            Assert.That(HubLayout.LeftColumn(S, C).Any(e => e.Id == "summon" && e.ScreenId == "summon"), Is.True);
+            Assert.That(HubLayout.RightRail(S, C, _f.Service.NowMs).Any(e => e.Id == "summon" && e.ScreenId == "summon"), Is.True);
             Assert.That(HubLayout.MoreScreens(S, C).Any(e => e.Id == "summon"), Is.False);
             Assert.That(HubLayout.Reachable(S, C, Now), Does.Contain("summon"));
             Assert.That(ScreenCatalog.Find("summon"), Is.Not.Null);

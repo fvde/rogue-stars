@@ -518,7 +518,7 @@ namespace RogueStars.Client.Tests
             Assert.That(Image(Named(root, "Feature:chapter_rewards"), "Icon").sprite, Is.SameAs(ArtCatalog.HubIcon("chapter_rewards")), "quick_chest");
             Assert.That(Image(Named(root, "Tab:shop"), "Icon").sprite, Is.SameAs(ArtCatalog.HubIcon("shop")), "the Shop tab shows the shop stall");
             Assert.That(Image(Named(root, "Side:pass"), "Icon").sprite, Is.SameAs(ArtCatalog.HubIcon("pass")));
-            Assert.That(Image(Named(root, "PlayButton"), "PlayRocket").sprite, Is.SameAs(ArtCatalog.HubIcon("play_button")));
+            Assert.That(Named(root, "PlayButton"), Is.Not.Null, "the board's START (no rocket on the approved board)");
             // the hub's worm on the planet is the body, not the icon
             Assert.That(Image(root, "Worm").sprite, Is.SameAs(ArtCatalog.Hero()));
         }

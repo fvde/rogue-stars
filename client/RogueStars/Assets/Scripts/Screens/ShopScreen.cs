@@ -39,6 +39,8 @@ namespace RogueStars.Client.Screens
         public ShopScreen(int offerTab) { _tab = offerTab; _chosen = true; }
 
         public override string Title => "Shop";
+        /// <summary>The board nav along the bottom (shared by every main tab).</summary>
+        protected override string ActiveMainTab => HubLayout.ShopTab;
         // the pulls come with Parts / Aliens / the City; the offers need no unlock (no intro)
         public override string[] IntroFeatures => new[] { Features.Parts, Features.Aliens, Features.BiomassFarm };
 

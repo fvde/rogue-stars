@@ -233,8 +233,8 @@ namespace RogueStars.Client.Tests
             var side = Find(hub.Root, "Side:pass");
             Assert.That(side, Is.Not.Null);
             Assert.That(side.Find("Label").GetComponent<Text>().text, Is.EqualTo("Pass"));
-            var tier = side.Find("Timer").GetComponentInChildren<Text>(true).text;
-            Assert.That(tier, Is.EqualTo("Lv " + ShopSystem.SeasonLevel(S, C)));
+            // the season level shows on the season bar's hex (board "New · home"), not on the pass icon
+            Assert.That(Find(hub.Root, "Tier").GetComponentsInChildren<Text>(true).First(t => t.name == "TierText").text, Is.EqualTo(ShopSystem.SeasonLevel(S, C).ToString()));
             Assert.That(string.Join("|", side.GetComponentsInChildren<Text>(true).Select(t => t.text)), Does.Not.Contain("T0"));
         }
 

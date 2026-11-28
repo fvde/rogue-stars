@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -71,7 +72,7 @@ namespace RogueStars.Client.Tests
             // one entry for the camp: the tab "Camp" with the saucer art
             var tab = Btn(hub.Root, "Tab:city");
             Assert.That(tab, Is.Not.Null, "the camp tab shows from level 6");
-            Assert.That(tab.GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text == "Camp"), Is.True);
+            Assert.That(tab.GetComponentsInChildren<Image>(true).First(i => i.name == "Icon").sprite, Is.SameAs(CityArt.Saucer()), "the crashed saucer");
             Assert.That(HubLayout.Tabs(S, C).First(e => e.Id == "city").Icon, Is.EqualTo(HubLayout.CampIcon));
         }
 
@@ -207,7 +208,8 @@ namespace RogueStars.Client.Tests
             var entry = HubLayout.Tabs(S, C).First(e => e.Id == "city");
             Assert.That(entry.Icon, Is.EqualTo("tab_city"));
             Assert.That(entry.Label, Is.EqualTo("City"));
-            Assert.That(Btn(hub.Root, "Tab:city").GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text == "City"), Is.True);
+            Assert.That(Btn(hub.Root, "Tab:city").GetComponentsInChildren<Image>(true).First(i => i.name == "Icon").sprite, Is.SameAs(HubLayout.TabIcon(entry)), "the City icon");
+            Assert.That(HubLayout.TabIcon(entry), Is.Not.SameAs(CityArt.Saucer()));
             Btn(hub.Root, "Tab:city").onClick.Invoke();
             var city = (CityScreen)_f.App.Router.Current;
             Assert.That(city.CampMode, Is.False);

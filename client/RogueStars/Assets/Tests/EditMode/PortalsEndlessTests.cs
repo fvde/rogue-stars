@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
@@ -166,14 +167,9 @@ namespace RogueStars.Client.Tests
             ClearedThrough(1234, 0);
             _f.App.Router.Current.Rebuild();
             var root = _f.App.Router.Current.Root;
-            Text next = null, chip = null;
-            foreach (var t in root.GetComponentsInChildren<Text>(true))
-            {
-                if (t.name == "HubNextLevel") next = t;
-                if (t.name == "Text" && t.transform.parent.name == "PortalChip") chip = t;
-            }
-            Assert.That(next.text, Does.Contain("LEVEL 1235"));
-            Assert.That(chip.text, Does.StartWith("Portal 124 · " + _f.Service.Content.MainPortal(123).Name));
+            // the board's title: "1235. <name>" (no portal chip or kicker over START on the approved board)
+            var title = root.GetComponentsInChildren<Text>(true).First(t => t.name == "LevelTitle");
+            Assert.That(title.text, Does.StartWith("1235. "));
             Assert.That(FindButton(root, "PlayButton"), Is.Not.Null);
         }
     }

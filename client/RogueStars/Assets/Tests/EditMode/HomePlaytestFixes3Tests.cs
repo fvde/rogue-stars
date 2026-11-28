@@ -48,7 +48,9 @@ namespace RogueStars.Client.Tests
             Assert.That(chips.Select(t => t.name), Does.Not.Contain("Chip:" + Currencies.Ore), "a zero balance is hidden");
             foreach (var t in chips) Assert.That(t.text, Does.Match(@"^[0-9./KMB]+$"), "numbers only: " + t.text);
             Assert.That(_f.Canvas.GetComponentsInChildren<Image>(true).Any(i => i.name == "Icon" && i.transform.parent.name.StartsWith("ChipBg:")), Is.True, "currency icons");
-            Assert.That(_f.Canvas.GetComponentsInChildren<Button>(true).Any(b => b.name == "CurrencyDetails"), Is.True, "the wallet opens every balance");
+            // the board's top bar has no wallet button: the profile opens every balance
+            _f.Canvas.GetComponentsInChildren<Button>(true).First(b => b.name == "ProfileChip").onClick.Invoke();
+            Assert.That(_f.App.ModalLayer.GetComponentsInChildren<Text>(true).Any(t => t.text == "Resources"), Is.True, "the wallet opens every balance");
             Assert.That(_f.Canvas.GetComponentsInChildren<Text>(true).Any(t => t.text.StartsWith("All")), Is.False, "no \"All\" button");
         }
 
@@ -64,12 +66,15 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Tabs_AreAllLabelled()
+        public void Tabs_AreIconTiles_TheActiveOneLabelled()
         {
             UnlockAll();
             var hub = Hub;
+            // board nav: every tab is an icon tile, the active one (raised) carries its label
             foreach (var tab in hub.Root.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Tab:")))
-                Assert.That(tab.GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text.Length > 0), Is.True, tab.name);
+                Assert.That(tab.GetComponentsInChildren<Image>(true).Any(i => i.name == "Icon" && i.sprite != null), Is.True, tab.name);
+            var planet = hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:planet");
+            Assert.That(planet.GetComponentsInChildren<Text>(true).Any(t => t.name == "Label" && t.text == "Planet"), Is.True);
         }
 
         [Test]
