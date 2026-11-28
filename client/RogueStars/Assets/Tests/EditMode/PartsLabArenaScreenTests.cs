@@ -202,7 +202,7 @@ namespace RogueStars.Client.Tests
             var screen = OpenParts();
             screen.Detail(target);
             int on = 0, off = 0;
-            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) { if (t.name == "Skill:on") on++; if (t.name == "Skill:off") off++; }
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Transform>(true)) { if (t.name == "Skill:on") on++; if (t.name == "Skill:off") off++; }
             Assert.That(on, Is.EqualTo(4));
             Assert.That(off, Is.EqualTo(1));
         }

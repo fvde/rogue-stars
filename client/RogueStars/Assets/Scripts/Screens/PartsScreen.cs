@@ -30,7 +30,7 @@ namespace RogueStars.Client.Screens
         {
             Part(body, "tabs", K(Tab), b => Ui.TabBar(b, Tabs, Tab, i => { Tab = i; Refresh(); }, 76));
             if (Tab == 1) { Part(body, "runes", VersionKey(Session.IsUnlocked(Features.Runes)), Runes); return; }
-            BuildInventory(body, "All parts");
+            BuildInventory(body, "Parts");
         }
     }
 }

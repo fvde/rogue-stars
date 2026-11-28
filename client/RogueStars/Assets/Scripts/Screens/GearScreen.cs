@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RogueStars.Client.App;
 using RogueStars.Client.UiKit;
+using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -11,423 +12,502 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Shared base of the gear screens (Worm tab and Parts): the inventory of ALL owned parts (slot filter with counts,
-    /// rarity filter, sort; tiles with slot, rarity, level, EQUIPPED and a ▲ level-up badge), the part detail (stats now →
-    /// next level, Ore level up, equip, lock, skills by rarity, merge, Replicator, runes, Forge, awakening, dismantle), the
-    /// merge picker (copies, fodder points, Ore, best-fodder auto-select, confirmation before protected parts are
-    /// used), the Replicator, the awakening preview and the rune list. Inventory queries: <see cref="GearGuide"/>; material
-    /// logic: <see cref="PartPlanner"/>.
+    /// Shared base of the gear screens (Worm tab and Parts), parts v2 on the kit v2 board ("New · worm"): the dark
+    /// inventory panel (header: sort toggle, "Parts · N", the yellow Feed button; a 5-column grid of rarity tiles,
+    /// <see cref="PartTileView"/>), the part sheet (rarity header, Mythic ladder, stats now / at cap, skills with the
+    /// locked ones greyed and the awakened texts, level up, equip either arm, climb, awaken, lock, runes, Forge, feed),
+    /// the empty-slot sheet, the Climb / Replicator picker (needs with owned counts, material tiles, the rules'
+    /// ValidateClimb / ValidateReplicate decide), the Feed spares sheet (Metal preview = the rules' ValidateFeed) with
+    /// its Replicator tab, the awakening preview and the rune list. Queries: <see cref="GearGuide"/>, material logic:
+    /// <see cref="PartPlanner"/>. Commands are local-first: the sheet reopens on the new state at once.
     /// </summary>
     public abstract class GearScreen : UiScreen
     {
-        // inventory view
-        private GearSlotFilter _slotFilter = GearSlotFilter.All;
-        private int _rarityFilter = -1;
         private GearSort _sort = GearSort.Best;
-        private RectTransform _inventoryAnchor;
-        private bool _scrollToInventory;
 
-        // merge picker state
+        // climb / Replicator picker
         private string _pickTarget;
         private bool _pickReplicate;
         private readonly List<string> _picked = new List<string>();
 
-        public GearSlotFilter SlotFilter => _slotFilter;
-        public int RarityFilter => _rarityFilter;
+        // feed sheet
+        private List<string> _feedSel;
+        private int _feedTab;
+
+        // part sheet
+        private bool _sheetAwakened;
+
         public GearSort Sort => _sort;
         /// <summary>Uids of the tiles of the last built inventory, in display order (tests).</summary>
         public readonly List<string> ShownParts = new List<string>();
 
         public static Color RarityColor(int partRarity) => Theme.PartRarityColor(partRarity);
-
         public static string RarityName(ContentDb c, int r) => c.PartsConfig.RarityDef(r).Name;
-
         public static string PartName(ContentDb c, PartItem p) => Fmt.PartName(c, p);
 
         protected HashSet<string> Locks => PartLocks.For(State.PlayerId);
 
-        /// <summary>Filter the inventory (and keep the other filters).</summary>
-        public void SetFilter(GearSlotFilter slot, int rarity, GearSort sort)
-        {
-            _slotFilter = slot; _rarityFilter = rarity; _sort = sort;
-            Refresh(); // in place: the tiles that stay are kept
-        }
-
-        /// <summary>From a body slot to its parts: the inventory filtered to the slot (any rarity), scrolled into view.</summary>
-        public void ShowSlot(PartSlot slot)
-        {
-            _slotFilter = GearGuide.FilterFor(slot);
-            _rarityFilter = -1;
-            _scrollToInventory = true;
-            ShowInventoryView();
-            Refresh();
-        }
-
-        /// <summary>Scroll to the inventory after the next build (Ore's "Go").</summary>
-        public void FocusInventory() { _scrollToInventory = true; ShowInventoryView(); Refresh(); }
-
         /// <summary>The gear screens update in place: tiles, slots and sections are keyed parts.</summary>
         protected override bool InPlace => true;
 
-        /// <summary>The screen switches to the view that holds the inventory (the Worm's Parts sub-tab).</summary>
-        protected virtual void ShowInventoryView() { }
+        /// <summary>The inventory also lists equipped parts (the Parts screen; the Worm shows them on its slots instead).</summary>
+        protected virtual bool InventoryIncludesEquipped => true;
 
-        // ---- inventory -----------------------------------------------------------------------------
+        public void SetSort(GearSort sort) { _sort = sort; Refresh(); }
 
-        /// <summary>The inventory: header (count, Ore), slot tabs with counts, sort + rarity filter, the tile grid, quick merge.</summary>
+        /// <summary>A body slot tapped: its part's sheet, or (empty) the sheet of the spares that fit it.</summary>
+        public void ShowSlot(PartSlot slot)
+        {
+            State.Parts.Equipped.TryGetValue(slot, out var uid);
+            if (PartsSystem.Get(State, uid) != null) Detail(uid);
+            else SlotSheet(slot);
+        }
+
+        // ---- inventory panel ------------------------------------------------------------------------
+
+        public const int GridColumns = 5;
+        public const float GridX = 43, GridY = 173, GridStepX = 203, GridStepY = 243, PanelMinHeight = 763;
+
+        /// <summary>The parts the inventory lists (sorted).</summary>
+        public List<PartItem> InventoryParts()
+        {
+            var list = GearGuide.Inventory(State, Content, GearSlotFilter.All, -1, _sort);
+            if (!InventoryIncludesEquipped) list.RemoveAll(p => PartsSystem.IsEquipped(State, p.Uid));
+            return list;
+        }
+
+        /// <summary>The dark inventory panel (board px, scaled to the width): header and the 5-column tile grid.</summary>
         protected void BuildInventory(Transform body, string title)
         {
-            int count = State.Parts.Items.Count;
-            var head = Part(body, "inv:head", K(title, count), b =>
+            var list = InventoryParts();
+            int rows = Mathf.Max(1, (list.Count + GridColumns - 1) / GridColumns);
+            float designH = Mathf.Max(PanelMinHeight, GridY + rows * GridStepY + 24);
+            var wrap = Part(body, "inv:panel", "", b =>
             {
-                var row = Ui.Row(b, 72, 12, null, 0, "InventoryHead");
-                Section(row, title + " · " + count);
-                LiveCurrencyChip(row, Currencies.Ore, () => App.Bar.ShowCurrency(Currencies.Ore), "OreChip");
+                var d = KitV2.DesignBlock(b, "InventoryPanel", designH, out _);
+                var bg = d.gameObject.AddComponent<Image>();
+                bg.raycastTarget = false;
+                if (!KitV2.Skin(bg, "grid_panel")) bg.color = KitV2.GridPanel;
             });
-            _inventoryAnchor = head;
+            wrap.GetComponent<KitDesignFit>().SetDesignHeight(designH);
+            var design = (RectTransform)wrap.Find("Design");
 
-            var labels = new List<string>();
-            foreach (var f in GearGuide.SlotFilters)
+            int feedable = PartPlanner.Feedable(State, Content, Locks).Count;
+            Part(design, "inv:head", K(title, list.Count, _sort, feedable), d =>
             {
-                int n = 0;
-                foreach (var p in State.Parts.Items.Values) if (GearGuide.Matches(PartsSystem.Def(Content, p), f)) n++;
-                labels.Add(GearGuide.SlotFilterLabel(f) + "\n<size=20>" + n + "</size>");
-            }
-            int slotIndex = Array.IndexOf(GearGuide.SlotFilters, _slotFilter);
-            Part(body, "inv:filters", K(string.Join(",", labels), slotIndex), b =>
-            {
-                var tabs = Kit.TabChips(b, labels, slotIndex, i => SetFilter(GearGuide.SlotFilters[i], _rarityFilter, _sort), 92);
-                for (int i = 0; i < tabs.Buttons.Count; i++) tabs.Buttons[i].name = "Filter:" + GearGuide.SlotFilters[i];
-            });
-
-            Part(body, "inv:tools", K(_sort, _rarityFilter), b =>
-            {
-                var tools = Ui.Row(b, 72, 10, null, 0, "InventoryTools");
-                var sortLabels = new List<string>();
-                foreach (var s in GearGuide.Sorts) sortLabels.Add(GearGuide.SortLabel(s));
-                var sorts = Kit.TabChips(tools, sortLabels, Array.IndexOf(GearGuide.Sorts, _sort), i => SetFilter(_slotFilter, _rarityFilter, GearGuide.Sorts[i]), 72);
-                for (int i = 0; i < sorts.Buttons.Count; i++) sorts.Buttons[i].name = "Sort:" + GearGuide.Sorts[i];
-                Ui.Size(sorts.Buttons[0].transform.parent, -1, 72, 1);
-                string rarityText = _rarityFilter < 0 ? "Any rarity" : RarityName(Content, _rarityFilter);
-                var rb = Ui.Button(tools, rarityText, RarityPicker, _rarityFilter < 0 ? Theme.Button : Color.Lerp(RarityColor(_rarityFilter), Theme.Panel, 0.4f), 260, 72, true, 24);
-                KitFit.On(rb.GetComponentInChildren<Text>(), 14);
-                rb.name = "RarityFilter";
+                KitV2.Box(d, "grid_edge", 0, 0, 1080, 8, KitV2.Ink, 1, 0, null, null, "PanelEdge");
+                var head = KitV2.Box(d, "grid_header", 0, 8, 1080, 133, KitV2.GridHeader, 1, 0, null, null, "InventoryHead");
+                KitV2.Box(head.rectTransform, "grid_header_edge", 0, 128, 1080, 5.3f, KitV2.Ink, 1, 0, null, null, "HeadEdge");
+                KitV2.SmallButton(d, "button_small_blue", 27, 29, 213, 85, KitV2.Blue, GearGuide.SortLabel(_sort), () => SetSort(GearGuide.NextSort(_sort)), "SortToggle");
+                var t = KitV2.Text(d, title + " · " + list.Count, 250, 43, 600, 59, 53.3f, Color.white, TextAnchor.MiddleCenter, "InventoryTitle");
+                KitFit.On(t, 28);
+                KitV2.SmallButton(d, "button_small_yellow", 874, 29, 179, 85, KitV2.Yellow, "Feed", OpenFeed, "FeedSpares");
+                if (feedable > 0) KitV2.BadgeRed(d, 1009, 7, feedable > 99 ? "99+" : feedable.ToString(), 64, "FeedBadge");
             });
 
-            var list = GearGuide.Inventory(State, Content, _slotFilter, _rarityFilter, _sort);
             ShownParts.Clear();
-            var grid = Part(body, "inv:grid", "", b =>
+            for (int i = 0; i < list.Count; i++)
             {
-                var g = Ui.Grid(b, new Vector2(TileWidth, TileHeight), 3, TileGap);
-                g.GetComponent<GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft; // a short last row starts at the left
-            });
-            foreach (var p in list)
-            {
-                ShownParts.Add(p.Uid);
-                var part = p;
-                Part(grid, "tile:" + p.Uid, TileKey(p), g => PartTile(g, part));
+                var part = list[i];
+                ShownParts.Add(part.Uid);
+                var data = PartTileView.From(State, Content, part, Locks);
+                var tile = Part(design, "tile:" + part.Uid, PartTileView.Key(data), g => PartTileView.Build(g, data, PartTileView.GridTile, () => Detail(part.Uid), "Part:" + part.Uid));
+                KitV2.At(tile, GridX + (i % GridColumns) * GridStepX, GridY + (i / GridColumns) * GridStepY, PartTileView.GridTile, PartTileView.GridTile + PartTileView.StripHeight);
             }
             if (list.Count == 0)
             {
-                string empty = count == 0 ? "No parts yet. Parts drop from runs and Parts pulls in the Shop."
-                    : "No " + (_rarityFilter >= 0 ? RarityName(Content, _rarityFilter) + " " : "") + (_slotFilter == GearSlotFilter.All ? "" : GearGuide.SlotFilterLabel(_slotFilter) + " ") + "parts yet.";
-                Part(body, "inv:empty", empty, b => Note(b, empty));
-            }
-
-            Part(body, "inv:foot", K(count, PartPlanner.Feedable(State, Content, Locks).Count, FooterExtrasKey()), b =>
-            {
-                var foot = Ui.Row(b, 80, 10, null, 0, "InventoryFoot");
-                // parts v2: nothing merges; spare standard parts become Metal for the Mythic ladder
-                int spare = PartPlanner.Feedable(State, Content, Locks).Count;
-                Ui.Button(foot, "Feed spares\n<size=20>" + spare + " part" + (spare == 1 ? "" : "s") + " → Metal</size>", FeedSpares, Theme.Button, -1, 80, spare > 0, 26).name = "FeedSpares";
-                InventoryFooterExtras(foot);
-            });
-
-            if (_scrollToInventory) ScrollToAfterBuild(head);
-            _scrollToInventory = false;
-        }
-
-        /// <summary>Everything a part tile shows (its part key).</summary>
-        private string TileKey(PartItem p)
-        {
-            var slot = GearGuide.EquippedSlot(State, p.Uid);
-            return K(p.DefId, PartName(Content, p), p.Rarity, p.Level, PartsSystem.LevelCap(Content, p), slot, Locks.Contains(p.Uid), p.Awaken,
-                slot.HasValue && GearGuide.CanLevelUp(State, Content, p));
-        }
-
-        /// <summary>What <see cref="InventoryFooterExtras"/> shows depends on (part key).</summary>
-        protected virtual string FooterExtrasKey() => "";
-
-        /// <summary>More buttons next to Feed spares (the Worm adds Runes).</summary>
-        protected virtual void InventoryFooterExtras(RectTransform row) { }
-
-        /// <summary>Tile grid: three columns of 296 + 2 × 14 = 916 ≤ the 930-unit body (978 − 2 × 24 padding).</summary>
-        public const float TileWidth = 296, TileHeight = 262, TileGap = 14;
-
-        /// <summary>One part tile: slot, name, rarity and level, EQUIPPED / slot, LOCKED, and the ▲ badge when it can level up now.</summary>
-        private void PartTile(Transform grid, PartItem p)
-        {
-            var def = PartsSystem.Def(Content, p);
-            var rc = RarityColor(p.Rarity);
-            var slot = GearGuide.EquippedSlot(State, p.Uid);
-            bool eq = slot.HasValue;
-            // equipped: green outline; spare: the rarity colour
-            Kit.RarityCard(grid, "Part:" + p.Uid, rc, () => Detail(p.Uid), out var c, 30, 16, 4, eq, null, eq ? 0.38f : 0.26f);
-            var kindRow = Ui.Row(c, 30, 0, null, 0, "KindRow");
-            Ui.Spacer(kindRow, 34).GetComponent<LayoutElement>().flexibleWidth = 0; // room for the rarity gem
-            Ui.Label(kindRow, def.Kind.ToString().ToUpperInvariant() + (def.IsMythic ? " · " + (def.Synergy ?? "").ToUpperInvariant() : " · " + def.Role.ToString().ToUpperInvariant()), 20, Theme.TextDim, TextAnchor.MiddleLeft, "Kind").fontStyle = FontStyle.Bold;
-            var name = Ui.Display(c, PartName(Content, p), 28, Color.Lerp(rc, Color.white, 0.6f), TextAnchor.UpperLeft, "Name");
-            Ui.Size(name, -1, 66, 1);
-            var lvRow = Ui.Row(c, 38, 8, null, 0, "Level");
-            var lvb = Kit.LevelBadge(lvRow, "Lv " + p.Level + "/" + PartsSystem.LevelCap(Content, p), Color.white, 34);
-            Ui.Label(lvRow, RarityName(Content, p.Rarity), 20, Theme.TextDim, TextAnchor.MiddleLeft, "RarityName");
-            var chips = Ui.ChipRow(c, 38, 6);
-            if (eq) Ui.Chip(chips, slot.Value == PartSlot.LeftArm ? "LEFT ARM" : slot.Value == PartSlot.RightArm ? "RIGHT ARM" : "EQUIPPED", Theme.Good, Theme.OnAccent, 18, 36, null, "Equipped");
-            if (Locks.Contains(p.Uid)) Ui.Chip(chips, "LOCKED", null, Theme.Warn, 18, 36, null, "Locked");
-            if (p.Awaken > 0) Ui.Chip(chips, "AWAKE", null, Theme.Premium, 18, 36);
-            if (eq && GearGuide.CanLevelUp(State, Content, p)) Badge(c, "▲", "LevelUpBadge");
-        }
-
-        /// <summary>A round green badge in the top-right corner of a card (outside its layout).</summary>
-        protected static void Badge(Transform card, string text, string name)
-        {
-            Kit.CornerBadge(card, text, Theme.Good, name);
-        }
-
-        private void RarityPicker()
-        {
-            Modal("Rarity", b =>
-            {
-                Ui.Button(b, "Any rarity", () => SetFilter(_slotFilter, -1, _sort), Theme.Button, -1, 76).name = "Rarity:any";
-                foreach (int r in GearGuide.OwnedRarities(State))
+                string empty = State.Parts.Items.Count == 0 ? "No parts yet. Parts come from Parts pulls in the Shop and boss first clears."
+                    : "Every part you own is equipped. Spares land here.";
+                Part(design, "inv:empty", empty, d =>
                 {
-                    int rr = r;
-                    Ui.Button(b, RarityName(Content, r), () => SetFilter(_slotFilter, rr, _sort), Color.Lerp(RarityColor(r), Theme.Panel, 0.4f), -1, 76).name = "Rarity:" + r;
-                }
-            }, new ModalButton("Close", null));
+                    var t = KitV2.Text(d, empty, 80, 220, 920, 160, 38, Theme.Hex(0xD8C8B0), TextAnchor.MiddleCenter, "EmptyNote", false);
+                    t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                });
+            }
         }
 
-        /// <summary>Feed every spare standard part (not equipped, locked or forged; never Mythics) for Metal, after a confirmation.</summary>
-        protected void FeedSpares()
+        // ---- sheet helpers --------------------------------------------------------------------------
+
+        private static readonly Color SheetText = Color.white, SheetDim = Theme.Hex(0xB8B0D8), SheetCard = Theme.Hex(0x3A3550);
+        private static readonly Color BtnGreen = Theme.Hex(0x3FBF4A), BtnYellow = Theme.Hex(0xF7B52A), BtnPurple = Theme.Hex(0x7A5CE0),
+            BtnRed = Theme.Hex(0xE0533A), BtnGrey = Theme.Hex(0x4A4466), BtnBlue = Theme.Hex(0x3C9EE6);
+
+        /// <summary>A kit v2 sheet: navy box with a navy outline; build fills it (it closes itself on its buttons).</summary>
+        protected UiModal KitSheet(string name, Action<RectTransform, UiModal> build) =>
+            Ui.Sheet(App.ModalLayer, name, KitV2.Navy, KitV2.Ink, build, 960);
+
+        private static RectTransform SheetSection(Transform parent, string title, string name)
         {
-            var spare = PartPlanner.Feedable(State, Content, Locks);
-            if (spare.Count == 0) return;
-            long metal = 0;
-            foreach (var p in spare) metal += PartsSystem.MetalValue(Content, p);
-            void Go() { var cmd = new PartFeed(); foreach (var p in spare) cmd.Uids.Add(p.Uid); Run(cmd); }
-            Modal("Feed " + spare.Count + " spare part" + (spare.Count == 1 ? "" : "s") + "?", b => Note(b, "They become " + Fmt.Num(metal) + " Metal for the Mythic ladder (Common 1, Rare 2, Epic 6, Legendary 20); their level Ore and runes come back."),
-                new ModalButton("Cancel", null), new ModalButton("Feed", Go, Theme.Warn)).Root.name = "Modal:FeedSpares";
+            var card = Ui.Card(parent, SheetCard, KitV2.Ink, 28, 22, 8, 3, name);
+            if (title != null) Kit.Title(card, title, 30, Theme.Hex(0xFFE14D), TextAnchor.MiddleLeft, "SectionTitle");
+            return card;
         }
 
-        // ---- part detail -------------------------------------------------------------------------
+        private static Text SheetLabel(Transform parent, string text, int size, Color color, string name = "Label", TextAnchor align = TextAnchor.MiddleLeft)
+        {
+            var t = Ui.Label(parent, text, size, color, align, name);
+            t.supportRichText = true;
+            return t;
+        }
 
-        /// <summary>Tallest the detail's scrolling body gets (it scrolls beyond).</summary>
-        public const float DetailMaxHeight = 1240;
+        private static Button SheetButton(Transform parent, string label, string sub, Color color, Action onClick, bool interactable, float width, string name, float height = 104)
+        {
+            var b = Ui.Button(parent, label + (sub != null ? "\n<size=22>" + sub + "</size>" : ""), onClick, color, width, height, interactable, 30);
+            b.name = name;
+            return b;
+        }
 
+        /// <summary>A part tile (no layout) inside a layout row: a holder of the tile's size.</summary>
+        private RectTransform TileIn(Transform parent, PartTileView.Data d, float size, Action onClick, string name)
+        {
+            var holder = Ui.Rect(parent, name + "Holder");
+            Ui.Size(holder, size, size + (d.Pips ? PartTileView.StripHeight : 0), 0, 0);
+            var t = PartTileView.Build(holder, d, size, onClick, name);
+            t.anchoredPosition = Vector2.zero;
+            return t;
+        }
+
+        private static void CloseButton(RectTransform box, Action onClose)
+        {
+            var b = Ui.Button(box, "X", onClose, BtnGrey, 84, 84, true, 36);
+            b.name = "SheetClose";
+            var rt = (RectTransform)b.transform;
+            var le = b.GetComponent<LayoutElement>() ?? b.gameObject.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1, 1);
+            rt.sizeDelta = new Vector2(84, 84);
+            rt.anchoredPosition = new Vector2(-22, -22);
+        }
+
+        /// <summary>A grid of part tiles (no pips) in a scrolling area; 5 columns of 150.</summary>
+        private void TileGrid(Transform parent, List<PartItem> parts, Func<PartItem, bool> selected, Action<PartItem> onTap, string prefix, float maxHeight = 640, bool pips = false)
+        {
+            int rows = Mathf.Max(1, (parts.Count + 4) / 5);
+            float cell = 150, gap = 18;
+            float h = Mathf.Min(maxHeight, rows * (cell + gap + (pips ? PartTileView.StripHeight : 0)) + 24);
+            var frame = Ui.Rect(parent, prefix + "Grid");
+            Ui.Size(frame, -1, h, 1, 0);
+            var content = Ui.Scroll(frame, out _, 0, 0);
+            var grid = Ui.Grid(content, new Vector2(cell, cell + (pips ? PartTileView.StripHeight : 0)), 5, gap);
+            var gl = grid.GetComponent<GridLayoutGroup>();
+            gl.padding = new RectOffset(12, 0, 22, 8);
+            gl.childAlignment = TextAnchor.UpperLeft;
+            foreach (var p in parts)
+            {
+                var part = p;
+                var d = PartTileView.From(State, Content, p, Locks, false);
+                d.Pips = pips; d.Selected = selected != null && selected(p);
+                PartTileView.Build(grid, d, cell, () => onTap(part), prefix + part.Uid);
+            }
+        }
+
+        // ---- part sheet -----------------------------------------------------------------------------
+
+        /// <summary>Tallest the sheet's scrolling body gets (it scrolls beyond).</summary>
+        public const float DetailMaxHeight = 1180;
+
+        /// <summary>The sheet of a part: header, ladder, stats, skills, runes and the actions for its state.</summary>
         public void Detail(string uid)
         {
             var p = PartsSystem.Get(State, uid);
             if (p == null) return;
             Ui.Clear(App.ModalLayer);
             var def = PartsSystem.Def(Content, p);
-            var cfg = Content.PartsConfig;
             var slot = GearGuide.EquippedSlot(State, uid);
             bool locked = Locks.Contains(uid) || p.Locked;
-            var rc = RarityColor(p.Rarity);
-            var modal = Modal(PartName(Content, p), outer => Ui.ScrollingColumn(outer, DetailMaxHeight, b =>
+            int cap = PartsSystem.LevelCap(Content, p);
+            var modal = KitSheet("PartDetail", (box, m) =>
             {
-                // who: rarity, slot, family, equipped
-                var tags = Ui.ChipRow(b, 46, 8);
-                Ui.Chip(tags, RarityName(Content, p.Rarity).ToUpperInvariant(), rc, Theme.TextOn(rc), 22, 44, null, "Rarity");
-                Ui.Chip(tags, def.Kind.ToString().ToUpperInvariant() + (def.Kind == PartKind.Arm ? " · EITHER ARM" : ""), null, Theme.Text, 22, 44);
-                Ui.Chip(tags, (def.IsMythic ? def.Synergy ?? "" : def.Role.ToString()).ToUpperInvariant(), null, Theme.TextDim, 22, 44);
-                if (def.IsMythic && !string.IsNullOrEmpty(def.Identity)) Note(b, def.Identity);
-                if (slot.HasValue) Ui.Chip(tags, "ON " + GearGuide.SlotName(slot.Value).ToUpperInvariant(), Theme.Good, Theme.OnAccent, 22, 44, null, "EquippedChip");
-                if (p.Awaken > 0) Note(b, "Awakened (" + def.Name + ")");
-
-                LevelCard(b, p);
-
-                // stats: now → next level
-                Ui.Caption(b, "Stats");
-                var stats = PartsSystem.PartStats(State, Content, p);
-                StatBlock next = null;
-                if (GearGuide.NextLevelCost(Content, p, out _, out _))
-                    next = PartsSystem.PartStats(State, Content, new PartItem { Uid = p.Uid, DefId = p.DefId, Rarity = p.Rarity, Level = p.Level + 1, ForgedSlots = p.ForgedSlots, Awaken = p.Awaken, Runes = p.Runes });
-                var sg = Ui.Column(b, 2, 0, null, "Stats");
-                foreach (var kv in stats.Flat)
+                var scroll = Ui.ScrollingColumn(box, DetailMaxHeight, b =>
                 {
-                    double after = next != null && next.Flat.TryGetValue(kv.Key, out var a) ? a : kv.Value;
-                    StatRow(sg, Fmt.StatName(kv.Key), WormScreen.StatText(kv.Key, kv.Value), after > kv.Value + 1e-9 ? WormScreen.StatText(kv.Key, after) : null, true);
-                }
-                foreach (var kv in stats.Percent) StatRow(sg, Fmt.StatName(kv.Key) + " %", "+" + Fmt.Pct(kv.Value), null, true);
-
-                // equip / lock
-                var eqRow = Ui.Row(b, 80, 10, null, 0, "EquipRow");
-                if (def.Kind == PartKind.Arm)
-                {
-                    foreach (var arm in new[] { PartSlot.LeftArm, PartSlot.RightArm })
-                    {
-                        var a = arm;
-                        if (slot == a) continue; // W4: no Equip for the arm it is already on (the ON chip says so)
-                        string verb = slot.HasValue ? "Swap to " : "Equip ";
-                        Ui.Button(eqRow, verb + GearGuide.SlotName(a).ToLowerInvariant(), () => Run(new PartEquip { Uid = uid, Slot = a }, _ => Reopen(uid)),
-                            Theme.Accent, -1, 80, true, 26).name = "Equip:" + a;
-                    }
-                }
-                else if (!slot.HasValue) // W4: an equipped part shows Unequip only
-                {
-                    var target = (PartSlot)(int)def.Kind;
-                    Ui.Button(eqRow, "Equip", () => Run(new PartEquip { Uid = uid, Slot = target }, _ => Reopen(uid)), Theme.Accent, -1, 80, true, 28).name = "Equip:" + target;
-                }
-                if (slot.HasValue)
-                {
-                    var s = slot.Value;
-                    Ui.Button(eqRow, "Unequip", () => Run(new PartUnequip { Slot = s }, _ => Reopen(uid)), Theme.Button, 200, 80, true, 26).name = "Unequip";
-                }
-                Ui.Button(eqRow, locked ? "Unlock" : "Lock", () =>
-                {
-                    PartLocks.Set(State.PlayerId, uid, !locked);
-                    Run(new PartLock { Uid = uid, Locked = !locked }, _ => { Reopen(uid); Refresh(); });
-                }, locked ? Theme.Warn : Theme.Button, 190, 80, true, 26).name = "PartLock";
-
-                var lines = PartPlanner.SkillLines(Content, p, p.Awaken > 0);
-                if (lines.Count > 0) SkillList(b, lines, "Skills (" + Math.Min(lines.Count, PartsSystem.SkillCount(Content, p.Rarity)) + "/" + lines.Count + " active)");
-
-                // the Mythic ladder (parts v2: only Mythics climb; copies + other Mythics of the slot, Metal, Ore) and the Replicator
-                if (def.IsMythic)
-                {
-                    Ui.Caption(b, "Mythic ladder");
-                    var plan = PartPlanner.AutoMerge(State, Content, p, Locks);
-                    var mRow = Ui.Row(b, 84, 10);
-                    string mergeText = plan.NextRarity < 0 ? "Mythic SS (final)" : "Climb → " + RarityName(Content, plan.NextRarity) + "\n<size=20>" + (plan.Valid ? "materials ready" + (plan.NeedsConfirmation ? " (uses protected parts)" : "") : Fmt.Humanize(plan.Error)) + "</size>";
-                    Ui.Button(mRow, mergeText, () => OpenMergePicker(uid, false), plan.Valid ? Theme.Warn : Theme.Button, -1, 84, plan.NextRarity >= 0, 24).name = "OpenMerge";
-                    Ui.Button(mRow, "Replicator\n<size=20>3 Mythics → copy</size>", () => OpenMergePicker(uid, true), Theme.Premium, 260, 84, true, 24).name = "OpenReplicator";
-                    if (plan.NextRarity >= 0)
-                        Note(b, "Next step: " + plan.CopiesNeeded + " cop" + (plan.CopiesNeeded == 1 ? "y" : "ies") + (plan.FodderNeeded > 0 ? " + " + plan.FodderNeeded + " other " + def.Kind + " Mythics" : "")
-                            + ", " + Fmt.Num(plan.Metal) + " Metal (have " + Fmt.Num(State.Wallet.Get(Currencies.Metal)) + "), " + Fmt.Num(plan.Ore) + " Ore.");
-                }
-                else Note(b, "Standard parts never merge. A spare one becomes " + PartsSystem.MetalValue(Content, p) + " Metal for the Mythic ladder.");
-
-                // runes
-                int runeSlots = PartsSystem.RuneSlotCount(Content, p);
-                if (runeSlots > 0)
-                {
-                    Ui.Caption(b, "Rune sockets");
-                    var runeRow = Ui.Row(b, 72, 8);
-                    for (int i = 0; i < runeSlots; i++)
-                    {
-                        int ri = i;
-                        string runeUid = i < p.Runes.Count ? p.Runes[i] : "";
-                        var rune = !string.IsNullOrEmpty(runeUid) && State.Parts.Runes.TryGetValue(runeUid, out var r) ? r : null;
-                        Ui.Button(runeRow, rune == null ? "+ rune" : RuneShort(rune), () =>
-                        {
-                            if (rune != null) Run(new RuneUnsocket { PartUid = uid, SlotIndex = ri }, _ => Reopen(uid));
-                            else SocketModal(uid, ri);
-                        }, rune == null ? Theme.Locked : Theme.RarityColor((Rarity)rune.Rarity), -1, 72, Session.IsUnlocked(Features.Runes), 22);
-                    }
-                }
-
-                // advanced: Forge (once unlocked), awakening (Mythic+), dismantle
-                var row = Ui.Row(b, 80, 10, null, 0, "AdvancedRow");
-                if (Session.IsUnlocked(Features.Forge) && p.Rarity >= (int)cfg.ForgeMinRarity)
-                {
-                    bool forge = p.ForgedSlots < cfg.Forge.Count;
-                    Ui.Button(row, "Forge\n<size=20>" + (forge ? cfg.Forge[p.ForgedSlots].Diamonds + " Diamonds" : "done") + "</size>", () => Run(new PartForgeUnlock { Uid = uid }, _ => Reopen(uid)), Theme.Premium, -1, 80, forge, 24);
-                }
-                if (def.IsMythic && p.Rarity >= (int)cfg.AwakenMinRarity)
-                {
-                    string awText = p.Awaken > 0 ? "Awakened" : "Awaken\n<size=20>" + State.Wallet.Get(ProgressionCurrencies.PartAwakenCores) + "/" + cfg.AwakenCost + " cores</size>";
-                    Ui.Button(row, awText, () => AwakenModal(uid), Theme.Warn, -1, 80, p.Awaken == 0, 24).name = "OpenAwaken";
-                }
-                if (!def.IsMythic)
-                    Ui.Button(row, "Feed\n<size=20>+" + PartsSystem.MetalValue(Content, p) + " Metal</size>", () => Feed(uid), Theme.Bad, -1, 80, PartsSystem.IsFeedable(State, Content, p), 24).name = "Dismantle";
-            }), new ModalButton("Close", null));
+                    SheetHeader(b, p, def, slot, cap);
+                    if (def.IsMythic) Ladder(b, p);
+                    StatsSection(b, p, cap);
+                    SkillsSection(b, p, def);
+                    RunesSection(b, p);
+                    if (!def.IsMythic)
+                        SheetLabel(b, "Standard parts never merge or climb. A spare one feeds into " + PartsSystem.MetalValue(Content, p) + " Metal for the Mythic ladder.", 22, SheetDim, "StdNote");
+                }, 18, 888);
+                Actions(box, p, def, slot, locked, cap);
+                CloseButton(box, () => { _sheetAwakened = false; m.Close(); });
+            });
             modal.Root.name = "Modal:PartDetail";
         }
 
-        /// <summary>
-        /// Level card of the detail: Lv n/cap, the next level's Ore (and Gear Core) price with the balance, a big LEVEL UP
-        /// button (green with a "READY" chip when affordable), why not otherwise; at the cap: cap raise / merge hint; reset.
-        /// </summary>
-        private void LevelCard(Transform parent, PartItem p)
+        private void SheetHeader(Transform b, PartItem p, PartDef def, PartSlot? slot, int cap)
+        {
+            var colors = KitV2.TileColors(p.Rarity);
+            var band = Ui.Card(b, Color.white, KitV2.Ink, 32, 20, 0, 5, "SheetHeader");
+            var g = band.gameObject.AddComponent<KitGradient>();
+            g.Set(Color.Lerp(colors.top, KitV2.Navy, 0.35f), Color.Lerp(colors.bottom, KitV2.Navy, 0.55f));
+            var row = Ui.Row(band, 230, 22, null, 0, "HeaderRow");
+            row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            var d = PartTileView.From(State, Content, p, Locks, false);
+            TileIn(row, d, 170, null, "SheetTile");
+            var col = Ui.Column(row, 6, 0, null, "Who");
+            Ui.Size(col, -1, -1, 1);
+            var name = Kit.Title(col, PartName(Content, p), 44, Color.white, TextAnchor.MiddleLeft, "PartName");
+            name.horizontalOverflow = HorizontalWrapMode.Wrap;
+            Ui.Size(name, -1, 56, 1);
+            KitFit.On(name, 26);
+            string kind = def.Kind == PartKind.Arm ? "Arm (either arm)" : def.Kind.ToString();
+            string family = def.IsMythic ? (def.Synergy ?? "General") : def.Role.ToString();
+            var line = Kit.Title(col, RarityName(Content, p.Rarity) + "  ·  " + family + "  ·  " + kind, 28, KitV2.RankColor(p.Rarity), TextAnchor.MiddleLeft, "RarityLine");
+            Ui.Size(line, -1, 38, 1);
+            KitFit.On(line, 18);
+            var chips = Ui.ChipRow(col, 40, 8);
+            if (slot.HasValue) Ui.Chip(chips, "ON " + GearGuide.SlotName(slot.Value).ToUpperInvariant(), Theme.Good, Theme.OnAccent, 20, 38, null, "EquippedChip");
+            if (p.Awaken > 0) Ui.Chip(chips, "AWAKENED", Theme.Hex(0xFFC23D), KitV2.Ink, 20, 38, null, "AwakenedChip");
+            if (p.Locked || Locks.Contains(p.Uid)) Ui.Chip(chips, "LOCKED", Theme.Hex(0x5B5578), Color.white, 20, 38, null, "LockedChip");
+            var bar = Ui.Bar(col, cap > 0 ? p.Level / (float)cap : 1, Theme.Hex(0xFFC23D), "Lv " + p.Level + " / " + cap, 40);
+            if (bar.Label != null) bar.Label.name = "LevelText";
+            if (def.IsMythic && !string.IsNullOrEmpty(def.Identity)) SheetLabel(band, def.Identity, 22, Theme.Hex(0xF3E6C8), "Identity");
+        }
+
+        /// <summary>The Mythic ladder: M (70) → +1 → +2 → S (skill 4) → S+1 → S+2 → SS (skill 5, final); this part's step lit.</summary>
+        private void Ladder(Transform b, PartItem p)
+        {
+            var sec = SheetSection(b, "Mythic ladder", "Ladder");
+            var row = Ui.Row(sec, 150, 6, null, 0, "LadderSteps");
+            var cfg = Content.PartsConfig;
+            for (int r = (int)PartRarity.Mythic; r <= (int)cfg.TopRarity; r++)
+            {
+                bool done = p.Rarity > r, now = p.Rarity == r;
+                bool skill = cfg.RarityDef(r).SkillCount > cfg.RarityDef(r - 1).SkillCount && r > (int)PartRarity.Mythic;
+                var col = Ui.Column(row, 2, 0, null, "Step:" + PartArt.Rank(r));
+                col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.UpperCenter;
+                Ui.Size(col, -1, 150, 1);
+                var fill = now ? Theme.Hex(0xFFC23D) : done ? Theme.Hex(0xD93B3B) : Theme.Hex(0x2B2847);
+                var node = Ui.Rect(col, "Node");
+                Ui.Size(node, 84, 84, 0, 0);
+                var ni = node.gameObject.AddComponent<Image>();
+                ni.sprite = UiShapes.Hex; ni.color = fill; ni.preserveAspect = true; ni.raycastTarget = false;
+                var nt = Kit.Title(node, PartArt.Rank(r), r == (int)PartRarity.Mythic || r == (int)PartRarity.MythicS || r == (int)PartRarity.MythicSS ? 34 : 26,
+                    Color.white, TextAnchor.MiddleCenter, "Rank");
+                Ui.Stretch(nt.rectTransform);
+                SheetLabel(col, "Lv " + cfg.RarityDef(r).LevelCap, 20, now ? Theme.Hex(0xFFE14D) : SheetDim, "Cap", TextAnchor.MiddleCenter);
+                SheetLabel(col, skill ? "+skill " + cfg.RarityDef(r).SkillCount : "", 18, done || now ? Theme.Hex(0x8FE39A) : Theme.Hex(0xC084FC), "Adds", TextAnchor.MiddleCenter);
+            }
+            var step = PartsSystem.NextClimb(Content, p);
+            if (step == null) SheetLabel(sec, "Mythic SS: the top of the ladder (level cap 100, all five skills).", 22, SheetDim, "LadderNext");
+            else
+                SheetLabel(sec, "Next: " + RarityName(Content, p.Rarity + 1) + " (cap " + cfg.RarityDef(p.Rarity + 1).LevelCap + ") takes " + step.Copies + " cop" + (step.Copies == 1 ? "y" : "ies")
+                    + (step.Others > 0 ? " + " + step.Others + " other " + PartsSystem.Def(Content, p).Kind + " Mythics" : "") + ", " + Fmt.Num(step.Metal) + " Metal, " + Fmt.Num(step.Ore) + " Ore.", 22, SheetDim, "LadderNext");
+        }
+
+        private void StatsSection(Transform b, PartItem p, int cap)
+        {
+            var sec = SheetSection(b, null, "Stats");
+            var now = PartsSystem.PartStats(State, Content, p);
+            var capItem = PartPlanner.CloneItem(p);
+            capItem.Level = cap;
+            var atCap = PartsSystem.PartStats(State, Content, capItem);
+            var head = Ui.Row(sec, 44, 8, null, 0, "StatsHead");
+            Ui.Size(Kit.Title(head, "Stats", 30, Theme.Hex(0xFFE14D), TextAnchor.MiddleLeft, "SectionTitle"), 330, -1, 0);
+            Ui.Size(SheetLabel(head, "Now · Lv " + p.Level, 24, SheetDim, "NowHead"), -1, -1, 1);
+            Ui.Size(SheetLabel(head, "At cap · Lv " + cap, 24, SheetDim, "CapHead"), -1, -1, 1);
+            var keys = new List<StatId>(now.Flat.Keys);
+            foreach (var k in atCap.Flat.Keys) if (!keys.Contains(k)) keys.Add(k);
+            foreach (var k in keys)
+            {
+                now.Flat.TryGetValue(k, out double a); atCap.Flat.TryGetValue(k, out double c);
+                StatLine(sec, Fmt.StatName(k), WormScreen.StatText(k, a), WormScreen.StatText(k, c), c > a + 1e-9);
+            }
+            var pkeys = new List<StatId>(now.Percent.Keys);
+            foreach (var k in atCap.Percent.Keys) if (!pkeys.Contains(k)) pkeys.Add(k);
+            foreach (var k in pkeys)
+            {
+                now.Percent.TryGetValue(k, out double a); atCap.Percent.TryGetValue(k, out double c);
+                StatLine(sec, Fmt.StatName(k) + " %", "+" + Fmt.Pct(a), "+" + Fmt.Pct(c), c > a + 1e-9);
+            }
+        }
+
+        private static void StatLine(Transform parent, string stat, string now, string cap, bool grows)
+        {
+            var row = Ui.Row(parent, 40, 8, null, 0, "StatRow");
+            Ui.Size(SheetLabel(row, stat, 24, SheetDim, "Stat"), 330, -1, 0);
+            Ui.Size(Kit.Title(row, now, 28, Color.white, TextAnchor.MiddleLeft, "Now"), -1, -1, 1);
+            Ui.Size(Kit.Title(row, cap, 28, grows ? Theme.Hex(0x8FE39A) : Color.white, TextAnchor.MiddleLeft, "Cap"), -1, -1, 1);
+        }
+
+        /// <summary>Short "at S" text of the step a Mythic skill unlocks at.</summary>
+        public static string UnlockShort(PartRarity r) => r == PartRarity.MythicSS ? "at SS" : r == PartRarity.MythicS ? "at S" : "at " + PartArt.Rank((int)r);
+
+        private void SkillsSection(Transform b, PartItem p, PartDef def)
+        {
+            if (def.SkillIds.Count == 0) return;
+            bool aw = p.Awaken > 0 || _sheetAwakened;
+            var lines = PartPlanner.SkillLines(Content, p, aw);
+            int active = Math.Min(lines.Count, PartsSystem.SkillCount(Content, p.Rarity));
+            var sec = SheetSection(b, null, "Skills");
+            var head = Ui.Row(sec, 56, 10, null, 0, "SkillsHead");
+            Ui.Size(Kit.Title(head, (aw && p.Awaken == 0 ? "Awakened skills" : "Skills") + "  " + active + "/" + lines.Count + " active", 30, Theme.Hex(0xFFE14D), TextAnchor.MiddleLeft, "SectionTitle"), -1, -1, 1);
+            if (def.IsMythic && p.Awaken == 0 && def.AwakenedSkillIds.Count > 0)
+            {
+                string uid = p.Uid;
+                Ui.Button(head, _sheetAwakened ? "Now" : "Awakened", () => { _sheetAwakened = !_sheetAwakened; Detail(uid); }, BtnPurple, 220, 56, true, 24).name = "ToggleAwakened";
+            }
+            foreach (var sk in lines)
+            {
+                var card = Ui.Card(sec, sk.Unlocked ? Theme.Hex(0x2B2847) : Theme.Hex(0x302C45), sk.Unlocked ? Theme.Hex(0x6A4FD0) : Theme.Hex(0x45405E), 20, 16, 4, 3, sk.Unlocked ? "Skill:on" : "Skill:off");
+                var top = Ui.Row(card, 40, 8, null, 0, "SkillTop");
+                Ui.Size(Kit.Title(top, sk.Name, 28, sk.Unlocked ? Color.white : Theme.Hex(0x8C86A8), TextAnchor.MiddleLeft, "SkillName"), -1, -1, 1);
+                if (!sk.Unlocked) Ui.Chip(top, UnlockShort(sk.UnlockRarity).ToUpperInvariant(), Theme.Hex(0x5B5578), Color.white, 20, 36, null, "SkillLock");
+                SheetLabel(card, Fmt.SkillFull(Content.Skill(sk.SkillId)), 23, sk.Unlocked ? Theme.Hex(0xE8E4F8) : Theme.Hex(0x8C86A8), "SkillText");
+            }
+        }
+
+        private void RunesSection(Transform b, PartItem p)
+        {
+            int runeSlots = PartsSystem.RuneSlotCount(Content, p);
+            if (runeSlots <= 0) return;
+            string uid = p.Uid;
+            var sec = SheetSection(b, "Rune sockets", "Runes");
+            var runeRow = Ui.Row(sec, 72, 8, null, 0, "RuneRow");
+            bool unlocked = Session.IsUnlocked(Features.Runes);
+            for (int i = 0; i < runeSlots; i++)
+            {
+                int ri = i;
+                string runeUid = i < p.Runes.Count ? p.Runes[i] : "";
+                var rune = !string.IsNullOrEmpty(runeUid) && State.Parts.Runes.TryGetValue(runeUid, out var r) ? r : null;
+                Ui.Button(runeRow, rune == null ? "+ rune" : RuneShort(rune), () =>
+                {
+                    if (rune != null) Run(new RuneUnsocket { PartUid = uid, SlotIndex = ri }, _ => Reopen(uid));
+                    else SocketModal(uid, ri);
+                }, rune == null ? BtnGrey : Theme.RarityColor((Rarity)rune.Rarity), -1, 72, unlocked, 22).name = "Rune:" + i;
+            }
+            if (!unlocked) SheetLabel(sec, "Runes unlock later.", 22, SheetDim, "RunesLocked");
+        }
+
+        /// <summary>The sheet's action buttons for the part's state (below the scroll, always visible).</summary>
+        private void Actions(Transform box, PartItem p, PartDef def, PartSlot? slot, bool locked, int cap)
         {
             string uid = p.Uid;
             var cfg = Content.PartsConfig;
-            int cap = PartsSystem.LevelCap(Content, p);
-            bool below = GearGuide.NextLevelCost(Content, p, out long ore, out long cores);
-            bool afford = GearGuide.CanLevelUp(State, Content, p);
-            var card = Ui.Card(parent, Theme.PanelAlt, afford ? Theme.Good : Theme.Border, Theme.RadiusCard, 22, 10, 4, "LevelCard");
-            var top = Ui.Row(card, 56, 10);
-            Ui.Display(top, "Level " + p.Level + " / " + cap, Theme.FontLarge, Theme.Text, TextAnchor.MiddleLeft, "LevelText");
-            if (afford) Ui.Chip(top, "READY", Theme.Good, Theme.OnAccent, 22, 44, null, "ReadyChip");
-            if (below)
+            var acts = Ui.Column(box, 12, 0, null, "Actions");
+
+            // level up: the next level's Ore (and Gear Cores), or the cap
+            var lvRow = Ui.Row(acts, 104, 12, null, 0, "LevelRow");
+            if (GearGuide.NextLevelCost(Content, p, out long ore, out long cores))
             {
-                long haveOre = State.Wallet.Get(Currencies.Ore);
+                bool afford = GearGuide.CanLevelUp(State, Content, p);
                 string price = Fmt.Num(ore) + " Ore" + (cores > 0 ? " + " + Fmt.Num(cores) + " Gear Cores" : "");
-                var row = Ui.Row(card, 96, 12);
-                var up = Ui.Button(row, "LEVEL UP\n<size=22>" + price + "</size>", () => Run(new PartLevelUp { Uid = uid }, _ => Reopen(uid)), afford ? Theme.Good : Theme.Button, -1, 96, afford, 30);
-                up.name = "PartLevelUp";
-                var oreBtn = Ui.Button(row, "ORE " + Fmt.Num(haveOre) + "\n<size=18>what is Ore?</size>", () => App.Bar.ShowCurrency(Currencies.Ore), Theme.Button, 230, 96, true, 24);
-                oreBtn.name = "OreInfo";
-                string costText = afford ? "Costs " + price + " · you have " + Fmt.Num(haveOre) + " Ore."
-                    : !State.Wallet.CanAfford(Currencies.Ore, ore) ? "Needs " + Fmt.Num(ore) + " Ore (you have " + Fmt.Num(haveOre) + "). Ore drops from runs and dismantled parts."
-                    : "Needs " + Fmt.Num(cores) + " Gear Cores (you have " + Fmt.Num(State.Wallet.Get(Currencies.GearCores)) + ").";
-                Ui.Label(card, costText, 22, afford ? Theme.Good : Theme.TextDim, TextAnchor.MiddleLeft, "LevelCost");
+                SheetButton(lvRow, "Level up", price, afford ? BtnGreen : BtnGrey, () => Run(new PartLevelUp { Uid = uid }, _ => Reopen(uid)), afford, -1, "PartLevelUp");
+                if (!afford) SheetButton(lvRow, "Ore " + Fmt.Num(State.Wallet.Get(Currencies.Ore)), "where to get", BtnBlue, () => App.Bar.ShowCurrency(Currencies.Ore), true, 260, "OreInfo");
             }
             else
             {
                 var step = PartsSystem.NextClimb(Content, p);
-                Ui.Label(card, "Level cap reached." + (step != null ? " Climb it to " + RarityName(Content, p.Rarity + 1) + " for a higher cap (" + cfg.RarityDef(p.Rarity + 1).LevelCap + ")."
-                    : PartsSystem.Def(Content, p).IsMythic ? "" : " Standard parts keep their rarity's cap (" + cap + ")."), 22, Theme.TextDim, TextAnchor.MiddleLeft, "LevelCost");
+                var t = SheetLabel(lvRow, "Level cap " + cap + " reached." + (step != null ? " Climb for a higher cap." : def.IsMythic ? "" : " Standard parts keep their rarity's cap."), 26, SheetDim, "LevelCapNote");
+                Ui.Size(t, -1, -1, 1);
             }
-            if (p.Level > 1)
-                Ui.Button(card, "Reset to level 1 · refunds " + Fmt.Num(p.SpentOre) + " Ore", () => Run(new PartLevelDown { Uid = uid }, _ => Reopen(uid)), Theme.Button, -1, 60, true, 22).name = "ResetLevel";
-        }
 
-        private static void StatRow(Transform parent, string stat, string now, string next, bool _)
-        {
-            var row = Ui.Row(parent, 40, 8);
-            Ui.Size(Ui.Label(row, stat, 24, Theme.TextDim), 300, -1, 0);
-            Ui.Label(row, now, 24, Theme.Text);
-            if (next != null) Ui.Label(row, "→ " + next + " next level", 22, Theme.Good);
-        }
-
-        /// <summary>The part's skills: active ones with their effect, the others dimmed with the rarity / ladder step they need.</summary>
-        private void SkillList(Transform parent, List<PartSkillLine> skills, string title)
-        {
-            Ui.Caption(parent, title);
-            foreach (var sk in skills)
+            // equip (either arm), climb, awaken
+            var row = Ui.Row(acts, 104, 12, null, 0, "EquipRow");
+            if (def.Kind == PartKind.Arm)
             {
-                string head = (sk.Unlocked ? "● " : "○ ") + sk.Name + "  <size=18>" + (sk.Unlocked ? "unlocked at " : "unlocks at ") + RarityName(Content, (int)sk.UnlockRarity) + "</size>";
-                var t = Ui.Label(parent, head + "\n<size=20>" + sk.Description + "</size>", 24, sk.Unlocked ? Theme.Text : Theme.TextDim);
-                t.name = sk.Unlocked ? "Skill:on" : "Skill:off";
+                foreach (var arm in new[] { PartSlot.LeftArm, PartSlot.RightArm })
+                {
+                    var a = arm;
+                    if (slot == a) continue;
+                    string label = slot.HasValue ? "Move to " + (a == PartSlot.LeftArm ? "left" : "right") : "Equip " + (a == PartSlot.LeftArm ? "left arm" : "right arm");
+                    State.Parts.Equipped.TryGetValue(a, out var wornUid);
+                    var worn = PartsSystem.Get(State, wornUid);
+                    SheetButton(row, label, worn != null && !slot.HasValue ? "swaps " + PartArt.Rank(worn.Rarity) + " Lv." + worn.Level : null, BtnBlue,
+                        () => Run(new PartEquip { Uid = uid, Slot = a }, _ => Reopen(uid)), true, -1, "Equip:" + a);
+                }
             }
+            else if (!slot.HasValue)
+            {
+                var target = (PartSlot)(int)def.Kind;
+                State.Parts.Equipped.TryGetValue(target, out var wornUid);
+                var worn = PartsSystem.Get(State, wornUid);
+                SheetButton(row, "Equip", worn != null ? "swaps " + PartArt.Rank(worn.Rarity) + " Lv." + worn.Level : null, BtnBlue,
+                    () => Run(new PartEquip { Uid = uid, Slot = target }, _ => Reopen(uid)), true, -1, "Equip:" + target);
+            }
+            if (slot.HasValue)
+            {
+                var s = slot.Value;
+                SheetButton(row, "Unequip", null, BtnGrey, () => Run(new PartUnequip { Slot = s }, _ => Reopen(uid)), true, 220, "Unequip");
+            }
+            if (def.IsMythic)
+            {
+                var step = PartsSystem.NextClimb(Content, p);
+                if (step != null)
+                {
+                    var plan = PartPlanner.AutoMerge(State, Content, p, Locks);
+                    SheetButton(row, "Climb to " + PartArt.Rank(p.Rarity + 1), plan.Valid ? "ready" : "see needs", plan.Valid ? BtnRed : BtnGrey, () => OpenMergePicker(uid, false), true, -1, "OpenClimb");
+                }
+                if (GearGuide.CanAwaken(State, Content, p))
+                    SheetButton(row, "Awaken", State.Wallet.Get(ProgressionCurrencies.PartAwakenCores) + "/" + cfg.AwakenCost + " cores", BtnPurple, () => AwakenModal(uid), true, -1, "OpenAwaken");
+            }
+
+            // lock, reset, Forge, feed
+            var small = Ui.Row(acts, 80, 12, null, 0, "SmallRow");
+            SheetButton(small, locked ? "Unlock" : "Lock", null, locked ? BtnYellow : BtnGrey, () =>
+            {
+                PartLocks.Set(State.PlayerId, uid, !locked);
+                Run(new PartLock { Uid = uid, Locked = !locked }, _ => { Reopen(uid); Refresh(); });
+            }, true, -1, "PartLock", 80);
+            if (p.Level > 1)
+                SheetButton(small, "Reset", "+" + Fmt.Num(p.SpentOre) + " Ore", BtnGrey, () => Run(new PartLevelDown { Uid = uid }, _ => Reopen(uid)), true, -1, "ResetLevel", 80);
+            if (Session.IsUnlocked(Features.Forge) && p.Rarity >= (int)cfg.ForgeMinRarity)
+            {
+                bool forge = p.ForgedSlots < cfg.Forge.Count;
+                SheetButton(small, "Forge", forge ? cfg.Forge[p.ForgedSlots].Diamonds + " Diamonds" : "done", BtnPurple, () => Run(new PartForgeUnlock { Uid = uid }, _ => Reopen(uid)), forge, -1, "Forge", 80);
+            }
+            if (!def.IsMythic && !slot.HasValue)
+                SheetButton(small, "Feed", "+" + PartsSystem.MetalValue(Content, p) + " Metal", BtnYellow, () => Feed(uid), PartsSystem.IsFeedable(State, Content, p) && !Locks.Contains(uid), -1, "Feed", 80);
         }
 
         private void Feed(string uid)
         {
             var p = PartsSystem.Get(State, uid);
             if (p == null) return;
-            void Go() { var cmd = new PartFeed(); cmd.Uids.Add(uid); Run(cmd); Ui.Clear(App.ModalLayer); }
-            if (p.Rarity < (int)PartRarity.Legendary && !Locks.Contains(uid)) { Go(); return; }
-            Modal("Feed " + PartName(Content, p) + "?", b => Note(b, RarityName(Content, p.Rarity) + (Locks.Contains(uid) ? ", locked" : "") + ": becomes " + PartsSystem.MetalValue(Content, p)
+            void Go() { var cmd = new PartFeed(); cmd.Uids.Add(uid); Ui.Clear(App.ModalLayer); Run(cmd); }
+            if (p.Rarity < (int)PartRarity.Legendary) { Go(); return; }
+            Modal("Feed " + PartName(Content, p) + "?", b => Note(b, RarityName(Content, p.Rarity) + ": becomes " + PartsSystem.MetalValue(Content, p)
                 + " Metal for the Mythic ladder; its level Ore and runes come back."),
-                new ModalButton("Cancel", null), new ModalButton("Feed", Go, Theme.Bad));
+                new ModalButton("Cancel", () => Reopen(uid)), new ModalButton("Feed", Go, BtnYellow));
         }
 
-        /// <summary>Close the open modals and reopen the detail on the updated state.</summary>
+        /// <summary>Close the open sheets and reopen the part sheet on the updated state.</summary>
         protected void Reopen(string uid)
         {
             Ui.Clear(App.ModalLayer);
             if (PartsSystem.Get(State, uid) != null) Detail(uid);
         }
 
-        // ---- merge picker / Replicator -------------------------------------------------------------
+        // ---- empty slot sheet -----------------------------------------------------------------------
+
+        /// <summary>An empty body slot: the spares that fit it (best first); tap one to equip it there.</summary>
+        public void SlotSheet(PartSlot slot)
+        {
+            Ui.Clear(App.ModalLayer);
+            var spares = GearGuide.SparesFor(State, Content, slot);
+            KitSheet("SlotSheet", (box, m) =>
+            {
+                Kit.Title(box, GearGuide.SlotName(slot) + " slot", 44, Color.white, TextAnchor.MiddleCenter, "Title");
+                if (spares.Count == 0) SheetLabel(box, "No spare part fits here yet. Parts come from Parts pulls in the Shop and boss first clears.", 26, SheetDim, "NoSpares", TextAnchor.MiddleCenter);
+                else
+                {
+                    SheetLabel(box, "Tap a part to equip it.", 24, SheetDim, "Hint", TextAnchor.MiddleCenter);
+                    TileGrid(box, spares, null, p =>
+                    {
+                        m.Close();
+                        Run(new PartEquip { Uid = p.Uid, Slot = slot });
+                    }, "Spare:", 700, true);
+                }
+                SheetButton(box, "Close", null, BtnGrey, m.Close, true, -1, "SlotClose", 90);
+            }).Root.name = "Modal:SlotSheet";
+        }
+
+        // ---- climb / Replicator picker ----------------------------------------------------------------
 
         /// <summary>The current picker selection evaluated by the rules (null when no picker is open).</summary>
         public MergePlan PickerPlan { get; private set; }
 
-        /// <summary>Open the merge (or Replicator) picker for a part, pre-filled with the auto-selected best fodder.</summary>
+        /// <summary>Open the Climb (or Replicator) picker for a Mythic, pre-filled with the auto-selected materials.</summary>
         public void OpenMergePicker(string uid, bool replicate)
         {
             _pickTarget = uid;
@@ -435,7 +515,6 @@ namespace RogueStars.Client.Screens
             AutoPick();
         }
 
-        /// <summary>Replace the selection with the auto-selected materials.</summary>
         public void AutoPick()
         {
             var t = PartsSystem.Get(State, _pickTarget);
@@ -454,6 +533,13 @@ namespace RogueStars.Client.Screens
 
         public void ClearPick() { _picked.Clear(); ShowPicker(); }
 
+        private void NeedRow(Transform parent, string what, string have, bool ok, string name)
+        {
+            var row = Ui.Row(parent, 46, 10, null, 0, name);
+            Ui.Size(SheetLabel(row, what, 26, SheetDim, "What"), -1, -1, 1);
+            Kit.Title(row, have, 30, ok ? Theme.Hex(0x8FE39A) : Theme.Hex(0xFF8F8F), TextAnchor.MiddleRight, "Have");
+        }
+
         private void ShowPicker()
         {
             var t = PartsSystem.Get(State, _pickTarget);
@@ -461,53 +547,42 @@ namespace RogueStars.Client.Screens
             if (t == null) { PickerPlan = null; return; }
             var plan = PartPlanner.Evaluate(State, Content, t, _picked, Locks, _pickReplicate);
             PickerPlan = plan;
-            string title = _pickReplicate ? "Replicator: " + PartsSystem.Def(Content, t).Name : "Climb " + PartName(Content, t) + (plan.NextRarity >= 0 ? " → " + RarityName(Content, plan.NextRarity) : "");
-            Modal(title, b =>
+            var def = PartsSystem.Def(Content, t);
+            string title = _pickReplicate ? "Replicator: " + def.Name : "Climb " + PartName(Content, t) + (plan.NextRarity >= 0 ? " to " + RarityName(Content, plan.NextRarity) : "");
+            var cands = PickerCandidates(t, plan);
+            KitSheet("Picker", (box, m) =>
             {
-                var rc = Card(b, Theme.PanelAlt, 4);
-                if (_pickReplicate) Note(rc, "Turns 3 spare Mythics (any slot, base step) into a copy of " + PartsSystem.Def(Content, t).Name + " for its ladder steps.");
-                else KeyValue(rc, "Copies", plan.CopiesNeeded == 0 ? "none" : plan.Copies.Count + "/" + plan.CopiesNeeded,
-                    plan.Copies.Count >= plan.CopiesNeeded ? Theme.Good : Theme.Bad);
-                KeyValue(rc, _pickReplicate ? "Spare Mythics" : "Other Mythics", plan.FodderNeeded == 0 ? "none" : plan.FodderPoints + "/" + plan.FodderNeeded, plan.FodderPoints >= plan.FodderNeeded ? Theme.Good : Theme.Bad);
-                if (!_pickReplicate) KeyValue(rc, "Metal", Fmt.Num(plan.Metal) + " (have " + Fmt.Num(State.Wallet.Get(Currencies.Metal)) + ")", State.Wallet.CanAfford(Currencies.Metal, plan.Metal) ? Theme.Text : Theme.Bad);
-                KeyValue(rc, "Ore", plan.Ore <= 0 ? "none" : Fmt.Num(plan.Ore) + " (have " + Fmt.Num(State.Wallet.Get(Currencies.Ore)) + ")", State.Wallet.CanAfford(Currencies.Ore, plan.Ore) ? Theme.Text : Theme.Bad);
-                var status = Ui.Label(b, plan.Valid ? (plan.NeedsConfirmation ? "Ready — uses " + plan.Protected.Count + " protected part(s), you will be asked to confirm." : "Ready.") : Fmt.Humanize(plan.Error),
-                    Theme.FontSmall, plan.Valid ? (plan.NeedsConfirmation ? Theme.Warn : Theme.Good) : Theme.Bad);
-                status.name = "PickerStatus";
-
-                var cands = PickerCandidates(t, plan);
-                var list = Ui.List(b, Mathf.Clamp(cands.Count * 82 + 24, 120, 640));
-                int shown = 0;
-                foreach (var c in cands)
+                var head = Kit.Title(box, title, 40, Color.white, TextAnchor.MiddleCenter, "Title");
+                head.horizontalOverflow = HorizontalWrapMode.Wrap;
+                var needs = SheetSection(box, _pickReplicate ? "3 spare Mythics make 1 copy" : "This step needs", "Needs");
+                int othersOwned = 0;
+                foreach (var c in PartPlanner.Candidates(State, Content, t))
+                    if (c.DefId != t.DefId && (_pickReplicate || PartsSystem.Def(Content, c).Kind == def.Kind)) othersOwned++;
+                if (!_pickReplicate)
                 {
-                    var cand = c;
-                    bool sel = _picked.Contains(c.Uid);
-                    string reason = PartPlanner.ProtectReason(State, Content, c, Locks, _pickReplicate ? null : t);
-                    bool copy = plan.Copies.Contains(c.Uid) || (!_pickReplicate && c.DefId == t.DefId && plan.CopiesNeeded > 0);
-                    var row = Ui.Row(list, 74, 8, sel ? Color.Lerp(RarityColor(c.Rarity), Theme.Panel, 0.45f) : Theme.Panel, 8);
-                    // W5: "Legendary · Lv 1 · 81 pts"; copies say so; protected parts carry a lock icon
-                    if (reason != null)
-                    {
-                        var lockRt = Ui.Rect(row, "Protected");
-                        Ui.Size(lockRt, 40, 40, 0);
-                        var li = lockRt.gameObject.AddComponent<Image>();
-                        li.sprite = RogueStars.Client.World.SummonArt.Icon("lock"); li.preserveAspect = true; li.raycastTarget = false;
-                    }
-                    Ui.Label(row, (sel ? "✓ " : "") + PartName(Content, c) + "\n<size=20>" + RarityName(Content, c.Rarity) + " · Lv " + c.Level + " · "
-                                  + (copy ? "copy" : _pickReplicate ? "spare" : "other Mythic") + "</size>", 22, reason != null ? Theme.Warn : Theme.Text);
-                    Ui.Button(row, sel ? "Remove" : "Add", () => TogglePick(cand.Uid), sel ? Theme.Button : Theme.Accent, 160, 60, true, 22).name = "Pick:" + c.Uid;
-                    shown++;
+                    NeedRow(needs, "Copies of " + def.Name + " (you have " + plan.CopiesOwned + ")", plan.Copies.Count + " / " + plan.CopiesNeeded, plan.Copies.Count == plan.CopiesNeeded, "NeedCopies");
+                    if (plan.FodderNeeded > 0 || plan.Fodder.Count > 0)
+                        NeedRow(needs, "Other " + def.Kind + " Mythics (you have " + othersOwned + ")", plan.FodderPoints + " / " + plan.FodderNeeded, plan.FodderPoints == plan.FodderNeeded, "NeedOthers");
+                    long metal = State.Wallet.Get(Currencies.Metal);
+                    NeedRow(needs, "Metal (you have " + Fmt.Num(metal) + ")", Fmt.Num(plan.Metal), metal >= plan.Metal, "NeedMetal");
                 }
-                if (shown == 0) Note(list, "No eligible Mythics (only base-step Mythics that are not equipped, awakened, locked or forged).");
-                var tools = Ui.Row(b, 70, 8);
-                Ui.Button(tools, "Auto-select best", AutoPick, Theme.Accent, -1, 70, true, 24).name = "PickAuto";
-                Ui.Button(tools, "Clear", ClearPick, Theme.Button, 200, 70, true, 24);
-            },
-            new ModalButton("Cancel", () => { PickerPlan = null; Reopen(_pickTarget); }),
-            new ModalButton(_pickReplicate ? "Replicate" : "Climb", ConfirmPick, plan.Valid ? Theme.Warn : Theme.Locked, true));
+                else NeedRow(needs, "Spare Mythics, any slot (you have " + othersOwned + ")", plan.FodderPoints + " / " + plan.FodderNeeded, plan.FodderPoints == plan.FodderNeeded, "NeedSpares");
+                long oreHave = State.Wallet.Get(Currencies.Ore);
+                NeedRow(needs, "Ore (you have " + Fmt.Num(oreHave) + ")", Fmt.Num(plan.Ore), oreHave >= plan.Ore, "NeedOre");
+                var status = SheetLabel(box, plan.Valid ? (plan.NeedsConfirmation ? "Ready: uses " + plan.Protected.Count + " protected part(s), you will be asked to confirm." : "Ready.") : Fmt.Humanize(plan.Error),
+                    26, plan.Valid ? (plan.NeedsConfirmation ? Theme.Hex(0xFFE14D) : Theme.Hex(0x8FE39A)) : Theme.Hex(0xFF8F8F), "PickerStatus", TextAnchor.MiddleCenter);
+                if (cands.Count == 0) SheetLabel(box, "No eligible Mythics: only base-step Mythics that are not equipped, awakened, locked or forged.", 24, SheetDim, "NoCandidates", TextAnchor.MiddleCenter);
+                else TileGrid(box, cands, p => _picked.Contains(p.Uid), p => TogglePick(p.Uid), "Pick:", 520);
+                var tools = Ui.Row(box, 90, 12, null, 0, "PickerTools");
+                SheetButton(tools, "Auto-select", null, BtnBlue, AutoPick, true, -1, "PickAuto", 90);
+                SheetButton(tools, "Clear", null, BtnGrey, ClearPick, true, 220, "PickClear", 90);
+                var bottom = Ui.Row(box, 104, 12, null, 0, "PickerButtons");
+                SheetButton(bottom, "Cancel", null, BtnGrey, () => { PickerPlan = null; Reopen(_pickTarget); }, true, 260, "PickCancel");
+                SheetButton(bottom, _pickReplicate ? "Replicate" : "Climb", null, plan.Valid ? BtnRed : BtnGrey, ConfirmPick, plan.Valid, -1, "PickConfirm");
+            }).Root.name = "Modal:Picker";
         }
 
-        /// <summary>Eligible candidates for the picker: selected ones first, then by fodder value and level.</summary>
+        /// <summary>Eligible candidates: selected ones first, then copies / other Mythics by level.</summary>
         private List<PartItem> PickerCandidates(PartItem t, MergePlan plan)
         {
             var list = new List<PartItem>();
@@ -529,7 +604,7 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
-        /// <summary>Merge/replicate the selection; protected materials (locked, Mythic+, reserved copies) need a confirmation first.</summary>
+        /// <summary>Climb / replicate the selection; protected materials (locked, copies of an equipped Mythic) need a confirmation.</summary>
         public void ConfirmPick()
         {
             var plan = PickerPlan;
@@ -563,6 +638,134 @@ namespace RogueStars.Client.Screens
             Run(cmd, res => { if (res.Ok) Reopen(target); });
         }
 
+        /// <summary>Auto-selected ladder materials for the next step (null + reason when not possible).</summary>
+        public List<string> FindMergeMaterials(PartItem target, out string why)
+        {
+            var plan = PartPlanner.AutoMerge(State, Content, target, Locks);
+            why = plan.Error;
+            return plan.Valid ? plan.Materials : null;
+        }
+
+        // ---- Feed spares / Replicator sheet --------------------------------------------------------------
+
+        /// <summary>The feed selection (uids) of the open Feed sheet.</summary>
+        public IReadOnlyList<string> FeedSelection => _feedSel ?? (IReadOnlyList<string>)Array.Empty<string>();
+
+        /// <summary>Metal the selection turns into (the rules' ValidateFeed; 0 for an empty selection).</summary>
+        public long FeedPreviewMetal => _feedSel == null || _feedSel.Count == 0 ? 0 : PartsSystem.ValidateFeed(State, Content, _feedSel);
+
+        /// <summary>Open the Feed sheet with every spare Common and Rare selected.</summary>
+        public void OpenFeed()
+        {
+            _feedTab = 0;
+            _feedSel = new List<string>();
+            foreach (var p in PartPlanner.Feedable(State, Content, Locks)) if (p.Rarity <= (int)PartRarity.Rare) _feedSel.Add(p.Uid);
+            ShowFeed();
+        }
+
+        /// <summary>The Replicator tab of the Feed sheet.</summary>
+        public void OpenReplicator()
+        {
+            _feedTab = 1;
+            _feedSel = _feedSel ?? new List<string>();
+            ShowFeed();
+        }
+
+        public void ToggleFeed(string uid)
+        {
+            if (_feedSel == null) _feedSel = new List<string>();
+            if (!_feedSel.Remove(uid)) _feedSel.Add(uid);
+            ShowFeed();
+        }
+
+        /// <summary>Select (or, when all are selected, clear) every feedable spare of a rarity.</summary>
+        public void ToggleFeedRarity(int rarity)
+        {
+            if (_feedSel == null) _feedSel = new List<string>();
+            var of = PartPlanner.Feedable(State, Content, Locks).FindAll(p => p.Rarity == rarity);
+            bool all = of.Count > 0 && of.TrueForAll(p => _feedSel.Contains(p.Uid));
+            foreach (var p in of)
+            {
+                if (all) _feedSel.Remove(p.Uid);
+                else if (!_feedSel.Contains(p.Uid)) _feedSel.Add(p.Uid);
+            }
+            ShowFeed();
+        }
+
+        public void ConfirmFeed()
+        {
+            if (_feedSel == null || _feedSel.Count == 0) return;
+            var cmd = new PartFeed();
+            cmd.Uids.AddRange(_feedSel);
+            _feedSel = null;
+            Ui.Clear(App.ModalLayer);
+            Run(cmd);
+        }
+
+        private void ShowFeed()
+        {
+            Ui.Clear(App.ModalLayer);
+            var feedable = PartPlanner.Feedable(State, Content, Locks);
+            feedable.Sort((a, b) => a.Rarity != b.Rarity ? a.Rarity.CompareTo(b.Rarity) : string.CompareOrdinal(a.Uid, b.Uid));
+            _feedSel.RemoveAll(u => !feedable.Exists(p => p.Uid == u));
+            KitSheet("Feed", (box, m) =>
+            {
+                var tabs = Ui.Row(box, 96, 12, null, 0, "FeedTabs");
+                SheetButton(tabs, "Feed spares", null, _feedTab == 0 ? BtnYellow : BtnGrey, () => { _feedTab = 0; ShowFeed(); }, true, -1, "FeedTab:feed", 96);
+                SheetButton(tabs, "Replicator", null, _feedTab == 1 ? BtnPurple : BtnGrey, () => { _feedTab = 1; ShowFeed(); }, true, -1, "FeedTab:replicator", 96);
+                if (_feedTab == 0) FeedTab(box, feedable);
+                else ReplicatorTab(box);
+                SheetButton(box, "Close", null, BtnGrey, () => { _feedSel = null; m.Close(); }, true, -1, "FeedClose", 90);
+            }).Root.name = "Modal:Feed";
+        }
+
+        private void FeedTab(Transform box, List<PartItem> feedable)
+        {
+            SheetLabel(box, "Spare standard parts (not equipped, locked or forged; never Mythics) become Metal for the Mythic ladder: Common 1, Rare 2, Epic 6, Legendary 20. Their level Ore and runes come back.",
+                23, SheetDim, "FeedRule");
+            var chips = Ui.Row(box, 76, 10, null, 0, "FeedRarities");
+            for (int r = 0; r <= (int)PartRarity.Legendary; r++)
+            {
+                int rr = r;
+                int n = feedable.FindAll(p => p.Rarity == rr).Count;
+                int sel = feedable.FindAll(p => p.Rarity == rr && _feedSel.Contains(p.Uid)).Count;
+                var b = SheetButton(chips, PartArt.Rank(r) + " " + sel + "/" + n, null, sel > 0 ? Color.Lerp(KitV2.TileColors(r).bottom, KitV2.Navy, 0.2f) : BtnGrey,
+                    () => ToggleFeedRarity(rr), n > 0, -1, "FeedRarity:" + r, 76);
+            }
+            if (feedable.Count == 0) SheetLabel(box, "No spare standard parts to feed.", 26, SheetDim, "NothingToFeed", TextAnchor.MiddleCenter);
+            else TileGrid(box, feedable, p => _feedSel.Contains(p.Uid), p => ToggleFeed(p.Uid), "FeedPart:", 600);
+            long metal = FeedPreviewMetal;
+            var sum = Ui.Row(box, 70, 10, null, 0, "FeedSummary");
+            Ui.Size(SheetLabel(sum, _feedSel.Count + " part" + (_feedSel.Count == 1 ? "" : "s") + " selected", 28, Color.white, "FeedCount"), -1, -1, 1);
+            var icon = Ui.Rect(sum, "MetalIcon");
+            Ui.Size(icon, 60, 60, 0, 0);
+            var ii = icon.gameObject.AddComponent<Image>(); ii.sprite = SummonArt.CurrencyIcon(Currencies.Metal); ii.preserveAspect = true; ii.raycastTarget = false;
+            Kit.Title(sum, "+" + Fmt.Num(metal) + " Metal", 40, Theme.Hex(0xFFE14D), TextAnchor.MiddleRight, "FeedMetal");
+            SheetButton(box, "Feed " + _feedSel.Count, "+" + Fmt.Num(metal) + " Metal (have " + Fmt.Num(State.Wallet.Get(Currencies.Metal)) + ")", _feedSel.Count > 0 ? BtnYellow : BtnGrey, ConfirmFeed, _feedSel.Count > 0, -1, "FeedConfirm");
+        }
+
+        private void ReplicatorTab(Transform box)
+        {
+            var cfg = Content.PartsConfig;
+            int spare = PartPlanner.Candidates(State, Content, null).Count;
+            SheetLabel(box, cfg.ReplicateMythics + " spare Mythics (any slot, base step, not awakened) + " + Fmt.Num(cfg.ReplicateOre) + " Ore make 1 copy of a Mythic you own, for its ladder. You have "
+                + spare + " spare Mythic" + (spare == 1 ? "" : "s") + ".", 23, SheetDim, "ReplicatorRule");
+            // one tile per owned Mythic item (the equipped one first): tap → pick the 3 spares
+            var reps = new List<PartItem>();
+            var seen = new HashSet<string>();
+            var all = new List<PartItem>(State.Parts.Items.Values);
+            all.Sort((a, b) =>
+            {
+                int ea = PartsSystem.IsEquipped(State, a.Uid) ? 0 : 1, eb = PartsSystem.IsEquipped(State, b.Uid) ? 0 : 1;
+                if (ea != eb) return ea.CompareTo(eb);
+                return a.Rarity != b.Rarity ? b.Rarity.CompareTo(a.Rarity) : string.CompareOrdinal(a.Uid, b.Uid);
+            });
+            foreach (var p in all) if (PartsSystem.Def(Content, p).IsMythic && seen.Add(p.DefId)) reps.Add(p);
+            if (reps.Count == 0) { SheetLabel(box, "You own no Mythic yet.", 26, SheetDim, "NoMythics", TextAnchor.MiddleCenter); return; }
+            SheetLabel(box, "Which Mythic do you want a copy of?", 26, Color.white, "ReplicatorAsk", TextAnchor.MiddleCenter);
+            TileGrid(box, reps, null, p => OpenMergePicker(p.Uid, true), "Replicate:", 600);
+        }
+
         // ---- awakening ---------------------------------------------------------------------------
 
         /// <summary>Before/after preview of the one-time awakening (name, stats, the five skills swapped).</summary>
@@ -575,7 +778,7 @@ namespace RogueStars.Client.Screens
             Modal("Awaken " + pv.NameBefore, b =>
             {
                 Ui.Label(b, pv.NameBefore + "  →  " + pv.NameAfter, Theme.FontLarge, Theme.Warn, TextAnchor.MiddleCenter).name = "AwakenNames";
-                Note(b, "Once per part. Level, cap raises, runes, Forge and rarity are kept; all five skills are replaced by awakened redesigns.");
+                Note(b, "Once per part. Level, ladder step, runes and Forge are kept; level-1 stats ×1.4 and all five skills become their awakened versions.");
                 var stats = Ui.Column(b, 2, 0, null, "AwakenStats");
                 var keys = new List<StatId>();
                 foreach (var k in pv.StatsAfter.Flat.Keys) if (!keys.Contains(k)) keys.Add(k);
@@ -622,7 +825,6 @@ namespace RogueStars.Client.Screens
             foreach (var sk in skills)
             {
                 Ui.Label(col, sk.Name, 22, sk.Unlocked ? Theme.Text : Theme.TextDim, TextAnchor.MiddleLeft, "SkillName");
-                // W7: rarity as a coloured dot + name at the normal size
                 var rr = Ui.Row(col, 32, 8, null, 0, "SkillRarity");
                 rr.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
                 var rcol = RarityColor((int)sk.UnlockRarity);
@@ -646,7 +848,7 @@ namespace RogueStars.Client.Screens
                     if (n >= 8) break;
                 }
                 if (n == 0) Note(b, "No free runes.");
-            }, new ModalButton("Close", null));
+            }, new ModalButton("Close", () => Reopen(partUid)));
         }
 
         // ---- runes -------------------------------------------------------------------------------
@@ -684,14 +886,6 @@ namespace RogueStars.Client.Screens
                 bool can = mates.Count == Content.PartsConfig.RuneMergeCount && mates.Contains(rune.Uid) && rune.Rarity < (int)Content.PartsConfig.RuneMaxRarity;
                 Ui.Button(row, "Merge 3", () => { var cmd = new RuneMerge(); cmd.RuneUids.AddRange(mates); Run(cmd); }, Theme.Accent, 170, 70, can, 24);
             }
-        }
-
-        /// <summary>Auto-selected ladder materials for the next step (null + reason when not possible). Used by tests and the detail.</summary>
-        public List<string> FindMergeMaterials(PartItem target, out string why)
-        {
-            var plan = PartPlanner.AutoMerge(State, Content, target, Locks);
-            why = plan.Error;
-            return plan.Valid ? plan.Materials : null;
         }
     }
 }

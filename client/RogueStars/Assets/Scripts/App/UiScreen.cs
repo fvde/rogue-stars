@@ -99,7 +99,15 @@ namespace RogueStars.Client.App
             if (CoversResourceBar) Root.gameObject.AddComponent<Image>().color = Theme.Background; // nothing of the bar shows through
             else if (HeaderHeight > 0) Kit.Backdrop(Root, "backdrop_menu", Theme.Hex(0x33202A), Theme.Hex(0x120A0D)); // kit backdrop slot, gradient until art exists
             float headerHeight = HeaderHeight;
-            if (headerHeight > 0)
+            if (headerHeight > 0 && KitTopBar)
+            {
+                // a kit v2 top bar: a plain strip the screen fills itself (no back button or title)
+                var bar = Ui.Rect(Root, "Header");
+                bar.anchorMin = new Vector2(0, 1); bar.anchorMax = new Vector2(1, 1); bar.pivot = new Vector2(0.5f, 1);
+                bar.sizeDelta = new Vector2(0, headerHeight); bar.anchoredPosition = Vector2.zero;
+                BuildHeaderExtras(bar);
+            }
+            else if (headerHeight > 0)
             {
                 var header = Ui.Row(Root, headerHeight, 20, null, 0, "Header");
                 var hl = header.GetComponent<HorizontalLayoutGroup>();
@@ -131,9 +139,9 @@ namespace RogueStars.Client.App
                     lg.padding = new RectOffset(24, 24, FooterPadTop, FooterPadBottom);
                 }
                 bottom = FooterHeight;
-                if (ActiveMainTab != null) Footer.anchoredPosition = new Vector2(0, MainTabsHeight);
+                if (ActiveMainTab != null) Footer.anchoredPosition = new Vector2(0, MainTabBarHeight);
             }
-            if (ActiveMainTab != null) bottom += MainTabsHeight;
+            if (ActiveMainTab != null) bottom += MainTabBarHeight;
             BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
             if (IntroFeatures != null && IntroFeatures.Length > 0)
@@ -317,8 +325,20 @@ namespace RogueStars.Client.App
                     },
                 });
             }
-            _mainTabs = Kit.BottomTabBar(Root, tabs, MainTabsHeight);
+            _mainTabs = BuildMainTabBar(Root, tabs);
         }
+
+        /// <summary>Height of this screen's main tab bar (the kit v2 nav is taller).</summary>
+        protected virtual float MainTabBarHeight => MainTabsHeight;
+
+        /// <summary>The main tab bar along the bottom (default: <see cref="Kit.BottomTabBar"/>).</summary>
+        protected virtual RectTransform BuildMainTabBar(RectTransform root, List<KitTab> tabs) => Kit.BottomTabBar(root, tabs, MainTabsHeight);
+
+        /// <summary>
+        /// The header is a plain strip of <see cref="HeaderHeight"/> that <see cref="BuildHeaderExtras"/> fills (kit v2 top bar
+        /// with currencies) instead of the back button and title.
+        /// </summary>
+        protected virtual bool KitTopBar => false;
 
         /// <summary>Fill the scrolling body.</summary>
         protected abstract void Build(RectTransform body);

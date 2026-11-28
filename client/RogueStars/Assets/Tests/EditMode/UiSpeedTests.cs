@@ -240,7 +240,6 @@ namespace RogueStars.Client.Tests
             string first = screen.ShownParts[0], second = screen.ShownParts[1];
             var tile1 = Child(screen, "Part:" + first);
             var tile2 = Child(screen, "Part:" + second);
-            var ore = Child(screen, "OreChip").transform.Find("Amount").GetComponent<Text>();
             int goCount = screen.Root.GetComponentsInChildren<Transform>(true).Length;
 
             // a refresh with nothing changed (periodic refresh, NotifyChanged): every GameObject stays
@@ -251,11 +250,10 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(goCount));
             Assert.That(screen.BuildCount, Is.EqualTo(1), "never fully rebuilt");
 
-            // a number changes: the Ore chip updates in place
+            // Ore changes (no tile shows it): the tiles stay
             _f.Service.State.Wallet.Add(Currencies.Ore, 777);
             _f.App.Session.NotifyChanged();
-            Assert.That(ore.text, Is.EqualTo(Fmt.Num(_f.Service.State.Wallet.Get(Currencies.Ore))));
-            Assert.That(Child(screen, "OreChip").transform.Find("Amount").GetComponent<Text>(), Is.SameAs(ore));
+            Assert.That(Child(screen, "Part:" + first), Is.SameAs(tile1));
 
             // one part changes: only its tile is rebuilt
             _f.Service.State.Parts.Items[first].Level += 1;

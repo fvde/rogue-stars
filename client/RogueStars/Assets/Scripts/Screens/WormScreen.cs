@@ -12,10 +12,11 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Worm tab = the gear screen, composed from the UI kit: sub-tab chips (Parts, Levels, Stats), the worm on its stage with
-    /// the six body slots left and right (tap → the inventory filtered to that slot), the stat bar, the inventory of every
-    /// owned part (<see cref="GearScreen"/>), the Levels view (worm level, the talent tier's stat cards and the progression
-    /// track with its real rewards) and the main tab bar along the bottom.
+    /// Worm tab on the owner-approved board "New · worm" (UI kit v2, board px scaled to the width): navy top bar with three
+    /// currencies, the parchment stage with the worm, six slot tiles (head, left arm, legs | body, right arm, tail; tap → the
+    /// part sheet, an empty slot → the spares that fit), the gold power plate with the stat-sheet button, HP / ATK / DEF bars,
+    /// the feature band (Talents, Runes, Mounts, Laboratory), the Parts | Levels | Stats tabs, the dark inventory panel of the
+    /// spare parts (<see cref="GearScreen"/>) or today's Levels / Stats views, and the board's nav. Updates in place.
     /// </summary>
     public sealed class WormScreen : GearScreen
     {
@@ -44,12 +45,123 @@ namespace RogueStars.Client.Screens
         }
         public override string[] IntroFeatures => new[] { Features.Parts, Features.WormLevel };
 
-        private enum WormTab { Parts, Levels, Stats }
+        public enum WormTab { Parts, Levels, Stats }
         private WormTab _tab = WormTab.Parts;
+        public WormTab CurrentTab => _tab;
 
+        // ---- kit v2 chrome: own top bar (3 currencies), no back/title, the board's nav ---------------------------------
+
+        /// <summary>Board heights (px at 1080): top bar, stage (parchment up to the tabs), nav.</summary>
+        public const float TopBarDesign = 237, StageDesign = 1163, NavDesign = 237;
+
+        public override float HeaderHeight => TopBarDesign;
+        public override bool CoversResourceBar => true;
+        public override bool ShowBack => false;
+        protected override bool KitTopBar => true;
+        protected override bool InventoryIncludesEquipped => false;
         protected override string ActiveMainTab => "worm";
+        protected override float MainTabBarHeight => NavDesign;
 
-        protected override void ShowInventoryView() => _tab = WormTab.Parts;
+        private RectTransform _header, _topDesign, _nav;
+        private KitDesignFit _topFit, _navFit;
+        private string _topKey;
+
+        public void SetTab(WormTab tab) { _tab = tab; Refresh(); }
+
+        protected override void BuildHeaderExtras(RectTransform header)
+        {
+            _header = header;
+            var img = header.gameObject.AddComponent<Image>();
+            img.color = Color.clear; img.raycastTarget = true; // taps on the bar never reach the body under it
+            _topDesign = Ui.Rect(header, "TopBar");
+            _topDesign.anchorMin = _topDesign.anchorMax = _topDesign.pivot = new Vector2(0, 1);
+            _topFit = header.gameObject.AddComponent<KitDesignFit>();
+            _topFit.Target = _topDesign; _topFit.DesignHeight = TopBarDesign;
+            _topFit.Scaled = _ => SyncChrome();
+            _topFit.Apply();
+            _topKey = null;
+        }
+
+        protected override RectTransform BuildMainTabBar(RectTransform root, List<KitTab> tabs)
+        {
+            var bar = Ui.Rect(root, "MainTabs");
+            bar.anchorMin = Vector2.zero; bar.anchorMax = new Vector2(1, 0); bar.pivot = new Vector2(0.5f, 0);
+            bar.sizeDelta = new Vector2(0, NavDesign); bar.anchoredPosition = Vector2.zero;
+            var design = Ui.Rect(bar, "Nav");
+            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0, 1);
+            var band = KitV2.Box(design, "nav_bar", 0, 0, 1080, NavDesign + 40, KitV2.Navy, 1, 0, null, null, "Bar");
+            band.raycastTarget = true;
+            KitV2.Box(design, "nav_edge", 0, 0, 1080, 8, KitV2.Ink, 1, 0, null, null, "Edge");
+            int n = Mathf.Max(1, tabs.Count);
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                var t = tabs[i];
+                float cx = 1080f / n * (i + 0.5f);
+                RectTransform tile;
+                if (t.Active)
+                {
+                    tile = KitV2.Box(design, "nav_tile_active", cx - 93.5f, -16, 187, 224, KitV2.Purple.top, 26.7f, 6.7f, KitV2.Ink, KitV2.Purple.bottom, "Tab:" + t.Id).rectTransform;
+                    KitV2.Icon(tile, t.Icon, 19, 13, 149, 149, "Icon");
+                    var l = KitV2.Text(tile, t.Label, 6, 160, 175, 48, 40, Color.white, TextAnchor.MiddleCenter, "Label");
+                    KitFit.On(l, 22);
+                }
+                else
+                {
+                    tile = KitV2.Box(design, "nav_tile", cx - 88, 34, 176, 176, KitV2.NavTile, 26.7f, 6.7f, KitV2.Ink, null, "Tab:" + t.Id).rectTransform;
+                    KitV2.Icon(tile, t.Icon, 21, 18, 134, 134, "Icon");
+                }
+                if (!string.IsNullOrEmpty(t.Badge)) KitV2.BadgeRed(tile, tile.sizeDelta.x - 46, -10, t.Badge, 64, "Badge");
+                var click = t.OnClick;
+                KitV2.Tap(tile, () => click?.Invoke());
+            }
+            _nav = bar;
+            _navFit = bar.gameObject.AddComponent<KitDesignFit>();
+            _navFit.Target = design; _navFit.DesignHeight = NavDesign;
+            _navFit.Scaled = _ => SyncChrome();
+            _navFit.Apply();
+            return bar;
+        }
+
+        /// <summary>Top bar and nav take their scaled board height; the body frame sits between them.</summary>
+        private void SyncChrome()
+        {
+            float top = _topFit != null ? TopBarDesign * _topFit.Scale : TopBarDesign;
+            float bottom = _navFit != null ? NavDesign * _navFit.Scale : NavDesign;
+            if (_header != null && !Mathf.Approximately(_header.sizeDelta.y, top)) _header.sizeDelta = new Vector2(0, top);
+            if (_nav != null && !Mathf.Approximately(_nav.sizeDelta.y, bottom)) _nav.sizeDelta = new Vector2(0, bottom);
+            if (BodyFrame != null && (!Mathf.Approximately(BodyFrame.offsetMax.y, -top) || !Mathf.Approximately(BodyFrame.offsetMin.y, bottom)))
+            {
+                BodyFrame.offsetMax = new Vector2(BodyFrame.offsetMax.x, -top);
+                BodyFrame.offsetMin = new Vector2(BodyFrame.offsetMin.x, bottom);
+            }
+        }
+
+        /// <summary>The three currencies of the top bar: Ore and Diamonds, plus Metal on Parts / Biomass on Levels.</summary>
+        public string[] TopCurrencies => new[] { Currencies.Ore, _tab == WormTab.Levels ? Currencies.Biomass : Currencies.Metal, Currencies.Diamonds };
+
+        private void TopBar()
+        {
+            var cur = TopCurrencies;
+            var key = K(cur[0], State.Wallet.Get(cur[0]), cur[1], State.Wallet.Get(cur[1]), cur[2], State.Wallet.Get(cur[2]));
+            if (key == _topKey || _topDesign == null) return;
+            _topKey = key;
+            Ui.Clear(_topDesign);
+            KitV2.Box(_topDesign, "topbar", 0, 0, 1080, TopBarDesign, KitV2.Navy, 1, 0, null, null, "Bar");
+            KitV2.Box(_topDesign, "topbar_edge", 0, TopBarDesign - 8, 1080, 8, KitV2.Ink, 1, 0, null, null, "Edge");
+            float[] x = { 377, 616, 852 }, w = { 219, 214, 207 };
+            for (int i = 0; i < 3; i++)
+            {
+                string c = cur[i];
+                KitV2.CurrencyPill(_topDesign, x[i], 128, w[i], CurrencyIcon(c), Fmt.Num(State.Wallet.Get(c)), () => App.Bar.ShowCurrency(c), "Currency:" + c);
+            }
+        }
+
+        /// <summary>Currency icon: the kit's icon_&lt;id&gt; when present, else the game's currency icon (Metal falls back to Gear Cores).</summary>
+        private static Sprite CurrencyIcon(string c)
+        {
+            string kit = c == Currencies.Diamonds ? "icon_diamond" : c == Currencies.Ore ? "icon_ore" : c == Currencies.Biomass ? "icon_biomass" : c == Currencies.Metal ? "icon_metal" : null;
+            return (kit != null ? KitArt.Get(kit) : null) ?? RogueStars.Client.World.SummonArt.CurrencyIcon(c);
+        }
 
         private static readonly Dictionary<StatId, (string abbr, Color color)> StatLook = new Dictionary<StatId, (string, Color)>
         {
@@ -70,150 +182,232 @@ namespace RogueStars.Client.Screens
 
         protected override void Build(RectTransform body)
         {
+            var vl = body.GetComponent<VerticalLayoutGroup>();
+            if (vl != null && (vl.padding.left != 0 || vl.spacing != 0)) { vl.padding = new RectOffset(0, 0, 0, 0); vl.spacing = 0; }
             var loadout = Session.Engine.BuildLoadout(State, Now);
-            bool levelUnlocked = Session.IsUnlocked(Features.WormLevel);
-            // Levels and the talent road stay hidden until Worm Level unlocks (the hub teases it when it is next).
-            var tabs = new List<WormTab> { WormTab.Parts };
-            if (levelUnlocked) tabs.Add(WormTab.Levels);
-            tabs.Add(WormTab.Stats);
-            if (!tabs.Contains(_tab)) _tab = WormTab.Parts;
-            var labels = new List<string>();
-            var dots = new List<bool>();
-            foreach (var t in tabs)
+            if (_tab == WormTab.Levels && !Session.IsUnlocked(Features.WormLevel)) _tab = WormTab.Parts;
+            TopBar();
+            SyncChrome();
+
+            var stageWrap = Part(body, "stage", "", b =>
             {
-                labels.Add(t == WormTab.Parts ? "Parts" : t == WormTab.Levels ? "Levels" : "Stats");
-                dots.Add(t == WormTab.Parts ? GearGuide.HasAffordableUpgrade(State, Content) : t == WormTab.Levels && TalentActionable());
+                var d = KitV2.DesignBlock(b, "Stage", StageDesign, out _);
+                var bg = d.gameObject.AddComponent<Image>();
+                bg.raycastTarget = false;
+                KitV2.Parchment(bg);
+            });
+            var stage = (RectTransform)stageWrap.Find("Design");
+            Part(stage, "worm", K(State.Heroes?.Equipped), StageWorm);
+            foreach (var slot in PartsSystem.AllSlots)
+            {
+                var sl = slot;
+                var root = Part(stage, "slot:" + slot, SlotKey(slot), c => SlotTile(c, sl));
+                var pos = SlotPos(slot);
+                KitV2.At(root, pos.x, pos.y, PartTileView.SlotTile, PartTileView.SlotTile + PartTileView.StripHeight);
             }
-            Part(body, "tabs", K(string.Join(",", labels), string.Join(",", dots), _tab),
-                b => Kit.TabChips(b, labels, tabs.IndexOf(_tab), i => { _tab = tabs[i]; Refresh(); }, 84, dots));
+            Part(stage, "power", K(loadout.Power), c => PowerPlate(c, loadout));
+            var stats = new[] { StatId.Hp, StatId.Atk, StatId.Def };
+            var sv = new string[3];
+            for (int i = 0; i < 3; i++) sv[i] = StatText(stats[i], loadout.WormStats.Value(stats[i]));
+            Part(stage, "stats", K(sv[0], sv[1], sv[2]), c => StatBars(c, stats, sv));
+            var feats = FeatureEntries();
+            var fkey = new System.Text.StringBuilder();
+            foreach (var f in feats) fkey.Append(f.Id).Append(f.Unlocked).Append(f.Badge).Append(',');
+            Part(stage, "features", fkey.ToString(), c => FeatureBand(c, feats));
+            bool levelUnlocked = Session.IsUnlocked(Features.WormLevel);
+            bool partsDot = PartsDot(), levelsDot = levelUnlocked && TalentActionable();
+            Part(stage, "tabs", K(_tab, levelUnlocked, partsDot, levelsDot), c => Tabs(c, levelUnlocked, partsDot, levelsDot));
 
             switch (_tab)
             {
-                case WormTab.Parts: PartsView(body, loadout); break;
+                case WormTab.Parts: BuildInventory(body, "Parts"); break;
                 case WormTab.Levels:
-                    Part(body, "levels", VersionKey(loadout.Power, State.Wallet.Get(Currencies.Biomass)), b => LevelsView(b, loadout));
+                    Part(body, "levels", VersionKey(loadout.Power, State.Wallet.Get(Currencies.Biomass)), b => DarkPanel(b, "LevelsPanel", p => LevelsView(p, loadout)));
                     break;
                 default:
                     var statsKey = new System.Text.StringBuilder();
                     foreach (var st in ShownStats) statsKey.Append(loadout.WormStats.Value(st)).Append(',');
-                    Part(body, "stats", statsKey.ToString(), b => StatsView(b, loadout));
+                    Part(body, "stats", statsKey.ToString(), b => DarkPanel(b, "StatsPanel", p => StatsView(p, loadout)));
                     break;
             }
         }
 
-        protected override string FooterExtrasKey() => K(Session.IsUnlocked(Features.Runes));
-
-        // ---- Parts: paperdoll, stat bar, inventory ---------------------------------------------------------------------
-
-        private const float SlotW = 200, SlotH = 212, SlotGap = 12;
-        private static readonly PartSlot[] LeftSlots = { PartSlot.Head, PartSlot.LeftArm, PartSlot.Legs };
-        private static readonly PartSlot[] RightSlots = { PartSlot.Body, PartSlot.RightArm, PartSlot.Tail };
-
-        private void PartsView(RectTransform body, CombatLoadout loadout)
+        /// <summary>The Levels / Stats content on the dark panel under the tabs (canvas units, today's views).</summary>
+        private void DarkPanel(RectTransform parent, string name, Action<RectTransform> fill)
         {
-            float stageH = 3 * SlotH + 2 * SlotGap;
-            var paper = Part(body, "paperdoll", "", b => Ui.Row(b, stageH, 14, null, 0, "Paperdoll"));
-            SlotColumn(paper, "left", LeftSlots);
-            Part(paper, "stage", K(State.DisplayName, loadout.Power, State.Worm.Level, State.Heroes?.Equipped), b => Stage(b, loadout, stageH));
-            SlotColumn(paper, "right", RightSlots);
-            var stats = new List<(string key, string abbr, Color color, string value)>();
-            foreach (var st in new[] { StatId.Hp, StatId.Atk, StatId.Def }) stats.Add(StatEntry(st, loadout.WormStats.Value(st)));
-            Part(body, "statbar", K(stats[0].value, stats[1].value, stats[2].value), b => Kit.StatPills(b, stats, "StatBar"));
-            BuildInventory(body, "Inventory");
+            var panel = Ui.Column(parent, 18, 24, KitV2.GridPanel, name);
+            var le = panel.gameObject.AddComponent<LayoutElement>();
+            le.minHeight = 760;
+            fill(panel);
         }
 
-        private void SlotColumn(Transform parent, string id, PartSlot[] slots)
+        // ---- stage: slots, worm, power, stats, features, tabs ---------------------------------------------------------
+
+        /// <summary>Board position (px) of a body slot tile: head, left arm, legs on the left; body, right arm, tail on the right.</summary>
+        public static Vector2 SlotPos(PartSlot slot)
         {
-            var col = Part(parent, id, "", b =>
+            switch (slot)
             {
-                var c = Ui.Column(b, SlotGap, 0, null, "SlotColumn");
-                Ui.Size(c, SlotW, -1, 0);
-            });
-            foreach (var slot in slots)
-            {
-                var sl = slot;
-                Part(col, "slot:" + slot, SlotKey(slot), c => SlotCard(c, sl));
+                case PartSlot.Head: return new Vector2(37, 32);
+                case PartSlot.LeftArm: return new Vector2(37, 280);
+                case PartSlot.Legs: return new Vector2(37, 528);
+                case PartSlot.Body: return new Vector2(872, 32);
+                case PartSlot.RightArm: return new Vector2(872, 280);
+                default: return new Vector2(872, 528);
             }
         }
 
-        /// <summary>Everything a body slot card shows (its part key).</summary>
-        private string SlotKey(PartSlot slot)
+        private PartTileView.Data SlotData(PartSlot slot)
         {
             State.Parts.Equipped.TryGetValue(slot, out var uid);
             var part = PartsSystem.Get(State, uid);
-            bool selected = SlotFilter == GearGuide.FilterFor(slot) && SlotFilter != GearSlotFilter.All;
-            return part == null ? K(selected, GearGuide.SpareFor(State, Content, slot))
-                : K(selected, GearGuide.SpareFor(State, Content, slot), part.Uid, PartName(Content, part), part.Rarity, part.Level, GearGuide.CanLevelUp(State, Content, part));
-        }
-
-        private static void Float(RectTransform rt, float anchorY, float y)
-        {
-            rt.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, anchorY);
-            rt.pivot = new Vector2(0.5f, anchorY);
-            rt.anchoredPosition = new Vector2(0, y);
-            var fit = rt.gameObject.AddComponent<ContentSizeFitter>();
-            fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize; fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        }
-
-        /// <summary>The worm on its stage: portrait, name, worm level and power.</summary>
-        private void Stage(Transform parent, CombatLoadout loadout, float height)
-        {
-            var stage = Kit.Surface(parent, Theme.Hex(0x4A2E44), 40, Theme.Border, "panel_stage", "Stage");
-            Ui.Size(stage, -1, height, 1);
-            var glow = Ui.Dot(stage.transform, new Color(1f, 0.75f, 0.9f, 0.16f), 380, "Glow");
-            var grt = glow.rectTransform;
-            grt.anchorMin = grt.anchorMax = new Vector2(0.5f, 0.52f); grt.sizeDelta = new Vector2(380, 380); grt.anchoredPosition = Vector2.zero;
-            glow.GetComponent<LayoutElement>().ignoreLayout = true;
-            var portrait = Ui.Rect(stage.transform, "WormPortrait");
-            Ui.Stretch(portrait, 8, 80, 8, 110);
-            var img = portrait.gameObject.AddComponent<Image>();
-            img.sprite = HeaderSprite(State);
-            img.preserveAspect = true; img.raycastTarget = false;
-            UiCreature.Attach(img);
-            var name = Kit.Title(stage.transform, State.DisplayName ?? "Worm", 34, Theme.Cream, TextAnchor.UpperCenter, "WormName");
-            Ui.Stretch(name.rectTransform, 8, 16, 8, 0);
-            KitFit.On(name, 18);
-            Float(Kit.LevelBadge(stage.transform, "Power " + Fmt.Num(loadout.Power), Theme.Gold, 48, "Power"), 0, 14);
-            Float(Kit.LevelBadge(stage.transform, "Lv " + State.Worm.Level, Color.white, 44, "WormLevel"), 0, 72);
-        }
-
-        protected override void InventoryFooterExtras(RectTransform row)
-        {
-            if (Session.IsUnlocked(Features.Runes))
-                Ui.Button(row, "Runes", () => App.Router.Push(new PartsScreen { Tab = 1 }), Theme.Button, 220, 80, true, 26).name = "OpenRunes";
-        }
-
-        /// <summary>One body slot on the paperdoll: rarity card with the equipped part (name, level), or an empty socket with the spare count; ▲ when it can level up.</summary>
-        private void SlotCard(Transform col, PartSlot slot)
-        {
-            State.Parts.Equipped.TryGetValue(slot, out var uid);
-            var part = PartsSystem.Get(State, uid);
-            int spare = GearGuide.SpareFor(State, Content, slot);
-            var rc = part == null ? Theme.Border : RarityColor(part.Rarity);
-            bool selected = SlotFilter == GearGuide.FilterFor(slot) && SlotFilter != GearSlotFilter.All;
-            var btn = Kit.RarityCard(col, "Slot:" + slot, rc, () => ShowSlot(slot), out var c, 30, 14, 3, false, selected ? Theme.Accent : (Color?)null, part == null ? 0.08f : 0.36f);
-            Ui.Size(btn, -1, SlotH, 0);
-            var head = Ui.Row(c, 28, 0, null, 0, "SlotHead");
-            Ui.Spacer(head, 32).GetComponent<LayoutElement>().flexibleWidth = 0;
-            var slotName = Ui.Label(head, GearGuide.SlotName(slot).ToUpperInvariant(), 20, selected ? Theme.Accent : Theme.TextDim, TextAnchor.MiddleLeft, "SlotName");
-            slotName.fontStyle = FontStyle.Bold;
-            KitFit.On(slotName, 12);
-            Ui.Spacer(head, part != null ? 50 : 0).GetComponent<LayoutElement>().flexibleWidth = 0; // room for the level-up badge
+            var alert = GearGuide.SlotAlert(State, Content, slot, Locks) != PartAlert.None;
             if (part == null)
+                return new PartTileView.Data
+                {
+                    Empty = true, Kind = slot == PartSlot.LeftArm || slot == PartSlot.RightArm ? PartKind.Arm : (PartKind)(int)slot,
+                    Caption = slot == PartSlot.LeftArm ? "L. arm" : slot == PartSlot.RightArm ? "R. arm" : slot.ToString(), Alert = alert,
+                };
+            var d = PartTileView.From(State, Content, part, Locks, false);
+            d.Alert = alert;
+            d.LevelUp = GearGuide.CanLevelUp(State, Content, part);
+            d.Equipped = false; // every slot tile is equipped: no check mark
+            return d;
+        }
+
+        /// <summary>Everything a slot tile shows (its part key).</summary>
+        private string SlotKey(PartSlot slot) => PartTileView.Key(SlotData(slot));
+
+        private void SlotTile(RectTransform stage, PartSlot slot) =>
+            PartTileView.Build(stage, SlotData(slot), PartTileView.SlotTile, () => ShowSlot(slot), "Slot:" + slot);
+
+        private void StageWorm(RectTransform stage)
+        {
+            var img = KitV2.Icon(stage, HeaderSprite(State), 245, 16, 587, 667, "WormPortrait");
+            UiCreature.Attach(img);
+        }
+
+        private void PowerPlate(RectTransform stage, CombatLoadout loadout)
+        {
+            KitV2.Box(stage, "power_plate", 395, 694, 373, 80, KitV2.Yellow.top, 34.7f, 6.7f, KitV2.Ink, KitV2.Yellow.bottom, "PowerPlate");
+            var icon = KitV2.Circle(stage, "power_icon", 315, 683, 101, KitV2.PowerBadge, (KitV2.Ink, 6.7f));
+            if (KitArt.Get("power_icon") == null)
+                KitV2.Icon(icon.rectTransform, KitArt.Get("icon_power") ?? RogueStars.Client.World.HudArt.Icon("sword"), 18, 18, 65, 65, "PowerGlyph");
+            KitV2.Text(stage, Fmt.Num(loadout.Power), 420, 694, 340, 80, 48, Color.white, TextAnchor.MiddleCenter, "Power");
+            var list = KitV2.Box(stage, "list_button", 800, 699, 80, 69, KitV2.ListButton, 21.3f, 5.3f, KitV2.ListRim, null, "StatSheetButton").rectTransform;
+            if (KitArt.Get("list_button") == null)
+                for (int i = 0; i < 3; i++) KitV2.Box(list, "list_line", 18, 17 + i * 13, 44, 8, KitV2.Ink, 4, 0, null, null, "Line");
+            KitV2.Tap(list, ShowStatSheet);
+        }
+
+        private static readonly string[] StatIcons = { "icon_hp", "icon_atk", "icon_def" };
+        private static readonly string[] StatHud = { "heart", "sword", "shield" };
+
+        private void StatBars(RectTransform stage, StatId[] stats, string[] values)
+        {
+            float[] x = { 32, 378, 723 };
+            for (int i = 0; i < 3; i++)
             {
-                Ui.Display(c, "Empty", 28, Theme.TextFaint, TextAnchor.MiddleCenter, "Name");
-                Ui.Label(c, spare > 0 ? spare + " part" + (spare == 1 ? "" : "s") + " fit" + (spare == 1 ? "s" : "") : "no part yet", 20, spare > 0 ? Theme.Accent : Theme.TextFaint, TextAnchor.MiddleCenter, "Spare");
+                KitV2.Box(stage, "stat_bar", x[i], 811, 325, 80, KitV2.BarFill, 34.7f, 5.3f, KitV2.Ink, null, "StatBar:" + stats[i]);
+                KitV2.Icon(stage, KitArt.Get(StatIcons[i]) ?? RogueStars.Client.World.HudArt.Icon(StatHud[i]), x[i] - 11, 812, 78, 78, "StatIcon:" + stats[i]);
+                var t = KitV2.Text(stage, values[i], x[i] + 74, 820, 240, 60, 40, Color.white, TextAnchor.MiddleCenter, "StatValue:" + stats[i]);
+                KitFit.On(t, 24);
             }
-            else
+        }
+
+        private sealed class Feature { public string Id, Label, Icon, FeatureId; public bool Unlocked, Badge; public Action Open; public Func<Sprite> Fallback; }
+
+        private List<Feature> FeatureEntries() => new List<Feature>
+        {
+            new Feature { Id = "talents", Label = "Talents", Icon = "icon_talents", FeatureId = Features.WormLevel, Unlocked = Session.IsUnlocked(Features.WormLevel),
+                Badge = Session.IsUnlocked(Features.WormLevel) && TalentActionable(), Open = () => SetTab(WormTab.Levels), Fallback = () => RogueStars.Client.World.HudArt.Icon("exp") },
+            new Feature { Id = "runes", Label = "Runes", Icon = "icon_runes", FeatureId = Features.Runes, Unlocked = Session.IsUnlocked(Features.Runes),
+                Open = () => App.Router.Push(new PartsScreen { Tab = 1 }), Fallback = () => ArtCatalog.SkillIcon("gen_guard") },
+            new Feature { Id = "mounts", Label = "Mounts", Icon = "icon_mounts", FeatureId = Features.Mounts, Unlocked = Session.IsUnlocked(Features.Mounts),
+                Open = () => App.Open("mounts"), Fallback = () => ArtCatalog.SliceMount(null) ?? RogueStars.Client.World.HudArt.Mount() },
+            new Feature { Id = "laboratory", Label = "Laboratory", Icon = "icon_laboratory", FeatureId = Features.Laboratory, Unlocked = Session.IsUnlocked(Features.Laboratory),
+                Open = () => App.Open("laboratory"), Fallback = () => RogueStars.Client.World.HudArt.Icon("book") },
+        };
+
+        private void FeatureBand(RectTransform stage, List<Feature> feats)
+        {
+            KitV2.Box(stage, "feature_band", 32, 907, 1016, 144, KitV2.Band, 37.3f, 0, null, null, "FeatureBand");
+            float[] cx = { 160, 413, 667, 921 };
+            for (int i = 0; i < feats.Count && i < cx.Length; i++)
             {
-                var name = Ui.Display(c, PartName(Content, part), 26, Color.Lerp(rc, Color.white, 0.6f), TextAnchor.UpperLeft, "Name");
-                Ui.Size(name, -1, 62, 1);
-                var lvRow = Ui.Row(c, 36, 4, null, 0, "Level");
-                Kit.LevelBadge(lvRow, "Lv " + part.Level, Color.white, 34);
-                Ui.Label(c, spare > 0 ? "+" + spare + " spare" : "", 20, Theme.TextDim, TextAnchor.MiddleLeft, "Spare");
-                if (GearGuide.CanLevelUp(State, Content, part)) Badge(c, "▲", "LevelUpBadge");
+                var f = feats[i];
+                var hit = KitV2.Place(stage, "Feature:" + f.Id, cx[i] - 110, 907, 220, 144);
+                var icon = KitV2.Icon(hit, KitArt.Get(f.Icon) ?? f.Fallback(), 56, 11, 107, 107, "Icon");
+                if (!f.Unlocked) { icon.color = new Color(0.35f, 0.33f, 0.4f, 0.75f); KitV2.Icon(hit, RogueStars.Client.World.SummonArt.Icon("lock"), 88, 40, 44, 44, "Lock"); }
+                var l = KitV2.Text(hit, f.Label, 10, 99, 200, 42, 32, f.Unlocked ? Color.white : Theme.Hex(0xC8BCA0), TextAnchor.MiddleCenter, "Label");
+                KitFit.On(l, 20);
+                if (f.Badge) KitV2.BadgeRed(hit, 116, 7, "!", 64, "Badge");
+                var ff = f;
+                KitV2.Tap(hit, () => { if (ff.Unlocked) ff.Open(); else LockedFeature(ff.Label, ff.FeatureId); });
             }
+        }
+
+        private void LockedFeature(string label, string featureId)
+        {
+            var def = Content.Feature(featureId);
+            Modal(label, b => Note(b, label + " unlocks later: " + Requirements.Describe(Content, def?.Requires ?? new RequirementSet()) + "."), new ModalButton("OK", null)).Root.name = "Modal:Locked";
+        }
+
+        private static readonly WormTab[] TabOrder = { WormTab.Parts, WormTab.Levels, WormTab.Stats };
+
+        private void Tabs(RectTransform stage, bool levelUnlocked, bool partsDot, bool levelsDot)
+        {
+            for (int i = 0; i < TabOrder.Length; i++)
+            {
+                var t = TabOrder[i];
+                float x = i * 361.5f;
+                bool active = t == _tab;
+                string label = t.ToString();
+                var tab = active
+                    ? KitV2.Box(stage, "tab_active", x, 1051, 357, 152, KitV2.Orange.top, 32, 6.7f, KitV2.Ink, KitV2.Orange.bottom, "Tab:" + label).rectTransform
+                    : KitV2.Box(stage, "tab_inactive", x, 1067, 357, 136, KitV2.TabInactive, 32, 6.7f, KitV2.Ink, null, "Tab:" + label).rectTransform;
+                bool locked = t == WormTab.Levels && !levelUnlocked;
+                KitV2.Text(tab, label, 0, active ? 26 : 22, 357, active ? 59 : 53, active ? 50.7f : 45.3f, locked ? Theme.Hex(0xB0A8D0) : Color.white, TextAnchor.MiddleCenter, "Label");
+                if (locked) KitV2.Icon(tab, RogueStars.Client.World.SummonArt.Icon("lock"), 286, 30, 44, 44, "Lock");
+                bool dot = t == WormTab.Parts ? partsDot : t == WormTab.Levels && levelsDot;
+                if (dot) KitV2.BadgeRed(tab, 281, -15, "!", 64, "Badge");
+                var tt = t;
+                KitV2.Tap(tab, () =>
+                {
+                    if (tt == WormTab.Levels && !Session.IsUnlocked(Features.WormLevel)) LockedFeature("Levels", Features.WormLevel);
+                    else SetTab(tt);
+                });
+            }
+        }
+
+        /// <summary>The Parts tab's "!": a slot has an action (climb, better part, awaken) or an equipped part can level up.</summary>
+        private bool PartsDot()
+        {
+            if (GearGuide.HasAffordableUpgrade(State, Content)) return true;
+            foreach (var slot in PartsSystem.AllSlots) if (GearGuide.SlotAlert(State, Content, slot, Locks) != PartAlert.None) return true;
+            return false;
+        }
+
+        /// <summary>The list button: every worm stat by group (Core always, the rest when not 0).</summary>
+        public void ShowStatSheet()
+        {
+            var loadout = Session.Engine.BuildLoadout(State, Now);
+            Modal("Worm stats", b => Ui.ScrollingColumn(b, 1300, col =>
+            {
+                foreach (var g in RunStatSheet.Groups)
+                {
+                    var lines = new List<StatId>();
+                    foreach (var st in g.Stats) if (g.Title == "Core" || Math.Abs(loadout.WormStats.Value(st)) > 1e-9) lines.Add(st);
+                    if (lines.Count == 0) continue;
+                    Ui.Caption(col, g.Title);
+                    foreach (var st in lines)
+                    {
+                        var row = Ui.Row(col, 44, 8, null, 0, "Stat:" + st);
+                        Ui.Size(Ui.Label(row, Fmt.StatName(st), 26, Theme.TextDim), -1, -1, 1);
+                        Ui.Label(row, StatText(st, loadout.WormStats.Value(st)), 28, Theme.Text, TextAnchor.MiddleRight);
+                    }
+                }
+            }), new ModalButton("Close", null)).Root.name = "Modal:StatSheet";
         }
 
         /// <summary>Header portrait (W1): the equipped hero's own art when it has one, else the hero worm sprite.</summary>
