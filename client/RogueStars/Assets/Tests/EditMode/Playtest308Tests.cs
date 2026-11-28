@@ -65,7 +65,7 @@ namespace RogueStars.Client.Tests
         // ---- 1. one speed setting ---------------------------------------------------------------------------------
 
         [Test]
-        public void Speed_OneSetting_TheBoardButtonSetsTheBattleSpeedToo_AndBattlesHaveNoSpeedButton()
+        public void Speed_OneSetting_TheBoardButtonSetsTheBattleSpeedToo_AndTheBattleButtonCyclesTheSameSetting()
         {
             StartRun();
             _f.App.Router.Push(new RunScreen());
@@ -79,7 +79,14 @@ namespace RogueStars.Client.Tests
             var battle = new BattlePlaybackScreen(Battle(true), new BattleHudContext { InRun = true });
             _f.App.Router.Push(battle);
             Assert.That(battle.Speed, Is.EqualTo(0.5f), "the battle plays at the board's speed");
-            Assert.That(Find(battle.Root, "SpeedChip"), Is.Null, "no second speed control in battle");
+            // the battle board's speed button (bottom left) cycles the same shared setting, never a battle-only speed
+            var button = Find(battle.Root, "SpeedButton");
+            Assert.That(button, Is.Not.Null);
+            Assert.That(Find(button, "SpeedText").GetComponent<Text>().text, Is.EqualTo("x0.5"));
+            button.GetComponent<Button>().onClick.Invoke();
+            Assert.That(PlaySpeed.Current, Is.EqualTo(battle.Speed), "one setting");
+            Assert.That(Find(button, "SpeedText").GetComponent<Text>().text, Is.EqualTo(battle.SpeedLabel));
+            while (!Mathf.Approximately(battle.Speed, 0.5f)) battle.CycleSpeed();
             float half = battle.StepSeconds;
             _f.App.Router.Pop();
             RunScreen.BoardSpeed = 2f;

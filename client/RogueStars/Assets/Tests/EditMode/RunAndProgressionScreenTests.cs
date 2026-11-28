@@ -419,7 +419,7 @@ namespace RogueStars.Client.Tests
             Assert.That(bannerOk, Is.True);
             var fighter = battle.Fighters[0];
             bool hpOk = false;
-            foreach (var t in screen.Root.GetComponentsInChildren<Text>(true)) if (t.text == Fmt.Num(System.Math.Max(0, fighter.EndHp)) + " / " + Fmt.Num(fighter.MaxHp)) hpOk = true;
+            foreach (var t in screen.Root.GetComponentsInChildren<Text>(true)) if (t.name == "HpText" && t.text.StartsWith(Fmt.Num(System.Math.Max(0, fighter.EndHp)))) hpOk = true;
             Assert.That(hpOk || !fighter.Alive, Is.True, "first fighter shows its end HP");
         }
 

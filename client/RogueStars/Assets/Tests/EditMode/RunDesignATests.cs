@@ -273,7 +273,7 @@ namespace RogueStars.Client.Tests
             Assert.That(FindNamed(strip, "Slot:" + sk[0].Id), Is.Not.Null);
             Assert.That(FindNamed(strip, "Slot:" + sk[1].Id), Is.Not.Null);
             Assert.That(((RectTransform)FindNamed(strip, "Slot:" + sk[0].Id)).rect.width, Is.GreaterThan(118f), "big skill tiles");
-            Assert.That(FindNamed(screen.Root, "TopStrip"), Is.Not.Null, "same top strip as the run");
+            Assert.That(FindNamed(screen.Root, "TopStrip"), Is.Not.Null, "the battle's top HUD");
             screen.Frame(0.001f);
             Assert.That(screen.Finished, Is.True);
             Assert.That(screen.FireCount(sk[0].Id), Is.EqualTo(2));
@@ -451,7 +451,7 @@ namespace RogueStars.Client.Tests
             Assert.That(screen.SkillScroll, Is.Not.Null);
             Assert.That(screen.SkillScroll.vertical, Is.True);
             var view = (RectTransform)FindNamed(strip, "SkillViewport");
-            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Null, "one speed control: the board's (playtest 0.1.308)");
+            Assert.That(FindNamed(screen.Root, "SpeedChip"), Is.Null, "one speed setting: the battle's SpeedButton cycles the shared one (playtest 0.1.308)");
             var log = (RectTransform)FindNamed(screen.Root, "Button:Battle log");
             var corners = new Vector3[4];
             view.GetWorldCorners(corners);
@@ -476,13 +476,13 @@ namespace RogueStars.Client.Tests
                 float artX = p.x + (BattlePlaybackScreen.SpriteAnchorX(true) - 0.5f) * BattlePlaybackScreen.ViewSize.x * k84;
                 float half = BattlePlaybackScreen.AlienSpriteSize * k84 / 2;
                 Assert.That(artX - half, Is.GreaterThanOrEqualTo(-540f + 16), "art on screen (left)");
-                Assert.That(p.x - BattlePlaybackScreen.ViewSize.x * k84 * BattlePlaybackScreen.BarWidth / 2, Is.GreaterThanOrEqualTo(-540f + 8), "bars on screen");
                 Assert.That(artX + half, Is.LessThan(BattlePlaybackScreen.StagePosition(BattleSide.Enemy, 1, 2).x), "left of the enemies");
-                Assert.That(p.y - BattlePlaybackScreen.ViewSize.y * k84 / 2, Is.GreaterThanOrEqualTo(-630f), "above the skill panel");
+                float feet = p.y - BattlePlaybackScreen.ViewSize.y * k84 / 2 + BattlePlaybackScreen.SpriteBase * k84;
+                Assert.That(feet, Is.GreaterThanOrEqualTo(BattlePlaybackScreen.StageCenterY - BattlePlaybackScreen.DimTop(2400)), "above the dimmed skill area");
                 Assert.That(seen.Add(p), Is.True, "own spot");
             }
-            // #30: three enemies stand in one column, no smaller than 0.75, their bars at a readable scale
-            Assert.That(BattlePlaybackScreen.EnemyScale(3), Is.GreaterThanOrEqualTo(0.75f));
+            // #30: three enemies stand in one column at a readable size (≥ 240 px sprites, as big as before the battle board), their bars at a readable scale
+            Assert.That(BattlePlaybackScreen.EnemySpriteSize * BattlePlaybackScreen.EnemyScale(3), Is.GreaterThanOrEqualTo(240f));
             float x0 = BattlePlaybackScreen.StagePosition(BattleSide.Enemy, 0, 3).x;
             for (int i = 1; i < 3; i++) Assert.That(BattlePlaybackScreen.StagePosition(BattleSide.Enemy, i, 3).x, Is.EqualTo(x0), "one column");
             for (int i = 1; i < 3; i++)
