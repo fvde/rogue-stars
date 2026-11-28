@@ -12,28 +12,31 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Home (reference home, with our planet as the centrepiece): the season bar on top (once the pass unlocks), feature
-    /// columns left (daily quests, live events) and right (shop, offer, pass, mail, more) with badges and timers, the frontier
-    /// portal, the next level's title and "Longest survived: N rolls", the home planet (art by growth stage, else drawn)
-    /// with the worm on it, the feature row (map, chapter rewards, patrol, challenges as they exist), the guide (goal,
-    /// next-unlock teaser), the big START button with its stamina cost, and the bottom tab bar with
-    /// the raised active tab. Everything appears as features unlock (HubLayout, Features); locked features are never shown.
-    /// Pending unlock celebrations open the full-screen <see cref="UnlockScreen"/>.
+    /// Home on the owner-approved board "New · home" (UI kit v2, board px scaled to the width; tools/art/kit_layouts.json
+    /// screen "home"): the navy top bar (the app's <see cref="ResourceBar"/> hosted in the kit bar: avatar in its gold frame,
+    /// name, power, stamina / Diamonds / Ore pills), the season bar (level hex, progress or "Completed!", chest), the
+    /// translucent side rails (left: offer, pass, live events, Growth Fund; right: quests, summon event, mail, invasions,
+    /// More) with badges and timer chips, the next level's title and "Longest survived: N rolls", the worm on the home planet
+    /// (art by growth stage) with the crash site and the squad, the guide card, the quick band (Portal Map, Chapter rewards,
+    /// Patrol, Dark Side), the Guild edge tab, the big START (starts the next level directly, <see cref="StartNextLevel"/>)
+    /// with its stamina cost, the Modes edge tab and the board nav. The sky by state gets the calm treatment
+    /// (<see cref="HubBackdrop"/>). Everything appears as features unlock (HubLayout, Features); locked features are never
+    /// shown. Pending unlock celebrations open the full-screen <see cref="UnlockScreen"/>. Updates in place.
     /// </summary>
     public sealed partial class HubScreen : UiScreen
     {
         public override string Title => "Planet";
         public override bool ShowBack => false;
-        public override float HeaderHeight => 0;
+        public override float HeaderHeight => KitV2.TopBarDesign;
+        public override bool CoversResourceBar => true;
+        protected override bool KitTopBar => true;
+        protected override string ActiveMainTab => HubLayout.PlanetTab;
 
+        /// <summary>The app's resource bar is built into the kit top bar (<see cref="ResourceBar"/>).</summary>
+        public override RectTransform ResourceBarHost => KitTopDesign;
 
-        private static readonly Color Panel = new Color(0.08f, 0.06f, 0.16f, 0.55f);
-        private static readonly Color BadgeRed = new Color32(0xE8, 0x3A, 0x48, 255);
-        private static readonly Color StartYellow = new Color32(0xF8, 0xE0, 0x6A, 255);
-        private static readonly Color TabDark = new Color32(0x2A, 0x26, 0x3E, 255);
-        private static readonly Color TabActive = new Color32(0x7C, 0x5C, 0xE0, 255);
-
-        private RectTransform _frame;
+        /// <summary>The frame everything is placed in (frame px = board px × scale), its planet layer and the 1080-wide design.</summary>
+        private RectTransform _frame, _centre, _design;
         private float _s, _h;
         /// <summary>The body frame size the layout was built for (zero: built on the fallback size, before the first layout).</summary>
         private Vector2 _builtFrame;
@@ -80,22 +83,46 @@ namespace RogueStars.Client.Screens
             return SkyState(HubLayout.LiveEvents(State, Content, Now), hour);
         }
 
+        // ---- board layout (px at 1080 wide; body y = board y − the 237 px top bar) ----------------------------------
+
+        /// <summary>Season label and bar (board y 267 / 323), the rails (448), the title (496) and "Longest survived" (579).</summary>
+        public const float SeasonLabelY = 30, SeasonBarY = 86, RailY = 211, TitleY = 259, LongestY = 342;
+        /// <summary>Everything above the planet moves up by this while the season pass is locked (no season bar).</summary>
+        public const float NoSeasonShift = 170;
+        /// <summary>Distance from the body's bottom edge (the nav's top, board y 2163) of the quick band (1659) and the START row (1867).</summary>
+        public const float QuickFromBottom = 504, StartFromBottom = 296, EdgeFromBottom = 270;
+        /// <summary>The worm-on-planet group of the board: worm 325,629 427², planet 165,880 747² (bbox 998 tall from body y 392).</summary>
+        public const float GroupHeight = 998, PlanetSize = 747, WormSize = 427, WormDrop = 251;
+
+        /// <summary>The shortest body (board px) the layout gets: shorter frames scale the board down by their height.</summary>
+        public const float MinBodyHeight = 1300;
+
+        /// <summary>Width of a guide card (between the rails).</summary>
+        public const float GuideWidth = 660;
+
         protected override void Build(RectTransform body)
         {
             var bl = body.GetComponent<VerticalLayoutGroup>();
             if (bl != null) { bl.padding = new RectOffset(0, 0, 0, 0); bl.spacing = 0; }
+            var scroll = Root.GetComponentInChildren<ScrollRect>(true);
+            if (scroll != null) scroll.vertical = false;
+            App.Bar.Rebuild(); // the bar lives in this screen's top bar
             bool laidOut = BodyFrame != null && BodyFrame.rect.height > 100 && BodyFrame.rect.width > 100;
-            float frameH = laidOut ? BodyFrame.rect.height : 1750;
+            float frameH = laidOut ? BodyFrame.rect.height : 1926;
             float frameW = laidOut ? BodyFrame.rect.width : 1080;
             // the layout is absolute in frame units: Frame rebuilds it when the frame size changes (canvas resize, safe area)
             _builtFrame = laidOut ? new Vector2(frameW, frameH) : Vector2.zero;
-            _s = frameW / 1080f;
+            // board px scale with the width; a frame shorter than MinBodyHeight board px (tablet / landscape) scales by its
+            // height instead and centres the 1080-wide layout
+            _s = Mathf.Min(frameW / 1080f, frameH / MinBodyHeight);
             _h = frameH / _s;
+            float ox = (frameW - 1080 * _s) / 2, s = _s, dh = _h;
             Sky = CurrentSky();
             int stage = PlanetStage(State);
+            bool calm = HubBackdrop.Enabled;
             // the holder (sky + the frame everything is placed in) and each block in it are keyed parts: a state change
             // rebuilds only the blocks whose content changed (in place)
-            var holder = Part(body, "holder", K(frameW, frameH, Sky, stage), b =>
+            var holder = Part(body, "holder", K(frameW, frameH, Sky, stage, calm), b =>
             {
                 var h = Ui.Rect(b, "HomeHolder");
                 Ui.Size(h, -1, frameH);
@@ -110,73 +137,49 @@ namespace RogueStars.Client.Screens
                     fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
                     fit.aspectRatio = sky.sprite.rect.width / sky.sprite.rect.height;
                 }
-                Ui.Stretch(Ui.Rect(h, "Home"));
+                // the calm treatment: graded sky + vignette and rail bands (the sky layer only)
+                if (calm) { HubBackdrop.Grade(sky); HubBackdrop.Overlay(h); }
+                var home = Ui.Stretch(Ui.Rect(h, "Home"));
+                Ui.Stretch(Ui.Rect(home, "Centre"), ox, 0, ox, 0);
+                var design = Ui.Rect(home, "Design");
+                design.anchorMin = design.anchorMax = design.pivot = new Vector2(0, 1);
+                design.anchoredPosition = new Vector2(ox, 0);
+                design.sizeDelta = new Vector2(1080, dh);
+                design.localScale = new Vector3(s, s, 1);
             });
             _frame = (RectTransform)holder.Find("Home");
-            Part(_frame, "top", TopKey(), f => BuildTop());
-            Part(_frame, "columns", ColumnsKey(), f => BuildColumns());
-            Part(_frame, "centre", CentreKey(), f => BuildCentre());
-            // bottom: tabs, START row above them, the feature row, the guide on top
-            Part(_frame, "tabs", TabsKey(), f => BuildTabs());
+            _centre = (RectTransform)_frame.Find("Centre");
+            _design = (RectTransform)_frame.Find("Design");
+            Part(_centre, "centre", CentreKey(), f => BuildCentre());
+            Part(_design, "top", TopKey(), f => BuildTop());
+            Part(_design, "rails", RailsKey(), f => BuildRails());
+            Part(_design, "title", TitleKey(), f => BuildTitle());
+            var quick = QuickEntries();
+            var quickIds = new System.Text.StringBuilder();
+            foreach (var q in quick) quickIds.Append(q.Name).Append(',');
+            Part(_design, "quick", K(quickIds.ToString(), _h), f => BuildQuick(quick));
+            Part(_design, "guide", GuideKey(), f => BuildGuide());
             var run = State.Run.Active;
             var nextLevel = RunSystem.NextMainLevel(State, Content);
-            Part(_frame, "start", K(run?.LevelId, nextLevel?.Id, nextLevel != null ? RunSystem.EntryCost(Content, nextLevel.Id, RunMode.Normal).Amount : 0,
-                Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide)), f => BuildStart());
-            var features = FeatureRow();
-            var featureIds = new System.Text.StringBuilder();
-            foreach (var ft in features) featureIds.Append(ft.Id).Append(',');
-            if (features.Count > 0) Part(_frame, "features", featureIds.ToString(), f => BuildFeatureRow(features));
-            Part(_frame, "guide", GuideKey(), f => BuildGuide(210 + 250 + (features.Count > 0 ? 200 : 0)));
+            Part(_design, "start", K(run?.LevelId, nextLevel?.Id, nextLevel != null ? RunSystem.EntryCost(Content, nextLevel.Id, RunMode.Normal).Amount : 0, _h,
+                ModesUnlocked(), Session.IsUnlocked(Features.Guilds)), f => BuildStart());
         }
 
-        /// <summary>In place: sky, season bar, side columns, planet, tabs, START, feature row and guide are keyed parts.</summary>
+        /// <summary>In place: sky, season bar, rails, title, planet, quick band, guide and START are keyed parts.</summary>
         protected override bool InPlace => true;
 
+        private float Shift => Session.IsUnlocked(Features.SeasonPass) ? 0 : NoSeasonShift;
+
         private string TopKey() => !Session.IsUnlocked(Features.SeasonPass) ? "locked"
-            : K(ShopSystem.SeasonLevel(State, Content), ShopSystem.SeasonXp(State, Content), ShopSystem.SeasonIndex(Content, Now), _s, _h);
+            : K(ShopSystem.SeasonLevel(State, Content), ShopSystem.SeasonXp(State, Content), ShopSystem.SeasonIndex(Content, Now));
 
-        /// <summary>Everything the side columns show except their live timers.</summary>
-        private string ColumnsKey()
-        {
-            var k = new System.Text.StringBuilder().Append(_s).Append('|').Append(_h).Append('|').Append(Session.IsUnlocked(Features.SeasonPass)).Append('|');
-            foreach (var e in HubLayout.LeftColumn(State, Content)) k.Append(e.Id).Append(e.Label).Append(',');
-            k.Append(QuestCount()).Append('|').Append(Session.IsUnlocked(Features.Heroes) ? SummonView.HubBadge(State, Content, Now) : 0).Append('|');
-            foreach (var ev in HubLayout.LiveEvents(State, Content, Now)) k.Append(ev.OccurrenceId).Append(ev.Kind).Append(ev.Name).Append(ev.EndMs).Append(',');
-            k.Append(Session.IsUnlocked(Features.Invasions)).Append('|');
-            foreach (var e in HubLayout.RightColumn(State, Content, Now)) k.Append(e.Id).Append(e.Label).Append(',');
-            k.Append(ShopSystem.SeasonLevel(State, Content)).Append('|').Append(ShopSystem.PassClaimables(State, Content, Now).Count).Append('|').Append(MailSystem.UnreadCount(State));
-            return k.ToString();
-        }
-
-        /// <summary>Everything the planet block shows (title, planet, worm, crash site, squad).</summary>
-        private string CentreKey()
+        private string TitleKey()
         {
             var next = RunSystem.NextMainLevel(State, Content);
-            var squad = new System.Text.StringBuilder();
-            foreach (var id in AlienSystem.ActiveSquad(State, Content)) squad.Append(id).Append(',');
-            var pod = CrashSiteVisible(State) ? CitySystem.LaunchPod(State) : null;
-            return K(_s, _h, Session.IsUnlocked(Features.Parts), Session.IsUnlocked(Features.SeasonPass), next?.Id, next != null ? RunSystem.LongestRolls(State, next.Id) : 0,
-                PortalsScreen.FrontierPortalIndex(State, Content), PlanetStage(State), BottomBlock(), squad.ToString(), pod?.BlueprintId);
+            return K(Shift, Session.IsUnlocked(Features.Parts), next?.Id, next != null ? RunSystem.LongestRolls(State, next.Id) : 0);
         }
 
-        private string TabsKey()
-        {
-            var k = new System.Text.StringBuilder().Append(_s).Append('|').Append(_h).Append('|');
-            foreach (var e in HubLayout.Tabs(State, Content)) k.Append(e.Id).Append(e.Label).Append(e.Icon).Append(TabBadge(e.Id)).Append(',');
-            return k.ToString();
-        }
-
-        private string GuideKey()
-        {
-            var goal = Tutorial.Next(State, Content, Now);
-            var next = Features.Next(State, Content, Now);
-            return K(_s, _h, GuideExpanded, goal?.StepId, goal?.Text, goal?.ScreenId, next != null ? TeaserText(next) : null);
-        }
-
-        /// <summary>Places by centre and size in reference px; <paramref name="fromBottom"/>: y is the distance from the bottom edge.</summary>
-        private RectTransform At(RectTransform rt, float x, float y, float w, float h, bool fromBottom = false) => SliceKit.Place(rt, _s, x, fromBottom ? _h - y : y, w, h);
-
-        // ---- top: season bar, title ---------------------------------------------------------------------------
+        // ---- top: season bar ---------------------------------------------------------------------------------------
 
         private void BuildTop()
         {
@@ -185,124 +188,134 @@ namespace RogueStars.Client.Screens
             long xp = ShopSystem.SeasonXp(State, Content);
             long per = System.Math.Max(1, Content.SeasonPass.XpPerLevel);
             bool done = tier >= Content.SeasonPass.Levels.Count;
-            var label = SliceKit.Chunky(_frame, "Season " + (ShopSystem.SeasonIndex(Content, Now) + 1), (int)(44 * _s), Color.white, TextAnchor.MiddleCenter, "SeasonLabel");
-            At(label.rectTransform, 540, 36, 500, 56);
-            var bar = Ui.Button(_frame, "", () => App.Open("passes"), new Color(0, 0, 0, 0), 620 * _s, 110 * _s, true, 20);
-            bar.name = "SeasonBar";
-            At((RectTransform)bar.transform, 540, 122, 620, 110);
-            var edge = Ui.RoundPanel(bar.transform, SliceKit.Ink, 24 * _s, "Edge");
-            edge.raycastTarget = false;
-            Ui.Stretch(edge.rectTransform);
-            var face = Ui.RoundPanel(edge.transform, new Color32(0xF6, 0xD0, 0x4C, 255), 20 * _s, "Face");
-            face.raycastTarget = false;
-            Ui.Stretch(face.rectTransform, 6 * _s, 6 * _s, 6 * _s, 6 * _s);
-            var track = Ui.RoundPanel(face.transform, new Color32(0xC8, 0x8E, 0x22, 255), 14 * _s, "Track");
-            track.raycastTarget = false;
-            Ui.Stretch(track.rectTransform, 96 * _s, 26 * _s, 150 * _s, 26 * _s);
-            var fill = Ui.RoundPanel(track.transform, new Color32(0xFF, 0xF0, 0x9C, 255), 14 * _s, "Fill");
-            fill.raycastTarget = false;
-            fill.rectTransform.anchorMin = Vector2.zero; fill.rectTransform.anchorMax = new Vector2(done ? 1 : Mathf.Clamp01((xp % per) / (float)per), 1);
-            fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
-            var progress = SliceKit.Chunky(track.transform, done ? "Completed!" : (xp % per) + " / " + per, (int)(34 * _s), Color.white, TextAnchor.MiddleCenter, "SeasonProgress");
-            Ui.Stretch(progress.rectTransform);
-            var hex = Ui.Panel(face.transform, Color.white, "Tier");
-            hex.sprite = HudArt.Icon("exp"); hex.preserveAspect = true; hex.raycastTarget = false;
-            hex.rectTransform.anchorMin = hex.rectTransform.anchorMax = new Vector2(0, 0.5f);
-            hex.rectTransform.sizeDelta = new Vector2(96 * _s, 96 * _s); hex.rectTransform.anchoredPosition = new Vector2(52 * _s, 0);
-            var tt = SliceKit.Chunky(hex.transform, tier.ToString(), (int)(40 * _s), Color.white, TextAnchor.MiddleCenter, "TierText");
-            Ui.Stretch(tt.rectTransform);
-            var reward = Ui.Panel(face.transform, Color.white, "Reward");
-            reward.sprite = ScreenArt.Prop("chest_common"); reward.preserveAspect = true; reward.raycastTarget = false;
-            reward.rectTransform.anchorMin = reward.rectTransform.anchorMax = new Vector2(1, 0.5f);
-            reward.rectTransform.sizeDelta = new Vector2(110 * _s, 90 * _s); reward.rectTransform.anchoredPosition = new Vector2(-75 * _s, 0);
+            KitV2.Text(_design, "Season " + (ShopSystem.SeasonIndex(Content, Now) + 1), 340, SeasonLabelY, 400, 51, 42.7f, Color.white, TextAnchor.MiddleCenter, "SeasonLabel");
+            var bar = KitV2.SeasonBar(_design, 219, SeasonBarY, done ? 1 : (xp % per) / (float)per, tier.ToString(), done ? "Completed!" : (xp % per) + " / " + per,
+                KitArt.Get("icon_season_chest") ?? ScreenArt.Prop("chest_mythic"));
+            KitV2.Tap(bar, () => App.Open("passes"));
         }
 
-        // ---- the side columns ---------------------------------------------------------------------------------
+        // ---- the side rails ------------------------------------------------------------------------------------------
 
-        private void BuildColumns()
+        /// <summary>Everything the rails show except their live timers.</summary>
+        private string RailsKey()
         {
-            var left = new List<System.Action<float>>();
-            foreach (var entry in HubLayout.LeftColumn(State, Content))
-            {
-                var e = entry;
-                left.Add(y =>
-                {
-                    var b = SideIcon(85, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out _);
-                    if (e.Id == "quests") badge.text = QuestCount();
-                    else if (e.Id == "summon") { int n = SummonView.HubBadge(State, Content, Now); badge.text = n > 0 ? n.ToString() : ""; }
-                });
-            }
+            var k = new System.Text.StringBuilder().Append(_h).Append('|').Append(Shift).Append('|');
+            foreach (var e in HubLayout.LeftRail(State, Content, Now)) k.Append(e.Id).Append(e.Label).Append(',');
+            foreach (var e in HubLayout.RightRail(State, Content, Now)) k.Append(e.Id).Append(e.Label).Append(',');
+            k.Append(QuestCount()).Append('|').Append(Session.IsUnlocked(Features.Heroes) ? SummonView.HubBadge(State, Content, Now) : 0).Append('|');
+            foreach (var ev in HubLayout.LiveEvents(State, Content, Now)) k.Append(ev.OccurrenceId).Append(ev.Kind).Append(ev.Name).Append(ev.EndMs).Append(',');
+            k.Append(Session.IsUnlocked(Features.Invasions)).Append('|').Append(OfferTimer().Length > 0).Append('|');
+            k.Append(ShopSystem.PassClaimables(State, Content, Now).Count).Append('|').Append(MailSystem.UnreadCount(State)).Append('|').Append(SummonLabel());
+            return k.ToString();
+        }
+
+        /// <summary>The rail entries (left, right) in board order with their art, badges and timers.</summary>
+        public (List<KitV2.RailEntry> left, List<KitV2.RailEntry> right) RailEntries()
+        {
+            var left = new List<KitV2.RailEntry>();
+            var right = new List<KitV2.RailEntry>();
             var events = HubLayout.LiveEvents(State, Content, Now);
-            for (int i = 0; i < events.Count && i < HubLayout.MaxLiveIcons; i++)
-            {
-                var ev = events[i];
-                bool invasion = ev.Kind == LiveOpsKind.Invasion;
-                left.Add(y =>
-                {
-                    SideIcon(85, y, invasion ? "invasion" : "event", Short(ev.Name), () => App.Open("observatory"), "Live:" + ev.OccurrenceId, out var badge, out var timer);
-                    badge.text = invasion ? "!" : "";
-                    Live(timer, () => Fmt.Duration(System.Math.Max(0, ev.EndMs - Now)));
-                });
-            }
-            if (Session.IsUnlocked(Features.Invasions) && (events.Count == 0 || events.Count > HubLayout.MaxLiveIcons))
-                left.Add(y => SideIcon(85, y, "observatory", "Events", () => App.Open("observatory"), "Side:observatory", out _, out _));
-            var right = new List<System.Action<float>>();
-            var rightEntries = HubLayout.RightColumn(State, Content, Now);
-            // things to claim on the Passes page: a count on the Pass icon, or on the Shop tab while the season pass is locked (TabBadge)
-            foreach (var entry in rightEntries)
+            var shown = new List<ActiveLiveEvent>();
+            for (int i = 0; i < events.Count && i < HubLayout.MaxLiveIcons; i++) shown.Add(events[i]);
+            foreach (var entry in HubLayout.LeftRail(State, Content, Now))
             {
                 var e = entry;
-                right.Add(y =>
+                if (e.Id == "fund") AddEvents(left, shown, false); // live events sit above the Growth Fund
+                var r = Rail(e);
+                if (e.Id == "offer") { string t = OfferTimer(); if (t.Length > 0) r.Timer = OfferTimer; }
+                else if (e.Id == "pass") { int n = ShopSystem.PassClaimables(State, Content, Now).Count; r.Badge = n > 0 ? n.ToString() : null; }
+                left.Add(r);
+            }
+            if (!HubLayout.LeftRail(State, Content, Now).Exists(x => x.Id == "fund")) AddEvents(left, shown, false);
+            foreach (var entry in HubLayout.RightRail(State, Content, Now))
+            {
+                var e = entry;
+                if (e.Id == "more")
                 {
-                    SideIcon(995, y, e.Id, e.Label, () => OpenEntry(e), "Side:" + e.Id, out var badge, out var timer);
-                    // the pass shows its tier as a small "Lv n" chip under the icon (was a cryptic "T0" in the label)
-                    if (e.Id == "pass") timer.text = "Lv " + ShopSystem.SeasonLevel(State, Content);
-                    if (e.Id == "pass") { int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; badge.text = claimable > 0 ? claimable.ToString() : ""; }
-                    if (e.Id == "mail") { int unread = MailSystem.UnreadCount(State); badge.text = unread > 0 ? unread.ToString() : ""; }
-                    else if (e.Id == "offer") Live(timer, OfferTimer);
+                    AddEvents(right, shown, true); // invasions above "More"
+                    if (Session.IsUnlocked(Features.Invasions) && (events.Count == 0 || events.Count > HubLayout.MaxLiveIcons))
+                        right.Add(new KitV2.RailEntry { Name = "Side:observatory", Label = "Events", Icon = KitArt.Get("icon_invasion") ?? HudArt.Icon("skull"), OnClick = () => App.Open("observatory") });
+                }
+                var r = Rail(e);
+                if (e.Id == "quests") r.Badge = QuestCount();
+                else if (e.Id == "summon") { int n = SummonView.HubBadge(State, Content, Now); r.Badge = n > 0 ? n.ToString() : null; r.Label = SummonLabel(); }
+                else if (e.Id == "mail") { int n = MailSystem.UnreadCount(State); r.Badge = n > 0 ? n.ToString() : null; }
+                right.Add(r);
+            }
+            if (!HubLayout.RightRail(State, Content, Now).Exists(x => x.Id == "more"))
+            {
+                AddEvents(right, shown, true);
+                if (Session.IsUnlocked(Features.Invasions) && (events.Count == 0 || events.Count > HubLayout.MaxLiveIcons))
+                    right.Add(new KitV2.RailEntry { Name = "Side:observatory", Label = "Events", Icon = KitArt.Get("icon_invasion") ?? HudArt.Icon("skull"), OnClick = () => App.Open("observatory") });
+            }
+            return (left, right);
+        }
+
+        /// <summary>The live events of one kind as rail entries: other events on the left, invasions ("!") on the right; each with its timer.</summary>
+        private void AddEvents(List<KitV2.RailEntry> rail, List<ActiveLiveEvent> events, bool invasions)
+        {
+            foreach (var live in events)
+            {
+                var ev = live;
+                bool invasion = ev.Kind == LiveOpsKind.Invasion;
+                if (invasion != invasions) continue;
+                rail.Add(new KitV2.RailEntry
+                {
+                    Name = "Live:" + ev.OccurrenceId, Label = invasion ? "Invasion" : Short(ev.Name), Badge = invasion ? "!" : null,
+                    Icon = invasion ? KitArt.Get("icon_invasion") ?? HudArt.Icon("skull") : KitArt.Get("icon_event") ?? ScreenArt.HubIcon("event"),
+                    Timer = () => Fmt.Duration(System.Math.Max(0, ev.EndMs - Now)), OnClick = () => App.Open("observatory"),
                 });
             }
-            Column(left, 85, "LeftColumn");
-            Column(right, 995, "RightColumn");
         }
 
-        /// <summary>A translucent rounded column behind the icons, then the icons top to bottom (160 apart).</summary>
-        private void Column(List<System.Action<float>> icons, float x, string name)
+        private KitV2.RailEntry Rail(HubLayout.Entry e) => new KitV2.RailEntry
         {
-            if (icons.Count == 0) return;
-            float top = Session.IsUnlocked(Features.SeasonPass) ? 230 : 40, step = 168;
-            var panel = Ui.RoundPanel(_frame, Panel, 30 * _s, name);
-            panel.raycastTarget = false;
-            At(panel.rectTransform, x, top + icons.Count * step / 2, 150, icons.Count * step + 16);
-            for (int i = 0; i < icons.Count; i++) icons[i](top + step / 2 + i * step);
+            Name = "Side:" + e.Id, Label = e.Label, Icon = RailIcon(e.Id), OnClick = () => OpenEntry(e),
+        };
+
+        /// <summary>A rail icon: the kit's <c>icon_*</c> when present, else today's hub art (or its stand-in).</summary>
+        private Sprite RailIcon(string id)
+        {
+            switch (id)
+            {
+                case "offer": return KitArt.Get("icon_starter_pack") ?? ScreenArt.HubIcon("offer");
+                case "pass": return KitArt.Get("icon_pass") ?? ScreenArt.HubIcon("pass");
+                case "fund": return KitArt.Get("icon_growth_fund") ?? HudArt.Icon("coin");
+                case "quests": return KitArt.Get("icon_quests") ?? ScreenArt.HubIcon("quests");
+                case "summon": return KitArt.Get("icon_hero_event") ?? SummonArt.Featured(SummonEventType.Hero, "");
+                case "mail": return KitArt.Get("icon_mail") ?? ScreenArt.HubIcon("mail");
+                default: return KitArt.Get("icon_" + id) ?? ScreenArt.HubIcon(id);
+            }
         }
 
-        /// <summary>A side icon: art (HubIcon), a chunky label under it, a red badge (count / "!") and a timer pill.</summary>
-        private Button SideIcon(float x, float y, string icon, string label, System.Action onClick, string name, out Text badge, out Text timer)
+        /// <summary>"Hero Event" / "Mount Event" by the first summon event on now (the board: "Hero Event").</summary>
+        private string SummonLabel()
         {
-            var b = Ui.Button(_frame, "", onClick, new Color(1, 1, 1, 0.001f), 150 * _s, 160 * _s, true, 20);
-            b.name = name;
-            At((RectTransform)b.transform, x, y, 150, 160);
-            var img = Ui.Panel(b.transform, Color.white, "Icon");
-            img.sprite = ScreenArt.HubIcon(icon); img.preserveAspect = true; img.raycastTarget = false;
-            Ui.Stretch(img.rectTransform, 22 * _s, 4 * _s, 22 * _s, 50 * _s);
-            var l = SliceKit.Chunky(b.transform, label, (int)(32 * _s), Color.white, TextAnchor.LowerCenter, "Label");
-            Ui.Stretch(l.rectTransform, -10 * _s, 0, -10 * _s, 6 * _s);
-            var bd = Ui.Panel(b.transform, BadgeRed, "Badge");
-            bd.sprite = UiShapes.Circle; bd.raycastTarget = false;
-            bd.rectTransform.anchorMin = bd.rectTransform.anchorMax = new Vector2(0.86f, 0.9f);
-            bd.rectTransform.sizeDelta = new Vector2(48 * _s, 48 * _s);
-            badge = SliceKit.Chunky(bd.transform, "", (int)(28 * _s), Color.white, TextAnchor.MiddleCenter, "CountText");
-            Ui.Stretch(badge.rectTransform);
-            bd.gameObject.AddComponent<HideWhenEmpty>().Text = badge;
-            var tp = Ui.RoundPanel(b.transform, new Color32(0x22, 0x1C, 0x3A, 235), 16 * _s, "Timer");
-            tp.raycastTarget = false;
-            tp.rectTransform.anchorMin = tp.rectTransform.anchorMax = new Vector2(0.5f, 0.36f);
-            tp.rectTransform.sizeDelta = new Vector2(130 * _s, 36 * _s); tp.rectTransform.anchoredPosition = Vector2.zero;
-            timer = SliceKit.Chunky(tp.transform, "", (int)(24 * _s), Color.white, TextAnchor.MiddleCenter, "TimerText");
-            Ui.Stretch(timer.rectTransform);
-            tp.gameObject.AddComponent<HideWhenEmpty>().Text = timer;
-            return b;
+            if (!Session.IsUnlocked(Features.Heroes)) return "";
+            var types = SummonView.Available(State, Content);
+            return types.Count > 0 && types[0] == SummonEventType.Mount ? "Mount Event" : "Hero Event";
+        }
+
+        private void BuildRails()
+        {
+            var (left, right) = RailEntries();
+            // the rails end above the quick band (scaled down when a long rail would reach it)
+            float top = RailY - Shift, bottom = _h - QuickFromBottom - 24;
+            Rail(left, "LeftColumn", 16, top, bottom);
+            Rail(right, "RightColumn", 883, top, bottom);
+        }
+
+        private void Rail(List<KitV2.RailEntry> entries, string name, float x, float top, float bottom)
+        {
+            if (entries.Count == 0) return;
+            var rail = KitV2.SideRail(_design, name, x, top, entries, (t, f) => Live(t, f), x > 540);
+            float h = KitV2.RailHeight(entries);
+            float k = Mathf.Min(1, (bottom - top) / Mathf.Max(1, h));
+            if (k < 1)
+            {
+                rail.localScale = new Vector3(k, k, 1);
+                if (x > 540) rail.anchoredPosition = new Vector2(x + KitV2.RailWidth * (1 - k), -top);
+            }
         }
 
         /// <summary>Claimable daily/weekly quests as a badge count ("2"), empty when none.</summary>
@@ -313,7 +326,7 @@ namespace RogueStars.Client.Screens
             return n > 0 ? n.ToString() : "";
         }
 
-        private static string Short(string name) => string.IsNullOrEmpty(name) ? "Event" : name.Length <= 10 ? name : name.Substring(0, 9) + "…";
+        private static string Short(string name) => string.IsNullOrEmpty(name) ? "Event" : name.Length <= 14 ? name : name.Substring(0, 13) + "…";
 
         private string OfferTimer()
         {
@@ -329,7 +342,7 @@ namespace RogueStars.Client.Screens
             if (e.ScreenId != null) App.Open(e.ScreenId);
         }
 
-        /// <summary>Every other unlocked screen (laboratory, aliens, heroes, mounts, breeding, guild...).</summary>
+        /// <summary>Every other unlocked screen (laboratory, aliens, heroes, mounts, breeding ...).</summary>
         public void ShowMore()
         {
             Modal("More", b =>
@@ -343,92 +356,110 @@ namespace RogueStars.Client.Screens
             }, new ModalButton("Close", null));
         }
 
-        // ---- centre: portal, level title, longest survived, the planet ---------------------------------------
+        // ---- title ---------------------------------------------------------------------------------------------------
+
+        private void BuildTitle()
+        {
+            float top = TitleY - Shift;
+            var next = RunSystem.NextMainLevel(State, Content);
+            if (!Session.IsUnlocked(Features.Parts))
+                KitV2.Text(_design, "AN EMPTY PLANET", 207, top - 56, 666, 50, 40, new Color(1, 1, 1, 0.7f), TextAnchor.MiddleCenter, "Kicker");
+            if (next == null) return;
+            var title = KitV2.Text(_design, PortalsScreen.LevelNum(next.Number) + ". " + next.Name, 207, top, 666, 83, 72, Color.white, TextAnchor.MiddleCenter, "LevelTitle");
+            KitFit.On(title, 40);
+            int longest = RunSystem.LongestRolls(State, next.Id);
+            if (longest > 0)
+                KitV2.Text(_design, "Longest survived: <color=#FFE14D>" + longest + "</color> rolls", 207, LongestY - Shift, 666, 51, 42.7f, Color.white, TextAnchor.MiddleCenter, "Longest");
+        }
+
+        // ---- centre: the worm on the planet ----------------------------------------------------------------------------
+
+        /// <summary>Everything the planet block shows (planet, worm, crash site, squad, story).</summary>
+        private string CentreKey()
+        {
+            var squad = new System.Text.StringBuilder();
+            foreach (var id in AlienSystem.ActiveSquad(State, Content)) squad.Append(id).Append(',');
+            var pod = CrashSiteVisible(State) ? CitySystem.LaunchPod(State) : null;
+            return K(_s, _h, Shift, Session.IsUnlocked(Features.Parts), PlanetStage(State), GuideHeight(), squad.ToString(), pod?.BlueprintId);
+        }
+
+        /// <summary>Places by centre and size in frame px (board px at 1080).</summary>
+        private RectTransform At(RectTransform rt, float x, float y, float w, float h) => SliceKit.Place(rt, _s, x, y, w, h);
+
+        /// <summary>The worm-on-planet group's scale and top (body px): the board's group fitted between the title and the guide / quick band.</summary>
+        public (float scale, float top) PlanetGroup()
+        {
+            float zoneTop = LongestY - Shift + 51, zoneBottom = _h - QuickFromBottom - GuideHeight() - 12;
+            float k = Mathf.Clamp((zoneBottom - zoneTop) / GroupHeight, 0.05f, 1f); // short frames (tablets, landscape) shrink it to fit
+            float top = zoneTop + Mathf.Max(0, (zoneBottom - zoneTop - GroupHeight * k) / 2);
+            return (k, top);
+        }
 
         private void BuildCentre()
         {
             bool parts = Session.IsUnlocked(Features.Parts);
-            float top = Session.IsUnlocked(Features.SeasonPass) ? 250 : 70;
-            var next = RunSystem.NextMainLevel(State, Content);
-            var portal = Content.MainPortal(PortalsScreen.FrontierPortalIndex(State, Content));
-            if (portal != null && parts)
-            {
-                var chip = Ui.RoundPanel(_frame, new Color(0.1f, 0.06f, 0.2f, 0.6f), 26 * _s, "PortalChip");
-                chip.raycastTarget = false;
-                At(chip.rectTransform, 540, top, 560, 54);
-                var ct = SliceKit.Chunky(chip.transform, "Portal " + (portal.Order + 1) + " · " + portal.Name, (int)(30 * _s), new Color32(0xFF, 0xD0, 0x7A, 255), TextAnchor.MiddleCenter, "Text");
-                Ui.Stretch(ct.rectTransform, 12 * _s, 0, 12 * _s, 0);
-            }
-            if (!parts)
-            {
-                var k = SliceKit.Chunky(_frame, "AN EMPTY PLANET", (int)(40 * _s), new Color(1, 1, 1, 0.7f), TextAnchor.MiddleCenter, "Kicker");
-                At(k.rectTransform, 540, top, 800, 60);
-            }
-            if (next != null)
-            {
-                var title = SliceKit.Chunky(_frame, PortalsScreen.LevelNum(next.Number) + ". " + next.Name, (int)(70 * _s), Color.white, TextAnchor.MiddleCenter, "LevelTitle");
-                At(title.rectTransform, 540, top + 90, 760, 96);
-                title.horizontalOverflow = HorizontalWrapMode.Wrap; title.resizeTextForBestFit = true; title.resizeTextMaxSize = title.fontSize; title.resizeTextMinSize = (int)(40 * _s);
-                int longest = RunSystem.LongestRolls(State, next.Id);
-                if (longest > 0)
-                {
-                    var l = SliceKit.Chunky(_frame, "Longest survived: <color=#FFD84A>" + longest + "</color> rolls", (int)(48 * _s), Color.white, TextAnchor.MiddleCenter, "Longest");
-                    At(l.rectTransform, 540, top + 175, 760, 66);
-                }
-            }
-            // the planet fills the space between the title and the bottom block
-            float zoneTop = top + 220, zoneBottom = _h - BottomBlock();
-            float size = Mathf.Clamp(Mathf.Min(zoneBottom - zoneTop, 760), 300, 760);
-            float cy = (zoneTop + zoneBottom) / 2 + 20;
-            var glow = Ui.Panel(_frame, new Color(0.5f, 0.75f, 1f, 0.35f), "PlanetGlow");
-            glow.sprite = ScreenArt.Glow(); glow.raycastTarget = false;
-            At(glow.rectTransform, 540, cy, size * 1.35f, size * 1.35f);
-            var planet = Ui.Panel(_frame, Color.white, "Planet");
+            var (k, top) = PlanetGroup();
+            float size = PlanetSize * k;
+            float cy = top + (WormDrop + PlanetSize / 2) * k;
+            var planet = Ui.Panel(_centre, Color.white, "Planet");
             planet.sprite = ScreenArt.Planet(PlanetStage(State)); planet.preserveAspect = true; planet.raycastTarget = false;
             At(planet.rectTransform, 540, cy, size, size);
             BuildCrashSite(cy, size * 0.33f); // the fireplace, the saucer and the Launch Pod (from the Aliens unlock)
-            var worm = Ui.Panel(_frame, Color.white, "Worm");
+            var worm = Ui.Panel(_centre, Color.white, "Worm");
             worm.sprite = ArtCatalog.Hero() ?? HudArt.AlienCritter(HubKit.Pink); worm.preserveAspect = true; worm.raycastTarget = false;
-            At(worm.rectTransform, 540, cy - size * 0.36f - size * 0.12f, size * 0.34f, size * 0.34f);
+            At(worm.rectTransform, 538.5f, top + WormSize * k / 2, WormSize * k, WormSize * k);
             UiBob.On(worm.rectTransform, 6 * _s, 1.8f);
             var wormAnim = UiCreature.Attach(worm); // the worm breathes and sways (code spine)
-            WormTap = HubCreatureTap.Add(worm, wormAnim, _frame, _s); // tap: celebrate + hearts (a body-sized target, clear of the crash-site props)
+            WormTap = HubCreatureTap.Add(worm, wormAnim, _frame, _s, 0.4f); // tap: celebrate + hearts (a body-sized target, clear of the crash-site props)
             // C4: the squad wanders around the worm (the City's walkers and social events)
-            Squad = HubSquad.Build(_frame, _squadSim, AlienSystem.ActiveSquad(State, Content), Content, new Vector2(540, cy), size * 0.33f, _s);
+            Squad = HubSquad.Build(_centre, _squadSim, AlienSystem.ActiveSquad(State, Content), Content, new Vector2(540, cy), size * 0.33f, _s);
             if (!parts)
             {
-                var story = SliceKit.Chunky(_frame, "Just you, a worm with no arms. A portal hums nearby…", (int)(38 * _s), Color.white, TextAnchor.MiddleCenter, "Story");
+                var story = SliceKit.Chunky(_centre, "Just you, a worm with no arms. A portal hums nearby…", (int)(38 * _s), Color.white, TextAnchor.MiddleCenter, "Story");
                 At(story.rectTransform, 540, cy + size / 2 + 20, 900, 60);
                 story.horizontalOverflow = HorizontalWrapMode.Wrap;
             }
         }
 
-        /// <summary>Height (reference px from the bottom) of the tabs, START, the feature row and the guide.</summary>
-        private float BottomBlock()
+        // ---- quick band ------------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// The quick band (board: Portal Map, Chapter rewards, Patrol, Dark Side) as ours exist: the Portal Map opens the
+        /// level / portal selection, chapter rewards the map's milestone chests, patrol the City's production, Dark Side the
+        /// portals' other modes.
+        /// </summary>
+        private List<KitV2.QuickEntry> QuickEntries()
         {
-            float h = 210 + 250;
-            if (FeatureRow().Count > 0) h += 200;
-            h += GuideItems() * 132;
-            return h + 20;
-        }
-
-        // ---- bottom: guide, feature row, START, tabs ------------------------------------------------------------
-
-        private struct Feature { public string Id, Label, Icon; public System.Action Open; }
-
-        /// <summary>The feature row as ours exist: the map (portals), chapter rewards (milestone chests on the map), patrol (City production) and challenges (Dark Side).</summary>
-        private List<Feature> FeatureRow()
-        {
-            var list = new List<Feature>();
+            var list = new List<KitV2.QuickEntry>();
             if (!Session.IsUnlocked(Features.Parts)) return list;
-            list.Add(new Feature { Id = "map", Label = "Portal\nMap", Icon = "map", Open = () => App.Open("portals") });
-            list.Add(new Feature { Id = "chapter_rewards", Label = "Chapter\nRewards", Icon = "chapter_rewards", Open = () => App.Open("portals") });
-            if (Session.IsUnlocked(Features.BiomassFarm)) list.Add(new Feature { Id = "patrol", Label = "Farm\nPatrol", Icon = "patrol", Open = () => App.Open("city") });
-            if (Session.IsUnlocked(Features.DarkSide)) list.Add(new Feature { Id = "challenges", Label = "Dark\nSide", Icon = "challenges", Open = () => App.Open("portals") });
+            list.Add(new KitV2.QuickEntry { Name = "Feature:map", Label = "Portal Map", Icon = KitArt.Get("icon_portal_map") ?? ScreenArt.HubIcon("map"), OnClick = () => App.Open("portals") });
+            list.Add(new KitV2.QuickEntry { Name = "Feature:chapter_rewards", Label = "Chapter", Icon = KitArt.Get("icon_chapter_rewards") ?? ScreenArt.HubIcon("chapter_rewards"), OnClick = () => App.Open("portals") });
+            if (Session.IsUnlocked(Features.BiomassFarm))
+                list.Add(new KitV2.QuickEntry { Name = "Feature:patrol", Label = "Patrol", Icon = KitArt.Get("icon_patrol") ?? ScreenArt.HubIcon("patrol"), OnClick = () => App.Open("city") });
+            if (Session.IsUnlocked(Features.DarkSide))
+                list.Add(new KitV2.QuickEntry { Name = "Feature:challenges", Label = "Dark Side", Icon = KitArt.Get("icon_dark_side") ?? HudArt.Icon("skull"), OnClick = () => App.Open("portals") });
             return list;
         }
 
+        private void BuildQuick(List<KitV2.QuickEntry> entries)
+        {
+            if (entries.Count == 0) return;
+            KitV2.QuickBand(_design, _h - QuickFromBottom, entries);
+        }
+
+        // ---- guide -----------------------------------------------------------------------------------------------------
+
+        private string GuideKey()
+        {
+            var goal = Tutorial.Next(State, Content, Now);
+            var next = Features.Next(State, Content, Now);
+            return K(_h, GuideExpanded, goal?.StepId, goal?.Text, goal?.ScreenId, next != null ? TeaserText(next) : null, QuickEntries().Count);
+        }
+
         private int GuideItems() => GuideExpanded ? GuideCount() : System.Math.Min(1, GuideCount());
+
+        /// <summary>Height (board px) of the guide stack above the quick band (0 without cards).</summary>
+        private float GuideHeight() => GuideItems() == 0 ? 0 : GuideItems() * 132;
 
         /// <summary>Guide cards available (goal, next unlock); only the first shows unless expanded (H3).</summary>
         private int GuideCount()
@@ -443,49 +474,25 @@ namespace RogueStars.Client.Screens
         /// <summary>The guide shows all its cards (the "+N" chip was tapped; tap "–" to collapse).</summary>
         public bool GuideExpanded;
 
-        private void BuildFeatureRow(List<Feature> features)
-        {
-            float y = 210 + 250;
-            {
-                var panel = Ui.RoundPanel(_frame, Panel, 40 * _s, "FeatureRow");
-                panel.raycastTarget = false;
-                float w = features.Count * 200 + 40;
-                At(panel.rectTransform, 540, y + 95, w, 170, true);
-                for (int i = 0; i < features.Count; i++)
-                {
-                    var f = features[i];
-                    var b = Ui.Button(_frame, "", f.Open, new Color(1, 1, 1, 0.001f), 190 * _s, 190 * _s, true, 20);
-                    b.name = "Feature:" + f.Id;
-                    At((RectTransform)b.transform, 540 - (features.Count - 1) * 100 + i * 200, y + 100, 190, 190, true);
-                    var img = Ui.Panel(b.transform, Color.white, "Icon");
-                    img.sprite = ScreenArt.HubIcon(f.Icon); img.preserveAspect = true; img.raycastTarget = false;
-                    Ui.Stretch(img.rectTransform, 36 * _s, 0, 36 * _s, 70 * _s);
-                    var l = SliceKit.Chunky(b.transform, f.Label, (int)(34 * _s), Color.white, TextAnchor.LowerCenter, "Label");
-                    Ui.Stretch(l.rectTransform, -10 * _s, 0, -10 * _s, 8 * _s);
-                    l.lineSpacing = 0.85f;
-                }
-            }
-        }
-
-        /// <summary>Width of the guide: the space between the side columns (H3: cards ran under the right column).</summary>
-        public const float GuideWidth = 740;
-
-        private void BuildGuide(float fromBottom)
+        /// <summary>The guide cards (goal with "Go", the next-unlock teaser), stacked above the quick band between the rails.</summary>
+        private void BuildGuide()
         {
             int total = GuideCount();
-            var col = Ui.Column(_frame, 12, 0, null, "Guide");
-            col.anchorMin = col.anchorMax = new Vector2(0.5f, 0);
+            if (total == 0) return;
+            float bottom = _h - (QuickEntries().Count > 0 ? QuickFromBottom : StartFromBottom) - 12;
+            var col = Ui.Column(_design, 12, 0, null, "Guide");
+            col.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            col.anchorMin = col.anchorMax = new Vector2(0, 1);
             col.pivot = new Vector2(0.5f, 0);
-            col.sizeDelta = new Vector2(GuideWidth, GuideItems() * 132);
-            col.localScale = Vector3.one * _s;
-            col.anchoredPosition = new Vector2(0, fromBottom * _s);
+            col.sizeDelta = new Vector2(GuideWidth, GuideItems() * 132 - 12);
+            col.anchoredPosition = new Vector2(540, -bottom);
             var vl = col.GetComponent<VerticalLayoutGroup>();
             vl.childAlignment = TextAnchor.LowerCenter; vl.childForceExpandHeight = false;
             var cards = new List<GameObject>();
             var goal = Tutorial.Next(State, Content, Now);
             if (goal != null && goal.ScreenId != "portals" && goal.ScreenId != null)
             {
-                var g = HubKit.RoundPanel(col, new Color(0.11f, 0.1f, 0.26f, 0.92f), "Goal");
+                var g = HubKit.RoundPanel(col, new Color(0.11f, 0.1f, 0.2f, 0.88f), "Goal");
                 Ui.Size(g, -1, 120);
                 var row = Ui.Row(g.transform, -1, 16, null, 0, "Row");
                 Ui.Stretch(row, 30, 12, 16, 12);
@@ -497,7 +504,7 @@ namespace RogueStars.Client.Screens
             var next = Features.Next(State, Content, Now);
             if (next != null)
             {
-                var teaser = HubKit.Teaser(col, null, TeaserText(next), null, new Color(0.11f, 0.1f, 0.26f, 0.92f), "Teaser"); // no names or art: what unlocks next is a surprise
+                var teaser = HubKit.Teaser(col, null, TeaserText(next), null, new Color(0.11f, 0.1f, 0.2f, 0.88f), "Teaser"); // no names or art: what unlocks next is a surprise
                 Ui.Size(teaser, -1, 120, 1);
                 cards.Add(teaser.gameObject);
             }
@@ -522,148 +529,66 @@ namespace RogueStars.Client.Screens
             return n.LevelsToGo == 1 ? "1 more level to the next feature" : n.LevelsToGo + " more levels to the next feature";
         }
 
+        // ---- START row: Guild, START, Modes --------------------------------------------------------------------------------
+
+        private bool ModesUnlocked() => Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide);
+
         /// <summary>
-        /// The big yellow START (CONTINUE during a run) with the next level and its stamina cost, and "Modes" (the portal
-        /// map's other modes) once one unlocks.
+        /// The big yellow START (CONTINUE during a run) with the stamina cost of the next level, the Guild edge tab (once guilds
+        /// unlock) and the Modes edge tab (the portal map's other modes, once one unlocks).
         /// </summary>
         private void BuildStart()
         {
             var run = State.Run.Active;
-            string name = run != null ? "ContinueButton" : "PlayButton";
             var next = RunSystem.NextMainLevel(State, Content);
-            var b = Ui.Button(_frame, "", run != null ? (System.Action)(() => App.Router.Push(new RunScreen())) : () => App.Open("portals"), new Color(0, 0, 0, 0), 400 * _s, 190 * _s, true, 20);
-            b.name = name;
-            At((RectTransform)b.transform, 500, 210 + 112, 400, 190, true);
-            var edge = Ui.RoundPanel(b.transform, SliceKit.Ink, 34 * _s, "Edge");
-            edge.raycastTarget = false;
-            Ui.Stretch(edge.rectTransform);
-            var lip = Ui.RoundPanel(edge.transform, new Color32(0xE0, 0x9A, 0x2C, 255), 30 * _s, "Lip");
-            lip.raycastTarget = false;
-            Ui.Stretch(lip.rectTransform, 7 * _s, 7 * _s, 7 * _s, 7 * _s);
-            var face = Ui.RoundPanel(lip.transform, StartYellow, 26 * _s, "Face");
-            face.raycastTarget = false;
-            Ui.Stretch(face.rectTransform, 0, 0, 0, 14 * _s);
-            var inner = Ui.RoundPanel(face.transform, new Color32(0xFF, 0xF2, 0xA8, 255), 22 * _s, "Inner");
-            inner.raycastTarget = false;
-            Ui.Stretch(inner.rectTransform, 12 * _s, 10 * _s, 12 * _s, 12 * _s);
-            var level = run != null ? Content.RunLevel(run.LevelId) : null;
-            string kicker = run != null ? "RUN IN PROGRESS" + (level != null ? " · " + level.Name.ToUpperInvariant() : "")
-                : next == null ? "PORTALS" : "LEVEL " + PortalsScreen.LevelNum(next.Number);
-            var k = SliceKit.Chunky(b.transform, kicker, (int)(30 * _s), Color.white, TextAnchor.LowerCenter, "HubNextLevel");
-            k.rectTransform.anchorMin = new Vector2(0, 1); k.rectTransform.anchorMax = new Vector2(1, 1); k.rectTransform.pivot = new Vector2(0.5f, 0);
-            k.rectTransform.sizeDelta = new Vector2(80 * _s, 44 * _s); k.rectTransform.anchoredPosition = new Vector2(0, 4 * _s);
-            var t = SliceKit.Chunky(face.transform, run != null ? "CONTINUE" : "START", (int)((run != null ? 66 : 88) * _s), Color.white, TextAnchor.MiddleCenter, "Title");
-            Ui.Stretch(t.rectTransform, 0, 8 * _s, 0, run != null ? 10 * _s : 64 * _s);
-            if (run == null && next != null)
+            float y = _h - StartFromBottom;
+            var b = KitV2.StartButton(_design, 272, y, 533, 208, run != null ? "ContinueButton" : "PlayButton");
+            var face = (RectTransform)b.Find("Face");
+            if (run != null)
+                KitV2.Text(face, "CONTINUE", 20, 40, 493, 101, 84, Color.white, TextAnchor.MiddleCenter, "Title");
+            else
             {
-                var cost = RunSystem.EntryCost(Content, next.Id, RunMode.Normal).Amount;
-                var c = SliceKit.Chunky(face.transform, "x" + cost, (int)(42 * _s), Color.white, TextAnchor.LowerCenter, "PillText");
-                Ui.Stretch(c.rectTransform, 40 * _s, 0, 0, 14 * _s);
-                var bolt = Ui.Panel(face.transform, Color.white, "Stamina");
-                bolt.sprite = ScreenArt.Icon("stamina"); bolt.preserveAspect = true; bolt.raycastTarget = false;
-                bolt.rectTransform.anchorMin = bolt.rectTransform.anchorMax = new Vector2(0.5f, 0);
-                bolt.rectTransform.sizeDelta = new Vector2(54 * _s, 54 * _s); bolt.rectTransform.anchoredPosition = new Vector2(-30 * _s, 40 * _s);
-            }
-            // the play button's rocket (Art/Hub/Icons/play_button) launching off its left edge; no drawn fallback
-            var rocketArt = ArtCatalog.HubIcon("play_button");
-            if (rocketArt != null)
-            {
-                var rocket = Ui.Panel(b.transform, Color.white, "PlayRocket");
-                rocket.sprite = rocketArt; rocket.preserveAspect = true; rocket.raycastTarget = false;
-                rocket.rectTransform.anchorMin = rocket.rectTransform.anchorMax = new Vector2(0, 0.5f);
-                rocket.rectTransform.sizeDelta = new Vector2(170 * _s, 170 * _s);
-                rocket.rectTransform.anchoredPosition = new Vector2(6 * _s, 8 * _s);
-                rocket.rectTransform.localRotation = Quaternion.Euler(0, 0, 8);
-            }
-            if (Session.IsUnlocked(Features.Overcharged) || Session.IsUnlocked(Features.Burrow) || Session.IsUnlocked(Features.DarkSide))
-            {
-                var modes = Ui.Button(_frame, "", () => App.Open("portals"), new Color32(0x4A, 0x2A, 0x40, 255), 170 * _s, 150 * _s, true, 20);
-                modes.name = "ModesButton";
-                At((RectTransform)modes.transform, 985, 210 + 112, 170, 150, true);
-                UiShapes.Outline((RectTransform)modes.transform, SliceKit.Ink, 20 * _s, 5);
-                var mi = Ui.Panel(modes.transform, Color.white, "Icon");
-                mi.sprite = HudArt.Icon("skull"); mi.preserveAspect = true; mi.raycastTarget = false;
-                Ui.Stretch(mi.rectTransform, 40 * _s, 10 * _s, 40 * _s, 54 * _s);
-                var ml = SliceKit.Chunky(modes.transform, "Modes", (int)(38 * _s), Color.white, TextAnchor.LowerCenter, "Label");
-                Ui.Stretch(ml.rectTransform, 0, 0, 0, 8 * _s);
-            }
-        }
-
-        /// <summary>The bottom tab bar: dark tabs with their icon, the Planet raised in purple with its label; badges.</summary>
-        private void BuildTabs()
-        {
-            var list = HubLayout.Tabs(State, Content);
-            var bar = Ui.Panel(_frame, new Color32(0x1A, 0x16, 0x2A, 255), "Tabs");
-            bar.raycastTarget = false;
-            At(bar.rectTransform, 540, 105, 1080, 210, true);
-            float w = 1080f / Mathf.Max(list.Count, 3);
-            float x0 = 540 - w * (list.Count - 1) / 2;
-            for (int i = 0; i < list.Count; i++)
-            {
-                var e = list[i];
-                bool active = e.Id == HubLayout.PlanetTab;
-                float h = active ? 250 : 200;
-                var b = Ui.Button(_frame, "", () => { if (e.ScreenId != null) App.Open(e.ScreenId); }, new Color(0, 0, 0, 0), (w - 12) * _s, h * _s, true, 20);
-                b.name = "Tab:" + e.Id;
-                At((RectTransform)b.transform, x0 + i * w, h / 2 + 4, w - 12, h, true);
-                var edge = Ui.RoundPanel(b.transform, SliceKit.Ink, 26 * _s, "Edge");
-                edge.raycastTarget = false;
-                Ui.Stretch(edge.rectTransform);
-                var face = Ui.RoundPanel(edge.transform, active ? TabActive : TabDark, 22 * _s, "Face");
-                face.raycastTarget = false;
-                Ui.Stretch(face.rectTransform, 5 * _s, 5 * _s, 5 * _s, 5 * _s);
-                var img = Ui.Panel(face.transform, Color.white, "Icon");
-                img.sprite = e.Icon == HubLayout.CampIcon ? CityArt.Saucer() : ScreenArt.HubIcon(e.Icon); img.preserveAspect = true; img.raycastTarget = false;
-                Ui.Stretch(img.rectTransform, 30 * _s, active ? 14 * _s : 16 * _s, 30 * _s, active ? 80 * _s : 62 * _s);
-                // every tab is labelled (H1); the active one is taller with a bigger label
-                var l = SliceKit.Chunky(face.transform, e.Label, (int)((active ? 40 : 30) * _s), active ? Color.white : new Color32(0xD8, 0xD2, 0xF0, 255), TextAnchor.LowerCenter, "Label");
-                Ui.Stretch(l.rectTransform, 0, 0, 0, (active ? 16 : 10) * _s);
-                string badge = TabBadge(e.Id);
-                if (!string.IsNullOrEmpty(badge))
+                KitV2.Text(face, "START", 20, next != null ? 26 : 50, 493, 101, 101.3f, Color.white, TextAnchor.MiddleCenter, "Title");
+                if (next != null)
                 {
-                    var bd = Ui.RoundPanel(b.transform, BadgeRed, 20 * _s, "Badge");
-                    bd.raycastTarget = false;
-                    bd.rectTransform.anchorMin = bd.rectTransform.anchorMax = new Vector2(1, 1);
-                    bd.rectTransform.pivot = new Vector2(1, 0.5f);
-                    bd.rectTransform.sizeDelta = new Vector2(100 * _s, 44 * _s); bd.rectTransform.anchoredPosition = new Vector2(-4 * _s, 0);
-                    UiShapes.Outline(bd.rectTransform, Color.white, 20 * _s, 3);
-                    var bt = SliceKit.Chunky(bd.transform, badge, (int)(26 * _s), Color.white, TextAnchor.MiddleCenter, "BadgeText");
-                    Ui.Stretch(bt.rectTransform);
+                    var cost = RunSystem.EntryCost(Content, next.Id, RunMode.Normal);
+                    KitV2.Icon(face, ResourceBar.KitCurrencyIcon(cost.Currency), 203, 127, 53, 54, "Stamina");
+                    KitV2.Text(face, "x" + cost.Amount, 262, 128, 120, 51, 42.7f, Color.white, TextAnchor.MiddleLeft, "PillText");
                 }
             }
+            KitV2.Tap(b, StartNextLevel);
+            if (Session.IsUnlocked(Features.Guilds))
+                KitV2.EdgeTab(_design, true, _h - EdgeFromBottom, KitArt.Get("icon_guild") ?? ScreenArt.HubIcon("guild"), "Guild", "GuildButton", () => App.Open("guild"));
+            if (ModesUnlocked())
+                KitV2.EdgeTab(_design, false, _h - EdgeFromBottom, KitArt.Get("icon_modes") ?? HudArt.Icon("skull"), "Modes", "ModesButton", () => App.Open("portals"));
         }
 
         /// <summary>
-        /// Badge of a bottom tab: "▲ UP" on the Worm when an equipped part can be levelled with the Ore the player has
-        /// (<see cref="GearGuide.HasAffordableUpgrade"/>), else "NEW" on the day its feature unlocked.
+        /// START: continue the run in progress, else start the next main level directly (the usual RunStart with the on-board
+        /// signature pick, <see cref="SignaturePick.StartRun"/>); not enough stamina opens the refill; no next level (all
+        /// cleared) opens the portal map. The one place the hub starts a run (the campaign rework slots in here).
         /// </summary>
-        public string TabBadge(string tabId)
+        public void StartNextLevel()
         {
-            if (tabId == "worm" && GearGuide.HasAffordableUpgrade(State, Content)) return UpgradeBadge;
-            if (tabId == HubLayout.ShopTab && !HubLayout.RightColumn(State, Content, Now).Exists(x => x.Id == "pass"))
+            if (State.Run.Active != null) { App.Router.Push(new RunScreen()); return; }
+            var next = RunSystem.NextMainLevel(State, Content);
+            if (next == null || !RunSystem.IsLevelUnlocked(State, Content, next.Id, RunMode.Normal)) { App.Open("portals"); return; }
+            var cost = RunSystem.EntryCost(Content, next.Id, RunMode.Normal);
+            if (!State.Wallet.CanAfford(cost.Currency, cost.Amount))
             {
-                int claimable = ShopSystem.PassClaimables(State, Content, Now).Count; // the Passes page's claims, while there is no Pass icon
-                if (claimable > 0) return claimable.ToString();
+                if (cost.Currency == Currencies.Stamina) StaminaModal.Show(this, App);
+                else App.Bar.ShowCurrency(cost.Currency);
+                return;
             }
-            return IsNewToday(tabId) ? "NEW" : null;
+            SignaturePick.StartRun(App, new RunStart { PortalId = next.PortalId, LevelId = next.Id, Mode = RunMode.Normal }, r => { if (r.Ok) App.Router.Push(new RunScreen()); });
         }
 
-        public const string UpgradeBadge = "▲ UP";
+        // ---- nav badges ----------------------------------------------------------------------------------------------------
 
-        /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
-        private bool IsNewToday(string tabId)
-        {
-            // the Shop tab itself is always there (its offers need no unlock): NEW on the day a pull section opens
-            if (tabId == HubLayout.ShopTab) return UnlockedToday(Features.PartPulls) || UnlockedToday(Features.AlienPulls) || UnlockedToday(Features.Blueprints);
-            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "arena" ? Features.Arena : null;
-            return feature != null && UnlockedToday(feature);
-        }
+        /// <summary>Badge of a bottom tab (<see cref="HubLayout.TabBadge"/>: "▲ UP", a claim count, "NEW"; null = none).</summary>
+        public string TabBadge(string tabId) => HubLayout.TabBadge(State, Content, Now, tabId);
 
-        private bool UnlockedToday(string feature)
-        {
-            if (!State.Onboarding.Unlocked.TryGetValue(feature, out long at)) return false;
-            return GameClock.DayIndex(Content, at) == GameClock.DayIndex(Content, Now);
-        }
+        public const string UpgradeBadge = HubLayout.UpgradeBadge;
 
         // ---- unlock moment ----------------------------------------------------------------------------
 
@@ -676,7 +601,7 @@ namespace RogueStars.Client.Screens
 
         /// <summary>
         /// The body frame no longer has the size the layout was built for: the hub was built before the canvas took its size
-        /// (first frame, a resolution or safe-area change), so the bottom bar would sit below the screen edge or float above it.
+        /// (first frame, a resolution or safe-area change), so the bottom block would sit below the screen edge or float above it.
         /// </summary>
         public bool FrameSizeChanged()
         {

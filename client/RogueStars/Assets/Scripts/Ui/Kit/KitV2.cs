@@ -14,7 +14,7 @@ namespace RogueStars.Client.UiKit
     /// 9-sliced when the sprite has borders) and otherwise draws the board's code-drawn look: navy outlines, flat fills and
     /// two-colour gradients, white outlined display text (tools/art/kit_layouts.json "fallback" entries).
     /// </summary>
-    public static class KitV2
+    public static partial class KitV2
     {
         /// <summary>Width of the boards (1080 px; 405 css px × 2.667).</summary>
         public const float DesignWidth = 1080;

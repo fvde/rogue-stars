@@ -46,6 +46,11 @@ namespace RogueStars.Client.Tests
 
         private List<string> Tabs() => ButtonNames(Hub.Root).Where(n => n.StartsWith("Tab:")).ToList();
 
+        /// <summary>A screen's own section tabs ("Tab:Offers" ...), without the board nav's main tabs at the bottom.</summary>
+        private static List<string> SectionTabs(UiScreen screen) =>
+            screen.Root.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Tab:") && (screen.MainNav == null || !b.transform.IsChildOf(screen.MainNav)))
+                .Select(b => b.name).ToList();
+
         private void Unlock(params string[] ids)
         {
             foreach (var id in ids) S.Onboarding.Unlocked[id] = _f.Service.NowMs;
@@ -78,7 +83,9 @@ namespace RogueStars.Client.Tests
             Assert.That(buttons, Does.Contain("Tab:shop"), "the Shop's offers need no unlock (owner, 2026-11-27)");
             Assert.That(S.Mail.Inbox, Is.Not.Empty, "the welcome mail waits until after the first run");
             // besides: the timed Offer icon while a timed offer is on sale (it opens the Shop's Offers)
-            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet" && n != "Tab:shop" && n != "Side:offer" && n != "TapTarget").ToList();
+            // the kit top bar (profile, currency pills) lives in the hub's own header now
+            var others = buttons.Where(n => n != "PlayButton" && n != "Tab:planet" && n != "Tab:shop" && n != "Side:offer" && n != "TapTarget"
+                && n != "ProfileChip" && !n.StartsWith("ChipBg:")).ToList();
             Assert.That(others, Is.Empty, "nothing else on the day-1 hub, not even greyed out: " + string.Join(", ", others));
             Assert.That(Named(hub.Root, "TeaserText").text, Is.EqualTo("1 more level to the next feature"));
             Assert.That(Named(hub.Root, "Figure"), Is.Null);
@@ -95,7 +102,7 @@ namespace RogueStars.Client.Tests
             hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:shop").onClick.Invoke();
             var shop = (ShopScreen)_f.App.Router.Current;
             Assert.That(shop.Section, Is.EqualTo("Offers"));
-            Assert.That(ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList(),
+            Assert.That(SectionTabs(shop),
                 Is.EqualTo(new[] { "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }));
             Assert.That(C.Feature("shop"), Is.Null, "no unlock record, intro or teaser entry for the offers");
         }
@@ -133,8 +140,8 @@ namespace RogueStars.Client.Tests
             Assert.That(_f.App.Router.Pop(), Is.True);
             Assert.That(_f.App.Router.Current, Is.InstanceOf<HubScreen>(), "back returns to the hub, not to the moment");
 
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:shop" }));
-            Assert.That(Named(Hub.Root, "BadgeText").text, Is.EqualTo("NEW"));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:worm", "Tab:planet" }), "the board nav's order");
+            Assert.That(Named(Hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:worm"), "BadgeText").text, Is.EqualTo("NEW"));
             Assert.That(Named(Hub.Root, "GoalText").text, Does.Contain("Equip your starter parts"));
             Assert.That(Hub.ShowPendingUnlock(), Is.False, "nothing pending any more");
         }
@@ -150,7 +157,7 @@ namespace RogueStars.Client.Tests
             var hub = Hub;
             Assert.That(ButtonNames(hub.Root), Does.Contain("Side:quests"));
             var side = hub.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Side:quests");
-            Assert.That(side.GetComponentsInChildren<Text>(true).Any(t => t.text == "Daily Quests"), Is.True, "the hub button label");
+            Assert.That(side.GetComponentsInChildren<Text>(true).Any(t => t.text == "Quests"), Is.True, "the hub button label (board: \"Quests\")");
             side.onClick.Invoke();
             Assert.That(_f.App.Router.Current, Is.InstanceOf<QuestsScreen>());
             Assert.That(_f.App.Router.Current.Title, Is.EqualTo("Daily Quests"), "the screen title");
@@ -160,20 +167,20 @@ namespace RogueStars.Client.Tests
         [Test]
         public void TabsAndSideIcons_AppearAsFeaturesUnlock()
         {
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:planet", "Tab:shop" }), "the Shop from the start: its offers need no unlock");
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:planet" }), "the Shop from the start: its offers need no unlock");
             Unlock(Features.Parts);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:planet", "Tab:shop" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:worm", "Tab:planet" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:quests"));
             Unlock(Features.BiomassFarm);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:worm", "Tab:planet", "Tab:city" }));
             Unlock(Features.WormLevel, Features.PartPulls);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:worm", "Tab:planet", "Tab:city" }));
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"), "one Shop: the bottom tab, no second entry in the right column");
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:more"), "nothing else unlocked yet");
             Unlock(Features.Laboratory);
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:more"));
             Unlock(Features.Arena, Features.SeasonPass);
-            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:worm", "Tab:city", "Tab:planet", "Tab:shop", "Tab:arena" }));
+            Assert.That(Tabs(), Is.EqualTo(new[] { "Tab:shop", "Tab:worm", "Tab:planet", "Tab:city", "Tab:arena" }));
             Assert.That(ButtonNames(Hub.Root), Does.Contain("Side:pass"));
             Assert.That(ButtonNames(Hub.Root).Any(n => n.StartsWith("Side:observatory") || n.StartsWith("Live:")), Is.False, "live events wait for Invasions");
             Unlock(Features.Invasions);
@@ -199,7 +206,7 @@ namespace RogueStars.Client.Tests
             var shop = (ShopScreen)_f.App.Router.Current;
             Assert.That(shop.Title, Is.EqualTo("Shop"));
             Assert.That(shop.Section, Is.EqualTo("Parts"));
-            var chips = ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList();
+            var chips = SectionTabs(shop);
             Assert.That(chips, Is.EqualTo(new[] { "Tab:Parts", "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }),
                 "only the unlocked pull section, the offers always");
             var parts = shop.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:Parts");
@@ -210,14 +217,14 @@ namespace RogueStars.Client.Tests
             _f.App.Open("signals"); // the former pull screen's id: an alias of the Shop
             shop = (ShopScreen)_f.App.Router.Current;
             Assert.That(shop.Section, Is.EqualTo("Aliens"), "the first pull section");
-            chips = ButtonNames(shop.Root).Where(n => n.StartsWith("Tab:")).ToList();
+            chips = SectionTabs(shop);
             Assert.That(chips, Is.EqualTo(new[] { "Tab:Aliens", "Tab:Parts", "Tab:Offers", "Tab:Diamonds", "Tab:Passes", "Tab:Items", "Tab:Ads" }));
             shop.Root.GetComponentsInChildren<Button>(true).First(b => b.name == "Tab:Diamonds").onClick.Invoke();
             Assert.That(shop.Section, Is.EqualTo("Diamonds"));
             Assert.That(shop.Root.GetComponentsInChildren<RectTransform>(true).Any(t => t.name == "Section:DiamondPack"), Is.True);
 
             // no second shop on the hub: the right column keeps only the timed Offer, which opens the Shop's Offers
-            Assert.That(HubLayout.RightColumn(S, C, _f.Service.NowMs).Any(e => e.Id == "shop"), Is.False);
+            Assert.That(HubLayout.RightRail(S, C, _f.Service.NowMs).Any(e => e.Id == "shop") || HubLayout.LeftRail(S, C, _f.Service.NowMs).Any(e => e.Id == "shop"), Is.False);
             Assert.That(ButtonNames(Hub.Root), Does.Not.Contain("Side:shop"));
             if (ButtonNames(Hub.Root).Contains("Side:offer"))
             {
@@ -392,12 +399,16 @@ namespace RogueStars.Client.Tests
             Assert.That(hub.FrameSizeChanged(), Is.False, "rebuilt for the new frame");
             var frame = WorldY(hub.BodyFrame);
             Assert.That(frame.max - frame.min, Is.LessThan(unit));
-            var labels = hub.Root.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Tab:"))
-                .Select(b => b.GetComponentsInChildren<Text>(true).First(t => t.name == "Label")).ToList();
-            Assert.That(labels.Count, Is.EqualTo(5));
-            float eps = (frame.max - frame.min) * 0.001f;
-            foreach (var l in labels)
-                Assert.That(WorldY(l.rectTransform).min, Is.GreaterThanOrEqualTo(frame.min - eps), l.text + " label below the frame");
+            // the board nav sits under the frame: every tile (and the active tab's label) ends inside the screen
+            var tiles = hub.MainNav.GetComponentsInChildren<Button>(true).Where(b => b.name.StartsWith("Tab:")).ToList();
+            Assert.That(tiles.Count, Is.EqualTo(5));
+            var screen = WorldY(hub.Root);
+            float eps = (screen.max - screen.min) * 0.001f;
+            Assert.That(WorldY(hub.MainNav).max, Is.LessThanOrEqualTo(frame.min + eps), "the nav starts where the frame ends");
+            foreach (var t in tiles)
+                Assert.That(WorldY((RectTransform)t.transform).min, Is.GreaterThanOrEqualTo(screen.min - eps), t.name + " below the screen");
+            var label = tiles.First(t => t.name == "Tab:planet").GetComponentsInChildren<Text>(true).First(t => t.name == "Label");
+            Assert.That(WorldY(label.rectTransform).min, Is.GreaterThanOrEqualTo(screen.min - eps), "the Planet label");
         }
     }
 }

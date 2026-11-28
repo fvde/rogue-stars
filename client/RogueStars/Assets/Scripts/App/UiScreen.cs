@@ -45,6 +45,8 @@ namespace RogueStars.Client.App
         /// area, its opaque background covers the bar (they show their own top strip).
         /// </summary>
         public virtual bool CoversResourceBar => false;
+        /// <summary>A kit v2 top bar the app's resource bar is built into while this screen is on top (the home); null = the app bar.</summary>
+        public virtual RectTransform ResourceBarHost => null;
         /// <summary>Show the back button (false for the root hub).</summary>
         public virtual bool ShowBack => true;
         /// <summary>Rebuild automatically on every state change (false for screens with text input).</summary>
@@ -105,6 +107,15 @@ namespace RogueStars.Client.App
                 var bar = Ui.Rect(Root, "Header");
                 bar.anchorMin = new Vector2(0, 1); bar.anchorMax = new Vector2(1, 1); bar.pivot = new Vector2(0.5f, 1);
                 bar.sizeDelta = new Vector2(0, headerHeight); bar.anchoredPosition = Vector2.zero;
+                _kitHeader = bar;
+                var img = bar.gameObject.AddComponent<Image>();
+                img.color = Color.clear; img.raycastTarget = true; // taps on the bar never reach the body under it
+                // the board's top bar: a 1080-wide design of HeaderHeight board px, scaled to the width (KitDesignFit)
+                KitTopDesign = Ui.Rect(bar, "TopBar");
+                KitTopDesign.anchorMin = KitTopDesign.anchorMax = KitTopDesign.pivot = new Vector2(0, 1);
+                _headerFit = bar.gameObject.AddComponent<KitDesignFit>();
+                _headerFit.Target = KitTopDesign; _headerFit.DesignHeight = headerHeight;
+                _headerFit.Scaled = _ => SyncKitChrome();
                 BuildHeaderExtras(bar);
             }
             else if (headerHeight > 0)
@@ -144,6 +155,8 @@ namespace RogueStars.Client.App
             if (ActiveMainTab != null) bottom += MainTabBarHeight;
             BodyFrame = Ui.Stretch(Ui.Rect(Root, "BodyFrame"), 0, headerHeight, 0, bottom);
             _body = Ui.Scroll(BodyFrame, out _scroll);
+            if (_headerFit != null) _headerFit.Apply();
+            SyncKitChrome();
             if (IntroFeatures != null && IntroFeatures.Length > 0)
             {
                 // "?" top-right: replays the unlock intro of this screen's feature(s) (GDD §16)
@@ -281,43 +294,48 @@ namespace RogueStars.Client.App
             return 1 - top / (contentH - viewH);
         }
 
-        /// <summary>Height of the main tab bar along the bottom (<see cref="ActiveMainTab"/>).</summary>
-        public const float MainTabsHeight = 150;
-
         /// <summary>
-        /// The hub tab this screen belongs to ("worm", "city", "shop", "arena"): the screen then shows the kit's main tab bar
-        /// along the bottom with that tab raised; null = no tab bar.
+        /// The hub tab this screen belongs to ("worm", "city", "planet", "shop", "arena"): the screen then shows the board's nav
+        /// (<see cref="KitV2.Nav"/>) along the bottom with that tab raised; null = no nav.
         /// </summary>
         protected virtual string ActiveMainTab => null;
 
         private RectTransform _mainTabs;
-
+        private KitDesignFit _navFit;
         private string _mainTabsKey;
+
+        /// <summary>The nav along the bottom (null without <see cref="ActiveMainTab"/>; tests).</summary>
+        public RectTransform MainNav => _mainTabs;
 
         private void BuildMainTabs()
         {
             if (ActiveMainTab == null || App.Session.State == null)
             {
                 if (_mainTabs != null) Ui.DestroyGo(_mainTabs.gameObject);
-                _mainTabs = null; _mainTabsKey = null;
+                _mainTabs = null; _mainTabsKey = null; _navFit = null;
+                SyncKitChrome();
                 return;
             }
             var entries = HubLayout.Tabs(State, Content);
-            bool wormBadge = GearGuide.HasAffordableUpgrade(State, Content);
-            var key = new System.Text.StringBuilder(ActiveMainTab).Append(wormBadge);
-            foreach (var e in entries) key.Append('|').Append(e.Id).Append(e.Label).Append(e.Icon);
+            var badges = new List<string>();
+            var key = new System.Text.StringBuilder(ActiveMainTab);
+            foreach (var e in entries)
+            {
+                string badge = HubLayout.TabBadge(State, Content, Now, e.Id);
+                badges.Add(badge);
+                key.Append('|').Append(e.Id).Append(e.Label).Append(e.Icon).Append(badge);
+            }
             if (_mainTabs != null && _mainTabsKey == key.ToString()) return; // unchanged: keep the bar
             if (_mainTabs != null) Ui.DestroyGo(_mainTabs.gameObject);
             _mainTabsKey = key.ToString();
             var tabs = new List<KitTab>();
-            foreach (var e in entries)
+            for (int i = 0; i < entries.Count; i++)
             {
-                var entry = e;
-                string badge = entry.Id == "worm" && wormBadge ? "!" : null;
+                var entry = entries[i];
                 tabs.Add(new KitTab
                 {
-                    Id = entry.Id, Label = entry.Label, Badge = badge, Active = entry.Id == ActiveMainTab,
-                    Icon = entry.Icon == HubLayout.CampIcon ? RogueStars.Client.World.CityArt.Saucer() : RogueStars.Client.World.ScreenArt.HubIcon(entry.Icon),
+                    Id = entry.Id, Label = entry.Label, Badge = badges[i], Active = entry.Id == ActiveMainTab,
+                    Icon = HubLayout.TabIcon(entry),
                     OnClick = () =>
                     {
                         if (entry.Id == ActiveMainTab) return;
@@ -325,14 +343,45 @@ namespace RogueStars.Client.App
                     },
                 });
             }
-            _mainTabs = BuildMainTabBar(Root, tabs);
+            _mainTabs = KitV2.Nav(Root, tabs, out _navFit);
+            _navFit.Scaled = _ => SyncKitChrome();
+            SyncKitChrome();
         }
 
-        /// <summary>Height of this screen's main tab bar (the kit v2 nav is taller).</summary>
-        protected virtual float MainTabBarHeight => MainTabsHeight;
+        /// <summary>Design height of the nav (board px at 1080 wide).</summary>
+        protected float MainTabBarHeight => KitV2.NavDesign;
 
-        /// <summary>The main tab bar along the bottom (default: <see cref="Kit.BottomTabBar"/>).</summary>
-        protected virtual RectTransform BuildMainTabBar(RectTransform root, List<KitTab> tabs) => Kit.BottomTabBar(root, tabs, MainTabsHeight);
+        private RectTransform _kitHeader;
+        private KitDesignFit _headerFit;
+
+        /// <summary>The 1080-wide design rect of a kit top bar (<see cref="KitTopBar"/>; board px, y down), null otherwise.</summary>
+        protected RectTransform KitTopDesign { get; private set; }
+
+        /// <summary>The kit top bar and the nav take their scaled board heights; the body frame (and the footer) sit between them.</summary>
+        protected void SyncKitChrome()
+        {
+            if (BodyFrame == null) return;
+            float top = HeaderHeight;
+            if (_kitHeader != null && _headerFit != null)
+            {
+                top = HeaderHeight * _headerFit.Scale;
+                if (!Mathf.Approximately(_kitHeader.sizeDelta.y, top)) _kitHeader.sizeDelta = new Vector2(0, top);
+            }
+            float nav = 0;
+            if (_mainTabs != null)
+            {
+                nav = MainTabBarHeight * (_navFit != null ? _navFit.Scale : 1);
+                if (!Mathf.Approximately(_mainTabs.sizeDelta.y, nav)) _mainTabs.sizeDelta = new Vector2(0, nav);
+            }
+            else if (ActiveMainTab != null && App?.Session.State == null) nav = MainTabBarHeight;
+            if (Footer != null && !Mathf.Approximately(Footer.anchoredPosition.y, nav)) Footer.anchoredPosition = new Vector2(0, nav);
+            float bottom = (FooterHeight > 0 ? FooterHeight : 0) + nav;
+            if (!Mathf.Approximately(BodyFrame.offsetMax.y, -top) || !Mathf.Approximately(BodyFrame.offsetMin.y, bottom))
+            {
+                BodyFrame.offsetMax = new Vector2(BodyFrame.offsetMax.x, -top);
+                BodyFrame.offsetMin = new Vector2(BodyFrame.offsetMin.x, bottom);
+            }
+        }
 
         /// <summary>
         /// The header is a plain strip of <see cref="HeaderHeight"/> that <see cref="BuildHeaderExtras"/> fills (kit v2 top bar

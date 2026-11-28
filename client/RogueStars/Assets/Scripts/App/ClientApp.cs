@@ -246,12 +246,31 @@ namespace RogueStars.Client.App
         public void Rebuild()
         {
             string key = StructureKey();
-            if (key == _builtKey && _root.childCount > 0) { Tick(); return; }
+            var target = Host ?? _root;
+            if (key == _builtKey && target.childCount > 0) { Tick(); return; }
             Build();
             _builtKey = key;
         }
 
         private string _builtKey;
+
+        /// <summary>
+        /// The kit v2 top bar the current screen hosts the bar in (<see cref="UiScreen.ResourceBarHost"/>: the home), null = the
+        /// app's own bar. The bar's chips, timers, profile and fly-to targets then live in that screen's top bar.
+        /// </summary>
+        private RectTransform Host
+        {
+            get
+            {
+                var h = _app.Router?.Current?.ResourceBarHost;
+                return h != null ? h : null; // a destroyed host counts as none
+            }
+        }
+
+        private RectTransform _builtHost;
+
+        /// <summary>Where the bar is built now (the hosting screen's top bar, else the app's bar).</summary>
+        private RectTransform Target => _builtHost != null ? _builtHost : _root;
 
         /// <summary>Full builds of the bar so far (tests: a balance change updates in place).</summary>
         public int Builds { get; private set; }
@@ -261,6 +280,8 @@ namespace RogueStars.Client.App
         {
             var s = _app.Session;
             var sb = new System.Text.StringBuilder(ScreenKey());
+            var host = Host;
+            sb.Append('|').Append(host != null ? host.GetHashCode() : 0);
             if (s.State == null) return sb.Append("|null").ToString();
             sb.Append('|').Append(s.State.Worm.Level).Append('|').Append(s.State.DisplayName ?? s.State.PlayerId).Append('|').Append(s.IsOnline ? s.Service.ModeName : "");
             sb.Append('|').Append(s.Engine != null ? Power() : 0);
@@ -275,6 +296,9 @@ namespace RogueStars.Client.App
             Builds++;
             Ui.Clear(_root);
             _live.Clear();
+            _builtHost = null;
+            var host = Host;
+            if (host != null) { BuildKit(host); return; }
             var bar = Ui.Stretch(Ui.Row(_root, -1, 12, BarBg, 0, "Bar"));
             var bl = bar.GetComponent<HorizontalLayoutGroup>();
             bl.childForceExpandHeight = false; bl.childAlignment = TextAnchor.MiddleLeft;
@@ -374,11 +398,77 @@ namespace RogueStars.Client.App
             Tick();
         }
 
+        /// <summary>Currency pills in the kit top bar at most (board "New · home": stamina, Diamonds, Ore).</summary>
+        public const int MaxKitChips = 3;
+
+        /// <summary>
+        /// The board's navy top bar (UI kit v2, "New · home") in a hosting screen's design rect (1080 × 237 board px): the
+        /// avatar in its gold frame with the level star (the profile), the name, the power, and up to three currency pills
+        /// right-aligned (icon, number, green "+": stamina refills, the others explain the currency) with the stamina regen
+        /// timer under its pill. Same names as the app bar (ProfileChip, Cell / ChipBg / Chip / Timer:&lt;id&gt;).
+        /// </summary>
+        private void BuildKit(RectTransform host)
+        {
+            Ui.Clear(host);
+            _builtHost = host;
+            _builtFor = ScreenKey();
+            var s = _app.Session;
+            KitV2.TopBand(host);
+            var profile = KitV2.Place(host, "ProfileChip", 21, 53, 362, 155);
+            KitV2.Tap(profile, ShowProfile);
+            var frame = KitV2.AvatarFrame(profile, 0, 0, ArtCatalog.WormIcon(), out var face);
+            face.enabled = face.sprite != null;
+            var star = ArtCatalog.HubIcon("profile_level");
+            var lvBg = star != null ? KitV2.Icon(frame, star, 103, 103, 64, 64, "LevelBadge")
+                : KitV2.Box(frame, "level_badge", 107, 115, 56, 40, KitV2.Green.top, 16, 4, KitV2.Ink, KitV2.Green.bottom, "LevelBadge");
+            KitV2.Text(lvBg.rectTransform, s.State != null ? s.State.Worm.Level.ToString() : "", 0, 0, lvBg.rectTransform.sizeDelta.x, lvBg.rectTransform.sizeDelta.y,
+                28, Color.white, TextAnchor.MiddleCenter, "WormLevel");
+            string who = s.State != null ? (s.State.DisplayName ?? s.State.PlayerId) : "…";
+            var name = KitV2.Text(profile, who, 176, 40, 186, 51, 42.7f, Color.white, TextAnchor.MiddleLeft, "Name");
+            KitFit.On(name, 24);
+            KitV2.Icon(profile, KitArt.Get("icon_power") ?? World.HudArt.Icon("sword"), 176, 96, 48, 48, "PowerIcon");
+            string online = s.IsOnline ? " · " + s.Service.ModeName.ToUpperInvariant() : "";
+            var power = KitV2.Text(profile, s.State != null && s.Engine != null ? Fmt.Num(Power()) + online : "", 233, 91, 150, 59, 53.3f, Color.white, TextAnchor.MiddleLeft, "Power");
+            KitFit.On(power, 26);
+            if (s.State == null) return;
+            var ids = ChipsFor(s.State, s.Content, _builtFor);
+            if (ids.Count > MaxKitChips) ids.RemoveRange(MaxKitChips, ids.Count - MaxKitChips);
+            // right-aligned (ending at 1059, 16 apart), built left to right in display order
+            float x = 1059 + 16;
+            foreach (var cid in ids) x -= (s.Content.Regen(cid) != null ? 235 : 210) + 16;
+            foreach (var cid in ids)
+            {
+                string id = cid;
+                float w = s.Content.Regen(id) != null ? 235 : 210;
+                var cell = KitV2.Place(host, "Cell:" + id, x, 123, w, 69 + 34);
+                Action plus = id == Currencies.Stamina ? (Action)(() => StaminaModal.Show(_app.Router.Current, _app)) : () => ShowCurrency(id);
+                var pill = KitV2.CurrencyPill(cell, 0, 0, w, KitCurrencyIcon(id), ChipText(id), plus, "ChipBg:" + id);
+                var amount = pill.Find("Amount").GetComponent<Text>();
+                amount.name = "Chip:" + id;
+                _live.Add(new KeyValuePair<Text, Func<string>>(amount, () => ChipText(id)));
+                if (s.Content.Regen(id) != null)
+                {
+                    var timer = KitV2.Text(cell, "", 0, 71, w, 32, 26.7f, new Color32(0xC9, 0xCF, 0xF5, 255), TextAnchor.MiddleCenter, "Timer:" + id);
+                    _live.Add(new KeyValuePair<Text, Func<string>>(timer, () => RegenTimer(id)));
+                }
+                x += w + 16;
+            }
+            Tick();
+        }
+
+        /// <summary>A currency's icon in the kit bar: the kit's icon_&lt;id&gt; when present, else the game's currency icon.</summary>
+        public static Sprite KitCurrencyIcon(string c)
+        {
+            string kit = c == Currencies.Diamonds ? "icon_diamond" : c == Currencies.Ore ? "icon_ore" : c == Currencies.Stamina ? "icon_stamina"
+                : c == Currencies.Biomass ? "icon_biomass" : c == Currencies.Metal ? "icon_metal" : null;
+            return (kit != null ? KitArt.Get(kit) : null) ?? World.SummonArt.CurrencyIcon(c);
+        }
+
         /// <summary>The chip of a currency in the bar (fly-to target, G1), null when it is not shown on this screen.</summary>
         public RectTransform ChipOf(string currency)
         {
             if (_root == null || currency == null) return null;
-            foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+            foreach (var rt in Target.GetComponentsInChildren<RectTransform>(true))
                 if (rt.name == "ChipBg:" + currency) return rt;
             return null;
         }
@@ -389,9 +479,9 @@ namespace RogueStars.Client.App
             get
             {
                 if (_root == null) return null;
-                foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+                foreach (var rt in Target.GetComponentsInChildren<RectTransform>(true))
                     if (rt.name == "CurrencyDetails") return rt;
-                foreach (var rt in _root.GetComponentsInChildren<RectTransform>(true))
+                foreach (var rt in Target.GetComponentsInChildren<RectTransform>(true))
                     if (rt.name == "ProfileChip") return rt;
                 return null;
             }
@@ -477,6 +567,8 @@ namespace RogueStars.Client.App
             if (s.State == null) return;
             var buttons = new List<ModalButton>();
             if (s.IsUnlocked(RogueStars.Rules.Systems.Features.Parts)) buttons.Add(new ModalButton("Worm", () => _app.Open("worm"), Theme.Accent));
+            // the home's kit top bar has no wallet button: its profile opens every balance
+            if (_builtHost != null && HubLayout.VisibleCurrencies(s.State, s.Content).Count > 0) buttons.Add(new ModalButton("Resources", () => ShowDetails()));
             buttons.Add(new ModalButton("Settings", () => _app.Open("settings")));
             buttons.Add(new ModalButton("Close", null));
             Ui.Modal(_app.ModalLayer, s.State.DisplayName ?? s.State.PlayerId, b =>
@@ -600,6 +692,8 @@ namespace RogueStars.Client.App
         public void Tick()
         {
             if (_builtFor != null && _builtFor != ScreenKey()) { Rebuild(); return; } // another screen: its currencies
+            var host = Host;
+            if (host != _builtHost || host != null && host.childCount == 0) { Rebuild(); return; } // the hosting top bar came or went
             foreach (var kv in _live)
             {
                 if (kv.Key == null) continue;

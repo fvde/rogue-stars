@@ -37,7 +37,7 @@ namespace RogueStars.Client.Screens
                 At(img.rectTransform, x, Surface(x) - h / 2 + sink, w, h);
                 if (tilt != 0) img.rectTransform.localRotation = Quaternion.Euler(0, 0, tilt);
             }
-            var site = Ui.Rect(_frame, "CrashSite");
+            var site = Ui.Rect(_centre, "CrashSite");
             Ui.Stretch(site);
             var saucer = Ui.Panel(site, Color.white, "CrashSite:Saucer");
             saucer.sprite = CityArt.Saucer(); saucer.raycastTarget = false;

@@ -60,81 +60,12 @@ namespace RogueStars.Client.Screens
         protected override bool KitTopBar => true;
         protected override bool InventoryIncludesEquipped => false;
         protected override string ActiveMainTab => "worm";
-        protected override float MainTabBarHeight => NavDesign;
 
-        private RectTransform _header, _topDesign, _nav;
-        private KitDesignFit _topFit, _navFit;
         private string _topKey;
 
         public void SetTab(WormTab tab) { _tab = tab; Refresh(); }
 
-        protected override void BuildHeaderExtras(RectTransform header)
-        {
-            _header = header;
-            var img = header.gameObject.AddComponent<Image>();
-            img.color = Color.clear; img.raycastTarget = true; // taps on the bar never reach the body under it
-            _topDesign = Ui.Rect(header, "TopBar");
-            _topDesign.anchorMin = _topDesign.anchorMax = _topDesign.pivot = new Vector2(0, 1);
-            _topFit = header.gameObject.AddComponent<KitDesignFit>();
-            _topFit.Target = _topDesign; _topFit.DesignHeight = TopBarDesign;
-            _topFit.Scaled = _ => SyncChrome();
-            _topFit.Apply();
-            _topKey = null;
-        }
-
-        protected override RectTransform BuildMainTabBar(RectTransform root, List<KitTab> tabs)
-        {
-            var bar = Ui.Rect(root, "MainTabs");
-            bar.anchorMin = Vector2.zero; bar.anchorMax = new Vector2(1, 0); bar.pivot = new Vector2(0.5f, 0);
-            bar.sizeDelta = new Vector2(0, NavDesign); bar.anchoredPosition = Vector2.zero;
-            var design = Ui.Rect(bar, "Nav");
-            design.anchorMin = design.anchorMax = design.pivot = new Vector2(0, 1);
-            var band = KitV2.Box(design, "nav_bar", 0, 0, 1080, NavDesign + 40, KitV2.Navy, 1, 0, null, null, "Bar");
-            band.raycastTarget = true;
-            KitV2.Box(design, "nav_edge", 0, 0, 1080, 8, KitV2.Ink, 1, 0, null, null, "Edge");
-            int n = Mathf.Max(1, tabs.Count);
-            for (int i = 0; i < tabs.Count; i++)
-            {
-                var t = tabs[i];
-                float cx = 1080f / n * (i + 0.5f);
-                RectTransform tile;
-                if (t.Active)
-                {
-                    tile = KitV2.Box(design, "nav_tile_active", cx - 93.5f, -16, 187, 224, KitV2.Purple.top, 26.7f, 6.7f, KitV2.Ink, KitV2.Purple.bottom, "Tab:" + t.Id).rectTransform;
-                    KitV2.Icon(tile, t.Icon, 19, 13, 149, 149, "Icon");
-                    var l = KitV2.Text(tile, t.Label, 6, 160, 175, 48, 40, Color.white, TextAnchor.MiddleCenter, "Label");
-                    KitFit.On(l, 22);
-                }
-                else
-                {
-                    tile = KitV2.Box(design, "nav_tile", cx - 88, 34, 176, 176, KitV2.NavTile, 26.7f, 6.7f, KitV2.Ink, null, "Tab:" + t.Id).rectTransform;
-                    KitV2.Icon(tile, t.Icon, 21, 18, 134, 134, "Icon");
-                }
-                if (!string.IsNullOrEmpty(t.Badge)) KitV2.BadgeRed(tile, tile.sizeDelta.x - 46, -10, t.Badge, 64, "Badge");
-                var click = t.OnClick;
-                KitV2.Tap(tile, () => click?.Invoke());
-            }
-            _nav = bar;
-            _navFit = bar.gameObject.AddComponent<KitDesignFit>();
-            _navFit.Target = design; _navFit.DesignHeight = NavDesign;
-            _navFit.Scaled = _ => SyncChrome();
-            _navFit.Apply();
-            return bar;
-        }
-
-        /// <summary>Top bar and nav take their scaled board height; the body frame sits between them.</summary>
-        private void SyncChrome()
-        {
-            float top = _topFit != null ? TopBarDesign * _topFit.Scale : TopBarDesign;
-            float bottom = _navFit != null ? NavDesign * _navFit.Scale : NavDesign;
-            if (_header != null && !Mathf.Approximately(_header.sizeDelta.y, top)) _header.sizeDelta = new Vector2(0, top);
-            if (_nav != null && !Mathf.Approximately(_nav.sizeDelta.y, bottom)) _nav.sizeDelta = new Vector2(0, bottom);
-            if (BodyFrame != null && (!Mathf.Approximately(BodyFrame.offsetMax.y, -top) || !Mathf.Approximately(BodyFrame.offsetMin.y, bottom)))
-            {
-                BodyFrame.offsetMax = new Vector2(BodyFrame.offsetMax.x, -top);
-                BodyFrame.offsetMin = new Vector2(BodyFrame.offsetMin.x, bottom);
-            }
-        }
+        protected override void BuildHeaderExtras(RectTransform header) => _topKey = null;
 
         /// <summary>The three currencies of the top bar: Ore and Diamonds, plus Metal on Parts / Biomass on Levels.</summary>
         public string[] TopCurrencies => new[] { Currencies.Ore, _tab == WormTab.Levels ? Currencies.Biomass : Currencies.Metal, Currencies.Diamonds };
@@ -143,16 +74,17 @@ namespace RogueStars.Client.Screens
         {
             var cur = TopCurrencies;
             var key = K(cur[0], State.Wallet.Get(cur[0]), cur[1], State.Wallet.Get(cur[1]), cur[2], State.Wallet.Get(cur[2]));
-            if (key == _topKey || _topDesign == null) return;
+            var top = KitTopDesign;
+            if (key == _topKey || top == null) return;
             _topKey = key;
-            Ui.Clear(_topDesign);
-            KitV2.Box(_topDesign, "topbar", 0, 0, 1080, TopBarDesign, KitV2.Navy, 1, 0, null, null, "Bar");
-            KitV2.Box(_topDesign, "topbar_edge", 0, TopBarDesign - 8, 1080, 8, KitV2.Ink, 1, 0, null, null, "Edge");
+            Ui.Clear(top);
+            KitV2.Box(top, "topbar", 0, 0, 1080, TopBarDesign, KitV2.Navy, 1, 0, null, null, "Bar");
+            KitV2.Box(top, "topbar_edge", 0, TopBarDesign - 8, 1080, 8, KitV2.Ink, 1, 0, null, null, "Edge");
             float[] x = { 377, 616, 852 }, w = { 219, 214, 207 };
             for (int i = 0; i < 3; i++)
             {
                 string c = cur[i];
-                KitV2.CurrencyPill(_topDesign, x[i], 128, w[i], KitV2.CurrencyIcon(c), Fmt.Num(State.Wallet.Get(c)), () => App.Bar.ShowCurrency(c), "Currency:" + c);
+                KitV2.CurrencyPill(top, x[i], 128, w[i], KitV2.CurrencyIcon(c), Fmt.Num(State.Wallet.Get(c)), () => App.Bar.ShowCurrency(c), "Currency:" + c);
             }
         }
 
@@ -180,7 +112,6 @@ namespace RogueStars.Client.Screens
             var loadout = Session.Engine.BuildLoadout(State, Now);
             if (_tab == WormTab.Levels && !Session.IsUnlocked(Features.WormLevel)) _tab = WormTab.Parts;
             TopBar();
-            SyncChrome();
 
             var stageWrap = Part(body, "stage", "", b =>
             {

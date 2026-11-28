@@ -22,6 +22,8 @@ namespace RogueStars.Client.Screens
         private bool _fighting;
 
         public override string Title => "Arena";
+        /// <summary>The board nav along the bottom (shared by every main tab).</summary>
+        protected override string ActiveMainTab => "arena";
         public override string[] IntroFeatures => new[] { Features.Arena };
 
         public override void OnShow() => Load();

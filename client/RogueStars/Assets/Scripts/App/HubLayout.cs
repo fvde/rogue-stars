@@ -32,51 +32,99 @@ namespace RogueStars.Client.App
         public const string ShopTab = "shop";
 
         /// <summary>
-        /// Bottom tabs (daily features) in display order; the Planet and the Shop are always there (the Shop's offers need no unlock,
-        /// owner 2026-11-27; its pull sections come with their own features), the rest as they unlock.
+        /// Bottom tabs (daily features) in the board nav's order (Shop, Worm, Planet, City, Arena; "New · home"); the Planet and
+        /// the Shop are always there (the Shop's offers need no unlock, owner 2026-11-27; its pull sections come with their own
+        /// features), the rest as they unlock.
         /// </summary>
         public static List<Entry> Tabs(GameState s, ContentDb c)
         {
             var list = new List<Entry>();
+            list.Add(new Entry(ShopTab, "Shop", "$", "shop") { Icon = "shop" });
             if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("worm", "Worm", "~", "worm"));
+            list.Add(new Entry(PlanetTab, "Planet", "O", null));
             // one entry for the camp (level 6-14: crash site + Launch Pod) and the City (from 15): same screen, other icon
             if (Features.IsUnlocked(s, c, Features.BiomassFarm)) list.Add(new Entry("city", "City", "#", "city"));
             else if (Features.IsUnlocked(s, c, Features.AlienSquad)) list.Add(new Entry("city", "Camp", "#", "city") { Icon = CampIcon });
-            list.Add(new Entry(PlanetTab, "Planet", "O", null));
-            list.Add(new Entry(ShopTab, "Shop", "$", "shop") { Icon = "shop" });
             if (Features.IsUnlocked(s, c, Features.Arena)) list.Add(new Entry("arena", "Arena", "X", "arena"));
             return list;
         }
 
-        /// <summary>Left column, above the live events: daily quests once unlocked.</summary>
-        public static List<Entry> LeftColumn(GameState s, ContentDb c)
+        /// <summary>The nav icon of a tab: the kit's <c>icon_&lt;id&gt;</c> when present, else the hub icon (the camp: the crashed saucer).</summary>
+        public static UnityEngine.Sprite TabIcon(Entry e)
+        {
+            if (e.Icon == CampIcon) return World.CityArt.Saucer();
+            string kit = e.Id == ShopTab ? "icon_shop" : e.Id == PlanetTab ? "icon_planet" : e.Id == "city" ? "icon_city" : e.Id == "arena" ? "icon_arena" : null;
+            return (kit != null ? UiKit.KitArt.Get(kit) : null) ?? World.ScreenArt.HubIcon(e.Icon);
+        }
+
+        /// <summary>Badge text of the Worm tab while an equipped part can be levelled with the Ore at hand.</summary>
+        public const string UpgradeBadge = "\u25B2 UP";
+
+        /// <summary>
+        /// Badge of a bottom tab (every screen's nav): "▲ UP" on the Worm when an equipped part can be levelled with the Ore the
+        /// player has (<see cref="GearGuide.HasAffordableUpgrade"/>), the Passes page's claims on the Shop while there is no Pass
+        /// icon, else "NEW" on the day its feature unlocked; null = none.
+        /// </summary>
+        public static string TabBadge(GameState s, ContentDb c, long now, string tabId)
+        {
+            if (tabId == "worm" && GearGuide.HasAffordableUpgrade(s, c)) return UpgradeBadge;
+            if (tabId == ShopTab && !LeftRail(s, c, now).Exists(x => x.Id == "pass"))
+            {
+                int claimable = ShopSystem.PassClaimables(s, c, now).Count; // the Passes page's claims, while there is no Pass icon
+                if (claimable > 0) return claimable.ToString();
+            }
+            return IsNewToday(s, c, now, tabId) ? "NEW" : null;
+        }
+
+        /// <summary>A tab's feature was unlocked today (NEW badge).</summary>
+        private static bool IsNewToday(GameState s, ContentDb c, long now, string tabId)
+        {
+            // the Shop tab itself is always there (its offers need no unlock): NEW on the day a pull section opens
+            if (tabId == ShopTab) return UnlockedToday(s, c, now, Features.PartPulls) || UnlockedToday(s, c, now, Features.AlienPulls) || UnlockedToday(s, c, now, Features.Blueprints);
+            string feature = tabId == "worm" ? Features.Parts : tabId == "city" ? Features.AlienSquad : tabId == "arena" ? Features.Arena : null;
+            return feature != null && UnlockedToday(s, c, now, feature);
+        }
+
+        private static bool UnlockedToday(GameState s, ContentDb c, long now, string feature)
+        {
+            if (!s.Onboarding.Unlocked.TryGetValue(feature, out long at)) return false;
+            return GameClock.DayIndex(c, at) == GameClock.DayIndex(c, now);
+        }
+
+        /// <summary>
+        /// Left rail (board "New · home"), top to bottom: the limited offer (a starter pack shows as "Starter Pack"; opens the
+        /// Shop's Offers), the pass, then the live events (added by the hub), then the Growth Fund (the Passes page's funds) once
+        /// Funds unlock.
+        /// </summary>
+        public static List<Entry> LeftRail(GameState s, ContentDb c, long now)
         {
             var list = new List<Entry>();
-            if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("quests", "Daily Quests", "!", "quests"));
-            // Summon events (hero / mount): from the Heroes unlock. Badge: SummonView.HubBadge (screens-pass merge: show it).
-            if (Features.IsUnlocked(s, c, Features.Heroes)) list.Add(new Entry("summon", "Summon", "&", "summon"));
+            var offer = LimitedOffer(s, c, now);
+            if (offer != null) list.Add(new Entry("offer", offer.Kind == ProductKind.StarterPack ? "Starter Pack" : "Offer", "%", "shop") { Icon = "offer" });
+            if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "passes") { Icon = "pass" });
+            if (Features.IsUnlocked(s, c, Features.Funds) && c.Funds.Count > 0) list.Add(new Entry("fund", "Growth Fund", "$", "passes") { Icon = "fund" });
+            return list;
+        }
+
+        /// <summary>
+        /// Right rail, top to bottom: daily quests, the summon event (hero / mount, from the Heroes unlock), mail, then the
+        /// invasions (added by the hub), then "More" (each only when it applies). The Shop is a bottom tab, no entry here.
+        /// </summary>
+        public static List<Entry> RightRail(GameState s, ContentDb c, long now)
+        {
+            var list = new List<Entry>();
+            if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("quests", "Quests", "!", "quests") { Icon = "quests" });
+            if (Features.IsUnlocked(s, c, Features.Heroes)) list.Add(new Entry("summon", "Hero Event", "&", "summon") { Icon = "summon" });
+            // Mail from day 1, but not before the first run (the very first hub is PLAY and the Shop only, even with the welcome mail waiting).
+            if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("mail", "Mail", "@", "mail") { Icon = "mail" });
+            if (MoreScreens(s, c).Count > 0) list.Add(new Entry("more", "More", "+", null) { Icon = "more" });
             return list;
         }
 
         /// <summary>At most this many live-event icons; more events are behind the Observatory icon.</summary>
         public const int MaxLiveIcons = 3;
 
-        /// <summary>
-        /// Right column: a limited offer (opens the Shop's Offers), the pass, mail and "More" (each only when it applies). The
-        /// Shop itself is a bottom tab (<see cref="ShopTab"/>), no second entry here.
-        /// </summary>
-        public static List<Entry> RightColumn(GameState s, ContentDb c, long now)
-        {
-            var list = new List<Entry>();
-            if (LimitedOffer(s, c, now) != null) list.Add(new Entry("offer", "Offer", "%", "shop"));
-            if (Features.IsUnlocked(s, c, Features.SeasonPass)) list.Add(new Entry("pass", "Pass", "P", "passes"));
-            // Mail from day 1, but not before the first run (the very first hub is PLAY and the Shop only, even with the welcome mail waiting).
-            if (Features.IsUnlocked(s, c, Features.Parts)) list.Add(new Entry("mail", "Mail", "@", "mail"));
-            if (MoreScreens(s, c).Count > 0) list.Add(new Entry("more", "More", "+", null));
-            return list;
-        }
-
-        /// <summary>Left column: live events once Invasions are unlocked (each opens the Observatory).</summary>
+        /// <summary>The live events once Invasions are unlocked (each opens the Observatory): events on the left rail, invasions on the right.</summary>
         public static List<ActiveLiveEvent> LiveEvents(GameState s, ContentDb c, long now) =>
             Features.IsUnlocked(s, c, Features.Invasions) ? LiveOpsSystem.ActiveEvents(s, c, now) : new List<ActiveLiveEvent>();
 
@@ -97,7 +145,7 @@ namespace RogueStars.Client.App
         public static List<ScreenEntry> MoreScreens(GameState s, ContentDb c)
         {
             // parts: its inventory is on the Worm tab (the Runes button opens the screen), so day 1 stays PLAY + Worm.
-            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "passes", "mail", "summon" };
+            var direct = new HashSet<string> { "portals", "settings", "worm", "parts", "city", "signals", "arena", "quests", "shop", "passes", "mail", "summon", "guild" };
             var list = new List<ScreenEntry>();
             foreach (var e in ScreenCatalog.All)
             {
@@ -120,8 +168,9 @@ namespace RogueStars.Client.App
             if (Features.IsUnlocked(s, c, Features.Parts)) { set.Add("worm"); set.Add("parts"); } // parts: the Worm tab holds the same inventory
             foreach (var t in Tabs(s, c)) if (t.ScreenId != null) set.Add(t.ScreenId);
             if (set.Contains("shop")) set.Add("signals"); // the former pull screen's id: an alias of the Shop
-            foreach (var r in RightColumn(s, c, now)) if (r.ScreenId != null) set.Add(r.ScreenId);
-            foreach (var l in LeftColumn(s, c)) if (l.ScreenId != null) set.Add(l.ScreenId);
+            foreach (var r in RightRail(s, c, now)) if (r.ScreenId != null) set.Add(r.ScreenId);
+            foreach (var l in LeftRail(s, c, now)) if (l.ScreenId != null) set.Add(l.ScreenId);
+            if (Features.IsUnlocked(s, c, Features.Guilds)) set.Add("guild"); // the Guild edge tab
             if (Features.IsUnlocked(s, c, Features.Invasions)) set.Add("observatory");
             foreach (var m in MoreScreens(s, c)) set.Add(m.Id);
             set.Add("passes"); // Shop → "Passes" (and the Pass icon once the season pass is unlocked)

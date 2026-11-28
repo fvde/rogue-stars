@@ -162,7 +162,7 @@ namespace RogueStars.Client.Tests
         public void Hub_PassIcon_And_UnlockActions_OpenThePassesPage()
         {
             Unlock(Features.Parts, Features.SeasonPass);
-            var right = HubLayout.RightColumn(S, C, _f.Service.NowMs);
+            var right = HubLayout.LeftRail(S, C, _f.Service.NowMs); // the pass sits on the left rail (board "New · home")
             Assert.That(right.First(e => e.Id == "pass").ScreenId, Is.EqualTo("passes"));
             Assert.That(HubLayout.UnlockAction(Features.SeasonPass).ScreenId, Is.EqualTo("passes"));
             Assert.That(HubLayout.UnlockAction(Features.Funds).ScreenId, Is.EqualTo("passes"));

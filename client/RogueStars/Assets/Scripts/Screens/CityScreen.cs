@@ -23,6 +23,8 @@ namespace RogueStars.Client.Screens
     public sealed partial class CityScreen : UiScreen
     {
         public override string Title => "City";
+        /// <summary>The board nav along the bottom (shared by every main tab).</summary>
+        protected override string ActiveMainTab => "city";
         public override float HeaderHeight => 0;
         public override string[] IntroFeatures => new[] { Features.BiomassFarm, Features.GrainFarm, Features.OreMine, Features.AlienSquad };
 
