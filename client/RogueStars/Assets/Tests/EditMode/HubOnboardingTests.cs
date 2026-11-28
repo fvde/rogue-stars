@@ -276,7 +276,7 @@ namespace RogueStars.Client.Tests
             _f.Service.Refresh(_ => { });
             Assert.That(S.Onboarding.Unlocked.ContainsKey(Features.BiomassFarm), Is.True);
             Celebrated(Features.WormLevel, Features.RunMiniboss, Features.RunTwoDice, Features.Aliens, Features.AlienSquad, Features.AutoRoll,
-                Features.RunCampfire, Features.PartPulls, Features.RunSignatures, Features.AlienPulls,
+                Features.RunCampfire, Features.SignatureIce, Features.PartPulls, Features.RunSignatures, Features.AlienPulls,
                 Features.RunMinigames);
             Assert.That(Hub.ShowPendingUnlock(), Is.True);
             var moment = (UnlockScreen)_f.App.Router.Current;

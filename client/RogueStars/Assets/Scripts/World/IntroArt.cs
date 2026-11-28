@@ -59,10 +59,10 @@ namespace RogueStars.Client.World
             { "invasion_reward", () => ScreenArt.Prop("chest_common") }, { "burrow", () => ScreenArt.HubIcon("map") }, { "burrow_cash", () => ScreenArt.Icon("coins_big") },
             { "forge", () => ScreenArt.Icon("upgrade") }, { "forge_slot", () => HudArt.Icon("cog") },
             { "dark_side", () => ScreenArt.HubIcon("challenges") }, { "dark_rules", () => ScreenArt.Icon("curse") },
-            { "package_ice", Package }, { "ice", Package }, { "ice_skill", () => ScreenArt.Icon("blessing") },
-            { "package_lightning", Package }, { "lightning", Package }, { "lightning_skill", () => HudArt.Icon("speed") },
-            { "package_counter", Package }, { "counter", Package }, { "counter_skill", () => HudArt.Icon("shield") },
-            { "package_alien", Package }, { "alien_package", Package }, { "package_time", Package }, { "time", Package }, { "time_skill", () => HudArt.Icon("speed") },
+            // signature unlocks by level, each with its new biome (biome design): the signature chest, the map, the weather
+            { "signature_ice", Package }, { "signature_lightning", Package }, { "signature_counter", Package },
+            { "signature_alien", Package }, { "signature_time", Package },
+            { "biome", () => ScreenArt.HubIcon("map") }, { "weather", () => ScreenArt.Icon("upgrade") },
         };
 
         private static Sprite Worm() => ArtCatalog.Hero() ?? ScreenArt.HubIcon("tab_worm");

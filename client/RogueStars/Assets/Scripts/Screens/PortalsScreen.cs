@@ -181,6 +181,7 @@ namespace RogueStars.Client.Screens
         {
             Features.RunSignatures, Features.RunMiniboss, Features.RunTwoDice, Features.AutoRoll, Features.RunCampfire,
             Features.RunMinigames, Features.Overcharged, Features.Burrow, Features.DarkSide,
+            Features.SignatureIce, Features.SignatureLightning, Features.SignatureCounter, Features.SignatureAlien, Features.SignatureTime,
         };
 
         public override string Title
