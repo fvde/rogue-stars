@@ -152,15 +152,8 @@ namespace RogueStars.Client.Screens
             for (int i = 0; i < 3; i++)
             {
                 string c = cur[i];
-                KitV2.CurrencyPill(_topDesign, x[i], 128, w[i], CurrencyIcon(c), Fmt.Num(State.Wallet.Get(c)), () => App.Bar.ShowCurrency(c), "Currency:" + c);
+                KitV2.CurrencyPill(_topDesign, x[i], 128, w[i], KitV2.CurrencyIcon(c), Fmt.Num(State.Wallet.Get(c)), () => App.Bar.ShowCurrency(c), "Currency:" + c);
             }
-        }
-
-        /// <summary>Currency icon: the kit's icon_&lt;id&gt; when present, else the game's currency icon (Metal falls back to Gear Cores).</summary>
-        private static Sprite CurrencyIcon(string c)
-        {
-            string kit = c == Currencies.Diamonds ? "icon_diamond" : c == Currencies.Ore ? "icon_ore" : c == Currencies.Biomass ? "icon_biomass" : c == Currencies.Metal ? "icon_metal" : null;
-            return (kit != null ? KitArt.Get(kit) : null) ?? RogueStars.Client.World.SummonArt.CurrencyIcon(c);
         }
 
         private static readonly Dictionary<StatId, (string abbr, Color color)> StatLook = new Dictionary<StatId, (string, Color)>
@@ -295,8 +288,8 @@ namespace RogueStars.Client.Screens
                 KitV2.Icon(icon.rectTransform, KitArt.Get("icon_power") ?? RogueStars.Client.World.HudArt.Icon("sword"), 18, 18, 65, 65, "PowerGlyph");
             KitV2.Text(stage, Fmt.Num(loadout.Power), 420, 694, 340, 80, 48, Color.white, TextAnchor.MiddleCenter, "Power");
             var list = KitV2.Box(stage, "list_button", 800, 699, 80, 69, KitV2.ListButton, 21.3f, 5.3f, KitV2.ListRim, null, "StatSheetButton").rectTransform;
-            if (KitArt.Get("list_button") == null)
-                for (int i = 0; i < 3; i++) KitV2.Box(list, "list_line", 18, 17 + i * 13, 44, 8, KitV2.Ink, 4, 0, null, null, "Line");
+            // the kit's list_button is the plain beige plate (no glyph baked): the three list lines stay code-drawn
+            for (int i = 0; i < 3; i++) KitV2.Box(list, "list_line", 18, 17 + i * 13, 44, 8, KitV2.Ink, 4, 0, null, null, "Line");
             KitV2.Tap(list, ShowStatSheet);
         }
 

@@ -72,3 +72,30 @@ Style for every piece: bold cartoon game UI, thick dark navy outline (#1d1b33), 
 ## Code-drawn on purpose (no sprite needed)
 
 Rank letters (M, S, L, E, R, C) and all numbers (outlined font), damage numbers, the dimmed lower battle area, and plain dividers.
+
+## Import (how the approved pieces get into the client)
+
+Approved kit files live in `~/AI/assets/ui-kit-v2/<id>/<file>.png`, already at the sizes above. They are picked in
+`tools/art/slice-picks.json` like the other approved art and copied by the art importer (`Tools/Art/Import Generated Art`, batch:
+`-executeMethod RogueStars.Client.Editor.ArtImporter.ImportCli`) to `client/RogueStars/Assets/Art/Resources/Art/Ui/Kit/<id>.png`,
+where `KitArt.Get(id)` / `KitV2` load them by id:
+
+- `"ui-kit-v2/<id>": "<file>"`: a kit piece, copied full-frame (no trim, so the 9-slice borders stay where they were drawn).
+- `"ui-kit-icons/<id>": "~/AI/assets/…"`: an approved game icon reused as a kit icon, trimmed to its opaque pixels.
+
+Import settings (`ArtImportSettings` + `KitImportRules` in `client/RogueStars/Assets/Editor/ArtImporter.cs`): Sprite, single, full
+rect, no mip maps, bilinear, high-quality compression; icons capped at 256 px. `KitImportRules.NineSlice` is the kit import list of
+the 9-slice pieces with the borders from the tables above; the importer writes the border into the sprite, scaled to the file's
+actual pixel size (a file at 2× the spec size gets 2× the border). Every other piece is fixed (no border). A new 9-slice piece =
+one line there plus its pick; `KitArtImportTests` checks every id loads as a sprite and every 9-slice id has its border.
+
+Batch 1 (2026-11-28, all `N_s9001.png`): every piece of sections A to C except `side_rail`, `feature_band`, `parchment_bg`,
+`power_icon`, `tile_selected` / `tile_equipped`, `slot_glyph_*`, `pip_lock`, `hud_pill`, `round_plate`, `settings_button` and
+`start_button_pressed` (not delivered yet) and `copy_diamond` (dropped: tiles show "xN"). Pip gems come as three coloured sprites
+(`pip_gem_blue`, `_purple`, `_gold`; `KitV2.PipGemId` picks one by the rune colour, any other colour stays the tinted code
+diamond). Kit icons: `icon_stamina`, `icon_diamond`, `icon_ore` (the approved currency icons; `KitV2.CurrencyIcon`) and
+`icon_settings` (the approved HUD cog, the glyph on the code-drawn round settings button until the generic `round_button` arrives).
+
+Old kit (docs/design/ui-kit.md) slots drawn with the v2 sprite where it is the same element: `badge_dot` → `badge_red`
+(`Kit.NotifyDot`), `chip` → `currency_pill` (`Kit.CurrencyChip`, which also takes the kit currency icons), `stat_pill` → `stat_bar`
+(`Kit.StatPills`). The v2 sprites are coloured, so these draw untinted.

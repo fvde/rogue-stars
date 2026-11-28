@@ -49,6 +49,17 @@ namespace RogueStars.Client.Editor
                     s.spritePivot = SpriteContact.Pivot01(c, w, h);
                 }
             }
+            // UI kit v2 (KitImportRules): 9-slice borders from the kit table scaled to the file's size, bilinear, high-quality
+            // compression (no blocky ASTC 6x6 halos on the navy outlines); icons downscaled to 256 (drawn at ≤ 160 px, no mips)
+            var kitId = KitImportRules.IdOf(assetPath);
+            if (kitId != null)
+            {
+                ti.GetSourceTextureWidthAndHeight(out int kw, out int kh);
+                s.spriteBorder = KitImportRules.Border(kitId, kw, kh);
+                s.filterMode = FilterMode.Bilinear;
+                ti.textureCompression = TextureImporterCompression.CompressedHQ;
+                ti.maxTextureSize = KitImportRules.IsIcon(kitId) ? 256 : 2048;
+            }
             ti.SetTextureSettings(s);
             // trimmed props / NPCs / markers / buildings (≤ 768 px sources): capped at 1024, compressed (ASTC on Android) like the rest
             if (assetPath.Contains("/Art/Run/") || assetPath.Contains("/Art/Slice/Markers/") || assetPath.Contains("/Art/Slice/SetPieces/") || IsBuilding(assetPath))

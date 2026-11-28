@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RogueStars.Rules.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -280,8 +281,15 @@ namespace RogueStars.Client.UiKit
             for (int i = 0; i < total; i++)
             {
                 float px = x0 + i * step;
-                if (i < gems.Count && gems[i].HasValue) Diamond(strip, "pip_gem", px, (h - gem) / 2 + 1, gem, gems[i].Value, 2.7f, gems[i].Value).name = "Gem";
-                else if (i < open) Diamond(strip, "pip_socket", px + 5, (h - gem) / 2 + 6, gem - 10, Theme.Hex(0x22203A), 2.2f).name = "Socket";
+                if (i < gems.Count && gems[i].HasValue)
+                {
+                    // the coloured gem sprite of this colour (pip_gem_blue / _purple / _gold), else the tinted code-drawn diamond
+                    var id = PipGemId(gems[i].Value);
+                    if (id != null && KitArt.Get(id) != null) Diamond(strip, id, px + 2, (h - gem) / 2 + 3, gem - 4, gems[i].Value, 0, Color.white).name = "Gem";
+                    else Diamond(strip, "pip_gem", px, (h - gem) / 2 + 1, gem, gems[i].Value, 2.7f, gems[i].Value).name = "Gem";
+                }
+                // empty socket: darker than the code strip, lighter than the kit's near-black pip_strip (else it disappears on it)
+                else if (i < open) Diamond(strip, "pip_socket", px + 5, (h - gem) / 2 + 6, gem - 10, KitArt.Get("pip_strip") != null ? Theme.Hex(0x48426A) : Theme.Hex(0x22203A), 2.2f).name = "Socket";
                 else
                 {
                     var l = Box(strip, "pip_lock", px + 7, 7, 16, 19, PipLock, 5.3f);
@@ -291,6 +299,36 @@ namespace RogueStars.Client.UiKit
             return strip;
         }
 
+        /// <summary>Kit gem sprites by the gem colours the tiles use (<c>PartTileView.GemColor</c>: blue, purple, gold).</summary>
+        private static readonly (string id, Color color)[] PipGems =
+        {
+            ("pip_gem_blue", Theme.Hex(0x5FD3FF)), ("pip_gem_purple", Theme.Hex(0xC084FC)), ("pip_gem_gold", Theme.Hex(0xFFC23D)),
+        };
+
+        /// <summary>The kit gem sprite id of a pip colour (the nearest of blue / purple / gold, if close), else null (code-drawn, tinted).</summary>
+        public static string PipGemId(Color c)
+        {
+            string best = null;
+            float bestD = 0.06f; // squared RGB distance: only (near) exact matches
+            foreach (var g in PipGems)
+            {
+                float dr = c.r - g.color.r, dg = c.g - g.color.g, db = c.b - g.color.b, d = dr * dr + dg * dg + db * db;
+                if (d < bestD) { bestD = d; best = g.id; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// The icon of a currency in kit chrome: the kit's <c>icon_&lt;id&gt;</c> when present (stamina, diamond, ore, biomass,
+        /// metal), else the game's currency icon.
+        /// </summary>
+        public static Sprite CurrencyIcon(string c)
+        {
+            string kit = c == Currencies.Diamonds ? "icon_diamond" : c == Currencies.Ore ? "icon_ore" : c == Currencies.Stamina ? "icon_stamina"
+                : c == Currencies.Biomass ? "icon_biomass" : c == Currencies.Metal ? "icon_metal" : null;
+            return (kit != null ? KitArt.Get(kit) : null) ?? RogueStars.Client.World.SummonArt.CurrencyIcon(c);
+        }
+
         /// <summary>The navy pill of a currency in the top bar: icon, amount, the green "+" (tap = <paramref name="onPlus"/>).</summary>
         public static RectTransform CurrencyPill(Transform parent, float x, float y, float w, Sprite icon, string amount, Action onPlus, string name)
         {
@@ -298,6 +336,12 @@ namespace RogueStars.Client.UiKit
             Icon(pill, icon, 4, 4, 60, 60);
             var t = Text(pill, amount, 66, 14, w - 66 - 62, 40, 34.7f, Color.white, TextAnchor.MiddleCenter, "Amount");
             KitFit.On(t, 20);
+            if (KitArt.Get("plus_button") != null)
+            {
+                // the kit's plus is cut out of the green square: a white backing under it makes it the board's white "+"
+                var back = Place(pill, "PlusBack", w - 62 + 10, 8 + 8, 33, 33).gameObject.AddComponent<Image>();
+                back.color = Color.white; back.raycastTarget = false;
+            }
             var plus = Box(pill, "plus_button", w - 62, 8, 53, 53, Plus, 13.3f, 5.3f, Ink, null, "Plus").rectTransform;
             if (KitArt.Get("plus_button") == null) Text(plus, "+", 0, -2, 53, 53, 40, Color.white, TextAnchor.MiddleCenter, "PlusText", false);
             Tap(pill, onPlus);

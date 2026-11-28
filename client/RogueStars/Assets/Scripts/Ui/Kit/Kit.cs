@@ -334,15 +334,19 @@ namespace RogueStars.Client.UiKit
         {
             var rt = Ui.Rect(parent, name ?? "CurrencyChip:" + currencyId);
             var img = rt.gameObject.AddComponent<Image>();
-            img.color = new Color32(0x16, 0x12, 0x2A, 255);
-            Decorate(img, height / 2, "chip", false, 1.1f, 0.9f);
-            UiShapes.Outline(rt, Theme.Shade(NavActive, 0.5f), height / 2, 3);
+            // kit v2's currency_pill is the same dark navy pill (outline baked in, untinted)
+            if (!KitV2.Skin(img, "currency_pill"))
+            {
+                img.color = new Color32(0x16, 0x12, 0x2A, 255);
+                Decorate(img, height / 2, "chip", false, 1.1f, 0.9f);
+                UiShapes.Outline(rt, Theme.Shade(NavActive, 0.5f), height / 2, 3);
+            }
             var h = rt.gameObject.AddComponent<HorizontalLayoutGroup>();
             h.padding = new RectOffset(10, Mathf.RoundToInt(height * 0.4f), 4, 4);
             h.spacing = 8; h.childAlignment = TextAnchor.MiddleLeft;
             h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = false; h.childForceExpandHeight = false;
             var icon = Ui.Panel(rt, Color.white, "Icon");
-            icon.sprite = SummonArt.CurrencyIcon(currencyId); icon.preserveAspect = true; icon.raycastTarget = false;
+            icon.sprite = KitV2.CurrencyIcon(currencyId); icon.preserveAspect = true; icon.raycastTarget = false;
             Ui.Size(icon, height - 12, height - 12, 0, 0);
             var t = Title(rt, text, Mathf.RoundToInt(height * 0.48f), Color.white, TextAnchor.MiddleLeft, "Amount");
             Ui.Size(t, -1, height - 8, 0, 0);
@@ -381,8 +385,11 @@ namespace RogueStars.Client.UiKit
         {
             var d = Ui.Dot(host, DotRed, size, name);
             d.raycastTarget = false;
-            var s = KitArt.Get("badge_dot");
+            // kit v2's badge_red is the same red dot, fully coloured with its white ring and navy outline baked in
+            var v2 = KitArt.Get("badge_red");
+            var s = v2 ?? KitArt.Get("badge_dot");
             if (s != null) d.sprite = s;
+            if (v2 != null) { d.color = Color.white; d.preserveAspect = true; }
             var le = d.GetComponent<LayoutElement>();
             if (le == null) le = d.gameObject.AddComponent<LayoutElement>();
             le.ignoreLayout = true;
@@ -390,7 +397,7 @@ namespace RogueStars.Client.UiKit
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1, 1);
             rt.sizeDelta = new Vector2(size, size);
             rt.anchoredPosition = new Vector2(6, 6);
-            UiShapes.Outline(rt, Color.white, size / 2, 3);
+            if (v2 == null) UiShapes.Outline(rt, Color.white, size / 2, 3);
             var t = Title(rt, text, Mathf.RoundToInt(size * 0.62f), Color.white, TextAnchor.MiddleCenter, "Text");
             Ui.Stretch(t.rectTransform);
             return rt;
@@ -436,7 +443,8 @@ namespace RogueStars.Client.UiKit
                 var pill = Ui.Rect(row, "Stat:" + st.key);
                 Ui.Size(pill, -1, 56, 1, 0);
                 var track = Ui.Panel(pill, new Color(0.05f, 0.03f, 0.08f, 0.78f), "Track");
-                Decorate(track, 28, "stat_pill", false, 1.1f, 0.9f);
+                // kit v2's stat_bar is the same dark value pill the icon overlaps (untinted), else the tinted v1 slot
+                if (!KitV2.Skin(track, "stat_bar")) Decorate(track, 28, "stat_pill", false, 1.1f, 0.9f);
                 track.raycastTarget = false;
                 Ui.Stretch(track.rectTransform, 28, 8, 0, 8);
                 var disc = Ui.Dot(pill, st.color, 56, "Icon");

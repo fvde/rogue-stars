@@ -203,6 +203,10 @@ namespace RogueStars.Client.Editor
             { "sidekicks", ("Art/Sidekicks", false) },
             // art import 4 (2026-11-27): the City buildings (one per blueprint, ArtCatalog.Building), each on its foundation plate
             { "buildings", ("Art/City/Buildings", true) },
+            // UI kit v2 batch 1 (2026-11-28): the owner-approved kit pieces, full-frame at their spec size (9-slice borders:
+            // KitImportRules), plus approved icons reused as kit icons (trimmed). KitArt / KitV2 load them by id.
+            { "ui-kit-v2", ("Art/Ui/Kit", false) },
+            { "ui-kit-icons", ("Art/Ui/Kit", true) },
         };
 
         /// <summary>
@@ -271,6 +275,77 @@ namespace RogueStars.Client.Editor
             foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(json, "\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\""))
                 d[m.Groups[1].Value] = m.Groups[2].Value;
             return d;
+        }
+    }
+
+    /// <summary>
+    /// UI kit v2 sprites (docs/design/ui-kit-v2.md, <c>Assets/Art/Resources/Art/Ui/Kit/&lt;id&gt;.png</c>, picks "ui-kit-v2/…" and
+    /// "ui-kit-icons/…" in tools/art/slice-picks.json): the imported ids and the 9-slice border of each stretchable piece at its
+    /// spec size. <see cref="ArtImportSettings"/> writes the border into the sprite on import, scaled to the file's actual pixel
+    /// size; fixed pieces and icons get none.
+    /// </summary>
+    public static class KitImportRules
+    {
+        public const string Folder = "/Art/Ui/Kit/";
+
+        /// <summary>9-slice pieces: id → (spec width, spec height, border px at the spec size), from the doc's table.</summary>
+        public static readonly Dictionary<string, (int w, int h, int border)> NineSlice = new Dictionary<string, (int, int, int)>
+        {
+            { "topbar", (1080, 230, 24) },
+            { "currency_pill", (240, 70, 34) },
+            { "season_bar", (640, 90, 40) },
+            { "season_bar_fill", (640, 90, 40) },
+            { "timer_chip", (140, 40, 20) },
+            { "quick_band", (900, 170, 40) },
+            { "start_button", (540, 210, 60) },
+            { "power_plate", (460, 90, 40) },
+            { "stat_bar", (340, 70, 34) },
+            { "tab_active", (340, 110, 30) },
+            { "tab_inactive", (340, 110, 30) },
+            { "grid_panel", (1080, 900, 30) },
+            { "grid_header", (1080, 130, 30) },
+            { "button_small_blue", (260, 86, 30) },
+            { "button_small_yellow", (260, 86, 30) },
+            { "hp_frame", (600, 60, 14) },
+            { "hp_red", (600, 60, 14) },
+            { "hp_shield_blue", (600, 60, 14) },
+            { "hp_rage_yellow", (600, 60, 14) },
+            { "speed_button", (200, 110, 30) },
+        };
+
+        /// <summary>Fixed pieces (drawn whole, no border).</summary>
+        public static readonly string[] Fixed =
+        {
+            "avatar_frame", "badge_red", "edge_tab_left", "edge_tab_right", "level_hex", "list_button", "nav_tile", "nav_tile_active",
+            "pip_gem_blue", "pip_gem_gold", "pip_gem_purple", "pip_strip", "plus_button", "skill_tile", "skill_tile_active", "slot_badge",
+            "tile_common", "tile_rare", "tile_epic", "tile_legendary", "tile_mythic",
+        };
+
+        /// <summary>Approved game icons reused as kit icons (currencies; the HUD cog as the settings glyph until <c>round_button</c>).</summary>
+        public static readonly string[] Icons = { "icon_stamina", "icon_diamond", "icon_ore", "icon_settings" };
+
+        /// <summary>Every imported kit id.</summary>
+        public static IEnumerable<string> All => NineSlice.Keys.Concat(Fixed).Concat(Icons);
+
+        /// <summary>The kit id of an asset path under <c>…/Art/Ui/Kit/</c>, else null.</summary>
+        public static string IdOf(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath)) return null;
+            int i = assetPath.IndexOf(Folder, StringComparison.Ordinal);
+            if (i < 0) return null;
+            return Path.GetFileNameWithoutExtension(assetPath.Substring(i + Folder.Length));
+        }
+
+        /// <summary>Kit icons (downscaled on import: drawn at ≤ 160 px, no mip maps).</summary>
+        public static bool IsIcon(string id) => id != null && id.StartsWith("icon_", StringComparison.Ordinal);
+
+        /// <summary>Sprite border (left, bottom, right, top) of <paramref name="id"/> for a file of <paramref name="width"/> × <paramref name="height"/> px.</summary>
+        public static Vector4 Border(string id, int width, int height)
+        {
+            if (id == null || !NineSlice.TryGetValue(id, out var spec)) return Vector4.zero;
+            float bx = Mathf.Round(spec.border * (width > 0 ? width / (float)spec.w : 1f));
+            float by = Mathf.Round(spec.border * (height > 0 ? height / (float)spec.h : 1f));
+            return new Vector4(bx, by, bx, by);
         }
     }
 
