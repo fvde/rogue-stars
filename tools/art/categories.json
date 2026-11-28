@@ -459,6 +459,18 @@
     "currency-redo2": [
       "icon",
       "Currencies"
+    ],
+    "ui-kit-v2-icons": [
+      "icon",
+      "UI kit v2"
+    ],
+    "ui-kit-v2-bits": [
+      "icon",
+      "UI kit v2"
+    ],
+    "ui-kit-v2-parchment": [
+      "fullframe",
+      "UI kit v2"
     ]
   }
 }

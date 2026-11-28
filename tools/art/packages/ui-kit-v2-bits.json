@@ -1,0 +1,21 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game UI icon, one single object, centered, isolated on a plain pure white background",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-ui-kit-v2-bits",
+  "seeds": [
+    7521,
+    7522
+  ],
+  "subjects": {
+    "power_icon": "a round purple badge with two crossed gold swords, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "pip_lock": "a tiny chunky grey padlock, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "slot_glyph_head": "a simple solid dark navy silhouette glyph of a round robot helmet, flat single color, no shading",
+    "slot_glyph_body": "a simple solid dark navy silhouette glyph of a chest armor plate, flat single color, no shading",
+    "slot_glyph_arm": "a simple solid dark navy silhouette glyph of a mechanical arm with a claw, flat single color, no shading",
+    "slot_glyph_legs": "a simple solid dark navy silhouette glyph of a pair of boots, flat single color, no shading",
+    "slot_glyph_tail": "a simple solid dark navy silhouette glyph of a curled worm tail with a spike, flat single color, no shading"
+  }
+}

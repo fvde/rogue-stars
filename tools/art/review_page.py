@@ -91,9 +91,9 @@ def fig_id(prefix, path):
     return f"{prefix}-{slug}"
 
 
-def thumb(path):
+def thumb(path, size=None):
     im = Image.open(path)
-    im.thumbnail((THUMB + 60, THUMB + 60))
+    im.thumbnail((size or THUMB + 60, size or THUMB + 60))
     buf = io.BytesIO()
     im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB").save(buf, "WEBP", quality=72); mime = "webp"
     return f"data:image/{mime};base64," + base64.b64encode(buf.getvalue()).decode()
@@ -296,7 +296,7 @@ def sections(state, reg=None):
         appr.sort(key=lambda f: reg["files"].get(f, 0))
         anim_ok = [f for f in animated(c.get("animated_approved")) if f not in rejected]
         anim_new = [f for f in animated(c.get("animated")) if f not in rejected and f not in anim_ok]
-        if appr or cand or anim_ok or anim_new or c.get("reference"):
+        if appr or cand or anim_ok or anim_new or c.get("reference") or c.get("preview"):
             out.append((c, appr, cand, anim_ok, anim_new))
     return out
 
@@ -334,6 +334,12 @@ def main():
         sec = [f'<section><h2>{html.escape(c["title"])}</h2>']
         if c.get("note"):
             sec.append(f'<p class="note">{html.escape(c["note"])}</p>')
+        prev = files(c.get("preview"))     # big assembled-screen previews (UI kit v2: tools/art/kit_preview.py)
+        if prev:
+            sec.append(f'<h3>{html.escape(c.get("preview_title", "Preview"))}</h3>')
+            for f in prev:
+                sec.append(f'<figure id="{fig_id("prev", f)}" style="max-width:100%"><img style="width:100%;height:auto" src="{thumb(f, 1800)}" '
+                           f'alt="{html.escape(c.get("preview_title", "Preview"))}"></figure>')
         refs = files(c.get("reference"))   # fixed base art every candidate must match (e.g. the base worm for hero skins)
         if refs:
             sec.append(f'<h3>Reference <small>{len(refs)}</small></h3><div class="grid">')

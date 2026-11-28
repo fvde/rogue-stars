@@ -1,0 +1,15 @@
+{
+  "name": "pkg-ui-kit-v2-parchment",
+  "width": 512,
+  "height": 512,
+  "seeds": [
+    7531,
+    7532
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", flat seamless tileable texture filling the whole image, game UI background",
+  "negative": "text, letters, objects, frame, border, vignette, shadow, photo, blurry, characters",
+  "subjects": {
+    "parchment_bg": "soft cream parchment paper with a faint light diamond lattice pattern, even flat lighting"
+  }
+}

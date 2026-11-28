@@ -1,0 +1,33 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game UI icon, one single object, centered, isolated on a plain pure white background",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-ui-kit-v2-icons",
+  "seeds": [
+    7511,
+    7512
+  ],
+  "subjects": {
+    "icon_city": "a small cartoon space city: three chunky domed buildings with glowing windows, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_arena": "two crossed swords in front of a round gold shield, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_quests": "a rolled quest scroll with a red wax seal and a gold check mark, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_hero_event": "a glowing purple crystal summoning orb on a gold stand ring with sparkles, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_mail": "a blue space mail envelope with a small planet stamp, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_invasion": "a menacing alien mothership with red warning lights, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_starter_pack": "a purple gift chest with a gold ribbon and a star tag, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_growth_fund": "a green sprout growing out of a stack of gold coins, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_portal_map": "a folded treasure map with a glowing swirl portal marked on it, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_dark_side": "a dark planet half in shadow with a glowing purple crescent rim, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_guild": "a guild banner flag with a gold crown emblem on a pole, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_modes": "a round gold compass with four colored arrow points, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_talents": "a glowing green star badge with three rising sparkles, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_runes": "a round blue stone rune tablet with a glowing carved symbol, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_mounts": "a small cartoon saddled hover bike mount seen from the side, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_laboratory": "a bubbling green science flask with a small gear, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_atk": "one sharp steel sword pointing up with a gold hilt, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_def": "one round steel-blue shield with a gold rim, one single solid object, bold black outline, flat bright colors, two-tone cel shading",
+    "icon_power": "a round purple badge with two crossed gold swords, one single solid object, bold black outline, flat bright colors, two-tone cel shading"
+  }
+}

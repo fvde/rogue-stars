@@ -31,6 +31,9 @@ def masks():
     return base, soft
 
 
+IPW = 0.6
+
+
 def wf(prefix, text, seed, den, ref):
     nodes = {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "DreamShaperXL_Turbo_v2_1.safetensors"}},
@@ -51,7 +54,7 @@ def wf(prefix, text, seed, den, ref):
             "3": {"class_type": "CLIPVisionLoader", "inputs": {"clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"}},
             "4": {"class_type": "LoadImage", "inputs": {"image": "hs_ref.png"}},
             "5": {"class_type": "IPAdapterAdvanced", "inputs": {"model": ["1", 0], "ipadapter": ["2", 0], "image": ["4", 0], "clip_vision": ["3", 0],
-                  "weight": 0.6, "weight_type": "style transfer", "combine_embeds": "average", "start_at": 0.0, "end_at": 1.0, "embeds_scaling": "V only"}}})
+                  "weight": IPW, "weight_type": "style transfer", "combine_embeds": "average", "start_at": 0.0, "end_at": 1.0, "embeds_scaling": "V only"}}})
         model = ["5", 0]
     nodes["11"] = {"class_type": "KSampler", "inputs": {"model": model, "positive": ["9", 0], "negative": ["10", 0], "latent_image": ["8m", 0],
                    "seed": seed, "steps": 8, "cfg": 2.0, "sampler_name": "dpmpp_sde", "scheduler": "karras", "denoise": den}}
@@ -60,8 +63,9 @@ def wf(prefix, text, seed, den, ref):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("skin"); ap.add_argument("prompt"); ap.add_argument("--ref")
-    ap.add_argument("--seeds", default="8201,8202"); ap.add_argument("--denoise", type=float, default=0.7)
+    ap.add_argument("--seeds", default="8201,8202"); ap.add_argument("--denoise", type=float, default=0.7); ap.add_argument("--ipw", type=float, default=0.6)
     a = ap.parse_args(); os.makedirs(OUT, exist_ok=True)
+    global IPW; IPW = a.ipw
     base, soft = masks()
     bg = Image.new("RGBA", base.size, (255, 255, 255, 255)); bg.alpha_composite(base)
     bg.convert("RGB").save(f"{COMFY}/input/hs_base.png"); soft.save(f"{COMFY}/input/hs_mask.png")
