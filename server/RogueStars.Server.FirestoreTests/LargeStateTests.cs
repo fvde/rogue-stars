@@ -46,9 +46,7 @@ public class LargeStateTests(ITestOutputHelper output)
         var window = new List<RequestRecord>();
         maxPayload = 0;
         p.S.Wallet.Add(Currencies.Stamina, 1000);
-        var main = p.C.Portals.Values.First(x => x.Kind == RogueStars.Rules.Content.PortalKind.Main);
-        foreach (var level in Enumerable.Reverse(main.LevelIds))
-            if (p.Exec(new RunStart { LevelId = level, Mode = RunMode.Normal }).Ok) break;
+        if (!p.Exec(RunSystem.NextMainRunStart(p.S, p.C)!).Ok) p.Exec(new RunStart { LevelId = p.C.MainLevelId(1), Mode = RunMode.Normal });
         Assert.NotNull(p.S.Run.Active);
         for (int i = 0; i < 400 && p.S.Run.Active != null; i++)
         {

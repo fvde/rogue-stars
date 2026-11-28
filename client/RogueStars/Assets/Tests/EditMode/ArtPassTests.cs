@@ -174,6 +174,22 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
+        public void CampaignBiomes_EachHasItsOwnBoardArt_AndEveryLevelShowsItsBiome()
+        {
+            ArtCatalog.Loader = null;
+            var ids = new HashSet<string>();
+            foreach (var biome in C.Campaign.Biomes)
+            {
+                var art = ArtCatalog.Biomes.Find(b => b.Id == biome.Id);
+                Assert.That(art, Is.Not.Null, biome.Id + " has a BiomeArt line");
+                Assert.That(ArtCatalog.Background(art), Is.Not.Null, biome.Id + " has a background (the portal window)");
+                Assert.That(ids.Add(art.Background), Is.True, "distinct art per biome");
+            }
+            for (int n = 1; n <= 40; n++)
+                Assert.That(ArtCatalog.BiomeFor(C.MainLevel(n)).Id, Is.EqualTo(C.CampaignBiome(n).Id), "level " + n);
+        }
+
+        [Test]
         public void ImportedSprites_AreInTheGame()
         {
             ArtCatalog.Loader = null;

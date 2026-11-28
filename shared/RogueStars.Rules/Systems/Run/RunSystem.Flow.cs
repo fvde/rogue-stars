@@ -8,11 +8,14 @@ namespace RogueStars.Rules.Systems
     // Movement, tiles, battles, events, shops, awakening, completion.
     public static partial class RunSystem
     {
-        /// <summary>Previous level of the same portal (endless portals included), or null for its first level.</summary>
+        /// <summary>
+        /// The level before this one: main levels follow one linear sequence (level n − 1, each its own portal), other
+        /// portals their own levels (endless portals included); null for the first.
+        /// </summary>
         private static string PrevLevelId(ContentDb c, PortalDef portal, LevelDef level)
         {
+            if (portal.Kind == PortalKind.Main) return level.Number <= 1 ? null : c.MainLevelId(level.Number - 1);
             if (level.Index <= 1) return null;
-            if (portal.Kind == PortalKind.Main) return c.MainLevelId(level.Number - 1);
             return c.PortalLevel(portal, level.Index - 1)?.Id;
         }
 
@@ -1510,10 +1513,10 @@ namespace RogueStars.Rules.Systems
                     if (run.Mode == RunMode.Overcharged) p.OverchargedCleared = true; else p.Cleared = true;
                     p.Clears++;
                     if (firstClear) s.Count("levels_cleared");
-                    // Global main level number (portal 1 = 1..10, ...): Meta's feature gates read main_level_max.
+                    // Global main level number (1, 2, 3, …): Meta's feature gates read main_level_max.
                     if (run.Mode == RunMode.Normal) ProgressionUtil.CountMax(s, Requirements.MainLevelCounter, MainLevelNumber(c, run.LevelId));
                     if (run.Mode == RunMode.DarkSide) ProgressionUtil.CountMax(s, DarkSideMaxCounter, level.Number);
-                    // Endless campaign milestones (chest every 10 levels, portal bonus every 50): first Normal clear only.
+                    // Endless campaign milestones (chest every 10 levels, bonus chest every 50): first Normal clear only.
                     if (firstClear && run.Mode == RunMode.Normal && level.FirstClearRewards.Count > 0)
                     {
                         foreach (var r in level.FirstClearRewards) { rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity)); sources.Add(RunRewardLine.Milestone); }

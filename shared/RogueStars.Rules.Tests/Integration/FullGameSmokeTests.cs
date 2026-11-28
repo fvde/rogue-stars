@@ -112,7 +112,7 @@ public class FullGameSmokeTests
         Assert.Equal(6, p.S.Stash.Items.Count(r => r.Kind == RewardKinds.Part)); // parts v2: one Common per slot
 
         // Day 1: the first run without parts (level 1 is eased); completion unlocks Parts, which releases the stash.
-        p.Do(new RunStart { LevelId = "ember_wastes_1" });
+        p.Do(new RunStart { LevelId = "main_1" });
         for (int i = 0; i < 1500 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
         Assert.Null(p.S.Run.Active);
         Assert.True(p.S.Run.LastSummary.Won);
@@ -273,7 +273,7 @@ public class FullGameSmokeTests
         p.Do(new CityCollect(), 5 * Hour); // settles planetary events/modifiers too
         p.Build("bp_grain_farm", rush: false);                               // timer left running
         p.Do(new LabResearch { ResearchId = "res_burning_soul" });          // research timer running
-        p.Do(new RunStart { LevelId = "ember_wastes_1" });                   // a run in progress (board, RNG, loadout)
+        p.Do(new RunStart { LevelId = "main_1" });                   // a run in progress (board, RNG, loadout)
         for (int i = 0; i < 5 && p.S.Run.Active != null; i++) p.Do(new RunAutoStep { Farming = true, FarmShops = true });
 
         // Every top-level part of the state is populated.

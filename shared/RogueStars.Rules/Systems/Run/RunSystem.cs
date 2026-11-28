@@ -79,17 +79,18 @@ namespace RogueStars.Rules.Systems
                 case RunMode.Overcharged:
                     if (portal.Kind != PortalKind.Main || !Features.IsUnlocked(state, content, Features.Overcharged)) return false;
                     if (!Progress(state, content, level.Id).Cleared) return false;
-                    return level.Index == 1 || Progress(state, content, PrevLevelId(content, portal, level)).OverchargedCleared;
+                    var prev = PrevLevelId(content, portal, level);
+                    return prev == null || Progress(state, content, prev).OverchargedCleared;
                 default:
                     if (portal.Kind != PortalKind.Main) return false;
-                    // The previous level in the endless sequence (the last level of the previous portal for a level 1).
+                    // The previous level in the endless sequence.
                     return level.Number <= 1 || Progress(state, content, content.MainLevelId(level.Number - 1)).Cleared;
             }
         }
 
         /// <summary>
-        /// Global number of a main-portal level (portals by Order, 1-based: portal 1 = 1..10, portal 2 = 11..20, endless);
-        /// 0 for other portals. Run keeps the highest cleared one in the counter main_level_max (feature gates).
+        /// Global number of a main level (1, 2, 3, … endless; every main level is its own portal); 0 for other portals.
+        /// Run keeps the highest cleared one in the counter main_level_max (feature gates).
         /// </summary>
         public static int MainLevelNumber(ContentDb content, string levelId)
         {
@@ -101,6 +102,16 @@ namespace RogueStars.Rules.Systems
         /// <summary>The next main level to clear (main_level_max + 1): the campaign never ends.</summary>
         public static LevelDef NextMainLevel(GameState state, ContentDb content) =>
             content.MainLevel((int)state.Counter(Requirements.MainLevelCounter) + 1);
+
+        /// <summary>
+        /// The command that starts the player's next main level (Normal mode: the hub's PLAY, "Next level" on the result
+        /// screen): the level after the highest one cleared. Null when there is none (never in the endless campaign).
+        /// </summary>
+        public static RunStart NextMainRunStart(GameState state, ContentDb content)
+        {
+            var next = NextMainLevel(state, content);
+            return next == null ? null : new RunStart { PortalId = next.PortalId, LevelId = next.Id, Mode = RunMode.Normal };
+        }
 
         /// <summary>Level progress (feats, clears); returns an empty record if never played. Uses ContentDb.Default for archived levels.</summary>
         public static LevelProgress Progress(GameState state, string levelId) => Progress(state, ContentDb.Default, levelId);

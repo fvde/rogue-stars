@@ -13,7 +13,7 @@ namespace RogueStars.Rules.Tests.Run;
 public class PlaytestRulesTests(ITestOutputHelper output)
 {
     public static IEnumerable<object[]> Levels() =>
-        new[] { "ember_wastes_1", "ember_wastes_8", "glacier_rift_5", "static_jungle_9", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
+        new[] { "main_1", "main_8", "main_15", "main_29", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
 
     private static Dictionary<int, int> Incoming(List<RunTile> tiles)
     {
@@ -99,7 +99,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     {
         var c = RunTestKit.Classic;
         Assert.True(c.RunTuning.BoardLayouts.Select(l => l.Kind).Distinct().Count() >= 5);
-        var level = c.RunLevel("ember_wastes_5")!;
+        var level = c.RunLevel("main_5")!;
         // the shapes differ: how often the path turns varies across seeds (straights, zig-zags, hairpins, fork loops)
         var turnRates = new HashSet<int>();
         for (ulong seed = 1; seed <= 30; seed++)
@@ -117,7 +117,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     public void BossArena_IsPlacedAheadOfTheWorm()
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
-        var s = RunTestKit.StartRun(e);
+        var s = RunTestKit.StartRun(e, seed: 43); // a seed whose first roll lands on a plain tile
         var run = s.Run.Active!;
         run.MinibossesSpawned = e.Content.RunTuning.MinibossAtMeter.Count;
         run.Awakening = 99.9;
@@ -222,8 +222,8 @@ public class PlaytestRulesTests(ITestOutputHelper output)
     // ---- 3. start coins ----------------------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("ember_wastes_1")]
-    [InlineData("glacier_rift_4")]
+    [InlineData("main_1")]
+    [InlineData("main_14")]
     public void FirstShop_AlwaysAllowsAPurchase(string levelId)
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
@@ -436,7 +436,7 @@ public class PlaytestRulesTests(ITestOutputHelper output)
         var e = RunTestKit.Engine(RunTestKit.Strong());
         for (long seed = 1; seed <= 10; seed++)
         {
-            var s = RunTestKit.StartRun(e, "ember_wastes_1", seed);
+            var s = RunTestKit.StartRun(e, "main_1", seed);
             for (int i = 0; i < 800 && s.Run.Active != null; i++)
             {
                 var r = RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true, FarmShops = true });

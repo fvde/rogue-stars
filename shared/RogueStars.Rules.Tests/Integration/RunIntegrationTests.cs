@@ -52,7 +52,7 @@ public class RunIntegrationTests
         var s = e.NewPlayer("p", T0, 3);
         var expected = e.BuildLoadout(s, T0).WormStats.Value(StatId.Hp);
         Assert.True(expected > 0);
-        Assert.True(e.Execute(ref s, new RunStart { LevelId = "ember_wastes_1" }, T0).Ok);
+        Assert.True(e.Execute(ref s, new RunStart { LevelId = "main_1" }, T0).Ok);
         Assert.Equal(expected, s.Run.Active!.Loadout.WormStats.Value(StatId.Hp), 6); // no FallbackWormStats added
         Assert.Equal(e.Content.EconomyConfig.StartingWallet[Currencies.Stamina] - 5, s.Wallet.Get(Currencies.Stamina));
         Assert.Equal(5, s.Counter("stamina_spent"));
@@ -91,16 +91,16 @@ public class RunIntegrationTests
         var e = Engine();
         var s = e.NewPlayer("p", T0, 4);
         Assert.False(Features.IsUnlocked(s, e.Content, Features.Parts));
-        Assert.Equal(1, RunSystem.MainLevelNumber(e.Content, "ember_wastes_1"));
-        Assert.Equal(11, RunSystem.MainLevelNumber(e.Content, "glacier_rift_1"));
+        Assert.Equal(1, RunSystem.MainLevelNumber(e.Content, "main_1"));
+        Assert.Equal(11, RunSystem.MainLevelNumber(e.Content, "main_11"));
         Assert.Equal(0, RunSystem.MainLevelNumber(e.Content, "the_burrow_1"));
         s.Worm.Level = 30; // strong enough to win
-        var sum = AutoRun(e, ref s, "ember_wastes_1", T0);
+        var sum = AutoRun(e, ref s, "main_1", T0);
         Assert.True(sum.Won);
         Assert.Equal(1, s.Counter(Requirements.MainLevelCounter));
         Assert.True(s.Onboarding.Unlocked.ContainsKey(Features.Parts)); // recorded by the run's own command
         Assert.DoesNotContain(s.Parts.Items.Values, p => p.DefId == RewardWildcard.Any);
-        AutoRun(e, ref s, "ember_wastes_1", T0 + Min); // replay does not lower the max
+        AutoRun(e, ref s, "main_1", T0 + Min); // replay does not lower the max
         Assert.Equal(1, s.Counter(Requirements.MainLevelCounter));
     }
 
@@ -136,7 +136,7 @@ public class RunIntegrationTests
     }
 
     /// <summary>
-    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays Ember Wastes (the first run without parts:
+    /// Early balance: a brand-new player (starter kit, no cheats) auto-plays the first levels (the first run without parts:
     /// they arrive with the Parts unlock), spends what the runs pay
     /// on worm and part levels between runs, and clears level 3 within a bounded number of runs (stamina regen
     /// between sessions), while level 1 is won right away.
@@ -158,7 +158,7 @@ public class RunIntegrationTests
         {
             int next = (int)s.Counter(Requirements.MainLevelCounter) + 1;
             if (s.Wallet.Get(Currencies.Stamina) < 5) now += 30 * Min; // a break: stamina regenerates
-            var sum = AutoRun(e, ref s, "ember_wastes_" + next, now);
+            var sum = AutoRun(e, ref s, "main_" + next, now);
             runs++;
             if (sum.Won) wins++;
             if (runs == 1) firstWon = sum.Won;
@@ -167,7 +167,7 @@ public class RunIntegrationTests
             SpendOnUpgrades(e, ref s, now);
             foreach (var kv in s.Wallet.Balances) Assert.True(kv.Value >= 0, kv.Key);
         }
-        Assert.True(firstWon, "a fresh worm should win Ember Wastes 1");
+        Assert.True(firstWon, "a fresh worm should win level 1");
         Assert.True(s.Counter(Requirements.MainLevelCounter) >= 3, $"stuck at {s.Counter(Requirements.MainLevelCounter)} after {runs} runs");
         // Worm Level unlocks with level 3 (GDD §16 level unlocks): the first upgrades are part levels, then worm levels.
         Assert.True(Features.IsUnlocked(s, e.Content, Features.WormLevel));

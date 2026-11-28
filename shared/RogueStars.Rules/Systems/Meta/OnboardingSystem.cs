@@ -222,7 +222,7 @@ namespace RogueStars.Rules.Systems
         // Level unlocks (content version 2): run content, the auto roll and the Laboratory's signature packages.
         /// <summary>Run content: the miniboss lair and the awakening clock's minibosses (Mythic choices).</summary>
         public const string RunMiniboss = "run_miniboss";
-        /// <summary>Run content: two dice (portal levels 6–10) and forks in the path.</summary>
+        /// <summary>Run content: two dice (chapter steps 6–10 of every 10 levels) and forks in the path.</summary>
         public const string RunTwoDice = "run_two_dice";
         /// <summary>Run content: campfires (fixed tile and pool tile).</summary>
         public const string RunCampfire = "run_campfire";

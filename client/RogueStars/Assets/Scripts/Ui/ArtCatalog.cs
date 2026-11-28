@@ -39,7 +39,8 @@ namespace RogueStars.Client.UiKit
     }
 
     /// <summary>
-    /// ONE place that maps the game to art: biomes (portal families) → board ground, tile sprites and decor props; enemy and
+    /// ONE place that maps the game to art: biomes (a main level's LevelDef.Biome, else its tile pool's family) → board ground,
+    /// tile sprites and decor props, the portal windows of the level selection; enemy and
     /// alien sprites by def id; the hero sprite. Every lookup falls back (family sprite → procedural look) when an asset is
     /// missing, so new generated art is added by dropping the file under <c>Assets/Art/Resources/Art/…</c> (or running
     /// <c>Tools/Art/Import Generated Art</c>) and, for a new biome, one line in <see cref="Biomes"/> / <see cref="FamilyBiome"/>.
@@ -82,6 +83,7 @@ namespace RogueStars.Client.UiKit
             Make("alien_jungle", "mushroom_forest", 0x6A8A4C, 0x3A5028, 0x16200E, 0.84f, 0x5E6652),
             Make("toxic_swamp", null, 0x4E5A3A, 0x28301C, 0x10140A, 0.8f, 0x505842),
             Make("gas_giant", null, 0x4A4A5E, 0x24243A, 0x0E0E18, 0.8f, 0x5C5C72),
+            Make("cloud_islands", "desert_ruins", 0xB8A27A, 0x75603E, 0x241A10, 0.84f, 0x6F7A62),
         };
 
         /// <summary>A biome line: its own ground / decor folders, the tile set of <paramref name="tileSet"/> (null = its own tile folder).</summary>
@@ -178,7 +180,16 @@ namespace RogueStars.Client.UiKit
             return Default;
         }
 
-        public static BiomeArt BiomeFor(LevelDef level) => BiomeFor(FamilyOf(level));
+        /// <summary>
+        /// A level's biome: main campaign levels name theirs (LevelDef.Biome = a <see cref="Biomes"/> id: every level its own
+        /// biome, ContentDb.CampaignBiomeIndex); other levels go by their tile pool's family (<see cref="FamilyBiome"/>).
+        /// </summary>
+        public static BiomeArt BiomeFor(LevelDef level)
+        {
+            if (!string.IsNullOrEmpty(level?.Biome))
+                foreach (var b in Biomes) if (b.Id == level.Biome) return b;
+            return BiomeFor(FamilyOf(level));
+        }
 
         /// <summary>The full-frame ground image of a biome, or null.</summary>
         public static Sprite Background(BiomeArt biome) => biome == null ? null : Load(biome.Background);

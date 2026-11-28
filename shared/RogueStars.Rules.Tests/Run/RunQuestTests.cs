@@ -29,7 +29,7 @@ public class RunQuestTests(ITestOutputHelper output)
     /// <summary>Starts a run and puts the quest tile right ahead (a straight line), then rolls into it: phase Quest.</summary>
     private static void Meet(GameEngine e, ref GameState s, Action<ActiveRun>? setup = null, int coinBonus = -1)
     {
-        if (s.Run.Active == null) Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        if (s.Run.Active == null) Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         var run = s.Run.Active!;
         run.Quest = new RunQuestRun
         {
@@ -80,7 +80,7 @@ public class RunQuestTests(ITestOutputHelper output)
         bool last = false;
         for (int i = 0; i < runs; i++)
         {
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             var run = s.Run.Active!;
             int quests = run.Tiles.Count(t => t.TileId == ContentDb.QuestTileId);
             since++;
@@ -154,7 +154,7 @@ public class RunQuestTests(ITestOutputHelper output)
             var e = AlwaysMeets();
             var s = TestHelpers.NewPlayer(e, seed);
             s.RunQuests.Encounters = 1;
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             Assert.NotNull(s.Run.Active!.Quest.QuestId);
             int opened = 0;
             for (int i = 0; i < 800 && s.Run.Active != null; i++)
@@ -258,7 +258,7 @@ public class RunQuestTests(ITestOutputHelper output)
     public void QuestBattle_IsAboveTheLevelsElites()
     {
         var e = Engine();
-        var s = RunTestKit.StartRun(e, "ember_wastes_1");
+        var s = RunTestKit.StartRun(e, "main_1");
         var run = s.Run.Active!;
         var c = e.Content;
         var level = c.RunLevel(run.LevelId)!;
@@ -425,7 +425,7 @@ public class RunQuestTests(ITestOutputHelper output)
         var s = TestHelpers.NewPlayer(e, 1);
         s.RunQuests.Quests[Q] = new QuestProgress { Node = "m19", CoinBonus = 1 };
         s.Wallet.Add(Currencies.Stamina, 100);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         Assert.Equal(1, s.Run.Active!.Quest.CoinBonus);
         Meet(e, ref s);
         Assert.Equal(QuestNodeKind.Boon, Node(e, s).Kind);
@@ -526,7 +526,7 @@ public class RunQuestTests(ITestOutputHelper output)
         s.RunQuests.Quests[Q] = new QuestProgress { Completed = true, CoinBonus = 3 };
         s.RunQuests.Encounters = 40;
         s.Wallet.Add(Currencies.Stamina, 100);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         Assert.True(s.Run.Active!.Quest.Epilogue);
         Assert.Equal(e.Content.RunQuest(Q)!.Epilogues[0].Id, s.Run.Active.Quest.EpilogueId);
     }

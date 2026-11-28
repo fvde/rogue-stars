@@ -6,21 +6,21 @@ namespace RogueStars.Rules.Tests.Run;
 
 public class EndlessCampaignTests
 {
-    /// <summary>Biome family strength factor of main portal <paramref name="index"/> (base offset × late offset).</summary>
-    internal static double FamilyFactor(ContentDb c, int index)
+    /// <summary>Biome family strength factor of main level <paramref name="n"/> (base offset × late offset).</summary>
+    internal static double FamilyFactor(ContentDb c, int n)
     {
         var k = c.Campaign;
-        double f = 1 + k.FamilyStrengthPct[index % k.FamilyStrengthPct.Count] / 100.0;
-        if (index >= k.LateFamilyFromPortal) f *= 1 + k.LateFamilyStrengthPct[index % k.LateFamilyStrengthPct.Count] / 100.0;
+        int family = ContentDb.FamilyIndex(c.CampaignBiome(n).Family);
+        double f = 1 + k.FamilyStrengthPct[family % k.FamilyStrengthPct.Count] / 100.0;
+        if (k.ChapterOf(n) >= k.LateFamilyFromChapter) f *= 1 + k.LateFamilyStrengthPct[family % k.LateFamilyStrengthPct.Count] / 100.0;
         return f;
     }
 
     [Fact]
-    public void MainLevels_ContinuePastTheNamedPortals_OnTheSameRisingCurve()
+    public void MainLevels_AreOnePortalEach_OnTheSameRisingCurve()
     {
         var c = new ContentDb();
         var ids = new HashSet<string>();
-        var names = new HashSet<string>();
         double prev = 0;
         for (int n = 1; n <= 3000; n++)
         {
@@ -29,22 +29,90 @@ public class EndlessCampaignTests
             Assert.Equal(n, l.Number);
             Assert.Equal(n, RunSystem.MainLevelNumber(c, l.Id));
             Assert.True(ids.Add(l.Id), l.Id);
-            Assert.Same(c.Portal(l.PortalId), c.MainPortal((n - 1) / c.Campaign.LevelsPerPortal));
-            if (l.Index == 1) Assert.True(names.Add(c.Portal(l.PortalId).Name), c.Portal(l.PortalId).Name);
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / FamilyFactor(c, (n - 1) / c.Campaign.LevelsPerPortal);
+            // every level is its own portal, named after its biome
+            var portal = c.Portal(l.PortalId);
+            Assert.Same(portal, c.MainPortal(n - 1));
+            Assert.Equal(new[] { l.Id }, portal.LevelIds);
+            Assert.Equal(PortalKind.Main, portal.Kind);
+            Assert.Equal(n - 1, portal.Order);
+            var biome = c.CampaignBiome(n);
+            Assert.Equal(biome.Id, l.Biome);
+            Assert.Equal(biome.Name, l.Name);
+            Assert.Equal(biome.Name, portal.Name);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / FamilyFactor(c, n);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.NotNull(c.RunLootTable(l.LootTableId));
             Assert.True(c.RunBosses.ContainsKey(l.BossId), l.BossId);
             Assert.True(c.TilePools.ContainsKey(l.TilePoolId));
         }
-        // Materialized content stays the named 50 portals; everything else lives in a bounded cache.
-        Assert.Equal(c.Campaign.Portals, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
-        Assert.Equal("ember_wastes_1", c.MainLevelId(1));
-        Assert.Equal("main_51_1", c.MainLevelId(501));
-        Assert.Null(c.RunLevel("main_51_11"));
-        Assert.Null(c.RunLevel("main_5_1")); // a named portal's index is not a generated id
+        // Materialized content stays the first 500 levels; everything else lives in a bounded cache.
+        Assert.Equal(c.Campaign.MaterializedLevels, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
+        Assert.Equal("main_1", c.MainLevelId(1));
+        Assert.Equal("main_501", c.MainLevelId(501));
+        Assert.Equal("main_501", c.MainLevel(501).PortalId);
+        Assert.Null(c.RunLevel("main_51_1")); // the old portal-of-10 ids are gone
+        Assert.Null(c.RunLevel("crystal_reef_5"));
+        Assert.Null(c.RunLevel("main_0"));
+        Assert.Null(c.RunLevel("main_07"));
         Assert.Null(c.Portal("main_0"));
+    }
+
+    [Fact]
+    public void BiomeOrder_NeverRepeatsABiomeOrFamilyTwiceInARow_UsesEveryBiome_AndIsDeterministic()
+    {
+        var c = new ContentDb();
+        var other = new ContentDb { GeneratedCacheLevels = 10 };
+        var k = c.Campaign;
+        int b = k.Biomes.Count;
+        Assert.Equal(b, k.Biomes.Select(x => x.Id).Distinct().Count());
+        Assert.Equal(0, c.CampaignBiomeIndex(1)); // the tutorial run's ember pool
+        Assert.Equal("ember", c.CampaignBiome(1).Family);
+        var used = new HashSet<int>();
+        for (int n = 1; n <= 1000; n++)
+        {
+            int i = c.CampaignBiomeIndex(n);
+            Assert.InRange(i, 0, b - 1);
+            used.Add(i);
+            Assert.Equal(i, other.CampaignBiomeIndex(n)); // the same for every player / instance
+            Assert.Equal(k.Biomes[i].Id, c.MainLevel(n).Biome);
+            if (n > 1)
+            {
+                int p = c.CampaignBiomeIndex(n - 1);
+                Assert.NotEqual(p, i);
+                Assert.NotEqual(k.Biomes[p].Family, k.Biomes[i].Family); // and never the same enemy roster twice in a row
+            }
+            // every block of B levels shows every biome once
+            if (n % b == 0)
+                Assert.Equal(b, Enumerable.Range(n - b + 1, b).Select(c.CampaignBiomeIndex).Distinct().Count());
+        }
+        Assert.Equal(b, used.Count);
+        // deep in the endless campaign too (pure function of the level number, no history)
+        for (int n = 999_000; n <= 999_200; n++) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), c.CampaignBiomeIndex(n));
+        // not just a fixed cycle: the order of consecutive blocks differs
+        var blocks = Enumerable.Range(0, 20).Select(blk => string.Join(",", Enumerable.Range(blk * b + 1, b).Select(c.CampaignBiomeIndex))).Distinct().Count();
+        Assert.True(blocks >= 15, blocks + " distinct blocks");
+        // pinned: the order is stable across versions while the biome list and seed stay
+        Assert.Equal(ExpectedFirst30, Enumerable.Range(1, 30).Select(n => c.CampaignBiome(n).Id).ToArray());
+    }
+
+    private static readonly string[] ExpectedFirst30 =
+    {
+        "lava", "shipwreck", "cloud_islands", "gas_giant", "alien_jungle", "seabed", "space_station", "toxic_swamp", "gas_giant", "toxic_swamp",
+        "lava", "seabed", "shipwreck", "space_station", "cloud_islands", "alien_jungle", "toxic_swamp", "seabed", "shipwreck", "lava",
+        "space_station", "gas_giant", "cloud_islands", "alien_jungle", "shipwreck", "lava", "space_station", "seabed", "toxic_swamp", "cloud_islands",
+    };
+
+    [Fact]
+    public void BiomeOrder_FallsBackToDistinctBiomes_WhenFamiliesCannotAlternate()
+    {
+        var c = new ContentDb();
+        c.Campaign.Biomes = new List<CampaignBiomeDef>
+        {
+            new("a", "A", "ember"), new("b", "B", "ember"), new("c", "C", "ember"), new("d", "D", "glacier"),
+        };
+        for (int n = 2; n <= 400; n++) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), c.CampaignBiomeIndex(n));
+        Assert.Equal(4, Enumerable.Range(1, 400).Select(c.CampaignBiomeIndex).Distinct().Count());
     }
 
     [Fact]
@@ -64,9 +132,13 @@ public class EndlessCampaignTests
             Assert.Equal(first.Modifiers.EnemyHpPct, l.Modifiers.EnemyHpPct);
             Assert.Equal(first.CompletionRewards.Select(r => r.Id + r.Amount), l.CompletionRewards.Select(r => r.Id + r.Amount));
         }
-        // Bosses change variant every few portals, cycling through every variant.
-        var bosses = Enumerable.Range(50, 4 * a.Campaign.BossVariants * a.Campaign.BossVariantEveryPortals).Select(i => a.MainPortalBossId(i)).Distinct().Count();
-        Assert.Equal(4 * a.Campaign.BossVariants, bosses);
+        // Each level's boss is its biome family's; past the endless anchor the variant changes every few chapters,
+        // cycling through every variant of every family.
+        var k = a.Campaign;
+        for (int n = 1; n <= 300; n++) Assert.Equal(new[] { "boss_magma_tyrant", "boss_frost_leviathan", "boss_storm_hive", "boss_void_maw" }[ContentDb.FamilyIndex(a.CampaignBiome(n).Family)], a.MainLevelBossId(n));
+        var bosses = Enumerable.Range(k.EndlessFromChapter * k.ChapterLevels + 1, k.BossVariants * k.BossVariantEveryChapters * k.ChapterLevels)
+            .Select(a.MainLevelBossId).Distinct().Count();
+        Assert.Equal(4 * k.BossVariants, bosses);
     }
 
     [Fact]
@@ -108,7 +180,7 @@ public class EndlessCampaignTests
     }
 
     [Fact]
-    public void MilestoneChests_EveryTenLevels_BiggerPortalBonusEveryFifty()
+    public void MilestoneChests_EveryTenLevels_BiggerBonusChestEveryFifty()
     {
         var c = new ContentDb();
         for (int n = 1; n <= 1200; n++)
@@ -135,6 +207,9 @@ public class EndlessCampaignTests
         s.Counters[Requirements.MainLevelCounter] = 509;
         Assert.True(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(510), RunMode.Normal));
         Assert.Equal(c.MainLevelId(510), RunSystem.NextMainLevel(s, c).Id);
+        // the hub's PLAY: one helper starts the next level (its own portal, Normal mode)
+        var play = RunSystem.NextMainRunStart(s, c)!;
+        Assert.Equal((c.MainLevelId(510), c.MainLevelId(510), RunMode.Normal), (play.LevelId, play.PortalId, play.Mode));
 
         long diamonds = s.Wallet.Get(Currencies.Diamonds), tokens = s.Wallet.Get(Currencies.AlienTokens);
         var chest = c.MainLevel(510).FirstClearRewards;
@@ -150,7 +225,7 @@ public class EndlessCampaignTests
         Assert.True(doublableTokens >= chest.Single(r => r.Id == Currencies.AlienTokens).Amount);
         Assert.Equal(s.Wallet.Get(Currencies.AlienTokens) - tokens, doublableTokens);
 
-        // The next portal (level 511 = portal 52, level 1) opens; replaying 510 pays no second chest.
+        // The next level (511, its own portal) opens; replaying 510 pays no second chest.
         Assert.True(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(511), RunMode.Normal));
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = c.MainLevelId(510) }).Ok);
         RunTestKit.AutoToEnd(e, ref s);
@@ -214,5 +289,21 @@ public class EndlessCampaignTests
         var clone = TestHelpers.Clone(s);
         Assert.Equal(s.Run.MainArchive.Flags, clone.Run.MainArchive.Flags);
         Assert.True(RunSystem.Progress(clone, c, level7).Feats[2]);
+    }
+
+    [Fact]
+    public void Overcharged_FollowsTheLinearSequence_AcrossPortals()
+    {
+        var e = RunTestKit.Engine(RunTestKit.Strong());
+        var c = e.Content;
+        var s = TestHelpers.NewPlayer(e, 3);
+        s.Flags.Add(Features.DevUnlockAllFlag);
+        for (int n = 1; n <= 3; n++) s.Run.Levels[c.MainLevelId(n)] = new LevelProgress { Cleared = true, Clears = 1 };
+        s.Counters[Requirements.MainLevelCounter] = 3;
+        Assert.True(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(1), RunMode.Overcharged));
+        Assert.False(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(2), RunMode.Overcharged)); // level 1 not overcharged yet
+        s.Run.Levels[c.MainLevelId(1)].OverchargedCleared = true;
+        Assert.True(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(2), RunMode.Overcharged));
+        Assert.False(RunSystem.IsLevelUnlocked(s, c, c.MainLevelId(4), RunMode.Overcharged)); // not cleared normally
     }
 }

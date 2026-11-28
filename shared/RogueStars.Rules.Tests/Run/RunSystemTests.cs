@@ -13,24 +13,24 @@ public class RunSystemTests
         var s = TestHelpers.NewPlayer(e);
         long stamina = s.Wallet.Get(Currencies.Stamina);
         Assert.Equal(e.Content.EconomyConfig.StartingWallet[Currencies.Stamina], stamina);
-        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_2" }).Ok);                       // locked
-        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", Mode = RunMode.Overcharged }).Ok); // not cleared yet
-        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "glacier_rift_1" }).Ok);                       // portal locked
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", PortalId = "ember_wastes" }).Ok);
+        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_2" }).Ok);                       // locked
+        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", Mode = RunMode.Overcharged }).Ok); // not cleared yet
+        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_11" }).Ok);                       // portal locked
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", PortalId = "main_1" }).Ok);
         Assert.Equal(stamina - 5, s.Wallet.Get(Currencies.Stamina));
-        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);                       // already running
+        Assert.False(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);                       // already running
         Assert.Equal(1, s.Counter("runs_started"));
 
-        Assert.Equal(new Cost(Currencies.Stamina, 10).Amount, RunSystem.EntryCost(e.Content, "ember_wastes_1", RunMode.Overcharged).Amount);
+        Assert.Equal(new Cost(Currencies.Stamina, 10).Amount, RunSystem.EntryCost(e.Content, "main_1", RunMode.Overcharged).Amount);
         Assert.Equal(Currencies.BurrowKeys, RunSystem.EntryCost(e.Content, "the_burrow_1", RunMode.Burrow).Currency);
 
         var poor = TestHelpers.NewPlayer(e, 3);
         poor.Wallet.TrySpend(Currencies.Stamina, poor.Wallet.Get(Currencies.Stamina));
-        var r = RunTestKit.Exec(e, ref poor, new RunStart { LevelId = "ember_wastes_1" });
+        var r = RunTestKit.Exec(e, ref poor, new RunStart { LevelId = "main_1" });
         Assert.False(r.Ok);
         Assert.Contains("stamina", r.Error);
         // regen refills over time
-        Assert.True(RunTestKit.Exec(e, ref poor, new RunStart { LevelId = "ember_wastes_1" }, TestHelpers.T0 + 5 * 6 * 60 * 1000).Ok);
+        Assert.True(RunTestKit.Exec(e, ref poor, new RunStart { LevelId = "main_1" }, TestHelpers.T0 + 5 * 6 * 60 * 1000).Ok);
     }
 
     [Fact]
@@ -40,11 +40,11 @@ public class RunSystemTests
         var s = RunTestKit.StartRun(e);
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
-        Assert.True(RunSystem.IsLevelUnlocked(s, e.Content, "ember_wastes_2", RunMode.Normal));
+        Assert.True(RunSystem.IsLevelUnlocked(s, e.Content, "main_2", RunMode.Normal));
         long before = s.Wallet.Get(Currencies.Stamina);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", Mode = RunMode.Overcharged }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", Mode = RunMode.Overcharged }).Ok);
         Assert.Equal(before - 10, s.Wallet.Get(Currencies.Stamina));
-        Assert.Equal(e.Content.RunLevel("ember_wastes_1")!.Threat + 8, s.Run.Active!.Threat);
+        Assert.Equal(e.Content.RunLevel("main_1")!.Threat + 8, s.Run.Active!.Threat);
     }
 
     [Fact]
@@ -335,7 +335,7 @@ public class RunSystemTests
             var e = RunTestKit.Engine(RunTestKit.Strong());
             var s = TestHelpers.NewPlayer(e, 11);
             if (withModifier) s.Modifiers.Add(new Modifier { Id = "m", Target = "run_reward:biomass", Multiplier = 2 });
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             long before = s.Wallet.Get(Currencies.Biomass);
             for (int i = 0; i < 1000 && s.Run.Active != null; i++)
             {
@@ -345,11 +345,11 @@ public class RunSystemTests
             Assert.Null(s.Run.Active);
             Assert.True(s.Run.LastSummary.Won);
             Assert.Equal(1, s.Counter("runs_completed"));
-            Assert.True(RunSystem.Progress(s, "ember_wastes_1").Feats[0]);
+            Assert.True(RunSystem.Progress(s, "main_1").Feats[0]);
             return s.Wallet.Get(Currencies.Biomass) - before;
         }
         long normal = Gained(false), doubled = Gained(true);
-        var level = ContentDb.Default.RunLevel("ember_wastes_1")!;
+        var level = ContentDb.Default.RunLevel("main_1")!;
         Assert.True(normal >= level.CompletionRewards.First(r => r.Id == Currencies.Biomass).Amount);
         Assert.InRange(doubled, normal * 2 - 5, normal * 2 + 5);
     }
@@ -494,11 +494,11 @@ public class AwakenCoreSourceTests
     public void RareDrop_PaidUnscaled_OnlyOnCompletion_AndDoubledByTheAd()
     {
         var content = new ContentDb();
-        content.RunLevel("ember_wastes_1")!.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 100));
+        content.RunLevel("main_1")!.RareDrops.Add(new RareDrop(Reward.Cur(ProgressionCurrencies.PartAwakenCores, 1), 100));
         var e = RunTestKit.Engine(RunTestKit.Strong(), content);
         var s = TestHelpers.NewPlayer(e, 11);
         s.Modifiers.Add(new Modifier { Id = "m", Target = "run_reward:*", Multiplier = 2 });
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
         Assert.Equal(1, s.Wallet.Get(ProgressionCurrencies.PartAwakenCores));
@@ -518,11 +518,11 @@ public class BiomassSurgeTests
         var s = TestHelpers.NewPlayer(e, 11);
         s.Wallet.Add(Currencies.Stamina, 1000);
         var t = e.Content.RunTuning;
-        long completion = e.Content.RunLevel("ember_wastes_1")!.CompletionRewards.First(r => r.Id == Currencies.Biomass).Amount;
+        long completion = e.Content.RunLevel("main_1")!.CompletionRewards.First(r => r.Id == Currencies.Biomass).Amount;
         var flags = new List<bool>();
         for (int i = 0; i < t.DailyBiomassBonusRuns + 1; i++)
         {
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             RunTestKit.AutoToEnd(e, ref s);
             Assert.True(s.Run.LastSummary.Won);
             flags.Add(s.Run.LastSummary.BiomassBonus);
@@ -765,11 +765,11 @@ public class LaboratoryTests
         int cap = e.Content.AdPlacement(RunSystem.DoubleRewardsAdPlacement)!.DailyCap;
         for (int i = 1; i < cap; i++)
         {
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             RunTestKit.AutoToEnd(e, ref s);
             Assert.True(RunTestKit.Exec(e, ref s, new RunDoubleRewards()).Ok);
         }
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s);
         var capped = RunTestKit.Exec(e, ref s, new RunDoubleRewards());
         Assert.False(capped.Ok);

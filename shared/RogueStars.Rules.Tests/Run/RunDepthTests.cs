@@ -25,9 +25,9 @@ public class RunDepthTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("ember_wastes_1")]
-    [InlineData("ember_wastes_8")]
-    [InlineData("glacier_rift_5")]
+    [InlineData("main_1")]
+    [InlineData("main_8")]
+    [InlineData("main_15")]
     public void SkillsPerRun_20To40_FromDraftsMythicsAndShops(string levelId)
     {
         // a worm that survives everything: pure build pacing (the simulator's guard covers real worms)
@@ -39,11 +39,11 @@ public class RunDepthTests(ITestOutputHelper output)
         double shop = runs.Average(r => r.ShopBuys);
         output.WriteLine($"{levelId}: gains {gains:0.0} (min {runs.Min(r => r.Gains.Count)}, max {runs.Max(r => r.Gains.Count)}), drafts {drafts:0.0}, mythic {mythic:0.0}, minibosses {runs.Average(r => r.Minibosses):0.0}, shop buys {shop:0.0}");
         // same targets with the ~23-roll runs (owner 2026-11-27, 20% shorter): the XP curve 2 + 1 per level and +20% fight /
-        // cache coins keep ~10 drafts and ~10–14 shop buys (ember_wastes_1: 23 gains, 9.6 drafts, 10.4 buys)
+        // cache coins keep ~10 drafts and ~10–14 shop buys (level 1: 23 gains, 9.6 drafts, 10.4 buys)
         Assert.InRange(gains, 20, 40);
         Assert.InRange(drafts, 7, 11);
         // 9 (was 10): playtest 0.1.325's 3 skill offers per shop let the bot buy the pricier Legendary more often with the same
-        // coins (ember_wastes_1: 10.3 → 9.9 buys); coin income is unchanged
+        // coins (level 1: 10.3 → 9.9 buys); coin income is unchanged
         Assert.InRange(shop, 9, 22);
         Assert.All(runs, r => Assert.Equal(r.Minibosses, r.Gains.Count(g => g.Source == "mythic")));  // one mythic choice per miniboss
         Assert.All(runs, r => Assert.True(r.Minibosses <= 2, "two minibosses per run (playtest 0.1.308)"));
@@ -149,7 +149,7 @@ public class RunDepthTests(ITestOutputHelper output)
         var c = ContentDb.Default;
         var table = c.RunShopTables["shop_standard"];
         var e = RunTestKit.Engine(RunTestKit.Strong());
-        var runs = Enumerable.Range(1, 20).Select(seed => PlayFarming(e, "ember_wastes_3", seed)).ToList();
+        var runs = Enumerable.Range(1, 20).Select(seed => PlayFarming(e, "main_3", seed)).ToList();
         double buys = runs.Average(r => r.ShopBuys);
         // the cheapest and the typical offer: a run's coins pay for 10–20 of them
         double typical = (2 * table.SkillPrices[Rarity.Common] + table.SkillPrices[Rarity.Legendary] + table.StatPrice) / 4.0;
@@ -170,7 +170,7 @@ public class RunDepthTests(ITestOutputHelper output)
         Assert.False(RunSystem.BiomassSurgeActive(s, c, TestHelpers.T0));
         Assert.Equal(0, RunSystem.BiomassBonusRunsLeft(s, c, TestHelpers.T0));      // no counter shown
         s.Wallet.Add(Currencies.Stamina, 100);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s, 3000);
         Assert.True(s.Run.LastSummary.Won);
         Assert.False(s.Run.LastSummary.BiomassBonus);                                    // no surge consumed
@@ -179,7 +179,7 @@ public class RunDepthTests(ITestOutputHelper output)
         s.Flags.Add(Features.DevUnlockAllFlag);
         Assert.True(RunSystem.BiomassSurgeActive(s, c, TestHelpers.T0));
         Assert.Equal(c.RunTuning.DailyBiomassBonusRuns, RunSystem.BiomassBonusRunsLeft(s, c, TestHelpers.T0));
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s, 3000);
         Assert.True(s.Run.LastSummary.BiomassBonus);
     }

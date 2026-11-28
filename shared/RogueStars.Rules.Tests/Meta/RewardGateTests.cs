@@ -118,7 +118,7 @@ public class RewardGateTests
     public void RunLoot_And_Completion_LockedCurrencies_AreStashed_NotShownAsGranted()
     {
         var (e, s) = LockedRunner(0);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s);
         Assert.True(s.Run.LastSummary.Won);
         // Level 1 pays Biomass and Ore: Biomass has no use on day 1 (City day 2, worm levels day 3), Ore has one once Parts

@@ -506,8 +506,8 @@ public class SkillTuningTests
     public void Pathfinder_PassedTilesPayCoins()
     {
         int passed = 0;
-        var without = Roll(null, "empty", rolls: 3);
-        var with = Roll("gen_pathfinder", "empty", rolls: 3, after: r => passed += r.LastDice.Sum() - 1); // every step but the landing one
+        var without = Roll(null, "empty", rolls: 3, seed: 45);
+        var with = Roll("gen_pathfinder", "empty", rolls: 3, seed: 45, after: r => passed += r.LastDice.Sum() - 1); // every step but the landing one
         Assert.True(passed > 0);
         Assert.Equal(3 * passed, with.Coins - without.Coins);
     }

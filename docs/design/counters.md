@@ -49,7 +49,7 @@ Append-only list of `state.Count(...)` keys: `key` — meaning — owner.
 
 ## Expected from other workstreams (read by Meta quests, season pass, funds, feature gates)
 If a key is missing after merge the lead reconciles (rename here or in content).
-- `main_level_max` — highest main portal level number cleared, kept as a **max** (set, not summed; levels are numbered globally: portal 1 = 1..10, portal 2 = 11..20, ...) — Run. Used by every feature gate (`RequirementKind.MainLevel`); alternatively wire `Requirements.SetProgressProvider(RequirementKind.MainLevel, ...)`.
+- `main_level_max` — highest main level number cleared, kept as a **max** (set, not summed; levels are numbered globally 1, 2, 3, …, every level its own portal) — Run. Used by every feature gate (`RequirementKind.MainLevel`); alternatively wire `Requirements.SetProgressProvider(RequirementKind.MainLevel, ...)`.
 - `worm_level` — current worm level, kept equal to the level (set, not summed) — Progression. Feature gates (`RequirementKind.WormLevel`), Worm Fund, achievements, new-player quests.
 - `runs_completed` — runs completed (boss beaten) — Run
 - `battles_won` — battles won (any mode) — Run
@@ -130,7 +130,7 @@ Meta content now reads the keys the owning workstreams actually write:
 - `part_replications` — Legendary copies made with the Replicator (PartReplicate) — Progression/Parts
 - (endless campaign) `main_level_max` keeps growing past level 500 (the campaign never ends).
 - `dark_side_level_max` — highest Dark Side level cleared, kept as a **max** (drives the Dark Side progress archive) — Run
-- `milestone_chests` — one-time milestone chests / portal-completion bonuses collected (first Normal clear of every 10th main level) — Run
+- `milestone_chests` — one-time milestone chests / bonus chests collected (first Normal clear of every 10th main level) — Run
 - (run depth) `run_minibosses_killed` — minibosses beaten (lair tiles and the awakening clock's minibosses) — Run
 - (run depth) `run_mythic_picks` — mythic choices taken after a beaten miniboss (also counted in `run_skills_drafted`) — Run
 - (run depth) `run_shop_buys` — run-shop purchases (skills, stat perks, heals; in-run coins) — Run

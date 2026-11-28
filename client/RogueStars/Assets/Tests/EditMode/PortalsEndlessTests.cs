@@ -59,13 +59,14 @@ namespace RogueStars.Client.Tests
         [Test]
         public void MainWindow_IsBoundedAroundTheFrontier()
         {
-            Assert.That(PortalsScreen.MainWindow(0, -1), Is.EqualTo((0, 3)));
-            Assert.That(PortalsScreen.MainWindow(1, -1), Is.EqualTo((0, 4)));
-            Assert.That(PortalsScreen.MainWindow(123, -1), Is.EqualTo((121, 5)));
-            Assert.That(PortalsScreen.MainWindow(123, 116), Is.EqualTo((116, 5)));
-            Assert.That(PortalsScreen.MainWindow(123, 0), Is.EqualTo((0, 5)));
-            Assert.That(PortalsScreen.MainWindow(123, 999999), Is.EqualTo((121, 5)), "never past frontier + ahead");
-            Assert.That(PortalsScreen.MainWindow(99999, -1), Is.EqualTo((99997, 5)));
+            // (first level, count): up to 20 cleared portals behind the next level, 9 upcoming ones, pages of 30
+            Assert.That(PortalsScreen.MainWindow(1, -1), Is.EqualTo((1, 10)));
+            Assert.That(PortalsScreen.MainWindow(2, -1), Is.EqualTo((1, 11)));
+            Assert.That(PortalsScreen.MainWindow(1235, -1), Is.EqualTo((1215, 30)));
+            Assert.That(PortalsScreen.MainWindow(1235, 1185), Is.EqualTo((1185, 30)));
+            Assert.That(PortalsScreen.MainWindow(1235, 1), Is.EqualTo((1, 30)));
+            Assert.That(PortalsScreen.MainWindow(1235, 999999), Is.EqualTo((1215, 30)), "never past next + ahead");
+            Assert.That(PortalsScreen.MainWindow(99999, -1), Is.EqualTo((99979, 30)));
             Assert.That(PortalsScreen.DarkSidePage(1, -1), Is.EqualTo(0));
             Assert.That(PortalsScreen.DarkSidePage(1001, -1), Is.EqualTo(40));
             Assert.That(PortalsScreen.DarkSidePage(1001, int.MaxValue), Is.EqualTo(41));
@@ -74,18 +75,20 @@ namespace RogueStars.Client.Tests
             Assert.That(PortalsScreen.MilestoneMarker(C, 50), Is.EqualTo("BONUS"));
             Assert.That(PortalsScreen.MilestoneMarker(C, 1240), Is.EqualTo("CHEST"));
             Assert.That(PortalsScreen.MilestoneMarker(C, 1250), Is.EqualTo("BONUS"));
+            Assert.That(PortalsScreen.LevelTitle(C.MainLevel(55)), Is.EqualTo("55. " + C.CampaignBiome(55).Name));
         }
 
         [Test]
-        public void FreshSave_ShowsTheFirstPortals_AndOneUpcomingPageLimit()
+        public void FreshSave_ShowsTheFirstPortals_OneUpcomingPage()
         {
             var screen = OpenPortals();
-            Assert.That(CountButtons(screen.Root, "Level:"), Is.EqualTo(3 * C.Campaign.LevelsPerPortal));
+            Assert.That(CountButtons(screen.Root, "Level:"), Is.EqualTo(1 + PortalsScreen.MainLevelsAhead), "one portal per level");
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1)).interactable, Is.True);
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(2)).interactable, Is.False);
             Assert.That(FindButton(screen.Root, "MainPrev").interactable, Is.False);
             Assert.That(FindButton(screen.Root, "MainNext").interactable, Is.False);
-            Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(10))), Does.Contain("CHEST"));
+            Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(10))), Does.Contain("CHEST").And.Not.Contain("BOSS"));
+            Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(2))), Does.Contain(C.CampaignBiome(2).Name));
         }
 
         [Test]
@@ -96,10 +99,10 @@ namespace RogueStars.Client.Tests
             var next = RunSystem.NextMainLevel(S, C);
             Assert.That(next.Number, Is.EqualTo(501));
             Assert.That(FindButton(screen.Root, "Level:" + next.Id).interactable, Is.True);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(500)), Is.Not.Null, "last named portal shown as cleared");
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(500)), Is.Not.Null, "the last materialized level shown as cleared");
             Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(500))), Does.Contain("BONUS ✓"));
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(530)), Is.Not.Null);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(531)), Is.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(510)), Is.Not.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(511)), Is.Null);
         }
 
         [Test]
@@ -107,24 +110,23 @@ namespace RogueStars.Client.Tests
         {
             ClearedThrough(1234, 0);
             var screen = OpenPortals();
-            // Window: portals 121..125 = levels 1211..1260; the frontier is level 1235.
-            Assert.That(CountButtons(screen.Root, "Level:"), Is.EqualTo(PortalsScreen.MainPageSize * C.Campaign.LevelsPerPortal));
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1210)), Is.Null);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1211)), Is.Not.Null);
+            // Window: levels 1215..1244; the next level is 1235.
+            Assert.That(CountButtons(screen.Root, "Level:"), Is.EqualTo(PortalsScreen.MainPageSize));
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1214)), Is.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1215)), Is.Not.Null);
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1234)).interactable, Is.True, "cleared level replayable");
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1235)).interactable, Is.True, "frontier");
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1236)).interactable, Is.False);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1260)), Is.Not.Null);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1261)), Is.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1244)), Is.Not.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1245)), Is.Null);
             Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(1230))), Does.Contain("CHEST ✓"));
             Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(1240))), Does.Contain("CHEST").And.Not.Contain("✓"));
-            Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(1250))), Does.Contain("BONUS"));
             Assert.That(FindButton(screen.Root, "MainNext").interactable, Is.False);
             Assert.That(FindButton(screen.Root, "MainFrontier"), Is.Null);
 
             FindButton(screen.Root, "MainPrev").onClick.Invoke();
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1161)), Is.Not.Null);
-            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1210)), Is.Not.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1185)), Is.Not.Null);
+            Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1214)), Is.Not.Null);
             Assert.That(FindButton(screen.Root, "Level:" + C.MainLevelId(1235)), Is.Null);
             Assert.That(ButtonText(FindButton(screen.Root, "Level:" + C.MainLevelId(1200))), Does.Contain("BONUS ✓"));
             Assert.That(FindButton(screen.Root, "MainNext").interactable, Is.True);
@@ -173,7 +175,7 @@ namespace RogueStars.Client.Tests
                 if (t.name == "Text" && t.transform.parent.name == "PortalChip") chip = t;
             }
             Assert.That(next.text, Does.Contain("LEVEL 1235"));
-            Assert.That(chip.text, Does.StartWith("Portal 124 · " + _f.Service.Content.MainPortal(123).Name));
+            Assert.That(chip.text, Does.StartWith("Portal 1235 · " + C.MainLevel(1235).Name), "every level is its own portal");
             Assert.That(FindButton(root, "PlayButton"), Is.Not.Null);
         }
     }

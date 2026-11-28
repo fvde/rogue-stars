@@ -10,12 +10,14 @@ using UnityEngine.UI;
 namespace RogueStars.Client.Screens
 {
     /// <summary>
-    /// Portal level map: Main / Overcharged / Burrow / Dark Side as a zig-zag path of level nodes running upwards
-    /// (cleared = stars, next = big glowing node, later = dimmed, the portal's last level a boss node, milestone chest /
-    /// portal bonus chips), a header with the portal's name and progress plus stamina, and a fixed bottom level card
-    /// (star goals, START RUN with the entry cost, details). Tapping a node selects it for the card. The main campaign and
-    /// the Dark Side are endless: both are shown as a bounded window around the frontier (RunSystem.NextMainLevel, the
-    /// Dark Side max counter) built with ContentDb.MainPortal / DarkSideLevel; nothing iterates the whole campaign.
+    /// The level selection: the campaign as a chain of portals, one per level ("portal after portal"), each a round window
+    /// with its biome peeking through (the biome's board art, ArtCatalog.BiomeFor), running upwards along a zig-zag road:
+    /// cleared portals show their stars, the next level glows, locked ones are dimmed. Main / Overcharged / Burrow / Dark Side
+    /// tabs, a header with the next level and the stamina, and a fixed bottom level card (star goals, START RUN with the entry
+    /// cost, details). Tapping a portal selects it for the card. There are no boss levels: every level ends with its biome's
+    /// boss. The campaign and the Dark Side are endless: both are shown as a bounded window around the frontier
+    /// (RunSystem.NextMainLevel, the Dark Side max counter) built with ContentDb.MainLevel / DarkSideLevel; nothing iterates
+    /// the whole campaign.
     /// </summary>
     public sealed class PortalsScreen : UiScreen
     {
@@ -23,7 +25,7 @@ namespace RogueStars.Client.Screens
         private int _tab;
         /// <summary>Dark Side page (-1 = the page with the next level to clear).</summary>
         private int _page = -1;
-        /// <summary>First main portal index shown (-1 = the window around the frontier).</summary>
+        /// <summary>First main level shown (-1 = the window around the frontier).</summary>
         private int _mainStart = -1;
         /// <summary>Level shown in the bottom card (null = the next level to play on this tab).</summary>
         private string _selected;
@@ -33,14 +35,13 @@ namespace RogueStars.Client.Screens
         public const int DarkSidePageSize = 25;
         /// <summary>Dark Side pages browsable past the one holding the next level.</summary>
         public const int DarkSidePagesAhead = 1;
-        /// <summary>Main portals per page: cleared ones before the frontier portal, the frontier, upcoming ones after it.</summary>
-        public const int MainPageSize = 5;
-        public const int MainPortalsBehind = 2;
-        public const int MainPortalsAhead = 2;
+        /// <summary>Main levels per page: cleared ones before the next level, the next level, upcoming ones after it.</summary>
+        public const int MainPageSize = 30;
+        public const int MainLevelsBehind = 20;
+        public const int MainLevelsAhead = 9;
 
-        /// <summary>Map geometry: vertical distance between two nodes, boss row, portal banner, node sizes.</summary>
-        public const float NodeStep = 200, BossStep = 250, BannerH = 110, NodeSize = 150, NextSize = 196, LockedSize = 136;
-        public static readonly Vector2 BossSize = new Vector2(300, 170);
+        /// <summary>Map geometry: vertical distance between two portals and the portal sizes (next is bigger, locked smaller).</summary>
+        public const float NodeStep = 236, NodeSize = 176, NextSize = 220, LockedSize = 156;
         /// <summary>Bottom level card rows.</summary>
         public const float CardTitleH = 60, GoalH = 46, StartH = 124;
 
@@ -58,7 +59,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Horizontal position (0..1 of the map width) of the n-th node along the path: a smooth zig-zag.</summary>
         public static float MapX(int pathIndex) => ZigZag[((pathIndex % ZigZag.Length) + ZigZag.Length) % ZigZag.Length];
 
-        private static readonly float[] ZigZag = { 0.24f, 0.76f, 0.5f, 0.24f, 0.64f, 0.3f, 0.74f, 0.42f };
+        private static readonly float[] ZigZag = { 0.26f, 0.7f, 0.42f, 0.24f, 0.62f, 0.3f, 0.74f, 0.46f };
 
         /// <summary>
         /// Daily Biomass surge: the first won portal runs of the day pay Biomass ×N. Null (nothing shown) until Biomass has a
@@ -77,24 +78,24 @@ namespace RogueStars.Client.Screens
 
         // ---- endless windows (pure, O(1); tested) -----------------------------------------------------------
 
-        /// <summary>0-based index of the main portal holding the next level to clear.</summary>
-        public static int FrontierPortalIndex(GameState s, ContentDb c)
-        {
-            long next = s.Counter(Requirements.MainLevelCounter) + 1;
-            return (int)System.Math.Min(ContentDb.MaxGeneratedIndex - 1, (next - 1) / System.Math.Max(1, c.Campaign.LevelsPerPortal));
-        }
+        /// <summary>Number of the next main level to clear (the frontier), clamped to the generated range.</summary>
+        public static int MainFrontier(GameState s) =>
+            (int)System.Math.Min(ContentDb.MaxGeneratedIndex - MainLevelsAhead, s.Counter(Requirements.MainLevelCounter) + 1);
+
+        /// <summary>0-based index of the main portal holding the next level to clear (every level is its own portal: level − 1).</summary>
+        public static int FrontierPortalIndex(GameState s, ContentDb c) => MainFrontier(s) - 1;
 
         /// <summary>
-        /// The main portals to show: <paramref name="requestedStart"/> (-1 = around the frontier) clamped so the window
-        /// never starts before portal 0 and never goes past <see cref="MainPortalsAhead"/> portals beyond the frontier.
-        /// Returns the first index and the number of portals (≤ <see cref="MainPageSize"/>).
+        /// The main levels to show: <paramref name="requestedStart"/> (-1 = around the frontier) clamped so the window never
+        /// starts before level 1 and never goes past <see cref="MainLevelsAhead"/> levels beyond the next one. Returns the
+        /// first level number and the number of levels (≤ <see cref="MainPageSize"/>).
         /// </summary>
-        public static (int start, int count) MainWindow(int frontier, int requestedStart)
+        public static (int start, int count) MainWindow(int next, int requestedStart)
         {
-            int last = frontier + MainPortalsAhead;
-            int maxStart = System.Math.Max(0, last - MainPageSize + 1);
-            int start = requestedStart < 0 ? System.Math.Max(0, frontier - MainPortalsBehind) : requestedStart;
-            start = System.Math.Max(0, System.Math.Min(maxStart, start));
+            int last = next + MainLevelsAhead;
+            int maxStart = System.Math.Max(1, last - MainPageSize + 1);
+            int start = requestedStart < 1 ? System.Math.Max(1, next - MainLevelsBehind) : requestedStart;
+            start = System.Math.Max(1, System.Math.Min(maxStart, start));
             return (start, System.Math.Min(MainPageSize, last - start + 1));
         }
 
@@ -108,18 +109,26 @@ namespace RogueStars.Client.Screens
             return requested < 0 ? frontierPage : Mathf.Clamp(requested, 0, frontierPage + DarkSidePagesAhead);
         }
 
-        /// <summary>"BONUS" on every portal-bonus level (every 50th), "CHEST" on every other milestone level (every 10th), else null.</summary>
+        /// <summary>"BONUS" on every bonus-chest level (every 50th), "CHEST" on every other milestone level (every 10th), else null.</summary>
         public static string MilestoneMarker(ContentDb c, int levelNumber)
         {
             var k = c.Campaign;
             if (levelNumber <= 0) return null;
-            if (k.PortalBonusEveryLevels > 0 && levelNumber % k.PortalBonusEveryLevels == 0) return "BONUS";
+            if (k.BonusChestEveryLevels > 0 && levelNumber % k.BonusChestEveryLevels == 0) return "BONUS";
             if (k.MilestoneEveryLevels > 0 && levelNumber % k.MilestoneEveryLevels == 0) return "CHEST";
             return null;
         }
 
         /// <summary>Level numbers in full (no K/M abbreviation: "level 12345").</summary>
         public static string LevelNum(long n) => n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        /// <summary>A level's title: main levels "55. Gas Giant" (number and biome), Dark Side "Dark Side 7", Burrow its name.</summary>
+        public static string LevelTitle(LevelDef level)
+        {
+            if (level == null) return "";
+            if (level.Number > 0 && level.PortalId != ContentDb.DarkSidePortalId) return LevelNum(level.Number) + ". " + level.Name;
+            return level.Name;
+        }
 
         private RunMode Mode => _tab == 1 ? RunMode.Overcharged : _tab == 2 ? RunMode.Burrow : _tab == 3 ? RunMode.DarkSide : RunMode.Normal;
 
@@ -148,15 +157,12 @@ namespace RogueStars.Client.Screens
                     if (Mode == RunMode.Overcharged)
                     {
                         // first unlocked, not yet overcharged-cleared level of the frontier window
-                        int frontier = FrontierPortalIndex(State, Content);
-                        var (start, count) = MainWindow(frontier, -1);
-                        for (int i = start; i < start + count; i++)
+                        var (start, count) = MainWindow(MainFrontier(State), -1);
+                        for (int n = start; n < start + count; n++)
                         {
-                            var portal = Content.MainPortal(i);
-                            if (portal == null) continue;
-                            foreach (var id in portal.LevelIds)
-                                if (RunSystem.IsLevelUnlocked(State, Content, id, RunMode.Overcharged) && !RunSystem.Progress(State, Content, id).OverchargedCleared)
-                                    return Content.RunLevel(id);
+                            var id = Content.MainLevelId(n);
+                            if (RunSystem.IsLevelUnlocked(State, Content, id, RunMode.Overcharged) && !RunSystem.Progress(State, Content, id).OverchargedCleared)
+                                return Content.RunLevel(id);
                         }
                     }
                     return next;
@@ -183,9 +189,8 @@ namespace RogueStars.Client.Screens
             {
                 if (State == null) return "Portals";
                 if (Mode == RunMode.DarkSide) return Content.Portal(ContentDb.DarkSidePortalId)?.Name ?? "Dark Side";
-                var lv = SelectedLevel;
-                var portal = lv != null ? Content.Portal(lv.PortalId) : null;
-                return portal?.Name ?? "Portals";
+                if (Mode == RunMode.Burrow) return "The Burrow";
+                return "Portals";
             }
         }
 
@@ -199,20 +204,10 @@ namespace RogueStars.Client.Screens
                     int next = DarkSideFrontier(State);
                     return "Endless · cleared " + LevelNum(next - 1) + " · next level " + LevelNum(next);
                 }
-                var lv = SelectedLevel;
-                var portal = lv != null ? Content.Portal(lv.PortalId) : null;
-                if (portal == null) return null;
-                if (portal.Kind == PortalKind.Burrow) return "Dive floor after floor · cash out any time";
-                int cleared = 0, stars = 0;
-                foreach (var id in portal.LevelIds)
-                {
-                    var p = RunSystem.Progress(State, Content, id);
-                    if (Mode == RunMode.Overcharged ? p.OverchargedCleared : p.Cleared) cleared++;
-                    foreach (var f in p.Feats) if (f) stars++;
-                }
-                int index = portal.Kind == PortalKind.Main ? (lv.Number - 1) / System.Math.Max(1, Content.Campaign.LevelsPerPortal) + 1 : 0;
-                return (index > 0 ? "Portal " + LevelNum(index) + " · " : "") + cleared + " of " + portal.LevelIds.Count + " cleared · "
-                       + stars + " of " + 3 * portal.LevelIds.Count + " stars" + (Mode == RunMode.Overcharged ? " · Overcharged" : "");
+                if (Mode == RunMode.Burrow) return "Dive floor after floor · cash out any time";
+                var lv = RunSystem.NextMainLevel(State, Content);
+                long cleared = State.Counter(Requirements.MainLevelCounter);
+                return (Mode == RunMode.Overcharged ? "Overcharged · " : "") + "Next: " + LevelTitle(lv) + " · " + LevelNum(cleared) + " cleared";
             }
         }
 
@@ -246,7 +241,7 @@ namespace RogueStars.Client.Screens
                 Part(body, "active", K(active.LevelId, active.Mode), b =>
                 {
                     var card = Ui.Card(b, Theme.Tint(Theme.Accent, 0.18f), Theme.Accent, Theme.RadiusCard, 24, 10);
-                    Ui.Display(card, "Run in progress: " + (Content.RunLevel(active.LevelId)?.Name ?? active.LevelId) + " (" + active.Mode + ")", Theme.FontNormal, Theme.Cream);
+                    Ui.Display(card, "Run in progress: " + (Content.RunLevel(active.LevelId) != null ? LevelTitle(Content.RunLevel(active.LevelId)) : active.LevelId) + " (" + active.Mode + ")", Theme.FontNormal, Theme.Cream);
                     Ui.Button(card, "Continue run", () => App.Router.Push(new RunScreen()), Theme.Accent);
                 });
             bool surgeOn = RunSystem.BiomassSurgeActive(State, Content, Now);
@@ -284,43 +279,38 @@ namespace RogueStars.Client.Screens
                     if (p.Kind == PortalKind.Burrow)
                     {
                         var lv = p.LevelIds.Count > 0 ? Content.RunLevel(p.LevelIds[0]) : null;
-                        if (lv != null) map.Section(p, new List<LevelDef> { lv }, false);
+                        if (lv != null) map.Add(lv);
                     }
                 map.Draw(body);
             }
-            else MainPortals(body, mode, map);
+            else MainPortals(body, map);
             LevelCard(SelectedLevel, mode);
             if (_focus && map.Focus != null) ScrollToAfterBuild(map.Focus);
             _focus = false;
         }
 
-        /// <summary>Main / Overcharged: a page of main portals around the frontier, with paging back to cleared ones.</summary>
-        private void MainPortals(RectTransform body, RunMode mode, MapBuilder map)
+        /// <summary>Main / Overcharged: a page of the portal chain around the next level, with paging back to cleared ones.</summary>
+        private void MainPortals(RectTransform body, MapBuilder map)
         {
-            int frontier = FrontierPortalIndex(State, Content);
-            var (start, count) = MainWindow(frontier, _mainStart);
-            int per = System.Math.Max(1, Content.Campaign.LevelsPerPortal);
-            long nextLevel = (long)State.Counter(Requirements.MainLevelCounter) + 1;
-            Part(body, "mainNav", K(start, count, frontier, nextLevel), b =>
+            int next = MainFrontier(State);
+            var (start, count) = MainWindow(next, _mainStart);
+            Part(body, "mainNav", K(start, count, next), b =>
             {
                 var nav = Ui.Row(b, 76, 10);
-                Ui.Button(nav, "< Prev", () => { _mainStart = System.Math.Max(0, start - MainPageSize); _focus = true; Refresh(); }, Theme.Button, 190, 76, start > 0, 28).name = "MainPrev";
-                var range = Ui.Label(nav, "Levels " + LevelNum(start * per + 1) + "–" + LevelNum((start + count) * per) + " · next " + LevelNum(nextLevel),
+                Ui.Button(nav, "< Prev", () => { _mainStart = System.Math.Max(1, start - MainPageSize); _focus = true; Refresh(); }, Theme.Button, 190, 76, start > 1, 28).name = "MainPrev";
+                var range = Ui.Label(nav, "Levels " + LevelNum(start) + "–" + LevelNum(start + count - 1) + " · next " + LevelNum(next),
                     Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
                 range.name = "MainRange";
-                Ui.Button(nav, "Next >", () => { _mainStart = start + MainPageSize; _focus = true; Refresh(); }, Theme.Button, 190, 76, start + count - 1 < frontier + MainPortalsAhead, 28).name = "MainNext";
+                Ui.Button(nav, "Next >", () => { _mainStart = start + MainPageSize; _focus = true; Refresh(); }, Theme.Button, 190, 76, start + count - 1 < next + MainLevelsAhead, 28).name = "MainNext";
             });
-            if (_mainStart >= 0 && (frontier < start || frontier >= start + count))
-                Part(body, "mainJump", K(nextLevel), b =>
-                    Ui.Button(b, "Jump to level " + LevelNum(nextLevel), () => { _mainStart = -1; _focus = true; _selected = null; Refresh(); }, Theme.Warn).name = "MainFrontier");
-            // newest portal at the top: the path runs upwards from the oldest level at the bottom
-            for (int i = start + count - 1; i >= start; i--)
+            if (_mainStart >= 1 && (next < start || next >= start + count))
+                Part(body, "mainJump", K(next), b =>
+                    Ui.Button(b, "Jump to level " + LevelNum(next), () => { _mainStart = -1; _focus = true; _selected = null; Refresh(); }, Theme.Warn).name = "MainFrontier");
+            // one portal per level, the newest at the top: the chain climbs from the oldest level at the bottom
+            for (int n = start + count - 1; n >= start; n--)
             {
-                var portal = Content.MainPortal(i);
-                if (portal == null) continue;
-                var levels = new List<LevelDef>(portal.LevelIds.Count);
-                foreach (var id in portal.LevelIds) { var l = Content.RunLevel(id); if (l != null) levels.Add(l); }
-                map.Section(portal, levels, true, "Portal " + LevelNum(i + 1) + (i == frontier ? " · FRONTIER" : ""));
+                var l = Content.MainLevel(n);
+                if (l != null) map.Add(l);
             }
             map.Draw(body);
         }
@@ -338,27 +328,22 @@ namespace RogueStars.Client.Screens
                 Ui.Label(nav, "Levels " + LevelNum(page * DarkSidePageSize + 1) + "–" + LevelNum((page + 1) * DarkSidePageSize), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleCenter);
                 Ui.Button(nav, "Next >", () => { _page = page + 1; _focus = true; Refresh(); }, Theme.Button, 190, 76, page < lastPage, 28).name = "DarkNext";
             });
-            var levels = new List<LevelDef>();
-            for (int i = page * DarkSidePageSize + 1; i <= (page + 1) * DarkSidePageSize; i++)
+            for (int i = (page + 1) * DarkSidePageSize; i >= page * DarkSidePageSize + 1; i--)
             {
                 var lv = Content.DarkSideLevel(i);
-                if (lv == null) break;
-                levels.Add(lv);
+                if (lv != null) map.Add(lv);
             }
-            map.Section(portal, levels, false);
             map.Draw(body);
         }
 
         // ---- the map ------------------------------------------------------------------------------------------
 
-        /// <summary>Collects the sections of the page (top to bottom) and draws nodes, connector dots and banners.</summary>
+        /// <summary>Collects the portals of the page (top to bottom) and draws the road, the connector dots and the portals.</summary>
         private sealed class MapBuilder
         {
             private sealed class Node
             {
-                public PortalDef Portal;
                 public LevelDef Level;
-                public bool Boss;
                 public MapNode State;
                 public float Y;
                 public float X;
@@ -367,10 +352,7 @@ namespace RogueStars.Client.Screens
             private readonly PortalsScreen _s;
             private readonly RunMode _mode;
             private readonly List<Node> _nodes = new List<Node>();
-            private readonly List<KeyValuePair<float, string>> _banners = new List<KeyValuePair<float, string>>();
-            private float _y = 40;
-            /// <summary>Each section's vertical range and a level of it (its biome backdrop, P1).</summary>
-            private readonly List<KeyValuePair<Vector2, LevelDef>> _sections = new List<KeyValuePair<Vector2, LevelDef>>();
+            private float _y = 60;
             /// <summary>Node to scroll to (selected / next level).</summary>
             public RectTransform Focus;
 
@@ -378,27 +360,17 @@ namespace RogueStars.Client.Screens
 
             public MapBuilder(PortalsScreen s, RunMode mode) { _s = s; _mode = mode; _nextId = s.DefaultLevel()?.Id; }
 
-            /// <summary>Add a portal's levels; the list is in play order, drawn top-down from the last level.</summary>
-            public void Section(PortalDef portal, List<LevelDef> levels, bool bossAtEnd, string banner = null)
+            /// <summary>Add the next portal down the page (callers add from the newest level to the oldest).</summary>
+            public void Add(LevelDef lv)
             {
-                float sectionTop = _y;
-                if (banner != null) { _banners.Add(new KeyValuePair<float, string>(_y + BannerH / 2 - 10, portal.Name + " · " + banner)); _y += BannerH; }
                 var content = _s.Content;
-                for (int i = levels.Count - 1; i >= 0; i--)
-                {
-                    var lv = levels[i];
-                    bool boss = bossAtEnd && i == levels.Count - 1 && levels.Count > 1;
-                    bool unlocked = RunSystem.IsLevelUnlocked(_s.State, content, lv.Id, _mode);
-                    var prog = RunSystem.Progress(_s.State, content, lv.Id);
-                    bool cleared = _mode == RunMode.Overcharged ? prog.OverchargedCleared : prog.Cleared;
-                    bool next = lv.Id == _nextId;
-                    var node = new Node { Portal = portal, Level = lv, Boss = boss, State = NodeStateOf(unlocked, cleared, next) };
-                    float step = boss ? BossStep : NodeStep;
-                    node.Y = _y + step / 2;
-                    _y += step;
-                    _nodes.Add(node);
-                }
-                if (levels.Count > 0) _sections.Add(new KeyValuePair<Vector2, LevelDef>(new Vector2(sectionTop, _y), levels[0]));
+                bool unlocked = RunSystem.IsLevelUnlocked(_s.State, content, lv.Id, _mode);
+                var prog = RunSystem.Progress(_s.State, content, lv.Id);
+                bool cleared = _mode == RunMode.Overcharged ? prog.OverchargedCleared : prog.Cleared;
+                var node = new Node { Level = lv, State = NodeStateOf(unlocked, cleared, lv.Id == _nextId) };
+                node.Y = _y + NodeStep / 2;
+                _y += NodeStep;
+                _nodes.Add(node);
             }
 
             public void Draw(RectTransform body)
@@ -407,18 +379,19 @@ namespace RogueStars.Client.Screens
                 for (int k = 0; k < count; k++)
                 {
                     var n = _nodes[k];
-                    n.X = n.Boss ? 0.5f : MapX(count - 1 - k); // index along the path, from the bottom
+                    // index along the path from the bottom; the level number keeps a portal's place stable across pages
+                    int pathIndex = n.Level.Number > 0 ? n.Level.Number - 1 : count - 1 - k;
+                    n.X = count == 1 ? 0.5f : MapX(pathIndex);
                 }
                 float w = _s.BodyFrame != null && _s.BodyFrame.rect.width > 100 ? _s.BodyFrame.rect.width - 48 : 930;
-                // the map's frame (its height and the node list) is a part; the roads / backdrops and every node are parts in it
+                // the map's frame (its height and the node list) is a part; the road layer and every portal are parts in it
                 var layout = new System.Text.StringBuilder();
                 var states = new System.Text.StringBuilder().Append(w).Append('|');
                 foreach (var n in _nodes) { layout.Append(n.Level.Id).Append(','); states.Append((int)n.State); }
-                foreach (var kv in _banners) states.Append(kv.Value).Append(',');
                 var holder = _s.Part(body, "map", K(_y, layout.ToString()), b =>
                 {
                     var h = Ui.Rect(b, "Map");
-                    Ui.Size(h, -1, _y + 20);
+                    Ui.Size(h, -1, _y + 40);
                 });
                 _s.Part(holder, "deco", states.ToString(), h => Decoration(h, w));
                 string selected = _s.SelectedLevel?.Id;
@@ -437,28 +410,25 @@ namespace RogueStars.Client.Screens
                 var prog = RunSystem.Progress(_s.State, _s.Content, n.Level.Id);
                 var feats = new System.Text.StringBuilder();
                 foreach (var f in prog.Feats) feats.Append(f ? '1' : '0');
-                return K(n.State, n.Boss, n.X, n.Y, selected, prog.Cleared, prog.BestFloor, feats.ToString(), RunSystem.IsLevelUnlocked(_s.State, _s.Content, n.Level.Id, _mode));
+                return K(n.State, n.X, n.Y, selected, prog.Cleared, prog.BestFloor, feats.ToString(), RunSystem.IsLevelUnlocked(_s.State, _s.Content, n.Level.Id, _mode),
+                    RunSystem.LongestRolls(_s.State, n.Level.Id));
             }
 
-            /// <summary>Biome backdrops, roads, connector dots and portal banners (under the nodes).</summary>
+            /// <summary>The night-sky backdrop, the road between consecutive portals and its connector dots (under the portals).</summary>
             private void Decoration(RectTransform holder, float w)
             {
-                int count = _nodes.Count;
-                // P1: each portal's section sits on its biome's ground art (dimmed), the levels joined by a road
-                foreach (var sec in _sections)
+                var sky = Ui.Panel(holder, Theme.Hex(0x170E22), "Backdrop");
+                sky.raycastTarget = false;
+                Ui.Stretch(sky.rectTransform, -24, 0, -24, 0);
+                // a few faint stars (fixed pattern: the layer is rebuilt only when the nodes change)
+                for (int i = 0; i < _nodes.Count * 3; i++)
                 {
-                    var bg = Ui.Panel(holder, Color.white, "Backdrop");
-                    bg.raycastTarget = false;
-                    var art = ArtCatalog.Background(ArtCatalog.BiomeFor(sec.Value));
-                    if (art != null) { bg.sprite = art; bg.type = Image.Type.Tiled; bg.pixelsPerUnitMultiplier = 0.8f; }
-                    else bg.color = Theme.Hex(0x2A2030);
-                    var brt = bg.rectTransform;
-                    brt.anchorMin = new Vector2(0, 1); brt.anchorMax = new Vector2(1, 1); brt.pivot = new Vector2(0.5f, 1);
-                    brt.sizeDelta = new Vector2(0, sec.Key.y - sec.Key.x); brt.anchoredPosition = new Vector2(0, -sec.Key.x);
-                    var dim = Ui.Panel(bg.transform, new Color(0.06f, 0.03f, 0.05f, 0.45f), "Dim");
-                    dim.raycastTarget = false;
-                    Ui.Stretch(dim.rectTransform);
+                    float x = Mathf.Repeat(i * 0.6180339f + 0.13f, 1f), y = 30 + Mathf.Repeat(i * 0.4142136f, 1f) * (_y - 20);
+                    var star = Ui.Dot(holder, new Color(1, 1, 1, 0.08f + 0.1f * Mathf.Repeat(i * 0.37f, 1f)), 6 + (i % 3) * 3, "Star");
+                    star.raycastTarget = false;
+                    Place(star.rectTransform, x, y, new Vector2(6 + (i % 3) * 3, 6 + (i % 3) * 3));
                 }
+                int count = _nodes.Count;
                 for (int k = 0; k + 1 < count; k++)
                 {
                     var a = _nodes[k];
@@ -466,7 +436,7 @@ namespace RogueStars.Client.Screens
                     bool lit = b.State == MapNode.Cleared || b.State == MapNode.Next && a.State != MapNode.Locked;
                     Road(holder, a, b, w, lit);
                 }
-                // connector dots between consecutive nodes (on the road, behind the nodes)
+                // connector dots between consecutive portals (on the road, behind the portals)
                 for (int k = 0; k + 1 < count; k++)
                 {
                     var a = _nodes[k];
@@ -480,15 +450,9 @@ namespace RogueStars.Client.Screens
                         Place(dot.rectTransform, Mathf.Lerp(b.X, a.X, t), Mathf.Lerp(b.Y, a.Y, t), new Vector2(16, 16));
                     }
                 }
-                foreach (var kv in _banners)
-                {
-                    var chip = Ui.Chip(holder, kv.Value, Theme.PanelAlt, Theme.TextDim, 24, 56, Theme.Border, "PortalBanner");
-                    chip.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                    Place(chip, 0.5f, kv.Key, new Vector2(0, 56));
-                }
             }
 
-            /// <summary>A road segment between two nodes: a dark-edged sandy band, brighter where the path is open (P1).</summary>
+            /// <summary>A road segment between two portals: a dark-edged sandy band, brighter where the path is open.</summary>
             private static void Road(RectTransform holder, Node a, Node b, float width, bool lit)
             {
                 float dx = (b.X - a.X) * width, dy = -(b.Y - a.Y);
@@ -511,6 +475,12 @@ namespace RogueStars.Client.Screens
                 rt.anchoredPosition = new Vector2(0, -y);
             }
 
+            /// <summary>
+            /// One portal: a round window into the level's biome (its board art behind a circular mask), an energy ring and a
+            /// metal rim (gold once cleared / next, bronze when open, dark when locked: the biome dimmed), the level number on
+            /// a badge at its foot and, beside it, the biome name, the stars (cleared) or NEXT / best roll count, and the
+            /// milestone chest chip.
+            /// </summary>
             private RectTransform NodeButton(RectTransform holder, Node n, bool selected)
             {
                 var content = _s.Content;
@@ -518,103 +488,131 @@ namespace RogueStars.Client.Screens
                 var prog = RunSystem.Progress(_s.State, content, lv.Id);
                 bool burrow = _mode == RunMode.Burrow;
                 bool dark = _mode == RunMode.DarkSide;
-                Vector2 size = n.Boss ? BossSize : n.State == MapNode.Next ? new Vector2(NextSize, NextSize) : n.State == MapNode.Locked ? new Vector2(LockedSize, LockedSize) : new Vector2(NodeSize, NodeSize);
-                float radius = n.Boss ? 48 : size.x / 2;
-                Color fill, ring, text;
-                switch (n.State)
-                {
-                    case MapNode.Next: fill = Theme.Accent; ring = Theme.Cream; text = Theme.OnAccent; break;
-                    case MapNode.Cleared: fill = Theme.Hex(0x3A2414); ring = Theme.AccentLight; text = Theme.Cream; break;
-                    case MapNode.Open: fill = Theme.Hex(0x3A2414); ring = Theme.Accent; text = Theme.Cream; break;
-                    default: fill = Theme.Panel; ring = Theme.Border; text = Theme.TextFaint; break;
-                }
-                if (n.Boss && n.State != MapNode.Next)
-                {
-                    fill = n.State == MapNode.Locked ? Theme.Hex(0x2A1416) : Theme.Hex(0x3A1414);
-                    ring = n.State == MapNode.Locked ? Theme.Shade(Theme.Bad, 0.55f) : Theme.Bad;
-                    text = n.State == MapNode.Locked ? Theme.Hex(0xA06A6C) : Theme.Hex(0xFF9FA2);
-                }
+                bool locked = n.State == MapNode.Locked;
+                float d = n.State == MapNode.Next ? NextSize : locked ? LockedSize : NodeSize;
+                float radius = d / 2;
 
                 var root = Ui.Rect(holder, "Level:" + lv.Id);
-                Place(root, n.X, n.Y, size);
+                Place(root, n.X, n.Y, new Vector2(d, d));
                 if (n.State == MapNode.Next)
                 {
-                    var glow = Ui.RoundPanel(root, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.35f), radius + 26, "Glow");
+                    var glow = Ui.RoundPanel(root, new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.38f), radius + 30, "Glow");
                     glow.raycastTarget = false;
-                    Ui.Stretch(glow.rectTransform, -26, -26, -26, -26);
+                    Ui.Stretch(glow.rectTransform, -30, -30, -30, -30);
                     UiPulse.On(glow, 0.06f, 1.4f, 0.4f);
                 }
-                // a medallion: a rim plate behind the face (gold once cleared / next, bronze when open, dark when locked) (P1)
-                var rim = n.State == MapNode.Locked ? Theme.Hex(0x3A2A28) : n.State == MapNode.Open ? Theme.Hex(0xB07A3C) : Theme.Gold;
-                var plate = Ui.RoundPanel(root, rim, radius + 10, "Medal");
-                plate.raycastTarget = false;
-                Ui.Stretch(plate.rectTransform, -10, -10, -10, -10);
-                UiShapes.Outline(plate.rectTransform, SliceKit.Ink, radius + 10, 4);
-                var face = Ui.RoundPanel(root, fill, radius, "Face");
+                var rimColor = locked ? Theme.Hex(0x3A2A38) : n.State == MapNode.Open ? Theme.Hex(0xB07A3C) : Theme.Gold;
+                var rim = Ui.RoundPanel(root, rimColor, radius + 12, "Medal");
+                rim.raycastTarget = false;
+                Ui.Stretch(rim.rectTransform, -12, -12, -12, -12);
+                UiShapes.Outline(rim.rectTransform, SliceKit.Ink, radius + 12, 4);
+
+                // the window: the biome's board art behind a circular mask
+                var face = Ui.Panel(root, Color.white, "Face");
+                face.sprite = UiShapes.Circle;
                 Ui.Stretch(face.rectTransform);
-                UiShapes.Outline(face.rectTransform, ring, radius, n.State == MapNode.Next ? 8 : 5);
-                if (selected) UiShapes.Outline(Ui.Stretch(Ui.Rect(root, "Selected"), -12, -12, -12, -12), Theme.Text, radius + 12, 4, "SelectedRing");
+                face.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+                face.color = Theme.Hex(0x2A1E3A);
+                var art = ArtCatalog.Background(ArtCatalog.BiomeFor(lv));
+                if (art != null)
+                {
+                    var biome = Ui.Panel(face.transform, locked ? new Color(0.32f, 0.3f, 0.38f, 1) : Color.white, "Biome");
+                    biome.sprite = art; biome.raycastTarget = false;
+                    var brt = biome.rectTransform;
+                    float aspect = art.rect.height / Mathf.Max(1, art.rect.width);
+                    float bw = aspect >= 1 ? d : d / aspect, bh = aspect >= 1 ? d * aspect : d;
+                    brt.anchorMin = brt.anchorMax = brt.pivot = new Vector2(0.5f, 0.5f);
+                    brt.sizeDelta = new Vector2(bw * 1.15f, bh * 1.15f); // a close crop: the biome's middle fills the window
+                    brt.anchoredPosition = Vector2.zero;
+                }
+                // the portal's energy: a swirl ring inside the rim, a soft dark edge so the window reads as depth
+                var swirl = Ui.Panel(face.transform, locked ? new Color(0.25f, 0.2f, 0.3f, 0.9f) : new Color(0.62f, 0.42f, 1f, 0.85f), "Swirl");
+                swirl.sprite = UiShapes.CircleRing; swirl.raycastTarget = false;
+                Ui.Stretch(swirl.rectTransform);
+                var inner = Ui.Panel(face.transform, new Color(0.05f, 0.02f, 0.1f, 0.45f), "Edge");
+                inner.sprite = UiShapes.CircleRing; inner.raycastTarget = false;
+                Ui.Stretch(inner.rectTransform, d * 0.1f, d * 0.1f, d * 0.1f, d * 0.1f);
+                if (selected) UiShapes.Outline(Ui.Stretch(Ui.Rect(root, "Selected"), -20, -20, -20, -20), Theme.Text, radius + 20, 4, "SelectedRing");
+
                 var btn = root.gameObject.AddComponent<Button>();
                 btn.targetGraphic = face;
                 var colors = btn.colors;
-                colors.disabledColor = Color.white; // locked nodes are already drawn dimmed
+                colors.disabledColor = Color.white; // locked portals are already drawn dimmed
                 colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
                 btn.colors = colors;
                 btn.interactable = RunSystem.IsLevelUnlocked(_s.State, content, lv.Id, _mode);
                 string id = lv.Id;
                 btn.onClick.AddListener(() => _s.Select(id));
 
-                var col = Ui.Column(face.transform, 0, 0, null, "Text");
-                Ui.Stretch(col, 6, 8, 6, 8);
-                if (n.Boss)
-                {
-                    // the boss's portrait on the boss node (P1)
-                    var portrait = Ui.Panel(face.transform, n.State == MapNode.Locked ? new Color(0.35f, 0.3f, 0.35f, 1f) : Color.white, "BossPortrait");
-                    portrait.sprite = World.IsoArt.BossMarker(content, lv.BossId); portrait.preserveAspect = true; portrait.raycastTarget = false;
-                    var prt = portrait.rectTransform;
-                    prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0, 0.5f);
-                    prt.sizeDelta = new Vector2(150, 150); prt.anchoredPosition = new Vector2(4, 4);
-                    Ui.Stretch(col, 140, 8, 6, 8);
-                }
-                col.GetComponent<VerticalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
+                // the level number on a badge at the portal's foot
                 string number = burrow ? "Dive" : LevelNum(lv.Number > 0 ? lv.Number : lv.Index);
-                if (n.Boss)
+                var badge = Ui.RoundPanel(root, n.State == MapNode.Next ? Theme.Accent : locked ? Theme.Hex(0x2A2232) : Theme.Hex(0x3A2414), 28, "Badge");
+                badge.raycastTarget = false;
+                var bdr = badge.rectTransform;
+                bdr.anchorMin = bdr.anchorMax = new Vector2(0.5f, 0);
+                bdr.pivot = new Vector2(0.5f, 0.5f);
+                bdr.sizeDelta = new Vector2(Mathf.Max(96, 30 + 28 * number.Length), 58);
+                bdr.anchoredPosition = new Vector2(0, 2);
+                UiShapes.Outline(bdr, locked ? Theme.Border : Theme.Gold, 28, 4);
+                var num = SliceKit.Chunky(badge.transform, number, n.State == MapNode.Next ? 40 : 36, locked ? Theme.TextFaint : Color.white, TextAnchor.MiddleCenter, "Number");
+                Ui.Stretch(num.rectTransform);
+
+                // beside the portal, towards the middle of the map: the biome, the stars / NEXT, the milestone chip
+                bool right = n.X <= 0.5f;
+                var side = Ui.Rect(root, "Side");
+                side.anchorMin = side.anchorMax = new Vector2(right ? 1 : 0, 0.5f);
+                side.pivot = new Vector2(right ? 0 : 1, 0.5f);
+                side.sizeDelta = new Vector2(360, d);
+                side.anchoredPosition = new Vector2(right ? 26 : -26, 0);
+                var align = right ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+                float y = 0;
+                Text SideText(string text, int size, Color color, string name, float h)
                 {
-                    Ui.Display(col, "BOSS · " + number, 34, text, TextAnchor.MiddleCenter, "Number");
-                    var bossDef = lv.BossId != null && content.RunBosses.TryGetValue(lv.BossId, out var bd) ? bd : null;
-                    Ui.Label(col, bossDef?.Name ?? lv.Name, 24, n.State == MapNode.Locked ? Theme.TextFaint : Theme.Hex(0xFFD0D2), TextAnchor.MiddleCenter, "BossName");
+                    var t = SliceKit.Chunky(side, text, size, color, align, name);
+                    var r = t.rectTransform;
+                    r.anchorMin = new Vector2(0, 1); r.anchorMax = new Vector2(1, 1); r.pivot = new Vector2(0.5f, 1);
+                    r.sizeDelta = new Vector2(0, h); r.anchoredPosition = new Vector2(0, -y);
+                    y += h + 4;
+                    return t;
                 }
-                else Ui.Display(col, number, n.State == MapNode.Next ? 64 : 48, text, TextAnchor.MiddleCenter, "Number");
-                if (n.State == MapNode.Next) Ui.Label(col, burrow ? "best floor " + prog.BestFloor : "NEXT", 22, text, TextAnchor.MiddleCenter, "Tag").fontStyle = FontStyle.Bold;
-                else if (burrow) Ui.Label(col, "best floor " + prog.BestFloor, 20, text, TextAnchor.MiddleCenter, "Tag");
+                string biomeName = burrow ? lv.Name : dark ? "Dark Side" : lv.Name;
+                SideText(biomeName, 30, locked ? Theme.TextFaint : Theme.Cream, "BiomeName", 38);
+                if (n.State == MapNode.Next)
+                {
+                    SideText(burrow ? "best floor " + prog.BestFloor : "NEXT", 26, Theme.AccentLight, "Tag", 32);
+                    int longest = RunSystem.LongestRolls(_s.State, lv.Id);
+                    if (!burrow && longest > 0) SideText("best " + longest + " rolls", 22, Theme.TextDim, "Best", 28);
+                }
+                else if (burrow) SideText("best floor " + prog.BestFloor, 22, Theme.TextDim, "Tag", 28);
                 if (dark)
                 {
                     long data = 0;
                     foreach (var r in lv.CompletionRewards) if (r.Id == Currencies.Data) data += (long)System.Math.Round(r.Amount * lv.RewardMultiplier);
-                    Ui.Label(col, prog.Cleared ? "cleared" : "+" + Fmt.Num(data) + " Data", 20, n.State == MapNode.Locked ? Theme.TextFaint : Theme.Premium, TextAnchor.MiddleCenter, "Data");
+                    SideText(prog.Cleared ? "cleared" : "+" + Fmt.Num(data) + " Data", 22, locked ? Theme.TextFaint : Theme.Premium, "Data", 28);
                 }
-                else if (!burrow && n.State != MapNode.Locked)
+                if (!burrow && !locked && (n.State == MapNode.Cleared || prog.Feats.Exists(f => f)))
                 {
                     string stars = "";
                     for (int i = 0; i < 3; i++) stars += i < prog.Feats.Count && prog.Feats[i] ? "★" : "☆";
-                    var st = Ui.Label(col, stars, 26, Theme.Gold, TextAnchor.MiddleCenter, "Stars");
-                    st.gameObject.SetActive(n.State == MapNode.Cleared || prog.Feats.Exists(f => f));
+                    SideText(stars, 30, Theme.Gold, "Stars", 34);
                 }
-                // milestone chest / portal bonus chip beside the node
-                string marker = _mode == RunMode.Normal && n.Portal.Kind == PortalKind.Main ? MilestoneMarker(content, lv.Number) : null;
+                // milestone chest / bonus chest chip
+                string marker = _mode == RunMode.Normal && content.Portal(lv.PortalId)?.Kind == PortalKind.Main ? MilestoneMarker(content, lv.Number) : null;
                 if (marker != null)
                 {
                     bool bonus = marker == "BONUS";
-                    var chip = Ui.Chip(root, marker + (prog.Cleared ? " ✓" : ""), prog.Cleared ? Theme.PanelAlt : Theme.Hex(0x3B2A10),
-                        prog.Cleared ? Theme.TextFaint : bonus ? Theme.Hex(0xFF9F43) : Theme.Cream, 22, 50, prog.Cleared ? Theme.Border : bonus ? Theme.Hex(0xFF9F43) : Theme.Gold, "Marker");
+                    var chip = Ui.Chip(side, marker + (prog.Cleared ? " ✓" : ""), prog.Cleared ? Theme.PanelAlt : Theme.Hex(0x3B2A10),
+                        prog.Cleared ? Theme.TextFaint : bonus ? Theme.Hex(0xFF9F43) : Theme.Cream, 22, 46, prog.Cleared ? Theme.Border : bonus ? Theme.Hex(0xFF9F43) : Theme.Gold, "Marker");
                     chip.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                     chip.gameObject.AddComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                    bool left = n.X > 0.5f || n.Boss;
-                    chip.anchorMin = chip.anchorMax = new Vector2(left ? 0 : 1, 0.5f);
-                    chip.pivot = new Vector2(left ? 1 : 0, 0.5f);
-                    chip.sizeDelta = new Vector2(0, 50);
-                    chip.anchoredPosition = new Vector2(left ? -18 : 18, 0);
+                    chip.anchorMin = chip.anchorMax = new Vector2(right ? 0 : 1, 1);
+                    chip.pivot = new Vector2(right ? 0 : 1, 1);
+                    chip.sizeDelta = new Vector2(0, 46);
+                    chip.anchoredPosition = new Vector2(0, -y - 2);
+                    y += 50;
                 }
+                // centre the side block's content vertically on the portal
+                foreach (RectTransform c in side) c.anchoredPosition += new Vector2(0, -(d - y) / 2);
                 return root;
             }
         }
@@ -642,7 +640,7 @@ namespace RogueStars.Client.Screens
             var portal = Content.Portal(level.PortalId);
             var prog = RunSystem.Progress(State, Content, level.Id);
             var head = Ui.Row(Footer, CardTitleH, 12);
-            string name = mode == RunMode.Burrow ? level.Name : "Level " + LevelNum(level.Number > 0 ? level.Number : level.Index) + " · " + level.Name;
+            string name = LevelTitle(level);
             Ui.Display(head, name, 44, Theme.Text, TextAnchor.MiddleLeft, "LevelName").horizontalOverflow = HorizontalWrapMode.Overflow;
             var threat = Ui.Label(head, "Threat " + level.Threat + (mode == RunMode.Overcharged && portal != null ? " + " + portal.OverchargedThreatBonus : ""), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
             Ui.Size(threat, 220, -1, 0);
@@ -704,11 +702,11 @@ namespace RogueStars.Client.Screens
             var prog = RunSystem.Progress(State, Content, level.Id);
             var boss = level.BossId != null && Content.RunBosses.TryGetValue(level.BossId, out var bd) ? bd : null;
             bool unlocked = RunSystem.IsLevelUnlocked(State, Content, level.Id, mode);
-            // P3: "Level 10 · Ember Wastes 10" (the portal name repeated the level's)
-            string title = mode == RunMode.Burrow ? level.Name : "Level " + LevelNum(level.Number > 0 ? level.Number : level.Index) + " · " + level.Name;
+            string title = LevelTitle(level); // "55. Gas Giant"
             Modal(title, b =>
             {
                 KeyValue(b, "Threat", level.Threat + (mode == RunMode.Overcharged ? " + " + portal.OverchargedThreatBonus : ""));
+                if (!string.IsNullOrEmpty(level.Biome)) KeyValue(b, "Biome", level.Name);
                 KeyValue(b, "Boss", boss?.Name ?? "—", Theme.ValenceColor(Valence.Boss));
                 KeyValue(b, "Dice", DiceText(level));
                 KeyValue(b, "Entry", cost.Amount + " " + Fmt.CurrencyName(cost.Currency), State.Wallet.CanAfford(cost.Currency, cost.Amount) ? Theme.Text : Theme.Bad);
@@ -725,7 +723,7 @@ namespace RogueStars.Client.Screens
                 if (!unlocked) Ui.Label(b, LockedReason(level, mode), Theme.FontSmall, Theme.Bad, TextAnchor.MiddleCenter, "LockedReason");
                 string marker = mode == RunMode.Normal && portal.Kind == PortalKind.Main ? MilestoneMarker(Content, level.Number) : null;
                 if (marker != null && level.FirstClearRewards.Count > 0)
-                    Ui.Label(b, (marker == "BONUS" ? "Portal bonus" : "Milestone chest") + " (first clear" + (prog.Cleared ? ", claimed" : "") + "): "
+                    Ui.Label(b, (marker == "BONUS" ? "Bonus chest" : "Milestone chest") + " (first clear" + (prog.Cleared ? ", claimed" : "") + "): "
                                 + Fmt.Rewards(level.FirstClearRewards, Content, State, Now), Theme.FontSmall, prog.Cleared ? Theme.TextDim : Theme.Premium);
                 if (State.Run.Active != null) Ui.Label(b, "Finish or abandon your current run first.", Theme.FontSmall, Theme.Bad);
             },

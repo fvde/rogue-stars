@@ -13,13 +13,13 @@ public class LongestRollsTests
         var s = RunTestKit.StartRun(e);
         s.Run.Active!.Rolls = 7;
         Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
-        Assert.Equal(7, RunSystem.LongestRolls(s, "ember_wastes_1"));
+        Assert.Equal(7, RunSystem.LongestRolls(s, "main_1"));
         Assert.Equal(7, s.Run.LastSummary.LongestRolls);
-        var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" });
+        var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" });
         Assert.True(r.Ok, r.Error);
         s.Run.Active!.Rolls = 3;
         Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
-        Assert.Equal(7, RunSystem.LongestRolls(s, "ember_wastes_1")); // a shorter run keeps the record
+        Assert.Equal(7, RunSystem.LongestRolls(s, "main_1")); // a shorter run keeps the record
         Assert.Equal(7, s.Run.LastSummary.LongestRolls);
         Assert.Equal(0, RunSystem.LongestRolls(s, "nowhere"));
     }

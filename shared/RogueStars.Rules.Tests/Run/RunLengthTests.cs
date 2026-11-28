@@ -109,8 +109,8 @@ public class RunLengthTests(ITestOutputHelper output)
         double a = 0, b = 0;
         for (int seed = 1; seed <= 20; seed++)
         {
-            Play(normal, "ember_wastes_1", RunMode.Normal, seed, false, out int r1);
-            Play(slow, "ember_wastes_1", RunMode.Normal, seed, false, out int r2);
+            Play(normal, "main_1", RunMode.Normal, seed, false, out int r1);
+            Play(slow, "main_1", RunMode.Normal, seed, false, out int r2);
             a += r1; b += r2;
         }
         output.WriteLine($"rolls: normal {a / 20:0.0}, 20% slower awakening {b / 20:0.0}");

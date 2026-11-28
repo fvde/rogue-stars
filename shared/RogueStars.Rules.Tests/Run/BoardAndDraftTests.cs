@@ -11,7 +11,7 @@ namespace RogueStars.Rules.Tests.Run;
 public class BoardTests
 {
     public static IEnumerable<object[]> Levels() =>
-        new[] { "ember_wastes_1", "ember_wastes_10", "glacier_rift_5", "static_jungle_9", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
+        new[] { "main_1", "main_10", "main_15", "main_29", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
 
     [Theory]
     [MemberData(nameof(Levels))]
@@ -44,7 +44,7 @@ public class BoardTests
     public void Generation_HasForks_AndSegmentsVaryTheirMix()
     {
         var c = RunTestKit.Classic;
-        var level = c.RunLevel("ember_wastes_5")!;
+        var level = c.RunLevel("main_5")!;
         int forks = 0;
         var enemyShare = new List<double>();
         for (ulong seed = 1; seed <= 40; seed++)
@@ -64,7 +64,7 @@ public class BoardTests
     [Fact]
     public void SameSeed_SameBoard()
     {
-        var level = ContentDb.Default.RunLevel("glacier_rift_3")!;
+        var level = ContentDb.Default.RunLevel("main_13")!;
         var a = RunBoard.Generate(ContentDb.Default, level, new Rng(7));
         var b = RunBoard.Generate(ContentDb.Default, level, new Rng(7));
         Assert.Equal(a.Tiles.Select(t => t.TileId + string.Join(",", t.Next)), b.Tiles.Select(t => t.TileId + string.Join(",", t.Next)));
@@ -72,10 +72,10 @@ public class BoardTests
 
     /// <summary>Whole runs (one and two dice, a stalled meter up to the 45-roll limit): no tile and no fork twice, board always ahead.</summary>
     [Theory]
-    [InlineData("ember_wastes_1", false)]
-    [InlineData("ember_wastes_8", false)]
+    [InlineData("main_1", false)]
+    [InlineData("main_8", false)]
     [InlineData("dark_side_4", false)]
-    [InlineData("ember_wastes_8", true)]
+    [InlineData("main_8", true)]
     public void Run_NeverVisitsATileOrForkTwice_AndNeverRunsOutOfBoard(string levelId, bool stalledMeter)
     {
         var e = RunTestKit.Engine(RunTestKit.Strong());
@@ -119,7 +119,7 @@ public class BoardTests
     public void BoardGrowsAhead_FarEnoughFor45RollsOfTwoDice()
     {
         var c = ContentDb.Default;
-        var level = c.RunLevel("ember_wastes_8")!;
+        var level = c.RunLevel("main_8")!;
         var rng = new Rng(3);
         var board = RunBoard.Generate(c, level, rng);
         var run = new ActiveRun { Tiles = board.Tiles, BoardEnd = board.EndTile, BoardSegments = board.Segments, LevelId = level.Id, Rng = rng };
@@ -339,9 +339,9 @@ public class ContentTests
     public void RunContent_IsComplete_AndReferencesResolve()
     {
         var c = ContentDb.Default;
-        Assert.Equal(c.Campaign.Portals, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
-        Assert.All(c.Portals.Values.Where(p => p.Kind == PortalKind.Main), p => Assert.Equal(c.Campaign.LevelsPerPortal, p.LevelIds.Count));
-        Assert.Equal(c.Campaign.Portals, c.Portals.Values.Where(p => p.Kind == PortalKind.Main).Select(p => p.Name).Distinct().Count());
+        Assert.Equal(c.Campaign.MaterializedLevels, c.Portals.Values.Count(p => p.Kind == PortalKind.Main));
+        Assert.All(c.Portals.Values.Where(p => p.Kind == PortalKind.Main), p => Assert.Single(p.LevelIds)); // one portal per level
+        Assert.Equal(c.Campaign.Biomes.Count, c.Portals.Values.Where(p => p.Kind == PortalKind.Main).Select(p => p.Name).Distinct().Count());
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.Burrow);
         Assert.Single(c.Portals.Values, p => p.Kind == PortalKind.DarkSide);
         Assert.True(c.Enemies.Values.Count(e => !e.Boss) >= 18);
@@ -398,7 +398,7 @@ public class ContentTests
         {
             var l = mains[n - 1];
             Assert.Equal(n, RunSystem.MainLevelNumber(c, l.Id));
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / EndlessCampaignTests.FamilyFactor(c, (n - 1) / c.Campaign.LevelsPerPortal);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / EndlessCampaignTests.FamilyFactor(c, n);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.InRange(l.StaminaCost, 5, c.Campaign.StaminaMax);

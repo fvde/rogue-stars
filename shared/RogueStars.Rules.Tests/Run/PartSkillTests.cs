@@ -340,7 +340,7 @@ public class PartSkillTests
         var parts = s.Run.LastSummary!.Rewards.Where(l => l.Reward.Kind == RewardKinds.Part).ToList();
         Assert.Single(parts);
         Assert.Contains(parts[0].Reward.Rarity, new[] { (int)Rarity.Rare, (int)Rarity.Epic });
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         RunTestKit.AutoToEnd(e, ref s);
         Assert.DoesNotContain(s.Run.LastSummary!.Rewards, l => l.Reward.Kind == RewardKinds.Part);
     }

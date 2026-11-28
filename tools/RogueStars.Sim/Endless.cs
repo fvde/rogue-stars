@@ -104,22 +104,22 @@ public static class Endless
     {
         var sb = new StringBuilder();
         string[] rar = { "Common", "Rare", "Epic", "Legendary" };
-        sb.AppendLine("| Main level | threat t | enemy ×M(t) | reward scale S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level ≈ | Data / Dark clear | item drops (min tier) | chest (n+10): 💎 / tokens each | portal bonus (n): 💎 / tokens each |");
+        sb.AppendLine("| Main level | threat t | enemy ×M(t) | reward scale S | Biomass / run | Ore / run | Fuel / run | Gear Cores / run | Dark Side level ≈ | Data / Dark clear | item drops (min tier) | chest (n+10): 💎 / tokens each | bonus chest (n): 💎 / tokens each |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (int n in levels)
         {
             var l = c.MainLevel(n);
-            int portal = (n - 1) / c.Campaign.LevelsPerPortal;
+            int chapter = c.Campaign.ChapterOf(n); // reward rhythm
             double t = c.Campaign.ThreatAt(n);
-            // An average run of the portal (levels 1–10 pay 150 … 420 × S Biomass on completion).
-            double Avg(string cur) => Enumerable.Range(1, c.Campaign.LevelsPerPortal).Average(i => RewardPerRun(c, c.MainLevel(portal * c.Campaign.LevelsPerPortal + i), cur));
+            // An average run of the chapter (steps 1–10 pay 150 … 420 × S Biomass on completion).
+            double Avg(string cur) => Enumerable.Range(1, c.Campaign.ChapterLevels).Average(i => RewardPerRun(c, c.MainLevel(chapter * c.Campaign.ChapterLevels + i), cur));
             int dark = 1;
             while (c.Campaign.DarkSideMainLevel(dark + 1) <= n) dark++;
             var darkLevel = c.DarkSideLevel(dark);
             var chest = c.Campaign.MilestoneRewards(n + 10);
             var bonus = c.Campaign.MilestoneRewards(n);
             int minRarity = c.RunLootTable(l.LootTableId).Entries.Where(e => e.Kind != RewardKinds.Currency).Min(e => e.Rarity);
-            sb.AppendLine("| " + n + " | " + t.ToString("0.0", Output.Inv) + " | " + Output.F(c.ThreatMultiplierAt(t)) + " | " + c.MainRewardScale(portal).ToString("0.#", Output.Inv)
+            sb.AppendLine("| " + n + " | " + t.ToString("0.0", Output.Inv) + " | " + Output.F(c.ThreatMultiplierAt(t)) + " | " + c.MainRewardScale(chapter).ToString("0.#", Output.Inv)
                 + " | " + Output.F(Avg(Currencies.Biomass)) + " | " + Output.F(Avg(Currencies.Ore)) + " | " + Output.F(Avg(Currencies.Fuel)) + " | " + Output.F(Avg(Currencies.GearCores))
                 + " | " + dark + " | " + Output.F(RewardPerRun(c, darkLevel, Currencies.Data)) + " | " + rar[Math.Min(3, minRarity)]
                 + " | " + (chest.Count == 0 ? "–" : chest[0].Amount + " / " + chest[1].Amount) + " | " + (bonus.Count == 0 ? "–" : bonus[0].Amount + " / " + bonus[1].Amount) + " |");
