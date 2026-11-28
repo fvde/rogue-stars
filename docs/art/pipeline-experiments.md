@@ -54,3 +54,16 @@ Caveat: "owner_rejected" also counts candidates archived because another candida
   Measurement: the hourly loop now runs metrics.py AFTER the QC step (17:31 read 0.0 only because nothing was QC'd yet).
 - Expect: base/shadow fails among retries this hour < 2 (was 6 of 9 final fails); retry pass rate up.
 - Result: (next check)
+- Result (2026-11-28 09:20, first QC after the overnight run): retries this round failed mostly on base-worm drift
+  (hero skins, see E5 note) and only 2 of 13 on pedestals/shadows (light_ground_loop x2 spire bases); poison_critical
+  retry still drew a shadow ellipse. Base/shadow share among retry fails dropped from 6/9 to 3/14. Kept.
+
+### E5 (2026-11-28 09:25): no "worm" in the mounts prompt
+- Loss: 13 of 18 QC'd mount images had a worm sitting in the seat. The suffix said "sized for a small worm to ride in,
+  empty seat": Flux draws the noun (same literal effect as E3/E4). The simplified retries, which drop that phrase, all
+  came out empty (4 of 4 passed). Hero skins: 14 of 17 failed (arms drawn; the retries lose the "pink limbless worm"
+  base and drift off-model) - next candidate change.
+- Change: mounts suffix now "... open round cockpit seat on top with an empty padded seat" (worm only in negatives).
+  Parts v2 prompts got the same treatment ("for a small cartoon space hero").
+- Expect: worm-in-seat fails on new mount images 0 (was 13/18).
+- Result: (next check)
