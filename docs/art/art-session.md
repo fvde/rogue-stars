@@ -62,6 +62,7 @@ QC judgement (what the automation cannot see): does it match the prompt; no text
 - Never edit unapproved art with Kontext. Edits run at 23:00 (Europe/Berlin) on approved art only, mflux one at a time with ComfyUI down; generate until 23:00, clean up, then generate overnight.
 - Prompts are literal: no invented details; negatives for past mistakes.
 - Stopped subjects: miniboss markers (use the elite art), planet eye candy (ships done, meteors stopped), planet buildings (planet stays at the 4 stages), sidekicks (duplicate of aliens — removed). There is no "champion" tier: the 9 former champions are elites now (package enemies-elites2, elite_* subjects, code ids mb_*).
+- Hero skins are painted ONLY onto the current base worm (`client/RogueStars/Assets/Art/Resources/Art/Hero/hero_worm.png`) with its silhouette and position locked, so all worm animations keep working. Text-to-image hero skins were all rejected (2026-11-28); hero-skins is out of the queue.
 - Enemy tiers are exactly three: **enemies, elites (also called minibosses) and bosses**. No champions or any other tier; never generate art for one.
 - Never open browser windows. Never launch the Unity editor GUI; Unity only with `-batchmode` (one instance machine-wide).
 - No releases from this session. Don't touch game code except art files the import step needs.
