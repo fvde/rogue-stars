@@ -19,16 +19,33 @@ COMFY = os.path.expanduser("~/AI/ComfyUI"); API = "http://127.0.0.1:8188"
 FACE = (105, 195, 280, 315)          # eyes + mouth + cheeks on the 512 px base sprite: kept as is
 STYLE = ("cute cartoon pink worm hero wearing the costume painted on its body, bold black outline, flat bright colors, "
          "two-tone cel shading, mobile game character sprite")
-NEG = "arms, hands, legs, feet, extra limbs, second character, background, scenery, text, letters, blurry, photo, realistic"
+NEG = ("arms, hands, legs, feet, fingers, extra limbs, little person, figure, second character, body inside the body, "
+       "background, scenery, text, letters, blurry, photo, realistic")
 
 
 def masks():
     base = Image.open(BASE).convert("RGBA"); a = np.asarray(base)[..., 3] > 128
     inner = ndi.binary_erosion(a, iterations=7)                 # keep the black outline untouched
-    face = np.zeros_like(a); x0, y0, x1, y1 = FACE; face[y0:y1, x0:x1] = True
+    x0, y0, x1, y1 = FACE; yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    cx, cy, rx, ry = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2
+    face = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1.0        # soft ellipse, no rectangle seam
     m = inner & ~face
-    soft = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2))
+    soft = Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(5))
     return base, soft
+
+
+def block_init(base, soft, colours):
+    """Colour-block start: flat costume colours painted into the body (head band above the face, coat below), so the
+    model refines a costume instead of inventing a figure. colours: 'R,G,B' (one) or 'R,G,B;R,G,B' (head;body)."""
+    cs = [tuple(int(v) for v in c.split(",")) for c in colours.split(";")]
+    head, body = (cs[0], cs[-1])
+    a = np.asarray(base).astype(float); m = np.asarray(soft).astype(float)[..., None] / 255
+    yy = np.mgrid[0:a.shape[0], 0:a.shape[1]][0][..., None]
+    paint = np.where(yy < FACE[1], np.array(head, float), np.array(body, float))
+    L = a[..., :3].mean(-1, keepdims=True) / 255                        # keep the base worm's shading under the block
+    tinted = paint * (0.55 + 0.6 * L)
+    out = a.copy(); out[..., :3] = a[..., :3] * (1 - 0.8 * m) + tinted * 0.8 * m
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
 
 
 IPW = 0.6
@@ -63,11 +80,12 @@ def wf(prefix, text, seed, den, ref):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("skin"); ap.add_argument("prompt"); ap.add_argument("--ref")
-    ap.add_argument("--seeds", default="8201,8202"); ap.add_argument("--denoise", type=float, default=0.7); ap.add_argument("--ipw", type=float, default=0.6)
+    ap.add_argument("--seeds", default="8201,8202"); ap.add_argument("--denoise", type=float, default=0.7); ap.add_argument("--ipw", type=float, default=0.6); ap.add_argument("--block")
     a = ap.parse_args(); os.makedirs(OUT, exist_ok=True)
     global IPW; IPW = a.ipw
     base, soft = masks()
-    bg = Image.new("RGBA", base.size, (255, 255, 255, 255)); bg.alpha_composite(base)
+    init = block_init(base, soft, a.block) if a.block else base
+    bg = Image.new("RGBA", base.size, (255, 255, 255, 255)); bg.alpha_composite(init)
     bg.convert("RGB").save(f"{COMFY}/input/hs_base.png"); soft.save(f"{COMFY}/input/hs_mask.png")
     if a.ref:
         r = Image.open(os.path.expanduser(a.ref)).convert("RGBA"); rb = Image.new("RGBA", r.size, (255, 255, 255, 255)); rb.alpha_composite(r)
