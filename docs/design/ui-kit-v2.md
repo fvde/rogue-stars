@@ -91,7 +91,7 @@ one line there plus its pick; `KitArtImportTests` checks every id loads as a spr
 
 Batch 1 (2026-11-28, all `N_s9001.png`): every piece of sections A to C except `side_rail`, `feature_band`, `parchment_bg`,
 `power_icon`, `tile_selected` / `tile_equipped`, `slot_glyph_*`, `pip_lock`, `hud_pill`, `round_plate`, `settings_button` and
-`start_button_pressed` (not delivered yet) and `copy_diamond` (dropped: tiles show "xN"). Pip gems come as three coloured sprites
+`start_button_pressed` (not delivered yet) and `copy_diamond` (dropped: no copy count, every owned part item is its own tile). Pip gems come as three coloured sprites
 (`pip_gem_blue`, `_purple`, `_gold`; `KitV2.PipGemId` picks one by the rune colour, any other colour stays the tinted code
 diamond). Kit icons: `icon_stamina`, `icon_diamond`, `icon_ore` (the approved currency icons; `KitV2.CurrencyIcon`) and
 `icon_settings` (the approved HUD cog, the glyph on the code-drawn round settings button until the generic `round_button` arrives).

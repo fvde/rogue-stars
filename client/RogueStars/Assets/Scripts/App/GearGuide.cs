@@ -218,15 +218,6 @@ namespace RogueStars.Client.App
             return PartAlert.None;
         }
 
-        /// <summary>Other parts of the same item the player owns (the copy-count diamond; ladder copies for a Mythic).</summary>
-        public static int Copies(GameState s, PartItem p)
-        {
-            if (p == null) return 0;
-            int n = 0;
-            foreach (var o in s.Parts.Items.Values) if (o.Uid != p.Uid && o.DefId == p.DefId) n++;
-            return n;
-        }
-
         /// <summary>Spare parts that fit a slot, best first (rarity, level): the empty slot's sheet.</summary>
         public static List<PartItem> SparesFor(GameState s, ContentDb c, PartSlot slot)
         {

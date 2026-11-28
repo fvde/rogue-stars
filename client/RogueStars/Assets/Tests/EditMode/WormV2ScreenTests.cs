@@ -358,9 +358,72 @@ namespace RogueStars.Client.Tests
             var uid = Grant("e_head_guard", PartRarity.Epic, 2)[0];
             var worm = OpenWorm();
             var tile = Named(worm.Root, "Part:" + uid).transform;
-            Assert.That(Child(tile, "Copies").GetComponent<Text>().text, Is.EqualTo("x1"), "copies as xN");
+            Assert.That(Child(tile, "Copies"), Is.Null, "no xN counter: each copy is its own tile");
             Assert.That(Child(tile, "Glyph"), Is.Not.Null, "no icon art yet: the slot glyph");
             Assert.That(Child(tile, "Pips"), Is.Not.Null);
+        }
+
+        /// <summary>Centre of a tile child in the tile's own board px (x right, y down from the top-left).</summary>
+        private static Vector2 CentreIn(Transform tile, string child)
+        {
+            var corners = new Vector3[4];
+            ((RectTransform)Child(tile, child)).GetWorldCorners(corners);
+            var c = tile.InverseTransformPoint((corners[0] + corners[2]) / 2);
+            return new Vector2(c.x, -c.y);
+        }
+
+        [Test]
+        public void Tiles_Corners_SlotTopLeft_AlertTopRight_LevelBottomRight_RankBottomLeft_LevelUpLeftEdge()
+        {
+            var myth = Grant(Blaster, PartRarity.Mythic, 1)[0];
+            Grant(Blaster, PartRarity.Mythic, 1);
+            GrantCurrency(Currencies.Metal, 100);
+            GrantCurrency(Currencies.Ore, 10_000);
+            Equip(myth, PartSlot.LeftArm);
+            var worm = OpenWorm();
+            var tile = Named(worm.Root, "Slot:LeftArm").transform;
+            float size = PartTileView.SlotTile, h = size / 2;
+            Assert.That(Child(tile, "Alert"), Is.Not.Null, "climb ready");
+            Assert.That(Child(tile, "LevelUpBadge"), Is.Not.Null, "equipped and the wallet pays a level");
+            var badge = CentreIn(tile, "SlotBadge");
+            var alert = CentreIn(tile, "Alert");
+            var level = CentreIn(tile, "Level");
+            var rank = CentreIn(tile, "Rank");
+            var up = CentreIn(tile, "LevelUpBadge");
+            Assert.That(badge.x < h && badge.y < h, Is.True, "slot badge top-left " + badge);
+            Assert.That(alert.x > size - 40 && alert.y < 40, Is.True, "! top-right " + alert);
+            Assert.That(level.x > h && level.y > size - 40, Is.True, "level bottom-right " + level);
+            Assert.That(rank.x < h && rank.y > h, Is.True, "rank bottom-left " + rank);
+            Assert.That(up.x < 40 && up.y > 60 && up.y < size - 70, Is.True, "level-up mark on the left edge between the slot badge and the rank " + up);
+            Assert.That(Child(tile, "Level").GetComponent<Text>().text, Is.EqualTo("Lv.1"));
+        }
+
+        [Test]
+        public void Inventory_OneTilePerOwnedItem_CountsAndSortsEveryCopy()
+        {
+            var guards = Grant("e_head_guard", PartRarity.Epic, 3);
+            var commons = Grant("c_tail_mend", PartRarity.Common, 2);
+            var leg = Grant("l_arm_strike", PartRarity.Legendary, 1)[0];
+            var worm = OpenWorm();
+            var spares = S.Parts.Items.Keys.Where(u => !PartsSystem.IsEquipped(S, u)).ToList();
+            Assert.That(worm.ShownParts, Is.EquivalentTo(spares), "every owned copy is listed, not one per part");
+            foreach (var uid in guards.Concat(commons)) Assert.That(Named(worm.Root, "Part:" + uid), Is.Not.Null, uid);
+            Assert.That(Child(worm.Root, "InventoryTitle").GetComponent<Text>().text, Is.EqualTo("Parts · " + spares.Count));
+            Assert.That(worm.Root.GetComponentsInChildren<Transform>(true).Any(t => t.name == "Copies"), Is.False, "no xN anywhere");
+            Assert.That(worm.ShownParts.Select(u => S.Parts.Items[u].Rarity), Is.Ordered.Descending, "By Rarity");
+            Assert.That(worm.ShownParts[0], Is.EqualTo(leg));
+            var guardIdx = guards.Select(u => worm.ShownParts.IndexOf(u)).OrderBy(i => i).ToList();
+            Assert.That(guardIdx.Last() - guardIdx.First(), Is.EqualTo(2), "the copies sit side by side");
+            // the Feed sheet offers each Common copy on its own; feeding drops exactly those tiles
+            Named(worm.Root, "FeedSpares").onClick.Invoke();
+            var fed = worm.FeedSelection.ToList();
+            Assert.That(fed, Is.SupersetOf(commons));
+            foreach (var uid in commons) Assert.That(Named(Modal, "FeedPart:" + uid), Is.Not.Null, uid);
+            Named(Modal, "FeedConfirm").onClick.Invoke();
+            worm.Refresh();
+            Assert.That(worm.ShownParts, Is.EquivalentTo(spares.Except(fed)));
+            Assert.That(worm.ShownParts, Is.SupersetOf(guards));
+            Assert.That(Child(worm.Root, "InventoryTitle").GetComponent<Text>().text, Is.EqualTo("Parts · " + (spares.Count - fed.Count)));
         }
 
         [Test]
