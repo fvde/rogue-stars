@@ -202,7 +202,7 @@ Runs use the real Progression loadout (the Run fallback worm stats are only a sa
 Worm base stats were raised to HP 900 / ATK 90 / DEF 20 / Speed 100 / Crit 5% (was 500 / 50 / 20 / 100 / 0%) so the
 starting worm matches the Run threat curve. Auto-play win rates over 30 seeds (fresh starter kit, parts equipped):
 
-| Worm level | Ember Wastes 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| Worm level | Level 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|
 | 1 | 100% | 87% | 40% | 0% | 0% | 0% | 0% |
 | 4 | 100% | 100% | 63% | 50% | 7% | 0% | 0% |

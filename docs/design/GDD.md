@@ -195,13 +195,15 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
 - **Portal after portal** (owner, 2026-11-28): the main campaign is one linear sequence of levels and **every level is
   its own portal** with its own biome. Play opens the next level right away (`RunSystem.NextMainRunStart`); the level
   selection shows the levels as a chain of portals, each with its biome peeking through. A level is named
-  "&lt;number&gt;. &lt;biome&gt;" ("55. Crystal Reef"). Each level has 3 feats (clear, HP left ≥ x%, beat boss within N rounds).
-- **Biomes** (`CampaignDef.Biomes`, eight, two per enemy family: Ember Wastes / Rust Canyons = ember, Crystal Reef /
-  Cloud Isles = glacier, Volt Labyrinth / Static Jungle = static, Wreck Field / Gloom Marsh = void): a level's biome sets
-  its board art, its enemy packs, elites, tile pool and boss. The order is a deterministic seeded shuffle, the same for
-  every player (`ContentDb.CampaignBiomeIndex`): blocks of 8 levels each use every biome once, and two consecutive
-  levels never share a biome **nor an enemy family**; level 1 is always Ember Wastes (the tutorial pool). The order only
-  changes when the biome list or `CampaignDef.BiomeOrderSeed` changes.
+  "&lt;number&gt;. &lt;biome&gt;" ("55. Gas Giant"). Each level has 3 feats (clear, HP left ≥ x%, beat boss within N rounds).
+- **Biomes** (`CampaignDef.Biomes`, eight, named after their board art, two per enemy family: Lava Fields / Gas Giant =
+  ember, Seabed / Cloud Isles = glacier, Space Station / Alien Jungle = static, Shipwreck / Toxic Swamp = void): every
+  board biome with a ground image except the Dark Side's ash wastes and the Burrow's prehistoric clearing; the tile-only
+  board sets (candy planet, clockwork city, coral reef, crystal cave, desert ruins, frozen future, ice, mushroom forest,
+  neon city) join once they have a ground image. A level's biome sets its board art, its enemy packs, elites, tile pool
+  and boss. The order is a deterministic seeded shuffle, the same for every player (`ContentDb.CampaignBiomeIndex`):
+  blocks of 8 levels each use every biome once, and two consecutive levels never share a biome **nor an enemy family**;
+  level 1 is always Lava Fields (the tutorial pool). The order only changes when the biome list or `CampaignDef.BiomeOrderSeed` changes.
 - **No boss levels:** there is no boss cadence (no boss level every 10th level, no portal-ending boss); every run ends
   with its biome's boss, as always.
 - **Chapters of 10** keep the rhythm of rewards and difficulty only (no biome, no portal): reward scale and loot table,

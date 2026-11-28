@@ -87,7 +87,7 @@ namespace RogueStars.Rules.Content
                 w.LevelCosts.Add((long)Math.Round(80 * Math.Pow(l, 1.5) * Math.Pow(1.01, l)));
 
             // Base stats tuned against the Run threat curve (integration): a fresh worm with the starter kit wins
-            // Ember Wastes 1–2 most of the time, ~40% of level 3, and hits a soft wall at 4–6 that a few worm levels
+            // levels 1–2 most of the time, ~40% of level 3, and hits a soft wall at 4–6 that a few worm levels
             // and part upgrades from those runs overcome (see docs/design/economy-model.md, "Early run balance").
             w.BaseStats.Add(new StatMod(StatId.Hp, 900));
             w.BaseStats.Add(new StatMod(StatId.Atk, 90));

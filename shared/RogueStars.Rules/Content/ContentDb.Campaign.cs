@@ -267,7 +267,7 @@ namespace RogueStars.Rules.Content
         }
 
         /// <summary>
-        /// Builds main level n and its portal (pure: stores nothing). Its name is its biome's ("55. Crystal Reef" in the UI);
+        /// Builds main level n and its portal (pure: stores nothing). Its name is its biome's ("55. Gas Giant" in the UI);
         /// threat, rewards, stamina, board and dice follow the level number (its chapter and chapter step), the enemies its biome.
         /// </summary>
         private LevelDef CampaignBuildMainLevel(int n, out PortalDef portal)

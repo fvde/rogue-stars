@@ -122,7 +122,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Level numbers in full (no K/M abbreviation: "level 12345").</summary>
         public static string LevelNum(long n) => n.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        /// <summary>A level's title: main levels "55. Crystal Reef" (number and biome), Dark Side "Dark Side 7", Burrow its name.</summary>
+        /// <summary>A level's title: main levels "55. Gas Giant" (number and biome), Dark Side "Dark Side 7", Burrow its name.</summary>
         public static string LevelTitle(LevelDef level)
         {
             if (level == null) return "";
@@ -702,7 +702,7 @@ namespace RogueStars.Client.Screens
             var prog = RunSystem.Progress(State, Content, level.Id);
             var boss = level.BossId != null && Content.RunBosses.TryGetValue(level.BossId, out var bd) ? bd : null;
             bool unlocked = RunSystem.IsLevelUnlocked(State, Content, level.Id, mode);
-            string title = LevelTitle(level); // "55. Crystal Reef"
+            string title = LevelTitle(level); // "55. Gas Giant"
             Modal(title, b =>
             {
                 KeyValue(b, "Threat", level.Threat + (mode == RunMode.Overcharged ? " + " + portal.OverchargedThreatBonus : ""));

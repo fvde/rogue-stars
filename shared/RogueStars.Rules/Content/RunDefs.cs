@@ -681,19 +681,23 @@ namespace RogueStars.Rules.Content
         /// </summary>
         public int ChapterLevels = 10;
         /// <summary>
-        /// The campaign biomes (two per enemy family). Level n's biome: ContentDb.CampaignBiomeIndex. The order only changes
-        /// when this list or <see cref="BiomeOrderSeed"/> changes. The first biome is level 1's (the tutorial run's ember pool).
+        /// The campaign biomes (two per enemy family), named after their board art: every board biome with a full-frame ground
+        /// image (client Art/Boards/&lt;id&gt;/background) except ash_wastes (the Dark Side's look) and prehistoric (the Burrow's).
+        /// The tile-only board sets (candy_planet, clockwork_city, coral_reef, crystal_cave, desert_ruins, frozen_future, ice,
+        /// mushroom_forest, neon_city) join once they have a ground image. Level n's biome: ContentDb.CampaignBiomeIndex. The
+        /// order only changes when this list or <see cref="BiomeOrderSeed"/> changes. The first biome is level 1's (the tutorial
+        /// run's ember pool).
         /// </summary>
         public List<CampaignBiomeDef> Biomes = new List<CampaignBiomeDef>
         {
-            new CampaignBiomeDef("lava", "Ember Wastes", "ember"),
-            new CampaignBiomeDef("seabed", "Crystal Reef", "glacier"),
-            new CampaignBiomeDef("space_station", "Volt Labyrinth", "static"),
-            new CampaignBiomeDef("shipwreck", "Wreck Field", "void"),
-            new CampaignBiomeDef("gas_giant", "Rust Canyons", "ember"),
+            new CampaignBiomeDef("lava", "Lava Fields", "ember"),
+            new CampaignBiomeDef("seabed", "Seabed", "glacier"),
+            new CampaignBiomeDef("space_station", "Space Station", "static"),
+            new CampaignBiomeDef("shipwreck", "Shipwreck", "void"),
+            new CampaignBiomeDef("gas_giant", "Gas Giant", "ember"),
             new CampaignBiomeDef("cloud_islands", "Cloud Isles", "glacier"),
-            new CampaignBiomeDef("alien_jungle", "Static Jungle", "static"),
-            new CampaignBiomeDef("toxic_swamp", "Gloom Marsh", "void"),
+            new CampaignBiomeDef("alien_jungle", "Alien Jungle", "static"),
+            new CampaignBiomeDef("toxic_swamp", "Toxic Swamp", "void"),
         };
         /// <summary>Seed of the biome order (the same for every player).</summary>
         public ulong BiomeOrderSeed = 0x5EEDB10EUL;
@@ -739,7 +743,7 @@ namespace RogueStars.Rules.Content
         /// <summary>
         /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
         /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs). Named pool_&lt;family&gt;_&lt;variant&gt;:
-        /// level 1's biome is always the first campaign biome (Ember Wastes, the ember family).
+        /// level 1's biome is always the first campaign biome (Lava Fields, the ember family).
         /// </summary>
         public string TutorialPool = "pool_ember_tutorial";
         public double TutorialAwakeningPct = 25;
