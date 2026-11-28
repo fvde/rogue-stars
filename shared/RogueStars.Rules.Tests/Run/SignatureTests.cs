@@ -26,7 +26,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.Equal(Starters, offer.OrderBy(x => x, StringComparer.Ordinal));
         Assert.Equal(offer, RunSystem.SignatureOffer(e, s, TestHelpers.T0 + 3_600_000)); // the same offer until a run starts
         string pick = offer[2];
-        var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", SignatureId = pick });
+        var r = RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = pick });
         Assert.True(r.Ok, r.Error);
         var run = s.Run.Active!;
         Assert.Equal(pick, run.SignatureId);
@@ -42,8 +42,8 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var s = TestHelpers.NewPlayer(e, 5);
         var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
         var bad = TestHelpers.Clone(s);
-        Assert.False(RunTestKit.Exec(e, ref bad, new RunStart { LevelId = "ember_wastes_1", SignatureId = "sig_ice" }).Ok); // Ice is a package
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+        Assert.False(RunTestKit.Exec(e, ref bad, new RunStart { LevelId = "main_1", SignatureId = "sig_ice" }).Ok); // Ice is a package
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
         Assert.Equal(offer[0], s.Run.Active!.SignatureId);
     }
 
@@ -54,7 +54,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var e = RunTestKit.Engine();
         var s = TestHelpers.NewPlayer(e, 7);
         var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", PickOnBoard = true }).Ok);
         var run = s.Run.Active!;
         Assert.Equal(RunPhase.Signature, run.Phase);
         Assert.Equal(RunDecision.Signature, RunSystem.Decision(C, run));
@@ -84,10 +84,10 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var s = TestHelpers.NewPlayer(e, 8);
         var offer = RunSystem.SignatureOffer(e, s, TestHelpers.T0);
         var sent = TestHelpers.Clone(s);
-        Assert.True(RunTestKit.Exec(e, ref sent, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true, SignatureId = offer[2] }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref sent, new RunStart { LevelId = "main_1", PickOnBoard = true, SignatureId = offer[2] }).Ok);
         Assert.Equal(RunPhase.AwaitRoll, sent.Run.Active!.Phase);
         Assert.Equal(offer[2], sent.Run.Active.SignatureId);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", PickOnBoard = true }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", PickOnBoard = true }).Ok);
         Assert.False(RunTestKit.Exec(e, ref s, new RunAutoStep()).Ok); // a player decision
         Assert.True(RunTestKit.Exec(e, ref s, new RunAutoStep { Farming = true }).Ok);
         Assert.Equal(offer[0], s.Run.Active!.SignatureId);
@@ -102,7 +102,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
         var s = TestHelpers.NewPlayer(e, 9);
         for (int i = 0; i < 12; i++)
         {
-            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1" }).Ok);
+            Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1" }).Ok);
             firsts.Add(s.Run.Active!.SignatureId!);
             Assert.True(RunTestKit.Exec(e, ref s, new RunAbandon()).Ok);
             s.Wallet.Add(Currencies.Stamina, 100);
@@ -164,7 +164,7 @@ public class SignatureTests(Xunit.Abstractions.ITestOutputHelper output)
     private static GameState RunWith(GameEngine e, string signature)
     {
         var s = TestHelpers.NewPlayer(e, 3);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", SignatureId = signature }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = signature }).Ok);
         return s;
     }
 

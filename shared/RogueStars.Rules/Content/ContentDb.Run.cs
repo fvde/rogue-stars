@@ -26,8 +26,8 @@ namespace RogueStars.Rules.Content
 
         /// <summary>
         /// Long threat curve for enemy HP/ATK/DEF: Growth^t · (1 + Linear·t).
-        /// Main portals use t = portalIndex·10 + level-1 (0..29), Overcharged +8, Burrow 4..22, Dark Side 30..48,
-        /// leaving room for many more portals (t=60 ≈ 260×, t=100 ≈ 8000×) as worm/parts/buildings scale for years.
+        /// Main levels use t = ThreatAt(level number) (level − 1 up to level 30), Overcharged +8, Burrow 4..22, Dark Side 30..48,
+        /// leaving room for many more levels (t=60 ≈ 260×, t=100 ≈ 8000×) as worm/parts/buildings scale for years.
         /// </summary>
         public double ThreatMultiplier(int threat)
         {
@@ -44,21 +44,21 @@ namespace RogueStars.Rules.Content
             return Math.Pow(ThreatMultiplier(whole + 1) / ThreatMultiplier(whole), frac);
         }
 
-        /// <summary>Any run level by id: materialized (RunLevels) or generated on demand (endless main portals, Dark Side).</summary>
+        /// <summary>Any run level by id: materialized (RunLevels) or generated on demand (endless main levels, Dark Side).</summary>
         public LevelDef RunLevel(string id)
         {
             if (id == null) return null;
             return RunLevels.TryGetValue(id, out var l) ? l : GeneratedLevel(id);
         }
 
-        /// <summary>Any portal by id: materialized (Portals) or a generated endless main portal.</summary>
+        /// <summary>Any portal by id: materialized (Portals) or a generated main level's portal.</summary>
         public PortalDef Portal(string id)
         {
             if (id == null) return null;
             return Portals.TryGetValue(id, out var p) ? p : GeneratedPortal(id);
         }
 
-        /// <summary>Run loot table by id (materialized or generated with its endless portal).</summary>
+        /// <summary>Run loot table by id (materialized or generated for its chapter).</summary>
         public LootTableDef RunLootTable(string id)
         {
             if (id == null) return null;
@@ -175,17 +175,17 @@ namespace RogueStars.Rules.Content
             // passive stat packages on enemy skills
             Skills["boss_void_hunger"].Stats.Add(new StatMod(StatId.LifeSteal, 20));
 
-            // Portal 1: Ember Wastes
+            // Ember family
             RunEnemy("ember_imp", "Ember Imp", 300, 45, 8, 95, AttackStyle.Claw, "enemy_burning_touch");
             RunEnemy("magma_slug", "Magma Slug", 420, 38, 16, 70, AttackStyle.Slam, "enemy_harden");
             RunEnemy("cinder_hound", "Cinder Hound", 260, 52, 6, 115, AttackStyle.Claw).Stats.Add(new StatMod(StatId.ComboChance, 15));
             RunEnemy("ash_wraith", "Ash Wraith", 240, 48, 4, 105, AttackStyle.Whip).Stats.Add(new StatMod(StatId.Dodge, 15));
-            // Portal 2: Glacier Rift
+            // Glacier family
             RunEnemy("frost_mite", "Frost Mite", 280, 44, 10, 100, AttackStyle.Claw, "enemy_chill");
             RunEnemy("ice_crawler", "Ice Crawler", 380, 40, 18, 80, AttackStyle.Drill, "enemy_harden");
             RunEnemy("glacier_golem", "Glacier Golem", 520, 42, 24, 60, AttackStyle.Slam).Stats.Add(new StatMod(StatId.CounterChance, 12));
             RunEnemy("snow_lurker", "Snow Lurker", 260, 55, 6, 120, AttackStyle.Claw).Stats.Add(new StatMod(StatId.CritChance, 15));
-            // Portal 3: Static Jungle
+            // Static family
             RunEnemy("volt_beetle", "Volt Beetle", 340, 46, 14, 90, AttackStyle.Drill, "enemy_static");
             RunEnemy("static_eel", "Static Eel", 280, 50, 8, 110, AttackStyle.Whip, "enemy_static");
             RunEnemy("spark_drone", "Spark Drone", 180, 40, 4, 125, AttackStyle.Blaster);
@@ -520,9 +520,10 @@ namespace RogueStars.Rules.Content
 
             // Loot tables: every system is fed by runs (currencies, parts/runes, rare blueprint/alien drops).
             // Item drops use Id="*" = "random def of the given Rarity" (see skill-conventions.md).
-            for (int p = 1; p <= Campaign.Portals; p++)
+            int chapters = (Campaign.MaterializedLevels + Campaign.ChapterLevels - 1) / Math.Max(1, Campaign.ChapterLevels);
+            for (int p = 0; p < Math.Max(3, chapters); p++)
             {
-                var t = CampaignPortalLoot(p - 1);
+                var t = CampaignChapterLoot(p);
                 RunLootTables[t.Id] = t;
             }
             var burrow = new LootTableDef { Id = "loot_burrow" };
@@ -544,14 +545,13 @@ namespace RogueStars.Rules.Content
 
         private void RunBuildPortals()
         {
-            // Main campaign: biome templates cycle through the four enemy families; the first Campaign.Portals portals are
-            // materialized here, every later one is generated on demand by the same code (ContentDb.Campaign.cs).
-            for (int i = 0; i < Campaign.Portals; i++)
+            // Main campaign: one portal per level, biomes in a seeded shuffle; the first Campaign.MaterializedLevels levels
+            // are materialized here, every later one is generated on demand by the same code (ContentDb.Campaign.cs).
+            for (int n = 1; n <= Campaign.MaterializedLevels; n++)
             {
-                var levels = new List<LevelDef>();
-                var portal = CampaignBuildMainPortal(i, levels);
+                var l = CampaignBuildMainLevel(n, out var portal);
                 Portals[portal.Id] = portal;
-                foreach (var l in levels) RunLevels[l.Id] = l;
+                RunLevels[l.Id] = l;
             }
 
             // Burrow: multi-floor dive (floors = levels), entry costs a Burrow Key, cash out between floors.

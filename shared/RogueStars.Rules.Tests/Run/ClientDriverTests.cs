@@ -110,9 +110,9 @@ public class ClientDriverTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("ember_wastes_1", 1000, 100)]
-    [InlineData("ember_wastes_8", 3000, 260)]
-    [InlineData("glacier_rift_4", 3000, 300)]
+    [InlineData("main_1", 1000, 100)]
+    [InlineData("main_8", 3000, 260)]
+    [InlineData("main_14", 3000, 300)]
     public void ClientAutoMode_NeverResolvesAPlayerChoice_AndEveryFightLandingFights(string level, double hp, double atk)
     {
         int decisions = 0, fights = 0, landings = 0;

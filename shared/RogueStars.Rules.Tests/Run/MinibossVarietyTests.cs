@@ -73,7 +73,7 @@ public class MinibossVarietyTests
         for (long seed = 1; seed <= 6; seed++)
         {
             var e = RunTestKit.Engine(RunTestKit.Strong());
-            var s = RunTestKit.StartRun(e, "ember_wastes_1", seed); // the classic test boards: lairs on level 1 too
+            var s = RunTestKit.StartRun(e, "main_1", seed); // the classic test boards: lairs on level 1 too
             var run = s.Run.Active!;
             Assert.Equal(2, run.MinibossOrder.Take(2).Distinct().Count());
             RunTestKit.LineBoard(run, new[] { "miniboss", "miniboss" }.Concat(Enumerable.Repeat("empty", 30)).ToArray());

@@ -13,7 +13,7 @@ namespace RogueStars.Rules.Tests.Run;
 public class GridLayoutTests(ITestOutputHelper output)
 {
     public static IEnumerable<object[]> Levels() =>
-        new[] { "ember_wastes_1", "ember_wastes_8", "glacier_rift_5", "static_jungle_9", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
+        new[] { "main_1", "main_8", "main_15", "main_29", "the_burrow_3", "dark_side_7" }.Select(l => new object[] { l });
 
     private static (int x, int y) Cell(RunTile t) => (RunBoard.CellX(t), RunBoard.CellY(t));
 
@@ -102,7 +102,7 @@ public class GridLayoutTests(ITestOutputHelper output)
     public void ForkArms_RunAroundOneRectangle_TheJoinIsTheirCommonNeighbour()
     {
         var c = ContentDb.Default;
-        var level = c.RunLevel("ember_wastes_8")!;
+        var level = c.RunLevel("main_8")!;
         for (ulong seed = 1; seed <= 20; seed++)
         {
             var b = Grow(c, level, seed, 2);
@@ -126,7 +126,7 @@ public class GridLayoutTests(ITestOutputHelper output)
     public void ManySegments_StayValid_AndKeepClimbing()
     {
         var c = ContentDb.Default;
-        foreach (var levelId in new[] { "ember_wastes_3", "dark_side_7" })
+        foreach (var levelId in new[] { "main_3", "dark_side_7" })
             for (ulong seed = 1; seed <= 6; seed++)
             {
                 var b = Grow(c, c.RunLevel(levelId)!, seed, 14);
@@ -154,7 +154,7 @@ public class GridLayoutTests(ITestOutputHelper output)
         Assert.NotEmpty(run.SetPieces);
 
         var e2 = RunTestKit.Engine(RunTestKit.Strong());
-        var s2 = RunTestKit.StartRun(e2);
+        var s2 = RunTestKit.StartRun(e2, seed: 43); // a seed whose first roll lands on a plain tile
         var run2 = s2.Run.Active!;
         run2.MinibossesSpawned = e2.Content.RunTuning.MinibossAtMeter.Count;
         run2.Awakening = 99.9;

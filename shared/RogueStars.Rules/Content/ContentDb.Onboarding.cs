@@ -225,7 +225,7 @@ namespace RogueStars.Rules.Content
             // GDD §16 level unlocks: every feature unlocks at a main level cleared (the player level: Requirements.MainLevelCounter),
             // never by calendar day, one new thing per level up to level 20 (level 1: Parts), then every 2 levels, then every 3–4. Systems come
             // before what depends on them and every reward kind waits for its use (RewardGate). Run content is introduced
-            // after the level before the first board that has it. Main level numbers are global (portal 1 = levels 1..10, ...).
+            // after the level before the first board that has it. Main level numbers are global (1, 2, 3, …; every level is its own portal).
             // Unlocks come with pulls (owner, 2026-11-25): Parts open the Shop's Parts pulls, Aliens its Aliens pulls, the City its
             // Blueprints pulls (Features.PartPulls / AlienPulls / Blueprints are the same ids), each with one free 10× pull of that type.
             F(Features.Parts, "Parts", 1, 20, "equip_part", "Bolt parts onto your worm and pull new ones in the Shop: your first 10× Parts pull is free.");

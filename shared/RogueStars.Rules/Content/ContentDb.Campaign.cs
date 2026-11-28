@@ -5,59 +5,28 @@ using RogueStars.Rules.Core;
 namespace RogueStars.Rules.Content
 {
     /// <summary>
-    /// Endless main campaign and Dark Side (Run workstream content). Main portal i (0-based) and Dark Side level i are pure
-    /// functions of their index: the first <see cref="CampaignDef.Portals"/> portals / <see cref="CampaignDef.DarkSideLevels"/>
-    /// Dark Side levels are materialized at start-up (Portals / RunLevels, so existing ids and lists keep working), every later
-    /// one is generated on first access (<see cref="RunLevel"/>, <see cref="Portal"/>, <see cref="MainLevel"/>,
-    /// <see cref="DarkSideLevel"/>) into a small bounded cache. Regenerating an evicted portal yields identical content.
-    /// Reward formulas: docs/design/economy-model.md ("Endless campaign rewards").
+    /// Endless main campaign and Dark Side (Run workstream content). The main campaign is one linear sequence of levels, every
+    /// level its own portal ("portal after portal") with its own biome; there are no boss levels (every run ends with its
+    /// biome's boss). Main level n and Dark Side level i are pure functions of their number: the first
+    /// <see cref="CampaignDef.MaterializedLevels"/> main levels / <see cref="CampaignDef.DarkSideLevels"/> Dark Side levels are
+    /// materialized at start-up (Portals / RunLevels), every later one is generated on first access (<see cref="RunLevel"/>,
+    /// <see cref="Portal"/>, <see cref="MainLevel"/>, <see cref="DarkSideLevel"/>) into a small bounded cache. Regenerating an
+    /// evicted level yields identical content. Levels are grouped in chapters of <see cref="CampaignDef.ChapterLevels"/> for
+    /// the reward / difficulty rhythm only. Reward formulas: docs/design/economy-model.md ("Endless campaign rewards").
     /// </summary>
     public sealed partial class ContentDb
     {
         public const string DarkSidePortalId = "dark_side";
-        /// <summary>Ids of generated main portals beyond the named ones: "main_51", levels "main_51_1" … "main_51_10".</summary>
-        public const string GeneratedMainPrefix = "main_";
+        /// <summary>Main level n's id, which is also its portal's id: "main_&lt;n&gt;" ("main_1", "main_55", …).</summary>
+        public const string MainPrefix = "main_";
         private const string DarkSideLevelPrefix = "dark_side_";
-        private const string PortalLootPrefix = "loot_p";
-        /// <summary>Generated content is never built beyond this portal / Dark Side index (ids past it are unknown).</summary>
+        private const string ChapterLootPrefix = "loot_p";
+        /// <summary>Generated content is never built beyond this main level / Dark Side level / chapter (ids past it are unknown).</summary>
         public const int MaxGeneratedIndex = 1000000;
 
-        // The original 50 named portals (their ids are in saves: keep them).
-        private static readonly string[] CampaignNamedPortals =
-        {
-            "Ember Wastes", "Glacier Rift", "Static Jungle", "Spore Hollows", "Rust Canyons", "Crystal Reef", "Gloom Marsh", "Sunscar Mesa",
-            "Hive Spires", "Tidal Caverns", "Void Orchard", "Prism Barrens", "Thunder Steppes", "Bone Dunes", "Magnet Peaks", "Mirror Lakes",
-            "Ash Cathedral", "Gravity Wells", "Neon Thicket", "Frost Forge", "Moonlit Mire", "Comet Scar", "Rift Gardens", "Iron Tundra",
-            "Echo Chasm", "Star Nursery", "Nova Crater", "Eclipse Ridge", "Quantum Bog", "Abyssal Spire", "Molten Choir", "Shiver Coast",
-            "Volt Labyrinth", "Hollow Moon", "Cinder Halo", "Rime Citadel", "Storm Cradle", "Null Expanse", "Solar Throne", "World Core",
-            "Ember Deep", "Glass Tundra", "Spark Delta", "Umbral Gate", "Lava Garden", "Hail Basin", "Lightning Loom", "Starless Sea",
-            "Crown of Cinders", "Heart of Frost",
-        };
-
-        private static readonly Dictionary<string, int> NamedPortalIndex = BuildNamedPortalIndex();
-
-        private static Dictionary<string, int> BuildNamedPortalIndex()
-        {
-            var d = new Dictionary<string, int>();
-            for (int i = 0; i < CampaignNamedPortals.Length; i++) d[CampaignNamedPortals[i].ToLowerInvariant().Replace(' ', '_')] = i;
-            return d;
-        }
-
-        // Combinable name parts of generated portals: adjective × family biome noun (512 unique names per cycle).
-        private static readonly string[] CampaignAdjectives =
-        {
-            "Shattered", "Silent", "Burning", "Drowned", "Forgotten", "Twisted", "Gilded", "Howling",
-            "Sunken", "Restless", "Crimson", "Pale", "Iron", "Weeping", "Starlit", "Fractured",
-        };
-        private static readonly string[][] CampaignNouns =
-        {
-            new[] { "Cinderfields", "Magma Shelf", "Ash Plains", "Smoulder Vale", "Pyre Steppe", "Scorch Basin", "Flare Dunes", "Kiln Ridge" },
-            new[] { "Rime Fjord", "Ice Shelf", "Frost Barrens", "Hoarfrost Vale", "Glacier Steps", "Snowveil Pass", "Permafrost Field", "Sleet Hollow" },
-            new[] { "Arc Jungle", "Volt Marsh", "Storm Thicket", "Charge Canopy", "Spark Fen", "Ion Grove", "Thunder Weald", "Surge Delta" },
-            new[] { "Null Rift", "Umbra Pits", "Hollow Deep", "Abyss Gate", "Shade Warren", "Gloom Expanse", "Void Sink", "Dusk Chasm" },
-        };
-
-        // Biome families (ember, glacier, static, void): tile pool, boss, enemy packs, elites, boss tiles (feed, relief, tribute).
+        // Enemy families (ember, glacier, static, void): tile pool, boss, enemy packs, elites, boss tiles (feed, relief, tribute).
+        // Each campaign biome (CampaignDef.Biomes) fields one family.
+        private static readonly string[] FamilyIds = { "ember", "glacier", "static", "void" };
         private static readonly string[] FamilyPools = { "pool_ember", "pool_glacier", "pool_static", "pool_void" };
         private static readonly string[] FamilyBosses = { "boss_magma_tyrant", "boss_frost_leviathan", "boss_storm_hive", "boss_void_maw" };
         private static readonly string[] FamilyBossNames = { "Magma Tyrant", "Frost Leviathan", "Storm Hive Queen", "Void Maw" };
@@ -100,20 +69,21 @@ namespace RogueStars.Rules.Content
 
         // ---- queries -------------------------------------------------------------------------------------------
 
-        /// <summary>Id of main portal <paramref name="index"/> (0-based): the named portals, then "main_&lt;index+1&gt;".</summary>
-        public static string MainPortalId(int index) =>
-            index < CampaignNamedPortals.Length ? CampaignNamedPortals[index].ToLowerInvariant().Replace(' ', '_') : GeneratedMainPrefix + (index + 1);
+        /// <summary>Id of main level n (1-based), also its portal's id: "main_&lt;n&gt;"; null out of range.</summary>
+        public string MainLevelId(int n) => n < 1 || n > MaxGeneratedIndex ? null : MainPrefix + n;
 
-        /// <summary>Main portal <paramref name="index"/> (0-based), materialized or generated; null for a negative index.</summary>
-        public PortalDef MainPortal(int index) => index < 0 || index >= MaxGeneratedIndex ? null : Portal(MainPortalId(index));
-
-        /// <summary>Id of global main level n (1-based).</summary>
-        public string MainLevelId(int n)
+        /// <summary>Main level number of a main level / portal id ("main_55" → 55), or −1.</summary>
+        public static int MainLevelNumberOf(string id)
         {
-            if (n < 1) return null;
-            int per = Math.Max(1, Campaign.LevelsPerPortal);
-            return MainPortalId((n - 1) / per) + "_" + ((n - 1) % per + 1);
+            if (id == null || !id.StartsWith(MainPrefix, StringComparison.Ordinal)) return -1;
+            return TryParseIndex(id, MainPrefix.Length, out int n) && n <= MaxGeneratedIndex ? n : -1;
         }
+
+        /// <summary>
+        /// The portal of main level <paramref name="index"/> + 1 (every main level is its own portal; 0-based like
+        /// PortalDef.Order), materialized or generated; null out of range.
+        /// </summary>
+        public PortalDef MainPortal(int index) => index < 0 || index >= MaxGeneratedIndex ? null : Portal(MainPrefix + (index + 1));
 
         /// <summary>Global main level n (1-based): there is always a next one.</summary>
         public LevelDef MainLevel(int n) => n < 1 ? null : RunLevel(MainLevelId(n));
@@ -140,26 +110,26 @@ namespace RogueStars.Rules.Content
         }
 
         /// <summary>
-        /// Currency reward scale of main portal <paramref name="index"/>: (i + 1) up to the endless anchor, then
-        /// scale(anchor) × (M(i) / M(anchor))^α with M the threat multiplier at the portal's first level.
+        /// Currency reward scale of chapter <paramref name="chapter"/> (0-based, CampaignDef.ChapterOf): (c + 1) up to the endless
+        /// anchor, then scale(anchor) × (M(c) / M(anchor))^α with M the threat multiplier at the chapter's first level.
         /// </summary>
-        public double MainRewardScale(int index)
+        public double MainRewardScale(int chapter)
         {
             var c = Campaign;
-            int anchor = Math.Max(1, c.EndlessFromPortal) - 1;
-            if (index <= anchor) return c.RewardScale(index);
-            double ratio = PortalThreatMultiplier(index) / PortalThreatMultiplier(anchor);
+            int anchor = Math.Max(1, c.EndlessFromChapter) - 1;
+            if (chapter <= anchor) return c.RewardScale(chapter);
+            double ratio = ChapterThreatMultiplier(chapter) / ChapterThreatMultiplier(anchor);
             return c.RewardScale(anchor) * Math.Pow(ratio, c.EndlessRewardExponent);
         }
 
-        private double PortalThreatMultiplier(int index) => ThreatMultiplierAt(Campaign.ThreatAt(index * Math.Max(1, Campaign.LevelsPerPortal) + 1));
+        private double ChapterThreatMultiplier(int chapter) => ThreatMultiplierAt(Campaign.ThreatAt(chapter * Math.Max(1, Campaign.ChapterLevels) + 1));
 
-        /// <summary>Rarity tiers added to run item drops of main portal <paramref name="index"/> (0 before the endless anchor).</summary>
-        public int DropRarityShift(int index)
+        /// <summary>Rarity tiers added to run item drops of chapter <paramref name="chapter"/> (0 before the endless anchor).</summary>
+        public int DropRarityShift(int chapter)
         {
             var c = Campaign;
-            if (index < c.EndlessFromPortal) return 0;
-            return Math.Min(c.MaxDropRarity, 1 + (index - c.EndlessFromPortal) / Math.Max(1, c.RarityShiftPortals));
+            if (chapter < c.EndlessFromChapter) return 0;
+            return Math.Min(c.MaxDropRarity, 1 + (chapter - c.EndlessFromChapter) / Math.Max(1, c.RarityShiftChapters));
         }
 
         /// <summary>Data per clear of Dark Side level i (before the level's reward multiplier).</summary>
@@ -175,44 +145,111 @@ namespace RogueStars.Rules.Content
 
         private double DarkSideThreat(int i) => Campaign.ThreatAt(Campaign.DarkSideMainLevel(i)) - Campaign.DarkSideThreatOffset;
 
+        // ---- biome order -----------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Index (in CampaignDef.Biomes) of main level n's biome: a deterministic seeded shuffle, the same for every player.
+        /// The levels run in blocks of B = Biomes.Count; each block uses every biome once, its last biome is a pure hash of the
+        /// block number and the rest is a seeded permutation that never puts the same biome (nor, whenever possible, the same
+        /// enemy family) on two consecutive levels, across block edges too. O(B) per level, no history. Level 1 is the first
+        /// biome (the tutorial run's ember pool). Stable as long as the biome list and CampaignDef.BiomeOrderSeed stay.
+        /// </summary>
+        public int CampaignBiomeIndex(int n)
+        {
+            int b = Campaign.Biomes.Count;
+            if (n < 1 || b == 0) return -1;
+            if (b == 1) return 0;
+            if (b == 2) return (n - 1) % 2; // two biomes can only alternate
+            return BiomeBlock((n - 1) / b)[(n - 1) % b];
+        }
+
+        /// <summary>Main level n's biome (CampaignDef.Biomes), or null out of range.</summary>
+        public CampaignBiomeDef CampaignBiome(int n)
+        {
+            int i = CampaignBiomeIndex(n);
+            return i < 0 ? null : Campaign.Biomes[i];
+        }
+
+        /// <summary>Enemy family index (ember 0, glacier 1, static 2, void 3) of a family id; unknown → ember.</summary>
+        public static int FamilyIndex(string family)
+        {
+            int i = Array.IndexOf(FamilyIds, family);
+            return i < 0 ? 0 : i;
+        }
+
+        private static ulong Mix(ulong seed, ulong a, ulong b)
+        {
+            ulong z = seed ^ (a * 0x9E3779B97F4A7C15UL) ^ (b * 0xC2B2AE3D27D4EB4FUL);
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            return z ^ (z >> 31);
+        }
+
+        /// <summary>The biome closing block k (a hash of k alone, so the next block can avoid it without any history).</summary>
+        private int BlockLast(int k)
+        {
+            int b = Campaign.Biomes.Count;
+            int last = (int)(Mix(Campaign.BiomeOrderSeed, (ulong)k, 0x1A57UL) % (ulong)b);
+            if (k == 0 && last == 0) last = 1; // level 1 opens block 0 with biome 0
+            return last;
+        }
+
+        private int[] BiomeBlock(int k)
+        {
+            int b = Campaign.Biomes.Count;
+            int last = BlockLast(k), prev = k > 0 ? BlockLast(k - 1) : -1;
+            var pref = new List<int>(b - 1);
+            for (int i = 0; i < b; i++) if (i != last) pref.Add(i);
+            for (int i = pref.Count - 1; i > 0; i--)
+            {
+                int j = (int)(Mix(Campaign.BiomeOrderSeed, (ulong)k, 0xB10C00UL + (ulong)i) % (ulong)(i + 1));
+                int t = pref[i]; pref[i] = pref[j]; pref[j] = t;
+            }
+            var order = new int[b];
+            order[b - 1] = last;
+            int first = k == 0 ? 0 : -1;
+            // Different families on consecutive levels when the biome list allows it, else just different biomes.
+            if (!FillBlock(order, 0, pref, new bool[b], prev, first, true)) FillBlock(order, 0, pref, new bool[b], prev, first, false);
+            return order;
+        }
+
+        private bool BiomesClash(int a, int c, bool byFamily) =>
+            a == c || byFamily && Campaign.Biomes[a].Family == Campaign.Biomes[c].Family;
+
+        /// <summary>Depth-first: the first arrangement in the seeded preference order that satisfies the neighbour rule.</summary>
+        private bool FillBlock(int[] order, int pos, List<int> pref, bool[] used, int prev, int first, bool byFamily)
+        {
+            int b = order.Length;
+            if (pos == b - 1) return !BiomesClash(order[pos - 1], order[pos], byFamily);
+            foreach (int c in pref)
+            {
+                if (used[c] || pos == 0 && first >= 0 && c != first) continue;
+                int before = pos == 0 ? prev : order[pos - 1];
+                if (before >= 0 && BiomesClash(before, c, byFamily)) continue;
+                used[c] = true;
+                order[pos] = c;
+                if (FillBlock(order, pos + 1, pref, used, prev, first, byFamily)) return true;
+                used[c] = false;
+            }
+            return false;
+        }
+
         // ---- generation ----------------------------------------------------------------------------------------
-
-        /// <summary>Display name of main portal <paramref name="index"/>: the named portals, then adjective + biome (+ cycle numeral).</summary>
-        public static string CampaignPortalName(int index)
-        {
-            if (index < CampaignNamedPortals.Length) return CampaignNamedPortals[index];
-            int family = index % 4;
-            int k = index - CampaignNamedPortals.Length;
-            int nouns = CampaignNouns[family].Length, adjs = CampaignAdjectives.Length;
-            // k → (family by k mod 4, noun, adjective) is one-to-one within a cycle of 4 × nouns × adjectives portals.
-            string name = CampaignAdjectives[k / (4 * nouns) % adjs] + " " + CampaignNouns[family][k / 4 % nouns];
-            int cycle = k / (4 * nouns * adjs);
-            return cycle == 0 ? name : name + " " + Numeral(cycle + 1);
-        }
-
-        private static string Numeral(int n)
-        {
-            if (n <= 0 || n > 3999) return n.ToString();
-            var vals = new[] { 1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1 };
-            var syms = new[] { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" };
-            var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < vals.Length; i++) while (n >= vals[i]) { sb.Append(syms[i]); n -= vals[i]; }
-            return sb.ToString();
-        }
 
         private static string BossVariantId(int family, int variant) => FamilyBosses[family] + "_v" + variant;
 
-        /// <summary>Boss of main portal <paramref name="index"/>: the family boss, then a rotating variant every N portals.</summary>
-        public string MainPortalBossId(int index)
+        /// <summary>Boss of main level n: its biome's family boss, from the endless anchor on a rotating variant every N chapters.</summary>
+        public string MainLevelBossId(int n)
         {
-            int family = index % 4;
             var c = Campaign;
-            if (index < c.EndlessFromPortal || c.BossVariants <= 0) return FamilyBosses[family];
-            int era = (index - c.EndlessFromPortal) / Math.Max(1, c.BossVariantEveryPortals);
+            int family = FamilyIndex(CampaignBiome(n)?.Family);
+            int chapter = c.ChapterOf(n);
+            if (chapter < c.EndlessFromChapter || c.BossVariants <= 0) return FamilyBosses[family];
+            int era = (chapter - c.EndlessFromChapter) / Math.Max(1, c.BossVariantEveryChapters);
             return BossVariantId(family, era % Math.Min(c.BossVariants, BossTitles.Length) + 1);
         }
 
-        /// <summary>Boss variants for the endless portals (finite: family × title), registered with the other bosses.</summary>
+        /// <summary>Boss variants for the endless levels (finite: family × title), registered with the other bosses.</summary>
         private void CampaignBuildBossVariants()
         {
             int variants = Math.Min(Campaign.BossVariants, BossTitles.Length);
@@ -229,45 +266,46 @@ namespace RogueStars.Rules.Content
                 }
         }
 
-        /// <summary>Builds main portal <paramref name="index"/> and its levels (pure: stores nothing).</summary>
-        private PortalDef CampaignBuildMainPortal(int index, List<LevelDef> levels)
+        /// <summary>
+        /// Builds main level n and its portal (pure: stores nothing). Its name is its biome's ("55. Crystal Reef" in the UI);
+        /// threat, rewards, stamina, board and dice follow the level number (its chapter and chapter step), the enemies its biome.
+        /// </summary>
+        private LevelDef CampaignBuildMainLevel(int n, out PortalDef portal)
         {
             var c = Campaign;
-            int family = index % 4;
-            string id = MainPortalId(index), name = CampaignPortalName(index), bossId = MainPortalBossId(index);
-            var portal = new PortalDef { Id = id, Name = name, Kind = PortalKind.Main, Order = index };
-            double scale = MainRewardScale(index);
-            double familyPct = c.FamilyStrengthPct[index % c.FamilyStrengthPct.Count];
-            if (index >= c.LateFamilyFromPortal && c.LateFamilyStrengthPct.Count > 0)
-                familyPct = ((1 + familyPct / 100.0) * (1 + c.LateFamilyStrengthPct[index % c.LateFamilyStrengthPct.Count] / 100.0) - 1) * 100;
-            for (int i = 1; i <= c.LevelsPerPortal; i++)
-            {
-                int n = index * c.LevelsPerPortal + i;
-                double threat = c.ThreatAt(n);
-                int whole = (int)Math.Floor(threat + 1e-9);
-                var l = RunNewLevel(id + "_" + i, name + " " + i, id, i, whole, FamilyPools[family], bossId, PortalLootPrefix + (index + 1),
-                    FamilyEnemies[family], FamilyElites[family]);
-                l.Number = n;
-                double basis = ThreatFractionMultiplier(threat) * (1 + familyPct / 100.0);
-                double hpPct = (basis * (1 + c.EarlyHpPct(n) / 100.0) - 1) * 100, atkPct = (basis * (1 + c.EarlyAtkPct(n) / 100.0) - 1) * 100;
-                if (Math.Abs(hpPct) > 0.01 || Math.Abs(atkPct) > 0.01)
-                    l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(hpPct, 2), EnemyAtkPct = Math.Round(atkPct, 2) };
-                l.StaminaCost = Math.Min(c.StaminaMax, c.StaminaBase + index);
-                // A board segment; two dice walk ~twice as far per roll, so their segment is longer. The boss's awakening meter
-                // ends the run (~23 rolls), MaxRolls is only the hard limit.
-                l.Dice = i >= 6 ? 2 : 1;
-                l.BoardLength = (24 + i + Math.Min(index, c.BoardGrowthPortals) * 2) * (l.Dice == 2 ? 3 : 2) / 2;
-                l.MaxRolls = c.MaxRolls;
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((120 + 30 * i) * scale)));
-                l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * i) * scale)));
-                if (i % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
-                l.FirstClearRewards.AddRange(c.MilestoneRewards(n));
-                l.FirstClearPart = true; // parts v2: a boss first clear gives one random Rare or Epic part
-                CampaignIntroduceRunContent(l, n);
-                levels.Add(l);
-                portal.LevelIds.Add(l.Id);
-            }
-            return portal;
+            int chapter = c.ChapterOf(n), step = c.ChapterStep(n);
+            var biome = CampaignBiome(n);
+            int family = FamilyIndex(biome.Family);
+            string id = MainLevelId(n);
+            portal = new PortalDef { Id = id, Name = biome.Name, Kind = PortalKind.Main, Order = n - 1 };
+            double scale = MainRewardScale(chapter);
+            double familyPct = c.FamilyStrengthPct[family % c.FamilyStrengthPct.Count];
+            if (chapter >= c.LateFamilyFromChapter && c.LateFamilyStrengthPct.Count > 0)
+                familyPct = ((1 + familyPct / 100.0) * (1 + c.LateFamilyStrengthPct[family % c.LateFamilyStrengthPct.Count] / 100.0) - 1) * 100;
+            double threat = c.ThreatAt(n);
+            int whole = (int)Math.Floor(threat + 1e-9);
+            var l = RunNewLevel(id, biome.Name, id, 1, whole, FamilyPools[family], MainLevelBossId(n), ChapterLootPrefix + (chapter + 1),
+                FamilyEnemies[family], FamilyElites[family]);
+            l.Number = n;
+            l.Biome = biome.Id;
+            double basis = ThreatFractionMultiplier(threat) * (1 + familyPct / 100.0);
+            double hpPct = (basis * (1 + c.EarlyHpPct(n) / 100.0) - 1) * 100, atkPct = (basis * (1 + c.EarlyAtkPct(n) / 100.0) - 1) * 100;
+            if (Math.Abs(hpPct) > 0.01 || Math.Abs(atkPct) > 0.01)
+                l.Modifiers = new LevelModifiers { EnemyHpPct = Math.Round(hpPct, 2), EnemyAtkPct = Math.Round(atkPct, 2) };
+            l.StaminaCost = Math.Min(c.StaminaMax, c.StaminaBase + chapter);
+            // A board segment; two dice walk ~twice as far per roll, so their segment is longer. The boss's awakening meter
+            // ends the run (~23 rolls), MaxRolls is only the hard limit.
+            l.Dice = step >= 6 ? 2 : 1;
+            l.BoardLength = (24 + step + Math.Min(chapter, c.BoardGrowthChapters) * 2) * (l.Dice == 2 ? 3 : 2) / 2;
+            l.MaxRolls = c.MaxRolls;
+            l.CompletionRewards.Add(Reward.Cur(Currencies.Biomass, (long)Math.Round((120 + 30 * step) * scale)));
+            l.CompletionRewards.Add(Reward.Cur(Currencies.Ore, (long)Math.Round((40 + 10 * step) * scale)));
+            if (step % 5 == 0) l.CompletionRewards.Add(Reward.Cur(Currencies.PartTokens, 1));
+            l.FirstClearRewards.AddRange(c.MilestoneRewards(n));
+            l.FirstClearPart = true; // parts v2: a boss first clear gives one random Rare or Epic part
+            CampaignIntroduceRunContent(l, n);
+            portal.LevelIds.Add(l.Id);
+            return l;
         }
 
         /// <summary>
@@ -289,12 +327,12 @@ namespace RogueStars.Rules.Content
             if (n < c.CampfiresFromLevel) l.FixedTiles.RemoveAll(ft => ft.TileId == "campfire");
         }
 
-        /// <summary>Loot table of main portal <paramref name="index"/>: currencies × the portal's reward scale, items shifted up in rarity past the anchor.</summary>
-        private LootTableDef CampaignPortalLoot(int index)
+        /// <summary>Loot table of chapter <paramref name="chapter"/>: currencies × its reward scale, items shifted up in rarity past the anchor.</summary>
+        private LootTableDef CampaignChapterLoot(int chapter)
         {
-            var t = new LootTableDef { Id = PortalLootPrefix + (index + 1) };
-            long s = (long)Math.Round(MainRewardScale(index));
-            int shift = DropRarityShift(index), max = Campaign.MaxDropRarity;
+            var t = new LootTableDef { Id = ChapterLootPrefix + (chapter + 1) };
+            long s = (long)Math.Round(MainRewardScale(chapter));
+            int shift = DropRarityShift(chapter), max = Campaign.MaxDropRarity;
             int R(int rarity) => Math.Min(max, rarity + shift);
             // Biomass comes mainly from portal runs (completion + loot); the city farms are the secondary source.
             t.Entries.Add(new LootEntry(30, RewardKinds.Currency, Currencies.Biomass, 45 * s, 90 * s));
@@ -355,15 +393,6 @@ namespace RogueStars.Rules.Content
             return value >= 1 && (s[start] != '0');
         }
 
-        /// <summary>Main portal index (0-based) of a portal id (named or generated), or −1.</summary>
-        public static int MainPortalIndex(string portalId)
-        {
-            if (portalId == null) return -1;
-            if (portalId.StartsWith(GeneratedMainPrefix, StringComparison.Ordinal))
-                return TryParseIndex(portalId, GeneratedMainPrefix.Length, out int p) && p > CampaignNamedPortals.Length && p <= MaxGeneratedIndex ? p - 1 : -1;
-            return NamedPortalIndex.TryGetValue(portalId, out int idx) ? idx : -1;
-        }
-
         private void TrimCache()
         {
             if (_genLevels.Count < GeneratedCacheLevels) return;
@@ -372,20 +401,27 @@ namespace RogueStars.Rules.Content
             _genLoot.Clear();
         }
 
-        private PortalDef GeneratedPortal(string id)
+        /// <summary>Main level n and its portal from the cache, generated on a miss.</summary>
+        private LevelDef GeneratedMain(int n, out PortalDef portal)
         {
-            int index = MainPortalIndex(id);
-            if (index < 0) return null;
+            string id = MainLevelId(n);
             lock (_genLock)
             {
-                if (_genPortals.TryGetValue(id, out var cached)) return cached;
+                if (_genLevels.TryGetValue(id, out var cached) && _genPortals.TryGetValue(id, out portal)) return cached;
                 TrimCache();
-                var levels = new List<LevelDef>();
-                var portal = CampaignBuildMainPortal(index, levels);
+                var l = CampaignBuildMainLevel(n, out portal);
+                _genLevels[id] = l;
                 _genPortals[id] = portal;
-                foreach (var l in levels) _genLevels[l.Id] = l;
-                return portal;
+                return l;
             }
+        }
+
+        private PortalDef GeneratedPortal(string id)
+        {
+            int n = MainLevelNumberOf(id);
+            if (n < 1) return null;
+            GeneratedMain(n, out var portal);
+            return portal;
         }
 
         private LevelDef GeneratedLevel(string id)
@@ -402,29 +438,17 @@ namespace RogueStars.Rules.Content
                     return l;
                 }
             }
-            int cut = id.LastIndexOf('_');
-            if (cut <= 0) return null;
-            lock (_genLock)
-                if (_genLevels.TryGetValue(id, out var cached)) return cached;
-            var portal = GeneratedPortal(id.Substring(0, cut));
-            if (portal == null || !TryParseIndex(id, cut + 1, out int index) || index > portal.LevelIds.Count || portal.LevelIds[index - 1] != id) return null;
-            lock (_genLock)
-            {
-                if (_genLevels.TryGetValue(id, out var l)) return l;
-            }
-            // Evicted between the two locks: rebuild the portal once more (identical content).
-            var levels = new List<LevelDef>();
-            CampaignBuildMainPortal(MainPortalIndex(portal.Id), levels);
-            return levels[index - 1];
+            int n = MainLevelNumberOf(id);
+            return n < 1 ? null : GeneratedMain(n, out _);
         }
 
         private LootTableDef GeneratedLootTable(string id)
         {
-            if (!id.StartsWith(PortalLootPrefix, StringComparison.Ordinal) || !TryParseIndex(id, PortalLootPrefix.Length, out int p) || p > MaxGeneratedIndex) return null;
+            if (!id.StartsWith(ChapterLootPrefix, StringComparison.Ordinal) || !TryParseIndex(id, ChapterLootPrefix.Length, out int p) || p > MaxGeneratedIndex) return null;
             lock (_genLock)
             {
                 if (_genLoot.TryGetValue(id, out var cached)) return cached;
-                var t = CampaignPortalLoot(p - 1);
+                var t = CampaignChapterLoot(p - 1);
                 _genLoot[id] = t;
                 return t;
             }

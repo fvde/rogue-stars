@@ -38,7 +38,7 @@ public class LevelUnlockRunContentTests
             Assert.Equal(n >= First(Features.RunMiniboss), l.ClockMinibosses);
             Assert.Equal(n >= First(Features.RunCampfire), Has("campfire"));
             Assert.Equal(n >= First(Features.RunTwoDice), l.BranchChance > 0);
-            if (n <= C.Campaign.LevelsPerPortal) Assert.Equal(n >= First(Features.RunTwoDice) ? 2 : 1, l.Dice); // portal 1's two dice
+            if (n <= C.Campaign.ChapterLevels) Assert.Equal(n >= First(Features.RunTwoDice) ? 2 : 1, l.Dice); // portal 1's two dice
             Assert.Equal(n == 1, l.TilePoolId == C.Campaign.TutorialPool);
         }
         // the Dark Side, the Burrow and later portals keep every element

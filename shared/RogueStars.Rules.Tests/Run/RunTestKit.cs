@@ -38,11 +38,10 @@ public static class RunTestKit
 
     private static void ApplyClassic(ContentDb c)
     {
-        string pool = c.MainLevel(c.Campaign.LevelsPerPortal * 4 + 1)!.TilePoolId; // portal 5: the same family as portal 1
         for (int n = 1; n <= 12; n++)
         {
             var l = c.MainLevel(n)!;
-            if (n <= c.Campaign.LevelsPerPortal) l.TilePoolId = pool;
+            if (n <= c.Campaign.ChapterLevels) l.TilePoolId = "pool_" + c.CampaignBiome(n)!.Family; // the full pool of its biome (level 1: not the tutorial pool)
             l.Modifiers.AwakeningPct = 0;
             l.BranchChance = new LevelDef().BranchChance;
             l.ClockMinibosses = true;
@@ -92,7 +91,7 @@ public static class RunTestKit
 
     public static CommandResult Exec(GameEngine e, ref GameState s, GameCommand c, long now = TestHelpers.T0) => e.Execute(ref s, c, now);
 
-    public static GameState StartRun(GameEngine e, string level = "ember_wastes_1", long seed = 42, RunMode mode = RunMode.Normal)
+    public static GameState StartRun(GameEngine e, string level = "main_1", long seed = 42, RunMode mode = RunMode.Normal)
     {
         var s = TestHelpers.NewPlayer(e, seed);
         var r = Exec(e, ref s, new RunStart { LevelId = level, Mode = mode });

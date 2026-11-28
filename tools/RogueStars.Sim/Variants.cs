@@ -34,19 +34,16 @@ public static class Variants
         }
         if (v.StartsWith("lategl_"))
         {
-            // Late glacier strength % (CampaignDef.LateFamilyStrengthPct[1]): generated portals read it lazily; materialized
-            // glacier portals from LateFamilyFromPortal on are patched here.
+            // Late glacier strength % (CampaignDef.LateFamilyStrengthPct[1]): generated levels read it lazily; materialized
+            // glacier-biome levels from chapter LateFamilyFromChapter on are patched here.
             double pct = double.Parse(v.Substring("lategl_".Length), System.Globalization.CultureInfo.InvariantCulture);
             c.Campaign.LateFamilyStrengthPct[1] = pct;
-            for (int i = c.Campaign.LateFamilyFromPortal; i < c.Campaign.Portals; i++)
+            for (int n = c.Campaign.LateFamilyFromChapter * c.Campaign.ChapterLevels + 1; n <= c.Campaign.MaterializedLevels; n++)
             {
-                if (i % 4 != 1) continue;
-                foreach (var id in c.MainPortal(i).LevelIds)
-                {
-                    var m = c.RunLevel(id).Modifiers;
-                    double mult = (1 + m.EnemyHpPct / 100.0) * (1 + pct / 100.0);
-                    m.EnemyHpPct = m.EnemyAtkPct = Math.Round((mult - 1) * 100, 2);
-                }
+                if (c.CampaignBiome(n).Family != "glacier") continue;
+                var m = c.MainLevel(n).Modifiers;
+                double mult = (1 + m.EnemyHpPct / 100.0) * (1 + pct / 100.0);
+                m.EnemyHpPct = m.EnemyAtkPct = Math.Round((mult - 1) * 100, 2);
             }
             return;
         }

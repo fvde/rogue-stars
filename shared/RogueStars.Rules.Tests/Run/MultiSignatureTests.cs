@@ -16,7 +16,7 @@ public class MultiSignatureTests
     private static GameState RunWith(GameEngine e, string signature, long seed = 3)
     {
         var s = TestHelpers.NewPlayer(e, seed);
-        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "ember_wastes_1", SignatureId = signature }).Ok);
+        Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = signature }).Ok);
         return s;
     }
 

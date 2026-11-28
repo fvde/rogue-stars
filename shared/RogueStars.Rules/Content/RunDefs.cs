@@ -264,7 +264,7 @@ namespace RogueStars.Rules.Content
         public string Id;
         public string Name;
         public string PortalId;
-        /// <summary>1-based index in its portal.</summary>
+        /// <summary>1-based index in its portal (main levels: 1, every main level is its own portal; see <see cref="Number"/>).</summary>
         public int Index;
         /// <summary>Position on the global threat curve (see ContentDb.ThreatMultiplier).</summary>
         public int Threat;
@@ -302,12 +302,14 @@ namespace RogueStars.Rules.Content
         /// <summary>Parts v2: the first Normal clear (the boss beaten for the first time) gives one random Rare or Epic part.</summary>
         public bool FirstClearPart;
         /// <summary>
-        /// Main campaign: one-time rewards of the first Normal clear (milestone chest every 10 levels, portal-completion bonus
+        /// Main campaign: one-time rewards of the first Normal clear (milestone chest every 10 levels, bonus chest
         /// every 50; <see cref="CampaignDef"/>). Paid unscaled (the double-rewards ad doubles them too), never again on later clears.
         /// </summary>
         public List<Reward> FirstClearRewards = new List<Reward>();
-        /// <summary>Main levels: global level number (portal 1 = 1..10, ...). Dark Side: its level number. 0 elsewhere.</summary>
+        /// <summary>Main levels: global level number (1, 2, 3, … endless). Dark Side: its level number. 0 elsewhere.</summary>
         public int Number;
+        /// <summary>Main levels: the campaign biome id (CampaignBiomeDef.Id; the client's board art). Null elsewhere.</summary>
+        public string Biome;
         public long StaminaCost = 5;
         public double RewardMultiplier = 1;
         public LevelModifiers Modifiers = new LevelModifiers();
@@ -337,7 +339,7 @@ namespace RogueStars.Rules.Content
         public long EntryCost;
         /// <summary>
         /// Endless portal (Dark Side): LevelIds holds only the materialized first levels; level i beyond them is generated on
-        /// demand (ContentDb.PortalLevel). Main portals are endless as a sequence (ContentDb.MainPortal), each has its 10 levels.
+        /// demand (ContentDb.PortalLevel). Main portals are endless as a sequence (ContentDb.MainPortal), each holds one level.
         /// </summary>
         public bool Endless;
     }
@@ -644,10 +646,25 @@ namespace RogueStars.Rules.Content
         public long MythicEmptyCoins = 60;
     }
 
+    /// <summary>A campaign biome: its display name (the level's name) and the enemy family (tile pool, boss, packs, elites) it fields.</summary>
+    [Serializable]
+    public sealed class CampaignBiomeDef
+    {
+        /// <summary>Id (LevelDef.Biome; the client draws the board / backdrop art of the same id).</summary>
+        public string Id;
+        public string Name;
+        /// <summary>Enemy family: ember, glacier, static or void.</summary>
+        public string Family;
+        public CampaignBiomeDef() { }
+        public CampaignBiomeDef(string id, string name, string family) { Id = id; Name = name; Family = family; }
+    }
+
     /// <summary>
-    /// Main campaign layout (content): an endless sequence of main portals of <see cref="LevelsPerPortal"/> levels, generated
-    /// from biome templates (ContentDb.Campaign.cs). The first <see cref="Portals"/> are materialized at start-up (named
-    /// portals, listed in ContentDb.Portals); every later portal is generated on demand from its index and cached.
+    /// Main campaign layout (content): one endless, linear sequence of levels, every level its own portal ("portal after
+    /// portal") with its own biome (ContentDb.Campaign.cs). The biomes come from a deterministic seeded shuffle, the same for
+    /// every player, that never repeats a biome (nor its enemy family) twice in a row (ContentDb.CampaignBiomeIndex). There
+    /// are no boss levels: every level ends with its biome's boss. The first <see cref="MaterializedLevels"/> levels are
+    /// materialized at start-up (ContentDb.Portals / RunLevels), every later one is generated on demand from its number.
     /// Main level n (1-based, global) sits at threat position <see cref="ThreatAt"/>(n) on the threat curve; the integer part
     /// is LevelDef.Threat, the fraction becomes a small enemy HP/ATK bonus, so late levels can climb more gently than one
     /// curve step per level. Sized with tools/RogueStars.Sim (docs/balance/progression-report.md, "Endless campaign").
@@ -655,28 +672,50 @@ namespace RogueStars.Rules.Content
     [Serializable]
     public sealed class CampaignDef
     {
-        /// <summary>Main portals materialized at start-up (ContentDb.Portals / RunLevels); later portals are generated on demand.</summary>
-        public int Portals = 50;
-        public int LevelsPerPortal = 10;
-        /// <summary>Levels 1..LinearUntil advance one threat step per level (the original 3 portals).</summary>
+        /// <summary>Main levels (each with its portal) materialized at start-up (ContentDb.Portals / RunLevels); later ones are generated on demand.</summary>
+        public int MaterializedLevels = 500;
+        /// <summary>
+        /// Reward / difficulty rhythm only (no biome, no portal, no boss): levels are grouped in chapters of this many for the
+        /// reward scale and loot table, stamina, board growth, the dice rhythm (chapter steps 6–10 roll two dice), the threat
+        /// slope bands and the endless anchors (EndlessFromChapter, …). Chapter c (0-based) = levels 10c+1 … 10c+10.
+        /// </summary>
+        public int ChapterLevels = 10;
+        /// <summary>
+        /// The campaign biomes (two per enemy family). Level n's biome: ContentDb.CampaignBiomeIndex. The order only changes
+        /// when this list or <see cref="BiomeOrderSeed"/> changes. The first biome is level 1's (the tutorial run's ember pool).
+        /// </summary>
+        public List<CampaignBiomeDef> Biomes = new List<CampaignBiomeDef>
+        {
+            new CampaignBiomeDef("lava", "Ember Wastes", "ember"),
+            new CampaignBiomeDef("seabed", "Crystal Reef", "glacier"),
+            new CampaignBiomeDef("space_station", "Volt Labyrinth", "static"),
+            new CampaignBiomeDef("shipwreck", "Wreck Field", "void"),
+            new CampaignBiomeDef("gas_giant", "Rust Canyons", "ember"),
+            new CampaignBiomeDef("cloud_islands", "Cloud Isles", "glacier"),
+            new CampaignBiomeDef("alien_jungle", "Static Jungle", "static"),
+            new CampaignBiomeDef("toxic_swamp", "Gloom Marsh", "void"),
+        };
+        /// <summary>Seed of the biome order (the same for every player).</summary>
+        public ulong BiomeOrderSeed = 0x5EEDB10EUL;
+        /// <summary>Levels 1..LinearUntil advance one threat step per level.</summary>
         public int LinearUntil = 30;
-        /// <summary>Threat steps per level after LinearUntil, for each later portal band (last entry repeats forever).</summary>
+        /// <summary>Threat steps per level after LinearUntil, for each later band of chapters (last entry repeats forever).</summary>
         public List<double> LateSlopes = new List<double> { 0.4, 0.3, 0.12, 0.12, 0.1, 0.08, 0.07, 0.06 };
-        /// <summary>Portals per entry of LateSlopes.</summary>
-        public int SlopeBandPortals = 3;
-        /// <summary>Stamina per main run: 5 + portal index, capped.</summary>
+        /// <summary>Chapters per entry of LateSlopes.</summary>
+        public int SlopeBandChapters = 3;
+        /// <summary>Stamina per main run: 5 + chapter index, capped.</summary>
         public long StaminaBase = 5, StaminaMax = 10;
         /// <summary>
         /// Enemy HP/ATK % per biome family (ember, glacier, static, void) on top of the threat curve: the void family's
-        /// roster (lifesteal boss, bleed/poison packs) is markedly stronger, so main portals even it out.
+        /// roster (lifesteal boss, bleed/poison packs) is markedly stronger, so main levels even it out.
         /// </summary>
         public List<double> FamilyStrengthPct = new List<double> { 0, 0, 0, -25 };
         /// <summary>
-        /// Extra enemy HP/ATK % per biome family from portal <see cref="LateFamilyFromPortal"/> on (endless campaign): the glacier
-        /// roster (freeze-all boss, shields, counters) stalls late-game worms for weeks every fourth portal without it.
+        /// Extra enemy HP/ATK % per biome family from chapter <see cref="LateFamilyFromChapter"/> on (endless campaign): the glacier
+        /// roster (freeze-all boss, shields, counters) stalls late-game worms for weeks without it.
         /// </summary>
         public List<double> LateFamilyStrengthPct = new List<double> { 0, -20, 0, 0 };
-        public int LateFamilyFromPortal = 40;
+        public int LateFamilyFromChapter = 40;
         /// <summary>
         /// Gentle ramp for new players: enemy HP % and ATK % of main levels 1, 2, 3, … (on top of the threat curve; levels
         /// past the list are unchanged). Level 1 (the tutorial run) is played without parts, shops or
@@ -691,8 +730,8 @@ namespace RogueStars.Rules.Content
 
         /// <summary>
         /// Run content introduced level by level (GDD §16 level unlocks): main levels below these numbers do not have it, and
-        /// its feature (Features.RunSignatures, …) unlocks when the level before is cleared. Main portals only, every portal past
-        /// the first has everything (numbers ≤ LevelsPerPortal). Two dice keep their per-portal rule (portal levels 6–10);
+        /// its feature (Features.RunSignatures, …) unlocks when the level before is cleared. Main levels only, every level past
+        /// the first chapter has everything (numbers ≤ ChapterLevels). Two dice keep their chapter rhythm (chapter steps 6–10);
         /// forks come with them (BranchChance 0 below <see cref="ForksFromLevel"/>). Mini-games: MinigameTuning.MinMainLevel.
         /// Shops are on the board from the first run (owner, 2026-11-27); the signature pick is the second unlock (LevelDef.SignatureChoice).
         /// </summary>
@@ -700,7 +739,7 @@ namespace RogueStars.Rules.Content
         /// <summary>
         /// The tutorial run (main level 1): its own tile pool (enemies, pickups, buffs and loot only: no events, elites, hazards
         /// or debuffs), and a faster awakening so the first boss comes after about 18 rolls (was ~22 before the shorter runs). Named pool_&lt;family&gt;_&lt;variant&gt;:
-        /// the client draws portal 1's biome for it.
+        /// level 1's biome is always the first campaign biome (Ember Wastes, the ember family).
         /// </summary>
         public string TutorialPool = "pool_ember_tutorial";
         public double TutorialAwakeningPct = 25;
@@ -719,31 +758,31 @@ namespace RogueStars.Rules.Content
         public double DarkSideDataBase = 24, DarkSideDataGrowth = 1.025;
         /// <summary>Burrow / Dark Side portal order (after every main portal).</summary>
         public int SidePortalOrder = 1000;
-        /// <summary>Main board lap length: 24 + level index + 2 per portal (the portal part capped here), ×1.5 with two dice.</summary>
-        public int BoardGrowthPortals = 6;
+        /// <summary>Main board lap length: 24 + chapter step + 2 per chapter (the chapter part capped here), ×1.5 with two dice.</summary>
+        public int BoardGrowthChapters = 6;
         /// <summary>Hard roll limit of main and Dark Side runs (the awakening meter normally brings the boss at ~23 rolls; was 45).</summary>
         public int MaxRolls = 36;
 
-        /// <summary>Reward scale of portal index i (0-based) up to the endless anchor: (i+1) × RewardGrowth^max(0, i−2).</summary>
+        /// <summary>Reward scale of chapter index i (0-based) up to the endless anchor: (i+1) × RewardGrowth^max(0, i−2).</summary>
         public double RewardGrowth = 1.0;
 
         // ---- endless campaign (docs/design/economy-model.md, "Endless campaign rewards") ----------------------------------
         /// <summary>
-        /// Portal index from which rewards follow the endless formula: portal i ≥ EndlessFromPortal pays
-        /// RewardScale(EndlessFromPortal − 1) × (M(i) / M(EndlessFromPortal − 1))^EndlessRewardExponent, where M is the enemy
-        /// threat multiplier at the portal's first level. Same anchor for the item-rarity shift.
+        /// Chapter index from which rewards follow the endless formula: chapter i ≥ EndlessFromChapter pays
+        /// RewardScale(EndlessFromChapter − 1) × (M(i) / M(EndlessFromChapter − 1))^EndlessRewardExponent, where M is the enemy
+        /// threat multiplier at the chapter's first level. Same anchor for the item-rarity shift and the boss variants.
         /// </summary>
-        public int EndlessFromPortal = 50;
+        public int EndlessFromChapter = 50;
         /// <summary>α: per-run currencies grow as threat^α (α &lt; 1, sublinear to threat and upgrade costs).</summary>
         public double EndlessRewardExponent = 0.7;
         /// <summary>Dark Side level from which Data follows threat^α (anchor = this level's legacy Data).</summary>
         public int DarkSideEndlessFrom = 150;
-        /// <summary>Run item drops (parts, runes, blueprints, aliens) of portal i ≥ EndlessFromPortal gain
-        /// 1 + (i − EndlessFromPortal) / RarityShiftPortals rarity tiers, never above <see cref="MaxDropRarity"/>.</summary>
-        public int RarityShiftPortals = 25;
+        /// <summary>Run item drops (parts, runes, blueprints, aliens) of chapter i ≥ EndlessFromChapter gain
+        /// 1 + (i − EndlessFromChapter) / RarityShiftChapters rarity tiers, never above <see cref="MaxDropRarity"/>.</summary>
+        public int RarityShiftChapters = 25;
         public int MaxDropRarity = 3; // Legendary: Mythic only from pulls and merges
-        /// <summary>A generated portal's boss changes its variant (title, boss tiles, escort, board hazard) every N portals.</summary>
-        public int BossVariantEveryPortals = 5;
+        /// <summary>From EndlessFromChapter on, a level's boss changes its variant (title, boss tiles, escort, board hazard) every N chapters.</summary>
+        public int BossVariantEveryChapters = 5;
         public int BossVariants = 6;
 
         /// <summary>One-time milestone chest on the first clear of every MilestoneEveryLevels-th main level.</summary>
@@ -757,9 +796,9 @@ namespace RogueStars.Rules.Content
         public int MilestoneGrowthLevels = 500;
         /// <summary>Chest tokens of each pull type (Part, Blueprint, Alien): MilestoneTokens + n / MilestoneGrowthLevels.</summary>
         public long MilestoneTokens = 1;
-        /// <summary>Every PortalBonusEveryLevels-th level pays the portal-completion bonus instead: the chest × PortalBonusMult.</summary>
-        public int PortalBonusEveryLevels = 50;
-        public long PortalBonusMult = 4;
+        /// <summary>Every BonusChestEveryLevels-th level pays the bonus chest instead: the milestone chest × BonusChestMult.</summary>
+        public int BonusChestEveryLevels = 50;
+        public long BonusChestMult = 4;
         /// <summary>
         /// State size: main / Dark Side progress more than this many levels behind the player's best clear is folded into the
         /// compact archives (RunState.MainArchive / DarkArchive) once the per-level records exceed twice the window.
@@ -770,7 +809,7 @@ namespace RogueStars.Rules.Content
         {
             if (n <= LinearUntil) return n - 1;
             double t = LinearUntil - 1;
-            int per = Math.Max(1, LevelsPerPortal * SlopeBandPortals);
+            int per = Math.Max(1, ChapterLevels * SlopeBandChapters);
             int rest = n - LinearUntil;
             for (int band = 0; rest > 0; band++)
             {
@@ -781,17 +820,23 @@ namespace RogueStars.Rules.Content
             return t;
         }
 
-        public double RewardScale(int portalIndex) => (portalIndex + 1) * Math.Pow(RewardGrowth, Math.Max(0, portalIndex - 2));
+        public double RewardScale(int chapter) => (chapter + 1) * Math.Pow(RewardGrowth, Math.Max(0, chapter - 2));
+
+        /// <summary>0-based chapter of main level n (reward / difficulty rhythm only).</summary>
+        public int ChapterOf(int n) => Math.Max(0, n - 1) / Math.Max(1, ChapterLevels);
+
+        /// <summary>1-based step of main level n in its chapter (1 … ChapterLevels).</summary>
+        public int ChapterStep(int n) => Math.Max(0, n - 1) % Math.Max(1, ChapterLevels) + 1;
 
         /// <summary>Main level number at which Dark Side level i sits.</summary>
         public int DarkSideMainLevel(int i) => (int)Math.Round(DarkSideFromLevel + DarkSideSpacing * (i - 1));
 
-        /// <summary>One-time rewards of main level n's first clear (milestone chest / portal-completion bonus); empty otherwise.</summary>
+        /// <summary>One-time rewards of main level n's first clear (milestone chest / bonus chest); empty otherwise.</summary>
         public List<Reward> MilestoneRewards(int n)
         {
             var list = new List<Reward>();
             if (n <= 0 || MilestoneEveryLevels <= 0 || n % MilestoneEveryLevels != 0) return list;
-            long mult = PortalBonusEveryLevels > 0 && n % PortalBonusEveryLevels == 0 ? PortalBonusMult : 1;
+            long mult = BonusChestEveryLevels > 0 && n % BonusChestEveryLevels == 0 ? BonusChestMult : 1;
             double grow = 1 + (double)n / Math.Max(1, MilestoneGrowthLevels);
             long diamonds = (long)Math.Round(MilestoneDiamonds * grow / 5.0) * 5 * mult;
             long tokens = (MilestoneTokens + n / Math.Max(1, MilestoneGrowthLevels)) * mult;
