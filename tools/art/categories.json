@@ -447,6 +447,10 @@
     "currency-biomass-redo": [
       "icon",
       "Currencies"
+    ],
+    "currency-icons2": [
+      "icon",
+      "Summon & menu icons"
     ]
   }
 }

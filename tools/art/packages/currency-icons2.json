@@ -1,0 +1,17 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-currency-icons2",
+  "seeds": [
+    7451,
+    7452
+  ],
+  "subjects": {
+    "crests": "crests: a heraldic crest shield badge with a gold star in the centre, one single solid object, bold black outline, flat colors",
+    "saddles": "saddles: a small brown leather riding saddle with gold trim, one single solid object, bold black outline, flat colors",
+    "hangar_bolts": "hangar bolts: one big chunky steel bolt with a hex nut, one single solid object, bold black outline, flat colors"
+  }
+}
