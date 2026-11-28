@@ -77,6 +77,15 @@
       "long_side": 410,
       "align": "center",
       "note": "hero part icons (parts v2): ~80% fill, the client draws them on a 170x170 rarity tile with ~12% padding"
+    },
+    "hero-skin": {
+      "canvas": 512,
+      "long_side": 462,
+      "align": "bottom",
+      "note": "hero skins painted onto the base worm (tools/art/hero_skin_paint.py): canvas, size and position are the base worm's own (hero_worm.png), so the size spec is the base worm's; costumes may be white (chef, knight highlights)",
+      "audit_skip": [
+        "white"
+      ]
     }
   },
   "packages": {
@@ -479,6 +488,10 @@
     "battle-biomes": [
       "fullframe",
       "Battle backgrounds"
+    ],
+    "hero-skins-v2": [
+      "hero-skin",
+      "Hero skins"
     ]
   }
 }
