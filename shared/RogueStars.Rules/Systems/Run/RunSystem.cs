@@ -237,6 +237,8 @@ namespace RogueStars.Rules.Systems
             run.Awakening = 0;
             run.ActionsTriggered = 0;
             run.BossStatPct = 0;
+            run.BossAtkPct = 0;
+            run.BossHpPct = 0;
             run.BossFought = false;
             run.BossRounds = 0;
             run.Phase = RunPhase.AwaitRoll;
@@ -562,8 +564,9 @@ namespace RogueStars.Rules.Systems
                 {
                     var ev = ctx.Content.RunEvents[run.EventId];
                     int opt = ev.DefaultOption;
-                    if (!CanAffordOption(run, ev.Options[opt]))
-                        for (int i = 0; i < ev.Options.Count; i++) if (CanAffordOption(run, ev.Options[i])) { opt = i; break; }
+                    if (!CanAffordOption(run, ev.Options[opt]) || !OptionAvailable(ctx.Content, run, ev.Options[opt]))
+                        for (int i = 0; i < ev.Options.Count; i++)
+                            if (CanAffordOption(run, ev.Options[i]) && OptionAvailable(ctx.Content, run, ev.Options[i])) { opt = i; break; }
                     ChooseEventOption(ctx, run, opt);
                     break;
                 }

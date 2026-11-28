@@ -210,6 +210,8 @@ namespace RogueStars.Rules.Systems
         public int ActionsTriggered;
         public double AwakeningReductionPct;
         public double BossStatPct;
+        /// <summary>Boss ATK / HP % of event choices that name one stat (Rites: "Boss −20% ATK"; on top of BossStatPct).</summary>
+        public double BossAtkPct, BossHpPct;
         public bool BossFought;
 
         // worm
@@ -272,6 +274,8 @@ namespace RogueStars.Rules.Systems
         public int ShopsVisited;
         public string EventId;
         public int EventTile = -1;
+        /// <summary>Events event tiles drew so far (shared and biome events; no event repeats within a run).</summary>
+        public List<string> EventsSeen = new List<string>();
         public string LastEventText;
         /// <summary>What the last event / chest / campfire choice or shop visit did (result screen); null before the first.</summary>
         public RunOutcome LastOutcome;
@@ -333,7 +337,7 @@ namespace RogueStars.Rules.Systems
         QuestBoon,
         /// <summary>A quest encounter's step: Id "advanced" / "waits" / "complete", Amount = the chapter the story is at now.</summary>
         QuestStep,
-        /// <summary>Enemy tiles ahead grew stronger (campfire, treasure pod): Amount = the bonus in %, Id = how many tiles.</summary>
+        /// <summary>Enemy tiles ahead grew stronger (campfire, treasure pod): Amount = the bonus in %, Id = how many tiles; a negative Amount = weakened (Rites).</summary>
         EnemiesStronger }
 
     /// <summary>
