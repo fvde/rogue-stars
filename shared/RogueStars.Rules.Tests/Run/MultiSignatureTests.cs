@@ -140,8 +140,7 @@ public class MultiSignatureTests
         Pick(e, ref f, "sig_bleed", true);
         Pick(e, ref f, "sig_radiation", true);
         Assert.Empty(RunSystem.FindableSignatures(C, f.Run.Active!));
-        var pick = typeof(RunSystem).GetMethod("PickRandomEvent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        for (int i = 0; i < 300; i++) Assert.NotEqual(RunSystem.ResonanceEvent, (string)pick.Invoke(null, new object[] { C, f.Run.Active! })!);
+        for (int i = 0; i < 300; i++) Assert.NotEqual(RunSystem.ResonanceEvent, RunSystem.PickRandomEvent(C, f.Run.Active!));
     }
 
     [Fact]

@@ -74,6 +74,7 @@ namespace RogueStars.Rules.Content
             RunBuildBosses();
             RunBuildTiles();
             RunBuildEvents();
+            RunBuildBiomeEvents();
             RunBuildShopsAndLoot();
             RunBuildPortals();
             // Stamina's regen rule (cap 60, 1 per 6 min) is owned by Progression (ContentDb.Economy).
@@ -444,6 +445,8 @@ namespace RogueStars.Rules.Content
         private static RunEffect RunStatFx(StatId stat, double pct) => new RunEffect(RunEffectKind.StatPercent, pct) { Stat = stat };
         private static RunEffect RunSkillFx(Rarity min) => new RunEffect(RunEffectKind.GainSkill, 1) { MinRarity = min };
         private static RunEffect RunRewardFx(Reward r) => new RunEffect(RunEffectKind.PendingReward, 1) { Reward = r };
+        /// <summary>Boss ATK or HP % for the run (param RunSystem.BossAtkParam / BossHpParam; negative = weaker).</summary>
+        private static RunEffect RunBossFx(string stat, double pct) => new RunEffect(RunEffectKind.BossStatPct, pct, stat);
 
         private static EventOutcome RunOut(double weight, string text, params RunEffect[] fx)
         {
@@ -477,7 +480,7 @@ namespace RogueStars.Rules.Content
                 RunOpt("Attune to the second signal", "Gain the second signature.", RunOut(1, "A new signature awakens in you.", RunFx(RunEffectKind.GainSignature, 1, "1"))),
                 RunOpt("Harvest the signals", "Take " + RunTuning.ResonanceCoins + " coins.", RunOut(1, "The signals fade into coins.", RunFx(RunEffectKind.Coins, RunTuning.ResonanceCoins))));
             RunEvent("unstable_reactor", "Unstable Reactor", "A humming reactor offers raw power, but the boss feeds on the surge.", 1, 3,
-                RunOpt("Absorb the surge", "Gain a skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Common), RunFx(RunEffectKind.BossStatPct, 15))),
+                RunOpt("Absorb the surge", "Gain a skill. The boss gains +15% ATK.", RunOut(1, "Power floods in.", RunSkillFx(Rarity.Common), RunBossFx(Systems.RunSystem.BossAtkParam, 15))),
                 RunOpt("Walk away", "Nothing happens.", RunNothing));
             RunEvent("smuggler", "Smuggler", "A shady alien smuggler trades rare techniques for a piece of your vitality.", 1, 3,
                 RunOpt("Trade vitality", "-10% max HP for a Legendary+ skill.", RunOut(1, "A painful bargain.", RunStatFx(StatId.Hp, -10), RunSkillFx(Rarity.Legendary))),
@@ -487,14 +490,12 @@ namespace RogueStars.Rules.Content
                 RunOut(1, "The echo fades, leaving a crate behind.", RunFx(RunEffectKind.Battle, 30, "elite_rift_echo"), RunRewardFx(Reward.Cur(Currencies.PartTokens, 1))));
             RunEvent("rift_echo", "Rift Echo", "An echo of a fearsome foe flickers in a rift.", 1, 3, echo, RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("abandoned_cache", "Abandoned Cache", "A half-buried supply cache. Something ticks inside.", 1, 4,
-                RunOpt("Search it", "65%: 1 reward chest (paid on clear, +Danger) and the alarm wakes the boss 8% sooner. 35%: trapped — lose 20% HP and 5% max HP for the run.",
-                    RunOut(65, "Loot! An alarm wails in the distance.", RunFx(RunEffectKind.Loot, 1), RunFx(RunEffectKind.Meter, 8)),
-                    RunOut(35, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 20), RunStatFx(StatId.Hp, -5))),
+                // biomes pass: one gain or one price per outcome (was: chest + alarm / HP + max HP)
+                RunOpt("Search it", "60%: 1 reward chest (paid on clear, +Danger). 40%: trapped: lose 20% HP.",
+                    RunOut(60, "Loot! Nobody heard a thing.", RunFx(RunEffectKind.Loot, 1)),
+                    RunOut(40, "Boom! It was trapped.", RunFx(RunEffectKind.DamagePct, 20))),
                 RunOpt("Leave it", "Nothing happens.", RunNothing));
-            RunEvent("strange_spores", "Strange Spores", "Glowing spores drift by. They smell... edible.", 1, 3,
-                RunOpt("Eat them", "50%: +8% ATK. 50%: lose 10% HP and -5% DEF.",
-                    RunOut(50, "Delicious power.", RunStatFx(StatId.Atk, 8)), RunOut(50, "Bad spores.", RunFx(RunEffectKind.DamagePct, 10), RunStatFx(StatId.Def, -5))),
-                RunOpt("Ignore them", "Nothing happens.", RunNothing));
+            // Strange Spores moved to the Mushroom Forest (ContentDb.BiomeEvents.cs)
             var merchant = RunOpt("Buy a tonic (40 coins)", "Heal 30% HP.", RunOut(1, "Refreshing.", RunFx(RunEffectKind.HealPct, 30)));
             merchant.CoinCost = 40;
             RunEvent("alien_medic", "Alien Medic", "A friendly alien medic offers a tonic.", 1, 3, merchant, RunOpt("No thanks", "Nothing happens.", RunNothing));
@@ -508,7 +509,7 @@ namespace RogueStars.Rules.Content
                 RunOpt("Run through it", "60%: unharmed with a shard. 40%: lose 20% HP.",
                     RunOut(60, "You dodge every rock and grab a shard.", RunFx(RunEffectKind.Shards, 1)), RunOut(40, "Ouch!", RunFx(RunEffectKind.DamagePct, 20))));
             RunEvent("lost_explorer", "Lost Explorer", "A lost explorer worm asks for help.", 1, 3,
-                RunOpt("Help them", "Lose 10% HP; gain XP and coins.", RunOut(1, "Grateful, they share their supplies.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Xp, 20), RunFx(RunEffectKind.Coins, 60))),
+                RunOpt("Help them (lose 10% HP)", "+60 coins.", RunOut(1, "Grateful, they share their coins.", RunFx(RunEffectKind.DamagePct, 10), RunFx(RunEffectKind.Coins, 60))),
                 RunOpt("Ignore them", "Nothing happens.", RunNothing));
             RunEvent("gravity_well", "Gravity Well", "A swirling gravity well pulls loot from deep space.", 1, 2.5,
                 RunOpt("Dive in", "2 reward chests (paid on clear, +Danger). The boss awakens 15% faster for the rest of the run.",
@@ -525,16 +526,16 @@ namespace RogueStars.Rules.Content
             RunEvents[fuel.Id] = fuel;
             RandomRunEvents.Add(new WeightedId(fuel.Id, 2));
             RunEvent("wild_beast", "Wild Beast", "A wild beast eyes you curiously.", 1, 2.5,
-                RunOpt("Try to tame it", "50%: +5% ATK and 1 reward chest (paid on clear). 50%: it attacks (elite fight).",
-                    RunOut(50, "It follows you loyally.", RunStatFx(StatId.Atk, 5), RunFx(RunEffectKind.Loot, 1)),
+                RunOpt("Try to tame it", "50%: it digs up 1 reward chest (paid on clear, +Danger). 50%: it attacks (elite fight).",
+                    RunOut(50, "It digs up a chest for you.", RunFx(RunEffectKind.Loot, 1)),
                     RunOut(50, "It attacks!", RunFx(RunEffectKind.Battle, 10, "elite"))),
                 RunOpt("Back off", "Nothing happens.", RunNothing));
-            var bm = RunOpt("Buy a signal beacon (100 coins)", "A Schematic (reward chest, paid on clear). The smugglers' toxins cost 8% max HP for the run.",
-                RunOut(1, "Sold. You feel a little weaker.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1)), RunStatFx(StatId.Hp, -8)));
+            var bm = RunOpt("Buy a signal beacon (100 coins)", "A Schematic (reward chest, paid on clear, +Danger).",
+                RunOut(1, "Sold. No receipts.", RunRewardFx(Reward.Cur(Currencies.BlueprintTokens, 1))));
             bm.CoinCost = 100;
             RunEvent("black_market", "Black Market", "A hidden market trades in rare signals.", 1, 2, bm, RunOpt("Leave", "Nothing happens.", RunNothing));
             RunEvent("cursed_relic", "Cursed Relic", "A relic radiates power and malice.", 1, 2,
-                RunOpt("Claim it", "Gain a Legendary+ skill. -15% max HP and awakening +20.", RunOut(1, "Power at a price.", RunSkillFx(Rarity.Legendary), RunStatFx(StatId.Hp, -15), RunFx(RunEffectKind.Meter, 20))),
+                RunOpt("Claim it", "Gain a Legendary+ skill. -15% max HP for the run.", RunOut(1, "Power at a price.", RunSkillFx(Rarity.Legendary), RunStatFx(StatId.Hp, -15))),
                 RunOpt("Leave it", "Nothing happens.", RunNothing));
             RunEvent("training_dummy", "Training Grounds", "Old training machines still work.", 0, 2.5,
                 RunOpt("Train", "Gain 25 XP.", RunOut(1, "You feel sharper.", RunFx(RunEffectKind.Xp, 25))),

@@ -43,8 +43,10 @@ public class RunDepthTests(ITestOutputHelper output)
         Assert.InRange(gains, 20, 40);
         Assert.InRange(drafts, 7, 11);
         // 9 (was 10): playtest 0.1.325's 3 skill offers per shop let the bot buy the pricier Legendary more often with the same
-        // coins (level 1: 10.3 → 9.9 buys); coin income is unchanged
-        Assert.InRange(shop, 9, 22);
+        // coins (level 1: 10.3 → 9.9 buys); coin income is unchanged. 8.5 (biomes pass): the farming bot takes each event's
+        // default (mostly Leave), and the larger pool (biome events, 13 new shared) dilutes the fights it used to take
+        // (Boss Scout, Training Grounds): level 1 ≈ 9.0 buys
+        Assert.InRange(shop, 8.5, 22);
         Assert.All(runs, r => Assert.Equal(r.Minibosses, r.Gains.Count(g => g.Source == "mythic")));  // one mythic choice per miniboss
         Assert.All(runs, r => Assert.True(r.Minibosses <= 2, "two minibosses per run (playtest 0.1.308)"));
         Assert.True(runs.Average(r => r.Minibosses) >= 1.8, "both lairs stand on the path and stop the worm");

@@ -286,6 +286,7 @@ namespace RogueStars.Client.Screens
             void Add(bool good, string text) { if (!tags.Exists(k => k.Value == text)) tags.Add(new KeyValuePair<bool, string>(good, text)); }
             if (o.CoinCost > 0) Add(false, "COST " + o.CoinCost + " coins");
             if (o.ShardCost > 0) Add(false, "COST " + o.ShardCost + " shards");
+            if (o.Offering) Add(false, "COST 1 " + RunScenes.OfferingName(o.OfferFamily));
             bool chance = o.Outcomes.Count > 1;
             foreach (var oc in o.Outcomes)
                 foreach (var fx in oc.Effects)
@@ -307,11 +308,14 @@ namespace RogueStars.Client.Screens
                         case RunEffectKind.Coins: Add(fx.Value >= 0, (fx.Value >= 0 ? "+" : "−") + Fmt.Num(Math.Abs(fx.Value)) + " coins"); break;
                         case RunEffectKind.Xp: Add(true, "+XP"); break;
                         case RunEffectKind.Shards: Add(true, "+shards"); break;
-                        case RunEffectKind.BossStatPct: Add(false, "RISK boss +" + Fmt.Pct(fx.Value)); break;
+                        case RunEffectKind.BossStatPct:
+                            if (fx.Value < 0) Add(true, RunScenes.BossStatText(fx.Param, fx.Value).ToUpperInvariant());
+                            else Add(false, "RISK boss +" + Fmt.Pct(fx.Value));
+                            break;
                         case RunEffectKind.Meter: Add(fx.Value < 0, fx.Value < 0 ? "Boss sleeps longer" : "RISK boss wakes"); break;
                         case RunEffectKind.Battle: Add(false, "RISK fight"); break;
                         case RunEffectKind.Danger: Add(false, "RISK +danger"); break;
-                        case RunEffectKind.StrengthenEnemies: Add(false, "RISK stronger enemies"); break;
+                        case RunEffectKind.StrengthenEnemies: Add(fx.Value < 0, fx.Value < 0 ? "Weaker enemies" : "RISK stronger enemies"); break;
                     }
                 }
             if (chance && tags.Count > 0) tags.Insert(0, new KeyValuePair<bool, string>(false, "CHANCE"));
@@ -1587,7 +1591,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.Coins: return sign + Fmt.Num(a) + " coins";
                 case OutcomeKind.Hp: return sign + Fmt.Num(a) + " HP";
                 case OutcomeKind.Stat:
-                    return sign + Fmt.Pct(a) + " " + (l.Id == "Hp" ? "max HP" : l.Id == "Atk" ? "ATK" : l.Id == "Def" ? "DEF" : l.Id) + " for the run";
+                    return sign + Fmt.Pct(a) + " " + (Enum.TryParse<StatId>(l.Id, out var st) ? RunScenes.StatLabel(st) : l.Id) + " for the run";
                 case OutcomeKind.SkillGained: return "New skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLost: return "Lost skill: " + (content.Skill(l.Id)?.Name ?? l.Id);
                 case OutcomeKind.SkillLevel: return (content.Skill(l.Id)?.Name ?? l.Id) + " → level " + Fmt.Whole(a);
@@ -1598,7 +1602,7 @@ namespace RogueStars.Client.Screens
                     return "+" + (l.Reward != null ? Fmt.Reward(l.Reward, content) : l.Id) + " — reward chest, paid when you beat the boss";
                 case OutcomeKind.Awakening: return "Boss wakes " + Fmt.Whole(a) + "% " + (l.Amount >= 0 ? "sooner" : "later");
                 case OutcomeKind.AwakenRate: return "Boss awakens " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower") + " for the rest of the run";
-                case OutcomeKind.BossStat: return "Boss " + sign + Fmt.Pct(a) + " stronger";
+                case OutcomeKind.BossStat: return l.Id != null ? RunScenes.BossStatText(l.Id, l.Amount) : "Boss " + sign + Fmt.Pct(a) + " stronger";
                 case OutcomeKind.Danger: return "Danger " + sign + Fmt.Whole(a);
                 case OutcomeKind.Battle: return l.Id == "won" ? "Fight won" : "Fight lost";
                 case OutcomeKind.SkillRoll: return "Skill roll: pick 1 of " + Fmt.Whole(a) + " (" + l.Id + " odds)";
@@ -1606,7 +1610,7 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.QuestBoon: return (l.Id ?? "Quest bonus") + ": +" + Fmt.Num(a) + " coins on every coin gain, forever";
                 case OutcomeKind.QuestStep:
                     return l.Id == "complete" ? "The story is complete!" : l.Id == "waits" ? "The story waits at chapter " + Fmt.Whole(a) : "The story moves on: chapter " + Fmt.Whole(a);
-                case OutcomeKind.EnemiesStronger: return "Nearby enemies +" + Fmt.Pct(a) + " stronger";
+                case OutcomeKind.EnemiesStronger: return l.Amount < 0 ? "Nearby enemies " + Fmt.Pct(a) + " weaker" : "Nearby enemies +" + Fmt.Pct(a) + " stronger";
                 case OutcomeKind.Avoided: return "Shielded by your boon";
                 default: return "Nothing happened.";
             }

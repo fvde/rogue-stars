@@ -871,6 +871,8 @@ def retry_prompt(item, sh, reasons):
             hints.append(hint)
     if item.get("hint"):
         hints.insert(0, item["hint"])
+    if sh.get("retry_keep"):        # the package's must-have shape phrase (mounts: the open seat) survives simplification
+        hints.insert(0, sh["retry_keep"])
     prompt = subj + (", " + style if style else "") + RETRY_SUFFIX + "".join(", " + x for x in hints)
     terms = [t.strip() for t in (sh.get("negative", "") + ", " + STRONG_NEG).split(",") if t.strip()]
     neg = ", ".join(dict.fromkeys(terms))

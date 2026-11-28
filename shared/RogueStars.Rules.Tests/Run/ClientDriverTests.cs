@@ -44,7 +44,9 @@ public class ClientDriverTests(ITestOutputHelper output)
                     case RunPhase.Event:
                     {
                         var ev = c.RunEvents[a.EventId];
-                        var ok = Enumerable.Range(0, ev.Options.Count).Where(k => a.Coins >= ev.Options[k].CoinCost && a.Shards >= ev.Options[k].ShardCost).ToList();
+                        // the options the client shows (a Rite Offering only with a skill to give up)
+                        var ok = Enumerable.Range(0, ev.Options.Count).Where(k => a.Coins >= ev.Options[k].CoinCost && a.Shards >= ev.Options[k].ShardCost
+                            && RunSystem.OptionAvailable(c, a, ev.Options[k])).ToList();
                         cmd = new RunChooseEventOption { Index = ok[rng.Next(ok.Count)] };
                         break;
                     }
@@ -161,7 +163,11 @@ public class ClientDriverTests(ITestOutputHelper output)
             if (res.Events.Any(ev => ev.Type == "run_negative_skipped") && s2.Run.Active != null)
             {
                 Assert.True(s2.Run.Active.OutcomeSeq > seq);
-                Assert.Equal("Avoided", s2.Run.Active.LastOutcome.Choice);
+                // a negative event kept away ("Avoided"), or (past the line board) a hazard tile kept away: its tile outcome says so
+                var now = s2.Run.Active;
+                bool eventShown = now.OutcomeSeq > seq && now.LastOutcome.Choice == "Avoided";
+                bool tileShown = now.TileOutcomes.Exists(o => o.Lines.Exists(l => l.Kind == OutcomeKind.Avoided));
+                Assert.True(eventShown || tileShown, now.LastOutcome?.Choice);
                 return;
             }
         }

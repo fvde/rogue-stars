@@ -82,7 +82,7 @@ namespace RogueStars.Client.Tests
             var lines = FindNamed(_f.App.ModalLayer, "Lines");
             var first = lines.GetComponentsInChildren<Transform>(true).First(t => t.name.StartsWith("Line:"));
             Assert.That(first.name, Is.EqualTo("Line:SkillGained"), "the news first");
-            Assert.That(Texts(lines), Does.Contain("Boss +15% stronger"), "the cost the button promised");
+            Assert.That(Texts(lines), Does.Contain("Boss +15% ATK"), "the cost the button promised");
         }
 
         [Test]
@@ -100,7 +100,7 @@ namespace RogueStars.Client.Tests
         public void Nothing_IsAToast_YouMoveOn()
         {
             var screen = EventOnScreen("strange_spores");
-            Assert.That(_f.Service.ExecuteNow(new RunChooseEventOption { Index = Opt(C, "strange_spores", "Ignore them") }).Ok, Is.True);
+            Assert.That(_f.Service.ExecuteNow(new RunChooseEventOption { Index = Opt(C, "strange_spores", "Leave") }).Ok, Is.True);
             if (screen.LastToast == null) screen.Rebuild(); // (a rebuild after the toast would replace the board's overlay)
             Assert.That(screen.OutcomeOpen, Is.False);
             Assert.That(screen.LastToast, Is.EqualTo("You move on."));

@@ -46,7 +46,8 @@ public class RunLengthTests(ITestOutputHelper output)
             if (riskTaker && a.Phase == RunPhase.Event)
             {
                 var ev = e.Content.RunEvents[a.EventId];
-                if (a.Coins >= ev.Options[0].CoinCost && a.Shards >= ev.Options[0].ShardCost) cmd = new RunChooseEventOption { Index = 0 };
+                if (a.Coins >= ev.Options[0].CoinCost && a.Shards >= ev.Options[0].ShardCost && RunSystem.OptionAvailable(e.Content, a, ev.Options[0]))
+                    cmd = new RunChooseEventOption { Index = 0 };
             }
             var res = RunTestKit.Exec(e, ref s, cmd);
             Assert.True(res.Ok);
@@ -171,7 +172,9 @@ public class RunLengthTests(ITestOutputHelper output)
             }
         output.WriteLine($"account-loot opportunities per run: avg {(double)offers / runs:0.00}, max {max}; items found by a risk-taker: avg {(double)drops / runs:0.00}");
         Assert.True(max <= c.RunTuning.MaxAccountLootOffersPerRun);
-        Assert.InRange((double)offers / runs, 0.75, 3);
+        // 0.6 (was 0.75): the biomes pass's 13 new shared events carry no chest, so a bigger pool dilutes the loot events
+        // (≈0.67 per run; biome chests make up part of it). Raising Treasure Pod weight is the lever if ~0.8 should hold.
+        Assert.InRange((double)offers / runs, 0.6, 3);
         Assert.InRange((double)drops / runs, 0.5, 6);
         // Ordinary tiles never pay account loot: no pool tile is a Loot tile.
         foreach (var pool in c.TilePools.Values)
@@ -181,9 +184,12 @@ public class RunLengthTests(ITestOutputHelper output)
         foreach (var ev in c.RunEvents.Values.Where(x => x.GrantsAccountLoot()))
             foreach (var o in ev.Options.Where(o => o.Outcomes.Any(oc => oc.Effects.Any(fx => fx.Kind is RunEffectKind.Loot or RunEffectKind.PendingReward))))
             {
-                Assert.Contains("reward chest", o.RiskText);
-                bool risky = o.Outcomes.Any(oc => oc.Effects.Any(fx => fx.Kind is RunEffectKind.Battle or RunEffectKind.AwakenRatePct or RunEffectKind.Meter
-                    or RunEffectKind.DamagePct or RunEffectKind.BossStatPct || fx.Kind == RunEffectKind.StatPercent && fx.Value < 0));
+                // "1 reward chest", "a Schematic (reward chest …)", biome chests "Ore chest (paid on clear, +Danger)"
+                Assert.Contains("chest", o.RiskText);
+                // biomes pass: a coin price (Data Broker, Black Market) and "nearby enemies grow stronger" count as the price too
+                bool risky = o.CoinCost > 0 || o.Outcomes.Any(oc => oc.Effects.Any(fx => fx.Kind is RunEffectKind.Battle or RunEffectKind.AwakenRatePct or RunEffectKind.Meter
+                    or RunEffectKind.DamagePct or RunEffectKind.BossStatPct || fx.Kind == RunEffectKind.StatPercent && fx.Value < 0
+                    || fx.Kind == RunEffectKind.StrengthenEnemies && fx.Value > 0));
                 Assert.True(risky, ev.Id + ": " + o.Text + " has no risk");
             }
     }
@@ -225,7 +231,7 @@ public class RunLengthTests(ITestOutputHelper output)
             Assert.Equal("Abandoned Cache", o.Title);
             Assert.Equal("Search it", o.Choice);
             Assert.True(o.Chance);
-            Assert.Equal(65, o.SuccessChancePct, 6);
+            Assert.Equal(60, o.SuccessChancePct, 6);
             if (o.Success)
             {
                 lucky++;
@@ -233,14 +239,14 @@ public class RunLengthTests(ITestOutputHelper output)
                 Assert.All(loot, l => Assert.NotNull(l.Reward));
                 Assert.Equal(loot.Count, loot.Select(l => l.Id).Distinct().Count()); // one line per resource
                 Assert.Contains(loot, l => l.Id == Currencies.Biomass);              // the chest's share of the level's rewards
-                Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Awakening && l.Amount > 0 && !l.Good);
                 Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Danger && l.Amount == 1);
+                Assert.DoesNotContain(o.Lines, l => !l.Good && l.Kind != OutcomeKind.Danger); // biomes pass: one gain, no price on the lucky outcome
             }
             else
             {
                 unlucky++;
                 Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Hp && l.Amount < 0 && !l.Good);
-                Assert.Contains(o.Lines, l => l.Kind == OutcomeKind.Stat && l.Id == "Hp" && l.Amount == -5);
+                Assert.DoesNotContain(o.Lines, l => l.Kind == OutcomeKind.Stat); // one price: the HP loss only
             }
         }
         Assert.True(lucky > 0 && unlucky > 0);

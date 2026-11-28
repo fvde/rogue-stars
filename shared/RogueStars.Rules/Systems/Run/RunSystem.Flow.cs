@@ -262,7 +262,11 @@ namespace RogueStars.Rules.Systems
                 case TileCategory.Treasure:
                 case TileCategory.Campfire:
                 case TileCategory.Event:
-                    OpenEvent(ctx, run, def.EventId ?? PickRandomEvent(c, run), tile);
+                {
+                    string eventId = def.EventId ?? PickRandomEvent(c, run);
+                    if (def.EventId == null && eventId != null) run.EventsSeen.Add(eventId); // drawn events never repeat in a run
+                    OpenEvent(ctx, run, eventId, tile);
+                }
                     break;
                 case TileCategory.Shop:
                     OpenShop(ctx, run);
@@ -644,7 +648,7 @@ namespace RogueStars.Rules.Systems
             double bossPct = common + run.BossStatPct + c.RunTuning.BossBuildPct;
             var enemies = new List<CombatantSpec>
             {
-                BattleSimulator.BuildEnemy(c, boss.EnemyId, scale, bossPct + mods.EnemyAtkPct, bossPct + mods.EnemyHpPct, mods.EnemyDefPct),
+                BattleSimulator.BuildEnemy(c, boss.EnemyId, scale, bossPct + run.BossAtkPct + mods.EnemyAtkPct, bossPct + run.BossHpPct + mods.EnemyHpPct, mods.EnemyDefPct),
             };
             foreach (var esc in boss.Escorts)
                 enemies.Add(BattleSimulator.BuildEnemy(c, esc, scale, common + mods.EnemyAtkPct, common + mods.EnemyHpPct, mods.EnemyDefPct));
@@ -1046,17 +1050,109 @@ namespace RogueStars.Rules.Systems
         /// <summary>The rare Resonance event: pick 1 of 2 unowned signatures, or take coins (skill redesign, several signatures).</summary>
         public const string ResonanceEvent = "resonance";
 
-        private static string PickRandomEvent(ContentDb c, ActiveRun run)
+        /// <summary>
+        /// The event a Strange Signal tile draws. Main campaign levels: <see cref="RunTuning.BiomeEventPct"/> % one of the level
+        /// biome's events (<see cref="PickBiomeEvent"/>), else (or once they are used up) a shared event by weight. No drawn
+        /// event repeats within a run (ActiveRun.EventsSeen). Other modes draw shared events only.
+        /// </summary>
+        public static string PickRandomEvent(ContentDb c, ActiveRun run)
         {
+            var level = Level(c, run);
+            if (level.Biome != null && c.BiomeEvents.ContainsKey(level.Biome) && run.Rng.NextDouble() * 100 < c.RunTuning.BiomeEventPct)
+            {
+                string biome = PickBiomeEvent(c, run, level.Biome);
+                if (biome != null) return biome;
+            }
             bool lootLeft = AccountLootOfferLeft(c, run);
             var w = new double[c.RandomRunEvents.Count];
-            bool sigLeft = Level(c, run).SignatureChoice && FindableSignatures(c, run).Count > 0; // no Resonance before the signature unlock
+            bool sigLeft = level.SignatureChoice && FindableSignatures(c, run).Count > 0; // no Resonance before the signature unlock
             for (int i = 0; i < w.Length; i++)
-                w[i] = !lootLeft && IsAccountLootEvent(c, c.RandomRunEvents[i].Id) ? 0
-                    : !sigLeft && c.RandomRunEvents[i].Id == ResonanceEvent ? 0 : c.RandomRunEvents[i].Weight;
+            {
+                string id = c.RandomRunEvents[i].Id;
+                w[i] = !lootLeft && IsAccountLootEvent(c, id) ? 0
+                    : !sigLeft && id == ResonanceEvent ? 0
+                    : run.EventsSeen.Contains(id) ? 0 : c.RandomRunEvents[i].Weight;
+            }
             int idx = run.Rng.PickWeighted(w);
             return idx < 0 ? null : c.RandomRunEvents[idx].Id;
         }
+
+        /// <summary>
+        /// One of the biome's events not seen this run: its four events weigh 1 each, its Rite <see cref="RunTuning.RiteWeight"/>
+        /// and only while <see cref="RiteOpen"/>; account-loot events only while the run has an opportunity left. Null = none left.
+        /// </summary>
+        public static string PickBiomeEvent(ContentDb c, ActiveRun run, string biome)
+        {
+            var ids = BiomeEventCandidates(c, run, biome, out var weights);
+            int idx = ids.Count == 0 ? -1 : run.Rng.PickWeighted(weights.ToArray());
+            return idx < 0 ? null : ids[idx];
+        }
+
+        /// <summary>The biome events a tile could draw now and their weights (pure; see <see cref="PickBiomeEvent"/>).</summary>
+        public static List<string> BiomeEventCandidates(ContentDb c, ActiveRun run, string biome, out List<double> weights)
+        {
+            var ids = new List<string>();
+            var ws = new List<double>();
+            weights = ws;
+            if (biome == null || !c.BiomeEvents.TryGetValue(biome, out var list)) return ids;
+            bool lootLeft = AccountLootOfferLeft(c, run);
+            void Add(string id, double w)
+            {
+                if (id == null || run.EventsSeen.Contains(id) || !lootLeft && IsAccountLootEvent(c, id)) return;
+                ids.Add(id);
+                ws.Add(w);
+            }
+            foreach (var id in list) Add(id, 1);
+            if (c.BiomeRites.TryGetValue(biome, out var rite) && RiteOpen(c, run)) Add(rite, c.RunTuning.RiteWeight);
+            return ids;
+        }
+
+        /// <summary>
+        /// A Rite is only drawn in the first half of the run, so its effect still has a boss to matter for: fewer than half of
+        /// the rolls the HUD expects until the boss ("Roll n/N", <see cref="BossRollEstimate"/>) are used.
+        /// </summary>
+        public static bool RiteOpen(ContentDb c, ActiveRun run) => !run.BossFought && run.Rolls * 2 < BossRollEstimate(c, run);
+
+        /// <summary>
+        /// The owned run skills a Rite Offering may take: skills of <paramref name="family"/> (None = no synergy), never a
+        /// signature, in the order gained. Empty = the option is hidden.
+        /// </summary>
+        public static List<string> OfferChoices(ContentDb c, ActiveRun run, SkillFamily family)
+        {
+            var list = new List<string>();
+            if (run == null) return list;
+            var sigs = Signatures(run);
+            foreach (var id in run.Skills)
+            {
+                var s = c.Skill(id);
+                if (s == null || s.Signature || sigs.Contains(id) || s.Family != family) continue;
+                list.Add(id);
+            }
+            return list;
+        }
+
+        /// <summary>Whether an option can be shown / chosen now: an Offering needs an owned skill to give up.</summary>
+        public static bool OptionAvailable(ContentDb c, ActiveRun run, EventOption o) => o != null && (!o.Offering || OfferChoices(c, run, o.OfferFamily).Count > 0);
+
+        /// <summary>A biome chest's chapter-scaled range (min, max) of its currency on the run's level (RunTuning.BiomeChestRange).</summary>
+        public static long[] BiomeChestRange(ContentDb c, LevelDef level, string currency)
+        {
+            if (!c.RunTuning.BiomeChestRange.TryGetValue(currency ?? "", out var r)) return new long[] { 0, 0 };
+            long s = level != null && level.Number > 0 && c.Portal(level.PortalId)?.Kind == PortalKind.Main
+                ? Math.Max(1, (long)Math.Round(c.MainRewardScale(c.Campaign.ChapterOf(level.Number)))) : 1;
+            return new[] { NiceAmount(r[0] * s), NiceAmount(r[1] * s) };
+        }
+
+        /// <summary>Rolls one biome chest of the currency (run stream), rounded like loot.</summary>
+        private static long RollBiomeChest(ContentDb c, ActiveRun run, string currency)
+        {
+            var r = BiomeChestRange(c, Level(c, run), currency);
+            if (r[1] <= 0) return 0;
+            long roll = r[1] > r[0] ? r[0] + run.Rng.Range(0, (int)(r[1] - r[0] + 1)) : r[0];
+            return Math.Max(1, NiceAmount(roll));
+        }
+
+        public const string BiomeChestParam = "biome_chest";
 
         private static void OpenEvent(CommandContext ctx, ActiveRun run, string eventId, RunTile tile)
         {
@@ -1131,7 +1227,17 @@ namespace RogueStars.Rules.Systems
                 foreach (var fx in oc.Effects)
                     if (fx.Kind == RunEffectKind.GainSignature)
                         Require(int.TryParse(fx.Param, out var si) && si >= 0 && si < run.SignatureChoice.Count, "no such signature offered");
-            if (!string.IsNullOrEmpty(trainSkill))
+            string offered = null;
+            if (opt.Offering)
+            {
+                // Rite Offering: the player gives up one owned skill of the synergy (the auto pick: the earliest gained)
+                var offer = OfferChoices(c, run, opt.OfferFamily);
+                Require(offer.Count > 0, "no skill to offer");
+                offered = string.IsNullOrEmpty(trainSkill) ? offer[0] : trainSkill;
+                Require(offer.Contains(offered), "skill cannot be offered");
+                trainSkill = null;
+            }
+            else if (!string.IsNullOrEmpty(trainSkill))
             {
                 Require(ImprovesSkill(opt), "this option improves no skill");
                 Require(TrainChoices(c, run).Contains(trainSkill), "skill cannot be improved");
@@ -1139,6 +1245,11 @@ namespace RogueStars.Rules.Systems
             var before = Snap.WithTiles(run);
             run.Coins -= opt.CoinCost;
             run.Shards -= opt.ShardCost;
+            if (offered != null)
+            {
+                ForgetSkill(ctx, run, offered);
+                RefreshMaxHp(c, run);
+            }
             var weights = new double[opt.Outcomes.Count];
             double total = 0;
             for (int i = 0; i < weights.Length; i++) { weights[i] = opt.Outcomes[i].Weight; total += weights[i]; }
@@ -1214,7 +1325,8 @@ namespace RogueStars.Rules.Systems
                 bool bad;
                 switch (e.Kind)
                 {
-                    case RunEffectKind.DamagePct: case RunEffectKind.Battle: case RunEffectKind.LoseRandomSkill: case RunEffectKind.StrengthenEnemies: bad = true; break;
+                    case RunEffectKind.DamagePct: case RunEffectKind.Battle: case RunEffectKind.LoseRandomSkill: bad = true; break;
+                    case RunEffectKind.StrengthenEnemies: bad = e.Value > 0; break; // negative: the enemies ahead are weakened (Rites)
                     case RunEffectKind.StatPercent: bad = e.Value < 0; break;
                     case RunEffectKind.Coins: bad = e.Value < 0; break;
                     case RunEffectKind.Meter: case RunEffectKind.AwakenRatePct: bad = e.Value > 0; break;
@@ -1248,7 +1360,10 @@ namespace RogueStars.Rules.Systems
                         run.SignatureChoice.Clear();
                         break;
                     }
-                    case RunEffectKind.UpgradeSkill: TrainSkill(ctx, run, trainSkill); trainSkill = null; break;
+                    case RunEffectKind.UpgradeSkill:
+                        if (e.Param == RandomSkillParam) TrainRandomSkill(ctx, run);
+                        else { TrainSkill(ctx, run, trainSkill); trainSkill = null; }
+                        break;
                     case RunEffectKind.LoseRandomSkill:
                     {
                         var sigs = Signatures(run);
@@ -1265,9 +1380,20 @@ namespace RogueStars.Rules.Systems
                         break;
                     case RunEffectKind.Loot: AddLoot(c, run, Math.Max(1, (int)e.Value)); break;
                     case RunEffectKind.PendingReward:
-                        if (e.Reward != null) { run.PendingLoot.Add(new Reward(e.Reward.Kind, e.Reward.Id, e.Reward.Amount, e.Reward.Rarity)); run.Danger++; }
+                        if (e.Reward == null) break;
+                        if (e.Param == BiomeChestParam)
+                        {
+                            // a biome chest: one level-scaled roll of its resource
+                            long amount = RollBiomeChest(c, run, e.Reward.Id);
+                            if (amount > 0) { run.PendingLoot.Add(Reward.Cur(e.Reward.Id, amount)); run.Danger++; }
+                        }
+                        else { run.PendingLoot.Add(new Reward(e.Reward.Kind, e.Reward.Id, e.Reward.Amount, e.Reward.Rarity)); run.Danger++; }
                         break;
-                    case RunEffectKind.BossStatPct: run.BossStatPct += e.Value; break;
+                    case RunEffectKind.BossStatPct:
+                        if (e.Param == BossAtkParam) run.BossAtkPct += e.Value;
+                        else if (e.Param == BossHpParam) run.BossHpPct += e.Value;
+                        else run.BossStatPct += e.Value;
+                        break;
                     case RunEffectKind.Meter: AddAwakening(ctx, run, e.Value); break;
                     case RunEffectKind.Xp: AddXp(ctx, run, (int)e.Value); break;
                     case RunEffectKind.Shards: run.Shards += (int)e.Value; break;
@@ -1297,14 +1423,33 @@ namespace RogueStars.Rules.Systems
             }
         }
 
-        /// <summary>True if one of the option's outcomes improves a skill (campfire Train, shrine): the player picks which.</summary>
+        /// <summary>
+        /// True if one of the option's outcomes improves a skill of the player's choice (campfire Train, shrine): the player picks
+        /// which. A random improvement (<see cref="RandomSkillParam"/>: Wishing Well, Fairy Ring) has no picker.
+        /// </summary>
         public static bool ImprovesSkill(EventOption o)
         {
             if (o == null) return false;
             foreach (var oc in o.Outcomes)
                 foreach (var fx in oc.Effects)
-                    if (fx.Kind == RunEffectKind.UpgradeSkill) return true;
+                    if (fx.Kind == RunEffectKind.UpgradeSkill && fx.Param != RandomSkillParam) return true;
             return false;
+        }
+
+        /// <summary>UpgradeSkill param: improve a random trainable skill (no picker).</summary>
+        public const string RandomSkillParam = "random";
+        /// <summary>BossStatPct params: only the boss's ATK / HP (Rites, "boss +10% ATK" prices).</summary>
+        public const string BossAtkParam = "atk", BossHpParam = "hp";
+
+        /// <summary>Improves a random owned skill that can improve (run stream; coins like an empty Train when none can).</summary>
+        private static void TrainRandomSkill(CommandContext ctx, ActiveRun run)
+        {
+            var c = ctx.Content;
+            var all = new List<string>();
+            foreach (var id in run.Skills) if (TrainTarget(c, run, id) != null) all.Add(id);
+            if (all.Count == 0) { GainCoins(run, c.RunTuning.DraftEmptyCoins); return; }
+            string owned = all[run.Rng.Range(0, all.Count)];
+            GrantSkill(ctx, run, TrainTarget(c, run, owned), 0, "event");
         }
 
         /// <summary>

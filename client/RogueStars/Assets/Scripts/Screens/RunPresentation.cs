@@ -261,7 +261,8 @@ namespace RogueStars.Client.Screens
             return list;
         }
 
-        private static string StatName(string id) => id == "Hp" ? "max HP" : id == "Atk" ? "ATK" : id == "Def" ? "DEF" : id == "CritChance" ? "CRIT" : id == "Speed" ? "SPD" : id;
+        private static string StatName(string id) => id == "Hp" ? "max HP" : id == "Atk" ? "ATK" : id == "Def" ? "DEF" : id == "CritChance" ? "CRIT" : id == "Speed" ? "SPD"
+            : Enum.TryParse<StatId>(id, out var st) ? RunScenes.StatLabel(st) : id;
 
         /// <summary>A short popup for one rules outcome line (null for "nothing happened"; pure).</summary>
         public static LandingPopup? FromLine(OutcomeLine l, ContentDb c)
@@ -283,7 +284,8 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.AccountLoot: return new LandingPopup("+" + (l.Reward != null ? Fmt.Reward(l.Reward, c) : l.Id), Theme.Gold, PopupKind.Loot);
                 case OutcomeKind.Awakening: return new LandingPopup("Boss " + sign + Fmt.Whole(a) + "% awake", good, PopupKind.Boss);
                 case OutcomeKind.AwakenRate: return new LandingPopup("Boss wakes " + Fmt.Pct(a) + (l.Amount >= 0 ? " faster" : " slower"), good, PopupKind.Boss);
-                case OutcomeKind.BossStat: return new LandingPopup("Boss " + sign + Fmt.Pct(a) + " stronger", good, PopupKind.Boss);
+                case OutcomeKind.BossStat:
+                    return new LandingPopup(l.Id != null ? RunScenes.BossStatText(l.Id, l.Amount) : "Boss " + sign + Fmt.Pct(a) + " stronger", good, PopupKind.Boss);
                 case OutcomeKind.Danger: return new LandingPopup("Danger " + sign + Fmt.Whole(a), good, PopupKind.Text);
                 case OutcomeKind.Battle: return null; // the battle playback is the feedback
                 case OutcomeKind.SkillRoll: return new LandingPopup("Skill roll!", Theme.Purple, PopupKind.Text);
@@ -293,7 +295,9 @@ namespace RogueStars.Client.Screens
                 case OutcomeKind.StepPenalty: return new LandingPopup("Next roll −" + Fmt.Whole(a), Theme.Warn, PopupKind.Text);
                 case OutcomeKind.CoinBonus: return new LandingPopup("+" + Fmt.Whole(a) + " " + (l.Id ?? "bonus"), Theme.Gold, PopupKind.Coins); // the quest coin bonus
                 case OutcomeKind.QuestStep: return new LandingPopup(l.Good ? "Story moves on!" : "The story waits", l.Good ? Theme.Gold : Theme.TextDim, PopupKind.Text);
-                case OutcomeKind.EnemiesStronger: return new LandingPopup("Enemies +" + Fmt.Pct(a) + " stronger", Theme.Bad, PopupKind.Text);
+                case OutcomeKind.EnemiesStronger:
+                    return l.Amount < 0 ? new LandingPopup("Enemies " + Fmt.Pct(a) + " weaker", Theme.Good, PopupKind.Text)
+                        : new LandingPopup("Enemies +" + Fmt.Pct(a) + " stronger", Theme.Bad, PopupKind.Text);
                 default: return new LandingPopup(RunScreen.OutcomeLineText(l, c), good, PopupKind.Text);
             }
         }

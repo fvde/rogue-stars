@@ -105,6 +105,21 @@ for a rare skill), *Rift Echo* (fight an echo of a strong enemy for a part drop 
 pure-chance gambling: the arcade's mini-games (§3.6) are skill games; even *Slot Pod* is a timing game played for
 in-game pod coins, never for real money or Diamonds.
 
+**Event pool (biomes pass, docs/design/biomes):** every option is **one gain and at most one price** (a gamble's coin cost is
+its stake), made of the existing effect kinds only. A *Strange Signal* tile on a **main campaign level** draws one of the
+level biome's events with **40%** (`RunTuning.BiomeEventPct`), else a shared event by weight; other modes draw shared events
+only. **No event repeats within a run** (`ActiveRun.EventsSeen`); once a biome's events are used up the tile draws shared.
+Each of the 17 biomes has **4 biome events** (weight 1 each; NPC / prop art per biome, `EventDef.Art`, drawn placeholders
+until imported) and a **Rite** (its 5th event, weight 2, only while fewer than half of the expected rolls to the boss are
+used: `RunSystem.RiteOpen`). A Rite's **Offering** gives up one owned run skill of the biome's weakened synergy (Alien Jungle:
+a skill with no synergy; never a signature; the player picks it, the option is hidden without one) for one effect on this
+level: boss −20% ATK or HP, the boss awakens 25% slower, or nearby enemies −25%. A **biome chest** ("Ore chest") is one
+chapter-scaled roll of one resource (`RunTuning.BiomeChestRange`, already doubled for the biome), paid on clear, +Danger.
+The shared pool adds 13 events (Wandering Trader, Sparring Master, Lost Alien Pup, Comet Fragment, Storm Front, Cold Snap,
+Reactor Leak, Blood Moon, Time Rift, Bounty Board, Wishing Well, Strange Mirror, Supply Drop); *Strange Spores* moved to
+the Mushroom Forest. Treasure Pod and Campfire stay tile-bound. Results show as before (§3.3 outcome rules): a gamble or a
+random pick opens the sheet, a deterministic choice flies into the HUD, Leave is the toast "You move on.".
+
 ### 3.3 Boss and awakening meter
 The boss is visible from the start. An **awakening meter** fills per roll (`BossDef.AwakenPerRoll` 4.5 points; 3.6 until the owner's
 2026-11-27 playtest call "runs are too long — shorten the required boss rage by 20%") and from

@@ -154,12 +154,12 @@ namespace RogueStars.Client.Tests
             Assert.That(sheet, Is.Not.Null);
             string texts = Texts(sheet);
             Assert.That(FindNamed(sheet, "ChanceMeter"), Is.Not.Null, "chance indicator");
-            Assert.That(texts, Does.Contain("65% chance"));
+            Assert.That(texts, Does.Contain("60% chance"));
             Assert.That(texts, Does.Contain(o.Success ? "SUCCESS!" : "NO LUCK"));
             Assert.That(texts, Does.Contain("EVENT RESULT"));
             foreach (var l in o.Lines) Assert.That(texts, Does.Contain(RunScreen.OutcomeLineText(l, C)), l.Kind.ToString());
             if (o.Success) Assert.That(texts, Does.Contain("reward chest, paid when you beat the boss"));
-            else Assert.That(texts, Does.Contain("−5% max HP for the run"));
+            else Assert.That(texts, Does.Contain(" HP"));
             Assert.That(FindNamed(sheet, "Icon"), Is.Not.Null, "icons per line");
 
             FindNamed(sheet, "OutcomeContinue").GetComponent<Button>().onClick.Invoke();

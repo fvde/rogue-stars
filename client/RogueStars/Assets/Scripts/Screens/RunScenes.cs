@@ -26,6 +26,8 @@ namespace RogueStars.Client.Screens
         public string Title;
         /// <summary>Scene: the flavour line in the panel. Vendor: the NPC's speech bubble.</summary>
         public string Line;
+        /// <summary>The art is a character bust (ScreenArt.Character), also when it stands on the scene layout (3 options).</summary>
+        public bool Npc;
     }
 
     /// <summary>
@@ -72,7 +74,29 @@ namespace RogueStars.Client.Screens
         /// Our events on the two layouts: trades offered by a character (smuggler, black market, cursed relic, unstable
         /// reactor, alien medic) use the vendor layout; everything else is a scene with a prop (pure).
         /// </summary>
-        public static EventLook Look(string eventId)
+        public static EventLook Look(string eventId) => Look(eventId, null);
+
+        /// <summary>
+        /// The layout of an event: our own mapping first; else the content's art (<see cref="EventDef.Art"/>, biome and new
+        /// shared events): "npc:&lt;id&gt;" stands at the vendor counter (two options) or on the scene stage, "prop:&lt;id&gt;" on
+        /// the scene stage. Art without an imported file draws the existing placeholder (ScreenArt: a generic alien bust, the
+        /// wreck prop) and picks up the real file once it is imported under that id (pure).
+        /// </summary>
+        public static EventLook Look(string eventId, EventDef ev)
+        {
+            var own = OwnLook(eventId);
+            if (own != null || ev == null || string.IsNullOrEmpty(ev.Art)) return own ?? new EventLook { Kind = EventLayoutKind.Scene, Art = "event_wreck" };
+            int colon = ev.Art.IndexOf(':');
+            string kind = colon > 0 ? ev.Art.Substring(0, colon) : "prop", id = colon > 0 ? ev.Art.Substring(colon + 1) : ev.Art;
+            if (kind == "npc")
+                return new EventLook { Kind = ev.Options.Count == 2 ? EventLayoutKind.Vendor : EventLayoutKind.Scene, Art = id, Npc = true };
+            return new EventLook { Kind = EventLayoutKind.Scene, Art = id };
+        }
+
+        /// <summary>The event art of the stage: a character bust for an NPC look, else the prop (drawn placeholders until imported).</summary>
+        public static Sprite StageArt(EventLook look) => look == null ? null : look.Npc ? ScreenArt.Character(look.Art) : ScreenArt.Prop(look.Art);
+
+        private static EventLook OwnLook(string eventId)
         {
             switch (eventId)
             {
@@ -85,7 +109,9 @@ namespace RogueStars.Client.Screens
                 case "abandoned_cache": return new EventLook { Kind = EventLayoutKind.Scene, Art = "abandoned_cart" };
                 case "treasure_pod": return new EventLook { Kind = EventLayoutKind.Scene, Art = "chest_common" };
                 case "echoing_shrine": case "shard_altar": case "resonance": return new EventLook { Kind = EventLayoutKind.Scene, Art = "event_shrine" };
-                default: return new EventLook { Kind = EventLayoutKind.Scene, Art = "event_wreck" };
+                case "rift_echo": case "meteor_shower": case "lost_explorer": case "gravity_well": case "fuel_leak": case "wild_beast": case "training_dummy": case "boss_scout":
+                    return new EventLook { Kind = EventLayoutKind.Scene, Art = "event_wreck" };
+                default: return null;
             }
         }
 
@@ -109,6 +135,8 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.Xp: return "hud:exp";
                     case RunEffectKind.Shards: return "icon:blessing";
                     case RunEffectKind.Meter: if (fx.Value < 0) return "hud:skull"; break;
+                    // Rites: the boss / the enemies ahead weakened, the boss slowed
+                    case RunEffectKind.BossStatPct: case RunEffectKind.AwakenRatePct: case RunEffectKind.StrengthenEnemies: if (fx.Value < 0) return "hud:skull"; break;
                 }
             }
             return "icon:curse";
@@ -131,7 +159,8 @@ namespace RogueStars.Client.Screens
             void Add(bool good, string t) { if (!lines.Exists(l => l.Value == t)) lines.Add(new KeyValuePair<bool, string>(good, t)); }
             if (o == null) return lines;
             if (o.CoinCost > 0) Add(false, "Pay " + Fmt.Num(o.CoinCost) + " coins");
-            if (o.ShardCost > 0) Add(false, "Pay " + o.ShardCost + " portal shards");
+            if (o.ShardCost > 0) Add(false, "Pay " + o.ShardCost + " portal shard" + (o.ShardCost == 1 ? "" : "s"));
+            if (o.Offering) Add(false, "Give up 1 " + OfferingName(o.OfferFamily));
             if (o.Outcomes.Count != 1) return lines;
             foreach (var fx in o.Outcomes[0].Effects)
             {
@@ -143,17 +172,20 @@ namespace RogueStars.Client.Screens
                     case RunEffectKind.DamagePct: Add(false, "Lose " + Fmt.Pct(a) + " HP"); break;
                     case RunEffectKind.StatPercent:
                     {
-                        string stat = fx.Stat == StatId.Hp ? "max HP" : fx.Stat == StatId.Atk ? "ATK" : fx.Stat == StatId.Def ? "DEF" : fx.Stat == StatId.Speed ? "Speed" : fx.Stat.ToString();
+                        string stat = StatLabel(fx.Stat);
                         Add(v > 0, v > 0 ? "Gain " + Fmt.Pct(a) + " " + stat : "Lose " + Fmt.Pct(a) + " " + stat);
                         break;
                     }
                     case RunEffectKind.GainSkill: Add(true, "Learn a " + (fx.MinRarity > Rarity.Common ? RunTuning.RunTier(fx.MinRarity) + "+ " : "") + "skill"); break;
                     case RunEffectKind.GainSpecificSkill: Add(true, "Learn " + (c?.Skill(fx.Param)?.Name ?? "a skill")); break;
                     case RunEffectKind.GainSignature: Add(true, "Awaken a new signature"); break;
-                    case RunEffectKind.UpgradeSkill: Add(true, "Improve 1 skill of your choice"); break;
+                    case RunEffectKind.UpgradeSkill: Add(true, fx.Param == RunSystem.RandomSkillParam ? "Improve a random skill" : "Improve 1 skill of your choice"); break;
                     case RunEffectKind.LoseRandomSkill: Add(false, "Lose a random skill"); break;
                     case RunEffectKind.Loot: { int nl = Math.Max(1, (int)v); Add(true, "+" + nl + " reward chest" + (nl == 1 ? "" : "s")); break; }
-                    case RunEffectKind.PendingReward: Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot")); break;
+                    case RunEffectKind.PendingReward:
+                        if (fx.Param == RunSystem.BiomeChestParam && fx.Reward != null) Add(true, BiomeChestText(fx.Reward.Id, c, run));
+                        else Add(true, "+" + (fx.Reward != null && c != null ? Fmt.Reward(fx.Reward, c) : "loot"));
+                        break;
                     case RunEffectKind.Meter:
                     {
                         // the number the result will show: gains scale with the boss's pace (RunSystem.EventAwakening)
@@ -162,15 +194,48 @@ namespace RogueStars.Client.Screens
                         break;
                     }
                     case RunEffectKind.AwakenRatePct: Add(v < 0, "Boss wakes " + Fmt.Pct(a) + (v < 0 ? " slower" : " faster")); break;
-                    case RunEffectKind.BossStatPct: Add(false, "Boss +" + Fmt.Pct(a) + " ATK"); break;
+                    case RunEffectKind.BossStatPct: Add(v < 0, BossStatText(fx.Param, v)); break;
                     case RunEffectKind.Battle: Add(false, "Fight " + (fx.Param != null && fx.Param.StartsWith("elite") ? "an elite" : "a foe")); break;
                     case RunEffectKind.Xp: Add(true, "Gain " + Fmt.Num(a) + " XP"); break;
                     case RunEffectKind.Shards: Add(true, "Gain " + Fmt.Num(a) + " portal shard" + (a == 1 ? "" : "s")); break;
                     case RunEffectKind.Danger: Add(false, "Danger +" + Fmt.Whole(a)); break;
-                    case RunEffectKind.StrengthenEnemies: Add(false, "Nearby enemies +" + Fmt.Pct(a) + " stronger"); break;
+                    case RunEffectKind.StrengthenEnemies: Add(v < 0, v < 0 ? "Nearby enemies " + Fmt.Pct(a) + " weaker" : "Nearby enemies +" + Fmt.Pct(a) + " stronger"); break;
                 }
             }
             return lines;
+        }
+
+        /// <summary>"Boss −20% ATK", "Boss −20% HP", "Boss +15% ATK"; both stats (no param): "Boss +15% stronger" (pure).</summary>
+        public static string BossStatText(string param, double v)
+        {
+            string sign = v < 0 ? "−" : "+";
+            string stat = param == RunSystem.BossAtkParam ? " ATK" : param == RunSystem.BossHpParam ? " HP" : (v < 0 ? " weaker" : " stronger");
+            return "Boss " + (param == null ? (v < 0 ? "" : "+") : sign) + Fmt.Pct(Math.Abs(v)) + stat;
+        }
+
+        /// <summary>A stat's label on event options and results: "ATK", "max HP", "Fire damage", "Counter chance" (pure).</summary>
+        public static string StatLabel(StatId s)
+        {
+            switch (s)
+            {
+                case StatId.Hp: return "max HP";
+                case StatId.Atk: return "ATK";
+                case StatId.Def: return "DEF";
+                case StatId.Speed: return "Speed";
+                default: { var n = SkillText.StatName(s); return n.Length > 0 ? char.ToUpperInvariant(n[0]) + n.Substring(1) : n; }
+            }
+        }
+
+        /// <summary>"Ice skill", "Radiation skill", "skill with no synergy" (Rite Offerings, pure).</summary>
+        public static string OfferingName(SkillFamily f) => f == SkillFamily.None ? "skill with no synergy" : SkillText.FamilyName(f) + " skill";
+
+        /// <summary>A biome chest's line: "Ore chest (40–80)" on the run's level (chapter-scaled), "Ore chest" without a run (pure).</summary>
+        public static string BiomeChestText(string currency, ContentDb c, ActiveRun run)
+        {
+            string name = c != null ? Fmt.CurrencyName(currency, c) : currency;
+            if (c == null || run == null) return name + " chest";
+            var r = RunSystem.BiomeChestRange(c, c.RunLevel(run.LevelId), currency);
+            return name + " chest (" + Fmt.Num(r[0]) + "–" + Fmt.Num(r[1]) + ")"; // unsigned: both numbers in the gain colour
         }
 
         private static readonly Regex Signed = new Regex(@"([+\-−]\s?\d+(?:[.,]\d+)?%?)", RegexOptions.Compiled);
