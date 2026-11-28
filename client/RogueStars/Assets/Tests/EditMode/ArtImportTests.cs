@@ -155,13 +155,13 @@ namespace RogueStars.Client.Tests
         private static readonly string[] Batch3Summon = { "awaken_core", "exchange", "hero_sigil", "packs", "pass", "star", "tasks" };
         /// <summary>
         /// Approved but not shipped: a pending edit that has not landed (luck_gem), or a visible defect (white fill / cut edge,
-        /// text on the art), or no enemy def (elder_magma, chrono_wyrm). Batch 4 shipped the cleaned magma_tyrant / void_maw /
+        /// text on the art), (elder_magma / chrono_wyrm shipped with the biome rosters, 2026-11-28). Batch 4 shipped the cleaned magma_tyrant / void_maw /
         /// prism_tyrant / rust_queen / storm_hive.
         /// </summary>
         private static readonly string[] Batch3HeldBack =
         {
             "Art/Summon/Icons/luck_gem.png", "Art/Summon/Icons/fuel.png", "Art/Summon/Icons/reactor.png",
-            "Art/Enemies/boss_hollow_cantor.png", "Art/Enemies/boss_elder_magma.png", "Art/Enemies/boss_chrono_wyrm.png",
+            "Art/Enemies/boss_hollow_cantor.png",
         };
 
         [Test]
@@ -248,10 +248,8 @@ namespace RogueStars.Client.Tests
                 Assert.That(item.Source.Replace('\\', '/'), Does.Contain("/bosses/" + id + "/"), id);
                 Assert.That(item.Trim, Is.False, "creatures stay square like their peers");
             }
-            // held back: hollow_cantor is cut off at the edge; elder_magma and chrono_wyrm have no enemy to show them
+            // held back: hollow_cantor is cut off at the edge (elder_magma / chrono_wyrm ship with the biome rosters)
             Assert.That(content.Enemies.ContainsKey("boss_hollow_cantor"), Is.True);
-            Assert.That(content.Enemies.ContainsKey("boss_elder_magma"), Is.False);
-            Assert.That(content.Enemies.ContainsKey("boss_chrono_wyrm"), Is.False);
             Assert.That(content.Blueprints.Count, Is.EqualTo(24));
             foreach (var id in content.Blueprints.Keys)
             {
