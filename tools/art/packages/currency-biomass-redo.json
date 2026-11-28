@@ -1,0 +1,24 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background, no text, no frame",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, halo, sparkles, glow patch, pedestal, base, stand, ground, shadow, face, multiple objects, coin, dish, antenna, stand, base, pole, wifi symbol, radio waves, dish, badge",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-currency-biomass-redo",
+  "seeds": [
+    7441,
+    7442
+  ],
+  "subjects": {
+    "biomass_goo_vial": "biomass: a glass vial of glowing green goo, one single solid object, bold black outline, flat colors",
+    "biomass_cell_cluster": "biomass: a pulsing cluster of translucent green organic cells, one single solid object, bold black outline, flat colors",
+    "biomass_vine_pods": "biomass: a coiled alien vine with plump glowing pods, one single solid object, bold black outline, flat colors",
+    "biomass_seed_pod": "biomass: a fleshy seed pod split open with a glowing green core, one single solid object, bold black outline, flat colors",
+    "biomass_cubes": "biomass: a small stack of mossy green biomatter cubes, one single solid object, bold black outline, flat colors",
+    "biomass_spore_jar": "biomass: a round jar of floating glowing green spores, one single solid object, bold black outline, flat colors",
+    "biomass_mushrooms": "biomass: a cluster of mushrooms with glowing green caps, one single solid object, bold black outline, flat colors",
+    "biomass_heart_mass": "biomass: a pink organic heart-like mass with green veins, one single solid object, bold black outline, flat colors",
+    "biomass_sprout_sludge": "biomass: a leafy sprout growing out of a puddle of green sludge, one single solid object, bold black outline, flat colors",
+    "biomass_honeycomb": "biomass: a chunk of honeycomb filled with glowing green nectar, one single solid object, bold black outline, flat colors"
+  }
+}
