@@ -8,6 +8,7 @@
   ],
   "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
   "suffix": ", small spaceship mount with an open round cockpit seat on top with an empty padded seat, side three-quarter view, centered, isolated on a plain white background",
+  "retry_keep": "small spaceship mount with an open-top round cockpit and an empty padded seat on top, one solid piece",
   "negative": "pilot, person, character, worm, multiple ships, background scenery, space background, planet, text, watermark, blurry, photo",
   "subjects": {
     "mount_scout_saucer": "Scout Saucer, a nimble silver flying saucer with a small zap turret",

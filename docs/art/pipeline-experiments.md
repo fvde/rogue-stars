@@ -66,4 +66,15 @@ Caveat: "owner_rejected" also counts candidates archived because another candida
 - Change: mounts suffix now "... open round cockpit seat on top with an empty padded seat" (worm only in negatives).
   Parts v2 prompts got the same treatment ("for a small cartoon space hero").
 - Expect: worm-in-seat fails on new mount images 0 (was 13/18).
+- Result (2026-11-28 12:43, 3-hour window 09:43-12:43): worm-in-seat 0 of 7 mount images (was 13/18). Kept. New biggest
+  loss: 4 of 7 mounts failed QC with no open seat (closed cockpit, opaque dome, thin lance) or detached drones, and 1
+  more auto-failed. Window: 22 generated, 9 reviewable (yield 0.41); mounts were 2 passed of 7.
+
+### E6 (2026-11-28 12:45): mount retries keep the open seat
+- Loss: the retries are where the seat went missing. `retry_prompt` simplifies the subject and drops the package suffix,
+  so the "open round cockpit seat on top" phrase never reaches the retry; only a QC hint ("an empty cockpit seat") does,
+  and Flux reads it as a closed cockpit.
+- Change: packages can set `retry_keep`, a must-have shape phrase that `pipeline.py` puts first among the retry hints.
+  mounts.json: "small spaceship mount with an open-top round cockpit and an empty padded seat on top, one solid piece".
+- Expect: no-open-seat fails among mount retries < 1 in 4 (was 4 of 7 QC'd mount images); worm-in-seat stays 0.
 - Result: (next check)
