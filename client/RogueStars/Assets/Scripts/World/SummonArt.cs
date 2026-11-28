@@ -27,7 +27,7 @@ namespace RogueStars.Client.World
         {
             "hero_ticket", "mount_ticket", "hero_sigil", "mount_bolt", "luck_gem", "diamond", "exchange", "packs", "pass", "tasks",
             "shards", "hero_xp", "fuel", "token", "grain", "ore", "lock", "check", "ad", "star", "spotlight",
-            "biomass", "data", "core", "awaken_core", "arena_ticket", "medal", "key", "wallet",
+            "biomass", "data", "core", "awaken_core", "arena_ticket", "medal", "key", "wallet", "metal",
         };
 
         private static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
@@ -39,6 +39,7 @@ namespace RogueStars.Client.World
         {
             var art = ArtCatalog.Load(IconFolder + "/" + id);
             if (art != null) return art;
+            if (id == "metal") return Icon("core");
             if (Cache.TryGetValue("icon:" + id, out var s) && s != null) return s;
             s = Draw(id);
             Cache["icon:" + id] = s;
@@ -61,7 +62,8 @@ namespace RogueStars.Client.World
             if (currency == Currencies.Biomass) return "biomass";
             if (currency == Currencies.Data) return "data";
             if (currency == RogueStars.Rules.Systems.ProgressionCurrencies.PartAwakenCores) return "awaken_core";
-            if (currency == Currencies.GearCores || currency == Currencies.Metal) return "core"; // parts v2: Metal (own icon in phase 2)
+            if (currency == Currencies.Metal) return "metal"; // own icon (Art/Summon/Icons/metal), else the Gear Core icon
+            if (currency == Currencies.GearCores) return "core";
             if (currency == Currencies.ArenaTickets || currency == Currencies.InvasionAttempts) return "arena_ticket";
             if (currency == Currencies.ArenaMedals || currency == Currencies.GuildMarks) return "medal";
             if (currency == Currencies.BurrowKeys) return "key";

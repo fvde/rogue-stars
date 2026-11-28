@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.UiKit;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
 using RogueStars.Rules.Systems;
@@ -106,82 +107,68 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void WormTab_ListsEveryPart_WithEquippedMarkers()
+        public void WormTab_SlotsShowTheEquipped_GridListsTheSpares()
         {
             ReachLevel2();
             EquipBest();
             var ids = C.PartsConfig.Defs.Keys.OrderBy(k => k).ToList();
             for (int i = 0; i < 9; i++) Grant(ids[i], (PartRarity)(i % 4), 1);
             var worm = OpenWorm();
-            Assert.That(worm.SlotFilter, Is.EqualTo(GearSlotFilter.All));
-            Assert.That(worm.ShownParts, Is.EquivalentTo(S.Parts.Items.Keys), "every owned part is listed on the Worm tab");
-            foreach (var uid in S.Parts.Items.Keys)
+            var spares = S.Parts.Items.Keys.Where(u => !PartsSystem.IsEquipped(S, u)).ToList();
+            Assert.That(worm.ShownParts, Is.EquivalentTo(spares), "the grid lists the spares; the slots show what is worn");
+            foreach (var uid in spares) Assert.That(Named(worm.Root, "Part:" + uid), Is.Not.Null, uid);
+            foreach (var kv in S.Parts.Equipped)
             {
-                var tile = Named(worm.Root, "Part:" + uid);
-                Assert.That(tile, Is.Not.Null, uid);
-                bool equipped = PartsSystem.IsEquipped(S, uid);
-                Assert.That(Child(tile.transform, "Equipped") != null, Is.EqualTo(equipped), "EQUIPPED marker on " + uid);
+                Assert.That(Named(worm.Root, "Part:" + kv.Value), Is.Null, "equipped parts are on their slot, not in the grid");
+                var slot = Named(worm.Root, "Slot:" + kv.Key);
+                Assert.That(slot, Is.Not.Null, kv.Key.ToString());
+                var p = S.Parts.Items[kv.Value];
+                Assert.That(Child(slot.transform, "Level").GetComponent<Text>().text, Is.EqualTo("Lv." + p.Level));
+                Assert.That(Child(slot.transform, "Rank").GetComponent<Text>().text, Does.StartWith(RogueStars.Client.World.PartArt.Rank(p.Rarity).Substring(0, 1)));
             }
-            // Best first: the equipped parts lead the list.
-            int eq = S.Parts.Equipped.Values.Distinct().Count();
-            Assert.That(worm.ShownParts.Take(eq).All(u => PartsSystem.IsEquipped(S, u)), Is.True);
-            // the tiles fit the body: 3 × 296 + 2 × 14 ≤ 930
-            Assert.That(3 * GearScreen.TileWidth + 2 * GearScreen.TileGap, Is.LessThanOrEqualTo(978 - 48));
+            // By Rarity (Best): rarity descending
+            var r = worm.ShownParts.Select(u => S.Parts.Items[u].Rarity).ToList();
+            Assert.That(r, Is.Ordered.Descending);
         }
 
         [Test]
-        public void Inventory_FiltersBySlotAndRarity_AndSorts()
+        public void Inventory_SortToggle_CyclesRarityLevelSlot()
         {
             ReachLevel2();
             var ids = C.PartsConfig.Defs.Keys.OrderBy(k => k).ToList();
             foreach (var id in ids) Grant(id, (PartRarity)(ids.IndexOf(id) % 3), 1);
             var worm = OpenWorm();
-            foreach (var f in GearGuide.SlotFilters)
-            {
-                Named(worm.Root, "Filter:" + f).onClick.Invoke();
-                Assert.That(worm.SlotFilter, Is.EqualTo(f));
-                var expected = S.Parts.Items.Values.Where(p => GearGuide.Matches(PartsSystem.Def(C, p), f)).Select(p => p.Uid);
-                Assert.That(worm.ShownParts, Is.EquivalentTo(expected), f.ToString());
-            }
-            Named(worm.Root, "Filter:Arms").onClick.Invoke();
-            Assert.That(worm.ShownParts.All(u => PartsSystem.Def(C, S.Parts.Items[u]).Kind == PartKind.Arm), Is.True);
-
-            // rarity filter through its picker
-            worm.SetFilter(GearSlotFilter.All, -1, GearSort.Best);
-            Named(worm.Root, "RarityFilter").onClick.Invoke();
-            var pick = Named(_f.App.ModalLayer, "Rarity:" + (int)PartRarity.Rare);
-            Assert.That(pick, Is.Not.Null, "owned rarities are offered");
-            pick.onClick.Invoke();
-            Assert.That(worm.RarityFilter, Is.EqualTo((int)PartRarity.Rare));
-            Assert.That(worm.ShownParts, Is.Not.Empty);
-            Assert.That(worm.ShownParts.All(u => S.Parts.Items[u].Rarity == (int)PartRarity.Rare), Is.True);
-
-            // sorts
+            Assert.That(worm.Sort, Is.EqualTo(GearSort.Best));
+            Assert.That(Child(Named(worm.Root, "SortToggle").transform, "Label").GetComponent<Text>().text, Is.EqualTo("By Rarity"));
             _f.Service.ExecuteNow(new PartLevelUp { Uid = worm.ShownParts.Last() });
-            worm.SetFilter(GearSlotFilter.All, -1, GearSort.Level);
-            Assert.That(S.Parts.Items[worm.ShownParts[0]].Level, Is.EqualTo(2), "Level: highest level first");
-            Named(worm.Root, "Sort:Slot").onClick.Invoke();
+            Named(worm.Root, "SortToggle").onClick.Invoke();
+            Assert.That(worm.Sort, Is.EqualTo(GearSort.Level));
+            Assert.That(S.Parts.Items[worm.ShownParts[0]].Level, Is.EqualTo(2), "By Level: highest level first");
+            Named(worm.Root, "SortToggle").onClick.Invoke();
             Assert.That(worm.Sort, Is.EqualTo(GearSort.Slot));
             var kinds = worm.ShownParts.Select(u => (int)PartsSystem.Def(C, S.Parts.Items[u]).Kind).ToList();
-            Assert.That(kinds, Is.Ordered, "Slot: head … arms");
+            Assert.That(kinds, Is.Ordered, "By Slot: head … arms");
+            Named(worm.Root, "SortToggle").onClick.Invoke();
+            Assert.That(worm.Sort, Is.EqualTo(GearSort.Best));
         }
 
         [Test]
-        public void BodySlot_OpensItsInventoryFilter()
+        public void BodySlot_OpensThePartSheet_EmptySlotOffersItsSpares()
         {
             ReachLevel2();
-            EquipBest();
             var worm = OpenWorm();
-            foreach (var slot in new[] { PartSlot.Head, PartSlot.Tail, PartSlot.RightArm })
-            {
-                var card = Named(worm.Root, "Slot:" + slot);
-                Assert.That(card, Is.Not.Null, slot.ToString());
-                card.onClick.Invoke();
-                Assert.That(worm.SlotFilter, Is.EqualTo(GearGuide.FilterFor(slot)), slot.ToString());
-                Assert.That(worm.ShownParts.All(u => GearGuide.Fits(PartsSystem.Def(C, S.Parts.Items[u]), slot)), Is.True);
-                Assert.That(_f.App.ModalLayer.childCount, Is.Zero, "no modal: the inventory itself");
-            }
-            Assert.That(GearGuide.FilterFor(PartSlot.LeftArm), Is.EqualTo(GearSlotFilter.Arms));
+            // nothing worn yet: the head slot lists the spare heads, tapping one equips it
+            Named(worm.Root, "Slot:Head").onClick.Invoke();
+            Assert.That(Child(_f.App.ModalLayer, "Modal:SlotSheet"), Is.Not.Null);
+            var spare = GearGuide.SparesFor(S, C, PartSlot.Head);
+            Assert.That(spare, Is.Not.Empty);
+            Named(_f.App.ModalLayer, "Spare:" + spare[0].Uid).onClick.Invoke();
+            Assert.That(S.Parts.Equipped[PartSlot.Head], Is.EqualTo(spare[0].Uid));
+            Ui.Clear(_f.App.ModalLayer);
+            // a worn slot opens its part's sheet
+            Named(worm.Root, "Slot:Head").onClick.Invoke();
+            Assert.That(Child(_f.App.ModalLayer, "Modal:PartDetail"), Is.Not.Null);
+            Assert.That(Child(_f.App.ModalLayer, "PartName").GetComponent<Text>().text, Is.EqualTo(Fmt.PartName(C, spare[0])));
         }
 
         // ---- level up with Ore -------------------------------------------------------------------
@@ -193,30 +180,25 @@ namespace RogueStars.Client.Tests
             EquipBest();
             var worm = OpenWorm();
             var uid = S.Parts.Equipped[PartSlot.Head];
-            Named(worm.Root, "Part:" + uid).onClick.Invoke();
+            Named(worm.Root, "Slot:Head").onClick.Invoke();
             var modal = _f.App.ModalLayer;
             Assert.That(Child(modal, "Modal:PartDetail"), Is.Not.Null);
             long cost = C.PartsConfig.LevelOreCosts[1];
-            var cost1 = Child(modal, "LevelCost").GetComponent<Text>().text;
-            Assert.That(cost1, Does.Contain(Fmt.Num(cost) + " Ore"));
-            Assert.That(Child(modal, "ReadyChip"), Is.Not.Null, "affordable: READY");
-            Assert.That(Child(modal, "Skill:on"), Is.Null, "parts v2: a Common part has no skills"); // Epic+ list theirs (PartsLabArenaScreenTests)
             var up = Named(modal, "PartLevelUp");
+            Assert.That(up.GetComponentInChildren<Text>().text, Does.Contain(Fmt.Num(cost) + " Ore"));
+            Assert.That(Child(modal, "Skill:on"), Is.Null, "parts v2: a Common part has no skills"); // Epic+ list theirs (PartsLabArenaScreenTests)
             Assert.That(up.interactable, Is.True);
             long ore = S.Wallet.Get(Currencies.Ore);
             up.onClick.Invoke();
             Assert.That(S.Parts.Items[uid].Level, Is.EqualTo(2));
             Assert.That(S.Wallet.Get(Currencies.Ore), Is.EqualTo(ore - cost));
-            Assert.That(Child(_f.App.ModalLayer, "Modal:PartDetail"), Is.Not.Null, "the detail reopens on the new level");
-            Assert.That(Child(_f.App.ModalLayer, "LevelText").GetComponent<Text>().text, Does.Contain("Level 2"));
+            Assert.That(Child(_f.App.ModalLayer, "Modal:PartDetail"), Is.Not.Null, "the sheet reopens on the new level");
+            Assert.That(Child(_f.App.ModalLayer, "LevelText").GetComponent<Text>().text, Does.Contain("Lv 2"));
 
-            // without Ore: disabled, says what is missing
+            // without Ore: disabled; the Ore button explains Ore
             SpendAllOre();
             worm.Detail(uid);
             Assert.That(Named(_f.App.ModalLayer, "PartLevelUp").interactable, Is.False);
-            Assert.That(Child(_f.App.ModalLayer, "ReadyChip"), Is.Null);
-            Assert.That(Child(_f.App.ModalLayer, "LevelCost").GetComponent<Text>().text, Does.Contain("Needs"));
-            // the Ore button explains Ore
             Named(_f.App.ModalLayer, "OreInfo").onClick.Invoke();
             Assert.That(Child(_f.App.ModalLayer, "Modal:Currency:" + Currencies.Ore), Is.Not.Null);
         }
@@ -236,7 +218,6 @@ namespace RogueStars.Client.Tests
 
             var worm = OpenWorm();
             Assert.That(Child(Named(worm.Root, "Slot:Head").transform, "LevelUpBadge"), Is.Not.Null);
-            Assert.That(Child(Named(worm.Root, "Part:" + S.Parts.Equipped[PartSlot.Head]).transform, "LevelUpBadge"), Is.Not.Null);
             Assert.That(Child(worm.Root, "UpgradeCallout"), Is.Null, "the level-up callout was removed (W3)");
             Assert.That(Child(worm.Root, "Button:Equip best parts"), Is.Null, "no auto-equip (W3)");
 

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using RogueStars.Client.App;
 using RogueStars.Client.Screens;
+using RogueStars.Client.UiKit;
 using RogueStars.Client.World;
 using RogueStars.Rules.Content;
 using RogueStars.Rules.Core;
@@ -512,13 +513,14 @@ namespace RogueStars.Client.Tests
                 Assert.That(screen.Root.GetComponentsInChildren<Button>(true).Length, Is.GreaterThan(2), id);
                 _f.App.Router.Pop();
             }
-            // A worm slot leads to its parts in the inventory; level up the worm.
+            // A worm slot opens its part sheet (or, empty, the spares that fit); level up the worm.
             _f.App.Open("worm");
             Button slot = null;
             foreach (var b in _f.App.Router.Current.Root.GetComponentsInChildren<Button>(true)) if (b.name == "Slot:LeftArm") slot = b;
             Assert.That(slot, Is.Not.Null);
             slot.onClick.Invoke();
-            Assert.That(((WormScreen)_f.App.Router.Current).SlotFilter, Is.EqualTo(GearSlotFilter.Arms));
+            Assert.That(_f.App.ModalLayer.childCount, Is.GreaterThan(0), "the slot opens a sheet");
+            Ui.Clear(_f.App.ModalLayer);
             long before = _f.Service.State.Worm.Level;
             Assert.That(_f.Service.ExecuteNow(new WormLevelUp { Levels = 1 }).Ok, Is.True);
             Assert.That(_f.Service.State.Worm.Level, Is.EqualTo(before + 1));

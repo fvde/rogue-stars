@@ -9,6 +9,9 @@ namespace RogueStars.Client.App
     /// <summary>Slot filter of the gear inventory (both arms are one filter).</summary>
     public enum GearSlotFilter { All, Head, Body, Tail, Legs, Arms }
 
+    /// <summary>What a part's red "!" means (<see cref="GearGuide.Alert"/>).</summary>
+    public enum PartAlert { None, Climb, Awaken, Better }
+
     /// <summary>Sort order of the gear inventory.</summary>
     public enum GearSort { Best, Level, Slot }
 
@@ -22,7 +25,10 @@ namespace RogueStars.Client.App
         public static readonly GearSort[] Sorts = { GearSort.Best, GearSort.Level, GearSort.Slot };
 
         public static string SlotFilterLabel(GearSlotFilter f) => f == GearSlotFilter.All ? "All" : f.ToString();
-        public static string SortLabel(GearSort s) => s == GearSort.Best ? "Best first" : s == GearSort.Level ? "Level" : "Slot";
+        public static string SortLabel(GearSort s) => s == GearSort.Best ? "By Rarity" : s == GearSort.Level ? "By Level" : "By Slot";
+
+        /// <summary>The sort after <paramref name="s"/> (the inventory header's toggle cycles them).</summary>
+        public static GearSort NextSort(GearSort s) => Sorts[(Array.IndexOf(Sorts, s) + 1) % Sorts.Length];
 
         /// <summary>The inventory filter that shows the parts of a body slot (both arm slots → Arms).</summary>
         public static GearSlotFilter FilterFor(PartSlot slot)
@@ -151,6 +157,85 @@ namespace RogueStars.Client.App
         /// <summary>Badge for the Worm tab: Parts unlocked and an equipped part can be levelled up with what the player has.</summary>
         public static bool HasAffordableUpgrade(GameState s, ContentDb c) =>
             Features.IsUnlocked(s, c, Features.Parts) && UpgradableEquipped(s, c).Count > 0;
+
+        // ---- red "!" alerts (worm screen v2) --------------------------------------------------------
+
+        /// <summary>
+        /// The action a part's red "!" stands for: its Mythic ladder step is ready (materials, Metal and Ore, nothing
+        /// protected), it can be awakened now, or (a spare) it beats what its slot wears (an empty slot or a lower rarity).
+        /// </summary>
+        public static PartAlert Alert(GameState s, ContentDb c, PartItem p, ISet<string> locks)
+        {
+            if (p == null) return PartAlert.None;
+            var def = PartsSystem.Def(c, p);
+            if (def.IsMythic)
+            {
+                if (PartsSystem.NextClimb(c, p) != null)
+                {
+                    var plan = PartPlanner.AutoMerge(s, c, p, locks);
+                    if (plan.Valid && !plan.NeedsConfirmation) return PartAlert.Climb;
+                }
+                if (CanAwaken(s, c, p)) return PartAlert.Awaken;
+            }
+            if (!PartsSystem.IsEquipped(s, p.Uid) && BetterThanWorn(s, c, p)) return PartAlert.Better;
+            return PartAlert.None;
+        }
+
+        /// <summary>A Mythic (any step) that is not awakened yet and the Awaken Cores are there.</summary>
+        public static bool CanAwaken(GameState s, ContentDb c, PartItem p)
+        {
+            var cfg = c.PartsConfig;
+            return p != null && p.Awaken == 0 && PartsSystem.Def(c, p).IsMythic && p.Rarity >= (int)cfg.AwakenMinRarity
+                   && s.Wallet.CanAfford(ProgressionCurrencies.PartAwakenCores, cfg.AwakenCost);
+        }
+
+        /// <summary>A spare part beats what a slot it fits wears: the slot is empty or wears a lower rarity.</summary>
+        public static bool BetterThanWorn(GameState s, ContentDb c, PartItem p)
+        {
+            var def = PartsSystem.Def(c, p);
+            foreach (var slot in PartsSystem.AllSlots)
+            {
+                if (!Fits(def, slot)) continue;
+                s.Parts.Equipped.TryGetValue(slot, out var uid);
+                var worn = PartsSystem.Get(s, uid);
+                if (worn == null || p.Rarity > worn.Rarity) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The "!" of a body slot: its part's own alert, or a spare that fits and beats it.</summary>
+        public static PartAlert SlotAlert(GameState s, ContentDb c, PartSlot slot, ISet<string> locks)
+        {
+            s.Parts.Equipped.TryGetValue(slot, out var uid);
+            var worn = PartsSystem.Get(s, uid);
+            var own = worn == null ? PartAlert.None : Alert(s, c, worn, locks);
+            if (own != PartAlert.None) return own;
+            foreach (var p in s.Parts.Items.Values)
+            {
+                if (PartsSystem.IsEquipped(s, p.Uid) || !Fits(PartsSystem.Def(c, p), slot)) continue;
+                if (worn == null || p.Rarity > worn.Rarity) return PartAlert.Better;
+            }
+            return PartAlert.None;
+        }
+
+        /// <summary>Other parts of the same item the player owns (the copy-count diamond; ladder copies for a Mythic).</summary>
+        public static int Copies(GameState s, PartItem p)
+        {
+            if (p == null) return 0;
+            int n = 0;
+            foreach (var o in s.Parts.Items.Values) if (o.Uid != p.Uid && o.DefId == p.DefId) n++;
+            return n;
+        }
+
+        /// <summary>Spare parts that fit a slot, best first (rarity, level): the empty slot's sheet.</summary>
+        public static List<PartItem> SparesFor(GameState s, ContentDb c, PartSlot slot)
+        {
+            var list = new List<PartItem>();
+            foreach (var p in s.Parts.Items.Values)
+                if (!PartsSystem.IsEquipped(s, p.Uid) && Fits(PartsSystem.Def(c, p), slot)) list.Add(p);
+            list.Sort((a, b) => a.Rarity != b.Rarity ? b.Rarity.CompareTo(a.Rarity) : a.Level != b.Level ? b.Level.CompareTo(a.Level) : string.CompareOrdinal(a.Uid, b.Uid));
+            return list;
+        }
     }
 
     /// <summary>
