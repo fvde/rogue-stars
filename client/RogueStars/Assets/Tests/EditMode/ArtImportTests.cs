@@ -441,7 +441,8 @@ namespace RogueStars.Client.Tests
             }
             // the other biome elites still borrow a regular enemy's sprite until their art lands
             var standIns = content.Enemies.Values.Where(e => e.Elite && e.ArtId != null).Select(e => e.Id).OrderBy(i => i).ToList();
-            Assert.That(standIns, Is.EquivalentTo(new[] { "elite_lurker_alpha", "elite_volt_monarch", "elite_eel_tyrant", "elite_null_wraith", "elite_grub_mother" }));
+            // lurker alpha, volt monarch, null wraith and grub mother got their own art (main 1e0c7f2); eel tyrant waits for its redo
+            Assert.That(standIns, Is.EquivalentTo(new[] { "elite_eel_tyrant" }));
         }
 
         [Test]
