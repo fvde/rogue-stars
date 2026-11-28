@@ -1,0 +1,17 @@
+{
+  "name": "pkg-biome-mushroom_forest-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_myco_hermit": "A tiny alien with a big glowing mushroom cap for a hat and a basket, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_fairy_ring": "A ring of small glowing mushrooms on dark moss, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_giant_mushroom": "A house-sized orange mushroom with spots, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "pkg-biome-neon_city",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "neon_ganger": "Neon Ganger, punk worm with a glowing mohawk and knuckles, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "holo_hound": "Holo Hound, translucent hologram dog, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_chrome_enforcer": "Chrome Enforcer, chrome-plated riot robot, big elite monster, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_hollow_cantor": "Hollow Cantor, a tall hollow bell-shaped spirit that sings shockwaves, huge imposing boss monster, the whole body fully inside the frame with a wide empty margin, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

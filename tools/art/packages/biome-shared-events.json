@@ -1,0 +1,25 @@
+{
+  "name": "pkg-biome-shared-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6321,
+    6322
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_sparring_master": "An old bearded worm in a martial-arts gi with a wooden staff, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_alien_pup": "A small round alien pup with big eyes and a wagging antenna (not one of the collection aliens), bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_comet_fragment": "A burning rock in a small smoking crater, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_storm_rod": "A metal lightning rod with sparks under a dark cloud, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_frost_crystal": "A frost-covered rock with icicles, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_leaking_barrel": "A cracked yellow barrel leaking glowing green waste, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_time_rift": "A small swirling blue rift ring with clock hands inside, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_bounty_board": "A wooden board with a pinned wanted poster (no text, a skull icon), bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_wishing_well": "A stone well with a glowing blue surface, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_strange_mirror": "A tall ornate standing mirror with a purple shimmer, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_supply_drop": "A crashed supply capsule with a parachute, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

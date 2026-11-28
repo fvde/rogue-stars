@@ -1,0 +1,39 @@
+{
+  "name": "pkg-biome-live-creatures",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1711,
+    1712
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "obsidian_crab": "Obsidian Crab, black-glass crab, colors: black basalt, lava orange-red, ember yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "gas_bloater": "Gas Bloater, floating gasbag with a fuse, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "flare_ray": "Flare Ray, burning manta riding thermals, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "rig_raider": "Rig Raider, goggled scavenger worm with a jetpack, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_bloat_captain": "Bloat Captain, gasbag pirate captain, big elite monster, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_flare_medusa": "Flare Medusa, huge imposing boss monster, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "rust_leech": "Rust Leech, rusty eel-leech, colors: rust brown, gunmetal, sickly purple glow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "scrap_crab": "Scrap Crab, crab with a hull-plate shell, colors: rust brown, gunmetal, sickly purple glow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "bog_toad": "Bog Toad, warty green toad, colors: toxic green, bog brown, purple mist, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "mire_gator": "Mire Gator, mossy alligator, colors: toxic green, bog brown, purple mist, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "hail_sprite": "Hail Sprite, tiny hail spirit, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "sky_ray": "Sky Ray, pale gliding ray, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_hailwing_roc": "Hailwing Roc, huge imposing boss monster, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "security_bot": "Security Bot, boxy security robot, colors: white panels, hazard yellow, electric blue, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "lab_rat": "Lab Rat, escaped mutant lab rat with a glowing tail, colors: white panels, hazard yellow, electric blue, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "lantern_angler": "Lantern Angler, deep-sea angler with a cold lure, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "kelp_strangler": "Kelp Strangler, living kelp knot, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_trench_crusher": "Trench Crusher, giant armoured crab, big elite monster, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "snap_orchid": "Snap Orchid, carnivorous flower with teeth, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "spark_monkey": "Spark Monkey, blue monkey with crackling fur, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_canopy_stalker": "Canopy Stalker, striped jungle cat with glowing whiskers, big elite monster, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_volt_orchid": "Volt Orchid, huge imposing boss monster, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "snow_lurker": "Snow Lurker, a furry snow ambusher with big glowing eyes, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "thunder_moth": "Thunder Moth, a big moth with storm-cloud wings, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_eel_tyrant": "Eel Tyrant, a huge electric eel raised up in an S curve, one connected body with the head on the left, glowing blue stripes, big elite monster, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

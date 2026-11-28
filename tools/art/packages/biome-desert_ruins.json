@@ -1,0 +1,19 @@
+{
+  "name": "pkg-biome-desert_ruins",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "sand_scarab": "Sand Scarab, golden scarab, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "dune_serpent": "Dune Serpent, striped sand snake, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "wrapped_husk": "Wrapped Husk, bandaged worm mummy, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_obelisk_guardian": "Obelisk Guardian, walking sandstone obelisk, big elite monster, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_scarab_sun_king": "Scarab Sun-King, huge imposing boss monster, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

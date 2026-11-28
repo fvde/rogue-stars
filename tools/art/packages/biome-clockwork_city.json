@@ -1,0 +1,19 @@
+{
+  "name": "pkg-biome-clockwork_city",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "tick_mite": "Tick Mite, delay on hit (15%), colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "cog_soldier": "Cog Soldier, wind-up tin soldier with a key in its back, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "steam_hound": "Steam Hound, brass dog venting steam, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "spring_hopper": "Spring Hopper, frog-like automaton on springs, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_clockwork_knight": "Clockwork Knight, brass knight with a pendulum flail, big elite monster, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

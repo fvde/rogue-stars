@@ -1,0 +1,17 @@
+{
+  "name": "pkg-biome-candy_planet-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_candy_vendor": "A gumdrop alien with a striped awning cart and a little bell, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_chocolate_fountain": "A three-tier fountain of flowing chocolate, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_gingerbread_house": "A small gingerbread house with an open door, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

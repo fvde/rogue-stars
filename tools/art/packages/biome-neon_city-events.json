@@ -1,0 +1,16 @@
+{
+  "name": "pkg-biome-neon_city-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "prop_vending_machine": "A battered neon vending machine with a cracked glass front, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_data_kiosk": "A street kiosk with floating holo screens, colors: black, hot pink, cyan neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

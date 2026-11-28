@@ -1,0 +1,18 @@
+{
+  "name": "pkg-biome-frozen_future",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "stasis_drone": "Stasis Drone, hovering drone with a frozen clock ring, colors: ice white, chrome, pale cyan, frozen pink neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "chrome_sentry": "Chrome Sentry, chrome sentry robot, half iced over, colors: ice white, chrome, pale cyan, frozen pink neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_cryo_captain": "Cryo Captain, frost-covered future soldier with a stasis rifle, big elite monster, colors: ice white, chrome, pale cyan, frozen pink neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_stasis_warden": "Stasis Warden, huge imposing boss monster, colors: ice white, chrome, pale cyan, frozen pink neon, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

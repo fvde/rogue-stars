@@ -1,0 +1,21 @@
+{
+  "name": "pkg-biome-live-npcs",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6211,
+    6212
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single character, upper body and hands visible, friendly mobile game NPC, centered, isolated on a plain pure white background",
+  "negative": "background scenery, multiple characters, text, letters, watermark, blurry, photo, human",
+  "subjects": {
+    "npc_salamander_smith": "A stocky red salamander in a leather apron, hammer over the shoulder, glowing anvil, colors: black basalt, lava orange-red, ember yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_rig_foreman": "A burly worm in a hard hat and welding goggles, wrench in hand, on a metal catwalk, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_scavenger": "A goggled worm with a patched coat pulling a cart of scrap, colors: rust brown, gunmetal, sickly purple glow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_sky_farmer": "A cheerful farmer worm in a straw hat with a sack of golden sky-wheat, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_station_ai": "A cracked wall screen with a friendly pixel face and cables, colors: white panels, hazard yellow, electric blue, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_diver_hermit": "An old worm in a brass diving helmet with a bag of shiny junk, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "npc_frog_shaman": "A small frog-like alien shaman with a bone staff and a steaming gourd, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

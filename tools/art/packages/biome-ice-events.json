@@ -1,0 +1,17 @@
+{
+  "name": "pkg-biome-ice-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_ice_fisher": "A bundled-up worm in a fur hat, sitting on a crate by an ice hole with a rod, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_frozen_block": "A clear block of ice with a frozen figure inside, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_methane_vent": "Ice with trapped glowing bubbles and a crack, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

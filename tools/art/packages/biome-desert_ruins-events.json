@@ -1,0 +1,18 @@
+{
+  "name": "pkg-biome-desert_ruins-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_tomb_keeper": "An old hooded jackal-eared alien with a lantern and a ring of keys, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_sarcophagus": "A sealed stone sarcophagus with a sun disc on the lid, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_buried_vault": "A bronze vault door half buried in a dune, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_oasis": "A small palm oasis with a shimmering pool, colors: sand gold, terracotta, turquoise glyphs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

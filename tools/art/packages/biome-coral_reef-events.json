@@ -1,0 +1,17 @@
+{
+  "name": "pkg-biome-coral_reef-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_crab_trader": "A hermit crab with a shell stacked like a market stall, shells for sale, colors: coral pink, turquoise, sunny yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_anemone": "A big glowing pink anemone on a rock, colors: coral pink, turquoise, sunny yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_reef_nursery": "A coral arch full of tiny bright fish, colors: coral pink, turquoise, sunny yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "pkg-battle-biomes2",
+  "width": 1024,
+  "height": 1344,
+  "seeds": [
+    5731,
+    5732
+  ],
+  "fullframe": true,
+  "variants": [
+    {
+      "key": "V",
+      "model": "flux",
+      "style": "2D side view mobile game battle background, comic style with bold outlines and bright flat colors, flat ground strip along the bottom third where fighters stand, open sky and space above, layered scenery in the distance, no characters, no text, no user interface"
+    }
+  ],
+  "subjects": {
+    "battle_clockwork_city": "a brass clockwork city street with giant gears, copper pipes and steam, colors: brass, copper, steam white, teal glass",
+    "battle_desert_ruins": "golden desert dunes with crumbling sandstone ruins and a sun disc temple in the distance, colors: sand gold, terracotta, turquoise glyphs",
+    "battle_ice": "a frozen ice shelf with glacier cliffs, snow and a pale blue sky, colors: white, glacier blue, slate",
+    "battle_neon_city": "a dark futuristic city street at night with hot pink and cyan neon signs, colors: black, hot pink, cyan neon",
+    "battle_mushroom_forest": "a night forest of giant glowing orange and pink mushrooms, colors: night teal, glowing orange and pink caps",
+    "battle_crystal_cave": "a deep purple cave full of prism crystals glowing white and rainbow, colors: deep purple, prism rainbow, white light",
+    "battle_coral_reef": "a sunny coral reef with pink coral, turquoise water and small yellow fish, colors: coral pink, turquoise, sunny yellow",
+    "battle_candy_planet": "a pastel candy landscape with lollipop trees, caramel hills and mint rivers, colors: pastel pink, mint, caramel",
+    "battle_frozen_future": "a frozen futuristic plaza with chrome towers, ice and frozen pink neon lights, colors: ice white, chrome, pale cyan, frozen pink neon"
+  },
+  "negative": "characters, people, text, letters, user interface, top down view, watermark, blurry, photo"
+}

@@ -492,6 +492,98 @@
     "hero-skins-v2": [
       "hero-skin",
       "Hero skins"
+    ],
+    "biome-live-creatures": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-live-npcs": [
+      "character",
+      "Biome events"
+    ],
+    "biome-live-props": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-shared-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-clockwork_city": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-clockwork_city-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-desert_ruins": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-desert_ruins-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-ice": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-ice-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-neon_city": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-neon_city-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-mushroom_forest": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-mushroom_forest-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-crystal_cave": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-crystal_cave-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-coral_reef": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-coral_reef-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-candy_planet": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-candy_planet-events": [
+      "prop",
+      "Biome events"
+    ],
+    "biome-frozen_future": [
+      "creature",
+      "Biome creatures"
+    ],
+    "biome-frozen_future-events": [
+      "prop",
+      "Biome events"
+    ],
+    "battle-biomes2": [
+      "fullframe",
+      "Battle backgrounds"
     ]
   }
 }

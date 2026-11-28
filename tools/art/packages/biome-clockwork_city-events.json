@@ -1,0 +1,18 @@
+{
+  "name": "pkg-biome-clockwork_city-events",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6331,
+    6332
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "npc_clockmaker": "An old worm with a jeweller's loupe and a leather tool belt, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_great_clock": "A tall brass clock tower face with big hands, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_gear_pile": "A heap of brass gears and springs, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_automaton": "A slumped brass robot with a sparking chest, colors: brass, copper, steam white, teal glass, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

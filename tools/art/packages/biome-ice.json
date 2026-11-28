@@ -1,0 +1,18 @@
+{
+  "name": "pkg-biome-ice",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "tusk_seal": "Tusk Seal, walrus-like seal, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "shard_penguin": "Shard Penguin, penguin with ice-shard spikes, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_walrus_warlord": "Walrus Warlord, armoured walrus chief, big elite monster, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_tusk_colossus": "Tusk Colossus, huge imposing boss monster, colors: white, glacier blue, slate, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

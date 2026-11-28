@@ -1,0 +1,19 @@
+{
+  "name": "pkg-biome-mushroom_forest",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "puffball": "Puffball, round spore puff with tiny legs, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "myco_beetle": "Myco Beetle, beetle with a mushroom shell, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "shroom_walker": "Shroom Walker, tall stalking mushroom, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_mycelium_knight": "Mycelium Knight, knight in fungus armour, big elite monster, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_spore_monarch": "Spore Monarch, huge imposing boss monster, colors: night teal, glowing orange and pink caps, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

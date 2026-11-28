@@ -1,0 +1,21 @@
+{
+  "name": "pkg-biome-candy_planet",
+  "width": 768,
+  "height": 768,
+  "seeds": [
+    1721,
+    1722
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", single creature, full body, facing left, centered, floating alone on a plain pure white background",
+  "negative": "background scenery, landscape, multiple monsters, human, text, letters, watermark, blurry, photo, gore, ground, ground shadow, drop shadow, pedestal, crown, halo",
+  "subjects": {
+    "gummy_worm": "Gummy Worm, striped gummy worm, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "jelly_blob": "Jelly Blob, wobbly jelly cube, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "candy_wasp": "Candy Wasp, wasp with a lollipop stinger, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "gingerbread_brute": "Gingerbread Brute, big gingerbread man with icing scars, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_licorice_lasher": "Licorice Lasher, black licorice whip creature, big elite monster, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "elite_gumball_golem": "Gumball Golem, golem of stacked gumballs, big elite monster, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "boss_bonbon_behemoth": "Bonbon Behemoth, huge imposing boss monster, colors: pastel pink, mint, caramel, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}

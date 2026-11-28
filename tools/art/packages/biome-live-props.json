@@ -1,0 +1,31 @@
+{
+  "name": "pkg-biome-live-props",
+  "width": 1024,
+  "height": 1024,
+  "seeds": [
+    6311,
+    6312
+  ],
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction.json",
+  "suffix": ", one object, centered, isolated on a plain pure white background",
+  "negative": "scenery, multiple objects, text, letters, watermark, blurry, photo, ground patch, pedestal",
+  "subjects": {
+    "prop_ore_geyser": "A small lava geyser spitting glowing orange ore nuggets, colors: black basalt, lava orange-red, ember yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_magma_forge": "An abandoned stone forge with a lava-filled basin and bellows, colors: black basalt, lava orange-red, ember yellow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_gas_vent": "A glowing orange gas pocket bubbling from a metal grate, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_fuel_tank": "An overflowing striped refinery tank leaking amber fuel, colors: amber and rust bands, cream gas, steel-grey rigs, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_distress_beacon": "A blinking red beacon on a bent antenna, colors: rust brown, gunmetal, sickly purple glow, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_gas_bubbles": "Big green bubbles rising from swamp water, colors: toxic green, bog brown, purple mist, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_toxic_bloom": "A drooping flower dripping glowing green poison, colors: toxic green, bog brown, purple mist, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_sunken_hut": "A wooden hut sinking into green mud, colors: toxic green, bog brown, purple mist, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_wind_shrine": "A small shrine with spinning wind chimes on a cliff edge, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_roc_nest": "A giant twig nest with a glittering trinket inside, colors: sky blue, white, pale gold, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_server_rack": "A tall blinking server rack with loose cables, colors: white panels, hazard yellow, electric blue, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_med_pod": "A glass medical pod with green light, colors: white panels, hazard yellow, electric blue, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_giant_clam": "A huge half-open clam with a glowing pearl, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_kelp_patch": "A clump of tall glowing kelp with bubbles, colors: deep navy, teal, bioluminescent cyan, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_fruit_tree": "A twisted purple tree heavy with glowing fruit, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_lightning_totem": "A carved wooden totem crackling with blue sparks, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading",
+    "prop_swallow_plant": "A huge pitcher plant with a crate visible inside, colors: violet, acid green, magenta flowers, bold comic cartoon style with a thick black outline, flat colors, hard-edged two-tone cel shading"
+  }
+}
