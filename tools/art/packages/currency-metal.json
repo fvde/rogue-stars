@@ -1,0 +1,15 @@
+{
+  "variants_from": "~/Projects/rogue-stars/tools/art/prompts/direction-icon-n.json",
+  "suffix": ", game currency icon, one single simple object, centered, isolated on a plain pure white background",
+  "negative": "text, letters, numbers, frame, border, background scenery, watermark, blurry, photo, pedestal, base, stand, ground, shadow, face, coin, multiple separate objects",
+  "width": 512,
+  "height": 512,
+  "name": "pkg-currency-metal",
+  "seeds": [
+    7431,
+    7432
+  ],
+  "subjects": {
+    "metal": "metal: a small neat stack of three grey metal ingots with bright edge highlights, one single solid object, bold black outline, flat colors"
+  }
+}

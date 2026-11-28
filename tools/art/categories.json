@@ -71,6 +71,12 @@
         "white",
         "shadow"
       ]
+    },
+    "part-icon": {
+      "canvas": 512,
+      "long_side": 410,
+      "align": "center",
+      "note": "hero part icons (parts v2): ~80% fill, the client draws them on a 170x170 rarity tile with ~12% padding"
     }
   },
   "packages": {
@@ -421,6 +427,18 @@
     "ui-backdrops-redo3": [
       "fullframe",
       "UI backdrops"
+    ],
+    "parts-v2": [
+      "part-icon",
+      "Hero parts v2"
+    ],
+    "parts-v2-mythic": [
+      "part-icon",
+      "Hero parts v2: Mythics"
+    ],
+    "currency-metal": [
+      "icon",
+      "Currencies"
     ]
   }
 }
