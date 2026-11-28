@@ -347,15 +347,15 @@ namespace RogueStars.Client.Tests
             var have = new HashSet<string> { "Art/Boards/lava/background", "Art/Boards/lava/tiles/slab", "Art/Boards/seabed/tiles/shop" };
             ArtCatalog.Loader = p => { loaded.Add(p); return have.Contains(p) ? fake : null; };
 
-            Assert.That(ArtCatalog.FamilyOf(C.MainLevel(1)), Is.EqualTo("ember"));
-            Assert.That(ArtCatalog.BiomeFor("ember").Id, Is.EqualTo("lava"));
-            Assert.That(ArtCatalog.BiomeFor("glacier").Id, Is.EqualTo("seabed"));
+            Assert.That(ArtCatalog.FamilyOf(C.MainLevel(1)), Is.EqualTo("main"));
+            Assert.That(ArtCatalog.BiomeFor(C.MainLevel(1)).Id, Is.EqualTo("lava"));
+            Assert.That(ArtCatalog.BiomeById("seabed").Id, Is.EqualTo("seabed"));
             Assert.That(ArtCatalog.BiomeFor("no_such_family"), Is.SameAs(ArtCatalog.Default), "an unmapped family: the procedural board");
             Assert.That(ArtCatalog.BiomeFor((string)null), Is.SameAs(ArtCatalog.Default));
             Assert.That(ArtCatalog.Background(ArtCatalog.Default), Is.Null, "the default biome has no ground image");
 
-            var lava = ArtCatalog.BiomeFor("ember");
-            var sea = ArtCatalog.BiomeFor("glacier");
+            var lava = ArtCatalog.BiomeById("lava");
+            var sea = ArtCatalog.BiomeById("seabed");
             Assert.That(ArtCatalog.Background(lava), Is.SameAs(fake));
             Assert.That(ArtCatalog.Background(sea), Is.Null, "missing ground file: plain board");
             Assert.That(ArtCatalog.TileSprite(lava, TileCategory.Enemy), Is.SameAs(fake), "no enemy sprite: the biome's generic slab");
@@ -388,8 +388,8 @@ namespace RogueStars.Client.Tests
         {
             ArtCatalog.Loader = null;
             Assert.That(ArtCatalog.Hero(), Is.Not.Null, "Assets/Art/Resources/Art/Hero/hero_worm.png is a sprite");
-            Assert.That(ArtCatalog.Background(ArtCatalog.BiomeFor("ember")), Is.Not.Null, "lava ground imported");
-            Assert.That(ArtCatalog.Background(ArtCatalog.BiomeFor("glacier")), Is.Not.Null, "seabed ground imported");
+            Assert.That(ArtCatalog.Background(ArtCatalog.BiomeById("lava")), Is.Not.Null, "lava ground imported");
+            Assert.That(ArtCatalog.Background(ArtCatalog.BiomeById("seabed")), Is.Not.Null, "seabed ground imported");
 
             StartRun();
             var screen = Open();

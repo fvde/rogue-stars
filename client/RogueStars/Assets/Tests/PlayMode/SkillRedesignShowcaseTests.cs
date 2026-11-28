@@ -129,15 +129,14 @@ namespace RogueStars.Client.PlayTests
             _app.Router.Pop();
             yield return Wait(0.3f);
 
-            // 6. the laboratory: the Time package after Alien
+            // 6. the laboratory: a synergy skill node waiting for its signature's level unlock (no packages any more)
             _svc.DevSetFlag(Features.DevUnlockAllFlag, true);
-            foreach (var p in new[] { "pkg_combo", "pkg_ice", "pkg_lightning", "pkg_counter", "pkg_alien" }) _svc.State.Lab.Entries[p] = new LabEntry { Level = 1 };
             foreach (var n in new[] { "lab_atk_1", "lab_hp_1", "lab_def_1", "lab_alien_power_1" }) _svc.State.Lab.Entries[n] = new LabEntry { Level = 2 };
             _app.Open("laboratory");
             yield return Wait(0.8f);
-            ((LaboratoryScreen)_app.Router.Current).NodeModal("pkg_time");
+            ((LaboratoryScreen)_app.Router.Current).NodeModal("res_bulwark");
             yield return Wait(0.5f);
-            yield return Shot("redesign6_lab_time_package");
+            yield return Shot("redesign6_lab_counter_node");
         }
 
         private static BattleResult ShockBattle(ContentDb c, List<string> skills)

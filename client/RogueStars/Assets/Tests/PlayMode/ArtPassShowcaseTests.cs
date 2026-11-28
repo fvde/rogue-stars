@@ -57,9 +57,9 @@ namespace RogueStars.Client.PlayTests
             _svc.Refresh(_ => { });
 
             int shot = 1;
-            foreach (var family in new[] { "ember", "static", "void", "glacier" })
+            foreach (var biomeId in new[] { "lava", "space_station", "shipwreck", "seabed" })
             {
-                int n = FirstLevel(c, family);
+                int n = FirstLevel(c, biomeId);
                 if (n < 0) continue;
                 yield return PlayLevel(c, n, 4);
                 var rs = (RunScreen)_app.Router.Current;
@@ -94,10 +94,10 @@ namespace RogueStars.Client.PlayTests
             playback.Continue();
         }
 
-        private static int FirstLevel(ContentDb c, string family)
+        private static int FirstLevel(ContentDb c, string biomeId)
         {
             for (int n = 1; n <= 45; n++)
-                if (ArtCatalog.FamilyOf(c.MainLevel(n)) == family) return n;
+                if (c.MainLevel(n).Biome == biomeId) return n;
             return -1;
         }
 

@@ -381,7 +381,7 @@ namespace RogueStars.Client.Tests
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
             Assert.That(screen.Layout, Is.Not.Null);
-            Assert.That(FindButton(screen.Root, "LabNode:pkg_combo"), Is.Not.Null, "the synergy packages lane");
+            Assert.That(FindButton(screen.Root, "LabNode:pkg_combo"), Is.Null, "no packages lane: signatures unlock by level");
             screen.ShowBranch("offense");
             Assert.That(screen.Layout.Nodes.Count, Is.GreaterThan(5));
             Assert.That(FindButton(screen.Root, "LabNode:lab_atk_1"), Is.Not.Null, "stat node drawn in the offense lane");
@@ -418,20 +418,16 @@ namespace RogueStars.Client.Tests
         }
 
         [Test]
-        public void Laboratory_PackagesAreDistinctNodes_WithSignatureAndSkillCount()
+        public void Laboratory_SynergySkillNodes_NeedTheirSignatureUnlock()
         {
             LabReady();
-            _f.Service.DevSetFlag(Features.DevUnlockAllFlag, true);
             _f.App.Open("laboratory");
             var screen = (LaboratoryScreen)_f.App.Router.Current;
-            foreach (var id in new[] { "pkg_combo", "pkg_ice", "pkg_lightning", "pkg_counter", "pkg_alien" })
-                Assert.That(FindButton(screen.Root, "LabNode:" + id), Is.Not.Null, id);
-            Assert.That(screen.PackageLine(C.LabNode("pkg_ice")), Is.EqualTo("Chill + 9 skills"));
-            Assert.That(FindButton(screen.Root, "LabNode:pkg_ice").GetComponentInChildren<Text>().text, Does.Contain("Chill + 9 skills"));
-            screen.NodeModal("pkg_ice");
-            bool listed = false;
-            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true)) if (t.name == "PackageSkills" && t.text.Contains("Permafrost")) listed = true;
-            Assert.That(listed, Is.True, "the modal lists the run skills the package unlocks");
+            screen.NodeModal("res_frost_nova");
+            bool needs = false;
+            foreach (var t in _f.App.ModalLayer.GetComponentsInChildren<Text>(true))
+                if (t.name == "Requirement" && t.text.Contains(C.Feature(Features.SignatureIce).Name)) needs = true;
+            Assert.That(needs, Is.True, "Frost Nova waits for the Ice signature's level unlock");
         }
 
         [Test]

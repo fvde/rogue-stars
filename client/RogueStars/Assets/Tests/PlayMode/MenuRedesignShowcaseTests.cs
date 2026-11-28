@@ -124,12 +124,12 @@ namespace RogueStars.Client.PlayTests
                 lab.ShowBranch("offense");
                 yield return Wait(0.5f);
                 yield return Shot("l2_lab_offense");
-                lab.ShowBranch("packages");
+                lab.ShowBranch("elements");
                 yield return Wait(0.5f);
                 var tree = lab.TreeScroll;
                 tree.verticalNormalizedPosition = 0.4f;
                 yield return Wait(0.3f);
-                yield return Shot("l3_lab_packages_mid");
+                yield return Shot("l3_lab_elements_mid");
                 yield return OpenTab("Status");
                 yield return Shot("l4_lab_status");
             }

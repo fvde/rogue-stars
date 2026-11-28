@@ -191,6 +191,8 @@ namespace RogueStars.Client.Screens
             if (sum.Mode == RunMode.Burrow) chips.Add(new KeyValuePair<string, string>("Floors " + sum.Floors, "FloorsChip"));
             if (sum.Minibosses > 0) chips.Add(new KeyValuePair<string, string>("Minibosses " + sum.Minibosses, "MinibossChip"));
             if (sum.ShopBuys > 0) chips.Add(new KeyValuePair<string, string>("Shop buys " + sum.ShopBuys, "ShopChip"));
+            var biomeLine = BiomeView.ResultLine(Content, sum); // "Ore 100 (×2 biome)"
+            if (biomeLine != null) chips.Add(new KeyValuePair<string, string>(biomeLine, "BiomeRewardChip"));
             float cw = 1000f / chips.Count;
             for (int i = 0; i < chips.Count; i++)
             {

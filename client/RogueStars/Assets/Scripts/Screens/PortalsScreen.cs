@@ -43,7 +43,7 @@ namespace RogueStars.Client.Screens
         /// <summary>Map geometry: vertical distance between two portals and the portal sizes (next is bigger, locked smaller).</summary>
         public const float NodeStep = 236, NodeSize = 176, NextSize = 220, LockedSize = 156;
         /// <summary>Bottom level card rows.</summary>
-        public const float CardTitleH = 60, GoalH = 46, StartH = 124;
+        public const float CardTitleH = 60, GoalH = 46, StartH = 124, BiomeChipsH = 46;
 
         /// <summary>Visual state of a level node on the map.</summary>
         public enum MapNode { Locked, Open, Next, Cleared }
@@ -211,7 +211,7 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        public override float FooterHeight => FooterPadTop + FooterPadBottom + CardTitleH + FooterSpacing + 3 * GoalH + 8 + FooterSpacing + StartH;
+        public override float FooterHeight => FooterPadTop + FooterPadBottom + CardTitleH + FooterSpacing + BiomeChipsH + FooterSpacing + 3 * GoalH + 8 + FooterSpacing + StartH;
 
         protected override void BuildHeaderExtras(RectTransform header)
         {
@@ -577,6 +577,23 @@ namespace RogueStars.Client.Screens
                 }
                 string biomeName = burrow ? lv.Name : dark ? "Dark Side" : lv.Name;
                 SideText(biomeName, 30, locked ? Theme.TextFaint : Theme.Cream, "BiomeName", 38);
+                // biome identity on the portal: NEW BIOME on its first visit, the ×2 resource and the weather (main levels)
+                if (!burrow && !dark && _mode == RunMode.Normal && !string.IsNullOrEmpty(lv.Biome))
+                {
+                    var chipList = BiomeView.Chips(content, lv);
+                    for (int ci = 0; ci < chipList.Count; ci += 2)
+                    {
+                        var line = Ui.Rect(side, "BiomeChipLine");
+                        line.anchorMin = new Vector2(0, 1); line.anchorMax = new Vector2(1, 1); line.pivot = new Vector2(0.5f, 1);
+                        line.sizeDelta = new Vector2(0, 38); line.anchoredPosition = new Vector2(0, -y);
+                        var hl = line.gameObject.AddComponent<HorizontalLayoutGroup>();
+                        hl.childAlignment = align; hl.spacing = 6;
+                        hl.childControlWidth = false; hl.childControlHeight = false; hl.childForceExpandWidth = false; hl.childForceExpandHeight = false;
+                        for (int k = ci; k < chipList.Count && k < ci + 2; k++)
+                            BiomeView.Chip(line, chipList[k].Key, locked ? Theme.TextFaint : chipList[k].Value, 20, 36);
+                        y += 42;
+                    }
+                }
                 if (n.State == MapNode.Next)
                 {
                     SideText(burrow ? "best floor " + prog.BestFloor : "NEXT", 26, Theme.AccentLight, "Tag", 32);
@@ -644,6 +661,9 @@ namespace RogueStars.Client.Screens
             Ui.Display(head, name, 44, Theme.Text, TextAnchor.MiddleLeft, "LevelName").horizontalOverflow = HorizontalWrapMode.Overflow;
             var threat = Ui.Label(head, "Threat " + level.Threat + (mode == RunMode.Overcharged && portal != null ? " + " + portal.OverchargedThreatBonus : ""), Theme.FontSmall, Theme.TextDim, TextAnchor.MiddleRight);
             Ui.Size(threat, 220, -1, 0);
+            // biome identity: [NEW BIOME] [×2 Ore] [Heat +25%] [Chill −50%] (an empty row keeps the card's height elsewhere)
+            var chips = mode == RunMode.Normal || mode == RunMode.Overcharged ? BiomeView.ChipRow(Footer, Content, level, 24, BiomeChipsH) : null;
+            if (chips == null) Ui.Size(Ui.Rect(Footer, "BiomeChips"), -1, BiomeChipsH);
 
             var goals = Ui.Column(Footer, 4, 0, null, "Goals");
             Ui.Size(goals, -1, 3 * GoalH + 8);
@@ -706,7 +726,14 @@ namespace RogueStars.Client.Screens
             Modal(title, b =>
             {
                 KeyValue(b, "Threat", level.Threat + (mode == RunMode.Overcharged ? " + " + portal.OverchargedThreatBonus : ""));
-                if (!string.IsNullOrEmpty(level.Biome)) KeyValue(b, "Biome", level.Name);
+                if (!string.IsNullOrEmpty(level.Biome))
+                {
+                    KeyValue(b, "Biome", level.Name + (level.BiomeDebut ? " (new)" : ""));
+                    var reward = BiomeView.RewardText(Content, level);
+                    if (reward != null) KeyValue(b, "Biome reward", reward);
+                    var w = Content.Weather(level);
+                    if (w != null) KeyValue(b, "Weather", BiomeView.BoostText(w) + ", " + BiomeView.WeakText(w));
+                }
                 KeyValue(b, "Boss", boss?.Name ?? "—", Theme.ValenceColor(Valence.Boss));
                 KeyValue(b, "Dice", DiceText(level));
                 KeyValue(b, "Entry", cost.Amount + " " + Fmt.CurrencyName(cost.Currency), State.Wallet.CanAfford(cost.Currency, cost.Amount) ? Theme.Text : Theme.Bad);

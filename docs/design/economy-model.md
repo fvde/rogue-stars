@@ -69,8 +69,9 @@ after the main hero is maxed.
   endless levels past 150 follow threat^α, see "Endless campaign rewards"),
   daily chests 20/day, weekly chest 100, Laboratory unlock 60, arena shop 300 per 50 medals.
 - Biomass: portal runs are the main source — completion (120 + 30·i) × portal scale, loot 45–90 × scale, and the
-  **daily Biomass surge**: the first 3 won portal runs (Normal/Overcharged) of each reset-day pay their Biomass ×4
-  (`RunTuning.DailyBiomassBonusRuns/Mult`), so short sessions also get most of their Biomass from runs. The surge only
+  **daily Biomass surge**: the first 3 won portal runs (Normal/Overcharged) of each reset-day pay their Biomass ×2
+  (`RunTuning.DailyBiomassBonusRuns/Mult`; ×4 before the biome design of 2026-11-28), so short sessions also get much of
+  their Biomass from runs. It multiplies after the biome reward: a Biomass biome on a surge run pays ×4. The surge only
   exists once Biomass has a use (`RunSystem.BiomassSurgeActive` = `RewardGate.CurrencyHasUse(Biomass)`: City or Worm
   Level unlocked): before that no surge run is consumed and no surge counter or text is shown. City farms
   (Biomass Farm 30/h, Spore Vats 75/h, half of before) are the secondary source; the daily point chest pays 2 000.
@@ -87,9 +88,19 @@ levels (chapter i = levels 10i + 1 … 10i + 10, no biome or portal attached) as
 forever). All numbers are `CampaignDef` fields.
 
 **Threat.** Main level n sits at t(n) = n − 1 (n ≤ 30), then +0.4 / 0.3 / 0.12 / 0.12 / 0.1 / 0.08 / 0.07 per level for
-30-level bands, then t(n) = 64.7 + 0.06 · (n − 240). Enemies scale with M(t) = 1.075^t · (1 + 0.05 t). Biome family
-offsets (by the level's biome family): void −25% everywhere, glacier −20% from level 401 on (`LateFamilyStrengthPct`;
-its freeze-all boss otherwise stalls late worms for 3–6 weeks).
+30-level bands, then t(n) = 64.7 + 0.06 · (n − 240). Enemies scale with M(t) = 1.075^t · (1 + 0.05 t). No biome is
+harder or easier (biome design, 2026-11-28): the old family offsets (void −25%, glacier −20% from level 401) are gone and
+the void roster sits on the standard role budget.
+
+**Biome reward ×2** (biome design, `LevelDef.BiomeResource`, `CampaignDef.BiomeRewardMult`): every main level doubles its
+biome's resource on a won run — the completion line, its share of the 3 completion loot rolls and of every reward chest
+found in the run. A resource without a completion line adds one guaranteed roll first: Grain 20–40, Fuel 10–20, Hero XP
+15–30, Gear Cores 1–2 × round(S) (the loot table's ranges), Data 10–20 × round(S) (`BiomeDataRollMin/Max`; Space Station,
+Neon City), so it pays 2× that. Event biome chests (`RunTuning.BiomeChestRange`) are already the doubled roll and are not
+doubled again. Never doubled by the biome: Diamonds, Crates, Signals, Schematics, milestone / bonus chests, the first-clear
+part, feat Diamonds. With 8 live biomes (Ore: Lava Fields; Fuel: Gas Giant, Toxic Swamp; Gear Cores: Shipwreck; Grain:
+Cloud Isles, Alien Jungle; Data: Space Station; Biomass: Seabed) a resource in k of the n rotating biomes gains ≈ k/n of its
+completion income plus the guaranteed rolls.
 
 **Per-run currencies** (Biomass, Ore, Grain, Fuel, Hero XP, Gear Cores on main levels; Data on the Dark Side) are
 multiplied by the chapter's reward scale S:
@@ -99,7 +110,8 @@ multiplied by the chapter's reward scale S:
 - completion pays (120 + 30 k) · S Biomass and (40 + 10 k) · S Ore on step k of the chapter; loot currency ranges are
   × round(S); every event / Treasure Pod reward chest adds 10% of the level's completion Biomass / Ore / Data / Fuel
   (playtest 0.1.325, `RunTuning.RewardChestCompletionPct`: ≈ +5–20% Biomass per won run at ~0.8 loot opportunities per
-  run); the daily Biomass surge (first 3 won portal runs ×4), Overcharged ×1.8, the double-reward ad and the
+  run); the biome reward (×2 of the biome's resource, see above), the daily Biomass surge (first 3 won portal runs ×2),
+  Overcharged ×1.8, the double-reward ad and the
   run_reward modifiers apply on top as before;
 - Dark Side level i > 150: Data = Data(150) · (M(t_d(i)) / M(t_d(150)))^α (× 2.5 level multiplier), t_d(i) =
   t(40 + 3 (i − 1)) − 5. Fuel (1 200) and Diamonds (8) per clear stay flat.

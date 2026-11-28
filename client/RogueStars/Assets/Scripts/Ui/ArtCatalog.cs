@@ -95,16 +95,12 @@ namespace RogueStars.Client.UiKit
         };
 
         /// <summary>
-        /// Portal family (the level's tile pool without "pool_": ember, glacier, static, void, burrow, dark, standard) → biome
-        /// id, by theme: ember → lava, glacier → seabed, static (storms, sparks) → the space station deck, void → the wreck
-        /// field, burrow → the prehistoric clearing, the Dark Side → the ash wastes, the standard pool → the alien jungle.
+        /// Tile pool family of a level without a campaign biome (the pool without "pool_": burrow, dark, standard) → biome id:
+        /// burrow → the prehistoric clearing, the Dark Side → the ash wastes, the standard pool → the alien jungle. Main levels
+        /// name their biome (LevelDef.Biome; there are no enemy families any more, docs/design/biomes).
         /// </summary>
         public static readonly Dictionary<string, string> FamilyBiome = new Dictionary<string, string>
         {
-            { "ember", "lava" },
-            { "glacier", "seabed" },
-            { "static", "space_station" },
-            { "void", "shipwreck" },
             { "burrow", "prehistoric" },
             { "dark", "ash_wastes" },
             { "standard", "alien_jungle" },
@@ -157,7 +153,7 @@ namespace RogueStars.Client.UiKit
 
         /// <summary>
         /// A level's portal family: its tile pool without the "pool_" prefix and without a variant suffix
-        /// ("pool_ember_tutorial" → "ember"; null for hand-made levels without one).
+        /// ("pool_main_tutorial" → "main"; null for hand-made levels without one).
         /// </summary>
         public static string FamilyOf(LevelDef level)
         {
@@ -171,6 +167,13 @@ namespace RogueStars.Client.UiKit
         /// <summary>Feature intro art (unlock screens, "?" replays): <c>Art/Intro/&lt;key&gt;</c>; IntroArt draws a fallback.</summary>
         public const string IntroFolder = "Art/Intro";
         public static Sprite Intro(string key) => string.IsNullOrEmpty(key) ? null : Load(IntroFolder + "/" + key);
+
+        /// <summary>A biome's art by its id (CampaignBiomeDef.Id), else <see cref="Default"/>.</summary>
+        public static BiomeArt BiomeById(string id)
+        {
+            if (id != null) foreach (var b in Biomes) if (b.Id == id) return b;
+            return Default;
+        }
 
         /// <summary>The biome of a portal family, else <see cref="Default"/>.</summary>
         public static BiomeArt BiomeFor(string family)
