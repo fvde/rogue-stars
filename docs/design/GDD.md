@@ -72,7 +72,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Tile | Effect |
 |---|---|
 | Enemy (lv 1–3) | Auto-battle; XP and run coins by level |
-| Elite | Harder battle, more XP and coins. Enemy tiers are exactly three: enemy, elite (a miniboss is an elite met in a lair, same tier) and boss; each biome has three elites |
+| Elite | Harder battle, more XP and coins. Enemy tiers are exactly three: enemy, elite (a miniboss is an elite met in a lair, same tier) and boss; each biome has at least two elites (its own roster, docs/design/biomes) |
 | Stat buff / debuff | ± % of a stat for the rest of the run (can cost or grant stat %) |
 | Supply cache | Run coins and run XP (in-run resources only) |
 | Treasure (guarded) | Choose: fight its elite guardian for 2 account-loot items (more danger, stronger nearby enemies) or leave |
@@ -82,7 +82,7 @@ Aliens, Laboratory → stronger runs, harder portals.
 | Hazard | Costs HP or coins, or shortens the next roll (Gravity Vortex; the path never goes back) |
 | Portal shard | Run collectible used by events |
 | Boss tile | Dedicated per boss: interacts with the boss (buffs it, changes the board, feeds or drains the awakening meter) |
-| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). The lairs draw from the biome's **three elites** (playtest 0.1.359; `LevelDef.ElitePool`, the same elites its elite fights meet), shuffled per run (`RunSystem.MinibossOrder`): the two lairs of a run always differ. Each beaten miniboss grants a **MYTHIC choice** |
+| Miniboss | **Two per run** (playtest 0.1.308), both on the path: a lair in each of the first two segments, a forced stop shown from afar by its crowned-skull marker (no clock ambushes). The lairs draw from the biome's elites (at least two; playtest 0.1.359; `LevelDef.ElitePool`, the same elites its elite fights meet), shuffled per run (`RunSystem.MinibossOrder`): the two lairs of a run always differ. Each beaten miniboss grants a **MYTHIC choice** |
 | GAME (Alien Arcade) | A short skill mini-game (§3.6) for run coins or a skill roll; stops the worm when passed |
 
 **Account loot is rare and always risky.** (Once a run's opportunities are used up, the chests ahead turn into supply
@@ -211,21 +211,45 @@ shows the result screen with icons and numbers; auto mode passes it after a shor
   its own portal** with its own biome. Play opens the next level right away (`RunSystem.NextMainRunStart`); the level
   selection shows the levels as a chain of portals, each with its biome peeking through. A level is named
   "&lt;number&gt;. &lt;biome&gt;" ("55. Gas Giant"). Each level has 3 feats (clear, HP left ≥ x%, beat boss within N rounds).
-- **Biomes** (`CampaignDef.Biomes`, eight, named after their board art, two per enemy family: Lava Fields / Gas Giant =
-  ember, Seabed / Cloud Isles = glacier, Space Station / Alien Jungle = static, Shipwreck / Toxic Swamp = void): every
-  board biome with a ground image except the Dark Side's ash wastes and the Burrow's prehistoric clearing; the tile-only
-  board sets (candy planet, clockwork city, coral reef, crystal cave, desert ruins, frozen future, ice, mushroom forest,
-  neon city) join once they have a ground image. A level's biome sets its board art, its enemy packs, elites, tile pool
-  and boss. The order is a deterministic seeded shuffle, the same for every player (`ContentDb.CampaignBiomeIndex`):
-  blocks of 8 levels each use every biome once, and two consecutive levels never share a biome **nor an enemy family**;
-  level 1 is always Lava Fields (the tutorial pool). The order only changes when the biome list or `CampaignDef.BiomeOrderSeed` changes.
+- **Biomes** (biome identity design, owner-approved 2026-11-28, `docs/design/biomes`; `CampaignDef.Biomes`,
+  `ContentDb.CampaignBuildBiomes`): there are **no enemy families**, only biomes. Each biome has its **own roster**
+  (enemies, at least 2 elites, 1–2 bosses; a shared enemy is simply listed in several rosters), its own **boss tiles**
+  (feed / relief / tribute named for its boss, the same numbers for every boss), a **biome reward** (×2 of one resource) and
+  a **synergy weather** (one synergy +25%, another −25% / −50%). Biomes with two bosses alternate per visit (the biome's 1st,
+  3rd … visit A, 2nd, 4th … B; `ContentDb.BiomeVisitIndex`). The four invasion bosses (Rust Queen, Gloop Matriarch, Hollow
+  Cantor, Prism Tyrant) double as biome bosses; invasions keep them. Defs without imported art (`EnemyDef.ArtPending`) stay
+  out of the live rosters until their sprite lands; the biome's stand-ins (`CampaignBiomeDef.StandIn*`) fill it to 3
+  enemies / 2 elites / a boss meanwhile.
+- **Unlock path:** 17 biomes in unlock order. Start: Lava Fields, Toxic Swamp, Shipwreck, Gas Giant; then one per slot:
+  Cloud Isles 10, Space Station 20, Seabed 35, Alien Jungle 60, Clockwork City 90, then Desert Ruins 125, Ice Shelf 160,
+  Neon City 200, Mushroom Forest 245, Crystal Cave 295, Coral Reef 350, Candy Planet 420, Frozen Future 500. A biome joins
+  only when its ground art is in (`CampaignBiomeDef.Ready`; the 9 planned ones wait): its slot waits and the next ready biome
+  fills it. **The slot level is the new biome's first visit** ("New biome" chip on its portal), after that it joins the
+  shuffle. Order (`ContentDb.CampaignBiomeIndex`): deterministic and the same for every player; blocks of the current
+  rotation size use every unlocked biome once, never the same biome twice in a row (across block and unlock edges too);
+  level 1 is always Lava Fields (the tutorial pool). Pure function of the level number, O(rotation) per level.
+- **Difficulty** comes only from the level scaling (threat curve, early ramp, chapter scale): no biome is harder or easier,
+  every main level uses the same tile pool (`CampaignDef.MainPool`); the old family offsets (Void −25%, Glacier −20% from
+  level 401) are gone and the old Void roster sits on the standard role budget.
+- **Synergy weather** (main campaign Normal / Overcharged from level 3, with the signature pick; not Dark Side, Burrow,
+  invasions or the Arena; `ContentDb.Weather`, `BattleSetup.Weather`): a separate final multiplier on the damage of one
+  synergy (Heat burst / Fire skills, Ice, Shock, Radiation ticks, Bleed ticks, combo hits, counter hits, alien abilities,
+  Time skills, General = skills without a synergy tag), after every additive bonus. The boost (+25%) helps the player and
+  the enemies that deal that synergy's damage; the weakening (−25%, −50% for a direct opposite) hits the player only. Shown
+  on the portal chips, a banner before the signature pick, and "+25% here" / "−50% here" badges on signature, draft and
+  shop cards.
+- **Biome reward ×2** (`LevelDef.BiomeResource`): the biome's resource pays ×2 on a won run (completion line, completion
+  rolls, reward chests found in the run); a resource without a completion line (Grain, Fuel, Hero XP, Gear Cores; Data on
+  Space Station / Neon City) adds one guaranteed roll of it first. Event biome chests already roll the doubled amount and
+  are not doubled again. Never doubled: Diamonds, Crates, Signals, Schematics, milestone / bonus chests, the first-clear
+  part, feat Diamonds. The Biomass surge (×2) multiplies after it. Result screen: "Ore 100 (×2 biome)".
 - **No boss levels:** there is no boss cadence (no boss level every 10th level, no portal-ending boss); every run ends
   with its biome's boss, as always.
 - **Chapters of 10** keep the rhythm of rewards and difficulty only (no biome, no portal): reward scale and loot table,
   stamina (5 + chapter), board growth, the dice rhythm (chapter steps 6–10 roll two dice), threat slope bands, the endless
   anchors. Level-unlocked run content and the threat curve stay keyed by the level number.
 - **The main campaign is endless:** past the materialized levels 1–500 new levels keep coming on the same long threat
-  curve, generated from the level number (family bosses in six rotating variants with new boss-tile combinations every
+  curve, generated from the level number (each biome's boss in six rotating variants that borrow another boss's tiles every
   5 chapters from level 501). Per-run rewards keep growing more slowly than threat (threat^0.7), every 10th level pays a
   one-time milestone chest (Diamonds + one token of each pull type) and every 50th a bigger bonus chest; run item drops
   shift up in rarity past level 500 but never above Legendary. Formulas: `docs/design/economy-model.md` ("Endless
@@ -511,7 +535,7 @@ converted step by step (docs/design/pull-system.md).
 ## 13. Currencies
 | Currency | Use |
 |---|---|
-| Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×4), city farms second |
+| Biomass | Worm level, talents, building upgrades. Mainly from portal runs (grows with the level; the first 3 won portal runs a day pay ×2; a Biomass biome doubles it again), city farms second |
 | Grain | Breeding, Shard Reactor alien jobs |
 | Ore | Parts level, Mythic ladder steps, the Replicator, buildings |
 | Metal | Mythic ladder steps (spare standard parts fed: Common 1, Rare 2, Epic 6, Legendary 20) |
@@ -631,9 +655,9 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 5 | Two dice & forks from level 6 (`run_two_dice`) | Play |
 | 6 | City with one plot: Biomass Farm (`biomass_farm`) | Build the farm |
 | 7 | Auto roll: hold the dice (`auto_roll`; auto stops for every choice, starts fights on its own) | Play |
-| 9 | Campfires from level 10 (`run_campfire`) | Play |
+| 9 | Campfires from level 10 (`run_campfire`), in one moment with the **Ice signature + Cloud Isles** (`signature_ice`) | Play |
 | 10 | Parts pulls in the Shop (`part_pulls`); the first pulls are on the house | Tune in |
-| 13 | Laboratory (`laboratory`; its first package, Combo, comes with it) | Start first research |
+| 13 | Laboratory (`laboratory`) | Start first research |
 | 14 | Alien Arcade mini-games from level 15 (`run_minigames`) | Play |
 | 15 | Aliens: the first alien (`aliens`) | Meet your alien |
 | 16 | Housing → first squad slot (`alien_squad`) | Build housing |
@@ -642,32 +666,34 @@ The simulator's `--unlocks` table (`docs/balance/onboarding-unlocks.md`) shows t
 | 19 | Aliens pulls in the Shop (`alien_pulls`) | Call an alien |
 | 20 | Blueprints pulls in the Shop (`blueprints`) | Pull a blueprint |
 | 22 | Ore Mine (`ore_mine`) | Build the ore mine |
-| 24 | Laboratory: Ice Package (`package_ice`) | Open the lab |
+| 19 | Lightning signature + Space Station from level 20 (`signature_lightning`) | Play |
 | 26 | Mounts (`mounts`; also the mount summon events, first event + 10 tickets) | Saddle up |
 | 28 | Runes (`runes`) | See your parts |
 | 30 | Funds (`funds`) | See the funds |
 | 32 | Arena (`arena`) | Enter the arena |
-| 34 | Breeding Pen (`breeding`) | Build the pen |
+| 34 | Breeding Pen (`breeding`); Counter signature + Seabed from level 35 (`signature_counter`) | Build the pen |
 | 36 | Season pass (`season_pass`) | See the pass |
-| 38 | Laboratory: Lightning Package (`package_lightning`) | Open the lab |
 | 40 | Overcharged levels (`overcharged`) | Play overcharged |
 | 42 | Guilds (`guilds`) | Find a guild |
 | 44 | Invasions (`invasions`; also opens the hub's live-event column and the Observatory) | Defend the planet |
 | 46 | Burrow (`burrow`) | Dig in |
-| 48 | Laboratory: Counter Package (`package_counter`) | Open the lab |
 | 50 | Forge (`forge`) | Open the forge |
 | 53 | Dark Side of the Planet (`dark_side`) | Cross over |
-| 56 | Laboratory: Alien Package (`package_alien`) | Open the lab |
-| 60 | Laboratory: Time Package (`package_time`) | Open the lab |
+| 59 | Alien signature + Alien Jungle from level 60 (`signature_alien`) | Play |
+| 89 | Time signature from level 90 (`signature_time`; Clockwork City joins when its art is in) | Play |
 
-Each package node needs its feature (`LabResearchDef.RequiresFeature`) besides the chain of prerequisites. The first boards
+**Signatures unlock by campaign level** (biome design, 2026-11-28; `CampaignDef.SignatureUnlocks`): Fire, Radiation, Bleed and
+Combo from the start, then Ice 10, Lightning 20, Counter 35, Alien 60, Time 90, each with the new biome that boosts it (the
+unlock moment announces both). There are no Laboratory packages any more; the synergy skill nodes (Chain Strikes, Frost Nova,
+Overload, Knockout, Bulwark, Pack Tactics) hang off the neighbouring stat nodes and need their synergy's unlock
+(`LabResearchDef.RequiresFeature`). Biome-only slots past 90 get a `biome_<id>` unlock moment once that biome's art is in. The first boards
 (main levels 1–14, numbers in `CampaignDef`: `SignatureChoiceFromLevel` (`LevelDef.SignatureChoice`), `MinibossesFromLevel`,
 `ForksFromLevel`, `CampfiresFromLevel`, `MinigameTuning.MinMainLevel`) leave out what is not introduced yet; later levels, the Burrow
 and the Dark Side have everything. The run-content features read their levels from those numbers, so they never drift.
 
 **Old saves** keep every unlock they have (unlocks never re-lock). A save from before the level unlocks
 (`OnboardingState.Version` 0) gets, once, the new features its level already meets (`FeatureDef.Since` 2: the run content,
-auto roll, packages) recorded and celebrated silently — it already had that content; their "?" replays the intro. The
+auto roll) recorded and celebrated silently — it already had that content; their "?" replays the intro. The
 original features it now meets earlier get their normal unlock moments.
 
 **Visibility:** locked features are invisible — no greyed-out entries. Only the single next unlock is teased

@@ -385,6 +385,7 @@ namespace RogueStars.Client.Screens
                         IconArt = ArtCatalog.SkillIcon(sig?.Id), Title = sig?.Name ?? o.Text, Body = SignaturePick.Body(Content, sig),
                         Chip = "SIGNATURE · " + SkillText.FamilyName(sig?.Family ?? SkillFamily.None).ToUpperInvariant(), ChipName = "SignatureChip", ChipColor = SignaturePick.SignatureColor,
                         Tip = sig != null ? OfferTip(sig.Id, 0, true) : (SkillTip?)null, TipContent = Content,
+                        Weather = sig != null ? BiomeView.Badge(BiomeView.RunWeather(Content, run), sig.Family) : null,
                     };
                 }
                 else
@@ -790,6 +791,7 @@ namespace RogueStars.Client.Screens
                     Id = o.SkillId, Tier = RunTuning.RunTier(sk?.Rarity ?? Rarity.Common).ToString(), TierColor = RunPresentation.SkillColor(sk), Family = sk?.Family ?? SkillFamily.None,
                     IconArt = ArtCatalog.SkillIcon(o.SkillId), Title = ownedLv > 0 && sk != null ? SkillText.Title(sk, ownedLv + 1) : sk?.Name ?? o.SkillId,
                     Body = Fmt.SkillCard(Content, sk, ownedLv), Dim = o.Sold, Tip = OfferTip(o.SkillId, ownedLv), TipContent = Content,
+                    Weather = BiomeView.Badge(BiomeView.RunWeather(Content, run), sk?.Family ?? SkillFamily.None),
                 };
                 string info = (sk?.Name ?? o.SkillId) + " (" + (sk?.Rarity ?? Rarity.Common) + "): " + SkillText.StripMarks(spec.Body) + (ownedLv > 0 ? " " + LevelUpText(Content) : "");
                 var group = OfferGroup(index, 540, y);

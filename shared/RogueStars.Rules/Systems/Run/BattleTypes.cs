@@ -110,6 +110,8 @@ namespace RogueStars.Rules.Systems
         public List<CombatantSpec> Enemy = new List<CombatantSpec>();
         /// <summary>0 = content default (Combat.RoundCap). Reaching the cap with enemies alive is a loss.</summary>
         public int RoundCap;
+        /// <summary>Synergy weather of the level (main campaign Normal / Overcharged only; ContentDb.Weather); null = none.</summary>
+        public BattleWeather Weather;
     }
 
     [Serializable]

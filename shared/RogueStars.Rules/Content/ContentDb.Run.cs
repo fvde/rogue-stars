@@ -70,6 +70,7 @@ namespace RogueStars.Rules.Content
             RunBuildBattleTuning();
             RunBuildRunTuning();
             RunBuildEnemies();
+            CampaignBuildBiomes(); // biome rosters (after the enemy defs: art-pending ones are skipped)
             RunBuildBosses();
             RunBuildTiles();
             RunBuildEvents();
@@ -173,64 +174,141 @@ namespace RogueStars.Rules.Content
             RunEnemySkill("boss_hive_swarm", "Swarm Call", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 5, Effect = EffectKind.Summon, Param = "spark_drone" },
                 new SkillTrigger { When = TriggerKind.OnHit, Chance = 50, Effect = EffectKind.ApplyStatus, Status = StatusId.Shock, Stacks = 2 });
             RunEnemySkill("boss_void_hunger", "Void Hunger", new SkillTrigger { When = TriggerKind.OnRoundEnd, CooldownRounds = 3, Effect = EffectKind.TrueDamage, Value = 60, Target = TargetKind.Enemy });
+            // biome boss and enemy kits (docs/design/biomes): one simple thing each, existing effects only
+            RunEnemySkill("enemy_time_snap", "Time Snap", new SkillTrigger { When = TriggerKind.OnHit, Chance = 15, Effect = EffectKind.ApplyStatus, Status = StatusId.Delay });
+            RunEnemySkill("boss_molten_core", "Molten Core", new SkillTrigger { When = TriggerKind.OnHit, Chance = 50, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 2 });
+            RunEnemySkill("boss_ignition", "Ignition", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.ApplyStatus, Status = StatusId.Heat, Stacks = 3 });
+            RunEnemySkill("boss_sun_glare", "Sun Glare", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 4, Effect = EffectKind.ApplyStatus, Status = StatusId.Stun });
+            RunEnemySkill("boss_ice_armor", "Ice Armor", new SkillTrigger { When = TriggerKind.OnBattleStart, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 30 });
+            RunEnemySkill("boss_regrow", "Regrow", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 10 });
+            RunEnemySkill("boss_lure", "Lure", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 4, Effect = EffectKind.ApplyStatus, Status = StatusId.Charm });
+            RunEnemySkill("boss_feedback_song", "Feedback Song", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.ApplyStatus, Status = StatusId.Shock, Stacks = 2 });
+            RunEnemySkill("boss_salvage", "Salvage", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.Shield, Target = TargetKind.Self, Value = 15 });
+            RunEnemySkill("boss_toxic_flood", "Toxic Flood", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 3 });
+            RunEnemySkill("boss_refraction", "Refraction", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 3, Effect = EffectKind.ApplyStatus, Status = StatusId.Delay });
+            RunEnemySkill("boss_spore_cloud", "Spore Cloud", new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.ApplyStatus, Status = StatusId.Poison, Stacks = 1 });
+            RunEnemySkill("boss_sugar_rush", "Sugar Rush", new SkillTrigger { When = TriggerKind.OnRoundStart, Effect = EffectKind.BuffStat, Target = TargetKind.Self, Param = "stack:5", Stat = new StatMod(StatId.Speed, 0, 10) });
+            RunEnemySkill("boss_rewind", "Rewind", new SkillTrigger { When = TriggerKind.OnLowHp, Effect = EffectKind.Heal, Target = TargetKind.Self, Value = 20, MaxPerBattle = 1 });
+            RunEnemySkill("boss_time_stop", "Time Stop", new SkillTrigger { When = TriggerKind.OnRoundStart, CooldownRounds = 4, Effect = EffectKind.Strike });
             // passive stat packages on enemy skills
             Skills["boss_void_hunger"].Stats.Add(new StatMod(StatId.LifeSteal, 20));
 
-            // Ember family
+            // Enemies sit on the standard role budget (HP x ATK about 14 000 for a regular, 68 000 for an elite, 133 000 for a boss;
+            // biome design 2026-11-28: no family offsets any more, so the old Void roster came down to it). Biome rosters: CampaignBuildBiomes.
+            // P(...) = ArtPending: a def without imported art, kept out of every live pool until its sprite lands (EnemyDef.ArtPending).
+            EnemyDef P(EnemyDef e) { e.ArtPending = true; return e; }
+            EnemyDef St(EnemyDef e, StatId stat, double v) { e.Stats.Add(new StatMod(stat, v)); return e; }
             RunEnemy("ember_imp", "Ember Imp", 300, 45, 8, 95, AttackStyle.Claw, "enemy_burning_touch");
             RunEnemy("magma_slug", "Magma Slug", 420, 38, 16, 70, AttackStyle.Slam, "enemy_harden");
-            RunEnemy("cinder_hound", "Cinder Hound", 260, 52, 6, 115, AttackStyle.Claw).Stats.Add(new StatMod(StatId.ComboChance, 15));
-            RunEnemy("ash_wraith", "Ash Wraith", 240, 48, 4, 105, AttackStyle.Whip).Stats.Add(new StatMod(StatId.Dodge, 15));
-            // Glacier family
+            St(RunEnemy("cinder_hound", "Cinder Hound", 260, 52, 6, 115, AttackStyle.Claw), StatId.ComboChance, 15);
+            St(RunEnemy("ash_wraith", "Ash Wraith", 240, 48, 4, 105, AttackStyle.Whip), StatId.Dodge, 15);
             RunEnemy("frost_mite", "Frost Mite", 280, 44, 10, 100, AttackStyle.Claw, "enemy_chill");
             RunEnemy("ice_crawler", "Ice Crawler", 380, 40, 18, 80, AttackStyle.Drill, "enemy_harden");
-            RunEnemy("glacier_golem", "Glacier Golem", 520, 42, 24, 60, AttackStyle.Slam).Stats.Add(new StatMod(StatId.CounterChance, 12));
-            RunEnemy("snow_lurker", "Snow Lurker", 260, 55, 6, 120, AttackStyle.Claw).Stats.Add(new StatMod(StatId.CritChance, 15));
-            // Static family
+            St(RunEnemy("glacier_golem", "Glacier Golem", 520, 42, 24, 60, AttackStyle.Slam), StatId.CounterChance, 12);
+            P(St(RunEnemy("snow_lurker", "Snow Lurker", 260, 55, 6, 120, AttackStyle.Claw), StatId.CritChance, 15));
             RunEnemy("volt_beetle", "Volt Beetle", 340, 46, 14, 90, AttackStyle.Drill, "enemy_static");
             RunEnemy("static_eel", "Static Eel", 280, 50, 8, 110, AttackStyle.Whip, "enemy_static");
             RunEnemy("spark_drone", "Spark Drone", 180, 40, 4, 125, AttackStyle.Blaster);
-            RunEnemy("thunder_moth", "Thunder Moth", 250, 52, 6, 115, AttackStyle.Whip).Stats.Add(new StatMod(StatId.Dodge, 20));
-            // Burrow / Dark Side
-            RunEnemy("burrow_grub", "Burrow Grub", 360, 46, 12, 85, AttackStyle.Drill, "enemy_toxic");
-            RunEnemy("tunnel_stalker", "Tunnel Stalker", 300, 55, 8, 110, AttackStyle.Claw, "enemy_rend");
-            RunEnemy("void_spawn", "Void Spawn", 320, 56, 10, 100, AttackStyle.Whip, "enemy_toxic");
-            RunEnemy("null_shade", "Null Shade", 280, 60, 6, 120, AttackStyle.Claw, "enemy_rend").Stats.Add(new StatMod(StatId.Dodge, 18));
+            P(St(RunEnemy("thunder_moth", "Thunder Moth", 250, 52, 6, 115, AttackStyle.Whip), StatId.Dodge, 20));
+            RunEnemy("burrow_grub", "Burrow Grub", 340, 42, 12, 85, AttackStyle.Drill, "enemy_toxic");
+            RunEnemy("tunnel_stalker", "Tunnel Stalker", 290, 50, 8, 110, AttackStyle.Claw, "enemy_rend");
+            RunEnemy("void_spawn", "Void Spawn", 300, 48, 10, 100, AttackStyle.Whip, "enemy_toxic");
+            St(RunEnemy("null_shade", "Null Shade", 260, 54, 6, 120, AttackStyle.Claw, "enemy_rend"), StatId.Dodge, 18);
+            // new biome enemies (art pending)
+            P(St(RunEnemy("obsidian_crab", "Obsidian Crab", 400, 38, 18, 75, AttackStyle.Claw, "enemy_harden"), StatId.CounterChance, 10));
+            P(RunEnemy("gas_bloater", "Gas Bloater", 460, 32, 8, 70, AttackStyle.Slam, "enemy_burning_touch"));
+            P(St(RunEnemy("flare_ray", "Flare Ray", 250, 54, 6, 120, AttackStyle.Whip), StatId.CritChance, 15));
+            P(St(RunEnemy("rig_raider", "Rig Raider", 270, 52, 8, 110, AttackStyle.Blaster), StatId.ComboChance, 15));
+            P(St(RunEnemy("lantern_angler", "Lantern Angler", 270, 50, 8, 105, AttackStyle.Claw, "enemy_chill"), StatId.CritChance, 15));
+            P(St(RunEnemy("kelp_strangler", "Kelp Strangler", 400, 38, 16, 75, AttackStyle.Whip, "enemy_harden"), StatId.CounterChance, 12));
+            P(St(RunEnemy("hail_sprite", "Hail Sprite", 230, 50, 4, 115, AttackStyle.Blaster, "enemy_chill"), StatId.Dodge, 20));
+            P(St(RunEnemy("sky_ray", "Sky Ray", 240, 54, 4, 130, AttackStyle.Whip), StatId.CritChance, 15));
+            P(RunEnemy("security_bot", "Security Bot", 380, 40, 18, 80, AttackStyle.Blaster, "enemy_harden", "enemy_static"));
+            P(St(RunEnemy("lab_rat", "Lab Rat", 260, 52, 6, 115, AttackStyle.Claw), StatId.ComboChance, 15));
+            P(St(RunEnemy("snap_orchid", "Snap Orchid", 340, 42, 12, 80, AttackStyle.Whip, "enemy_static"), StatId.CounterChance, 15));
+            P(St(RunEnemy("spark_monkey", "Spark Monkey", 250, 54, 6, 120, AttackStyle.Claw), StatId.ComboChance, 15));
+            P(RunEnemy("rust_leech", "Rust Leech", 300, 48, 8, 100, AttackStyle.Whip, "enemy_toxic"));
+            P(St(RunEnemy("scrap_crab", "Scrap Crab", 400, 38, 18, 75, AttackStyle.Claw, "enemy_harden"), StatId.CounterChance, 10));
+            P(RunEnemy("bog_toad", "Bog Toad", 320, 44, 10, 90, AttackStyle.Slam, "enemy_toxic"));
+            P(St(RunEnemy("mire_gator", "Mire Gator", 340, 42, 14, 85, AttackStyle.Slam), StatId.CritChance, 15));
+            P(St(RunEnemy("sand_scarab", "Sand Scarab", 400, 38, 18, 75, AttackStyle.Drill, "enemy_harden"), StatId.CounterChance, 10));
+            P(RunEnemy("dune_serpent", "Dune Serpent", 260, 52, 6, 120, AttackStyle.Whip, "enemy_rend"));
+            P(RunEnemy("wrapped_husk", "Wrapped Husk", 320, 44, 10, 85, AttackStyle.Claw, "enemy_burning_touch", "enemy_enrage"));
+            P(RunEnemy("tusk_seal", "Tusk Seal", 380, 38, 14, 80, AttackStyle.Slam, "enemy_enrage"));
+            P(RunEnemy("shard_penguin", "Shard Penguin", 250, 52, 8, 120, AttackStyle.Claw, "enemy_chill"));
+            P(St(RunEnemy("puffer_mine", "Puffer Mine", 460, 30, 16, 70, AttackStyle.Slam), StatId.CounterChance, 20));
+            P(St(RunEnemy("spine_urchin", "Spine Urchin", 320, 44, 14, 80, AttackStyle.Drill, "enemy_rend"), StatId.CounterChance, 10));
+            P(St(RunEnemy("reef_shark", "Reef Shark", 260, 54, 6, 120, AttackStyle.Claw), StatId.CritChance, 15));
+            P(St(RunEnemy("neon_ganger", "Neon Ganger", 270, 52, 8, 110, AttackStyle.Claw), StatId.ComboChance, 15));
+            P(St(RunEnemy("holo_hound", "Holo Hound", 250, 52, 6, 115, AttackStyle.Claw), StatId.Dodge, 20));
+            P(RunEnemy("puffball", "Puffball", 220, 60, 6, 95, AttackStyle.Slam, "enemy_toxic"));
+            P(RunEnemy("myco_beetle", "Myco Beetle", 380, 38, 18, 80, AttackStyle.Drill, "enemy_harden"));
+            P(RunEnemy("shroom_walker", "Shroom Walker", 380, 38, 14, 80, AttackStyle.Slam, "enemy_enrage"));
+            P(St(RunEnemy("gummy_worm", "Gummy Worm", 270, 52, 8, 110, AttackStyle.Whip), StatId.ComboChance, 15));
+            P(RunEnemy("jelly_blob", "Jelly Blob", 380, 38, 16, 75, AttackStyle.Slam, "enemy_harden", "enemy_toxic"));
+            P(RunEnemy("candy_wasp", "Candy Wasp", 230, 56, 4, 130, AttackStyle.Drill, "enemy_toxic"));
+            P(RunEnemy("gingerbread_brute", "Gingerbread Brute", 380, 38, 14, 80, AttackStyle.Slam, "enemy_enrage"));
+            P(RunEnemy("tick_mite", "Tick Mite", 280, 46, 10, 100, AttackStyle.Claw, "enemy_time_snap"));
+            P(St(RunEnemy("crystal_bat", "Crystal Bat", 240, 54, 4, 120, AttackStyle.Whip), StatId.Dodge, 20));
+            P(St(RunEnemy("geode_crawler", "Geode Crawler", 400, 38, 18, 75, AttackStyle.Drill, "enemy_harden"), StatId.CounterChance, 12));
+            P(St(RunEnemy("cog_soldier", "Cog Soldier", 400, 38, 18, 75, AttackStyle.Blaster, "enemy_harden"), StatId.CounterChance, 12));
+            P(St(RunEnemy("steam_hound", "Steam Hound", 270, 52, 8, 110, AttackStyle.Claw), StatId.ComboChance, 15));
+            P(RunEnemy("spring_hopper", "Spring Hopper", 240, 56, 6, 135, AttackStyle.Slam));
+            P(RunEnemy("stasis_drone", "Stasis Drone", 260, 50, 8, 105, AttackStyle.Blaster, "enemy_chill"));
+            P(St(RunEnemy("chrome_sentry", "Chrome Sentry", 400, 38, 18, 75, AttackStyle.Blaster), StatId.CounterChance, 15));
 
-            // Elites
+            // Elites (about the elite budget; minibosses are drawn from a biome's elites, so each biome fields at least two)
             RunMakeElite(RunEnemy("elite_lava_brute", "Lava Brute", 950, 72, 22, 80, AttackStyle.Slam, "enemy_burning_touch", "enemy_enrage"));
             RunMakeElite(RunEnemy("elite_frost_knight", "Frost Knight", 900, 66, 30, 85, AttackStyle.Drill, "enemy_chill", "enemy_harden"));
             RunMakeElite(RunEnemy("elite_storm_caller", "Storm Caller", 820, 74, 18, 105, AttackStyle.Blaster, "enemy_static", "enemy_stun_slam"));
-            RunMakeElite(RunEnemy("elite_void_reaver", "Void Reaver", 980, 80, 20, 100, AttackStyle.Claw, "enemy_rend", "enemy_enrage"));
-            RunMakeElite(RunEnemy("elite_rift_echo", "Rift Echo", 1000, 78, 24, 100, AttackStyle.Cannon, "enemy_stun_slam"));
-            RunMakeElite(RunEnemy("elite_burrow_horror", "Burrow Horror", 1100, 70, 26, 75, AttackStyle.Slam, "enemy_toxic", "enemy_enrage"));
+            RunMakeElite(RunEnemy("elite_void_reaver", "Void Reaver", 950, 72, 20, 100, AttackStyle.Claw, "enemy_rend", "enemy_enrage"));
+            RunMakeElite(RunEnemy("elite_rift_echo", "Rift Echo", 950, 72, 24, 100, AttackStyle.Cannon, "enemy_stun_slam"));
+            RunMakeElite(RunEnemy("elite_burrow_horror", "Burrow Horror", 1000, 68, 26, 75, AttackStyle.Slam, "enemy_toxic", "enemy_enrage"));
+            St(RunMakeElite(RunEnemy("elite_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend")), StatId.ComboChance, 15);
+            St(RunMakeElite(RunEnemy("elite_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden")), StatId.Dodge, 10);
+            St(RunMakeElite(RunEnemy("elite_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam")), StatId.CounterChance, 12);
+            St(RunMakeElite(RunEnemy("elite_lurker_alpha", "Lurker Alpha", 840, 70, 24, 100, AttackStyle.Claw, "enemy_chill", "enemy_enrage")), StatId.CritChance, 10);
+            St(RunMakeElite(RunEnemy("elite_volt_monarch", "Volt Monarch", 880, 70, 22, 95, AttackStyle.Drill, "enemy_static", "enemy_harden")), StatId.CounterChance, 10);
+            P(St(RunMakeElite(RunEnemy("elite_eel_tyrant", "Eel Tyrant", 780, 78, 16, 110, AttackStyle.Whip, "enemy_static", "enemy_rend"), "static_eel"), StatId.Dodge, 10));
+            St(RunMakeElite(RunEnemy("elite_null_wraith", "Null Wraith", 880, 78, 18, 110, AttackStyle.Claw, "enemy_rend", "enemy_toxic")), StatId.Dodge, 12);
+            St(RunMakeElite(RunEnemy("elite_grub_mother", "Grub Mother", 1060, 64, 28, 70, AttackStyle.Slam, "enemy_toxic", "enemy_harden")), StatId.CounterChance, 10);
+            St(RunMakeElite(RunEnemy("elite_stalker_prime", "Stalker Prime", 950, 72, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage")), StatId.CritChance, 10);
+            // new biome elites (art pending)
+            P(RunMakeElite(RunEnemy("elite_bloat_captain", "Bloat Captain", 1000, 68, 20, 80, AttackStyle.Slam, "enemy_burning_touch", "enemy_enrage")));
+            P(St(RunMakeElite(RunEnemy("elite_trench_crusher", "Trench Crusher", 1000, 66, 30, 75, AttackStyle.Slam, "enemy_stun_slam")), StatId.CounterChance, 12));
+            P(St(RunMakeElite(RunEnemy("elite_canopy_stalker", "Canopy Stalker", 860, 78, 18, 110, AttackStyle.Claw, "enemy_static")), StatId.CritChance, 15));
+            P(St(RunMakeElite(RunEnemy("elite_obelisk_guardian", "Obelisk Guardian", 1040, 64, 32, 65, AttackStyle.Slam, "enemy_stun_slam")), StatId.CounterChance, 12));
+            P(RunMakeElite(RunEnemy("elite_walrus_warlord", "Walrus Warlord", 1000, 66, 28, 75, AttackStyle.Slam, "enemy_stun_slam", "enemy_harden")));
+            P(St(RunMakeElite(RunEnemy("elite_reef_guardian", "Reef Guardian", 1080, 62, 32, 65, AttackStyle.Slam, "enemy_harden")), StatId.CounterChance, 15));
+            P(RunMakeElite(RunEnemy("elite_chrome_enforcer", "Chrome Enforcer", 980, 68, 28, 80, AttackStyle.Blaster, "enemy_harden", "enemy_stun_slam")));
+            P(RunMakeElite(RunEnemy("elite_mycelium_knight", "Mycelium Knight", 980, 68, 26, 80, AttackStyle.Drill, "enemy_toxic", "enemy_harden")));
+            P(St(RunMakeElite(RunEnemy("elite_licorice_lasher", "Licorice Lasher", 880, 76, 18, 105, AttackStyle.Whip, "enemy_rend")), StatId.Dodge, 10));
+            P(RunMakeElite(RunEnemy("elite_gumball_golem", "Gumball Golem", 1060, 64, 30, 65, AttackStyle.Slam, "enemy_harden", "enemy_stun_slam")));
+            P(St(RunMakeElite(RunEnemy("elite_shard_golem", "Shard Golem", 1060, 64, 30, 65, AttackStyle.Slam, "enemy_harden")), StatId.CounterChance, 15));
+            P(RunMakeElite(RunEnemy("elite_clockwork_knight", "Clockwork Knight", 980, 68, 26, 85, AttackStyle.Drill, "enemy_time_snap", "enemy_harden")));
+            P(St(RunMakeElite(RunEnemy("elite_cryo_captain", "Cryo Captain", 900, 74, 20, 95, AttackStyle.Blaster, "enemy_time_snap")), StatId.CritChance, 10));
 
-            // More elites per biome (playtest 0.1.359: every lair held the same miniboss), so the biome's elite fights and its lairs
-            // (minibosses are drawn from the elite pool) vary: on the biome's first elite's stat budget (HP x ATK within a few %),
-            // each with its own kit and trait; drawn with a regular enemy's sprite of the biome (ArtId, elite scale) until they
-            // get their own art (art import 5: cinder_alpha, ash_matriarch, glacier_warden and stalker_prime have theirs).
-            RunMakeElite(RunEnemy("elite_cinder_alpha", "Cinder Alpha", 900, 76, 18, 95, AttackStyle.Claw, "enemy_burning_touch", "enemy_rend")).Stats.Add(new StatMod(StatId.ComboChance, 15));
-            RunMakeElite(RunEnemy("elite_ash_matriarch", "Ash Matriarch", 980, 70, 20, 85, AttackStyle.Whip, "enemy_burning_touch", "enemy_harden")).Stats.Add(new StatMod(StatId.Dodge, 10));
-            RunMakeElite(RunEnemy("elite_glacier_warden", "Glacier Warden", 960, 62, 32, 75, AttackStyle.Slam, "enemy_chill", "enemy_stun_slam")).Stats.Add(new StatMod(StatId.CounterChance, 12));
-            RunMakeElite(RunEnemy("elite_lurker_alpha", "Lurker Alpha", 840, 70, 24, 100, AttackStyle.Claw, "enemy_chill", "enemy_enrage"), "snow_lurker").Stats.Add(new StatMod(StatId.CritChance, 10));
-            RunMakeElite(RunEnemy("elite_volt_monarch", "Volt Monarch", 880, 70, 22, 95, AttackStyle.Drill, "enemy_static", "enemy_harden"), "volt_beetle").Stats.Add(new StatMod(StatId.CounterChance, 10));
-            RunMakeElite(RunEnemy("elite_eel_tyrant", "Eel Tyrant", 780, 78, 16, 110, AttackStyle.Whip, "enemy_static", "enemy_rend"), "static_eel").Stats.Add(new StatMod(StatId.Dodge, 10));
-            RunMakeElite(RunEnemy("elite_null_wraith", "Null Wraith", 940, 84, 18, 110, AttackStyle.Claw, "enemy_rend", "enemy_toxic"), "null_shade").Stats.Add(new StatMod(StatId.Dodge, 12));
-            RunMakeElite(RunEnemy("elite_grub_mother", "Grub Mother", 1160, 66, 28, 70, AttackStyle.Slam, "enemy_toxic", "enemy_harden"), "burrow_grub").Stats.Add(new StatMod(StatId.CounterChance, 10));
-            RunMakeElite(RunEnemy("elite_stalker_prime", "Stalker Prime", 1000, 76, 22, 95, AttackStyle.Claw, "enemy_rend", "enemy_enrage")).Stats.Add(new StatMod(StatId.CritChance, 10));
-
-            // RunBosses
+            // Bosses (about the boss budget). The four invasion bosses double as biome bosses; invasions keep them (LiveOps
+            // InvasionDef.BossId, fought with BattleSimulator.PlayerVsBoss, scaled by invader power with the group's HP pool).
             RunMakeBoss(RunEnemy("boss_magma_tyrant", "Magma Tyrant", 1900, 70, 22, 95, AttackStyle.Slam, "boss_magma_eruption"));
             RunMakeBoss(RunEnemy("boss_frost_leviathan", "Frost Leviathan", 2100, 66, 28, 90, AttackStyle.Whip, "boss_frost_tide"));
             RunMakeBoss(RunEnemy("boss_storm_hive", "Storm Hive Queen", 1800, 72, 20, 110, AttackStyle.Blaster, "boss_hive_swarm"));
-            RunMakeBoss(RunEnemy("boss_void_maw", "Void Maw", 2300, 78, 26, 100, AttackStyle.Cannon, "boss_void_hunger"));
-
-            // Invaders (LiveOps InvasionDef.BossId): fought by the server with BattleSimulator.PlayerVsBoss; the
-            // server scales them by invader power and gives them the group's remaining HP pool.
-            RunMakeBoss(RunEnemy("boss_gloop_matriarch", "Gloop Matriarch", 2400, 64, 24, 85, AttackStyle.Slam, "enemy_toxic"));
-            RunMakeBoss(RunEnemy("boss_rust_queen", "Rust Queen", 2200, 74, 30, 95, AttackStyle.Claw, "enemy_rend"));
-            RunMakeBoss(RunEnemy("boss_hollow_cantor", "Hollow Cantor", 2000, 80, 20, 105, AttackStyle.Blaster, "boss_void_hunger"));
-            RunMakeBoss(RunEnemy("boss_prism_tyrant", "Prism Tyrant", 2600, 70, 32, 90, AttackStyle.Cannon, "enemy_stun_slam"));
+            RunMakeBoss(RunEnemy("boss_void_maw", "Void Maw", 1900, 70, 26, 100, AttackStyle.Cannon, "boss_void_hunger"));
+            RunMakeBoss(RunEnemy("boss_gloop_matriarch", "Gloop Matriarch", 2100, 64, 24, 85, AttackStyle.Slam, "boss_toxic_flood"));
+            RunMakeBoss(RunEnemy("boss_rust_queen", "Rust Queen", 1950, 70, 30, 95, AttackStyle.Claw, "boss_salvage"));
+            RunMakeBoss(P(RunEnemy("boss_hollow_cantor", "Hollow Cantor", 1900, 70, 20, 105, AttackStyle.Blaster, "boss_feedback_song")));
+            RunMakeBoss(RunEnemy("boss_prism_tyrant", "Prism Tyrant", 2000, 68, 32, 90, AttackStyle.Cannon, "boss_refraction"));
+            RunMakeBoss(RunEnemy("boss_elder_magma", "Elder Magma", 1950, 70, 22, 95, AttackStyle.Slam, "boss_molten_core"));
+            RunMakeBoss(RunEnemy("boss_chrono_wyrm", "Chrono Wyrm", 1950, 70, 24, 100, AttackStyle.Whip, "boss_rewind"));
+            RunMakeBoss(P(RunEnemy("boss_flare_medusa", "Flare Medusa", 1850, 72, 18, 105, AttackStyle.Whip, "boss_ignition")));
+            RunMakeBoss(P(RunEnemy("boss_scarab_sun_king", "Scarab Sun-King", 2000, 68, 28, 90, AttackStyle.Slam, "boss_sun_glare")));
+            RunMakeBoss(P(St(RunEnemy("boss_hailwing_roc", "Hailwing Roc", 1800, 75, 18, 115, AttackStyle.Claw), StatId.Dodge, 25)));
+            RunMakeBoss(P(RunEnemy("boss_tusk_colossus", "Tusk Colossus", 2100, 64, 30, 80, AttackStyle.Slam, "boss_ice_armor")));
+            RunMakeBoss(P(RunEnemy("boss_tide_hydra", "Tide Hydra", 2000, 68, 24, 95, AttackStyle.Whip, "boss_regrow")));
+            RunMakeBoss(P(RunEnemy("boss_volt_orchid", "Volt Orchid", 1900, 70, 20, 95, AttackStyle.Whip, "boss_lure")));
+            RunMakeBoss(P(RunEnemy("boss_spore_monarch", "Spore Monarch", 2000, 68, 24, 90, AttackStyle.Slam, "boss_spore_cloud")));
+            RunMakeBoss(P(RunEnemy("boss_bonbon_behemoth", "Bonbon Behemoth", 2100, 64, 26, 85, AttackStyle.Slam, "boss_sugar_rush")));
+            RunMakeBoss(P(RunEnemy("boss_stasis_warden", "Stasis Warden", 2000, 68, 26, 95, AttackStyle.Cannon, "boss_time_stop")));
         }
 
         /// <summary>Makes an enemy an elite; <paramref name="artId"/> = the sprite it is drawn with until it has its own (EnemyDef.ArtId).</summary>
@@ -242,21 +320,18 @@ namespace RogueStars.Rules.Content
             return e;
         }
 
-        private static void RunMakeBoss(EnemyDef e)
+        private static EnemyDef RunMakeBoss(EnemyDef e)
         {
             e.Boss = true; e.Xp = 40; e.Coins = 40;
             e.Stats.Add(new StatMod(StatId.CritChance, 10));
             e.Stats.Add(new StatMod(StatId.StatusResist, 25));
             e.Stats.Add(new StatMod(StatId.CritResist, 20));
+            return e;
         }
 
         private void RunBuildBosses()
         {
-            RunBoss("boss_magma_tyrant", "Magma Tyrant", "boss_magma_tyrant", new[] { "bt_magma_vent", "bt_cooling_pool", "bt_tyrant_shrine" }, "ember_imp");
-            RunBoss("boss_frost_leviathan", "Frost Leviathan", "boss_frost_leviathan", new[] { "bt_frozen_heart", "bt_thaw_beacon", "bt_leviathan_tribute" }, "frost_mite");
-            RunBoss("boss_storm_hive", "Storm Hive Queen", "boss_storm_hive", new[] { "bt_hive_node", "bt_grounding_rod", "bt_hive_tribute" }, "spark_drone");
-            RunBoss("boss_void_maw", "Void Maw", "boss_void_maw", new[] { "bt_void_rift", "bt_seal_stone", "bt_void_tribute" }, "void_spawn");
-            CampaignBuildBossVariants();
+            CampaignBuildBosses(); // every campaign boss: its board kit, its own boss tiles, its endless variants
         }
 
         private BossDef RunBoss(string id, string name, string enemyId, string[] tiles, string escort, string hazard = "hazard_spikes")
@@ -318,27 +393,13 @@ namespace RogueStars.Rules.Content
             var cp = RunTile("coin_pickup", "Coin Cluster", TileCategory.Pickup, TileValence.Positive); cp.TriggersOnPass = true; cp.Coins = 15;
             var gate = RunTile("boss_gate", "Boss Arena", TileCategory.BossGate, TileValence.Boss); gate.Consumable = false; gate.Once = true;
 
-            // Dedicated boss tiles: meter +/- and boss buffs (risk/reward: tributes pay coins but feed the boss).
-            RunBossTile("bt_magma_vent", "Magma Vent", 10, 4, 0);
-            RunBossTile("bt_cooling_pool", "Cooling Pool", -10, 0, 0);
-            RunBossTile("bt_tyrant_shrine", "Tyrant Shrine", 5, 6, 30);
-            RunBossTile("bt_frozen_heart", "Frozen Heart", 10, 4, 0);
-            RunBossTile("bt_thaw_beacon", "Thaw Beacon", -10, 0, 0);
-            RunBossTile("bt_leviathan_tribute", "Leviathan Tribute", 5, 6, 30);
-            RunBossTile("bt_hive_node", "Hive Node", 10, 4, 0);
-            RunBossTile("bt_grounding_rod", "Grounding Rod", -10, 0, 0);
-            RunBossTile("bt_hive_tribute", "Hive Tribute", 5, 6, 30);
-            RunBossTile("bt_void_rift", "Void Rift", 12, 5, 0);
-            RunBossTile("bt_seal_stone", "Seal Stone", -10, 0, 0);
-            RunBossTile("bt_void_tribute", "Void Tribute", 6, 8, 40);
+            // Dedicated boss tiles (feed / relief / tribute, named for each campaign boss): ContentDb.CampaignBuildBosses.
 
             TilePools["pool_standard"] = RunStandardPool(1.0, 1.0);
-            TilePools["pool_ember"] = RunStandardPool(1.0, 1.0);
-            TilePools["pool_glacier"] = RunStandardPool(1.1, 1.0);
-            TilePools["pool_static"] = RunStandardPool(1.2, 1.1);
+            // every main level: one pool (no biome is harder or easier; the old family pools averaged 1.14 enemy / 1.08 negative weight)
+            TilePools[Campaign.MainPool] = RunStandardPool(1.1, 1.05);
             TilePools["pool_burrow"] = RunStandardPool(1.3, 1.4);
             TilePools["pool_dark"] = RunStandardPool(1.5, 1.5);
-            TilePools["pool_void"] = RunStandardPool(1.25, 1.2);
             // The tutorial run (main level 1, GDD §16): roll, fight, level up, pick skills, beat the boss. Nothing else on
             // the board: no events, elites, hazards, debuffs, treasure or campfires.
             TilePools[Campaign.TutorialPool] = new List<WeightedId>

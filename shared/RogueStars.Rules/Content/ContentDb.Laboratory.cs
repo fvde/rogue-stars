@@ -22,31 +22,17 @@ namespace RogueStars.Rules.Content
         {
             const string Off = "offense", Def = "defense", Ele = "elements", Cmd = "command";
             LabPrereq[] Any(params string[] ids) { var l = new LabPrereq[ids.Length]; for (int i = 0; i < ids.Length; i++) l[i] = new LabPrereq(ids[i], 2); return l; }
-            LabPrereq[] Pkg(string id) => new[] { new LabPrereq(id, 1) };
 
-            // ---- signature packages (signatures pass): each unlocks a synergy for every run: its signature, its 2 Common +
-            // 2 Legendary run skills and its Mythics. Fire, Radiation and Bleed are open from the start. A chain: Combo comes with the
-            // Laboratory, each next one needs the previous package, a stat node at level 2 and its own level unlock (GDD §16:
-            // package_ice … package_time; the Alien package's level comes after Aliens, Command needs a squad). That synergy's lab
-            // skill nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) need its package.
-            LabPackage("pkg_combo", "Combo Package", SkillFamily.Combo, "sig_combo", 1, null);
-            LabPackage("pkg_ice", "Ice Package", SkillFamily.Ice, "sig_ice", 2, new[] { new LabPrereq("pkg_combo", 1), new LabPrereq("lab_atk_1", 2) })
-                .RequiresFeature = Features.PackageIce;
-            LabPackage("pkg_lightning", "Lightning Package", SkillFamily.Lightning, "sig_lightning", 3, new[] { new LabPrereq("pkg_ice", 1), new LabPrereq("lab_hp_1", 2) })
-                .RequiresFeature = Features.PackageLightning;
-            LabPackage("pkg_counter", "Counter Package", SkillFamily.Counter, "sig_counter", 4, new[] { new LabPrereq("pkg_lightning", 1), new LabPrereq("lab_def_1", 2) })
-                .RequiresFeature = Features.PackageCounter;
-            LabPackage("pkg_alien", "Alien Package", SkillFamily.AlienSynergy, "sig_alien", 5, new[] { new LabPrereq("pkg_counter", 1), new LabPrereq("lab_alien_power_1", 2) })
-                .RequiresFeature = Features.PackageAlien;
-            // skill redesign (R13): Time comes last in the chain (after Alien), with a defense stat node at level 2
-            LabPackage("pkg_time", "Time Package", SkillFamily.Time, "sig_time", 6, new[] { new LabPrereq("pkg_alien", 1), new LabPrereq("lab_def_1", 2) })
-                .RequiresFeature = Features.PackageTime;
+            // The signature packages are gone (biome design, 2026-11-28): signatures unlock by campaign level (CampaignDef.SignatureUnlocks).
+            // Each synergy's lab skill nodes (Chain Strikes, Frost Nova, Overload, Knockout, Bulwark, Pack Tactics) hang off the
+            // neighbouring stat nodes and need that synergy's level unlock (RequiresFeature; Combo is a start synergy: none).
+            LabResearchDef Gate(string id, string feature) { var d = LabResearch[id]; d.RequiresFeature = feature; return d; }
 
             // ---- offense ----
             RunLab("res_eagle_eye", "Eagle Eye", true, SkillFamily.None, Rarity.Rare, Off, 1, null, false, (b, lv) =>
                 b.Desc("+crit chance and crit damage.").Stat(StatId.CritChance, 8 + 2 * lv).Stat(StatId.CritDamage, 10 + 5 * lv));
             LabStat("lab_atk_1", "Servo Muscles", Off, 1, StatId.Atk, true, 1, null, false);
-            RunLab("res_chain_strikes", "Chain Strikes", true, SkillFamily.Combo, Rarity.Rare, Off, 2, Pkg("pkg_combo"), true, (b, lv) =>
+            RunLab("res_chain_strikes", "Chain Strikes", true, SkillFamily.Combo, Rarity.Rare, Off, 2, Any("res_eagle_eye", "lab_atk_1"), false, (b, lv) =>
                 b.Desc("+combo chance.").Stat(StatId.ComboChance, 5 + 5 * lv));
             LabStat("lab_crit_chance", "Targeting Lenses", Off, 2, StatId.CritChance, false, 1, Any("res_eagle_eye", "lab_atk_1"), false);
             LabStat("lab_rage_gain", "Adrenal Pump", Off, 2, StatId.RageGain, false, 2, Any("res_eagle_eye", "lab_atk_1"), false);
@@ -73,12 +59,12 @@ namespace RogueStars.Rules.Content
             LabStat("lab_hp_1", "Dense Tissue", Def, 1, StatId.Hp, true, 1, null, false);
             // CC pass (owner): Retaliation → Knockout (ids kept): only the stun, 10% → 15% → 20% in-run at research I, research V
             // 14% → 21% → 28%; one of the two Commons allowed to crowd-control (ContentValidationTests)
-            RunLab("res_retaliation", "Knockout", false, SkillFamily.Counter, Rarity.Rare, Def, 2, Pkg("pkg_counter"), true, (b, lv) =>
+            RunLab("res_retaliation", "Knockout", false, SkillFamily.Counter, Rarity.Rare, Def, 2, Any("res_second_wind", "lab_hp_1"), false, (b, lv) =>
                 b.Desc("Counterattacks may stun.")
                  .Add(Tg(TriggerKind.OnCounter, EffectKind.ApplyStatus, status: StatusId.Stun, chance: 9 + lv, step: (9 + lv) / 2.0))
                  .Text("Counterattacks: {c0}% chance to stun."));
             LabStat("lab_def_1", "Chitin Plating", Def, 2, StatId.Def, true, 1, Any("res_second_wind", "lab_hp_1"), false);
-            RunLab("res_bulwark", "Bulwark Protocol", false, SkillFamily.Counter, Rarity.Epic, Def, 3, Pkg("pkg_counter"), true, (b, lv) =>
+            RunLab("res_bulwark", "Bulwark Protocol", false, SkillFamily.Counter, Rarity.Epic, Def, 3, Any("res_retaliation", "lab_def_1"), false, (b, lv) =>
                 b.Desc("Battle start: a shield; counters may refresh it.").On(TriggerKind.OnBattleStart, EffectKind.Shield, 6 + 4 * lv, TargetKind.Self)
                  .On(TriggerKind.OnCounter, EffectKind.Shield, 2 * lv, TargetKind.Self, 50)); // parry removed: was on parry
             LabStat("lab_dodge", "Blink Glands", Def, 3, StatId.Dodge, false, 1, Any("res_retaliation", "lab_def_1"), false);
@@ -93,12 +79,12 @@ namespace RogueStars.Rules.Content
             RunLab("res_burning_soul", "Burning Soul", false, SkillFamily.Fire, Rarity.Epic, Ele, 1, null, false, (b, lv) =>
                 b.Desc("Battle start: heat all enemies.").Status(TriggerKind.OnBattleStart, 100, StatusId.Heat, 1 + lv, TargetKind.AllEnemies));
             // CC pass (owner): a critical rage attack casts Frost Nova; research and in-run levels raise its damage, never the freeze
-            RunLab("res_frost_nova", "Frost Nova", false, SkillFamily.Ice, Rarity.Epic, Ele, 1, Pkg("pkg_ice"), true, (b, lv) =>
+            RunLab("res_frost_nova", "Frost Nova", false, SkillFamily.Ice, Rarity.Epic, Ele, 1, null, false, (b, lv) =>
                 b.Desc("A critical rage attack casts Frost Nova.")
                  .Add(Tg(TriggerKind.OnRageAttack, EffectKind.ApplyStatus, target: TargetKind.AllEnemies, @if: "rage_crit", status: StatusId.Freeze, grow: GrowKind.Fixed))
                  .Add(Tg(TriggerKind.OnRageAttack, EffectKind.Damage, 50 + 10 * lv, TargetKind.AllEnemies, "rage_crit"))
                  .Text("If your rage attack crits, cast Frost Nova: Freeze all enemies and deal {v1}% ATK to each."));
-            RunLab("res_overload", "Overload", false, SkillFamily.Lightning, Rarity.Epic, Ele, 2, Pkg("pkg_lightning"), true, (b, lv) =>
+            RunLab("res_overload", "Overload", false, SkillFamily.Lightning, Rarity.Epic, Ele, 2, Any("res_burning_soul", "res_frost_nova"), false, (b, lv) =>
                 b.Desc("Crits shock all enemies.").Status(TriggerKind.OnCrit, 40 + 10 * lv, StatusId.Shock, 1, TargetKind.AllEnemies));
             LabElementStat("lab_thermal_mastery", "Thermal Mastery", 2, new[] { StatId.FireDamage, StatId.IceDamage }, Any("res_burning_soul", "res_frost_nova"));
             LabElementStat("lab_volatile_mastery", "Volatile Mastery", 2, new[] { StatId.LightningDamage, StatId.PoisonDamage, StatId.BleedDamage }, Any("res_burning_soul", "res_frost_nova"));
@@ -123,7 +109,7 @@ namespace RogueStars.Rules.Content
                  .Text("Every {v0} stacks of a status you inflict: later enemies of this run begin with 1 more stack of it."));
 
             // ---- command (squad, mount, loot) ----
-            RunLab("res_pack_tactics", "Pack Tactics", false, SkillFamily.AlienSynergy, Rarity.Epic, Cmd, 1, Pkg("pkg_alien"), true, (b, lv) =>
+            RunLab("res_pack_tactics", "Pack Tactics", false, SkillFamily.AlienSynergy, Rarity.Epic, Cmd, 1, null, false, (b, lv) =>
                 b.Desc("Sidekicks +power; each sidekick action gives the worm rage.").Stat(StatId.AlienPower, 15 * lv)
                  .On(TriggerKind.OnSidekickAct, EffectKind.GainRage, 5 + 5 * lv, TargetKind.Worm));
             LabStat("lab_alien_power_1", "Hive Linguistics", Cmd, 1, StatId.AlienPower, false, 1, null, false);
@@ -134,21 +120,12 @@ namespace RogueStars.Rules.Content
                 b.Desc("Rolls may grant an extra die next roll.").Board(TriggerKind.OnRoll, EffectKind.ExtraDice, 1, null, 10 + 10 * lv));
             LabStat("lab_mount_power", "Hangar Tuning", Cmd, 3, StatId.MountPower, false, 1, Any("res_lucky_dice", "lab_loot_luck"), false);
             LabStat("lab_alien_power_2", "Symbiont Bond", Cmd, 4, StatId.AlienPower, false, 1, Any("lab_mount_power"), false);
-        }
 
-        /// <summary>
-        /// Package node (one level): unlocks <paramref name="family"/> for the run pool; its level 1 "skill" is the signature.
-        /// Description: "Ice package: Chill + 7 skills".
-        /// </summary>
-        private LabResearchDef LabPackage(string id, string name, SkillFamily family, string signatureId, int tier, LabPrereq[] requires)
-        {
-            var def = NewLabNode(id, name, LabNodeKind.Package, "packages", tier, requires, true, false);
-            def.Family = family;
-            def.Levels.Add(new LabLevelDef { SkillId = signatureId });
-            int n = 0;
-            foreach (var s in Skills.Values) if (s.Family == family && s.Source == SkillSource.Run && s.Draftable) n++;
-            def.Description = SkillText.FamilyName(family) + " package: " + Skills[signatureId].Name + " + " + n + " skills.";
-            return def;
+            Gate("res_frost_nova", Features.SignatureIce);
+            Gate("res_overload", Features.SignatureLightning);
+            Gate("res_retaliation", Features.SignatureCounter);
+            Gate("res_bulwark", Features.SignatureCounter);
+            Gate("res_pack_tactics", Features.SignatureAlien);
         }
 
         /// <summary>Research levels per laboratory node.</summary>

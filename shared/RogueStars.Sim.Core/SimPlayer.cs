@@ -108,9 +108,6 @@ namespace RogueStars.Sim
                 foreach (var kv in S.Onboarding.Unlocked)
                     if (!Unlocks.ContainsKey(kv.Key))
                         Unlocks[kv.Key] = ((int)Requirements.AccountAgeDays(S, C, kv.Value) + 1, S.Counter(Requirements.MainLevelCounter), MinutesPlayed, RunsPlayed);
-            foreach (var kv in S.Lab.Entries) // synergy packages researched (signatures pass): recorded like feature unlocks
-                if (kv.Value.Level > 0 && !Unlocks.ContainsKey(kv.Key) && C.LabNode(kv.Key)?.Kind == LabNodeKind.Package)
-                    Unlocks[kv.Key] = (DayIndex + 1, S.Counter(Requirements.MainLevelCounter), MinutesPlayed, RunsPlayed);
             for (int i = 0; i < Tracked.Length; i++)
             {
                 long d = S.Wallet.Get(Tracked[i]) - _before[i];

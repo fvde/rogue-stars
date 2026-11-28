@@ -16,6 +16,8 @@ public class MultiSignatureTests
     private static GameState RunWith(GameEngine e, string signature, long seed = 3)
     {
         var s = TestHelpers.NewPlayer(e, seed);
+        // 3 of the 4 start signatures are offered per run: the next run whose offer has it
+        while (!RunSystem.SignatureOffer(e, s, TestHelpers.T0).Contains(signature)) s.Run.RunsStarted++;
         Assert.True(RunTestKit.Exec(e, ref s, new RunStart { LevelId = "main_1", SignatureId = signature }).Ok);
         return s;
     }
@@ -98,7 +100,7 @@ public class MultiSignatureTests
             Assert.Equal(C.RunTuning.MythicChoices, run.DraftOffer.Count);
             if (sigs.Count == 0) continue;
             offers++;
-            Assert.Contains(sigs[0], new[] { "sig_radiation", "sig_bleed" }); // only unlocked (starter) synergies, never the owned one
+            Assert.Contains(sigs[0], new[] { "sig_radiation", "sig_bleed", "sig_combo" }); // only unlocked (starter) synergies, never the owned one
         }
         double share = offers / (double)total;
         Assert.InRange(share, 0.12, 0.40);

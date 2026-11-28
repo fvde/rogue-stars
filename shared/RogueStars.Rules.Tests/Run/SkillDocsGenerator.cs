@@ -45,8 +45,8 @@ public class SkillDocsGenerator
         sb.AppendLine("|---|---|---|---|---|---|");
         foreach (var s in c.Skills.Values.Where(x => x.Signature).OrderBy(x => c.RunTuning.StarterSynergies.Contains(x.Family) ? 0 : 1).ThenBy(x => x.Id, StringComparer.Ordinal))
         {
-            var pkg = c.LabResearch.Values.FirstOrDefault(d => d.Kind == LabNodeKind.Package && d.Family == s.Family);
-            sb.AppendLine($"| {s.Name} | `{s.Id}` | {SkillText.FamilyName(s.Family)} | {(pkg == null ? "start" : pkg.Name)} | {SkillText.Full(s)} | "
+            var unlock = c.Campaign.SignatureUnlocks.FirstOrDefault(u => u.Family == s.Family);
+            sb.AppendLine($"| {s.Name} | `{s.Id}` | {SkillText.FamilyName(s.Family)} | {(unlock == null ? "start" : "level " + unlock.Level)} | {SkillText.Full(s)} | "
                 + string.Join(" ", SkillText.Awakenings(c, s).Select(l => l.Substring(l.IndexOf(':') + 2))) + " |");
         }
         sb.AppendLine();

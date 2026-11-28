@@ -11,7 +11,7 @@ namespace RogueStars.Client.Screens
 {
     /// <summary>
     /// The whole laboratory as one research tree (L1). Rows = dependency depth (a node sits one row below its deepest
-    /// prerequisite, across branches); columns = one lane per branch (synergy packages, offense, defense, elements, command),
+    /// prerequisite, across branches); columns = one lane per branch (offense, defense, elements, command),
     /// each lane as wide as its fullest row. Nodes snap to a grid, so the gaps between grid columns and rows are free
     /// channels for the connecting lines. Inside a lane, rows are ordered by the barycentre of their prerequisites and
     /// dependants (a few sweeps) to cut crossings. Coordinates: top-left origin, y down, in UI units.
@@ -28,9 +28,9 @@ namespace RogueStars.Client.Screens
         /// <summary>Every prerequisite edge (from prerequisite to node), across branches too.</summary>
         public readonly List<KeyValuePair<string, string>> Edges = new List<KeyValuePair<string, string>>();
 
-        private static readonly string[] BranchOrder = { "packages", "offense", "defense", "elements", "command" };
+        private static readonly string[] BranchOrder = { "offense", "defense", "elements", "command" };
 
-        /// <summary>Branches: the synergy packages first, then the GDD order (offense, defense, elements, command), unknown ones after them.</summary>
+        /// <summary>Branches in the GDD order (offense, defense, elements, command), unknown ones after them (no package lane: signatures unlock by level).</summary>
         public static List<string> Branches(ContentDb c)
         {
             var list = new List<string>();
@@ -207,7 +207,7 @@ namespace RogueStars.Client.Screens
             PlayResearchDone(e.Args[0]);
             return true;
         }
-        public override string[] IntroFeatures => new[] { Features.Laboratory, Features.PackageIce, Features.PackageLightning, Features.PackageCounter, Features.PackageAlien, Features.PackageTime };
+        public override string[] IntroFeatures => new[] { Features.Laboratory };
 
         /// <summary>Last built layout (tests).</summary>
         public LabTreeLayout Layout { get; private set; }
@@ -254,7 +254,7 @@ namespace RogueStars.Client.Screens
             });
         }
 
-        /// <summary>Pans the tree to a branch's lane ("packages", "offense" …; tests and deep links).</summary>
+        /// <summary>Pans the tree to a branch's lane ("offense", "defense" …; tests and deep links).</summary>
         public void ShowBranch(string branch)
         {
             var layout = Layout ?? LabTreeLayout.Build(Content);
@@ -360,12 +360,11 @@ namespace RogueStars.Client.Screens
         {
             if (def == null) return Theme.Panel;
             if (def.Kind == LabNodeKind.Stat) return StatColor;
-            if (def.Kind == LabNodeKind.Package) return Theme.FamilyColor(def.Family);
             var sk = def.Levels.Count > 0 ? Content.Skill(def.Levels[0].SkillId) : null;
             return Theme.FamilyColor(sk?.Family ?? SkillFamily.None);
         }
 
-        private static string LaneName(string branch) => branch == "packages" ? "Synergy packages" : Fmt.Humanize(branch);
+        private static string LaneName(string branch) => Fmt.Humanize(branch);
 
         private string BranchProgress(string branch)
         {
@@ -497,15 +496,6 @@ namespace RogueStars.Client.Screens
             }
         }
 
-        /// <summary>"Chill + 7 skills": the package's signature and how many run skills it brings.</summary>
-        public string PackageLine(LabResearchDef def)
-        {
-            var sig = def.Levels.Count > 0 ? Content.Skill(def.Levels[0].SkillId) : null;
-            int n = 0;
-            foreach (var sk in Content.Skills.Values) if (sk.Family == def.Family && sk.Source == SkillSource.Run && sk.Draftable) n++;
-            return (sig?.Name ?? "?") + " + " + n + " skills";
-        }
-
         private static int RequiredLevel(LabResearchDef def, string prereq)
         {
             foreach (var r in def.Requires) if (r.ResearchId == prereq) return r.Level;
@@ -515,7 +505,6 @@ namespace RogueStars.Client.Screens
         /// <summary>The short effect on a node's face: the next level's (or, when maxed, the current) effect in words.</summary>
         public string FaceLine(LabResearchDef def)
         {
-            if (def.Kind == LabNodeKind.Package) return PackageLine(def);
             var e = LaboratorySystem.Entry(State, def.Id);
             int lv = Mathf.Clamp(e.Level + 1, 1, def.Levels.Count);
             if (def.Levels.Count == 0) return "";
@@ -717,17 +706,9 @@ namespace RogueStars.Client.Screens
             bool afford = State.Wallet.CanAfford(Currencies.Data, cost);
             Modal(def.Name, b =>
             {
-                Ui.Label(b, (def.Kind == LabNodeKind.Skill ? "Skill node" : def.Kind == LabNodeKind.Package ? "Synergy package" : "Stat node") + " · " + LaneName(def.Branch) + " · Lv " + e.Level + "/" + def.Levels.Count,
+                Ui.Label(b, (def.Kind == LabNodeKind.Skill ? "Skill node" : "Stat node") + " · " + LaneName(def.Branch) + " · Lv " + e.Level + "/" + def.Levels.Count,
                     Theme.FontSmall, NodeColor(def));
                 if (!string.IsNullOrEmpty(def.Description)) Note(b, def.Description);
-                if (def.Kind == LabNodeKind.Package)
-                {
-                    var unlocks = new List<string>();
-                    foreach (var sk in Content.Skills.Values)
-                        if (sk.Family == def.Family && sk.Source == SkillSource.Run && sk.Draftable) unlocks.Add(sk.Name + " (" + sk.Rarity + ")");
-                    unlocks.Sort(string.CompareOrdinal);
-                    Ui.Label(b, "Run skills: " + string.Join(", ", unlocks), 22, Theme.TextDim).name = "PackageSkills";
-                }
                 if (e.Level > 0) Ui.Label(b, "Now: " + LevelText(def, e.Level), 24, Theme.Good).name = "EffectNow";
                 if (e.Level < def.Levels.Count) Ui.Label(b, "Next: " + LevelText(def, e.Level + 1), 24, Theme.Text).name = "EffectNext";
                 // requirements, each on its own row
@@ -792,11 +773,6 @@ namespace RogueStars.Client.Screens
             {
                 var sk = Content.Skill(lv.SkillId);
                 return sk == null ? "" : sk.Name + " (" + sk.Rarity + ") — " + Fmt.SkillFull(sk);
-            }
-            if (def.Kind == LabNodeKind.Package)
-            {
-                var sig = Content.Skill(lv.SkillId);
-                return sig == null ? "" : "Signature " + sig.Name + " — " + Fmt.SkillFull(sig);
             }
             return StatsText(lv.Stats);
         }

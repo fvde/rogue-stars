@@ -15,14 +15,11 @@ public class TimePackageTests
     private static CombatantSpec Hitter(string id = "x", double atk = 40) => Unit(id, CombatRole.Enemy, 1_000_000, atk);
 
     [Fact]
-    public void TimeIsALabPackage_AfterAlien_WithTheEchoSignature()
+    public void TimeUnlocksLast_AtLevel90_WithTheEchoSignature()
     {
-        var pkg = C.LabNode("pkg_time")!;
-        Assert.Equal(LabNodeKind.Package, pkg.Kind);
-        Assert.Equal(SkillFamily.Time, pkg.Family);
-        Assert.Contains(pkg.Requires, r => r.ResearchId == "pkg_alien");
-        Assert.Equal("sig_time", pkg.Levels[0].SkillId);
-        Assert.Equal("Time package: Echo + 8 skills.", pkg.Description);
+        var u = C.Campaign.SignatureUnlocks.Single(x => x.Family == SkillFamily.Time);
+        Assert.Equal((90, Features.SignatureTime), (u.Level, u.FeatureId));
+        Assert.Equal(u, C.Campaign.SignatureUnlocks[^1]);
         var sig = C.Skill("sig_time")!;
         Assert.True(sig.Signature);
         Assert.Equal("Every 3rd turn: repeat your last attack.", SkillText.Full(sig));

@@ -199,6 +199,13 @@ namespace RogueStars.Rules.Content
             return f == null ? 0 : (int)Features.UnlockLevel(f) + 1;
         }
 
+        /// <summary>The ready biome whose first visit is main level <paramref name="level"/> (an unlock slot), or null.</summary>
+        private CampaignBiomeDef DebutBiomeAt(int level)
+        {
+            foreach (var b in Campaign.Biomes) if (BiomeDebutLevel(b.Id) == level && level > 1) return b;
+            return null;
+        }
+
         partial void BuildOnboarding()
         {
             int order = 0;
@@ -232,7 +239,19 @@ namespace RogueStars.Rules.Content
             // Daily Quests are no feature (owner, 2026-11-26): no unlock moment, intro or gift. The hub shows their button once Parts
             // is unlocked (the first level cleared: the day-1 hub keeps nothing but the play button and the Shop), see HubLayout.
             // Shops stand on the board from the first run (owner, 2026-11-27): no unlock. Signatures are the second unlock, in their slot.
-            R(Features.RunSignatures, "Signatures", Campaign.SignatureChoiceFromLevel - 1, "Every run now starts with a signature: pick one of three and collect its synergy to awaken it.");
+            R(Features.RunSignatures, "Signatures", Campaign.SignatureChoiceFromLevel - 1, "Every run now starts with a signature: pick one of three and collect its synergy to awaken it. Fire, Radiation, Bleed and Combo to start; more come with new biomes.");
+            // Signature unlocks (biome design, 2026-11-28): each one new signature + the new biome it calls home, the biome's first visit
+            // the level after the unlock (no Laboratory packages). Unlocks when the level before is cleared, like all run content.
+            FeatureDef S(SkillFamily family)
+            {
+                var u = Campaign.SignatureUnlocks.Find(x => x.Family == family);
+                var biome = DebutBiomeAt(u.Level);
+                string sig = SkillText.FamilyName(family);
+                var f = R(u.FeatureId, biome != null ? sig + " & " + biome.Name : sig + " Signature", u.Level - 1,
+                    "A new signature: " + sig + ". It can be offered at the start of every run." +
+                    (biome != null ? " New biome next level: " + biome.Name + ", where " + SkillText.WeatherName(biome.Boost) + " hits +" + Campaign.WeatherBoostPct + "%." : ""));
+                return f;
+            }
             F(Features.WormLevel, "Worm Level & Talents", 3, 20, "level_worm", "Feed Biomass to level the worm and walk the talent road for permanent perks.");
             R(Features.RunMiniboss, "Minibosses & Mythics", Campaign.MinibossesFromLevel - 1, "Two minibosses guard the path. Beat one for a Mythic skill.");
             R(Features.RunTwoDice, "Two Dice & Forks", Campaign.ForksFromLevel - 1, "Roll two dice and choose your way where the path forks.");
@@ -242,7 +261,8 @@ namespace RogueStars.Rules.Content
             var squad = F(Features.AlienSquad, "Launch Pod", 6, 30, null, "The Launch Pod stands at your crash site: the aliens in its seats are your run squad.");
             squad.Group = aliens.Id;
             F(Features.AutoRoll, "Auto Roll", 7, 0, null, "Hold the dice to roll on its own. It stops for every choice.", since: 2);
-            R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
+            var campfire = R(Features.RunCampfire, "Campfires", Campaign.CampfiresFromLevel - 1, "Campfires on the board: rest to heal or train a skill.");
+            S(SkillFamily.Ice).Group = campfire.Id; // the same level as the campfires: one unlock moment
             // The Shop's offers (Offers, Diamonds, Passes, Items, Ads, the daily gift) are no feature (owner, 2026-11-27): there from the
             // start, no unlock moment, intro or teaser entry. Only its pull sections wait for Parts / Aliens / the City.
             R(Features.RunMinigames, "Alien Arcade", MinigameTuning.MinMainLevel - 1, "Game tiles on the board: a quick game for coins or a skill.");
@@ -252,25 +272,31 @@ namespace RogueStars.Rules.Content
             // is owned (pulled). No level, so the hub teaser skips them (Features.Next).
             B(Features.Laboratory, "Laboratory", LaboratoryId, 30, "research_skill", "Build the Laboratory in the City and staff it: research makes your worm stronger or adds new skills to every run.");
             F(Features.Heroes, "Heroes", 18, 50, "hero_summon", "Hero summon events open: pull for hero shards and copies. A hero adds its kit to every run.");
+            S(SkillFamily.Lightning);
             B(Features.GrainFarm, "Grain Farm", "bp_grain_farm", 20, null, "Grain feeds the colony: breeding runs on it.");
             B(Features.OreMine, "Ore Mine", "bp_ore_mine", 20, null, "Ore powers part merges, the Replicator and upgrades.");
-            F(Features.PackageIce, "Ice Package", 24, 0, null, "A new Laboratory package: research it to add Ice skills to your runs.", since: 2);
             F(Features.Mounts, "Mounts", 26, 50, null, "Ride into battle: mounts add stats, a shield and their own attacks. Summon events bring more mounts.");
             F(Features.Runes, "Runes", 28, 30, null, "Socket runes into parts for extra stats.");
             F(Features.Funds, "Funds", 30, 0, null, "Growth funds pay out Diamonds as you clear main levels.");
             F(Features.Arena, "Arena", 32, 50, null, "Fight other players' worms for league points and Arena Medals.");
             B(Features.Breeding, "Breeding Pen", "bp_breeding_pen", 50, null, "Breed two aliens for a child with better genes.");
+            S(SkillFamily.Counter);
             F(Features.SeasonPass, "Season Pass", 36, 0, null, "Earn pass points from daily quests for a track of rewards every season.");
-            F(Features.PackageLightning, "Lightning Package", 38, 0, null, "A new Laboratory package: research it to add Lightning skills to your runs.", since: 2);
             F(Features.Overcharged, "Overcharged Levels", 40, 50, null, "Replay cleared levels with harder modifiers for bigger rewards.");
             F(Features.Guilds, "Guilds", 42, 50, null, "Join a guild: chat, a guild shop and invasions together.");
             F(Features.Invasions, "Invasions", 44, 50, null, "Invaders attack the planet: deal damage with your guild for rewards.");
             F(Features.Burrow, "Burrow", 46, 50, null, "Dig ever deeper with Burrow keys: cash out or risk it all.");
-            F(Features.PackageCounter, "Counter Package", 48, 0, null, "A new Laboratory package: research it to add Counter skills to your runs.", since: 2);
             F(Features.Forge, "Forge", 50, 50, null, "Forge extra slots into your best parts.");
             F(Features.DarkSide, "Dark Side of the Planet", 53, 100, null, "An endless dark campaign that pays in laboratory Data.");
-            F(Features.PackageAlien, "Alien Package", 56, 0, null, "A new Laboratory package: research it to add Alien skills to your runs.", since: 2);
-            F(Features.PackageTime, "Time Package", 60, 0, null, "A new Laboratory package: research it to add Time skills to your runs.", since: 2);
+            S(SkillFamily.AlienSynergy);
+            S(SkillFamily.Time);
+            // Planned biomes past the signatures announce themselves when their art is in and their slot comes (biome-only unlocks).
+            foreach (var b in Campaign.Biomes)
+            {
+                int at = BiomeDebutLevel(b.Id);
+                if (at <= 1 || Campaign.SignatureUnlocks.Exists(u => u.Level == at)) continue;
+                R(Features.BiomePrefix + b.Id, b.Name, at - 1, "New biome next level: " + b.Name + ", where " + SkillText.WeatherName(b.Boost) + " hits +" + Campaign.WeatherBoostPct + "%.");
+            }
             BuildFeatureIntros();
 
             void T(string id, string name, string after, string feature, long diamonds = 0)
@@ -360,7 +386,7 @@ namespace RogueStars.Rules.Content
             I(Features.Laboratory,
                 "Build the Laboratory and staff it to start research.", "lab", Pulse,
                 "Research costs Data and takes time.", "data", Fill,
-                "Packages add new skills to your runs.", "package", Slide);
+                "Skill nodes add new skills to your runs.", "package", Slide);
             I(Features.RunMinigames,
                 "Game tiles now appear on the board.", "game_tile", Bounce,
                 "Land on one to play a quick game.", "minigame", Tap,
@@ -382,10 +408,6 @@ namespace RogueStars.Rules.Content
             I(Features.OreMine,
                 "The Ore Mine digs Ore while you are away.", "ore_mine", Pulse,
                 "Ore levels up and merges your parts.", "ore", Count);
-            I(Features.PackageIce,
-                "A new package is ready in the Laboratory.", "package", Pulse,
-                "Research it to add Ice skills to your runs.", "ice", Slide,
-                "Ice chills enemies and makes them fragile.", "ice_skill", Bounce);
             I(Features.Mounts,
                 "Mount summon events are open.", "mount_event", Bounce,
                 "A mount adds stats, a shield and its own attacks.", "mount", Slide,
@@ -406,10 +428,6 @@ namespace RogueStars.Rules.Content
             I(Features.SeasonPass,
                 "Daily quests give pass points.", "pass_points", Count,
                 "Points climb a track of rewards each season.", "pass_track", Fill);
-            I(Features.PackageLightning,
-                "A new package is ready in the Laboratory.", "package", Pulse,
-                "Research it to add Lightning skills to your runs.", "lightning", Slide,
-                "Lightning arcs from enemy to enemy.", "lightning_skill", Bounce);
             I(Features.Overcharged,
                 "Replay cleared levels Overcharged.", "overcharged", Pulse,
                 "Tougher foes, bigger rewards.", "overcharged_reward", Bounce);
@@ -423,10 +441,6 @@ namespace RogueStars.Rules.Content
             I(Features.Burrow,
                 "Dig down floor by floor with Burrow Keys.", "burrow", Slide,
                 "Cash out between floors, or risk it all.", "burrow_cash", Tap);
-            I(Features.PackageCounter,
-                "A new package is ready in the Laboratory.", "package", Pulse,
-                "Research it to add Counter skills to your runs.", "counter", Slide,
-                "Counter skills strike back when you are hit.", "counter_skill", Bounce);
             I(Features.Forge,
                 "Forge an extra slot into a part.", "forge", Pulse,
                 "More slots, more power from your best parts.", "forge_slot", Bounce);
@@ -434,14 +448,28 @@ namespace RogueStars.Rules.Content
                 "The dark side of the planet is open.", "dark_side", Pulse,
                 "Endless levels with extreme rules.", "dark_rules", Bounce,
                 "Clears pay Data for the Laboratory.", "data", Count);
-            I(Features.PackageAlien,
-                "A new package is ready in the Laboratory.", "package", Pulse,
-                "Research it to add Alien skills to your runs.", "alien_package", Slide,
-                "Alien skills make your squad stronger.", "alien_fight", Bounce);
-            I(Features.PackageTime,
-                "A new package is ready in the Laboratory.", "package", Pulse,
-                "Research it to add Time skills to your runs.", "time", Slide,
-                "Time skills let you strike first.", "time_skill", Bounce);
+            foreach (var u in Campaign.SignatureUnlocks)
+            {
+                var biome = DebutBiomeAt(u.Level);
+                string sig = SkillText.FamilyName(u.Family);
+                if (biome != null)
+                    I(u.FeatureId,
+                        "A new signature: " + sig + ".", "signature", Pulse,
+                        biome.Name + " is your next level.", "biome", Slide,
+                        SkillText.WeatherName(biome.Boost) + " hits +" + Campaign.WeatherBoostPct + "% there.", "weather", Bounce);
+                else
+                    I(u.FeatureId,
+                        "A new signature: " + sig + ".", "signature", Pulse,
+                        "It can be offered at the start of every run.", "signature_pick", Tap);
+            }
+            foreach (var f in FeatureOrder)
+                if (f.Id.StartsWith(Features.BiomePrefix, StringComparison.Ordinal))
+                {
+                    var b = CampaignBiomeById(f.Id.Substring(Features.BiomePrefix.Length));
+                    I(f.Id,
+                        b.Name + " is your next level.", "biome", Slide,
+                        SkillText.WeatherName(b.Boost) + " hits +" + Campaign.WeatherBoostPct + "% there.", "weather", Bounce);
+                }
         }
     }
 }

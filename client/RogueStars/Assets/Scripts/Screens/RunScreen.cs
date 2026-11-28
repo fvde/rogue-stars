@@ -1726,6 +1726,7 @@ namespace RogueStars.Client.Screens
                     IconArt = ArtCatalog.SkillIcon(sid),
                     Title = ownedLevel > 0 && sk != null ? SkillText.Title(sk, ownedLevel + 1) : sk?.Name ?? sid,
                     Body = full, Tip = OfferTip(sid, ownedLevel, signature), TipContent = Content,
+                    Weather = BiomeView.Badge(BiomeView.RunWeather(Content, run), fam),
                 };
                 if (signature)
                 {
@@ -1771,12 +1772,22 @@ namespace RogueStars.Client.Screens
             var title = root.Find("Ribbon/Title")?.GetComponent<Text>();
             if (title != null) title.fontSize = (int)(62 * s);
             float h = Mathf.Min(300, lay.CardH + 20), step = h + 18, y = ribbonY + 160 + h / 2;
+            // the level-start weather banner (biome design): shown before the pick so the player can lean in or hedge
+            var weather = BiomeView.RunWeather(Content, run);
+            if (BiomeView.Banner(root, s, Content, Content.RunLevel(run.LevelId), ribbonY + 225) != null && weather != null)
+            {
+                // under the subtitle; the cards move down by the banner and shrink if the screen is short
+                float top = ribbonY + 330;
+                h = Mathf.Min(h, (SliceCards.RefHeight(root, s) - 60 - top) / n - 18);
+                step = h + 18;
+                y = top + h / 2;
+            }
             foreach (var id in run.StartSignatures)
             {
                 string sid = id;
                 var sk = Content.Skill(sid);
                 if (sk == null) continue;
-                SliceCards.Card(root, s, y, SignaturePick.Spec(Content, sk), () => { modal.Close(); CloseDecision(); Run(new RunPickSignature { SignatureId = sid }); }, null, "Button:Signature:" + sid, h);
+                SliceCards.Card(root, s, y, SignaturePick.Spec(Content, sk, weather), () => { modal.Close(); CloseDecision(); Run(new RunPickSignature { SignatureId = sid }); }, null, "Button:Signature:" + sid, h);
                 y += step;
             }
             UiTween.PopIn(root, 0.15f);

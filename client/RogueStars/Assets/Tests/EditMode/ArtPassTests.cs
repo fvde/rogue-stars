@@ -139,7 +139,7 @@ namespace RogueStars.Client.Tests
         public void BiomeMapping_EveryFamilyHasDistinctImportedArt()
         {
             ArtCatalog.Loader = null;
-            var families = new[] { "ember", "glacier", "static", "void", "burrow", "dark", "standard" };
+            var families = new[] { "burrow", "dark", "standard" };
             var biomes = new HashSet<string>();
             foreach (var fam in families)
             {
@@ -149,25 +149,23 @@ namespace RogueStars.Client.Tests
                 biomes.Add(b.Id);
             }
             Assert.That(biomes.Count, Is.EqualTo(families.Length), "every family its own biome");
-            Assert.That(ArtCatalog.BiomeFor("static").Id, Is.EqualTo("space_station"));
-            Assert.That(ArtCatalog.BiomeFor("void").Id, Is.EqualTo("shipwreck"));
             Assert.That(ArtCatalog.BiomeFor("burrow").Id, Is.EqualTo("prehistoric"));
             Assert.That(ArtCatalog.BiomeFor("dark").Id, Is.EqualTo("ash_wastes"));
             // every level's tile pool is a mapped family
             foreach (var l in C.RunLevels.Values)
                 if (ArtCatalog.FamilyOf(l) != null) Assert.That(ArtCatalog.BiomeFor(l), Is.Not.SameAs(ArtCatalog.Default), l.Id + " (" + l.TilePoolId + ")");
             // imported tile slabs: glacier (seabed) and static (neon city tiles on the station deck)
-            Assert.That(ArtCatalog.TileSprite(ArtCatalog.BiomeFor("glacier"), TileCategory.Enemy), Is.Not.Null);
-            Assert.That(ArtCatalog.TileSprite(ArtCatalog.BiomeFor("static"), TileCategory.Shop), Is.Not.Null);
+            Assert.That(ArtCatalog.TileSprite(ArtCatalog.BiomeById("seabed"), TileCategory.Enemy), Is.Not.Null);
+            Assert.That(ArtCatalog.TileSprite(ArtCatalog.BiomeById("space_station"), TileCategory.Shop), Is.Not.Null);
             // a seamless ground wins over the full-frame background
             var have = new HashSet<string> { "Art/Boards/lava/background", "Art/Boards/lava/ground" };
             var bg = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 2, 2), Vector2.zero);
             ArtCatalog.Loader = p => p == "Art/Boards/lava/ground" ? Fake : have.Contains(p) ? bg : null;
-            var g = ArtCatalog.GroundOf(ArtCatalog.BiomeFor("ember"));
+            var g = ArtCatalog.GroundOf(ArtCatalog.BiomeById("lava"));
             Assert.That(g.Sprite, Is.SameAs(Fake));
             Assert.That(g.Seamless, Is.True);
             ArtCatalog.Loader = p => p == "Art/Boards/lava/background" ? bg : null;
-            g = ArtCatalog.GroundOf(ArtCatalog.BiomeFor("ember"));
+            g = ArtCatalog.GroundOf(ArtCatalog.BiomeById("lava"));
             Assert.That(g.Sprite, Is.SameAs(bg));
             Assert.That(g.Seamless, Is.False);
             Assert.That(ArtCatalog.GroundOf(ArtCatalog.Default).Sprite, Is.Null);
@@ -180,6 +178,7 @@ namespace RogueStars.Client.Tests
             var ids = new HashSet<string>();
             foreach (var biome in C.Campaign.Biomes)
             {
+                if (!biome.Ready) continue; // a planned biome rotates once its ground art is in (CampaignBiomeDef.Ready)
                 var art = ArtCatalog.Biomes.Find(b => b.Id == biome.Id);
                 Assert.That(art, Is.Not.Null, biome.Id + " has a BiomeArt line");
                 Assert.That(ArtCatalog.Background(art), Is.Not.Null, biome.Id + " has a background (the portal window)");

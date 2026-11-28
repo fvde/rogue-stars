@@ -32,21 +32,6 @@ public static class Variants
                 }
             return;
         }
-        if (v.StartsWith("lategl_"))
-        {
-            // Late glacier strength % (CampaignDef.LateFamilyStrengthPct[1]): generated levels read it lazily; materialized
-            // glacier-biome levels from chapter LateFamilyFromChapter on are patched here.
-            double pct = double.Parse(v.Substring("lategl_".Length), System.Globalization.CultureInfo.InvariantCulture);
-            c.Campaign.LateFamilyStrengthPct[1] = pct;
-            for (int n = c.Campaign.LateFamilyFromChapter * c.Campaign.ChapterLevels + 1; n <= c.Campaign.MaterializedLevels; n++)
-            {
-                if (c.CampaignBiome(n).Family != "glacier") continue;
-                var m = c.MainLevel(n).Modifiers;
-                double mult = (1 + m.EnemyHpPct / 100.0) * (1 + pct / 100.0);
-                m.EnemyHpPct = m.EnemyAtkPct = Math.Round((mult - 1) * 100, 2);
-            }
-            return;
-        }
         if (v.StartsWith("gate_"))
         {
             // Onboarding experiment: gate_<featureId>_L<level> moves a feature's main-level gate (e.g. gate_worm_level_L3).

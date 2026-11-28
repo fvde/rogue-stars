@@ -142,17 +142,15 @@ namespace RogueStars.Client.PlayTests
                 yield return Shot("sig6_boss_gate");
             }
 
-            // 5. the laboratory: the synergy packages tab (two researched)
+            // 5. the laboratory: the elements lane (Frost Nova / Overload wait for their signature's level unlock)
             _svc.DevSetFlag(Features.DevUnlockAllFlag, true);
-            _svc.State.Lab.Entries["pkg_combo"] = new LabEntry { Level = 1 };
-            _svc.State.Lab.Entries["pkg_ice"] = new LabEntry { Level = 1 };
             _svc.State.Lab.Entries["lab_hp_1"] = new LabEntry { Level = 2 };
             _app.Open("laboratory");
             yield return Wait(0.8f);
-            yield return Shot("sig5_lab_packages");
-            ((LaboratoryScreen)_app.Router.Current).NodeModal("pkg_lightning");
+            yield return Shot("sig5_lab_tree");
+            ((LaboratoryScreen)_app.Router.Current).NodeModal("res_overload");
             yield return Wait(0.5f);
-            yield return Shot("sig5_lab_package_modal");
+            yield return Shot("sig5_lab_overload_modal");
         }
 
         private static BattleResult FireBattle(ContentDb c, List<string> skills)

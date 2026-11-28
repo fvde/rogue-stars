@@ -6,16 +6,6 @@ namespace RogueStars.Rules.Tests.Run;
 
 public class EndlessCampaignTests
 {
-    /// <summary>Biome family strength factor of main level <paramref name="n"/> (base offset × late offset).</summary>
-    internal static double FamilyFactor(ContentDb c, int n)
-    {
-        var k = c.Campaign;
-        int family = ContentDb.FamilyIndex(c.CampaignBiome(n).Family);
-        double f = 1 + k.FamilyStrengthPct[family % k.FamilyStrengthPct.Count] / 100.0;
-        if (k.ChapterOf(n) >= k.LateFamilyFromChapter) f *= 1 + k.LateFamilyStrengthPct[family % k.LateFamilyStrengthPct.Count] / 100.0;
-        return f;
-    }
-
     [Fact]
     public void MainLevels_AreOnePortalEach_OnTheSameRisingCurve()
     {
@@ -39,7 +29,7 @@ public class EndlessCampaignTests
             Assert.Equal(biome.Id, l.Biome);
             Assert.Equal(biome.Name, l.Name);
             Assert.Equal(biome.Name, portal.Name);
-            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0) / FamilyFactor(c, n);
+            double eff = c.ThreatMultiplier(l.Threat) * (1 + l.Modifiers.EnemyHpPct / 100.0);
             Assert.True(eff > prev, "level " + n);
             prev = eff;
             Assert.NotNull(c.RunLootTable(l.LootTableId));
@@ -59,61 +49,107 @@ public class EndlessCampaignTests
     }
 
     [Fact]
-    public void BiomeOrder_NeverRepeatsABiomeOrFamilyTwiceInARow_UsesEveryBiome_AndIsDeterministic()
+    public void BiomeOrder_StartsWithFour_AddsOneBiomePerUnlock_NeverRepeats_AndIsDeterministic()
     {
         var c = new ContentDb();
         var other = new ContentDb { GeneratedCacheLevels = 10 };
         var k = c.Campaign;
-        int b = k.Biomes.Count;
-        Assert.Equal(b, k.Biomes.Select(x => x.Id).Distinct().Count());
-        Assert.Equal(0, c.CampaignBiomeIndex(1)); // the tutorial run's ember pool
-        Assert.Equal("ember", c.CampaignBiome(1).Family);
-        var used = new HashSet<int>();
+        Assert.Equal(17, k.Biomes.Count);
+        Assert.Equal(17, k.Biomes.Select(x => x.Id).Distinct().Count());
+        Assert.Equal(0, c.CampaignBiomeIndex(1)); // Lava Fields: the tutorial run
+        Assert.Equal("lava", c.CampaignBiome(1).Id);
+        var live = new[] { "lava", "toxic_swamp", "shipwreck", "gas_giant", "cloud_islands", "space_station", "seabed", "alien_jungle" };
+        Assert.Equal(live, k.Biomes.Where(b => b.Ready).Select(b => b.Id));
+        // start biomes from level 1, then one new biome at each unlock slot, the slot level being its first visit
+        var debut = new Dictionary<string, int> { ["cloud_islands"] = 10, ["space_station"] = 20, ["seabed"] = 35, ["alien_jungle"] = 60 };
+        foreach (var (id, at) in debut)
+        {
+            Assert.Equal(at, c.BiomeDebutLevel(id));
+            Assert.Equal(id, c.CampaignBiome(at).Id);
+            Assert.True(c.MainLevel(at).BiomeDebut);
+            Assert.DoesNotContain(Enumerable.Range(1, at - 1), n => c.CampaignBiome(n).Id == id);
+        }
+        Assert.Equal(-1, c.BiomeDebutLevel("clockwork_city")); // planned: waits for its art (its slot at 90 waits too)
+        Assert.False(c.MainLevel(90).BiomeDebut);
+        Assert.Equal(4, Enumerable.Range(1, 9).Select(c.CampaignBiomeIndex).Distinct().Count());
         for (int n = 1; n <= 1000; n++)
         {
             int i = c.CampaignBiomeIndex(n);
-            Assert.InRange(i, 0, b - 1);
-            used.Add(i);
+            Assert.True(k.Biomes[i].Ready, "level " + n);
             Assert.Equal(i, other.CampaignBiomeIndex(n)); // the same for every player / instance
             Assert.Equal(k.Biomes[i].Id, c.MainLevel(n).Biome);
-            if (n > 1)
-            {
-                int p = c.CampaignBiomeIndex(n - 1);
-                Assert.NotEqual(p, i);
-                Assert.NotEqual(k.Biomes[p].Family, k.Biomes[i].Family); // and never the same enemy roster twice in a row
-            }
-            // every block of B levels shows every biome once
-            if (n % b == 0)
-                Assert.Equal(b, Enumerable.Range(n - b + 1, b).Select(c.CampaignBiomeIndex).Distinct().Count());
+            if (n > 1) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), i);
         }
-        Assert.Equal(b, used.Count);
-        // deep in the endless campaign too (pure function of the level number, no history)
+        // past the last slot: blocks of 8 from level 61, every block shows every biome once
+        for (int start = 61; start + 8 <= 1000; start += 8)
+            Assert.Equal(8, Enumerable.Range(start, 8).Select(c.CampaignBiomeIndex).Distinct().Count());
         for (int n = 999_000; n <= 999_200; n++) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), c.CampaignBiomeIndex(n));
-        // not just a fixed cycle: the order of consecutive blocks differs
-        var blocks = Enumerable.Range(0, 20).Select(blk => string.Join(",", Enumerable.Range(blk * b + 1, b).Select(c.CampaignBiomeIndex))).Distinct().Count();
+        var blocks = Enumerable.Range(0, 20).Select(blk => string.Join(",", Enumerable.Range(61 + blk * 8, 8).Select(c.CampaignBiomeIndex))).Distinct().Count();
         Assert.True(blocks >= 15, blocks + " distinct blocks");
-        // pinned: the order is stable across versions while the biome list and seed stay
-        Assert.Equal(ExpectedFirst30, Enumerable.Range(1, 30).Select(n => c.CampaignBiome(n).Id).ToArray());
+        // pinned: the order is stable across versions while the biome list, Ready flags and seed stay
+        Assert.Equal(string.Join(",", ExpectedFirst30), string.Join(",", Enumerable.Range(1, 30).Select(n => c.CampaignBiome(n).Id)));
+    }
+
+    [Fact]
+    public void BiomeOrder_APlannedBiomeWithArt_TakesTheNextFreeSlot()
+    {
+        var c = new ContentDb();
+        c.CampaignBiomeById("desert_ruins")!.Ready = true; // its art lands before Clockwork City's
+        Assert.Equal(90, c.BiomeDebutLevel("desert_ruins")); // fills the waiting slot at 90
+        Assert.Equal("desert_ruins", c.CampaignBiome(90).Id);
+        c.CampaignBiomeById("clockwork_city")!.Ready = true;
+        Assert.Equal(90, c.BiomeDebutLevel("clockwork_city"));
+        Assert.Equal(125, c.BiomeDebutLevel("desert_ruins"));
+        for (int n = 2; n <= 400; n++) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), c.CampaignBiomeIndex(n));
+    }
+
+    [Fact]
+    public void Biomes_HaveTheirOwnRosters_WithArtPendingDefsHeldBack()
+    {
+        var c = ContentDb.Default;
+        foreach (var b in c.Campaign.Biomes)
+        {
+            foreach (var id in b.Enemies.Concat(b.Elites).Concat(b.Bosses).Concat(b.StandInEnemies).Concat(b.StandInElites))
+                Assert.True(c.Enemies.ContainsKey(id), b.Id + ": " + id);
+            if (!b.Ready) continue;
+            var r = c.BiomeRoster(b);
+            Assert.True(r.Enemies.Count >= c.Campaign.MinBiomeEnemies, b.Id);
+            Assert.True(r.Elites.Count >= 2, b.Id); // two lairs per run must differ
+            Assert.NotEmpty(r.Bosses);
+            Assert.All(r.Enemies.Concat(r.Elites), id => Assert.False(c.Enemies[id].ArtPending, b.Id + ": " + id));
+            Assert.All(r.Elites, id => Assert.True(c.Enemies[id].Elite, id));
+            Assert.All(r.Bosses, id => Assert.True(c.Enemies[id].Boss && c.RunBosses.ContainsKey(id), id));
+        }
+        // the live levels only field art-ready enemies
+        for (int n = 1; n <= 200; n++)
+        {
+            var l = c.MainLevel(n)!;
+            Assert.All(l.EnemyPool.Concat(l.ElitePool), id => Assert.False(c.Enemies[id].ArtPending, "level " + n + ": " + id));
+            Assert.False(c.Enemies[c.RunBosses[l.BossId].EnemyId].ArtPending, "level " + n);
+        }
+    }
+
+    [Fact]
+    public void TwoBossBiomes_AlternatePerVisit()
+    {
+        var c = ContentDb.Default;
+        var lava = Enumerable.Range(1, 300).Where(n => c.CampaignBiome(n).Id == "lava").ToList();
+        for (int i = 0; i < lava.Count; i++)
+        {
+            Assert.Equal(i, c.BiomeVisitIndex(lava[i]));
+            Assert.Equal(i % 2 == 0 ? "boss_magma_tyrant" : "boss_elder_magma", c.MainLevelBossId(lava[i]));
+        }
+        var wreck = Enumerable.Range(1, 300).Where(n => c.CampaignBiome(n).Id == "shipwreck").Select(c.MainLevelBossId).ToList();
+        Assert.Equal("boss_rust_queen", wreck[0]);
+        Assert.Equal("boss_void_maw", wreck[1]);
     }
 
     private static readonly string[] ExpectedFirst30 =
     {
-        "lava", "shipwreck", "cloud_islands", "gas_giant", "alien_jungle", "seabed", "space_station", "toxic_swamp", "gas_giant", "toxic_swamp",
-        "lava", "seabed", "shipwreck", "space_station", "cloud_islands", "alien_jungle", "toxic_swamp", "seabed", "shipwreck", "lava",
-        "space_station", "gas_giant", "cloud_islands", "alien_jungle", "shipwreck", "lava", "space_station", "seabed", "toxic_swamp", "cloud_islands",
+        "lava", "toxic_swamp", "shipwreck", "gas_giant", "toxic_swamp", "lava", "gas_giant", "shipwreck", "gas_giant", "cloud_islands",
+        "gas_giant", "toxic_swamp", "lava", "shipwreck", "cloud_islands", "toxic_swamp", "gas_giant", "lava", "cloud_islands", "space_station",
+        "lava", "gas_giant", "space_station", "shipwreck", "cloud_islands", "toxic_swamp", "shipwreck", "space_station", "lava", "toxic_swamp",
     };
-
-    [Fact]
-    public void BiomeOrder_FallsBackToDistinctBiomes_WhenFamiliesCannotAlternate()
-    {
-        var c = new ContentDb();
-        c.Campaign.Biomes = new List<CampaignBiomeDef>
-        {
-            new("a", "A", "ember"), new("b", "B", "ember"), new("c", "C", "ember"), new("d", "D", "glacier"),
-        };
-        for (int n = 2; n <= 400; n++) Assert.NotEqual(c.CampaignBiomeIndex(n - 1), c.CampaignBiomeIndex(n));
-        Assert.Equal(4, Enumerable.Range(1, 400).Select(c.CampaignBiomeIndex).Distinct().Count());
-    }
 
     [Fact]
     public void GeneratedContent_IsDeterministic_AndSurvivesCacheEviction()
@@ -132,13 +168,17 @@ public class EndlessCampaignTests
             Assert.Equal(first.Modifiers.EnemyHpPct, l.Modifiers.EnemyHpPct);
             Assert.Equal(first.CompletionRewards.Select(r => r.Id + r.Amount), l.CompletionRewards.Select(r => r.Id + r.Amount));
         }
-        // Each level's boss is its biome family's; past the endless anchor the variant changes every few chapters,
-        // cycling through every variant of every family.
+        // Each level's boss is one of its biome's; past the endless anchor the variant changes every few chapters,
+        // cycling through every variant of every live boss.
         var k = a.Campaign;
-        for (int n = 1; n <= 300; n++) Assert.Equal(new[] { "boss_magma_tyrant", "boss_frost_leviathan", "boss_storm_hive", "boss_void_maw" }[ContentDb.FamilyIndex(a.CampaignBiome(n).Family)], a.MainLevelBossId(n));
+        for (int n = 1; n <= 300; n++) Assert.Contains(a.MainLevelBossId(n), a.BiomeRoster(a.CampaignBiome(n)).Bosses);
+        var live = k.Biomes.Where(b => b.Ready).SelectMany(b => a.BiomeRoster(b).Bosses).Distinct().Count();
         var bosses = Enumerable.Range(k.EndlessFromChapter * k.ChapterLevels + 1, k.BossVariants * k.BossVariantEveryChapters * k.ChapterLevels)
-            .Select(a.MainLevelBossId).Distinct().Count();
-        Assert.Equal(4 * k.BossVariants, bosses);
+            .Select(a.MainLevelBossId).Distinct().ToList();
+        Assert.Equal(live * k.BossVariants, bosses.Count);
+        // a variant borrows another boss's tiles
+        var v = a.RunBosses[bosses[0]];
+        Assert.NotEqual(v.EnemyId, v.Id);
     }
 
     [Fact]

@@ -228,9 +228,9 @@ namespace RogueStars.Client.App
                 case Features.RunMiniboss: case Features.RunTwoDice: case Features.RunCampfire:
                 case Features.RunSignatures: case Features.RunMinigames: case Features.AutoRoll:
                     return new Entry(featureId, "PLAY", null, "portals");
-                case Features.PackageIce: case Features.PackageLightning: case Features.PackageCounter: case Features.PackageAlien:
-                case Features.PackageTime:
-                    return new Entry(featureId, "OPEN THE LAB", null, "laboratory");
+                case Features.SignatureIce: case Features.SignatureLightning: case Features.SignatureCounter: case Features.SignatureAlien:
+                case Features.SignatureTime:
+                    return new Entry(featureId, "PLAY", null, "portals");
                 default: return new Entry(featureId, "LET'S GO", null, "portals");
             }
         }

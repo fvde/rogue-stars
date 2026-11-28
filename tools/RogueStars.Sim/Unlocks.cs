@@ -56,12 +56,6 @@ public static class Unlocks
             foreach (var g in groups) sb.Append(' ').Append(Cell(Median(g, f.Id))).Append(" |");
             sb.AppendLine();
         }
-        foreach (var p in content.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).OrderBy(d => d.Tier))
-        {
-            sb.Append("| Lab research done: ").Append(p.Name).Append(" | – |");
-            foreach (var g in groups) sb.Append(' ').Append(Cell(Median(g, p.Id))).Append(" |");
-            sb.AppendLine();
-        }
         sb.AppendLine();
         sb.AppendLine("## Novelty gaps (played minutes; median of seeds)");
         sb.AppendLine();

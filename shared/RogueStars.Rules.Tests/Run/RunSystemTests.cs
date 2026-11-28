@@ -384,7 +384,7 @@ public class RunSystemTests
     [Fact]
     public void Revive_ResumesFight_WithEnemiesKeepingDamage()
     {
-        var worm = new RunTestKit.WormSetup { Hp = 200, Atk = 60, Def = 0 };
+        var worm = new RunTestKit.WormSetup { Hp = 120, Atk = 40, Def = 0 }; // loses to a Horde (the revive is what is tested)
         var e = RunTestKit.Engine(worm);
         var s = RunTestKit.StartRun(e);
         var run = s.Run.Active!;
@@ -589,7 +589,7 @@ public class LaboratoryTests
         Assert.True(RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "res_burning_soul" }).Ok);
         Assert.Equal(5000 - tuning.DataCost(0), s.Wallet.Get(Currencies.Data));
         Assert.Equal(1, LaboratorySystem.ResearchIndex(s, e.Content));
-        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "pkg_combo" }).Error); // one slot
+        Assert.Contains("busy", RunTestKit.Exec(e, ref s, new LabResearch { ResearchId = "lab_atk_1" }).Error); // one slot
         Assert.False(RunTestKit.Exec(e, ref s, new LabCollect { ResearchId = "res_burning_soul" }).Ok); // not ready
         long ready = LaboratorySystem.ReadyAtMs(s, "res_burning_soul");
         Assert.Equal(TestHelpers.T0 + LaboratorySystem.DurationMs(s, e.Content, (long)Math.Round(tuning.Hours(0) * 3_600_000)), ready);
@@ -710,14 +710,19 @@ public class LaboratoryTests
     }
 
     [Fact]
-    public void Tree_Has38NodesInFourBranches_MixingStatsAndSkills_PlusSixPackages()
+    public void Tree_Has38NodesInFourBranches_MixingStatsAndSkills_NoPackages()
     {
         var c = ContentDb.Default;
-        Assert.Equal(44, c.LabResearch.Count); // + the Mythic nodes Plague and Shatter (owner, 2026-11-26)
-        var packages = c.LabResearch.Values.Where(d => d.Kind == LabNodeKind.Package).ToList();
-        Assert.Equal(6, packages.Count); // Time (skill redesign) after Alien
-        Assert.All(packages, p => Assert.Equal("packages", p.Branch));
-        Assert.Equal(38, c.LabResearch.Values.Count(d => d.Branch != "packages"));
+        Assert.Equal(38, c.LabResearch.Count); // 36 + the Mythic nodes Plague and Shatter (owner, 2026-11-26); the six packages went (biome design)
+        Assert.DoesNotContain(c.LabResearch.Values, d => d.Branch == "packages");
+        // the synergy skill nodes hang off the stat nodes and wait for their signature's level unlock (Combo is a start synergy)
+        Assert.Null(c.LabNode("res_chain_strikes")!.RequiresFeature);
+        Assert.Equal(Features.SignatureIce, c.LabNode("res_frost_nova")!.RequiresFeature);
+        Assert.Equal(Features.SignatureLightning, c.LabNode("res_overload")!.RequiresFeature);
+        Assert.Equal(Features.SignatureCounter, c.LabNode("res_retaliation")!.RequiresFeature);
+        Assert.Equal(Features.SignatureCounter, c.LabNode("res_bulwark")!.RequiresFeature);
+        Assert.Equal(Features.SignatureAlien, c.LabNode("res_pack_tactics")!.RequiresFeature);
+        Assert.All(c.LabResearch.Values, d => Assert.All(d.Requires, r => Assert.NotNull(c.LabNode(r.ResearchId))));
         foreach (var branch in new[] { "offense", "defense", "elements", "command" })
         {
             var nodes = c.LabResearch.Values.Where(d => d.Branch == branch).ToList();

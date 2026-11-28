@@ -549,6 +549,8 @@ namespace RogueStars.Rules.Systems
         {
             var c = ctx.Content;
             var setup = new BattleSetup { RoundCap = kind == "boss" ? c.Combat.BossRoundCap : c.Combat.RoundCap };
+            // synergy weather: main campaign levels only (Normal and Overcharged; not Dark Side, Burrow, invasions or the Arena)
+            if (run.Mode == RunMode.Normal || run.Mode == RunMode.Overcharged) setup.Weather = c.Weather(Level(c, run));
             setup.Player.AddRange(BattleSimulator.BuildPlayerSide(run.Loadout, c, run.Skills, WormExtraStats(c, run), run.SkillLevels));
             setup.Player[setup.Player.Count - 1].StartHp = run.WormHp;
             setup.Player[setup.Player.Count - 1].StartRage = run.PendingStartRage;
@@ -1383,7 +1385,7 @@ namespace RogueStars.Rules.Systems
                         {
                             // a biome chest: one level-scaled roll of its resource
                             long amount = RollBiomeChest(c, run, e.Reward.Id);
-                            if (amount > 0) { run.PendingLoot.Add(Reward.Cur(e.Reward.Id, amount)); run.Danger++; }
+                            if (amount > 0) { run.BiomeChestLoot.Add(run.PendingLoot.Count); run.PendingLoot.Add(Reward.Cur(e.Reward.Id, amount)); run.Danger++; }
                         }
                         else { run.PendingLoot.Add(new Reward(e.Reward.Kind, e.Reward.Id, e.Reward.Amount, e.Reward.Rarity)); run.Danger++; }
                         break;
@@ -1637,17 +1639,26 @@ namespace RogueStars.Rules.Systems
                 double biomassMult = BiomassSurge(ctx, run, summary);
                 var rewards = new List<Reward>();
                 var sources = new List<string>();
-                foreach (var r in run.PendingLoot) { rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.RunLoot); }
+                var biomeLines = new List<bool>();
+                // Biome reward: the level's biome resource ×BiomeRewardMult (completion, completion rolls, run loot incl. reward
+                // chests); the Biomass surge multiplies after it. Never: Diamonds, Crates, Signals, Schematics, milestones, parts, feats.
+                bool IsBiome(Reward r) => r.Kind == RewardKinds.Currency && level.BiomeResource != null && r.Id == level.BiomeResource;
+                double Mult(Reward r, bool chest) => modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1) * (IsBiome(r) && !chest ? c.Campaign.BiomeRewardMult : 1);
+                void Add(Reward r, string source, bool chest = false) { rewards.Add(Scaled(r, Mult(r, chest))); sources.Add(source); biomeLines.Add(IsBiome(r)); }
+                // event biome chests already roll the doubled amount (RunTuning.BiomeChestRange): never doubled twice
+                for (int i = 0; i < run.PendingLoot.Count; i++) Add(run.PendingLoot[i], RunRewardLine.RunLoot, run.BiomeChestLoot.Contains(i));
                 if (run.Mode != RunMode.Burrow)
                 {
                     RollRareDrops(level, run);
-                    foreach (var r in level.CompletionRewards) { rewards.Add(Scaled(r, modeMult * (r.Id == Currencies.Biomass ? biomassMult : 1))); sources.Add(RunRewardLine.Completion); }
+                    foreach (var r in level.CompletionRewards) Add(r, RunRewardLine.Completion);
                     var before = run.PendingLoot.Count;
                     for (int i = 0; i < level.CompletionLootRolls; i++) RollLoot(c, run, false);
-                    for (int i = before; i < run.PendingLoot.Count; i++)
+                    for (int i = before; i < run.PendingLoot.Count; i++) Add(run.PendingLoot[i], RunRewardLine.CompletionRoll);
+                    // a biome resource without a completion line: one guaranteed roll of it (then ×2 like the rest)
+                    if (level.BiomeRollMax > 0)
                     {
-                        rewards.Add(Scaled(run.PendingLoot[i], modeMult * (run.PendingLoot[i].Id == Currencies.Biomass ? biomassMult : 1)));
-                        sources.Add(RunRewardLine.CompletionRoll);
+                        long amount = level.BiomeRollMin + (level.BiomeRollMax > level.BiomeRollMin ? run.Rng.Range(0, (int)(level.BiomeRollMax - level.BiomeRollMin + 1)) : 0);
+                        Add(Reward.Cur(level.BiomeResource, amount), RunRewardLine.CompletionRoll);
                     }
                 }
 
@@ -1664,7 +1675,7 @@ namespace RogueStars.Rules.Systems
                     // Endless campaign milestones (chest every 10 levels, bonus chest every 50): first Normal clear only.
                     if (firstClear && run.Mode == RunMode.Normal && level.FirstClearRewards.Count > 0)
                     {
-                        foreach (var r in level.FirstClearRewards) { rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity)); sources.Add(RunRewardLine.Milestone); }
+                        foreach (var r in level.FirstClearRewards) { rewards.Add(new Reward(r.Kind, r.Id, r.Amount, r.Rarity)); sources.Add(RunRewardLine.Milestone); biomeLines.Add(false); }
                         s.Count("milestone_chests");
                         ctx.Emit("run_milestone", run.LevelId, level.Number.ToString());
                     }
@@ -1674,6 +1685,7 @@ namespace RogueStars.Rules.Systems
                         bool epic = run.Rng.NextDouble() * 100 < c.Campaign.FirstClearEpicPartPct;
                         rewards.Add(new Reward(RewardKinds.Part, RewardWildcard.Any, 1, (int)(epic ? Rarity.Epic : Rarity.Rare)));
                         sources.Add(RunRewardLine.Milestone);
+                        biomeLines.Add(false);
                     }
                     bool[] feats =
                     {
@@ -1689,9 +1701,10 @@ namespace RogueStars.Rules.Systems
                         s.Count("run_feats_earned");
                         rewards.Add(Reward.Cur(Currencies.Diamonds, c.RunTuning.FeatDiamonds));
                         sources.Add(RunRewardLine.Feat);
+                        biomeLines.Add(false);
                     }
                 }
-                for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, sources[i]);
+                for (int i = 0; i < rewards.Count; i++) GrantRunReward(ctx, rewards[i], summary, sources[i], biomeLines[i]);
                 foreach (var r in run.PendingRare)
                 {
                     if (!ctx.Grant(r)) continue; // no use yet: stashed (RewardGate), not shown as granted
@@ -1749,7 +1762,7 @@ namespace RogueStars.Rules.Systems
         /// Applies run_reward modifiers to currencies and grants through the owners' granters (item drops with
         /// Id "*" are resolved to a random def of their rarity by the granter, see RewardWildcard).
         /// </summary>
-        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary, string source)
+        private static void GrantRunReward(CommandContext ctx, Reward r, RunSummary summary, string source, bool biome = false)
         {
             bool doublable = RunRewardLine.IsDoublable(source);
             var reward = new Reward(r.Kind, r.Id, r.Amount, r.Rarity);
@@ -1762,7 +1775,7 @@ namespace RogueStars.Rules.Systems
             if (!ctx.Grant(reward)) return; // no use yet: stashed (RewardGate), not shown as granted (nor doubled)
             // separate copies: Granted totals grow when the rewards are doubled, Doublable / Rewards keep the single amounts
             summary.Granted.Add(new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity));
-            summary.Rewards.Add(new RunRewardLine { Reward = new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity), Source = source, Doublable = doublable });
+            summary.Rewards.Add(new RunRewardLine { Reward = new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity), Source = source, Doublable = doublable, Biome = biome });
             if (doublable) summary.Doublable.Add(new Reward(reward.Kind, reward.Id, reward.Amount, reward.Rarity));
         }
     }

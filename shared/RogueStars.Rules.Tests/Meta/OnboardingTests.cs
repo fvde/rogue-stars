@@ -22,12 +22,12 @@ public class OnboardingTests
     public static readonly (string id, int level)[] Schedule =
     {
         (Features.Parts, 1), (Features.RunSignatures, 2), (Features.WormLevel, 3), (Features.RunMiniboss, 4), (Features.RunTwoDice, 5),
-        (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9),
+        (Features.Aliens, 6), (Features.AlienSquad, 6), (Features.AutoRoll, 7), (Features.RunCampfire, 9), (Features.SignatureIce, 9),
         (Features.RunMinigames, 14), (Features.BiomassFarm, 15),
-        (Features.Heroes, 18), (Features.PackageIce, 24), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
-        (Features.Arena, 32), (Features.SeasonPass, 36), (Features.PackageLightning, 38), (Features.Overcharged, 40),
-        (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.PackageCounter, 48), (Features.Forge, 50),
-        (Features.DarkSide, 53), (Features.PackageAlien, 56), (Features.PackageTime, 60),
+        (Features.Heroes, 18), (Features.SignatureLightning, 19), (Features.Mounts, 26), (Features.Runes, 28), (Features.Funds, 30),
+        (Features.Arena, 32), (Features.SignatureCounter, 34), (Features.SeasonPass, 36), (Features.Overcharged, 40),
+        (Features.Guilds, 42), (Features.Invasions, 44), (Features.Burrow, 46), (Features.Forge, 50),
+        (Features.DarkSide, 53), (Features.SignatureAlien, 59), (Features.SignatureTime, 89),
     };
 
     /// <summary>
@@ -40,8 +40,8 @@ public class OnboardingTests
         (Features.OreMine, "bp_ore_mine"), (Features.Breeding, "bp_breeding_pen"),
     };
 
-    /// <summary>Features that unlock in another feature's moment (member → group): the Launch Pod with the Aliens.</summary>
-    public static readonly Dictionary<string, string> Grouped = new() { [Features.AlienSquad] = Features.Aliens };
+    /// <summary>Features that unlock in another feature's moment (member → group): the Launch Pod with the Aliens, Ice with the campfires.</summary>
+    public static readonly Dictionary<string, string> Grouped = new() { [Features.AlienSquad] = Features.Aliens, [Features.SignatureIce] = Features.RunCampfire };
 
     /// <summary>The unlock moments in schedule order: each group's ids (the Aliens moment = Aliens + Launch Pod).</summary>
     private static List<(string[] ids, int level)> Moments() =>
@@ -70,7 +70,7 @@ public class OnboardingTests
             var (id, level) = Schedule[i];
             var f = levelFeatures[i];
             Assert.Equal(id, f.Id);
-            Assert.Equal(Grouped.TryGetValue(id, out var g) ? g : id, f.GroupId); // every feature is its own unlock (own screen) but the Launch Pod
+            Assert.Equal(Grouped.TryGetValue(id, out var g) ? g : id, f.GroupId); // every feature is its own unlock (own screen) but the grouped ones
             Assert.False(string.IsNullOrEmpty(f.Description), id);
             var req = Assert.Single(f.Requires.Items);
             Assert.Equal(RequirementKind.MainLevel, req.Kind);
@@ -103,8 +103,11 @@ public class OnboardingTests
             int gap = levels[i] - levels[i - 1];
             Assert.True(gap >= 1, "two moments at level " + levels[i]);
             // Was one per level to 20 / two to 50: the Signals now come with Parts / Aliens / the City and the buildings with their
-            // blueprints (owner, 2026-11-25), which leaves level gaps up to 6 (Heroes 18 → Ice package 24).
-            int max = levels[i] <= 24 ? 6 : 4;
+            // blueprints (owner, 2026-11-25). The signature unlocks follow the biome unlock path (owner, biome design 2026-11-28:
+            // signatures at 10 / 20 / 35 / 60 / 90 with their biomes, no Laboratory packages at 24 / 38 / 48 / 56 / 60), which leaves
+            // gaps of 7 (Lightning 19 → Mounts 26) and 6 (Dark Side 53 → Alien 59), and Time alone at 89 (the endgame cadence of
+            // the biome path; later unlocks are biomes).
+            int max = levels[i] <= 26 ? 7 : levels[i] <= 60 ? 6 : 30;
             Assert.True(gap <= max, "gap of " + gap + " levels before level " + levels[i]);
         }
     }
@@ -128,19 +131,19 @@ public class OnboardingTests
         // building features (Launch Pod, Laboratory, farms, Ore Mine, Breeding Pen) need the City and their blueprint
         foreach (var (id, _) in BuildingFeatures)
             Assert.Contains(c.Feature(id)!.Requires.Items, r => r.Kind == RequirementKind.Feature && r.Key == Features.BiomassFarm);
-        Before(Features.BiomassFarm, Features.PackageIce); // research packages after the Laboratory can exist
-        Before(Features.PackageIce, Features.PackageLightning);
-        Before(Features.PackageLightning, Features.PackageCounter);
-        Before(Features.PackageCounter, Features.PackageAlien);
-        Before(Features.PackageAlien, Features.PackageTime);
-        Before(Features.Aliens, Features.PackageAlien);
+        Before(Features.RunSignatures, Features.SignatureIce); // the signature pick before any new signature
+        Before(Features.SignatureIce, Features.SignatureLightning);
+        Before(Features.SignatureLightning, Features.SignatureCounter);
+        Before(Features.SignatureCounter, Features.SignatureAlien);
+        Before(Features.SignatureAlien, Features.SignatureTime);
+        Before(Features.Aliens, Features.SignatureAlien);
         Before(Features.Guilds, Features.Invasions);
         Before(Features.PartPulls, Features.AlienPulls, Features.Blueprints);
-        // Lab packages: each package node needs its feature; the Combo package comes with the Laboratory.
-        Assert.Null(c.LabNode("pkg_combo")!.RequiresFeature);
-        foreach (var (node, feature) in new[] { ("pkg_ice", Features.PackageIce), ("pkg_lightning", Features.PackageLightning),
-                     ("pkg_counter", Features.PackageCounter), ("pkg_alien", Features.PackageAlien), ("pkg_time", Features.PackageTime) })
-            Assert.Equal(feature, c.LabNode(node)!.RequiresFeature);
+        // no Laboratory packages any more: signatures unlock by level (CampaignDef.SignatureUnlocks)
+        Assert.Null(c.LabNode("pkg_combo"));
+        // each signature unlock names its new biome when one debuts the level after (Cloud Isles at 10 …)
+        Assert.Contains("Cloud Isles", c.Feature(Features.SignatureIce)!.Description);
+        Assert.Contains("Alien Jungle", c.Feature(Features.SignatureAlien)!.Description);
     }
 
     [Fact]
@@ -217,7 +220,7 @@ public class OnboardingTests
     public void NoCalendarGate_ABingePlayerGetsEverythingOnDay1_AReturningPlayerAllAtOnce()
     {
         var e = Engine(); var s = Player(e);
-        s.Counters[Requirements.MainLevelCounter] = 60;
+        s.Counters[Requirements.MainLevelCounter] = 90;
         var day1 = Tick(e, ref s, TestHelpers.T0);
         Assert.Equal(Schedule.Select(x => x.id), day1); // in order, all on the creation day
         Assert.All(Schedule, f => Assert.True(Features.IsUnlocked(s, e.Content, f.id)));
@@ -229,7 +232,7 @@ public class OnboardingTests
         t2.Counters[Requirements.MainLevelCounter] = 20;
         var back = Tick(e, ref t2, OnDay(30));
         Assert.Equal(Schedule.Where(x => x.level <= 20).Select(x => x.id), back);
-        Assert.Equal(Features.PackageIce, Features.Next(t2, e.Content, OnDay(30))!.Ids[0]); // building features are never teased
+        Assert.Equal(Features.Mounts, Features.Next(t2, e.Content, OnDay(30))!.Ids[0]); // building features are never teased
     }
 
     [Fact]
@@ -317,7 +320,7 @@ public class OnboardingTests
             Assert.Contains(id, s.Onboarding.Celebrated);
             Assert.DoesNotContain(id, unlocked);
         }
-        Assert.False(Features.IsUnlocked(s, e.Content, Features.PackageIce)); // level 24: later, with its own moment
+        Assert.False(Features.IsUnlocked(s, e.Content, Features.Mounts)); // level 26: later, with its own moment
         // features that are new to this player at its level: normal unlock moments, in order
         var expected = Schedule.Where(x => x.level <= 20 && e.Content.Feature(x.id)!.Since == 1 && !new[] { Features.Parts,
             Features.BiomassFarm, Features.WormLevel }.Contains(x.id)).Select(x => x.id).ToList();
@@ -326,9 +329,9 @@ public class OnboardingTests
         Assert.Equal(dia, Bal(s, Currencies.Diamonds)); // run features have no gift; the rest pay on their celebration
 
         // runs once
-        s.Counters[Requirements.MainLevelCounter] = 24;
-        Assert.Equal(new[] { Features.PackageIce }, Tick(e, ref s, TestHelpers.T0 + H));
-        Assert.Contains(Features.PackageIce, OnboardingSystem.PendingCelebrations(s, e.Content));
+        s.Counters[Requirements.MainLevelCounter] = 26;
+        Assert.Equal(new[] { Features.Mounts }, Tick(e, ref s, TestHelpers.T0 + H));
+        Assert.Contains(Features.Mounts, OnboardingSystem.PendingCelebrations(s, e.Content));
     }
 
     [Fact]

@@ -58,7 +58,7 @@ public class DeadEffectsTests
     /// </summary>
     internal static BattleResult FightPublic(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double hpPct = 0) => Fight(c, skillId, seed, brawl, context, hpPct); // kit debugging
 
-    private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double enemyHpPct = 0)
+    private static BattleResult Fight(ContentDb c, string? skillId, int seed, bool brawl, IEnumerable<string>? context = null, double enemyHpPct = 0, int enemyOwner = 0)
     {
         var lo = new CombatLoadout { DisplayName = "Worm", MountId = "test_mount" };
         lo.WormStats.AddAll(new[]
@@ -88,7 +88,7 @@ public class DeadEffectsTests
         setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "magma_slug", 1.5, 0, enemyHpPct));
         setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "ash_wraith", 1.5, 0, enemyHpPct));
         setup.Enemy.Add(BattleSimulator.BuildEnemy(c, "boss_frost_leviathan", brawl ? 1.2 : 1.0, 0, enemyHpPct));
-        if (enemy) setup.Enemy[0].SkillIds.Add(skillId!);
+        if (enemy) setup.Enemy[enemyOwner].SkillIds.Add(skillId!);
         return BattleSimulator.Simulate(setup, c, new Rng((ulong)(1000 + seed)));
     }
 
@@ -292,6 +292,11 @@ public class DeadEffectsTests
                     for (int seed = 0; seed < 8 && !changed; seed++)
                         changed = Sig(Fight(c, s.Id, seed, brawl, ctx))
                             != (ctx == null || ctx.Count == 0 ? Base(seed, brawl) : Sig(Fight(c, null, seed, brawl, ctx)));
+                // boss kits act over a boss fight's length (Ignition's Heat reaches its burst, Sugar Rush stacks): on the boss, in the
+                // long fight (enemies +300% HP) that the kit audit uses too
+                if (!changed && IsEnemySkill(c, s.Id))
+                    for (int seed = 0; seed < 4 && !changed; seed++)
+                        changed = Sig(Fight(c, s.Id, seed, false, ctx, 300, 2)) != Sig(Fight(c, null, seed, false, ctx, 300));
             }
             else if (SkillTuningTests.IsBoardSkill(s)) changed = true; // situational board skills: their own run tests in SkillTuningTests
             else

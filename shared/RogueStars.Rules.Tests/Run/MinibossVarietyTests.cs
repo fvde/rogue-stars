@@ -20,11 +20,13 @@ public class MinibossVarietyTests
     }
 
     [Fact]
-    public void EveryLevelWithLairs_HasItsBiomesThreeElites()
+    public void EveryLevelWithLairs_HasAtLeastTwoElitesOfItsBiome()
     {
+        // biome design (2026-11-28): every biome fields at least two elites (the run's two lairs must differ); Burrow / Dark Side three
         foreach (var l in LairLevels())
         {
-            Assert.Equal(3, l.ElitePool.Distinct().Count());
+            Assert.True(l.ElitePool.Distinct().Count() >= 2, l.Id);
+            Assert.Equal(l.ElitePool.Count, l.ElitePool.Distinct().Count());
             Assert.True(l.ElitePool.Count >= C.RunTuning.MinibossesPerRun, l.Id);
             Assert.Equal(l.MinibossId, l.ElitePool[0]);
             foreach (var id in l.ElitePool)
@@ -63,7 +65,7 @@ public class MinibossVarietyTests
             pairs.Add(order[0] + "+" + order[1]);
         }
         Assert.Equal(level.ElitePool.Count, firsts.Count); // every pool member leads some runs
-        Assert.True(pairs.Count >= 4, "pairs: " + string.Join(", ", pairs));
+        Assert.True(pairs.Count >= Math.Min(4, level.ElitePool.Count * (level.ElitePool.Count - 1)), "pairs: " + string.Join(", ", pairs));
     }
 
     [Fact]
